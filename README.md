@@ -28,9 +28,9 @@ SmartHopper brings the power of AI assistance directly into your Grasshopper wor
 - 🏗️ Optimized for parallel processing.
 - 🧱 Clean, modular architecture for stability and future extensibility.
 
-## 🛠️ Installation
+## 💻 Installation
 
-SmartHopper is not yet available through Food4Rhino. We will be releasing it soon!
+SmartHopper is not yet available through Food4Rhino. We will be releasing it soon! In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
 
 ## 📊 Development Status
 
@@ -53,7 +53,29 @@ Is there something missing? Do you have a suggestion? Please open a [Feature Req
 
 ## 📚 Usage Examples
 
-*[coming soon]*
+### 1 Generate a Title for the Current Document
+
+https://github.com/user-attachments/assets/84439de6-91b9-4bac-b24f-ce4f2130b84d
+
+### 2 Working with a CSV file
+
+https://github.com/user-attachments/assets/364d3c09-a1a8-46eb-a173-77869548f33b
+
+## ⚙️ Configuration
+
+### Set Up the API Key and Other Settings
+
+https://github.com/user-attachments/assets/cec6aad1-3b41-4e2d-8937-495477e2e280
+
+### Choose the Provider for each Component
+
+https://github.com/user-attachments/assets/457594e7-06c8-4d37-a82c-bcb9d70a57ef
+
+## ⏩ Developing the Chat Interface (conceptual preview)
+
+**Disclaimer:** The chat interface is a conceptual preview of future developments and is not currently implemented.
+
+https://github.com/user-attachments/assets/9672f746-0d55-4414-b4a8-074208532458
 
 ## 🤝 Contributing
 
