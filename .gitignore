@@ -49,3 +49,7 @@ _ReSharper*/
 
 # Temp files
 *.[Tt]mp
+
+# Not licensed images
+design/icons/template/*
+design/icons/source/*
