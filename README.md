@@ -55,27 +55,27 @@ Is there something missing? Do you have a suggestion? Please open a [Feature Req
 
 ### 1 Generate a Title for the Current Document
 
-https://github.com/user-attachments/assets/84439de6-91b9-4bac-b24f-ce4f2130b84d
+[![SmartHopper_Generate Title](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651352-6cfca3b39c99d01e9bbdb1590ac7f1325d35b8dfa16e0b5ced2aad704eef2bbe-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447175)
 
 ### 2 Working with a CSV file
 
-https://github.com/user-attachments/assets/364d3c09-a1a8-46eb-a173-77869548f33b
+[![SmartHopper_Working With CSV](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651410-3ca705fd2e8fe276e9ee965339714c2de11f579ecf73d39fa92299b7b9015707-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447217)
 
 ## ⚙️ Configuration
 
 ### Set Up the API Key and Other Settings
 
-https://github.com/user-attachments/assets/cec6aad1-3b41-4e2d-8937-495477e2e280
+[![SmartHopper_Settings](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651378-ee922c5452393594d6ec931f112e24c82cceadb6c5dab80ced5e362a13ef0d45-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447205)
 
 ### Choose the Provider for each Component
 
-https://github.com/user-attachments/assets/457594e7-06c8-4d37-a82c-bcb9d70a57ef
+[![SmartHopper_Select Provider](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651347-eb497ba95d6fc8008fdb3db9b6288dbdaa4b7b4ab7a3f5f99ccd55495545a00f-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447190)
 
 ## ⏩ Developing the Chat Interface (conceptual preview)
 
 **Disclaimer:** The chat interface is a conceptual preview of future developments and is not currently implemented.
 
-https://github.com/user-attachments/assets/9672f746-0d55-4414-b4a8-074208532458
+[![SmartHopper_Chat Concept](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966657705-a1e9c281ab11e341df94bd14ee797d816afe34413b5af057841d6eb6191595fd-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043452514)
 
 ## 🤝 Contributing
 
