@@ -1,0 +1,85 @@
+name: Update Version Badge
+
+on:
+  push:
+    paths:
+      - 'Solution.props'
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - dev
+      - pre-release
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    # Only run on PR merge, not on PR close without merge
+    if: github.event.pull_request.merged == true || github.event_name != 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        
+    - name: Extract version from Solution.props
+      id: get-version
+      run: |
+        VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+        # Format version for shields.io by encoding special characters
+        # Use -- for dashes and %2E for dots
+        SHIELDS_VERSION=$(echo $VERSION | sed 's/-/--/g' | sed 's/\./%2E/g')
+        echo "Extracted VERSION=$VERSION"
+        echo "Shields VERSION=$SHIELDS_VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "SHIELDS_VERSION=$SHIELDS_VERSION" >> $GITHUB_ENV
+
+    - name: Update README badges
+      run: |
+        # Determine status from version
+        if [[ $VERSION == *"-dev."* ]]; then
+          STATUS="Unstable%20development"
+          STATUS_COLOR="yellow"
+        elif [[ $VERSION == *"-alpha."* ]]; then
+          STATUS="Alpha"
+          STATUS_COLOR="orange"
+        elif [[ $VERSION == *"-beta."* ]]; then
+          STATUS="Beta"
+          STATUS_COLOR="blue"
+        elif [[ $VERSION == *"-rc."* ]]; then
+          STATUS="Release%20candidate"
+          STATUS_COLOR="green"
+        else
+          STATUS="Ready%20for%20production"
+          STATUS_COLOR="brightgreen"
+        fi
+        
+        echo "Status determined as: $STATUS"
+        echo "Color determined as: $STATUS_COLOR"
+        
+        # Show current badges
+        echo "Current badges in README:"
+        grep -A 1 "!\[Version\]" README.md || true
+        grep -A 1 "!\[Status\]" README.md || true
+        
+        # Update version badge with properly encoded version
+        sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})|g" README.md
+        
+        # Update status badge
+        sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})|g" README.md
+        
+        # Show updated badges
+        echo "Updated badges in README:"
+        grep -A 1 "!\[Version\]" README.md || true
+        grep -A 1 "!\[Status\]" README.md || true
+
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git diff --quiet && git diff --staged --quiet || (git commit -m "docs: Update version badge to ${{ env.VERSION }}" && git push)

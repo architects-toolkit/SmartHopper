@@ -1,0 +1,48 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches: 
+      - main
+      - dev
+      - pre-release
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # Version Check
+      - name: Validate Version in Solution.props
+        run: |
+          VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "Invalid version format in Solution.props. Must follow semantic versioning."
+            exit 1
+          fi
+
+      # Changelog Validation
+      - name: Check CHANGELOG.md is Updated
+        uses: tj-actions/changed-files@v40
+        id: changelog-check
+        with:
+          files: CHANGELOG.md
+      - name: Fail if CHANGELOG.md not updated
+        if: steps.changelog-check.outputs.any_changed != 'true'
+        run: |
+          echo "Error: CHANGELOG.md must be updated with pull request changes"
+          exit 1
+
+      # PR Title Validation
+      - name: Validate PR Title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?:.+ ]]; then
+            echo "Error: Pull request title must follow conventional commits format"
+            echo "Example formats:"
+            echo "  feat: add new feature"
+            echo "  fix(component): resolve specific issue"
+            echo "  docs(readme): update documentation"
+            exit 1
+          fi

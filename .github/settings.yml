@@ -1,0 +1,27 @@
+repository:
+  # See https://docs.github.com/en/rest/reference/repos#update-a-repository for all available settings.
+  name: SmartHopper
+  description: Bringing AI to Grasshopper3D
+  private: true
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  has_downloads: false
+  default_branch: main
+
+branches:
+  - name: main
+    # https://docs.github.com/en/rest/reference/repos#update-branch-protection
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+      required_status_checks:
+        strict: true
+        contexts: ["build"]
+      enforce_admins: false
+      required_linear_history: true
+      restrictions:
+        users: ["marc-romu"]
+        teams: []
