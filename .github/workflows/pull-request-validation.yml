@@ -5,7 +5,6 @@ on:
     branches: 
       - main
       - dev
-      - pre-release
 
 jobs:
   validate:
@@ -24,12 +23,14 @@ jobs:
 
       # Changelog Validation
       - name: Check CHANGELOG.md is Updated
-        uses: tj-actions/changed-files@v40
+        uses: tj-actions/changed-files@v41
         id: changelog-check
         with:
           files: CHANGELOG.md
       - name: Fail if CHANGELOG.md not updated
         if: steps.changelog-check.outputs.any_changed != 'true'
+        env:
+          CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
         run: |
           echo "Error: CHANGELOG.md must be updated with pull request changes"
           exit 1
