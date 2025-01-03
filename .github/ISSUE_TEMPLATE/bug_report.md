@@ -14,7 +14,8 @@ assignees: ''
 **Technical details:**
 
  - OS: [e.g. Windows/Mac]
- - Rhino version [e.g. RH8.26]
+ - Rhino version: [e.g. RH8.13]
+ - SmartHopper version [e.g. 0.0.0-dev.250101]
 
 **To reproduce**
 
