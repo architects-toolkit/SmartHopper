@@ -40,7 +40,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI Grasshopper Generate Definitions (GhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
 | AI Text Check (AiTextCheck)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | - | - | - |
-| AI Text Filter (AiTextFilter)<br><sub>Filter and process text based on AI-driven criteria</sub> | ⚪ | - | - | - |
+| AI Text Alter (AiTextAlter)<br><sub>Modify and process text based on AI-driven criteria</sub> | ⚪ | - | - | - |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI language models</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI List Check (AiListCheck)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI List Filter (AiListFilter)<br><sub>Filter and process items in lists based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | - |
