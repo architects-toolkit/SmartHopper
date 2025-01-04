@@ -170,10 +170,10 @@ namespace SmartHopper.Config.Providers
                             {
                                 Response = choice["message"]["content"].ToString().Trim(),
                                 Provider = _name,
-                                Model = modelToUse,
+                                Model = json["model"]?.Value<string>() ?? "Unknown",
                                 InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
                                 OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
-                                FinishReason = choice["finish_reason"]?.ToString().Trim() ?? "unknown",
+                                FinishReason = choice["finish_reason"]?.ToString().Trim() ?? "Unknown",
                             };
                         }
                     }
