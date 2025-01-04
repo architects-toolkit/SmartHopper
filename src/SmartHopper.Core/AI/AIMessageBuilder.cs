@@ -22,8 +22,8 @@ namespace SmartHopper.Core.AI
         {
             return new Dictionary<string, string>()
             {
-                { OpenAI.ProviderName, "assistant" },
-                { MistralAI.ProviderName, "assistant" },
+                { OpenAI._name, "assistant" },
+                { MistralAI._name, "assistant" },
                 { "User", "user" }
             };
         }

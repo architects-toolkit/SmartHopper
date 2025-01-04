@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Async.Components
             : base(name, nickname, description, category, subCategory)
         {
             LastMetrics = new GH_Structure<GH_String>(); // Useless? Move metrics here?
-            SelectedProvider = MistralAI.ProviderName; // Default to SmartHopper
+            SelectedProvider = MistralAI._name; // Default to SmartHopper/MistralAI
         }
 
         protected override sealed void RegisterInputParams(GH_InputParamManager pManager)

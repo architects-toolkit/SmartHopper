@@ -60,8 +60,8 @@ namespace SmartHopper.Core.Utils
         {
             return new Dictionary<string, string>()
             {
-                { OpenAI.ProviderName, "assistant" },
-                { MistralAI.ProviderName, "assistant" },
+                { OpenAI._name, "assistant" },
+                { MistralAI._name, "assistant" },
                 { "User", "user" }
             };
         }
