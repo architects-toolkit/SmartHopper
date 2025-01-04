@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed bug with the Model input in AI-Powered components ([#3](https://github.com/architects-toolkit/SmartHopper/issues/3))
+- Fixed model parameter handling in IAIProvider interface to ensure proper model selection across providers
 
 ## [0.0.0-dev.250101] - 2025-01-01
 

@@ -24,7 +24,7 @@ namespace SmartHopper.Config.Interfaces
 
         bool ValidateSettings(Dictionary<string, object> settings);
 
-        Task<AIResponse> GetResponse(JArray messages, string jsonSchema = "", string endpoint = "");
+        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "");
     }
 
     public interface IAIProviderSettings
