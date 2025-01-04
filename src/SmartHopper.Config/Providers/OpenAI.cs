@@ -76,7 +76,7 @@ namespace SmartHopper.Config.Providers
                    !string.IsNullOrEmpty(settings["Model"].ToString());
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string jsonSchema = "", string endpoint = "")
+        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
         {
             var settings = SmartHopperSettings.Load();
             if (!settings.ProviderSettings.ContainsKey(ProviderName))
@@ -86,13 +86,14 @@ namespace SmartHopper.Config.Providers
             var providerSettings = settings.ProviderSettings[ProviderName];
 
             string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
-            string model = providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : DefaultModelName;
+            string modelToUse = !string.IsNullOrEmpty(model) ? model : 
+                              (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : DefaultModelName);
             int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
 
-            if (model == "" || model == "openai")
+            if (modelToUse == "" || modelToUse == "openai")
             {
-                model = DefaultModelName;
-                Debug.WriteLine($"Using default model: {model}");
+                modelToUse = DefaultModelName;
+                Debug.WriteLine($"Using default model: {modelToUse}");
             }
 
             if (string.IsNullOrEmpty(apiKey))
@@ -111,7 +112,7 @@ namespace SmartHopper.Config.Providers
 
                 var requestBody = new JObject
                 {
-                    ["model"] = model,
+                    ["model"] = modelToUse,
                     ["messages"] = messages,
                     ["temperature"] = 0.7,
                     ["max_completion_tokens"] = maxTokens,
