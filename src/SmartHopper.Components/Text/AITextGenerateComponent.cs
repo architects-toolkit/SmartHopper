@@ -100,7 +100,7 @@ namespace SmartHopper.Components.Text
             {
                 lastResponse = worker.response;
                 DA.SetDataTree(0, lastResponse);
-                SetMetricsOutput(DA, response, branches_input, branches_processed);
+                SetMetricsOutput(DA, branches_input, branches_processed);
                 RestoreMetrics();
                 return true;
             }
@@ -126,7 +126,7 @@ namespace SmartHopper.Components.Text
             private GH_Structure<GH_String> promptTree;
             internal GH_Structure<GH_String> response;
             private readonly IGH_DataAccess _dataAccess;
-            private AIResponse _lastAIResponse;
+            //private AIResponse _lastAIResponse;
 
             public AITextGenerateWorker(AITextGenerate parent)
                 : this(null, parent, null, null)
