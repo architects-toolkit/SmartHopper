@@ -32,6 +32,8 @@ namespace SmartHopper.Components.Misc
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
+            pManager.AddTextParameter("AI Provider", "P", "AI provider used", GH_ParamAccess.item);
+            pManager.AddTextParameter("AI Model", "M", "AI model used", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Input Tokens", "I", "Number of input tokens", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Output Tokens", "O", "Number of output tokens", GH_ParamAccess.item);
             pManager.AddTextParameter("Finish Reason", "F", "Reason for finishing", GH_ParamAccess.item);
@@ -50,6 +52,8 @@ namespace SmartHopper.Components.Misc
             {
                 var metricsObject = JObject.Parse(jsonMetrics);
 
+                string aiProvider = metricsObject["ai_provider"]?.Value<string>() ?? "Unknown";
+                string aiModel = metricsObject["ai_model"]?.Value<string>() ?? "Unknown";
                 int inputTokens = metricsObject["tokens_input"]?.Value<int>() ?? 0;
                 int outputTokens = metricsObject["tokens_output"]?.Value<int>() ?? 0;
                 string finishReason = metricsObject["finish_reason"]?.Value<string>() ?? "Unknown";
@@ -59,27 +63,35 @@ namespace SmartHopper.Components.Misc
 
 
                 // Checks to see if the values were actually present
+                bool hasAIProvider = metricsObject["ai_provider"] != null;
+                bool hasAIModel = metricsObject["ai_model"] != null;
                 bool hasInputTokens = metricsObject["tokens_input"] != null;
                 bool hasOutputTokens = metricsObject["tokens_output"] != null;
                 bool hasFinishReason = metricsObject["finish_reason"] != null;
                 bool hasCompletionTime = metricsObject["completion_time"] != null;
 
                 // Set the data, potentially with warnings if values were missing
-                DA.SetData(0, inputTokens);
+                DA.SetData(0, aiProvider);
+                if (!hasAIProvider) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI provider not found in JSON");
+                
+                DA.SetData(1, aiModel);
+                if (!hasAIModel) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI model not found in JSON");
+
+                DA.SetData(2, inputTokens);
                 if (!hasInputTokens) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Input tokens not found in JSON");
 
-                DA.SetData(1, outputTokens);
+                DA.SetData(3, outputTokens);
                 if (!hasOutputTokens) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Output tokens not found in JSON");
 
-                DA.SetData(2, finishReason);
+                DA.SetData(4, finishReason);
                 if (!hasFinishReason) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Finish reason not found in JSON");
 
-                DA.SetData(3, completionTime);
+                DA.SetData(5, completionTime);
                 if (!hasCompletionTime) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Completion time not found in JSON");
 
-                DA.SetData(4, branchesInput);
+                DA.SetData(6, branchesInput);
 
-                DA.SetData(5, branchesProcessed);
+                DA.SetData(7, branchesProcessed);
             }
             catch (Exception ex)
             {
