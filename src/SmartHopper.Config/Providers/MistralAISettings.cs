@@ -76,7 +76,7 @@ namespace SmartHopper.Config.Providers
             return new Dictionary<string, object>
             {
                 ["ApiKey"] = apiKeyTextBox.Text,
-                ["Model"] = string.IsNullOrWhiteSpace(modelTextBox.Text) ? MistralAI.DefaultModelName : modelTextBox.Text,
+                ["Model"] = string.IsNullOrWhiteSpace(modelTextBox.Text) ? provider.DefaultModel : modelTextBox.Text,
                 ["MaxTokens"] = (int)maxTokensNumeric.Value
             };
         }
@@ -89,7 +89,7 @@ namespace SmartHopper.Config.Providers
             if (settings.ContainsKey("Model"))
                 modelTextBox.Text = settings["Model"].ToString();
             else
-                modelTextBox.Text = MistralAI.DefaultModelName;
+                modelTextBox.Text = provider.DefaultModel;
 
             if (settings.ContainsKey("MaxTokens"))
                 maxTokensNumeric.Value = Convert.ToInt32(settings["MaxTokens"]);
@@ -98,11 +98,11 @@ namespace SmartHopper.Config.Providers
         private void LoadSettings()
         {
             var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(MistralAI.ProviderName))
+            if (!settings.ProviderSettings.ContainsKey(provider.Name))
             {
-                settings.ProviderSettings[MistralAI.ProviderName] = new Dictionary<string, object>();
+                settings.ProviderSettings[provider.Name] = new Dictionary<string, object>();
             }
-            LoadSettings(settings.ProviderSettings[MistralAI.ProviderName]);
+            LoadSettings(settings.ProviderSettings[provider.Name]);
         }
 
         public bool ValidateSettings()
