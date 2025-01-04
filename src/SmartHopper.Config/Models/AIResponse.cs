@@ -19,5 +19,7 @@ namespace SmartHopper.Config.Models
         public double CompletionTime { get; set; }
         public string ToolFunction { get; set; }
         public string ToolArguments { get; set; }
+        public string Provider { get; set; }
+        public string Model { get; set; }
     }
 }
