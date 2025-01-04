@@ -148,7 +148,7 @@ namespace SmartHopper.Config.Providers
                     {
                         Response = json["choices"][0]["message"]["content"].ToString().Trim(),
                         Provider = _name,
-                        Model = modelToUse,
+                        Model = json["model"]?.Value<string>() ?? "Unknown",
                         InTokens = (int)json["usage"]["prompt_tokens"],
                         OutTokens = (int)json["usage"]["completion_tokens"],
                         FinishReason = json["choices"][0]["finish_reason"].ToString().Trim(),

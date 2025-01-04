@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Async.Components
             : base(name, nickname, description, category, subCategory)
         {
             LastMetrics = new GH_Structure<GH_String>(); // Useless? Move metrics here?
-            SelectedProvider = MistralAI._name; // Default to SmartHopper/MistralAI
+            SelectedProvider = MistralAI._name; // Default to MistralAI
         }
 
         protected override sealed void RegisterInputParams(GH_InputParamManager pManager)
@@ -308,11 +308,9 @@ namespace SmartHopper.Core.Async.Components
                 try
                 {
                     Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {((AIStatefulComponentBase)_parent).SelectedProvider}");
-                    var modelToUse = ((AIStatefulComponentBase)_parent).GetModel();
 
                     Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
                     Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
-                    Debug.WriteLine("[AIWorkerBase] Model: " + modelToUse);
 
                     if (messages == null || !messages.Any())
                     {
@@ -327,7 +325,7 @@ namespace SmartHopper.Core.Async.Components
 
                     var response = await AIUtils.GetResponse(
                         ((AIStatefulComponentBase)_parent).SelectedProvider,
-                        modelToUse,
+                        ((AIStatefulComponentBase)_parent).GetModel(),
                         messages,
                         endpoint: endpoint);
 
@@ -335,8 +333,6 @@ namespace SmartHopper.Core.Async.Components
                     if (_lastAIResponse == null || string.IsNullOrEmpty(_lastAIResponse.Response))
                     {
                         _lastAIResponse = response;
-                        //_lastAIResponse.InTokens += prevInTokens;
-                        //_lastAIResponse.OutTokens += prevOutTokens;
                     }
 
                     _lastAIResponse.InTokens += response.InTokens;

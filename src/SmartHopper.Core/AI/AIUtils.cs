@@ -118,8 +118,6 @@ namespace SmartHopper.Core.Utils
                 var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
-                response.Provider = providerName;
-                response.Model = model;
                 return response;
             }
             catch (HttpRequestException ex)
