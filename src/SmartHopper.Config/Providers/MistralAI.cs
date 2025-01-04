@@ -166,6 +166,8 @@ namespace SmartHopper.Config.Providers
                             return new AIResponse
                             {
                                 Response = choice["message"]["content"].ToString().Trim(),
+                                Provider = ProviderName,
+                                Model = modelToUse,
                                 InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
                                 OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
                                 FinishReason = choice["finish_reason"]?.ToString().Trim() ?? "unknown",
