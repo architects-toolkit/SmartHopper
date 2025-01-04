@@ -23,16 +23,17 @@ namespace SmartHopper.Config.Providers
 {
     public sealed class OpenAI : IAIProvider
     {
-        public const string ProviderName = "OpenAI";
+        public const string _name = "OpenAI";
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
-        public const string DefaultModelName = "gpt-4o-mini";
+        private const string _defaultModel = "gpt-4o-mini";
 
         private static readonly Lazy<OpenAI> _instance = new Lazy<OpenAI>(() => new OpenAI());
         public static OpenAI Instance => _instance.Value;
 
         private OpenAI() { }
 
-        public string Name => ProviderName;
+        public string Name => _name;
+        public string DefaultModel => _defaultModel;
 
         public IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
@@ -51,7 +52,7 @@ namespace SmartHopper.Config.Providers
                 {
                     Name = "Model",
                     Type = typeof(string),
-                    DefaultValue = DefaultModelName,
+                    DefaultValue = _defaultModel,
                     IsSecret = false,
                     DisplayName = "Model",
                     Description = "The model to use for completions"
@@ -76,23 +77,26 @@ namespace SmartHopper.Config.Providers
                    !string.IsNullOrEmpty(settings["Model"].ToString());
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string jsonSchema = "", string endpoint = "")
+        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
         {
             var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(ProviderName))
+            if (!settings.ProviderSettings.ContainsKey(_name))
             {
-                settings.ProviderSettings[ProviderName] = new Dictionary<string, object>();
+                settings.ProviderSettings[_name] = new Dictionary<string, object>();
             }
-            var providerSettings = settings.ProviderSettings[ProviderName];
+            var providerSettings = settings.ProviderSettings[_name];
+            if (!ValidateSettings(providerSettings))
+                throw new InvalidOperationException("Invalid provider settings");
+
+            var modelToUse = GetModel(providerSettings, model);
 
             string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
-            string model = providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : DefaultModelName;
             int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
 
-            if (model == "" || model == "openai")
+            if (modelToUse == "" || modelToUse == "openai")
             {
-                model = DefaultModelName;
-                Debug.WriteLine($"Using default model: {model}");
+                modelToUse = _defaultModel;
+                Debug.WriteLine($"Using default model: {modelToUse}");
             }
 
             if (string.IsNullOrEmpty(apiKey))
@@ -111,7 +115,7 @@ namespace SmartHopper.Config.Providers
 
                 var requestBody = new JObject
                 {
-                    ["model"] = model,
+                    ["model"] = modelToUse,
                     ["messages"] = messages,
                     ["temperature"] = 0.7,
                     ["max_completion_tokens"] = maxTokens,
@@ -143,6 +147,8 @@ namespace SmartHopper.Config.Providers
                     return new AIResponse
                     {
                         Response = json["choices"][0]["message"]["content"].ToString().Trim(),
+                        Provider = _name,
+                        Model = json["model"]?.Value<string>() ?? "Unknown",
                         InTokens = (int)json["usage"]["prompt_tokens"],
                         OutTokens = (int)json["usage"]["completion_tokens"],
                         FinishReason = json["choices"][0]["finish_reason"].ToString().Trim(),
@@ -158,6 +164,12 @@ namespace SmartHopper.Config.Providers
                     };
                 }
             }
+        }
+
+        public string GetModel(Dictionary<string, object> providerSettings, string model)
+        {
+            return !string.IsNullOrEmpty(model) ? model :
+                   (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : _defaultModel);
         }
     }
 }

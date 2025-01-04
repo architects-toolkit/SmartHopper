@@ -28,7 +28,6 @@ using System.Linq;
 using System.Windows.Forms;
 using SmartHopper.Core.Async.Core.StateManagement;
 using SmartHopper.Config.Providers;
-using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 
@@ -39,20 +38,18 @@ namespace SmartHopper.Core.Async.Components
     /// </summary>
     public abstract class AIStatefulComponentBase : AsyncStatefulComponentBase
     {
-        protected GH_Structure<GH_String> LastMetrics { get; private set; } // Useless? Move metrics here?
-        protected string ApiKey { get; set; }
-        protected string Model { get; set; }
+        protected string Model { get; private set; }
         protected string SelectedProvider { get; private set; }
         
         private const int MIN_DEBOUNCE_TIME = 1000;
         private volatile bool _isDebouncing;
         private System.Threading.Timer _debounceTimer;
-        
+        private List<AIResponse> _responseMetrics = new List<AIResponse>();
+
         protected AIStatefulComponentBase(string name, string nickname, string description, string category, string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            LastMetrics = new GH_Structure<GH_String>(); // Useless? Move metrics here?
-            SelectedProvider = MistralAI.ProviderName; // Default to SmartHopper
+            SelectedProvider = MistralAI._name; // Default to MistralAI
         }
 
         protected override sealed void RegisterInputParams(GH_InputParamManager pManager)
@@ -99,47 +96,68 @@ namespace SmartHopper.Core.Async.Components
         protected abstract bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA);
 
         /// <summary>
+        /// Stores the given AI response metrics in the component's internal metrics list.
+        /// </summary>
+        /// <param name="response">The AI response to store metrics from.</param>
+        public void StoreResponseMetrics(AIResponse response)
+        {
+            if (response != null)
+            {
+                _responseMetrics.Add(response);
+            }
+        }
+
+        /// <summary>
         /// Sets the metrics output parameters (input tokens, output tokens, finish reason)
         /// </summary>
         /// <param name="DA">The data access object</param>
         /// <param name="baseOutputIndex">The index of the first metrics output parameter</param>
-        protected void SetMetricsOutput(IGH_DataAccess DA, AIResponse response, int initialBranches = 0, int processedBranches = 0)
+        protected void SetMetricsOutput(IGH_DataAccess DA, int initialBranches = 0, int processedBranches = 0)
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
-            if (response == null)
+            
+            if (!_responseMetrics.Any())
             {
                 Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - No response, skipping metrics");
                 return;
             }
 
+            // Aggregate metrics
+            int totalInTokens = _responseMetrics.Sum(r => r.InTokens);
+            int totalOutTokens = _responseMetrics.Sum(r => r.OutTokens);
+            string finishReason = _responseMetrics.Last().FinishReason;
+            double totalCompletionTime = _responseMetrics.Sum(r => r.CompletionTime);
+
             // Handle potential non-numeric token values
-            int inTokenValue;
-            int outTokenValue;
+            //int inTokenValue;
+            //int outTokenValue;
 
-            if (response.InTokens is int inTokenInt)
-            {
-                inTokenValue = inTokenInt;
-            }
-            else
-            {
-                int.TryParse(response.InTokens.ToString(), out inTokenValue);
-            }
+            //if (response.InTokens is int inTokenInt)
+            //{
+            //    inTokenValue = inTokenInt;
+            //}
+            //else
+            //{
+            //    int.TryParse(response.InTokens.ToString(), out inTokenValue);
+            //}
 
-            if (response.OutTokens is int outTokenInt)
-            {
-                outTokenValue = outTokenInt;
-            }
-            else
-            {
-                int.TryParse(response.OutTokens.ToString(), out outTokenValue);
-            }
+            //if (response.OutTokens is int outTokenInt)
+            //{
+            //    outTokenValue = outTokenInt;
+            //}
+            //else
+            //{
+            //    int.TryParse(response.OutTokens.ToString(), out outTokenValue);
+            //}
 
             // Create JSON object with metrics
             var metricsJson = new JObject(
-                new JProperty("tokens_input", inTokenValue),
-                new JProperty("tokens_output", outTokenValue),
-                new JProperty("finish_reason", response.FinishReason),
-                new JProperty("completion_time", response.CompletionTime)
+                new JProperty("ai_provider", _responseMetrics.First().Provider),
+                new JProperty("ai_model", _responseMetrics.First().Model),
+                new JProperty("tokens_input", totalInTokens),
+                new JProperty("tokens_output", totalOutTokens),
+                new JProperty("finish_reason", finishReason),
+                new JProperty("completion_time", totalCompletionTime)
             );
 
             // If initialBranches are provided, add them to the JSON object
@@ -169,145 +187,26 @@ namespace SmartHopper.Core.Async.Components
 
             DA.SetData(additionalOutputCount, metricsJson);
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics at index {additionalOutputCount}. JSON: {metricsJson}");
+
+            // Clear the stored metrics after setting the output
+            _responseMetrics.Clear();
         }
 
-        protected abstract class AIWorkerBase : StatefulWorker
+        protected void SetModel(string model)
         {
-            protected AIResponse _lastAIResponse;
-            protected string ApiKey { get; private set; }
-            protected string Model { get; private set; }
-            protected string Prompt { get; private set; }
-
-            protected AIWorkerBase(
-                Action<string> progressReporter, 
-                AIStatefulComponentBase parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage) 
-                : base(progressReporter, parent, addRuntimeMessage)
-            {
-            }
-
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
-            {
-                Debug.WriteLine("[AIWorkerBase] GatherInput - Start");
-                string model = null;
-                DA.GetData("Model", ref model);
-                Debug.WriteLine($"[AIWorkerBase] GatherInput - Model: {model}");
-
-                Model = model;
-
-                var parentComponent = (AIStatefulComponentBase)_parent;
-                Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {(parentComponent == null ? "null" : parentComponent.GetType().Name)}");
-
-                Prompt = parentComponent.GetPrompt(DA);
-            }
-
-            /// <summary>
-            /// Process a value with AI using a specific prompt. To be implemented by derived classes
-            /// to handle their specific AI processing needs.
-            /// </summary>
-            protected abstract Task<List<IGH_Goo>> ProcessAIResponse(
-                string value,
-                string prompt,
-                CancellationToken ct);
-
-            protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages, CancellationToken token)
-            {
-                if (((AIStatefulComponentBase)_parent)._isDebouncing)
-                {
-                    Debug.WriteLine("[AIWorkerBase] GetResponse - Debouncing, skipping request");
-                    return new AIResponse
-                    {
-                        Response = "Too many requests, please wait...",
-                        FinishReason = "error",
-                        InTokens = 0,
-                        OutTokens = 0
-                    };
-                }
-
-                try
-                {
-                    Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {((AIStatefulComponentBase)_parent).SelectedProvider}");
-                    var (apiKey, modelToUse) = ((AIStatefulComponentBase)_parent).GetAIConfiguration();
-
-                    Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
-                    Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
-                    Debug.WriteLine("[AIWorkerBase] Model: " + modelToUse);
-
-                    if (messages == null || !messages.Any())
-                    {
-                        return null;
-                    }
-
-                    // Get endpoint based on component type
-                    string endpoint = "";
-
-                    var prevInTokens = _lastAIResponse?.InTokens ?? 0;
-                    var prevOutTokens = _lastAIResponse?.OutTokens ?? 0;
-
-                    var response = await AIUtils.GetResponse(
-                        ((AIStatefulComponentBase)_parent).SelectedProvider,
-                        modelToUse,
-                        messages,
-                        endpoint: endpoint);
-
-                    // if _lastAIResponse is empty or null, set it to the response
-                    if (_lastAIResponse == null || string.IsNullOrEmpty(_lastAIResponse.Response))
-                    {
-                        _lastAIResponse = response;
-                        //_lastAIResponse.InTokens += prevInTokens;
-                        //_lastAIResponse.OutTokens += prevOutTokens;
-                    }
-
-                    _lastAIResponse.InTokens += response.InTokens;
-                    _lastAIResponse.OutTokens += response.OutTokens;
-
-                    return response;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[AIWorkerBase] GetResponse - Exception: {ex.Message}");
-                    return new AIResponse
-                    {
-                        Response = ex.Message,
-                        FinishReason = "error"
-                    };
-                }
-            }
-
-            protected static bool TryParseJson(string json, out JToken token)
-            {
-                return AIUtils.TryParseJson(json, out token);
-            }
+            Debug.WriteLine($"[AIStatefulComponentBase] SetModel - Setting model to: {model}");
+            Model = model;
+        }
+        protected string GetModel()
+        {
+            // Let the provider handle the default model
+            return Model ?? "";
         }
 
         protected static int GetDebounceTime()
         {
             var settingsDebounceTime = SmartHopperSettings.Load().DebounceTime;
             return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
-        }
-
-        protected (string apiKey, string model) GetAIConfiguration()
-        {
-            var settings = SmartHopperSettings.Load();
-            string apiKey = null;
-
-            // Use the provider selected from menu
-            string providerName = SelectedProvider;
-            
-            if (settings.ProviderSettings.ContainsKey(providerName) &&
-                settings.ProviderSettings[providerName].ContainsKey("ApiKey"))
-            {
-                apiKey = settings.ProviderSettings[providerName]["ApiKey"].ToString();
-            }
-
-            // If model is empty, use default from settings
-            string modelToUse = string.IsNullOrEmpty(Model) ? 
-                (settings.ProviderSettings[providerName].ContainsKey("DefaultModel") ? 
-                    settings.ProviderSettings[providerName]["DefaultModel"].ToString() : 
-                    Model) : 
-                Model;
-
-            return (apiKey, modelToUse);
         }
 
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
@@ -353,7 +252,7 @@ namespace SmartHopper.Core.Async.Components
         protected override void OnStateChanged(ComponentState newState)
         {
             base.OnStateChanged(newState);
-            
+
             switch (newState)
             {
                 case ComponentState.Completed:
@@ -368,5 +267,104 @@ namespace SmartHopper.Core.Async.Components
                     break;
             }
         }
+
+        // <summary>
+        // Base class for AI workers that need to make API calls to AI providers
+        // </summary>   
+        // <param name="progressReporter">Action to report progress</param>
+        // <param name="parent">Parent component</param>
+        // <param name="addRuntimeMessage">Action to add runtime messages</param>
+        protected abstract class AIWorkerBase : StatefulWorker
+        {
+            protected AIResponse _lastAIResponse;
+            protected string Prompt { get; private set; }
+
+            protected AIWorkerBase(
+                Action<string> progressReporter, 
+                AIStatefulComponentBase parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage) 
+                : base(progressReporter, parent, addRuntimeMessage)
+            {
+            }
+
+            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            {
+                Debug.WriteLine("[AIWorkerBase] GatherInput - Start");
+                string model = null;
+                DA.GetData("Model", ref model);
+                Debug.WriteLine($"[AIWorkerBase] GatherInput - Model: {model}");
+
+                var parentComponent = (AIStatefulComponentBase)_parent;
+                Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {(parentComponent == null ? "null" : parentComponent.GetType().Name)}");
+
+                parentComponent.SetModel(model);
+                Prompt = parentComponent.GetPrompt(DA);
+            }
+
+            /// <summary>
+            /// Process a value with AI using a specific prompt. To be implemented by derived classes
+            /// to handle their specific AI processing needs.
+            /// </summary>
+            protected abstract Task<List<IGH_Goo>> ProcessAIResponse(
+                string value,
+                string prompt,
+                CancellationToken ct);
+
+            protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages, CancellationToken token)
+            {
+                if (((AIStatefulComponentBase)_parent)._isDebouncing)
+                {
+                    Debug.WriteLine("[AIWorkerBase] GetResponse - Debouncing, skipping request");
+                    return new AIResponse
+                    {
+                        Response = "Too many requests, please wait...",
+                        FinishReason = "error",
+                        InTokens = 0,
+                        OutTokens = 0
+                    };
+                }
+
+                try
+                {
+                    Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {((AIStatefulComponentBase)_parent).SelectedProvider}");
+
+                    Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
+                    Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
+
+                    if (messages == null || !messages.Any())
+                    {
+                        return null;
+                    }
+
+                    // Get endpoint based on component type
+                    string endpoint = "";
+
+                    var response = await AIUtils.GetResponse(
+                        ((AIStatefulComponentBase)_parent).SelectedProvider,
+                        ((AIStatefulComponentBase)_parent).GetModel(),
+                        messages,
+                        endpoint: endpoint);
+
+                    ((AIStatefulComponentBase)_parent).StoreResponseMetrics(response);
+
+                    return response;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AIWorkerBase] GetResponse - Exception: {ex.Message}");
+                    return new AIResponse
+                    {
+                        Response = ex.Message,
+                        FinishReason = "error"
+                    };
+                }
+            }
+
+            protected static bool TryParseJson(string json, out JToken token)
+            {
+                return AIUtils.TryParseJson(json, out token);
+            }
+        }
+
     }
 }
