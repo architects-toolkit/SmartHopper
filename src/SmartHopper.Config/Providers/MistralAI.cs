@@ -24,16 +24,17 @@ namespace SmartHopper.Config.Providers
 {
     public sealed class MistralAI : IAIProvider
     {
-        public const string ProviderName = "MistralAI";
+        public const string _name = "MistralAI";
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
-        public const string DefaultModelName = "mistral-small-latest";
+        private const string _defaultModel = "mistral-small-latest";
 
         private static readonly Lazy<MistralAI> _instance = new Lazy<MistralAI>(() => new MistralAI());
         public static MistralAI Instance => _instance.Value;
 
         private MistralAI() { }
 
-        public string Name => ProviderName;
+        public string Name => _name;
+        public string DefaultModel => _defaultModel;
 
         public IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
@@ -52,7 +53,7 @@ namespace SmartHopper.Config.Providers
                 {
                     Name = "Model",
                     Type = typeof(string),
-                    DefaultValue = DefaultModelName,
+                    DefaultValue = _defaultModel,
                     IsSecret = false,
                     DisplayName = "Model",
                     Description = "The model to use for completions"
@@ -80,20 +81,22 @@ namespace SmartHopper.Config.Providers
         public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
         {
             var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(ProviderName))
+            if (!settings.ProviderSettings.ContainsKey(_name))
             {
-                settings.ProviderSettings[ProviderName] = new Dictionary<string, object>();
+                settings.ProviderSettings[_name] = new Dictionary<string, object>();
             }
-            var providerSettings = settings.ProviderSettings[ProviderName];
+            var providerSettings = settings.ProviderSettings[_name];
+            if (!ValidateSettings(providerSettings))
+                throw new InvalidOperationException("Invalid provider settings");
+
+            var modelToUse = GetModel(providerSettings, model);
 
             string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
-            string modelToUse = !string.IsNullOrEmpty(model) ? model : 
-                              (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : DefaultModelName);
             int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
 
             if (modelToUse == "" || modelToUse == "mistralai")
             {
-                modelToUse = DefaultModelName;
+                modelToUse = _defaultModel;
                 Debug.WriteLine($"Using default model: {modelToUse}");
             }
 
@@ -166,7 +169,7 @@ namespace SmartHopper.Config.Providers
                             return new AIResponse
                             {
                                 Response = choice["message"]["content"].ToString().Trim(),
-                                Provider = ProviderName,
+                                Provider = _name,
                                 Model = modelToUse,
                                 InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
                                 OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
@@ -191,6 +194,12 @@ namespace SmartHopper.Config.Providers
                     };
                 }
             }
+        }
+
+        public string GetModel(Dictionary<string, object> providerSettings, string model)
+        {
+            return !string.IsNullOrEmpty(model) ? model :
+                   (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : _defaultModel);
         }
     }
 }
