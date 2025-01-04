@@ -28,7 +28,6 @@ using System.Linq;
 using System.Windows.Forms;
 using SmartHopper.Core.Async.Core.StateManagement;
 using SmartHopper.Config.Providers;
-using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 
@@ -199,6 +198,7 @@ namespace SmartHopper.Core.Async.Components
                 Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {(parentComponent == null ? "null" : parentComponent.GetType().Name)}");
 
                 Prompt = parentComponent.GetPrompt(DA);
+                parentComponent.Model = model;
             }
 
             /// <summary>
@@ -293,18 +293,17 @@ namespace SmartHopper.Core.Async.Components
 
             // Use the provider selected from menu
             string providerName = SelectedProvider;
-            
-            if (settings.ProviderSettings.ContainsKey(providerName) &&
-                settings.ProviderSettings[providerName].ContainsKey("ApiKey"))
+
+            if (settings.ProviderSettings.TryGetValue(providerName, out var providerSettings) &&
+                providerSettings.TryGetValue("ApiKey", out var apiKeyObj))
             {
-                apiKey = settings.ProviderSettings[providerName]["ApiKey"].ToString();
+                apiKey = apiKeyObj.ToString();
             }
 
             // If model is empty, use default from settings
-            string modelToUse = string.IsNullOrEmpty(Model) ? 
-                (settings.ProviderSettings[providerName].ContainsKey("DefaultModel") ? 
-                    settings.ProviderSettings[providerName]["DefaultModel"].ToString() : 
-                    Model) : 
+            string modelToUse = string.IsNullOrEmpty(Model) ?
+                (providerSettings != null && providerSettings.TryGetValue("DefaultModel", out var defaultModelObj) ?
+                    defaultModelObj.ToString() : null) :
                 Model;
 
             return (apiKey, modelToUse);
