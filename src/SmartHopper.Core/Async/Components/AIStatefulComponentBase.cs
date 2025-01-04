@@ -257,7 +257,7 @@ namespace SmartHopper.Core.Async.Components
         // <param name="addRuntimeMessage">Action to add runtime messages</param>
         protected abstract class AIWorkerBase : StatefulWorker
         {
-            protected AIResponse _lastAIResponse;
+            //protected AIResponse _lastAIResponse;
             protected string Prompt { get; private set; }
 
             protected AIWorkerBase(
@@ -320,8 +320,8 @@ namespace SmartHopper.Core.Async.Components
                     // Get endpoint based on component type
                     string endpoint = "";
 
-                    var prevInTokens = _lastAIResponse?.InTokens ?? 0;
-                    var prevOutTokens = _lastAIResponse?.OutTokens ?? 0;
+                    //var prevInTokens = _lastAIResponse?.InTokens ?? 0;
+                    //var prevOutTokens = _lastAIResponse?.OutTokens ?? 0;
 
                     var response = await AIUtils.GetResponse(
                         ((AIStatefulComponentBase)_parent).SelectedProvider,
@@ -330,13 +330,13 @@ namespace SmartHopper.Core.Async.Components
                         endpoint: endpoint);
 
                     // if _lastAIResponse is empty or null, set it to the response
-                    if (_lastAIResponse == null || string.IsNullOrEmpty(_lastAIResponse.Response))
-                    {
-                        _lastAIResponse = response;
-                    }
+                    //if (_lastAIResponse == null || string.IsNullOrEmpty(_lastAIResponse.Response))
+                    //{
+                    //    _lastAIResponse = response;
+                    //}
 
-                    _lastAIResponse.InTokens += response.InTokens;
-                    _lastAIResponse.OutTokens += response.OutTokens;
+                    //_lastAIResponse.InTokens += response.InTokens;
+                    //_lastAIResponse.OutTokens += response.OutTokens;
 
                     return response;
                 }
