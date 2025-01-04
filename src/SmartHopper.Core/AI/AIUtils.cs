@@ -115,7 +115,7 @@ namespace SmartHopper.Core.Utils
                     };
                 }
 
-                var response = await selectedProvider.GetResponse(messages, jsonSchema, endpoint);
+                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
                 return response;
