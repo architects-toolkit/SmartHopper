@@ -134,6 +134,8 @@ namespace SmartHopper.Core.Async.Components
 
             // Create JSON object with metrics
             var metricsJson = new JObject(
+                new JProperty("ai_provider", response.Provider),
+                new JProperty("ai_model", response.Model),
                 new JProperty("tokens_input", inTokenValue),
                 new JProperty("tokens_output", outTokenValue),
                 new JProperty("finish_reason", response.FinishReason),
