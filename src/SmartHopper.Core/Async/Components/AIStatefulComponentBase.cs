@@ -39,7 +39,6 @@ namespace SmartHopper.Core.Async.Components
     public abstract class AIStatefulComponentBase : AsyncStatefulComponentBase
     {
         protected GH_Structure<GH_String> LastMetrics { get; private set; } // Useless? Move metrics here?
-        protected string ApiKey { get; set; }
         protected string Model { get; private set; }
         protected string SelectedProvider { get; private set; }
         
@@ -51,7 +50,7 @@ namespace SmartHopper.Core.Async.Components
             : base(name, nickname, description, category, subCategory)
         {
             LastMetrics = new GH_Structure<GH_String>(); // Useless? Move metrics here?
-            SelectedProvider = MistralAI.ProviderName; // Default to SmartHopper
+            SelectedProvider = MistralAI._name; // Default to MistralAI
         }
 
         protected override sealed void RegisterInputParams(GH_InputParamManager pManager)
@@ -135,6 +134,8 @@ namespace SmartHopper.Core.Async.Components
 
             // Create JSON object with metrics
             var metricsJson = new JObject(
+                new JProperty("ai_provider", response.Provider),
+                new JProperty("ai_model", response.Model),
                 new JProperty("tokens_input", inTokenValue),
                 new JProperty("tokens_output", outTokenValue),
                 new JProperty("finish_reason", response.FinishReason),
@@ -175,6 +176,11 @@ namespace SmartHopper.Core.Async.Components
             Debug.WriteLine($"[AIStatefulComponentBase] SetModel - Setting model to: {model}");
             Model = model;
         }
+        protected string GetModel()
+        {
+            // Let the provider handle the default model
+            return Model ?? "";
+        }
 
         protected static int GetDebounceTime()
         {
@@ -182,23 +188,7 @@ namespace SmartHopper.Core.Async.Components
             return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
         }
 
-        protected (string apiKey, string model) GetAIConfiguration()
-        {
-            var settings = SmartHopperSettings.Load();
-            string apiKey = null;
-
-            // Use the provider selected from menu
-            string providerName = SelectedProvider;
-
-            if (settings.ProviderSettings.TryGetValue(providerName, out var providerSettings) &&
-                providerSettings.TryGetValue("ApiKey", out var apiKeyObj))
-            {
-                apiKey = apiKeyObj.ToString();
-            }
-
-            // Let the provider handle the default model
-            return (apiKey, Model ?? "");
-        }
+        
 
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
@@ -268,7 +258,6 @@ namespace SmartHopper.Core.Async.Components
         protected abstract class AIWorkerBase : StatefulWorker
         {
             protected AIResponse _lastAIResponse;
-            protected string ApiKey { get; private set; }
             protected string Prompt { get; private set; }
 
             protected AIWorkerBase(
@@ -319,11 +308,9 @@ namespace SmartHopper.Core.Async.Components
                 try
                 {
                     Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {((AIStatefulComponentBase)_parent).SelectedProvider}");
-                    var (apiKey, modelToUse) = ((AIStatefulComponentBase)_parent).GetAIConfiguration();
 
                     Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
                     Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
-                    Debug.WriteLine("[AIWorkerBase] Model: " + modelToUse);
 
                     if (messages == null || !messages.Any())
                     {
@@ -338,7 +325,7 @@ namespace SmartHopper.Core.Async.Components
 
                     var response = await AIUtils.GetResponse(
                         ((AIStatefulComponentBase)_parent).SelectedProvider,
-                        modelToUse,
+                        ((AIStatefulComponentBase)_parent).GetModel(),
                         messages,
                         endpoint: endpoint);
 
@@ -346,8 +333,6 @@ namespace SmartHopper.Core.Async.Components
                     if (_lastAIResponse == null || string.IsNullOrEmpty(_lastAIResponse.Response))
                     {
                         _lastAIResponse = response;
-                        //_lastAIResponse.InTokens += prevInTokens;
-                        //_lastAIResponse.OutTokens += prevOutTokens;
                     }
 
                     _lastAIResponse.InTokens += response.InTokens;

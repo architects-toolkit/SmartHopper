@@ -19,12 +19,15 @@ namespace SmartHopper.Config.Interfaces
     public interface IAIProvider
     {
         string Name { get; }
+        string DefaultModel { get; }
 
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
 
         bool ValidateSettings(Dictionary<string, object> settings);
 
         Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "");
+        
+        string GetModel(Dictionary<string, object> settings, string requestedModel = "");
     }
 
     public interface IAIProviderSettings

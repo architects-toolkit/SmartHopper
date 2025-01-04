@@ -92,7 +92,7 @@ namespace SmartHopper.Components.Text
                 return false;
             }
 
-            Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}");
+            Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}, Model: {response.Model}");
 
             // Get the worker's processed response tree
             var worker = (AITextGenerateWorker)CurrentWorker;
