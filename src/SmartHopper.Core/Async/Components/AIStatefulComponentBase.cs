@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Async.Components
     {
         protected GH_Structure<GH_String> LastMetrics { get; private set; } // Useless? Move metrics here?
         protected string ApiKey { get; set; }
-        protected string Model { get; set; }
+        protected string Model { get; private set; }
         protected string SelectedProvider { get; private set; }
         
         private const int MIN_DEBOUNCE_TIME = 1000;
@@ -170,11 +170,105 @@ namespace SmartHopper.Core.Async.Components
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics at index {additionalOutputCount}. JSON: {metricsJson}");
         }
 
+        protected void SetModel(string model)
+        {
+            Debug.WriteLine($"[AIStatefulComponentBase] SetModel - Setting model to: {model}");
+            Model = model;
+        }
+
+        protected static int GetDebounceTime()
+        {
+            var settingsDebounceTime = SmartHopperSettings.Load().DebounceTime;
+            return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
+        }
+
+        protected (string apiKey, string model) GetAIConfiguration()
+        {
+            var settings = SmartHopperSettings.Load();
+            string apiKey = null;
+
+            // Use the provider selected from menu
+            string providerName = SelectedProvider;
+
+            if (settings.ProviderSettings.TryGetValue(providerName, out var providerSettings) &&
+                providerSettings.TryGetValue("ApiKey", out var apiKeyObj))
+            {
+                apiKey = apiKeyObj.ToString();
+            }
+
+            // Let the provider handle the default model
+            return (apiKey, Model ?? "");
+        }
+
+        protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalComponentMenuItems(menu);
+
+            // Add provider selection submenu
+            var providersMenu = new ToolStripMenuItem("Select Provider");
+            menu.Items.Add(providersMenu);
+
+            // Get all available providers
+            var providers = SmartHopperSettings.DiscoverProviders();
+            foreach (var provider in providers)
+            {
+                var item = new ToolStripMenuItem(provider.Name)
+                {
+                    Checked = provider.Name == SelectedProvider,
+                    CheckOnClick = true,
+                    Tag = provider.Name
+                };
+
+                item.Click += (s, e) =>
+                {
+                    var menuItem = s as ToolStripMenuItem;
+                    if (menuItem != null)
+                    {
+                        // Uncheck all other items
+                        foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
+                        {
+                            if (otherItem != menuItem)
+                                otherItem.Checked = false;
+                        }
+
+                        SelectedProvider = menuItem.Tag.ToString();
+                        this.ExpireSolution(true);
+                    }
+                };
+
+                providersMenu.DropDownItems.Add(item);
+            }
+        }
+
+        protected override void OnStateChanged(ComponentState newState)
+        {
+            base.OnStateChanged(newState);
+
+            switch (newState)
+            {
+                case ComponentState.Completed:
+                    Debug.WriteLine("[AIStatefulComponentBase] OnStateChanged - Starting debounce timer");
+                    _isDebouncing = true;
+                    _debounceTimer?.Dispose();
+                    _debounceTimer = new System.Threading.Timer(_ =>
+                    {
+                        _isDebouncing = false;
+                        Debug.WriteLine("[AIStatefulComponentBase] OnStateChanged - Debounce timer elapsed");
+                    }, null, GetDebounceTime(), Timeout.Infinite);
+                    break;
+            }
+        }
+
+        // <summary>
+        // Base class for AI workers that need to make API calls to AI providers
+        // </summary>   
+        // <param name="progressReporter">Action to report progress</param>
+        // <param name="parent">Parent component</param>
+        // <param name="addRuntimeMessage">Action to add runtime messages</param>
         protected abstract class AIWorkerBase : StatefulWorker
         {
             protected AIResponse _lastAIResponse;
             protected string ApiKey { get; private set; }
-            protected string Model { get; private set; }
             protected string Prompt { get; private set; }
 
             protected AIWorkerBase(
@@ -192,13 +286,11 @@ namespace SmartHopper.Core.Async.Components
                 DA.GetData("Model", ref model);
                 Debug.WriteLine($"[AIWorkerBase] GatherInput - Model: {model}");
 
-                Model = model;
-
                 var parentComponent = (AIStatefulComponentBase)_parent;
                 Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {(parentComponent == null ? "null" : parentComponent.GetType().Name)}");
 
+                parentComponent.SetModel(model);
                 Prompt = parentComponent.GetPrompt(DA);
-                parentComponent.Model = model;
             }
 
             /// <summary>
@@ -280,92 +372,5 @@ namespace SmartHopper.Core.Async.Components
             }
         }
 
-        protected static int GetDebounceTime()
-        {
-            var settingsDebounceTime = SmartHopperSettings.Load().DebounceTime;
-            return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
-        }
-
-        protected (string apiKey, string model) GetAIConfiguration()
-        {
-            var settings = SmartHopperSettings.Load();
-            string apiKey = null;
-
-            // Use the provider selected from menu
-            string providerName = SelectedProvider;
-
-            if (settings.ProviderSettings.TryGetValue(providerName, out var providerSettings) &&
-                providerSettings.TryGetValue("ApiKey", out var apiKeyObj))
-            {
-                apiKey = apiKeyObj.ToString();
-            }
-
-            // If model is empty, use default from settings
-            string modelToUse = string.IsNullOrEmpty(Model) ?
-                (providerSettings != null && providerSettings.TryGetValue("DefaultModel", out var defaultModelObj) ?
-                    defaultModelObj.ToString() : null) :
-                Model;
-
-            return (apiKey, modelToUse);
-        }
-
-        protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
-        {
-            base.AppendAdditionalComponentMenuItems(menu);
-
-            // Add provider selection submenu
-            var providersMenu = new ToolStripMenuItem("Select Provider");
-            menu.Items.Add(providersMenu);
-
-            // Get all available providers
-            var providers = SmartHopperSettings.DiscoverProviders();
-            foreach (var provider in providers)
-            {
-                var item = new ToolStripMenuItem(provider.Name)
-                {
-                    Checked = provider.Name == SelectedProvider,
-                    CheckOnClick = true,
-                    Tag = provider.Name
-                };
-
-                item.Click += (s, e) =>
-                {
-                    var menuItem = s as ToolStripMenuItem;
-                    if (menuItem != null)
-                    {
-                        // Uncheck all other items
-                        foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
-                        {
-                            if (otherItem != menuItem)
-                                otherItem.Checked = false;
-                        }
-
-                        SelectedProvider = menuItem.Tag.ToString();
-                        this.ExpireSolution(true);
-                    }
-                };
-
-                providersMenu.DropDownItems.Add(item);
-            }
-        }
-
-        protected override void OnStateChanged(ComponentState newState)
-        {
-            base.OnStateChanged(newState);
-            
-            switch (newState)
-            {
-                case ComponentState.Completed:
-                    Debug.WriteLine("[AIStatefulComponentBase] OnStateChanged - Starting debounce timer");
-                    _isDebouncing = true;
-                    _debounceTimer?.Dispose();
-                    _debounceTimer = new System.Threading.Timer(_ =>
-                    {
-                        _isDebouncing = false;
-                        Debug.WriteLine("[AIStatefulComponentBase] OnStateChanged - Debounce timer elapsed");
-                    }, null, GetDebounceTime(), Timeout.Infinite);
-                    break;
-            }
-        }
     }
 }
