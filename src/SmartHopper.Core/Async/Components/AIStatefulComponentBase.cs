@@ -39,7 +39,6 @@ namespace SmartHopper.Core.Async.Components
     public abstract class AIStatefulComponentBase : AsyncStatefulComponentBase
     {
         protected GH_Structure<GH_String> LastMetrics { get; private set; } // Useless? Move metrics here?
-        protected string ApiKey { get; set; }
         protected string Model { get; private set; }
         protected string SelectedProvider { get; private set; }
         
@@ -175,6 +174,11 @@ namespace SmartHopper.Core.Async.Components
             Debug.WriteLine($"[AIStatefulComponentBase] SetModel - Setting model to: {model}");
             Model = model;
         }
+        protected string GetModel()
+        {
+            // Let the provider handle the default model
+            return Model ?? "";
+        }
 
         protected static int GetDebounceTime()
         {
@@ -182,23 +186,7 @@ namespace SmartHopper.Core.Async.Components
             return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
         }
 
-        protected (string apiKey, string model) GetAIConfiguration()
-        {
-            var settings = SmartHopperSettings.Load();
-            string apiKey = null;
-
-            // Use the provider selected from menu
-            string providerName = SelectedProvider;
-
-            if (settings.ProviderSettings.TryGetValue(providerName, out var providerSettings) &&
-                providerSettings.TryGetValue("ApiKey", out var apiKeyObj))
-            {
-                apiKey = apiKeyObj.ToString();
-            }
-
-            // Let the provider handle the default model
-            return (apiKey, Model ?? "");
-        }
+        
 
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
@@ -268,7 +256,6 @@ namespace SmartHopper.Core.Async.Components
         protected abstract class AIWorkerBase : StatefulWorker
         {
             protected AIResponse _lastAIResponse;
-            protected string ApiKey { get; private set; }
             protected string Prompt { get; private set; }
 
             protected AIWorkerBase(
@@ -319,7 +306,7 @@ namespace SmartHopper.Core.Async.Components
                 try
                 {
                     Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {((AIStatefulComponentBase)_parent).SelectedProvider}");
-                    var (apiKey, modelToUse) = ((AIStatefulComponentBase)_parent).GetAIConfiguration();
+                    var modelToUse = ((AIStatefulComponentBase)_parent).GetModel();
 
                     Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
                     Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
