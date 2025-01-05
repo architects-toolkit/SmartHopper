@@ -227,7 +227,7 @@ namespace SmartHopper.Components.List
                         new GH_Structure<GH_String>[] { localInputTree, localQuestionTree },
                         ProcessBranch,
                         onlyMatchingPaths: false,  // Process all unique paths
-                        groupIdenticalBranches: true,  // Group or not?
+                        groupIdenticalBranches: true,  // Group equal branches, if any
                         token);
 
                     result = new GH_Structure<GH_Boolean>();
