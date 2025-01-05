@@ -335,6 +335,12 @@ namespace SmartHopper.Core.Async.Components
                 string prompt,
                 CancellationToken ct);
 
+            /// <summary>
+            /// Gets a response from the AI provider using the provided messages and cancellation token.
+            /// </summary>
+            /// <param name="messages">The messages to send to the AI provider.</param>
+            /// <param name="token">The cancellation token to cancel the operation.</param>
+            /// <returns>The AI response from the provider.</returns>
             protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages, CancellationToken token)
             {
                 if (_parentStatefulComponent._isDebouncing)
@@ -384,12 +390,6 @@ namespace SmartHopper.Core.Async.Components
                     };
                 }
             }
-
-            protected static bool TryParseJson(string json, out JToken token)
-            {
-                return AIUtils.TryParseJson(json, out token);
-            }
         }
-
     }
 }
