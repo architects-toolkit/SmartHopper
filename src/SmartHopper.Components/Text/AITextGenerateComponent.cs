@@ -25,7 +25,7 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Components.Text
 {
-    public class AITextGenerate : AIStatefulComponentBase, IEndpointProvider
+    public class AITextGenerate : AIStatefulComponentBase
     {
         private GH_Structure<GH_String> lastResponse = null;
         private int branches_input = 0;
