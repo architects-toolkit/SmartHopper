@@ -31,7 +31,7 @@ namespace SmartHopper.Components.Text
         private int branches_input = 0;
         private IGH_DataAccess DA;
 
-        public string GetEndpoint()
+        protected override string GetEndpoint()
         {
             return "text-generate";
         }
