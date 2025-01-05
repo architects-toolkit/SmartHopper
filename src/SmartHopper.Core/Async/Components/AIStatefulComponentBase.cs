@@ -198,8 +198,16 @@ namespace SmartHopper.Core.Async.Components
         /// <returns>The model to use.</returns>
         protected string GetModel()
         {
-            // Let the provider handle the default model
-            return Model ?? "";
+            return Model ?? ""; // "" means that the provider will use the default model
+        }
+
+        /// <summary>
+        /// Gets the API's endpoint to use when getting AI responses.
+        /// </summary>
+        /// <returns>The API's endpoint.</returns>
+        protected virtual string GetEndpoint()
+        {
+            return ""; // "" means that the provider will use the default endpoint
         }
 
         /// <summary>
@@ -366,7 +374,7 @@ namespace SmartHopper.Core.Async.Components
                     }
 
                     // Get endpoint based on component type
-                    string endpoint = "";
+                    string endpoint = _parentStatefulComponent.GetEndpoint();
 
                     var response = await AIUtils.GetResponse(
                         _parentStatefulComponent.SelectedProvider,
