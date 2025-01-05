@@ -100,7 +100,7 @@ namespace SmartHopper.Components.Text
             {
                 lastResponse = worker.response;
                 DA.SetDataTree(0, lastResponse);
-                SetMetricsOutput(DA, branches_input, branches_processed);
+                SetMetricsOutput(DA, branches_input);
                 RestoreMetrics();
                 return true;
             }
