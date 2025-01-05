@@ -253,7 +253,7 @@ namespace SmartHopper.Core.Async.Components
                         }
 
                         SelectedProvider = menuItem.Tag.ToString();
-                        this.ExpireSolution(true);
+                        ExpireSolution(true);
                     }
                 };
 
@@ -294,6 +294,7 @@ namespace SmartHopper.Core.Async.Components
         {
             protected AIResponse _lastAIResponse;
             protected string Prompt { get; private set; }
+            protected readonly AIStatefulComponentBase _parentStatefulComponent;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="AIWorkerBase"/> class.
@@ -307,6 +308,7 @@ namespace SmartHopper.Core.Async.Components
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage) 
                 : base(progressReporter, parent, addRuntimeMessage)
             {
+                _parentStatefulComponent = parent;
             }
 
             /// <summary>
@@ -315,21 +317,18 @@ namespace SmartHopper.Core.Async.Components
             /// <param name="DA">The data access object</param>
             public override void GatherInput(IGH_DataAccess DA)
             {
-                Debug.WriteLine("[AIWorkerBase] GatherInput - Start");
                 string model = null;
                 DA.GetData("Model", ref model);
                 Debug.WriteLine($"[AIWorkerBase] GatherInput - Model: {model}");
 
-                var parentComponent = (AIStatefulComponentBase)_parent;
-                Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {(parentComponent == null ? "null" : parentComponent.GetType().Name)}");
+                Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {_parentStatefulComponent.GetType().Name}");
 
-                parentComponent.SetModel(model);
-                Prompt = parentComponent.GetPrompt(DA);
+                _parentStatefulComponent.SetModel(model);
+                Prompt = _parentStatefulComponent.GetPrompt(DA);
             }
 
             /// <summary>
             /// Process a value with AI using a specific prompt. To be implemented by derived classes.
-            /// to handle their specific AI processing needs.
             /// </summary>
             protected abstract Task<List<IGH_Goo>> ProcessAIResponse(
                 string value,
@@ -338,7 +337,7 @@ namespace SmartHopper.Core.Async.Components
 
             protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages, CancellationToken token)
             {
-                if (((AIStatefulComponentBase)_parent)._isDebouncing)
+                if (_parentStatefulComponent._isDebouncing)
                 {
                     Debug.WriteLine("[AIWorkerBase] GetResponse - Debouncing, skipping request");
                     return new AIResponse
@@ -352,7 +351,7 @@ namespace SmartHopper.Core.Async.Components
 
                 try
                 {
-                    Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {((AIStatefulComponentBase)_parent).SelectedProvider}");
+                    Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {_parentStatefulComponent.SelectedProvider}");
 
                     Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
                     Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
@@ -366,12 +365,12 @@ namespace SmartHopper.Core.Async.Components
                     string endpoint = "";
 
                     var response = await AIUtils.GetResponse(
-                        ((AIStatefulComponentBase)_parent).SelectedProvider,
-                        ((AIStatefulComponentBase)_parent).GetModel(),
+                        _parentStatefulComponent.SelectedProvider,
+                        _parentStatefulComponent.GetModel(),
                         messages,
                         endpoint: endpoint);
 
-                    ((AIStatefulComponentBase)_parent).StoreResponseMetrics(response);
+                    _parentStatefulComponent.StoreResponseMetrics(response);
 
                     return response;
                 }

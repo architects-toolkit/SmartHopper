@@ -61,6 +61,7 @@ namespace SmartHopper.Components.List
 
         protected override string GetPrompt(IGH_DataAccess DA)
         {
+            // We'll handle prompts directly in ProcessAIResponse
             return null;
         }
 
@@ -118,7 +119,6 @@ namespace SmartHopper.Components.List
             }
 
             RestoreMetrics();
-
             return false;
         }
 
@@ -134,6 +134,7 @@ namespace SmartHopper.Components.List
             private GH_Structure<GH_String> questionTree;
             internal GH_Structure<GH_Boolean> result;
             private readonly IGH_DataAccess _dataAccess;
+            private readonly AIListCheck _parentListCheck;
 
             public AIListCheckWorker(AIListCheck parent)
                 : this(null, parent, null, null)
@@ -145,10 +146,9 @@ namespace SmartHopper.Components.List
             {
                 Debug.WriteLine($"[AITextGenerateWorker] Constructor - DataAccess is null? {dataAccess == null}");
                 _dataAccess = dataAccess;
+                _parentListCheck = parent;
                 //result = parent.lastResult;
             }
-
-            private AIListCheck ParentComponent => (AIListCheck)_parent;
 
             public override void GatherInput(IGH_DataAccess DA)
             {
@@ -160,7 +160,7 @@ namespace SmartHopper.Components.List
                 if (!DA.GetDataTree("List", out inputTree))
                 {
                     Debug.WriteLine("[AITextGenerateWorker] GatherInput - Failed to get list tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
+                    _parentListCheck.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got input tree with {inputTree?.DataCount ?? 0} items");
@@ -173,7 +173,7 @@ namespace SmartHopper.Components.List
                 if (!DA.GetDataTree("Question", out questionTree))
                 {
                     Debug.WriteLine("[AITextGenerateWorker] GatherInput - Failed to get question tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get question data");
+                    _parentListCheck.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get question data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got question tree with {questionTree?.DataCount ?? 0} questions");
@@ -259,7 +259,6 @@ namespace SmartHopper.Components.List
                         groupIdenticalBranches: true,  // Group or not?
                         token);
 
-
                     result = new GH_Structure<GH_Boolean>();
                     foreach (var path in processedResult.Paths)
                     {
@@ -268,7 +267,7 @@ namespace SmartHopper.Components.List
                     }
 
                     // Store branches count to parent component
-                    ParentComponent.branches_input = processedResult.Paths.Count;
+                    _parentListCheck.branches_input = processedResult.Paths.Count;
 
                     OnWorkCompleted();
                 }
@@ -285,7 +284,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[ProcessBranch] Branches count: {branches?.Count}");
 
                 // Store branches count to parent component
-                ParentComponent.branches_processed += 1;
+                _parentListCheck.branches_processed += 1;
 
                 try
                 {
@@ -334,7 +333,7 @@ namespace SmartHopper.Components.List
                             var result = await ProcessAIResponse(itemsList, questionList, ct);
                             var boolResult = result.Select(r =>
                             {
-                                var boolValue = ParentComponent.ParseBooleanResponse(r.ToString());
+                                var boolValue = _parentListCheck.ParseBooleanResponse(r.ToString());
                                 return new GH_Boolean(boolValue ?? false);
                             });
                             return boolResult.ToList();
@@ -370,7 +369,7 @@ namespace SmartHopper.Components.List
                     return new List<IGH_Goo> { new GH_Boolean(false) };
                 }
 
-                var result = ParentComponent.ParseBooleanResponse(response.Response);
+                var result = _parentListCheck.ParseBooleanResponse(response.Response);
                 if (!result.HasValue)
                 {
                     ReportError($"Could not determine boolean value from response: {response.Response}");
@@ -388,7 +387,7 @@ namespace SmartHopper.Components.List
                 if (result != null && _lastAIResponse != null)
                 {
                     Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    ParentComponent.ProcessFinalResponse(_lastAIResponse, DA);
+                    _parentListCheck.ProcessFinalResponse(_lastAIResponse, DA);
                 }
             }
         }
