@@ -287,8 +287,6 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="addRuntimeMessage">Action to add runtime messages</param>
         protected abstract class AIWorkerBase : StatefulWorker
         {
-            //protected AIResponse _lastAIResponse;
-
             /// <summary>
             /// The parent stateful component.
             /// </summary>

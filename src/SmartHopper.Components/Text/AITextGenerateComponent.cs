@@ -13,7 +13,6 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
@@ -30,7 +29,6 @@ namespace SmartHopper.Components.Text
     {
         private GH_Structure<GH_String> lastResponse = null;
         private int branches_input = 0;
-        private int branches_processed = 0;
         private IGH_DataAccess DA;
 
         public string GetEndpoint()
@@ -62,16 +60,6 @@ namespace SmartHopper.Components.Text
         {
             Debug.WriteLine("[AITextGenerate] ProcessAIResponse - Start");
 
-            //if (response == null || response.FinishReason == "error")
-            //{
-            //    Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response null? {response == null}, Finish reason: {response?.FinishReason}");
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error in AI response: {response?.Response ?? "No response"}");
-            //    Debug.WriteLine("[AITextGenerate] ProcessAIResponse - Error: Null response or error finish reason");
-            //    return false;
-            //}
-
-            //Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}, Model: {response.Model}");
-
             // Get the worker's processed response tree
             var worker = (AITextGenerateWorker)CurrentWorker;
             if (worker?.response != null)
@@ -89,7 +77,6 @@ namespace SmartHopper.Components.Text
         protected void RestoreMetrics()
         {
             branches_input = 0;
-            branches_processed = 0;
         }
 
         protected override AsyncWorker CreateWorker(Action<string> progressReporter)
@@ -103,7 +90,6 @@ namespace SmartHopper.Components.Text
             private GH_Structure<GH_String> instructionsTree;
             private GH_Structure<GH_String> promptTree;
             internal GH_Structure<GH_String> response;
-            private readonly IGH_DataAccess _dataAccess;
             private readonly AITextGenerate _parentTextGenerate;
 
             public AITextGenerateWorker(AITextGenerate parent)
@@ -115,7 +101,6 @@ namespace SmartHopper.Components.Text
                 : base(progressReporter, parent, addRuntimeMessage)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] Constructor - DataAccess is null? {dataAccess == null}");
-                _dataAccess = dataAccess;
                 response = parent.lastResponse;
                 _parentTextGenerate = parent;
             }
@@ -166,9 +151,6 @@ namespace SmartHopper.Components.Text
             {
                 Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Start. Path: {path}");
                 Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Branches count: {branches?.Count}");
-
-                // Store branches count to parent component
-                _parentTextGenerate.branches_processed += 1;
 
                 try
                 {
@@ -261,7 +243,6 @@ namespace SmartHopper.Components.Text
                     return new List<IGH_Goo>();
                 }
 
-                //_lastAIResponse = response;
                 return new List<IGH_Goo> { new GH_String(response.Response) };
             }
 
@@ -333,11 +314,6 @@ namespace SmartHopper.Components.Text
                 doneMessage = null;
 
                 _parentTextGenerate.ProcessFinalResponse(DA);
-
-                //if (_lastAIResponse != null)
-                //{
-                //    _parentTextGenerate.ProcessFinalResponse(_lastAIResponse, DA);
-                //}
             }
         }
     }
