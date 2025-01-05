@@ -133,6 +133,7 @@ namespace SmartHopper.Components.List
             private GH_Structure<GH_String> promptTree;
             internal GH_Structure<IGH_Goo> result;
             private readonly IGH_DataAccess _dataAccess;
+            private readonly AIListFilter _parentListFilter;
             //private AIResponse _lastAIResponse;
 
             public AIListFilterWorker(Action<string> progressReporter, AIListFilter parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage, IGH_DataAccess dataAccess)
@@ -140,9 +141,8 @@ namespace SmartHopper.Components.List
             {
                 Debug.WriteLine($"[AIListFilterWorker] Constructor - DataAccess is null? {dataAccess == null}");
                 _dataAccess = dataAccess;
+                _parentListFilter = parent;
             }
-
-            private AIListFilter ParentComponent => (AIListFilter)_parent;
 
             public override void GatherInput(IGH_DataAccess DA)
             {
@@ -154,7 +154,7 @@ namespace SmartHopper.Components.List
                 if (!DA.GetDataTree("List", out inputTree))
                 {
                     Debug.WriteLine("[AIListFilterWorker] GatherInput - Failed to get list tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
+                    _parentListFilter.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got input tree with {inputTree?.DataCount ?? 0} items");
@@ -164,7 +164,7 @@ namespace SmartHopper.Components.List
                 if (!DA.GetDataTree("Prompt", out promptTree))
                 {
                     Debug.WriteLine("[AIListFilterWorker] GatherInput - Failed to get prompt tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
+                    _parentListFilter.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got prompt tree with {promptTree?.DataCount ?? 0} prompts");
@@ -263,7 +263,6 @@ namespace SmartHopper.Components.List
                         groupIdenticalBranches: true,
                         token);
 
-
                     var filteredResult = new GH_Structure<IGH_Goo>();
 
                     // Handle potential path mismatches or one-to-many/many-to-one cases
@@ -304,7 +303,7 @@ namespace SmartHopper.Components.List
                     result = filteredResult;
 
                     // Store branches count to parent component
-                    ParentComponent.branches_input = processedResult.Paths.Count;
+                    _parentListFilter.branches_input = processedResult.Paths.Count;
 
                     OnWorkCompleted();
                 }
@@ -321,7 +320,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[ProcessBranch] Branches count: {branches?.Count}");
 
                 // Store branches count to parent component
-                ParentComponent.branches_processed += 1;
+                _parentListFilter.branches_processed += 1;
 
                 try
                 {
@@ -435,7 +434,7 @@ namespace SmartHopper.Components.List
                 if (result != null && _lastAIResponse != null)
                 {
                     Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    ParentComponent.ProcessFinalResponse(_lastAIResponse, DA);
+                    _parentListFilter.ProcessFinalResponse(_lastAIResponse, DA);
                 }
             }
         }
