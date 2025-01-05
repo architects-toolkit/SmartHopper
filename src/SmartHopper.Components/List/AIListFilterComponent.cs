@@ -81,24 +81,25 @@ namespace SmartHopper.Components.List
             return worker;
         }
 
-        protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
+        protected override bool ProcessFinalResponse(IGH_DataAccess DA)
+        //protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIListFilter] ProcessAIResponse - Start");
-            Debug.WriteLine($"[AIListFilter] Response: {(response == null ? "null" : "not null")}");
+            //Debug.WriteLine($"[AIListFilter] Response: {(response == null ? "null" : "not null")}");
 
-            if (response == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
-                Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: Null response");
-                return false;
-            }
+            //if (response == null)
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
+            //    Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: Null response");
+            //    return false;
+            //}
 
-            if (response.FinishReason == "error")
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
-                Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: " + response.Response);
-                return false;
-            }
+            //if (response.FinishReason == "error")
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
+            //    Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: " + response.Response);
+            //    return false;
+            //}
 
             // Get the worker's processed response tree
             var worker = (AIListFilterWorker)CurrentWorker;
@@ -192,7 +193,6 @@ namespace SmartHopper.Components.List
                     }
 
                     var concatenatedString = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
-                    //var concatenatedString = "[" + string.Join(",", stringList) + "]"; // Array format
                     result.Append(new GH_String(concatenatedString), path);
                 }
 
@@ -324,7 +324,7 @@ namespace SmartHopper.Components.List
                             Debug.WriteLine($"[ProcessBranch] Processing items. Items count: {items?.Count}");
                             if (items != null)
                             {
-                                Debug.WriteLine($"[ProcessBranch] Values count: {items.Values?.Count()}");
+                                Debug.WriteLine($"[ProcessBranch] Values count: {items.Values?.Count}");
                             }
 
                             string itemsList = string.Empty;
@@ -342,7 +342,7 @@ namespace SmartHopper.Components.List
                             }
 
                             // Get all items from second tree (prompts)
-                            if (items.Values.Count() > 1)
+                            if (items.Values.Count > 1)
                             {
                                 promptList = items.Values.ElementAt(1)?.ToString() ?? string.Empty;
                             }
@@ -394,7 +394,7 @@ namespace SmartHopper.Components.List
             protected override async Task<List<IGH_Goo>> ProcessAIResponse(string list, string prompt, CancellationToken ct)
             {
                 var response = await GetAIResponse(list, prompt, ct);
-                _lastAIResponse = response;
+                //_lastAIResponse = response;
 
                 if (ct.IsCancellationRequested) return new List<IGH_Goo>();
 
@@ -424,10 +424,12 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[SetOutput] Starting with result DataCount: {result?.DataCount ?? 0}");
                 doneMessage = null;
 
-                if (result != null && _lastAIResponse != null)
+                if (result != null)
+                //if (result != null && _lastAIResponse != null)
                 {
-                    Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    _parentListFilter.ProcessFinalResponse(_lastAIResponse, DA);
+                    //Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
+                    _parentListFilter.ProcessFinalResponse(DA);
+                    //_parentListFilter.ProcessFinalResponse(_lastAIResponse, DA);
                 }
             }
         }
