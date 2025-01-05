@@ -120,12 +120,12 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="pManager">The output parameter manager.</param>
         protected abstract void RegisterAdditionalOutputParams(GH_OutputParamManager pManager);
 
-        /// <summary>
-        /// Get the prompt to send to the AI service.
-        /// </summary>
-        /// <param name="DA">The data access object.</param>
-        /// <returns>The prompt to send to the AI service.</returns>
-        protected abstract string GetPrompt(IGH_DataAccess DA);
+        ///// <summary>
+        ///// Get the prompt to send to the AI service.
+        ///// </summary>
+        ///// <param name="DA">The data access object.</param>
+        ///// <returns>The prompt to send to the AI service.</returns>
+        //protected abstract string GetPrompt(IGH_DataAccess DA);
 
         /// <summary>
         /// Process the AI response and return true if successful.
@@ -293,7 +293,7 @@ namespace SmartHopper.Core.Async.Components
         protected abstract class AIWorkerBase : StatefulWorker
         {
             protected AIResponse _lastAIResponse;
-            protected string Prompt { get; private set; }
+            //protected string Prompt { get; private set; }
             protected readonly AIStatefulComponentBase _parentStatefulComponent;
 
             /// <summary>
@@ -324,12 +324,16 @@ namespace SmartHopper.Core.Async.Components
                 Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {_parentStatefulComponent.GetType().Name}");
 
                 _parentStatefulComponent.SetModel(model);
-                Prompt = _parentStatefulComponent.GetPrompt(DA);
+                //Prompt = _parentStatefulComponent.GetPrompt(DA);
             }
 
             /// <summary>
             /// Process a value with AI using a specific prompt. To be implemented by derived classes.
             /// </summary>
+            /// <param name="value">The value to process.</param>
+            /// <param name="prompt">The prompt to use.</param>
+            /// <param name="ct">The cancellation token to cancel the operation.</param>
+            /// <returns>A task that represents the asynchronous operation.</returns>
             protected abstract Task<List<IGH_Goo>> ProcessAIResponse(
                 string value,
                 string prompt,
@@ -360,7 +364,6 @@ namespace SmartHopper.Core.Async.Components
                     Debug.WriteLine($"[AIWorkerBase] GetResponse - Using Provider: {_parentStatefulComponent.SelectedProvider}");
 
                     Debug.WriteLine("[AIWorkerBase] Number of messages: " + messages.Count);
-                    Debug.WriteLine("[AIWorkerBase] Prompt: " + Prompt);
 
                     if (messages == null || !messages.Any())
                     {

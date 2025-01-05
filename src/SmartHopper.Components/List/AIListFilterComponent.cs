@@ -59,11 +59,11 @@ namespace SmartHopper.Components.List
 
         protected override System.Drawing.Bitmap Icon => Resources.listfilter;
 
-        protected override string GetPrompt(IGH_DataAccess DA)
-        {
-            // We'll handle prompts directly in ProcessAIResponse
-            return null;
-        }
+        //protected override string GetPrompt(IGH_DataAccess DA)
+        //{
+        //    // We'll handle prompts directly in ProcessAIResponse
+        //    return null;
+        //}
 
         private static List<int> ParseIndicesFromResponse(string response)
         {
