@@ -112,7 +112,7 @@ namespace SmartHopper.Components.List
             {
                 lastResult = worker.result;
                 DA.SetDataTree(0, lastResult);
-                SetMetricsOutput(DA, branches_input, branches_processed);
+                SetMetricsOutput(DA, branches_input);
                 RestoreMetrics();
                 return true;
             }
