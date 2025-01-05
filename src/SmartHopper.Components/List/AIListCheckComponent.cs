@@ -12,7 +12,6 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Models;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
@@ -29,7 +28,6 @@ namespace SmartHopper.Components.List
     {
         private GH_Structure<GH_Boolean> lastResult = null;
         private int branches_input = 0;
-        private int branches_processed = 0;
         private IGH_DataAccess DA;
 
         public string GetEndpoint()
@@ -83,23 +81,6 @@ namespace SmartHopper.Components.List
         protected override bool ProcessFinalResponse(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIListCheck] ProcessAIResponse - Start");
-            //Debug.WriteLine($"[AIListCheck] Response: {(response == null ? "null" : "not null")}");
-
-            //if (response == null)
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
-            //    Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: Null response");
-            //    return false;
-            //}
-
-            //if (response.FinishReason == "error")
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
-            //    Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: " + response.Response);
-            //    return false;
-            //}
-
-            //Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}");
 
             // Get the worker's processed response tree
             var worker = (AIListCheckWorker)CurrentWorker;
@@ -119,7 +100,6 @@ namespace SmartHopper.Components.List
         protected void RestoreMetrics()
         {
             branches_input = 0;
-            branches_processed = 0;
         }
 
         private class AIListCheckWorker : AIWorkerBase
@@ -127,7 +107,6 @@ namespace SmartHopper.Components.List
             private GH_Structure<IGH_Goo> inputTree;
             private GH_Structure<GH_String> questionTree;
             internal GH_Structure<GH_Boolean> result;
-            private readonly IGH_DataAccess _dataAccess;
             private readonly AIListCheck _parentListCheck;
 
             public AIListCheckWorker(AIListCheck parent)
@@ -139,7 +118,6 @@ namespace SmartHopper.Components.List
     : base(progressReporter, parent, addRuntimeMessage)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] Constructor - DataAccess is null? {dataAccess == null}");
-                _dataAccess = dataAccess;
                 _parentListCheck = parent;
             }
 
@@ -276,9 +254,6 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[ProcessBranch] Processing branch at path: {path}");
                 Debug.WriteLine($"[ProcessBranch] Branches count: {branches?.Count}");
 
-                // Store branches count to parent component
-                _parentListCheck.branches_processed += 1;
-
                 try
                 {
                     var processedItems = await BranchProcessor.ProcessItemsInParallelAsync(
@@ -352,7 +327,6 @@ namespace SmartHopper.Components.List
                 };
 
                 var response = await GetResponse(messages, ct);
-                //_lastAIResponse = response;
 
                 if (ct.IsCancellationRequested) return new List<IGH_Goo> { new GH_Boolean(false) };
 
@@ -378,10 +352,7 @@ namespace SmartHopper.Components.List
                 doneMessage = null;
 
                 if (result != null)
-                //if (result != null && _lastAIResponse != null)
                 {
-                    //Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    //_parentListCheck.ProcessFinalResponse(_lastAIResponse, DA);
                     _parentListCheck.ProcessFinalResponse(DA);
                 }
             }

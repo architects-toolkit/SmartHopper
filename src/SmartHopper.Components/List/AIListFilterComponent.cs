@@ -29,7 +29,6 @@ namespace SmartHopper.Components.List
     {
         private GH_Structure<IGH_Goo> lastResult = null;
         private int branches_input = 0;
-        private int branches_processed = 0;
         private IGH_DataAccess DA;
 
         public string GetEndpoint()
@@ -85,21 +84,6 @@ namespace SmartHopper.Components.List
         //protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIListFilter] ProcessAIResponse - Start");
-            //Debug.WriteLine($"[AIListFilter] Response: {(response == null ? "null" : "not null")}");
-
-            //if (response == null)
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
-            //    Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: Null response");
-            //    return false;
-            //}
-
-            //if (response.FinishReason == "error")
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
-            //    Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: " + response.Response);
-            //    return false;
-            //}
 
             // Get the worker's processed response tree
             var worker = (AIListFilterWorker)CurrentWorker;
@@ -119,7 +103,6 @@ namespace SmartHopper.Components.List
         protected void RestoreMetrics()
         {
             branches_input = 0;
-            branches_processed = 0;
         }
 
         private class AIListFilterWorker : AIWorkerBase
@@ -127,14 +110,14 @@ namespace SmartHopper.Components.List
             private GH_Structure<IGH_Goo> inputTree;
             private GH_Structure<GH_String> promptTree;
             internal GH_Structure<IGH_Goo> result;
-            private readonly IGH_DataAccess _dataAccess;
+            //private readonly IGH_DataAccess _dataAccess;
             private readonly AIListFilter _parentListFilter;
 
             public AIListFilterWorker(Action<string> progressReporter, AIListFilter parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage, IGH_DataAccess dataAccess)
                 : base(progressReporter, parent, addRuntimeMessage)
             {
                 Debug.WriteLine($"[AIListFilterWorker] Constructor - DataAccess is null? {dataAccess == null}");
-                _dataAccess = dataAccess;
+                //_dataAccess = dataAccess;
                 _parentListFilter = parent;
             }
 
@@ -312,9 +295,6 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[ProcessBranch] Processing branch at path: {path}");
                 Debug.WriteLine($"[ProcessBranch] Branches count: {branches?.Count}");
 
-                // Store branches count to parent component
-                _parentListFilter.branches_processed += 1;
-
                 try
                 {
                     var processedItems = await BranchProcessor.ProcessItemsInParallelAsync(
@@ -394,7 +374,6 @@ namespace SmartHopper.Components.List
             protected override async Task<List<IGH_Goo>> ProcessAIResponse(string list, string prompt, CancellationToken ct)
             {
                 var response = await GetAIResponse(list, prompt, ct);
-                //_lastAIResponse = response;
 
                 if (ct.IsCancellationRequested) return new List<IGH_Goo>();
 
@@ -425,11 +404,8 @@ namespace SmartHopper.Components.List
                 doneMessage = null;
 
                 if (result != null)
-                //if (result != null && _lastAIResponse != null)
                 {
-                    //Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
                     _parentListFilter.ProcessFinalResponse(DA);
-                    //_parentListFilter.ProcessFinalResponse(_lastAIResponse, DA);
                 }
             }
         }
