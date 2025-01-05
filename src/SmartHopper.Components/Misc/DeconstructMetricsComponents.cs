@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Misc
             pManager.AddTextParameter("Finish Reason", "F", "Reason for finishing", GH_ParamAccess.item);
             pManager.AddNumberParameter("Completion Time", "T", "Time taken for completion, in seconds", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Input Branches", "BI", "Number of input branches", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Processed Branches", "BP", "Number of processed branches. This value can difer from input branches when the component detects that there are identical branch combinations.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Processed Branches", "BP", "Number of processed branches. This value can differ from input branches when the component detects that there are identical branch combinations.", GH_ParamAccess.item);
 
         }
 
