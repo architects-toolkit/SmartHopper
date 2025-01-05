@@ -47,7 +47,7 @@ Are you skilled in coding and want to contribute to SmartHopper? You can help fi
 
 ### Changelog Guidelines
 
-The changelog follows the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format. Update the CHANGELOG.md file with your changes under the appropriate section:
+The changelog follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Update the CHANGELOG.md file with your changes under the appropriate section:
 
 ```markdown
 ## [Unreleased]
@@ -120,8 +120,8 @@ Describe the testing you've done to validate your changes.
 - [ ] This PR is focused on a single feature or bug fix
 - [ ] Version in Solution.props was updated, if necessary, and follows semantic versioning
 - [ ] CHANGELOG.md has been updated
-- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format
-- [ ] PR description follows [Pull Request Description Template](#pull-request-description-template)
+- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.1.0/) format
+- [ ] PR description follows [Pull Request Description Template](https://github.com/architects-toolkit/SmartHopper/blob/main/CONTRIBUTING.md#pull-request-description-template)
 ```
 
 
