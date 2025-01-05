@@ -13,8 +13,8 @@
  * Copyright (c) 2022 Ivan Sukhikh
  */
 
-using Grasshopper.Kernel;
 using Rhino;
+using Grasshopper.Kernel;
 using SmartHopper.Core.Async.Core.StateManagement;
 using SmartHopper.Core.Async.Threading;
 using SmartHopper.Core.Async.Workers;
@@ -24,42 +24,95 @@ using System.Threading;
 
 namespace SmartHopper.Core.Async.Components
 {
+    /// <summary>
+    /// Base class for asynchronous Grasshopper components that support task-based operations.
+    /// </summary>
     public abstract class AsyncComponentBase : GH_Component, IGH_TaskCapableComponent, IAsyncComponent
     {
+        /// <summary>
+        /// Cancellation token source for managing async operations.
+        /// </summary>
         private CancellationTokenSource _cts;
+
+        /// <summary>
+        /// Indicates whether the component should use task-based operations.
+        /// </summary>
         private bool _useTasks = true;
+
+        /// <summary>
+        /// Indicates whether the component is in the pre-solve phase.
+        /// </summary>
         private bool _inPreSolve;
+
+        /// <summary>
+        /// Gets or sets the error message when an operation fails.
+        /// </summary>
         protected string ErrorMessage { get; set; }
 
-        // New fields for threading
+        /// <summary>
+        /// Manager for handling asynchronous tasks.
+        /// </summary>
         protected TaskManager _taskManager;
+
+        /// <summary>
+        /// Progress reporter for async operations.
+        /// </summary>
         protected IProgress<string> _progress;
+
+        /// <summary>
+        /// Gets or sets the current worker handling the async operation.
+        /// </summary>
         protected AsyncWorker CurrentWorker { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the state manager for the component.
+        /// </summary>
         public virtual IComponentStateManager StateManager { get; protected set; }
 
-        public bool ITaskCapable => true;
-
+        /// <summary>
+        /// Gets or sets whether the component is in the pre-solve phase.
+        /// </summary>
         public bool InPreSolve
         {
             get => _inPreSolve;
             set => _inPreSolve = value;
         }
 
+        /// <summary>
+        /// Gets whether the component supports task-based operations.
+        /// </summary>
+        public bool ITaskCapable => true;
+
+        /// <summary>
+        /// Gets or sets whether the component should use task-based operations.
+        /// </summary>
         public bool UseTasks
         {
             get => _useTasks;
             set => _useTasks = value;
         }
 
-        //protected bool IsWorkerCompletion => StateManager?.IsWorkerCompletion ?? false;
-
+        /// <summary>
+        /// Gets whether the component is being manually expired.
+        /// </summary>
         protected bool IsManualExpire => !InPreSolve;
 
+        /// <summary>
+        /// Requests cancellation of the current task.
+        /// </summary>
         public void RequestTaskCancellation()
         {
             Cancel();
         }
 
+        /// <summary>
+        /// Initializes a new instance of the AsyncComponentBase class.
+        /// </summary>
+        /// <param name="name">The name of the component.</param>
+        /// <param name="nickname">The nickname of the component.</param>
+        /// <param name="description">The description of the component.</param>
+        /// <param name="category">The category of the component.</param>
+        /// <param name="subCategory">The subcategory of the component.</param>
         protected AsyncComponentBase(string name, string nickname, string description, string category, string subCategory) :
             base(name, nickname, description, category, subCategory)
         {
@@ -83,8 +136,16 @@ namespace SmartHopper.Core.Async.Components
             StateManager = new ComponentStateManager(this);
         }
 
+        /// <summary>
+        /// Creates a worker instance for handling asynchronous operations.
+        /// </summary>
+        /// <param name="progressReporter">Action to report progress during the operation.</param>
+        /// <returns>An instance of AsyncWorker to handle the work.</returns>
         protected abstract AsyncWorker CreateWorker(Action<string> progressReporter);
 
+        /// <summary>
+        /// Cancels the current operation and updates the component state.
+        /// </summary>
         protected virtual void Cancel()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
@@ -96,6 +157,24 @@ namespace SmartHopper.Core.Async.Components
             _taskManager?.Cancel();
         }
 
+        /// <summary>
+        /// Processes the component synchronously when async operations are disabled.
+        /// </summary>
+        /// <param name="DA">The Grasshopper data access object.</param>
+        protected virtual void ProcessSynchronously(IGH_DataAccess DA)
+        {
+            Debug.WriteLine("[AsyncComponentBase] Processing synchronously");
+            var worker = CreateWorker(p => Message = p);
+            worker.GatherInput(DA);
+            worker.DoWorkAsync(CancellationToken.None).Wait();
+            worker.SetOutput(DA, out _);
+            OnWorkerCompleted();
+        }
+
+        /// <summary>
+        /// Solves the instance of the component, managing the async workflow and state transitions.
+        /// </summary>
+        /// <param name="DA">The Grasshopper data access object.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[AsyncComponentBase] SolveInstance - Start. InPreSolve: {InPreSolve}, CurrentWorker: {CurrentWorker != null}, IsWorkerCompletion: {StateManager.CurrentState == ComponentState.Completed}");
@@ -184,7 +263,7 @@ namespace SmartHopper.Core.Async.Components
                 }
 
                 Debug.WriteLine("[AsyncComponentBase] About to gather input");
-                CurrentWorker.GatherInput(DA, Params);
+                CurrentWorker.GatherInput(DA);
                 Debug.WriteLine("[AsyncComponentBase] Input gathered successfully");
 
                 // Start the task
@@ -200,16 +279,9 @@ namespace SmartHopper.Core.Async.Components
             }
         }
 
-        protected virtual void ProcessSynchronously(IGH_DataAccess DA)
-        {
-            Debug.WriteLine("[AsyncComponentBase] Processing synchronously");
-            var worker = CreateWorker(p => Message = p);
-            worker.GatherInput(DA, Params);
-            worker.DoWorkAsync(CancellationToken.None).Wait();
-            worker.SetOutput(DA, out _);
-            OnWorkerCompleted();
-        }
-
+        /// <summary>
+        /// Expires downstream objects when the component is updated.
+        /// </summary>
         protected override void ExpireDownStreamObjects()
         {
             // Only expire downstream objects if we're not in the middle of a worker completion
@@ -222,6 +294,9 @@ namespace SmartHopper.Core.Async.Components
             // }
         }
 
+        /// <summary>
+        /// Called when the worker completes its operation.
+        /// </summary>
         protected virtual void OnWorkerCompleted()
         {
             // AQUÍ NO S'HI ARRIBA MAI, NOMÉS AMB EXECUCIÓ SINCRONA

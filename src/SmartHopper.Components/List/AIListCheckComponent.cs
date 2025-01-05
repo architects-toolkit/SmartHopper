@@ -12,7 +12,6 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Models;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
@@ -29,10 +28,9 @@ namespace SmartHopper.Components.List
     {
         private GH_Structure<GH_Boolean> lastResult = null;
         private int branches_input = 0;
-        private int branches_processed = 0;
         private IGH_DataAccess DA;
 
-        public string GetEndpoint()
+        protected override string GetEndpoint()
         {
             return "list-check";
         }
@@ -59,11 +57,6 @@ namespace SmartHopper.Components.List
 
         protected override System.Drawing.Bitmap Icon => Resources.listcheck;
 
-        protected override string GetPrompt(IGH_DataAccess DA)
-        {
-            return null;
-        }
-
         protected override AsyncWorker CreateWorker(Action<string> progressReporter)
         {
             Debug.WriteLine("[AIListCheck] Creating new worker");
@@ -85,26 +78,9 @@ namespace SmartHopper.Components.List
             return null;
         }
 
-        protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
+        protected override bool ProcessFinalResponse(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIListCheck] ProcessAIResponse - Start");
-            Debug.WriteLine($"[AIListCheck] Response: {(response == null ? "null" : "not null")}");
-
-            if (response == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
-                Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: Null response");
-                return false;
-            }
-
-            if (response.FinishReason == "error")
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
-                Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: " + response.Response);
-                return false;
-            }
-
-            Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}");
 
             // Get the worker's processed response tree
             var worker = (AIListCheckWorker)CurrentWorker;
@@ -112,20 +88,18 @@ namespace SmartHopper.Components.List
             {
                 lastResult = worker.result;
                 DA.SetDataTree(0, lastResult);
-                SetMetricsOutput(DA, branches_input, branches_processed);
+                SetMetricsOutput(DA, branches_input);
                 RestoreMetrics();
                 return true;
             }
 
             RestoreMetrics();
-
             return false;
         }
 
         protected void RestoreMetrics()
         {
             branches_input = 0;
-            branches_processed = 0;
         }
 
         private class AIListCheckWorker : AIWorkerBase
@@ -133,7 +107,7 @@ namespace SmartHopper.Components.List
             private GH_Structure<IGH_Goo> inputTree;
             private GH_Structure<GH_String> questionTree;
             internal GH_Structure<GH_Boolean> result;
-            private readonly IGH_DataAccess _dataAccess;
+            private readonly AIListCheck _parentListCheck;
 
             public AIListCheckWorker(AIListCheck parent)
                 : this(null, parent, null, null)
@@ -144,23 +118,20 @@ namespace SmartHopper.Components.List
     : base(progressReporter, parent, addRuntimeMessage)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] Constructor - DataAccess is null? {dataAccess == null}");
-                _dataAccess = dataAccess;
-                //result = parent.lastResult;
+                _parentListCheck = parent;
             }
 
-            private AIListCheck ParentComponent => (AIListCheck)_parent;
-
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            public override void GatherInput(IGH_DataAccess DA)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] GatherInput - Start. DA is null? {DA == null}");
-                base.GatherInput(DA, p);
+                base.GatherInput(DA);
 
                 // Get instructions tree
                 inputTree = new GH_Structure<IGH_Goo>();
                 if (!DA.GetDataTree("List", out inputTree))
                 {
                     Debug.WriteLine("[AITextGenerateWorker] GatherInput - Failed to get list tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
+                    _parentListCheck.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got input tree with {inputTree?.DataCount ?? 0} items");
@@ -173,7 +144,7 @@ namespace SmartHopper.Components.List
                 if (!DA.GetDataTree("Question", out questionTree))
                 {
                     Debug.WriteLine("[AITextGenerateWorker] GatherInput - Failed to get question tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get question data");
+                    _parentListCheck.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get question data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got question tree with {questionTree?.DataCount ?? 0} questions");
@@ -256,9 +227,8 @@ namespace SmartHopper.Components.List
                         new GH_Structure<GH_String>[] { localInputTree, localQuestionTree },
                         ProcessBranch,
                         onlyMatchingPaths: false,  // Process all unique paths
-                        groupIdenticalBranches: true,  // Group or not?
+                        groupIdenticalBranches: true,  // Group equal branches, if any
                         token);
-
 
                     result = new GH_Structure<GH_Boolean>();
                     foreach (var path in processedResult.Paths)
@@ -268,7 +238,7 @@ namespace SmartHopper.Components.List
                     }
 
                     // Store branches count to parent component
-                    ParentComponent.branches_input = processedResult.Paths.Count;
+                    _parentListCheck.branches_input = processedResult.Paths.Count;
 
                     OnWorkCompleted();
                 }
@@ -283,9 +253,6 @@ namespace SmartHopper.Components.List
             {
                 Debug.WriteLine($"[ProcessBranch] Processing branch at path: {path}");
                 Debug.WriteLine($"[ProcessBranch] Branches count: {branches?.Count}");
-
-                // Store branches count to parent component
-                ParentComponent.branches_processed += 1;
 
                 try
                 {
@@ -334,7 +301,7 @@ namespace SmartHopper.Components.List
                             var result = await ProcessAIResponse(itemsList, questionList, ct);
                             var boolResult = result.Select(r =>
                             {
-                                var boolValue = ParentComponent.ParseBooleanResponse(r.ToString());
+                                var boolValue = _parentListCheck.ParseBooleanResponse(r.ToString());
                                 return new GH_Boolean(boolValue ?? false);
                             });
                             return boolResult.ToList();
@@ -360,7 +327,6 @@ namespace SmartHopper.Components.List
                 };
 
                 var response = await GetResponse(messages, ct);
-                _lastAIResponse = response;
 
                 if (ct.IsCancellationRequested) return new List<IGH_Goo> { new GH_Boolean(false) };
 
@@ -370,7 +336,7 @@ namespace SmartHopper.Components.List
                     return new List<IGH_Goo> { new GH_Boolean(false) };
                 }
 
-                var result = ParentComponent.ParseBooleanResponse(response.Response);
+                var result = _parentListCheck.ParseBooleanResponse(response.Response);
                 if (!result.HasValue)
                 {
                     ReportError($"Could not determine boolean value from response: {response.Response}");
@@ -385,10 +351,9 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[SetOutput] Starting with result DataCount: {result?.DataCount ?? 0}");
                 doneMessage = null;
 
-                if (result != null && _lastAIResponse != null)
+                if (result != null)
                 {
-                    Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    ParentComponent.ProcessFinalResponse(_lastAIResponse, DA);
+                    _parentListCheck.ProcessFinalResponse(DA);
                 }
             }
         }
