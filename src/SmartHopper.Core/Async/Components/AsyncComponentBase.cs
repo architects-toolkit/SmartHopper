@@ -184,7 +184,7 @@ namespace SmartHopper.Core.Async.Components
                 }
 
                 Debug.WriteLine("[AsyncComponentBase] About to gather input");
-                CurrentWorker.GatherInput(DA, Params);
+                CurrentWorker.GatherInput(DA);
                 Debug.WriteLine("[AsyncComponentBase] Input gathered successfully");
 
                 // Start the task
@@ -204,7 +204,7 @@ namespace SmartHopper.Core.Async.Components
         {
             Debug.WriteLine("[AsyncComponentBase] Processing synchronously");
             var worker = CreateWorker(p => Message = p);
-            worker.GatherInput(DA, Params);
+            worker.GatherInput(DA);
             worker.DoWorkAsync(CancellationToken.None).Wait();
             worker.SetOutput(DA, out _);
             OnWorkerCompleted();

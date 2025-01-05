@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Async.Workers
         internal bool IsDone { get; private set; }
 
         public abstract Task DoWorkAsync(CancellationToken token);
-        public abstract void GatherInput(IGH_DataAccess data, GH_ComponentParamServer p);
+        public abstract void GatherInput(IGH_DataAccess data);
         public abstract void SetOutput(IGH_DataAccess data, out string doneMessage);
 
         public virtual bool ShouldStartWork => true;
