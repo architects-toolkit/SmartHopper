@@ -180,20 +180,8 @@ namespace SmartHopper.Core.Async.Components
                 new JProperty("branches_processed", _responseMetrics.Count)
             );
 
-            // Get the number of additional outputs from the derived component
-            int additionalOutputCount = 0;
-            var outputParams = Params.Output;
-            for (int i = 0; i < outputParams.Count; i++)
-            {
-                if (outputParams[i].Name == "Metrics")
-                {
-                    additionalOutputCount = i;
-                    break;
-                }
-            }
-
-            DA.SetData(additionalOutputCount, metricsJson);
-            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics at index {additionalOutputCount}. JSON: {metricsJson}");
+            DA.SetData("Metrics", metricsJson);
+            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
 
             // Clear the stored metrics after setting the output
             _responseMetrics.Clear();
