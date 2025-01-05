@@ -80,26 +80,26 @@ namespace SmartHopper.Components.List
             return null;
         }
 
-        protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
+        protected override bool ProcessFinalResponse(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIListCheck] ProcessAIResponse - Start");
-            Debug.WriteLine($"[AIListCheck] Response: {(response == null ? "null" : "not null")}");
+            //Debug.WriteLine($"[AIListCheck] Response: {(response == null ? "null" : "not null")}");
 
-            if (response == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
-                Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: Null response");
-                return false;
-            }
+            //if (response == null)
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
+            //    Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: Null response");
+            //    return false;
+            //}
 
-            if (response.FinishReason == "error")
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
-                Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: " + response.Response);
-                return false;
-            }
+            //if (response.FinishReason == "error")
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
+            //    Debug.WriteLine("[AIListCheck] ProcessAIResponse - Error: " + response.Response);
+            //    return false;
+            //}
 
-            Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}");
+            //Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}");
 
             // Get the worker's processed response tree
             var worker = (AIListCheckWorker)CurrentWorker;
@@ -352,7 +352,7 @@ namespace SmartHopper.Components.List
                 };
 
                 var response = await GetResponse(messages, ct);
-                _lastAIResponse = response;
+                //_lastAIResponse = response;
 
                 if (ct.IsCancellationRequested) return new List<IGH_Goo> { new GH_Boolean(false) };
 
@@ -377,10 +377,12 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[SetOutput] Starting with result DataCount: {result?.DataCount ?? 0}");
                 doneMessage = null;
 
-                if (result != null && _lastAIResponse != null)
+                if (result != null)
+                //if (result != null && _lastAIResponse != null)
                 {
-                    Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    _parentListCheck.ProcessFinalResponse(_lastAIResponse, DA);
+                    //Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
+                    //_parentListCheck.ProcessFinalResponse(_lastAIResponse, DA);
+                    _parentListCheck.ProcessFinalResponse(DA);
                 }
             }
         }
