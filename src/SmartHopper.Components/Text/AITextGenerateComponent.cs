@@ -13,7 +13,6 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
@@ -26,14 +25,13 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Components.Text
 {
-    public class AITextGenerate : AIStatefulComponentBase, IEndpointProvider
+    public class AITextGenerate : AIStatefulComponentBase
     {
         private GH_Structure<GH_String> lastResponse = null;
         private int branches_input = 0;
-        private int branches_processed = 0;
         private IGH_DataAccess DA;
 
-        public string GetEndpoint()
+        protected override string GetEndpoint()
         {
             return "text-generate";
         }
@@ -58,41 +56,9 @@ namespace SmartHopper.Components.Text
 
         protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
 
-        protected override string GetPrompt(IGH_DataAccess DA)
-        {
-            this.DA = DA;
-
-            // Get the prompt tree
-            GH_Structure<GH_String> promptTree = new GH_Structure<GH_String>();
-            if (!DA.GetDataTree("Prompt", out promptTree))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
-                return null;
-            }
-
-            // Combine all prompts from the tree
-            var combinedPrompt = string.Join("\n",
-                promptTree.AllData(true)
-                    .Where(p => p != null)
-                    .Select(p => ((GH_String)p).Value));
-
-            return combinedPrompt;
-            //return null;
-        }
-
-        protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
+        protected override bool ProcessFinalResponse(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AITextGenerate] ProcessAIResponse - Start");
-
-            if (response == null || response.FinishReason == "error")
-            {
-                Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response null? {response == null}, Finish reason: {response?.FinishReason}");
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error in AI response: {response?.Response ?? "No response"}");
-                Debug.WriteLine("[AITextGenerate] ProcessAIResponse - Error: Null response or error finish reason");
-                return false;
-            }
-
-            Debug.WriteLine($"[AITextGenerate] ProcessAIResponse - Response received. InTokens: {response.InTokens}, OutTokens: {response.OutTokens}, Model: {response.Model}");
 
             // Get the worker's processed response tree
             var worker = (AITextGenerateWorker)CurrentWorker;
@@ -100,7 +66,7 @@ namespace SmartHopper.Components.Text
             {
                 lastResponse = worker.response;
                 DA.SetDataTree(0, lastResponse);
-                SetMetricsOutput(DA, branches_input, branches_processed);
+                SetMetricsOutput(DA, branches_input);
                 RestoreMetrics();
                 return true;
             }
@@ -111,7 +77,6 @@ namespace SmartHopper.Components.Text
         protected void RestoreMetrics()
         {
             branches_input = 0;
-            branches_processed = 0;
         }
 
         protected override AsyncWorker CreateWorker(Action<string> progressReporter)
@@ -125,8 +90,7 @@ namespace SmartHopper.Components.Text
             private GH_Structure<GH_String> instructionsTree;
             private GH_Structure<GH_String> promptTree;
             internal GH_Structure<GH_String> response;
-            private readonly IGH_DataAccess _dataAccess;
-            //private AIResponse _lastAIResponse;
+            private readonly AITextGenerate _parentTextGenerate;
 
             public AITextGenerateWorker(AITextGenerate parent)
                 : this(null, parent, null, null)
@@ -137,16 +101,14 @@ namespace SmartHopper.Components.Text
                 : base(progressReporter, parent, addRuntimeMessage)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] Constructor - DataAccess is null? {dataAccess == null}");
-                _dataAccess = dataAccess;
                 response = parent.lastResponse;
+                _parentTextGenerate = parent;
             }
 
-            private AITextGenerate ParentComponent => (AITextGenerate)_parent;
-
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            public override void GatherInput(IGH_DataAccess DA)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] GatherInput - Start. DA is null? {DA == null}");
-                base.GatherInput(DA, p);
+                base.GatherInput(DA);
 
                 try
                 {
@@ -156,7 +118,7 @@ namespace SmartHopper.Components.Text
                     if (!DA.GetDataTree(1, out instructionsTree))
                     {
                         Debug.WriteLine("[AITextGenerateWorker] GatherInput - Failed to get instructions tree");
-                        ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get instructions data");
+                        _parentTextGenerate.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get instructions data");
                         return;
                     }
 
@@ -166,7 +128,7 @@ namespace SmartHopper.Components.Text
                     if (!DA.GetDataTree(0, out promptTree))
                     {
                         Debug.WriteLine("[AITextGenerateWorker] GatherInput - Failed to get prompt tree");
-                        ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
+                        _parentTextGenerate.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
                         return;
                     }
 
@@ -174,14 +136,14 @@ namespace SmartHopper.Components.Text
                     if (promptTree.DataCount == 0)
                     {
                         Debug.WriteLine("[AITextGenerateWorker] GatherInput - Prompt tree is empty");
-                        ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Prompt tree is empty");
+                        _parentTextGenerate.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Prompt tree is empty");
                         return;
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AITextGenerateWorker] GatherInput - Exception: {ex.Message}\n{ex.StackTrace}");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error gathering input: {ex.Message}");
+                    _parentTextGenerate.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error gathering input: {ex.Message}");
                 }
             }
 
@@ -189,17 +151,6 @@ namespace SmartHopper.Components.Text
             {
                 Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Start. Path: {path}");
                 Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Branches count: {branches?.Count}");
-
-                // Store branches count to parent component
-                ParentComponent.branches_processed += 1;
-
-                //if (branches != null)
-                //{
-                //    foreach (var kvp in branches)
-                //    {
-                //        Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Branch values count: {kvp.Value?.Count}");
-                //    }
-                //}
 
                 try
                 {
@@ -211,14 +162,14 @@ namespace SmartHopper.Components.Text
                             Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Processing items. Items count: {items?.Count}");
                             if (items != null)
                             {
-                                Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Values count: {items.Values?.Count()}");
+                                Debug.WriteLine($"[AITextGenerateWorker] ProcessBranch - Values count: {items.Values?.Count}");
                             }
 
                             string systemPrompt = string.Empty;
                             string userPrompt = string.Empty;
 
                             // Get instruction from first tree if available (the system instructions)
-                            if (items.Values.Any())
+                            if (items.Values.Count > 0)
                             {
                                 var instruction = items.Values.ElementAt(0);
                                 if (instruction != null)
@@ -233,7 +184,7 @@ namespace SmartHopper.Components.Text
                             }
 
                             // Get prompt from second tree if available (the user prompt)
-                            if (items.Values.Count() > 1)
+                            if (items.Values.Count > 1)
                             {
                                 var prompt = items.Values.ElementAt(1);
                                 if (prompt != null)
@@ -292,7 +243,6 @@ namespace SmartHopper.Components.Text
                     return new List<IGH_Goo>();
                 }
 
-                _lastAIResponse = response;
                 return new List<IGH_Goo> { new GH_String(response.Response) };
             }
 
@@ -348,7 +298,7 @@ namespace SmartHopper.Components.Text
                     }
 
                     // Store branches count to parent component
-                    ParentComponent.branches_input = response.Paths.Count;
+                    _parentTextGenerate.branches_input = response.Paths.Count;
 
                     OnWorkCompleted();
                 }
@@ -363,10 +313,7 @@ namespace SmartHopper.Components.Text
             {
                 doneMessage = null;
 
-                if (_lastAIResponse != null)
-                {
-                    ParentComponent.ProcessFinalResponse(_lastAIResponse, DA);
-                }
+                _parentTextGenerate.ProcessFinalResponse(DA);
             }
         }
     }

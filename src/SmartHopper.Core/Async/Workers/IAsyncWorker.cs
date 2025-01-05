@@ -44,8 +44,7 @@ namespace SmartHopper.Core.Async.Workers
         /// Gathers input data from the component.
         /// </summary>
         /// <param name="data">Data access object for getting input parameters.</param>
-        /// <param name="p">Component parameter server for accessing parameter information.</param>
-        void GatherInput(IGH_DataAccess data, GH_ComponentParamServer p);
+        void GatherInput(IGH_DataAccess data);
 
         /// <summary>
         /// Sets the output data on the component.
