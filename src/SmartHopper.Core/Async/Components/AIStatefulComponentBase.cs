@@ -325,8 +325,7 @@ namespace SmartHopper.Core.Async.Components
             /// Gathers input data from the data access object (DA) and sets the model and prompt for the AI worker.
             /// </summary>
             /// <param name="DA">The data access object</param>
-            /// <param name="p">The parameter server</param>
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            public override void GatherInput(IGH_DataAccess DA)
             {
                 Debug.WriteLine("[AIWorkerBase] GatherInput - Start");
                 string model = null;

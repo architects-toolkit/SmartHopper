@@ -144,10 +144,10 @@ namespace SmartHopper.Components.List
 
             private AIListFilter ParentComponent => (AIListFilter)_parent;
 
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            public override void GatherInput(IGH_DataAccess DA)
             {
                 Debug.WriteLine($"[AIListFilterWorker] GatherInput - Start. DA is null? {DA == null}");
-                base.GatherInput(DA, p);
+                base.GatherInput(DA);
 
                 // Get input tree
                 inputTree = new GH_Structure<IGH_Goo>();

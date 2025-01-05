@@ -150,10 +150,10 @@ namespace SmartHopper.Components.List
 
             private AIListCheck ParentComponent => (AIListCheck)_parent;
 
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            public override void GatherInput(IGH_DataAccess DA)
             {
                 Debug.WriteLine($"[AITextGenerateWorker] GatherInput - Start. DA is null? {DA == null}");
-                base.GatherInput(DA, p);
+                base.GatherInput(DA);
 
                 // Get instructions tree
                 inputTree = new GH_Structure<IGH_Goo>();
