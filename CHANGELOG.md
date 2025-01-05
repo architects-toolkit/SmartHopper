@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Refactored AI Stateful Component Base adding Docstrings, removing irrelevant Debug.WriteLine statements, and removing unused variables.
+- Refactored AI Async Stateful Component Base by adding Docstrings, removing irrelevant Debug.WriteLine statements, and removing unused variables.
 - Removed IEndpointProvider
 - Clean up comments
+- Refactored Async Stateful Component Base by adding Docstrings and rearranging the order of methods
+- Refactored Async Component Base by adding Docstrings and rearranging the order of methods
 
 ## [0.0.0-dev.250104] - 2025-01-04
 
