@@ -58,27 +58,6 @@ namespace SmartHopper.Components.Text
 
         protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
 
-        //protected string GetPrompt(IGH_DataAccess DA)
-        //{
-        //    this.DA = DA;
-
-        //    // Get the prompt tree
-        //    GH_Structure<GH_String> promptTree = new GH_Structure<GH_String>();
-        //    if (!DA.GetDataTree("Prompt", out promptTree))
-        //    {
-        //        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
-        //        return null;
-        //    }
-
-        //    // Combine all prompts from the tree
-        //    var combinedPrompt = string.Join("\n",
-        //        promptTree.AllData(true)
-        //            .Where(p => p != null)
-        //            .Select(p => ((GH_String)p).Value));
-
-        //    return combinedPrompt;
-        //}
-
         protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
         {
             Debug.WriteLine("[AITextGenerate] ProcessAIResponse - Start");
@@ -126,7 +105,6 @@ namespace SmartHopper.Components.Text
             internal GH_Structure<GH_String> response;
             private readonly IGH_DataAccess _dataAccess;
             private readonly AITextGenerate _parentTextGenerate;
-            //private AIResponse _lastAIResponse;
 
             public AITextGenerateWorker(AITextGenerate parent)
                 : this(null, parent, null, null)

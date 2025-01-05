@@ -59,12 +59,6 @@ namespace SmartHopper.Components.List
 
         protected override System.Drawing.Bitmap Icon => Resources.listfilter;
 
-        //protected override string GetPrompt(IGH_DataAccess DA)
-        //{
-        //    // We'll handle prompts directly in ProcessAIResponse
-        //    return null;
-        //}
-
         private static List<int> ParseIndicesFromResponse(string response)
         {
             var indices = new List<int>();
@@ -134,7 +128,6 @@ namespace SmartHopper.Components.List
             internal GH_Structure<IGH_Goo> result;
             private readonly IGH_DataAccess _dataAccess;
             private readonly AIListFilter _parentListFilter;
-            //private AIResponse _lastAIResponse;
 
             public AIListFilterWorker(Action<string> progressReporter, AIListFilter parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage, IGH_DataAccess dataAccess)
                 : base(progressReporter, parent, addRuntimeMessage)

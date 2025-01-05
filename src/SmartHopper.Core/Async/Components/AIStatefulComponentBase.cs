@@ -121,13 +121,6 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="pManager">The output parameter manager.</param>
         protected abstract void RegisterAdditionalOutputParams(GH_OutputParamManager pManager);
 
-        ///// <summary>
-        ///// Get the prompt to send to the AI service.
-        ///// </summary>
-        ///// <param name="DA">The data access object.</param>
-        ///// <returns>The prompt to send to the AI service.</returns>
-        //protected abstract string GetPrompt(IGH_DataAccess DA);
-
         /// <summary>
         /// Process the AI response and return true if successful.
         /// </summary>
@@ -294,7 +287,6 @@ namespace SmartHopper.Core.Async.Components
         protected abstract class AIWorkerBase : StatefulWorker
         {
             protected AIResponse _lastAIResponse;
-            //protected string Prompt { get; private set; }
             protected readonly AIStatefulComponentBase _parentStatefulComponent;
 
             /// <summary>
@@ -325,7 +317,6 @@ namespace SmartHopper.Core.Async.Components
                 Debug.WriteLine($"[AIWorkerBase] GatherInput - Parent component: {_parentStatefulComponent.GetType().Name}");
 
                 _parentStatefulComponent.SetModel(model);
-                //Prompt = _parentStatefulComponent.GetPrompt(DA);
             }
 
             /// <summary>
