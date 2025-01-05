@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Refactored AI Stateful Component Base adding Docstrings, removing irrelevant Debug.WriteLine statements, and removing unused variables.
-- Removed useless IEndpointProvider
+- Removed IEndpointProvider
 - Clean up comments
 
 ## [0.0.0-dev.250104] - 2025-01-04
