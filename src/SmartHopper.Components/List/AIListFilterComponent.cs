@@ -29,10 +29,9 @@ namespace SmartHopper.Components.List
     {
         private GH_Structure<IGH_Goo> lastResult = null;
         private int branches_input = 0;
-        private int branches_processed = 0;
         private IGH_DataAccess DA;
 
-        public string GetEndpoint()
+        protected override string GetEndpoint()
         {
             return "list-filter";
         }
@@ -59,12 +58,6 @@ namespace SmartHopper.Components.List
 
         protected override System.Drawing.Bitmap Icon => Resources.listfilter;
 
-        protected override string GetPrompt(IGH_DataAccess DA)
-        {
-            // We'll handle prompts directly in ProcessAIResponse
-            return null;
-        }
-
         private static List<int> ParseIndicesFromResponse(string response)
         {
             var indices = new List<int>();
@@ -87,24 +80,10 @@ namespace SmartHopper.Components.List
             return worker;
         }
 
-        protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
+        protected override bool ProcessFinalResponse(IGH_DataAccess DA)
+        //protected override bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIListFilter] ProcessAIResponse - Start");
-            Debug.WriteLine($"[AIListFilter] Response: {(response == null ? "null" : "not null")}");
-
-            if (response == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No response received from AI");
-                Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: Null response");
-                return false;
-            }
-
-            if (response.FinishReason == "error")
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {response.Response}");
-                Debug.WriteLine("[AIListFilter] ProcessAIResponse - Error: " + response.Response);
-                return false;
-            }
 
             // Get the worker's processed response tree
             var worker = (AIListFilterWorker)CurrentWorker;
@@ -112,7 +91,7 @@ namespace SmartHopper.Components.List
             {
                 lastResult = worker.result;
                 DA.SetDataTree(0, lastResult);
-                SetMetricsOutput(DA, branches_input, branches_processed);
+                SetMetricsOutput(DA, branches_input);
                 RestoreMetrics();
                 return true;
             }
@@ -124,7 +103,6 @@ namespace SmartHopper.Components.List
         protected void RestoreMetrics()
         {
             branches_input = 0;
-            branches_processed = 0;
         }
 
         private class AIListFilterWorker : AIWorkerBase
@@ -132,29 +110,28 @@ namespace SmartHopper.Components.List
             private GH_Structure<IGH_Goo> inputTree;
             private GH_Structure<GH_String> promptTree;
             internal GH_Structure<IGH_Goo> result;
-            private readonly IGH_DataAccess _dataAccess;
-            //private AIResponse _lastAIResponse;
+            //private readonly IGH_DataAccess _dataAccess;
+            private readonly AIListFilter _parentListFilter;
 
             public AIListFilterWorker(Action<string> progressReporter, AIListFilter parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage, IGH_DataAccess dataAccess)
                 : base(progressReporter, parent, addRuntimeMessage)
             {
                 Debug.WriteLine($"[AIListFilterWorker] Constructor - DataAccess is null? {dataAccess == null}");
-                _dataAccess = dataAccess;
+                //_dataAccess = dataAccess;
+                _parentListFilter = parent;
             }
 
-            private AIListFilter ParentComponent => (AIListFilter)_parent;
-
-            public override void GatherInput(IGH_DataAccess DA, GH_ComponentParamServer p)
+            public override void GatherInput(IGH_DataAccess DA)
             {
                 Debug.WriteLine($"[AIListFilterWorker] GatherInput - Start. DA is null? {DA == null}");
-                base.GatherInput(DA, p);
+                base.GatherInput(DA);
 
                 // Get input tree
                 inputTree = new GH_Structure<IGH_Goo>();
                 if (!DA.GetDataTree("List", out inputTree))
                 {
                     Debug.WriteLine("[AIListFilterWorker] GatherInput - Failed to get list tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
+                    _parentListFilter.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get list data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got input tree with {inputTree?.DataCount ?? 0} items");
@@ -164,7 +141,7 @@ namespace SmartHopper.Components.List
                 if (!DA.GetDataTree("Prompt", out promptTree))
                 {
                     Debug.WriteLine("[AIListFilterWorker] GatherInput - Failed to get prompt tree");
-                    ParentComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
+                    _parentListFilter.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get prompt data");
                     return;
                 }
                 Debug.WriteLine($"[GatherInput] Got prompt tree with {promptTree?.DataCount ?? 0} prompts");
@@ -199,7 +176,6 @@ namespace SmartHopper.Components.List
                     }
 
                     var concatenatedString = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
-                    //var concatenatedString = "[" + string.Join(",", stringList) + "]"; // Array format
                     result.Append(new GH_String(concatenatedString), path);
                 }
 
@@ -263,7 +239,6 @@ namespace SmartHopper.Components.List
                         groupIdenticalBranches: true,
                         token);
 
-
                     var filteredResult = new GH_Structure<IGH_Goo>();
 
                     // Handle potential path mismatches or one-to-many/many-to-one cases
@@ -304,7 +279,7 @@ namespace SmartHopper.Components.List
                     result = filteredResult;
 
                     // Store branches count to parent component
-                    ParentComponent.branches_input = processedResult.Paths.Count;
+                    _parentListFilter.branches_input = processedResult.Paths.Count;
 
                     OnWorkCompleted();
                 }
@@ -320,9 +295,6 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[ProcessBranch] Processing branch at path: {path}");
                 Debug.WriteLine($"[ProcessBranch] Branches count: {branches?.Count}");
 
-                // Store branches count to parent component
-                ParentComponent.branches_processed += 1;
-
                 try
                 {
                     var processedItems = await BranchProcessor.ProcessItemsInParallelAsync(
@@ -332,7 +304,7 @@ namespace SmartHopper.Components.List
                             Debug.WriteLine($"[ProcessBranch] Processing items. Items count: {items?.Count}");
                             if (items != null)
                             {
-                                Debug.WriteLine($"[ProcessBranch] Values count: {items.Values?.Count()}");
+                                Debug.WriteLine($"[ProcessBranch] Values count: {items.Values?.Count}");
                             }
 
                             string itemsList = string.Empty;
@@ -350,7 +322,7 @@ namespace SmartHopper.Components.List
                             }
 
                             // Get all items from second tree (prompts)
-                            if (items.Values.Count() > 1)
+                            if (items.Values.Count > 1)
                             {
                                 promptList = items.Values.ElementAt(1)?.ToString() ?? string.Empty;
                             }
@@ -402,7 +374,6 @@ namespace SmartHopper.Components.List
             protected override async Task<List<IGH_Goo>> ProcessAIResponse(string list, string prompt, CancellationToken ct)
             {
                 var response = await GetAIResponse(list, prompt, ct);
-                _lastAIResponse = response;
 
                 if (ct.IsCancellationRequested) return new List<IGH_Goo>();
 
@@ -432,10 +403,9 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[SetOutput] Starting with result DataCount: {result?.DataCount ?? 0}");
                 doneMessage = null;
 
-                if (result != null && _lastAIResponse != null)
+                if (result != null)
                 {
-                    Debug.WriteLine($"[SetOutput] Processing AI response with metrics. InTokens: {_lastAIResponse.InTokens}, OutTokens: {_lastAIResponse.OutTokens}");
-                    ParentComponent.ProcessFinalResponse(_lastAIResponse, DA);
+                    _parentListFilter.ProcessFinalResponse(DA);
                 }
             }
         }

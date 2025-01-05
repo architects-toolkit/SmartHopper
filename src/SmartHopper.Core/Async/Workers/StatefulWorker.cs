@@ -13,11 +13,11 @@
  * Copyright (c) 2022 Ivan Sukhikh
  */
 
-using System;
+using Rhino;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Async.Components;
-using Rhino;
 using SmartHopper.Core.Async.Core.StateManagement;
+using System;
 
 namespace SmartHopper.Core.Async.Workers
 {
