@@ -141,7 +141,6 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[AITextGenerateWorker] Constructor - DataAccess is null? {dataAccess == null}");
                 _dataAccess = dataAccess;
                 _parentListCheck = parent;
-                //result = parent.lastResult;
             }
 
             public override void GatherInput(IGH_DataAccess DA)
