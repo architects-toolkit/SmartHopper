@@ -128,7 +128,6 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="DA">The data access object.</param>
         /// <returns>True if the response was processed successfully, false otherwise.</returns>
         protected abstract bool ProcessFinalResponse(IGH_DataAccess DA);
-        //protected abstract bool ProcessFinalResponse(AIResponse response, IGH_DataAccess DA);
 
         /// <summary>
         /// Stores the given AI response metrics in the component's internal metrics list.
@@ -150,7 +149,7 @@ namespace SmartHopper.Core.Async.Components
         protected void SetMetricsOutput(IGH_DataAccess DA, int initialBranches = 0)
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
-            
+
             if (!_responseMetrics.Any())
             {
                 Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - No response, skipping metrics");

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clean up comments
 - Refactored Async Stateful Component Base by adding Docstrings and rearranging the order of methods
 - Refactored Async Component Base by adding Docstrings and rearranging the order of methods
+- Enhanced state management system with granular state tracking
+
+### Fixed
+
+- Fixed lack of comprehensive error when API key is not correct ([#13](https://github.com/architects-toolkit/SmartHopper/issues/13))
 
 ## [0.0.0-dev.250104] - 2025-01-04
 
