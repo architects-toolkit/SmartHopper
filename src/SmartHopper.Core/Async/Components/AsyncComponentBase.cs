@@ -167,7 +167,7 @@ namespace SmartHopper.Core.Async.Components
             var worker = CreateWorker(p => Message = p);
             worker.GatherInput(DA);
             worker.DoWorkAsync(CancellationToken.None).Wait();
-            //worker.SetOutput(DA, out _);
+            worker.SetOutput(DA, out _);
             OnWorkerCompleted();
         }
 
