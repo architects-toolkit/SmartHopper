@@ -12,7 +12,6 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Interfaces;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;

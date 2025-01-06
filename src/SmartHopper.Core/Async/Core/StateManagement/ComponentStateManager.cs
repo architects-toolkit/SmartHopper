@@ -22,26 +22,44 @@ namespace SmartHopper.Core.Async.Core.StateManagement
         private readonly GH_Component _component;
         private ComponentState _currentState;
         private readonly ComponentMessaging _messaging;
-        private bool _setData;
+        private bool _IsResultOut;
+
+        // Error tracking fields
+        private bool _hasTemporaryError;
+        private bool _hasPersistentError;
+        private string _lastErrorMessage;
 
         public ComponentStateManager(GH_Component component)
         {
             _component = component ?? throw new ArgumentNullException(nameof(component));
             _messaging = new ComponentMessaging(component);
             _currentState = ComponentState.NeedsRun;
+            ResetStateFlags();
+            _messaging.UpdateMessage(_currentState);
+        }
+
+        private void ResetStateFlags()
+        {
+            _hasTemporaryError = false;
+            _hasPersistentError = false;
+            _lastErrorMessage = string.Empty;
+            
         }
 
         public ComponentState CurrentState => _currentState;
+        public bool HasTemporaryError => _hasTemporaryError;
+        public bool HasPersistentError => _hasPersistentError;
+        public string LastErrorMessage => _lastErrorMessage;
 
-        public bool SetData
+        public bool IsResultOut
         {
-            get => _setData;
+            get => _IsResultOut;
             set
             {
-                if (_setData != value)
+                if (_IsResultOut != value)
                 {
-                    _setData = value;
-                    Debug.WriteLine($"[ComponentStateManager] SetData changed to: {value}");
+                    _IsResultOut = value;
+                    Debug.WriteLine($"[ComponentStateManager] IsResultOut changed to: {value}");
                 }
             }
         }
@@ -50,20 +68,40 @@ namespace SmartHopper.Core.Async.Core.StateManagement
 
         public void TransitionTo(ComponentState newState)
         {
+            Debug.WriteLine($"[ComponentStateManager] Transition to: {newState} --- HasTemporaryError: {HasTemporaryError}, HasPersistentError: {HasPersistentError}");
+
             _messaging.UpdateMessage(newState);
 
             if (_currentState == newState) return;
-
             _currentState = newState;
             StateChanged?.Invoke(newState);
         }
 
-        /// <summary>
-        /// Updates state to Error if a runtime error occurs
-        /// </summary>
+        public void SetError(string message, bool isPersistent = false)
+        {
+            _lastErrorMessage = message;
+            if (isPersistent)
+            {
+                _hasPersistentError = true;
+                _hasTemporaryError = false;
+            }
+            else
+            {
+                _hasTemporaryError = true;
+            }
+            TransitionTo(ComponentState.Error);
+        }
+
+        public void ClearErrors()
+        {
+            _hasTemporaryError = false;
+            _hasPersistentError = false;
+            _lastErrorMessage = string.Empty;
+        }
+
         public void HandleRuntimeError()
         {
-            TransitionTo(ComponentState.Error);
+            SetError("Runtime error occurred", true);
         }
     }
 }
