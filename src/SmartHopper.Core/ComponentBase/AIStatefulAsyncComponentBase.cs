@@ -146,9 +146,11 @@ namespace SmartHopper.Core.ComponentBase
         /// </remarks>
         protected abstract void OnSolveInstance(IGH_DataAccess DA);
 
-        /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-        /* PERSISTENT DATA MANAGER * * * * * * * * * * * * * * * * * * * * * * * * * */
-        /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+        // --------------------------------------------------
+        // PERSISTENT DATA MANAGEMENT
+        // --------------------------------------------------
+        // This section of code is responsible for storing
+        // and retrieving persistent data for the component.
 
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
