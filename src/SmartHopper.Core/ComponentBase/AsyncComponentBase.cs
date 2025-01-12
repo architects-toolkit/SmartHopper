@@ -21,7 +21,6 @@
 
 using Grasshopper.Kernel;
 using System;
-using System.Threading.Tasks;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -37,6 +36,21 @@ namespace SmartHopper.Core.ComponentBase
         //private readonly IMessagingService _messagingService;
         //private readonly IStateManager _stateManager;
         
+        /// <summary>
+        /// The current worker instance
+        /// </summary>
+        protected AsyncWorkerBase _worker;
+
+        /// <summary>
+        /// Gets whether the component is in pre-solve phase
+        /// </summary>
+        protected bool InPreSolve { get; private set; }
+
+        /// <summary>
+        /// Gets whether the component is in post-solve phase
+        /// </summary>
+        protected bool InPostSolve { get; private set; }
+
         /// <summary>
         /// Constructor for AsyncComponentBase.
         /// </summary>
@@ -54,5 +68,52 @@ namespace SmartHopper.Core.ComponentBase
         /// Creates a new worker instance for this component.
         /// </summary>
         protected abstract AsyncWorkerBase CreateWorker(Action<string> progressReporter);
+
+        /// <summary>
+        /// Handles the component's solve instance, managing the pre-solve and post-solve phases.
+        /// </summary>
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            if (_worker == null)
+            {
+                _worker = CreateWorker(m => Message = m);
+            }
+
+            if (InPreSolve)
+            {
+                // Collect data
+                _worker?.GatherInput(DA);
+                return;
+            }
+
+            if (InPostSolve)
+            {
+                string message = string.Empty;
+                _worker?.SetOutput(DA, out message);
+                if (!string.IsNullOrEmpty(message))
+                    Message = message;
+                return;
+            }
+
+            // First pass - Pre-solve
+            InPreSolve = true;
+            InPostSolve = false;
+            OnSolveInstance(DA);
+
+            // Second pass - Post-solve
+            InPreSolve = false;
+            InPostSolve = true;
+            OnSolveInstance(DA);
+
+            // Reset state
+            InPreSolve = false;
+            InPostSolve = false;
+        }
+
+        /// <summary>
+        /// Override this method to implement custom solve logic.
+        /// This will be called twice: once for pre-solve and once for post-solve.
+        /// </summary>
+        protected abstract void OnSolveInstance(IGH_DataAccess DA);
     }
 }

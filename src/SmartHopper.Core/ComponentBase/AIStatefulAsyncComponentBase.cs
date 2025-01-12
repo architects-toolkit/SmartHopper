@@ -21,22 +21,10 @@
  */
 
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
-using SmartHopper.Core.Utils;
-using SmartHopper.Core.Async.Workers;
-using SmartHopper.Core.Async.Core;
-using SmartHopper.Core.Async.Core.StateManagement;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Providers;
-using SmartHopper.Config.Configuration;
+using Grasshopper.Kernel.Data;
+using GH_IO.Serialization;
 using System;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Linq;
 using System.Collections.Generic;
-using System.Windows.Forms;
-using System.Diagnostics;
-using Newtonsoft.Json.Linq;
 using System.Text.Json;
 
 namespace SmartHopper.Core.ComponentBase
@@ -51,6 +39,7 @@ namespace SmartHopper.Core.ComponentBase
         //private readonly IParallelProcessor _parallelProcessor;
         //private readonly IAIService _aiService;
         private readonly Dictionary<string, object> _persistentOutputs;
+        private bool _persistentDataRestored = false;
 
         /// <summary>
         /// Creates a new instance of the AI-powered stateful async component.
@@ -72,18 +61,17 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Called when the component is loaded from a file.
-        /// Handles restoration of persistent data and initialization.
+        /// Called before the first solve instance. Used to restore persistent data.
         /// </summary>
-        /// <remarks>
-        /// This method is sealed to ensure proper persistence handling.
-        /// Override OnComponentLoaded for custom loading behavior.
-        /// </remarks>
-        public sealed override void LoadComponent()
+        protected override void BeforeSolveInstance()
         {
-            base.LoadComponent();
-            RestorePersistentOutputs();
-            OnComponentLoaded();
+            if (!_persistentDataRestored)
+            {
+                RestorePersistentOutputs();
+                _persistentDataRestored = true;
+                OnComponentLoaded();
+            }
+            base.BeforeSolveInstance();
         }
 
         /// <summary>
@@ -110,13 +98,15 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                // Call the derived class's solve implementation
+                // Call the base class's solve implementation first
+                base.SolveInstance(DA);
+                // Then call the derived class's solve implementation
                 OnSolveInstance(DA);
                 StorePersistentOutputs(DA);
             }
             catch (Exception ex)
             {
-                _errorHandler.HandleError(ex);
+                //_errorHandler.HandleError(ex);
                 throw;
             }
         }
@@ -130,7 +120,7 @@ namespace SmartHopper.Core.ComponentBase
         /// This is where you implement your component's main functionality.
         /// Use DA.GetData to retrieve inputs and DA.SetData to assign outputs.
         /// </remarks>
-        protected abstract void OnSolveInstance(IGH_DataAccess DA);
+        protected abstract override void OnSolveInstance(IGH_DataAccess DA);
 
         // --------------------------------------------------
         // PERSISTENT DATA MANAGEMENT
@@ -140,7 +130,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
-        /// Called during component loading.
+        /// Called when the component is added to a document.
         /// </summary>
         private void RestorePersistentOutputs()
         {
@@ -180,39 +170,50 @@ namespace SmartHopper.Core.ComponentBase
         /// Writes the component's persistent data to the Grasshopper file.
         /// </summary>
         /// <param name="writer">The writer to use for serialization</param>
-        protected sealed override void Write(GH_IWriter writer)
+        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs</returns>
+        public sealed override bool Write(GH_IWriter writer)
         {
-            base.Write(writer);
+            if (!base.Write(writer))
+                return false;
             
-            // Store number of outputs
-            writer.SetInt32("OutputCount", _persistentOutputs.Count);
-            
-            // Store each output with its parameter name
-            int index = 0;
-            foreach (var kvp in _persistentOutputs)
+            try
             {
-                writer.SetString($"ParamName_{index}", kvp.Key);
+                // Store number of outputs
+                writer.SetInt32("OutputCount", _persistentOutputs.Count);
                 
-                // Store the type information
-                var type = kvp.Value?.GetType();
-                writer.SetString($"ParamType_{index}", type?.FullName ?? "null");
-                
-                // Store the value based on its type
-                if (kvp.Value != null)
+                // Store each output with its parameter name
+                int index = 0;
+                foreach (var kvp in _persistentOutputs)
                 {
-                    if (type == typeof(int))
-                        writer.SetInt32($"Value_{index}", (int)kvp.Value);
-                    else if (type == typeof(double))
-                        writer.SetDouble($"Value_{index}", (double)kvp.Value);
-                    else if (type == typeof(string))
-                        writer.SetString($"Value_{index}", (string)kvp.Value);
-                    else if (type == typeof(bool))
-                        writer.SetBoolean($"Value_{index}", (bool)kvp.Value);
-                    else
-                        writer.SetString($"Value_{index}", JsonSerializer.Serialize(kvp.Value));
+                    writer.SetString($"ParamName_{index}", kvp.Key);
+                    
+                    // Store the type information
+                    var type = kvp.Value?.GetType();
+                    writer.SetString($"ParamType_{index}", type?.FullName ?? "null");
+                    
+                    // Store the value based on its type
+                    if (kvp.Value != null)
+                    {
+                        if (type == typeof(int))
+                            writer.SetInt32($"Value_{index}", (int)kvp.Value);
+                        else if (type == typeof(double))
+                            writer.SetDouble($"Value_{index}", (double)kvp.Value);
+                        else if (type == typeof(string))
+                            writer.SetString($"Value_{index}", (string)kvp.Value);
+                        else if (type == typeof(bool))
+                            writer.SetBoolean($"Value_{index}", (bool)kvp.Value);
+                        else
+                            writer.SetString($"Value_{index}", JsonSerializer.Serialize(kvp.Value));
+                    }
+                    
+                    index++;
                 }
-                
-                index++;
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
         
@@ -220,49 +221,62 @@ namespace SmartHopper.Core.ComponentBase
         /// Reads the component's persistent data from the Grasshopper file.
         /// </summary>
         /// <param name="reader">The reader to use for deserialization</param>
-        protected sealed override void Read(GH_IReader reader)
+        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs</returns>
+        public sealed override bool Read(GH_IReader reader)
         {
-            base.Read(reader);
+            if (!base.Read(reader))
+                return false;
             
             _persistentOutputs.Clear();
             
             // Read number of outputs
-            if (!reader.ItemExists("OutputCount")) return;
+            if (!reader.ItemExists("OutputCount")) 
+                return false;
+
             int count = reader.GetInt32("OutputCount");
             
-            // Read each output
-            for (int i = 0; i < count; i++)
+            try 
             {
-                string paramName = reader.GetString($"ParamName_{i}");
-                string typeName = reader.GetString($"ParamType_{i}");
-                
-                if (typeName == "null")
+                // Read each output
+                for (int i = 0; i < count; i++)
                 {
-                    _persistentOutputs[paramName] = null;
-                    continue;
+                    string paramName = reader.GetString($"ParamName_{i}");
+                    string typeName = reader.GetString($"ParamType_{i}");
+                    
+                    if (typeName == "null")
+                    {
+                        _persistentOutputs[paramName] = null;
+                        continue;
+                    }
+                    
+                    // Get the type
+                    Type type = Type.GetType(typeName);
+                    if (type == null) continue;
+                    
+                    // Read value based on type
+                    object value = null;
+                    if (type == typeof(int))
+                        value = reader.GetInt32($"Value_{i}");
+                    else if (type == typeof(double))
+                        value = reader.GetDouble($"Value_{i}");
+                    else if (type == typeof(string))
+                        value = reader.GetString($"Value_{i}");
+                    else if (type == typeof(bool))
+                        value = reader.GetBoolean($"Value_{i}");
+                    else
+                    {
+                        string json = reader.GetString($"Value_{i}");
+                        value = JsonSerializer.Deserialize(json, type);
+                    }
+                    
+                    _persistentOutputs[paramName] = value;
                 }
-                
-                // Get the type
-                Type type = Type.GetType(typeName);
-                if (type == null) continue;
-                
-                // Read value based on type
-                object value = null;
-                if (type == typeof(int))
-                    value = reader.GetInt32($"Value_{i}");
-                else if (type == typeof(double))
-                    value = reader.GetDouble($"Value_{i}");
-                else if (type == typeof(string))
-                    value = reader.GetString($"Value_{i}");
-                else if (type == typeof(bool))
-                    value = reader.GetBoolean($"Value_{i}");
-                else
-                {
-                    string json = reader.GetString($"Value_{i}");
-                    value = JsonSerializer.Deserialize(json, type);
-                }
-                
-                _persistentOutputs[paramName] = value;
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 
