@@ -22,10 +22,14 @@
 
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 using GH_IO.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Linq;
+using System.Diagnostics;
+using Rhino.Commands;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -35,11 +39,21 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class AIAsyncStatefulComponentBase : AsyncComponentBase 
     {
+        #region PRIVATE FIELDS
+
         // These services will be implemented later
         //private readonly IParallelProcessor _parallelProcessor;
         //private readonly IAIService _aiService;
+
+        // PERSISTENT DATA MANAGEMENT private fields
         private readonly Dictionary<string, object> _persistentOutputs;
         private bool _persistentDataRestored = false;
+
+        #endregion
+
+        // CONSTRUCTORS
+
+        #region CONSTRUCTORS
 
         /// <summary>
         /// Creates a new instance of the AI-powered stateful async component.
@@ -60,30 +74,76 @@ namespace SmartHopper.Core.ComponentBase
             _persistentOutputs = new Dictionary<string, object>();
         }
 
+        #endregion
+
+
+
+        // 
+        // 
+        // --------------------------------------------------
+        //                COMPONENT DEFINITION
+        // --------------------------------------------------
+        // 
+        // This section of code is responsible for managing
+        // the component's lifecycle and state transitions,
+        // implementing the necessary methods for a
+        // Grasshopper Component.
+        //
+        //
+
+        #region INPUTS AND OUTPUTS
+
+        /// <summary>
+        /// Registers input parameters for the component.
+        /// </summary>
+        /// <param name="pManager">The input parameter manager.</param>
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            // Allow derived classes to add their specific inputs
+            RegisterAdditionalInputParams(pManager);
+
+            pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item);
+        }
+
+        /// <summary>
+        /// Register component-specific input parameters, to define in derived classes.
+        /// </summary>
+        /// <param name="pManager">The input parameter manager.</param>
+        protected abstract void RegisterAdditionalInputParams(GH_InputParamManager pManager);
+
+        /// <summary>
+        /// Registers output parameters for the component.
+        /// </summary>
+        /// <param name="pManager">The output parameter manager.</param>
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            // Allow derived classes to add their specific outputs
+            RegisterAdditionalOutputParams(pManager);
+        }
+
+        /// <summary>
+        /// Register component-specific output parameters, to define in derived classes.
+        /// </summary>
+        /// <param name="pManager">The output parameter manager.</param>
+        protected abstract void RegisterAdditionalOutputParams(GH_OutputParamManager pManager);
+
+        #endregion
+
+        #region COMPONENT LIFECYCLE
+
         /// <summary>
         /// Called before the first solve instance. Used to restore persistent data.
         /// </summary>
         protected override void BeforeSolveInstance()
         {
-            if (!_persistentDataRestored)
-            {
-                RestorePersistentOutputs();
-                _persistentDataRestored = true;
-                OnComponentLoaded();
-            }
-            base.BeforeSolveInstance();
-        }
+            // if (!_persistentDataRestored)
+            // {
+            //     // Initial restore of persistent data
+            //     RestorePersistentOutputs();
+            //     _persistentDataRestored = true;
+            // }
 
-        /// <summary>
-        /// Called after component and persistent data are loaded.
-        /// Override this method to add custom initialization logic.
-        /// </summary>
-        /// <remarks>
-        /// Use this method instead of LoadComponent to ensure proper persistence handling.
-        /// </remarks>
-        protected virtual void OnComponentLoaded()
-        {
-            // Override this in derived classes for additional loading behavior
+            base.BeforeSolveInstance();
         }
 
         /// <summary>
@@ -98,11 +158,20 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                // Call the base class's solve implementation first
+                // Check Run parameter
+                bool run = false;
+                DA.GetData("Run?", ref run);
+
+                if (!run)
+                {
+                    // Restore last output
+                    RestorePersistentOutputs(DA);
+                    return;
+                }
+
+                // Call the base class's solve implementation for normal execution
                 base.SolveInstance(DA);
-                // Then call the derived class's solve implementation
-                OnSolveInstance(DA);
-                StorePersistentOutputs(DA);
+                //StorePersistentOutputs(DA);
             }
             catch (Exception ex)
             {
@@ -111,60 +180,94 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        /// <summary>
-        /// Implements the component's solving logic.
-        /// Override this method to define the component's behavior.
-        /// </summary>
-        /// <param name="DA">Provides access to the component's input and output parameters</param>
-        /// <remarks>
-        /// This is where you implement your component's main functionality.
-        /// Use DA.GetData to retrieve inputs and DA.SetData to assign outputs.
-        /// </remarks>
-        protected abstract override void OnSolveInstance(IGH_DataAccess DA);
+        protected sealed override void AfterSolveInstance()
+        {
+            base.AfterSolveInstance();
+        }
 
+        #endregion
+
+
+        // 
+        // 
         // --------------------------------------------------
-        // PERSISTENT DATA MANAGEMENT
+        //             PERSISTENT DATA MANAGEMENT
         // --------------------------------------------------
+        // 
         // This section of code is responsible for storing
         // and retrieving persistent data for the component.
+        //
+        //
+
+        #region PERSISTENCE DATA MANAGEMENT
 
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
         /// Called when the component is added to a document.
         /// </summary>
-        private void RestorePersistentOutputs()
+        private void RestorePersistentOutputs(IGH_DataAccess DA)
         {
+            Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Restoring persistent outputs");
             for (int i = 0; i < Params.Output.Count; i++)
             {
                 var param = Params.Output[i];
                 var savedValue = GetPersistentOutput<object>(param.Name);
                 if (savedValue != null)
                 {
-                    // Add the saved data as volatile data
-                    param.AddVolatileData(new GH_Path(0), 0, savedValue);
+                    try 
+                    {
+                        // Create a new IGH_Goo instance if the value isn't already one
+                        IGH_Goo gooValue;
+                        if (savedValue is IGH_Goo existingGoo)
+                        {
+                            gooValue = existingGoo;
+                        }
+                        else
+                        {
+                            // Try to create a new goo instance of the appropriate type
+                            var gooType = param.Type;
+                            gooValue = Grasshopper.Kernel.GH_Convert.ToGoo(savedValue);
+                            if (gooValue == null)
+                            {
+                                // If direct conversion fails, try creating instance and casting
+                                gooValue = (IGH_Goo)Activator.CreateInstance(gooType);
+                                gooValue.CastFrom(savedValue);
+                            }
+                        }
+
+                        // Add the properly typed goo value
+                        SetPersistentOutput(param.Name, gooValue, DA);
+                        Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "'");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
+                    }
                 }
             }
         }
 
-        /// <summary>
-        /// Stores all current output values for persistence.
-        /// Called after solving the component.
-        /// </summary>
-        private void StorePersistentOutputs(IGH_DataAccess DA)
-        {
-            for (int i = 0; i < Params.Output.Count; i++)
-            {
-                var param = Params.Output[i];
-                object value = null;
+        ///// <summary>
+        ///// Stores all current output values for persistence.
+        ///// Called after solving the component.
+        ///// </summary>
+        //private void StorePersistentOutputs(IGH_DataAccess DA)
+        //{
+        //    Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Storing persistent outputs");
+        //    for (int i = 0; i < Params.Output.Count; i++)
+        //    {
+        //        var param = Params.Output[i];
+        //        object value = null;
+
                 
-                // Get the output value that was just set
-                if (DA.GetData(i, ref value))
-                {
-                    // Store it for persistence
-                    SetPersistentOutput(param.Name, value);
-                }
-            }
-        }
+        //        // Get the output value that was just set
+        //        if (DA.GetData(i, ref value))
+        //        {
+        //            // Store it for persistence
+        //            SetPersistentOutput(param.Name, value);
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Writes the component's persistent data to the Grasshopper file.
@@ -289,9 +392,31 @@ namespace SmartHopper.Core.ComponentBase
         /// This method is protected to allow derived classes to manually store values if needed.
         /// However, values are automatically stored after solving, so manual storage is rarely necessary.
         /// </remarks>
-        protected void SetPersistentOutput(string paramName, object value)
+        protected void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)
         {
-            _persistentOutputs[paramName] = value;
+            try
+            {
+                // Store the value in persistent storage
+                _persistentOutputs[paramName] = value;
+
+                // Find the output parameter
+                var param = Params.Output.FirstOrDefault(p => p.Name == paramName);
+                if (param != null)
+                {
+                    // Convert to IGH_Goo if needed
+                    if (!(value is IGH_Goo))
+                    {
+                        value = Grasshopper.Kernel.GH_Convert.ToGoo(value);
+                    }
+
+                    // Set the data through DA
+                    DA.SetData(param.Name, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Failed to set output '" + paramName + "': " + ex.Message);
+            }
         }
         
         /// <summary>
@@ -311,5 +436,7 @@ namespace SmartHopper.Core.ComponentBase
                 return typedValue;
             return defaultValue;
         }
+
+        #endregion
     }
 }
