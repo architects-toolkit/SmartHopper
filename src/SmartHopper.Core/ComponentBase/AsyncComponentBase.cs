@@ -14,7 +14,7 @@
  */
 
 /*
- * Base class for all asynchronous Grasshopper components.
+ * Base class for all asynchronous components.
  * This class provides the fundamental structure for components that need to perform
  * asynchronous operations while maintaining Grasshopper's component lifecycle.
  */
@@ -31,6 +31,12 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class AsyncComponentBase : GH_Component
     {
+        // These services will be implemented later
+        //private readonly ICancellationManager _cancellationManager;
+        //private readonly IErrorHandler _errorHandler;
+        //private readonly IMessagingService _messagingService;
+        //private readonly IStateManager _stateManager;
+        
         /// <summary>
         /// Constructor for AsyncComponentBase.
         /// </summary>
@@ -42,7 +48,11 @@ namespace SmartHopper.Core.ComponentBase
         protected AsyncComponentBase(string name, string nickname, string description, string category, string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            // TODO: Initialize any required services or managers here
         }
+
+        /// <summary>
+        /// Creates a new worker instance for this component.
+        /// </summary>
+        protected abstract AsyncWorkerBase CreateWorker(Action<string> progressReporter);
     }
 }
