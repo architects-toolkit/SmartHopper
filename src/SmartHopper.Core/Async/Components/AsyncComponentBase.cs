@@ -218,6 +218,7 @@ namespace SmartHopper.Core.Async.Components
                         }
 
                         Debug.WriteLine("[AsyncComponentBase] About to gather input");
+                        Debug.WriteLine("[AsyncComponentBase] About to gather input");
                         CurrentWorker.GatherInput(DA);
                         Debug.WriteLine("[AsyncComponentBase] Input gathered successfully");
 

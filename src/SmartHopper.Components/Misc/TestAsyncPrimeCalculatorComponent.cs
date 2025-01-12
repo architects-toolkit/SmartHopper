@@ -45,25 +45,6 @@ namespace SmartHopper.Components.Misc
             pManager.AddNumberParameter("Output", "O", "The n-th prime number.", GH_ParamAccess.item);
         }
 
-        protected override void OnSolveInstance(IGH_DataAccess DA)
-        {
-            if (InPreSolve)
-            {
-                // Collect data
-                _worker?.GatherInput(DA);
-                return;
-            }
-
-            if (InPostSolve)
-            {
-                string message = string.Empty;
-                _worker?.SetOutput(DA, out message);
-                if (!string.IsNullOrEmpty(message))
-                    Message = message;
-                return;
-            }
-        }
-
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new TestPrimeCalculatorWorker(progressReporter, this, AddRuntimeMessage);

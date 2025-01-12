@@ -34,33 +34,14 @@ namespace SmartHopper.Components.Misc
         {
         }
 
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddIntegerParameter("N", "N", "Which n-th prime number. Minimum 1, maximum one million.", GH_ParamAccess.item);
         }
 
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddNumberParameter("Output", "O", "The n-th prime number.", GH_ParamAccess.item);
-        }
-
-        protected override void OnSolveInstance(IGH_DataAccess DA)
-        {
-            if (InPreSolve)
-            {
-                // Collect data
-                _worker?.GatherInput(DA);
-                return;
-            }
-
-            if (InPostSolve)
-            {
-                string message = string.Empty;
-                _worker?.SetOutput(DA, out message);
-                if (!string.IsNullOrEmpty(message))
-                    Message = message;
-                return;
-            }
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -72,13 +53,15 @@ namespace SmartHopper.Components.Misc
         {
             private int _nthPrime = 100;
             private long _result = -1;
+            private readonly TestStatefulPrimeCalculatorComponent _parent;
 
             public TestStatefulPrimeCalculatorWorker(
-                Action<string> progressReporter,
-                GH_Component parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-                : base(progressReporter, parent, addRuntimeMessage)
+            Action<string> progressReporter,
+            TestStatefulPrimeCalculatorComponent parent,
+            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            : base(progressReporter, parent, addRuntimeMessage)
             {
+                _parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA)
@@ -132,7 +115,7 @@ namespace SmartHopper.Components.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                DA.SetData(0, _result);
+                _parent.SetPersistentOutput("Output", _result, DA);
                 message = $"Found {_nthPrime}th prime: {_result}";
             }
         }
