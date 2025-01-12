@@ -14,7 +14,7 @@
  * to persist between Grasshopper sessions.
  */
 
-using Grasshopper.Kernel;
+using GH_IO.Serialization;
 using System;
 using System.Collections.Generic;
 
