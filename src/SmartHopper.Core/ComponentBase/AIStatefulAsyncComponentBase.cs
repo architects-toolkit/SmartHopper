@@ -13,6 +13,13 @@
  * Copyright (c) 2021 Speckle Systems
  */
 
+/*
+ * Base class for all AI-powered SmartHopper components.
+ * This class provides the fundamental structure for components that need to perform
+ * asynchronous, showing an State message and connect to AI, while maintaining
+ * Grasshopper's component lifecycle.
+ */
+
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.Utils;
@@ -40,12 +47,9 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class AIAsyncStatefulComponentBase : AsyncComponentBase 
     {
-        private readonly IStateManager _stateManager;
-        private readonly IParallelProcessor _parallelProcessor;
-        private readonly IMessagingService _messagingService;
-        private readonly IAIService _aiService;
-        private readonly ICancellationManager _cancellationManager;
-        private readonly IErrorHandler _errorHandler;
+        // These services will be implemented later
+        //private readonly IParallelProcessor _parallelProcessor;
+        //private readonly IAIService _aiService;
         private readonly Dictionary<string, object> _persistentOutputs;
 
         /// <summary>
@@ -56,32 +60,14 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="description">Description of the component's functionality</param>
         /// <param name="category">Category in the Grasshopper toolbar</param>
         /// <param name="subCategory">Subcategory in the Grasshopper toolbar</param>
-        /// <param name="stateManager">Service for managing component state</param>
-        /// <param name="parallelProcessor">Service for handling parallel operations</param>
-        /// <param name="messagingService">Service for user communication</param>
-        /// <param name="aiService">Service for AI operations</param>
-        /// <param name="cancellationManager">Service for handling cancellation</param>
-        /// <param name="errorHandler">Service for error handling</param>
         protected AIAsyncStatefulComponentBase(
             string name,
             string nickname,
             string description,
             string category,
-            string subCategory,
-            IStateManager stateManager,
-            IParallelProcessor parallelProcessor,
-            IMessagingService messagingService,
-            IAIService aiService,
-            ICancellationManager cancellationManager,
-            IErrorHandler errorHandler)
+            string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            _stateManager = stateManager;
-            _parallelProcessor = parallelProcessor;
-            _messagingService = messagingService;
-            _aiService = aiService;
-            _cancellationManager = cancellationManager;
-            _errorHandler = errorHandler;
             _persistentOutputs = new Dictionary<string, object>();
         }
 
