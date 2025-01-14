@@ -49,7 +49,6 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
-        // CONSTRUCTORS
         #region CONSTRUCTORS
 
         /// <summary>
@@ -74,10 +73,6 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
-
-
-        // 
-        // 
         // --------------------------------------------------
         //                COMPONENT DEFINITION
         // --------------------------------------------------
@@ -86,7 +81,7 @@ namespace SmartHopper.Core.ComponentBase
         // the component's lifecycle and state transitions,
         // implementing the necessary methods for a
         // Grasshopper Component.
-        //
+
         #region INPUTS AND OUTPUTS
 
         /// <summary>
@@ -125,7 +120,6 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
-        // COMPONENT LIFECYCLE
         #region COMPONENT LIFECYCLE
 
         /// <summary>
@@ -169,15 +163,13 @@ namespace SmartHopper.Core.ComponentBase
         #endregion
 
 
-        // 
-        // 
         // --------------------------------------------------
         //             PERSISTENT DATA MANAGEMENT
         // --------------------------------------------------
         // 
         // This section of code is responsible for storing
         // and retrieving persistent data for the component.
-        //
+
         #region PERSISTENCE DATA MANAGEMENT
 
         /// <summary>
@@ -439,5 +431,6 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         #endregion
+
     }
 }
