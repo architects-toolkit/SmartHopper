@@ -21,7 +21,6 @@
  */
 
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using GH_IO.Serialization;
 using System;
@@ -29,7 +28,6 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
 using System.Diagnostics;
-using Rhino.Commands;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -37,7 +35,7 @@ namespace SmartHopper.Core.ComponentBase
     /// Base class for AI-powered stateful asynchronous Grasshopper components.
     /// Provides integrated state management, parallel processing, messaging, and persistence capabilities.
     /// </summary>
-    public abstract class AIAsyncStatefulComponentBase : AsyncComponentBase 
+    public abstract class AIAsyncStatefulComponentBase : AsyncComponentBase
     {
         #region PRIVATE FIELDS
 
@@ -47,12 +45,11 @@ namespace SmartHopper.Core.ComponentBase
 
         // PERSISTENT DATA MANAGEMENT private fields
         private readonly Dictionary<string, object> _persistentOutputs;
-        private bool _persistentDataRestored = false;
+        private readonly Dictionary<string, Type> _persistentDataTypes;
 
         #endregion
 
         // CONSTRUCTORS
-
         #region CONSTRUCTORS
 
         /// <summary>
@@ -72,6 +69,7 @@ namespace SmartHopper.Core.ComponentBase
             : base(name, nickname, description, category, subCategory)
         {
             _persistentOutputs = new Dictionary<string, object>();
+            _persistentDataTypes = new Dictionary<string, Type>();
         }
 
         #endregion
@@ -89,8 +87,6 @@ namespace SmartHopper.Core.ComponentBase
         // implementing the necessary methods for a
         // Grasshopper Component.
         //
-        //
-
         #region INPUTS AND OUTPUTS
 
         /// <summary>
@@ -129,22 +125,8 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
+        // COMPONENT LIFECYCLE
         #region COMPONENT LIFECYCLE
-
-        /// <summary>
-        /// Called before the first solve instance. Used to restore persistent data.
-        /// </summary>
-        protected override void BeforeSolveInstance()
-        {
-            // if (!_persistentDataRestored)
-            // {
-            //     // Initial restore of persistent data
-            //     RestorePersistentOutputs();
-            //     _persistentDataRestored = true;
-            // }
-
-            base.BeforeSolveInstance();
-        }
 
         /// <summary>
         /// Main solving method for the component.
@@ -171,7 +153,6 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Call the base class's solve implementation for normal execution
                 base.SolveInstance(DA);
-                //StorePersistentOutputs(DA);
             }
             catch (Exception ex)
             {
@@ -197,15 +178,13 @@ namespace SmartHopper.Core.ComponentBase
         // This section of code is responsible for storing
         // and retrieving persistent data for the component.
         //
-        //
-
         #region PERSISTENCE DATA MANAGEMENT
 
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
         /// Called when the component is added to a document.
         /// </summary>
-        private void RestorePersistentOutputs(IGH_DataAccess DA)
+        protected void RestorePersistentOutputs(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Restoring persistent outputs");
             for (int i = 0; i < Params.Output.Count; i++)
@@ -226,7 +205,7 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             // Try to create a new goo instance of the appropriate type
                             var gooType = param.Type;
-                            gooValue = Grasshopper.Kernel.GH_Convert.ToGoo(savedValue);
+                            gooValue = GH_Convert.ToGoo(savedValue);
                             if (gooValue == null)
                             {
                                 // If direct conversion fails, try creating instance and casting
@@ -246,28 +225,6 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
         }
-
-        ///// <summary>
-        ///// Stores all current output values for persistence.
-        ///// Called after solving the component.
-        ///// </summary>
-        //private void StorePersistentOutputs(IGH_DataAccess DA)
-        //{
-        //    Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Storing persistent outputs");
-        //    for (int i = 0; i < Params.Output.Count; i++)
-        //    {
-        //        var param = Params.Output[i];
-        //        object value = null;
-
-                
-        //        // Get the output value that was just set
-        //        if (DA.GetData(i, ref value))
-        //        {
-        //            // Store it for persistence
-        //            SetPersistentOutput(param.Name, value);
-        //        }
-        //    }
-        //}
 
         /// <summary>
         /// Writes the component's persistent data to the Grasshopper file.
@@ -290,26 +247,42 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     writer.SetString($"ParamName_{index}", kvp.Key);
                     
-                    // Store the type information
-                    var type = kvp.Value?.GetType();
-                    writer.SetString($"ParamType_{index}", type?.FullName ?? "null");
-                    
-                    // Store the value based on its type
-                    if (kvp.Value != null)
+                    // Get the expected type from _persistentDataTypes
+                    Type expectedType = null;
+                    if (_persistentDataTypes.TryGetValue(kvp.Key, out expectedType))
                     {
-                        if (type == typeof(int))
-                            writer.SetInt32($"Value_{index}", (int)kvp.Value);
-                        else if (type == typeof(double))
-                            writer.SetDouble($"Value_{index}", (double)kvp.Value);
-                        else if (type == typeof(string))
-                            writer.SetString($"Value_{index}", (string)kvp.Value);
-                        else if (type == typeof(bool))
-                            writer.SetBoolean($"Value_{index}", (bool)kvp.Value);
-                        else
-                            writer.SetString($"Value_{index}", JsonSerializer.Serialize(kvp.Value));
+                        writer.SetString($"ParamType_{index}", expectedType.AssemblyQualifiedName);
+                        object valueToStore = kvp.Value;
+                        
+                        // If it's a GH_ObjectWrapper, extract the inner value
+                        if (kvp.Value?.GetType()?.FullName == "Grasshopper.Kernel.Types.GH_ObjectWrapper")
+                        {
+                            var valueProperty = kvp.Value.GetType().GetProperty("Value");
+                            if (valueProperty != null)
+                            {
+                                valueToStore = valueProperty.GetValue(kvp.Value);
+                            }
+                        }
+                        
+                        // Store the value based on its type
+                        if (valueToStore != null)
+                        {
+                            if (valueToStore is int intValue)
+                                writer.SetInt32($"Value_{index}", intValue);
+                            else if (valueToStore is double doubleValue)
+                                writer.SetDouble($"Value_{index}", doubleValue);
+                            else if (valueToStore is string stringValue)
+                                writer.SetString($"Value_{index}", stringValue);
+                            else if (valueToStore is bool boolValue)
+                                writer.SetBoolean($"Value_{index}", boolValue);
+                            else
+                                writer.SetString($"Value_{index}", JsonSerializer.Serialize(valueToStore));
+                        }
+
+                        Debug.WriteLine($"[AIAsyncStatefulComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of stored type '{expectedType?.FullName}'");
+                        
+                        index++;
                     }
-                    
-                    index++;
                 }
 
                 return true;
@@ -319,7 +292,7 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
         }
-        
+
         /// <summary>
         /// Reads the component's persistent data from the Grasshopper file.
         /// </summary>
@@ -329,35 +302,45 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (!base.Read(reader))
                 return false;
-            
+
             _persistentOutputs.Clear();
-            
+
             // Read number of outputs
-            if (!reader.ItemExists("OutputCount")) 
+            if (!reader.ItemExists("OutputCount"))
                 return false;
 
             int count = reader.GetInt32("OutputCount");
-            
-            try 
+
+            try
             {
                 // Read each output
                 for (int i = 0; i < count; i++)
                 {
                     string paramName = reader.GetString($"ParamName_{i}");
                     string typeName = reader.GetString($"ParamType_{i}");
-                    
+                    Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
+
                     if (typeName == "null")
                     {
                         _persistentOutputs[paramName] = null;
                         continue;
                     }
-                    
-                    // Get the type
+
+                    // Get the type and store it in _persistentDataTypes
                     Type type = Type.GetType(typeName);
-                    if (type == null) continue;
+                    if (type == null)
+                    {
+                        Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Type '{typeName}' could not be found");
+                        continue;
+                    }
+                    
+                    // Store the type for future reference
+                    _persistentDataTypes[paramName] = type;
+                    Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Registered type {type.Name} for parameter {paramName}");
                     
                     // Read value based on type
-                    object value = null;
+                    object value;
+                    // Handle primitive types directly
                     if (type == typeof(int))
                         value = reader.GetInt32($"Value_{i}");
                     else if (type == typeof(double))
@@ -368,11 +351,33 @@ namespace SmartHopper.Core.ComponentBase
                         value = reader.GetBoolean($"Value_{i}");
                     else
                     {
-                        string json = reader.GetString($"Value_{i}");
-                        value = JsonSerializer.Deserialize(json, type);
+                        var options = new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        };
+                        
+                        // If it's a Grasshopper type, create instance and set value
+                        if (type?.FullName?.StartsWith("Grasshopper.Kernel.Types.") == true)
+                        {
+                            value = Activator.CreateInstance(type);
+                            var targetValueProperty = type.GetProperty("Value");
+                            if (targetValueProperty != null)
+                            {
+                                var deserializedValue = JsonSerializer.Deserialize(reader.GetString($"Value_{i}"), targetValueProperty.PropertyType, options);
+                                targetValueProperty.SetValue(value, deserializedValue);
+                            }
+                        }
+                        else
+                        {
+                            value = JsonSerializer.Deserialize(reader.GetString($"Value_{i}"), type, options);
+                        }
                     }
+
+                    Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
                     
                     _persistentOutputs[paramName] = value;
+
+                    Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
                 }
 
                 return true;
@@ -426,10 +431,6 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="paramName">Name of the parameter to retrieve</param>
         /// <param name="defaultValue">Value to return if the parameter is not found</param>
         /// <returns>The stored value or defaultValue if not found</returns>
-        /// <remarks>
-        /// This method is protected to allow derived classes to manually retrieve values if needed.
-        /// However, values are automatically restored during loading, so manual retrieval is rarely necessary.
-        /// </remarks>
         protected T GetPersistentOutput<T>(string paramName, T defaultValue = default)
         {
             if (_persistentOutputs.TryGetValue(paramName, out object value) && value is T typedValue)
