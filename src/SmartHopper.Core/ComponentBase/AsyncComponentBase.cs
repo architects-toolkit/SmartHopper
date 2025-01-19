@@ -111,12 +111,12 @@ namespace SmartHopper.Core.ComponentBase
                 source.Cancel();
             }
 
-            _cancellationSources.Clear();
-            _tasks.Clear();
-            Workers.Clear();
-            _state = 0;
-            _setData = 0;
-            Message = string.Empty;
+            //_cancellationSources.Clear();
+            //_tasks.Clear();
+            //Workers.Clear();
+            //_state = 0;
+            //_setData = 0;
+            //Message = string.Empty;
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -191,7 +191,7 @@ namespace SmartHopper.Core.ComponentBase
 
             Interlocked.Exchange(ref _setData, 0);
             Message = "Done";
-            OnDisplayExpired(true);
+            //OnDisplayExpired(true);
 
             OnWorkerCompleted();
         }
