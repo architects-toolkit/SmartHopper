@@ -28,7 +28,6 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
 using System.Diagnostics;
-using System.Security.Cryptography;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -130,6 +129,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{GetType().Name}] SolveInstance - Current State: {_currentState}");
 
+            Message = _currentState.ToString();
+
             // Execute the appropriate state handler
             switch (_currentState)
             {
@@ -145,9 +146,6 @@ namespace SmartHopper.Core.ComponentBase
                 case ComponentState.Completed:
                     OnStateCompleted(DA);
                     break;
-                //case ComponentState.Output:
-                //    OnStateOutput(DA);
-                //    break;
                 case ComponentState.Cancelled:
                     OnStateCancelled(DA);
                     break;
@@ -156,8 +154,6 @@ namespace SmartHopper.Core.ComponentBase
                     break;
             }
         }
-
-        
 
         protected override void OnWorkerCompleted()
         {
@@ -177,14 +173,10 @@ namespace SmartHopper.Core.ComponentBase
         #region STATE MANAGEMENT
 
         // PRIVATE FIELDS
-        private ComponentState _currentState = ComponentState.Waiting; //Default state, field to store the current state
-        //private ComponentState _lastExecutedState; //Field to store the last executed state, to prevent duplicate executions
 
-        // IF any input changed
-            // Transition to Processing state and compute the solution (this means return and jump to AfterSolveInstance defined in AsyncComponentBase)
+        //Default state, field to store the current state
+        private ComponentState _currentState = ComponentState.Waiting; 
 
-        // ELSE (IF no input changed)
-            // Output persistent data paying attention to modifiers such as Graft and Flatten (will do this automatically, right?)
 
         private void OnStateWaiting(IGH_DataAccess DA)
         {
@@ -201,6 +193,8 @@ namespace SmartHopper.Core.ComponentBase
             {
                 RestorePersistentOutputs(DA);
             }
+
+            //OnDisplayExpired(true);
         }
             
         private void OnStateNeedsRun(IGH_DataAccess DA)
@@ -213,13 +207,13 @@ namespace SmartHopper.Core.ComponentBase
 
             if (!run)
             {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!");
                 RestorePersistentOutputs(DA);
                 return;
             }
 
             // Transition to Processing and let base class handle async work
             TransitionTo(ComponentState.Processing);
-            // base.SolveInstance(DA);
         }
 
         private void OnStateProcessing(IGH_DataAccess DA)
@@ -236,14 +230,6 @@ namespace SmartHopper.Core.ComponentBase
             // Move to output state to show results
             TransitionTo(ComponentState.Waiting);
         }
-
-        // private void OnStateOutput(IGH_DataAccess DA)
-        // {
-        //     Debug.WriteLine($"[{GetType().Name}] OnStateOutput");
-        //     // Output the results and move to waiting
-        //     RestorePersistentOutputs(DA);
-        //     TransitionTo(ComponentState.Waiting);
-        // }
 
         private void OnStateCancelled(IGH_DataAccess DA)
         {
@@ -265,9 +251,6 @@ namespace SmartHopper.Core.ComponentBase
             _currentState = newState;
 
             Debug.WriteLine($"[{GetType().Name}] State transition: {oldState} -> {newState}");
-
-            // When the state changes, trigger the SolveInstance method to execute the new state
-            ExpireSolution(true);
         }
 
         #endregion
@@ -518,11 +501,13 @@ namespace SmartHopper.Core.ComponentBase
                     // Convert to IGH_Goo if needed
                     if (!(value is IGH_Goo))
                     {
-                        value = Grasshopper.Kernel.GH_Convert.ToGoo(value);
+                        value = GH_Convert.ToGoo(value);
                     }
 
                     // Set the data through DA
                     DA.SetData(param.Name, value);
+
+                    //OnDisplayExpired(true);
                 }
             }
             catch (Exception ex)
