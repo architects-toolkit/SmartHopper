@@ -32,7 +32,7 @@ namespace SmartHopper.Core.ComponentBase
     /// Base class for asynchronous Grasshopper components. Inherit from this class
     /// when you need to create a component that performs long-running operations.
     /// </summary>
-    public abstract class AsyncComponentBase : GH_Component, IGH_TaskCapableComponent
+    public abstract class AsyncComponentBase : GH_Component
     {
         private readonly List<Task> _tasks;
         private readonly List<CancellationTokenSource> _cancellationSources;
@@ -63,8 +63,8 @@ namespace SmartHopper.Core.ComponentBase
         protected List<AsyncWorkerBase> Workers { get; private set; }
         protected AsyncWorkerBase CurrentWorker { get; private set; }
 
-        public bool ITaskCapable => true;
-        public virtual bool UseTasks { get; set; } = true;
+        // public bool ITaskCapable => true;
+        // public virtual bool UseTasks { get; set; } = true;
 
         /// <summary>
         /// Gets whether the component is in pre-solve phase.
@@ -193,7 +193,7 @@ namespace SmartHopper.Core.ComponentBase
             Message = "Done";
             OnDisplayExpired(true);
 
-            
+            OnWorkerCompleted();
         }
 
         protected override void AfterSolveInstance()
@@ -215,6 +215,11 @@ namespace SmartHopper.Core.ComponentBase
             {
                 source.Cancel();
             }
+        }
+
+        protected virtual void OnWorkerCompleted()
+        {
+            Debug.WriteLine($"[{GetType().Name}] All workers completed");
         }
 
         /// <summary>

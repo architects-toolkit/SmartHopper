@@ -28,6 +28,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -35,21 +36,10 @@ namespace SmartHopper.Core.ComponentBase
     /// Base class for AI-powered stateful asynchronous Grasshopper components.
     /// Provides integrated state management, parallel processing, messaging, and persistence capabilities.
     /// </summary>
-    public abstract class AIAsyncStatefulComponentBase : AsyncComponentBase
+    public abstract class AIStatefulAsyncComponentBase : AsyncComponentBase
     {
-        #region PRIVATE FIELDS
 
-        // These services will be implemented later
-        //private readonly IParallelProcessor _parallelProcessor;
-        //private readonly IAIService _aiService;
-
-        // PERSISTENT DATA MANAGEMENT private fields
-        private readonly Dictionary<string, object> _persistentOutputs;
-        private readonly Dictionary<string, Type> _persistentDataTypes;
-
-        #endregion
-
-        #region CONSTRUCTORS
+        #region CONSTRUCTOR
 
         /// <summary>
         /// Creates a new instance of the AI-powered stateful async component.
@@ -59,7 +49,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="description">Description of the component's functionality</param>
         /// <param name="category">Category in the Grasshopper toolbar</param>
         /// <param name="subCategory">Subcategory in the Grasshopper toolbar</param>
-        protected AIAsyncStatefulComponentBase(
+        protected AIStatefulAsyncComponentBase(
             string name,
             string nickname,
             string description,
@@ -69,6 +59,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             _persistentOutputs = new Dictionary<string, object>();
             _persistentDataTypes = new Dictionary<string, Type>();
+            _previousInputHashes = new Dictionary<string, int>();
+            _previousBranchCounts = new Dictionary<string, int>();
         }
 
         #endregion
@@ -83,6 +75,9 @@ namespace SmartHopper.Core.ComponentBase
         // Grasshopper Component.
 
         #region INPUTS AND OUTPUTS
+
+        private Dictionary<string, int> _previousInputHashes;
+        private Dictionary<string, int> _previousBranchCounts;
 
         /// <summary>
         /// Registers input parameters for the component.
@@ -126,38 +121,153 @@ namespace SmartHopper.Core.ComponentBase
         /// Main solving method for the component.
         /// Handles the execution flow and persistence of results.
         /// </summary>
+        /// <param name="DA">The data access object.</param>
         /// <remarks>
         /// This method is sealed to ensure proper persistence and error handling.
         /// Override OnSolveInstance for custom solving logic.
         /// </remarks>
         protected sealed override void SolveInstance(IGH_DataAccess DA)
         {
-            try
-            {
-                // Check Run parameter
-                bool run = false;
-                DA.GetData("Run?", ref run);
+            Debug.WriteLine($"[{GetType().Name}] SolveInstance - Current State: {_currentState}");
 
-                if (!run)
-                {
-                    // Restore last output
-                    RestorePersistentOutputs(DA);
-                    return;
-                }
-
-                // Call the base class's solve implementation for normal execution
-                base.SolveInstance(DA);
-            }
-            catch (Exception ex)
+            // Execute the appropriate state handler
+            switch (_currentState)
             {
-                //_errorHandler.HandleError(ex);
-                throw;
+                case ComponentState.Waiting:
+                    OnStateWaiting(DA);
+                    break;
+                case ComponentState.NeedsRun:
+                    OnStateNeedsRun(DA);
+                    break;
+                case ComponentState.Processing:
+                    OnStateProcessing(DA);
+                    break;
+                case ComponentState.Completed:
+                    OnStateCompleted(DA);
+                    break;
+                //case ComponentState.Output:
+                //    OnStateOutput(DA);
+                //    break;
+                case ComponentState.Cancelled:
+                    OnStateCancelled(DA);
+                    break;
+                case ComponentState.Error:
+                    OnStateError(DA);
+                    break;
             }
         }
 
-        protected sealed override void AfterSolveInstance()
+        
+
+        protected override void OnWorkerCompleted()
         {
-            base.AfterSolveInstance();
+            base.OnWorkerCompleted();
+            TransitionTo(ComponentState.Completed);
+        }
+        
+        #endregion
+
+
+        // --------------------------------------------------
+        //                  STATE MANAGEMENT
+        // --------------------------------------------------
+        // 
+        // Implement State Management
+
+        #region STATE MANAGEMENT
+
+        // PRIVATE FIELDS
+        private ComponentState _currentState = ComponentState.Waiting; //Default state, field to store the current state
+        //private ComponentState _lastExecutedState; //Field to store the last executed state, to prevent duplicate executions
+
+        // IF any input changed
+            // Transition to Processing state and compute the solution (this means return and jump to AfterSolveInstance defined in AsyncComponentBase)
+
+        // ELSE (IF no input changed)
+            // Output persistent data paying attention to modifiers such as Graft and Flatten (will do this automatically, right?)
+
+        private void OnStateWaiting(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateWaiting");
+            // Check if inputs changed
+            var changedInputs = InputsChanged(DA);
+
+            // If "Run?" did not change, but others did
+            if (changedInputs.Any(input => input == null || input != "Run?")) 
+            {
+                TransitionTo(ComponentState.NeedsRun);
+            }
+            else
+            {
+                RestorePersistentOutputs(DA);
+            }
+        }
+            
+        private void OnStateNeedsRun(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateNeedsRun");
+            
+            // Check Run parameter
+            bool run = false;
+            DA.GetData("Run?", ref run);
+
+            if (!run)
+            {
+                RestorePersistentOutputs(DA);
+                return;
+            }
+
+            // Transition to Processing and let base class handle async work
+            TransitionTo(ComponentState.Processing);
+            // base.SolveInstance(DA);
+        }
+
+        private void OnStateProcessing(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateProcessing");
+            // The base AsyncComponentBase handles the actual processing
+            // When done it will call OnWorkerCompleted which transitions to Completed
+            base.SolveInstance(DA);
+        }
+
+        private void OnStateCompleted(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateCompleted");
+            // Move to output state to show results
+            TransitionTo(ComponentState.Waiting);
+        }
+
+        // private void OnStateOutput(IGH_DataAccess DA)
+        // {
+        //     Debug.WriteLine($"[{GetType().Name}] OnStateOutput");
+        //     // Output the results and move to waiting
+        //     RestorePersistentOutputs(DA);
+        //     TransitionTo(ComponentState.Waiting);
+        // }
+
+        private void OnStateCancelled(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateCancelled");
+            // TODO: Implement cancellation logic
+            TransitionTo(ComponentState.Waiting);
+        }
+
+        private void OnStateError(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateError");
+            // TODO: Implement error handling logic
+            TransitionTo(ComponentState.Waiting);
+        }
+
+        private void TransitionTo(ComponentState newState)
+        {
+            var oldState = _currentState;
+            _currentState = newState;
+
+            Debug.WriteLine($"[{GetType().Name}] State transition: {oldState} -> {newState}");
+
+            // When the state changes, trigger the SolveInstance method to execute the new state
+            ExpireSolution(true);
         }
 
         #endregion
@@ -172,13 +282,17 @@ namespace SmartHopper.Core.ComponentBase
 
         #region PERSISTENCE DATA MANAGEMENT
 
+        // PRIVATE FIELDS
+        private readonly Dictionary<string, object> _persistentOutputs;
+        private readonly Dictionary<string, Type> _persistentDataTypes;
+        
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
         /// Called when the component is added to a document.
         /// </summary>
         protected void RestorePersistentOutputs(IGH_DataAccess DA)
         {
-            Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Restoring persistent outputs");
+            Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Restoring persistent outputs");
             for (int i = 0; i < Params.Output.Count; i++)
             {
                 var param = Params.Output[i];
@@ -208,11 +322,12 @@ namespace SmartHopper.Core.ComponentBase
 
                         // Add the properly typed goo value
                         SetPersistentOutput(param.Name, gooValue, DA);
-                        Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "'");
+
+                        Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "'");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
+                        Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
                     }
                 }
             }
@@ -271,7 +386,7 @@ namespace SmartHopper.Core.ComponentBase
                                 writer.SetString($"Value_{index}", JsonSerializer.Serialize(valueToStore));
                         }
 
-                        Debug.WriteLine($"[AIAsyncStatefulComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of stored type '{expectedType?.FullName}'");
+                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of stored type '{expectedType?.FullName}'");
                         
                         index++;
                     }
@@ -310,7 +425,7 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     string paramName = reader.GetString($"ParamName_{i}");
                     string typeName = reader.GetString($"ParamType_{i}");
-                    Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
+                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
 
                     if (typeName == "null")
                     {
@@ -322,13 +437,13 @@ namespace SmartHopper.Core.ComponentBase
                     Type type = Type.GetType(typeName);
                     if (type == null)
                     {
-                        Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Type '{typeName}' could not be found");
+                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Type '{typeName}' could not be found");
                         continue;
                     }
                     
                     // Store the type for future reference
                     _persistentDataTypes[paramName] = type;
-                    Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Registered type {type.Name} for parameter {paramName}");
+                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Registered type {type.Name} for parameter {paramName}");
                     
                     // Read value based on type
                     object value;
@@ -365,11 +480,11 @@ namespace SmartHopper.Core.ComponentBase
                         }
                     }
 
-                    Debug.WriteLine($"[AIAsyncStatefulComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
+                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
                     
                     _persistentOutputs[paramName] = value;
 
-                    Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
+                    Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
                 }
 
                 return true;
@@ -412,7 +527,7 @@ namespace SmartHopper.Core.ComponentBase
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("[AIAsyncStatefulComponentBase] [PersistentData] Failed to set output '" + paramName + "': " + ex.Message);
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Failed to set output '" + paramName + "': " + ex.Message);
             }
         }
         
@@ -428,6 +543,97 @@ namespace SmartHopper.Core.ComponentBase
             if (_persistentOutputs.TryGetValue(paramName, out object value) && value is T typedValue)
                 return typedValue;
             return defaultValue;
+        }
+
+        #endregion
+
+        #region AUX METHODS
+        private List<string> InputsChanged(IGH_DataAccess DA)
+        {
+            if (_previousInputHashes == null)
+            {
+                Debug.WriteLine($"[{GetType().Name}] Initializing hash dictionaries");
+                _previousInputHashes = new Dictionary<string, int>();
+                _previousBranchCounts = new Dictionary<string, int>();
+            }
+
+            var changedInputs = new List<string>();
+
+            // Check each input parameter except the last one (Run?)
+            for (int i = 0; i < Params.Input.Count; i++)
+            {
+                var param = Params.Input[i];
+                var data = param.VolatileData;
+ 
+                // Calculate hash of current data
+                int currentHash = 0;
+                int branchCount = data.PathCount;
+
+                // Hash both the data and branch structure
+                foreach (var branch in data.Paths)
+                {
+                    int branchHash = 0;
+                    foreach (var item in data.get_Branch(branch))
+                    {
+                        if (item != null)
+                        {
+                            int itemHash = item.GetHashCode();
+                            branchHash = CombineHashCodes(branchHash, itemHash);
+                        }
+                    }
+                    currentHash = CombineHashCodes(currentHash, branchHash);
+                    currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
+                }
+
+                bool inputChanged = false;
+
+                // Check if hash changed
+                if (!_previousInputHashes.TryGetValue(param.Name, out int previousHash))
+                {
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - No previous hash found for '{param.Name}'");
+                    inputChanged = true;
+                }
+                else if (previousHash != currentHash)
+                {
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Hash changed for '{param.Name}': {previousHash} -> {currentHash}");
+                    inputChanged = true;
+                }
+                else if (!_previousBranchCounts.TryGetValue(param.Name, out int previousBranchCount))
+                {
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - No previous branch count found for '{param.Name}'");
+                    inputChanged = true;
+                }
+                else if (previousBranchCount != branchCount)
+                {
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Branch count changed for '{param.Name}': {previousBranchCount} -> {branchCount}");
+                    inputChanged = true;
+                }
+                else
+                {
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - No changes detected for '{param.Name}'");
+                }
+
+                // Update stored hashes
+                _previousInputHashes[param.Name] = currentHash;
+                _previousBranchCounts[param.Name] = branchCount;
+
+                if (inputChanged)
+                {
+                    changedInputs.Add(param.Name);
+                }
+            }
+
+            Debug.WriteLine($"[{GetType().Name}] Inputs that changed: {(changedInputs.Any() ? string.Join(", ", changedInputs) : "NONE")}");
+
+            return changedInputs;
+        }
+
+        private int CombineHashCodes(int h1, int h2)
+        {
+            unchecked
+            {
+                return ((h1 << 5) + h1) ^ h2;
+            }
         }
 
         #endregion

@@ -37,14 +37,6 @@ namespace SmartHopper.Core.ComponentBase
         void TransitionTo(ComponentState newState);
 
         /// <summary>
-        /// Checks if a transition to the specified state is valid from the current state.
-        /// Implement state machine rules here.
-        /// </summary>
-        /// <param name="newState">The state to check</param>
-        /// <returns>True if the transition is valid</returns>
-        bool CanTransitionTo(ComponentState newState);
-
-        /// <summary>
         /// Event that fires when the component's state changes.
         /// Subscribers can use this to react to state changes.
         /// </summary>
@@ -57,29 +49,12 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public enum ComponentState
     {
-        /// <summary>
-        /// Component needs to be executed
-        /// </summary>
-        NeedsRun,
-
-        /// <summary>
-        /// Component is currently processing
-        /// </summary>
-        Processing,
-
-        /// <summary>
-        /// Component has completed successfully
-        /// </summary>
-        Completed,
-
-        /// <summary>
-        /// Component execution was cancelled
-        /// </summary>
-        Cancelled,
-
-        /// <summary>
-        /// Component encountered an error
-        /// </summary>
-        Error
+        Waiting, // Initial state. Output the previous results, is any. On next SolveInstance, transition to NeedsRun if any input changed
+        NeedsRun, // Initial state or Run = False. On input changes && Run = True, transition to Processing
+        Processing, // Run async work, transition to Completed when all workers finish
+        Completed, // All workers finished, transition to Output
+        // Output, // Output results, and transition to Waiting
+        Cancelled, // Manually cancelled, add error and transition to Waiting
+        Error // An error occurred, add error and transition to Waiting
     }
 }
