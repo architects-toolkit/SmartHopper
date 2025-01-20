@@ -33,7 +33,6 @@ using System.Threading;
 using Timer = System.Threading.Timer;
 using System.Windows.Forms;
 using System.Threading.Tasks;
-using Rhino;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -66,17 +65,18 @@ namespace SmartHopper.Core.ComponentBase
             _persistentDataTypes = new Dictionary<string, Type>();
             _previousInputHashes = new Dictionary<string, int>();
             _previousBranchCounts = new Dictionary<string, int>();
+            _inputChangedDuringDebounce = false;
 
             // Initialize timer
             _debounceTimer = new Timer((state) =>
             {
                 lock (_timerLock)
                 {
-                    _isDebouncing = false;
-                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to NeedsRun");
+                    var targetState = _inputChangedDuringDebounce ? ComponentState.NeedsRun : ComponentState.Waiting;
+                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to {targetState}");
                     Rhino.RhinoApp.InvokeOnUiThread((Action)(() => 
                     {
-                        TransitionTo(ComponentState.NeedsRun, _lastDA);
+                        TransitionTo(targetState, _lastDA);
                     }));
                 }
             }, null, Timeout.Infinite, Timeout.Infinite); // Initially disabled
@@ -153,6 +153,9 @@ namespace SmartHopper.Core.ComponentBase
             // Execute the appropriate state handler
             switch (_currentState)
             {
+                case ComponentState.Completed:
+                    OnStateCompleted(DA);
+                    break;
                 case ComponentState.Waiting:
                     OnStateWaiting(DA);
                     break;
@@ -160,10 +163,8 @@ namespace SmartHopper.Core.ComponentBase
                     OnStateNeedsRun(DA);
                     break;
                 case ComponentState.Processing:
+                    //// OnStateProcessing is only called when transitioning with TransitionTo
                     OnStateProcessing(DA);
-                    break;
-                case ComponentState.Completed:
-                    OnStateCompleted(DA);
                     break;
                 case ComponentState.Cancelled:
                     OnStateCancelled(DA);
@@ -199,7 +200,7 @@ namespace SmartHopper.Core.ComponentBase
         // PRIVATE FIELDS
 
         //Default state, field to store the current state
-        private ComponentState _currentState = ComponentState.Waiting; 
+        private ComponentState _currentState = ComponentState.Completed; 
 
         private readonly object _stateLock = new object();
         private bool _isTransitioning;
@@ -224,22 +225,23 @@ namespace SmartHopper.Core.ComponentBase
 
             _stateCompletionSource = new TaskCompletionSource<bool>();
             
+            // Actions here only happen when transitioning
+            // Action in the OnState___ methods happen on every solve
             switch(newState)
             {
-                case ComponentState.Waiting:
-                    OnStateWaiting(DA);
-                    break;
-                case ComponentState.NeedsRun:
-                    OnStateNeedsRun(DA);
-                    OnDisplayExpired(false);
-                    ExpireSolution(true);
-                    break;
-                case ComponentState.Processing:
-                    OnStateProcessing(DA);
-                    break;
                 case ComponentState.Completed:
                     OnStateCompleted(DA);
                     OnDisplayExpired(true);
+                    break;
+                case ComponentState.Waiting:
+                    //// OnStateWaiting is only called in SolveInstance
+                    //OnStateWaiting(DA);
+                    break;
+                case ComponentState.NeedsRun:
+                    OnStateNeedsRun(DA);
+                    break;
+                case ComponentState.Processing:
+                    OnStateProcessing(DA);
                     break;
                 case ComponentState.Cancelled:
                     OnStateCancelled(DA);
@@ -285,34 +287,57 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         var nextState = _pendingTransitions.Dequeue();
                         Debug.WriteLine($"[{GetType().Name}] Processing queued transition to {nextState}");
-                        TransitionTo(nextState, _lastDA);
+                        TransitionTo(nextState, DA);
                     }
                 }
             }
         }
 
-        private void OnStateWaiting(IGH_DataAccess DA)
+        private void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{GetType().Name}] OnStateWaiting");
+            Debug.WriteLine($"[{GetType().Name}] OnStateCompleted");
 
             // Restore data from persistent storage, necessary when opening the file
             RestorePersistentOutputs(DA);
 
             // Check if inputs changed
-            var changedInputs = InputsChanged(DA);
+            var changedInputs = InputsChanged();
+
+            // Check Run parameter
+            bool run = false;
+            DA.GetData("Run?", ref run);
 
             // If "Run?" did not change, but others did
-            if (changedInputs.Any(input => input == null || input != "Run?")) 
+            if (changedInputs.Any(input => input == null || input != "Run?"))
             {
                 Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
-                RestartDebounceTimer();
+                RestartDebounceTimer(!run);
             }
+
+            CompleteStateTransition();
+        }
+
+
+        private void OnStateWaiting(IGH_DataAccess DA)
+        {
+            Debug.WriteLine($"[{GetType().Name}] OnStateWaiting");
+
+            _inputChangedDuringDebounce = false;
+            Debug.WriteLine($"_inputChangedDuringDebounce set to {_inputChangedDuringDebounce}");
+
+            // When Waiting is triggered means that there was a change in inputs,
+            // so transition to NeedsRun
+            TransitionTo(ComponentState.NeedsRun, DA);
+            
             CompleteStateTransition();
         }
             
         private void OnStateNeedsRun(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateNeedsRun");
+
+            _inputChangedDuringDebounce = false;
+            Debug.WriteLine($"_inputChangedDuringDebounce set to {_inputChangedDuringDebounce}");
 
             // Check Run parameter
             bool run = false;
@@ -329,6 +354,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 ClearDataOnly();
             }
+
             CompleteStateTransition();
         }
 
@@ -338,16 +364,6 @@ namespace SmartHopper.Core.ComponentBase
             // The base AsyncComponentBase handles the actual processing
             // When done it will call OnWorkerCompleted which transitions to Completed
             base.SolveInstance(DA);
-            CompleteStateTransition();
-        }
-
-        private void OnStateCompleted(IGH_DataAccess DA)
-        {
-            Debug.WriteLine($"[{GetType().Name}] OnStateCompleted");
-            // Output results
-            RestorePersistentOutputs(DA);
-
-            TransitionTo(ComponentState.Waiting, DA);
             CompleteStateTransition();
         }
 
@@ -379,14 +395,14 @@ namespace SmartHopper.Core.ComponentBase
             // Normal flow validation
             switch (_currentState)
             {
+                case ComponentState.Completed:
+                    return newState == ComponentState.Waiting || newState == ComponentState.NeedsRun;
                 case ComponentState.Waiting:
                     return newState == ComponentState.NeedsRun;
                 case ComponentState.NeedsRun:
                     return newState == ComponentState.Processing;
                 case ComponentState.Processing:
                     return newState == ComponentState.Completed;
-                case ComponentState.Completed:
-                    return newState == ComponentState.Waiting;
                 default:
                     return false;
             }
@@ -402,17 +418,12 @@ namespace SmartHopper.Core.ComponentBase
         private const int MIN_DEBOUNCE_TIME = 1000;
 
         /// <summary>
-        /// Flag indicating whether input changes are being debounced.
-        /// When true, rapid input changes will be ignored until the debounce period elapses.
-        /// </summary>
-        private bool _isDebouncing;
-
-        /// <summary>
         /// Timer used to track the debounce period. When it elapses, if inputs are stable,
         /// the component will transition to NeedsRun state and trigger a solve.
         /// </summary>
         private readonly object _timerLock = new object();
-        private Timer _debounceTimer;
+        private readonly Timer _debounceTimer;
+        private bool _inputChangedDuringDebounce;
 
         /// <summary>
         /// Gets the debounce time from the SmartHopperSettings and returns the maximum between the settings value and the minimum value defined in MIN_DEBOUNCE_TIME.
@@ -424,13 +435,13 @@ namespace SmartHopper.Core.ComponentBase
             return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
         }
 
-        private void RestartDebounceTimer()
+        protected void RestartDebounceTimer(bool transitionToNeedsRun = false)
         {
             lock (_timerLock)
             {
-                Debug.WriteLine($"[{GetType().Name}] Restarting debounce timer");
-                _isDebouncing = true;
+                _inputChangedDuringDebounce = transitionToNeedsRun;
                 _debounceTimer.Change(GetDebounceTime(), Timeout.Infinite);
+                Debug.WriteLine($"[{GetType().Name}] Restarting debounce timer - Will transition to {(transitionToNeedsRun ? "NeedsRun" : "Waiting")}");
             }
         }
 
@@ -798,7 +809,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        private List<string> InputsChanged(IGH_DataAccess DA)
+        private List<string> InputsChanged()
         {
             if (_previousInputHashes == null)
             {
@@ -872,7 +883,7 @@ namespace SmartHopper.Core.ComponentBase
             return changedInputs;
         }
 
-        private int CombineHashCodes(int h1, int h2)
+        private static int CombineHashCodes(int h1, int h2)
         {
             unchecked
             {
@@ -884,14 +895,27 @@ namespace SmartHopper.Core.ComponentBase
         {
             // Only expire downstream objects if we're in the completed state, which means that data is ready to output
             // This prevents the flash of null data until the new solution is ready
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_currentState} --> Expiring? {_currentState == ComponentState.Completed}");
-            if (_currentState == ComponentState.Completed)
-            {
+            Debug.WriteLine($"[AIStatefulAsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_currentState} --> Expiring? {_currentState != ComponentState.Processing}");
+            //if (_currentState != ComponentState.Processing)
+            //{
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Expiring downstream objects");
                 base.ExpireDownStreamObjects();
-            }
+            //}
             return;
         }
+
+        //protected void ExpireDownStreamObjects(bool force = false)
+        //{
+        //    if (force)
+        //    {
+        //        base.ExpireDownStreamObjects();
+        //    }
+        //    else
+        //    {
+        //        ExpireDownStreamObjects();
+        //    }
+        //    return;
+        //}
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {

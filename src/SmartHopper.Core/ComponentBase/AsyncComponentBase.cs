@@ -249,7 +249,7 @@ namespace SmartHopper.Core.ComponentBase
                 Params.Output[i].ClearData();
             }
 
-            // ExpireDownStreamObjects();
+            //ExpirePreview(true);
         }
     }
 }
