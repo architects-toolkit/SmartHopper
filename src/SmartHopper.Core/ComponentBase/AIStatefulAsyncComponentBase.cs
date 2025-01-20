@@ -20,6 +20,7 @@
  * Grasshopper's component lifecycle.
  */
 
+using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using GH_IO.Serialization;
@@ -152,11 +153,14 @@ namespace SmartHopper.Core.ComponentBase
                     OnStateError(DA);
                     break;
             }
+
+            OnDisplayExpired(false);
         }
 
         protected override void OnWorkerCompleted()
         {
             base.OnWorkerCompleted();
+
             TransitionTo(ComponentState.Completed);
         }
         
@@ -197,41 +201,17 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateWaiting");
 
+            RestorePersistentOutputs(DA);
+
             // Check if inputs changed
             var changedInputs = InputsChanged(DA);
 
             // If "Run?" did not change, but others did
             if (changedInputs.Any(input => input == null || input != "Run?")) 
             {
-                // If already debouncing, skip solve
-                if (_isDebouncing)
-                {
-                    Debug.WriteLine($"[{GetType().Name}] Still debouncing, skipping solve");
-                    return;
-                }
-
-                Debug.WriteLine($"[{GetType().Name}] Inputs changed, starting debounce timer");
-                
-                // Start debounce timer
-                _isDebouncing = true;
-                _debounceTimer?.Dispose();
-                _debounceTimer = new Timer(_ =>
-                {
-                    _isDebouncing = false;
-                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to NeedsRun");
-                    Rhino.RhinoApp.InvokeOnUiThread((Action)(() => 
-                    {
-                        TransitionTo(ComponentState.NeedsRun);
-                        OnDisplayExpired(true);
-                    }));
-            }, null, GetDebounceTime(), Timeout.Infinite);
+                Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
+                RestartDebounceTimer();
             }
-            else
-            {
-                RestorePersistentOutputs(DA);
-            }
-
-            OnDisplayExpired(true);
         }
             
         private void OnStateNeedsRun(IGH_DataAccess DA)
@@ -245,15 +225,19 @@ namespace SmartHopper.Core.ComponentBase
             bool run = false;
             DA.GetData("Run?", ref run);
 
-            if (!run)
+            if (run)
+            {
+                //OnDisplayExpired(true);
+            }
+            else
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!");
+                //OnDisplayExpired(true);
                 return;
             }
 
             // Transition to Processing and let base class handle async work
             TransitionTo(ComponentState.Processing);
-            ExpireSolution(true);
         }
 
         private void OnStateProcessing(IGH_DataAccess DA)
@@ -268,6 +252,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateCompleted");
             // Move to output state to show results
+            //RestorePersistentOutputs(DA);
             TransitionTo(ComponentState.Waiting);
         }
 
@@ -292,7 +277,42 @@ namespace SmartHopper.Core.ComponentBase
 
             Message = newState.ToString();
 
+            switch(newState)
+            {
+                case ComponentState.Waiting:
+                    OnDisplayExpired(true);
+                    break;
+                case ComponentState.NeedsRun:
+                    // To force executing the display logic
+                    OnDisplayExpired(true);
+                    ExpireSolution(true);
+                    break;
+                case ComponentState.Processing:
+                    break;
+                case ComponentState.Completed:
+                    break;
+                case ComponentState.Cancelled:
+                    break;
+                case ComponentState.Error:
+                    break;
+            }
+
             Debug.WriteLine($"[{GetType().Name}] State transition: {oldState} -> {newState}");
+        }
+
+        private void RestartDebounceTimer()
+        {
+            _isDebouncing = true;
+            _debounceTimer?.Dispose();
+            _debounceTimer = new Timer(_ =>
+            {
+                _isDebouncing = false;
+                Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to NeedsRun");
+                Rhino.RhinoApp.InvokeOnUiThread((Action)(() => 
+                {
+                    TransitionTo(ComponentState.NeedsRun);
+                }));
+            }, null, GetDebounceTime(), Timeout.Infinite);
         }
 
         #endregion
@@ -548,8 +568,6 @@ namespace SmartHopper.Core.ComponentBase
 
                     // Set the data through DA
                     DA.SetData(param.Name, value);
-
-                    //OnDisplayExpired(true);
                 }
             }
             catch (Exception ex)
