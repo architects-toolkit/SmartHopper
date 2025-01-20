@@ -25,11 +25,11 @@ namespace SmartHopper.Core.ComponentBase
         protected readonly Action<GH_RuntimeMessageLevel, string> AddRuntimeMessage;
 
         protected AsyncWorkerBase(
-            Action<string> progressReporter,
+            //Action<string> progressReporter,
             GH_Component parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
         {
-            ReportProgress = progressReporter;
+            //ReportProgress = progressReporter;
             Parent = parent;
             AddRuntimeMessage = addRuntimeMessage;
         }

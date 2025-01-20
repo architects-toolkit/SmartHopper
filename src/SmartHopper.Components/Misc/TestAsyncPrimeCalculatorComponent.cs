@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestPrimeCalculatorWorker(progressReporter, this, AddRuntimeMessage);
+            return new TestPrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
         private class TestPrimeCalculatorWorker : AsyncWorkerBase
@@ -56,10 +56,10 @@ namespace SmartHopper.Components.Misc
             private long _result = -1;
 
             public TestPrimeCalculatorWorker(
-                Action<string> progressReporter,
+                //Action<string> progressReporter,
                 GH_Component parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-                : base(progressReporter, parent, addRuntimeMessage)
+                : base(parent, addRuntimeMessage)
             {
             }
 
@@ -94,7 +94,7 @@ namespace SmartHopper.Components.Misc
                         b++;
                     }
 
-                    ReportProgress($"{((double)count / _nthPrime * 100):F2}%");
+                    //ReportProgress($"{((double)count / _nthPrime * 100):F2}%");
 
                     if (isPrime)
                     {
