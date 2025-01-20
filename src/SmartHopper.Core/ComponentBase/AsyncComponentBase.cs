@@ -121,6 +121,8 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            Debug.WriteLine($"[AsyncComponentBase] SolveInstance - State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
+            
             // Initial run
             if (_state == 0)
             {
@@ -233,5 +235,21 @@ namespace SmartHopper.Core.ComponentBase
         /// This will be called for post-solve.
         /// </summary>
         protected virtual void OnSolveInstancePostSolve(IGH_DataAccess DA) { }
+
+        /// <summary>
+        /// Clears only the data from all outputs while preserving runtime messages
+        /// </summary>
+        protected void ClearDataOnly()
+        {
+            Debug.WriteLine($"[AsyncComponentBase] Cleaning Output Data Only");
+            
+            // Clear output data
+            for (int i = 0; i < Params.Output.Count; i++)
+            {
+                Params.Output[i].ClearData();
+            }
+
+            // ExpireDownStreamObjects();
+        }
     }
 }
