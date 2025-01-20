@@ -20,7 +20,6 @@
  * Grasshopper's component lifecycle.
  */
 
-using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using GH_IO.Serialization;
@@ -330,14 +329,16 @@ namespace SmartHopper.Core.ComponentBase
         // PRIVATE FIELDS
         private readonly Dictionary<string, object> _persistentOutputs;
         private readonly Dictionary<string, Type> _persistentDataTypes;
+        private bool _restoredFromFile;
         
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
-        /// Called when the component is added to a document.
         /// </summary>
+        /// <param name="DA">The data access object</param>
         protected void RestorePersistentOutputs(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Restoring persistent outputs");
+            
             for (int i = 0; i < Params.Output.Count; i++)
             {
                 var param = Params.Output[i];
@@ -376,6 +377,12 @@ namespace SmartHopper.Core.ComponentBase
                     }
                 }
             }
+            
+            if (_restoredFromFile)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Results were restored from saved file");
+                _restoredFromFile = false;
+            }
         }
 
         /// <summary>
@@ -391,50 +398,64 @@ namespace SmartHopper.Core.ComponentBase
             try
             {
                 // Store number of outputs
-                writer.SetInt32("OutputCount", _persistentOutputs.Count);
+                int totalCount = _persistentOutputs.Count;
+                writer.SetInt32("OutputCount", totalCount);
                 
                 // Store each output with its parameter name
                 int index = 0;
                 foreach (var kvp in _persistentOutputs)
                 {
                     writer.SetString($"ParamName_{index}", kvp.Key);
+                    object valueToStore = kvp.Value;
                     
+                    // If it's a GH_ObjectWrapper, extract the inner value
+                    if (kvp.Value?.GetType()?.FullName == "Grasshopper.Kernel.Types.GH_ObjectWrapper")
+                    {
+                        var valueProperty = kvp.Value.GetType().GetProperty("Value");
+                        if (valueProperty != null)
+                        {
+                            valueToStore = valueProperty.GetValue(kvp.Value);
+                        }
+                    }
+
                     // Get the expected type from _persistentDataTypes
                     Type expectedType = null;
                     if (_persistentDataTypes.TryGetValue(kvp.Key, out expectedType))
                     {
                         writer.SetString($"ParamType_{index}", expectedType.AssemblyQualifiedName);
-                        object valueToStore = kvp.Value;
-                        
-                        // If it's a GH_ObjectWrapper, extract the inner value
-                        if (kvp.Value?.GetType()?.FullName == "Grasshopper.Kernel.Types.GH_ObjectWrapper")
-                        {
-                            var valueProperty = kvp.Value.GetType().GetProperty("Value");
-                            if (valueProperty != null)
-                            {
-                                valueToStore = valueProperty.GetValue(kvp.Value);
-                            }
-                        }
-                        
-                        // Store the value based on its type
-                        if (valueToStore != null)
-                        {
-                            if (valueToStore is int intValue)
-                                writer.SetInt32($"Value_{index}", intValue);
-                            else if (valueToStore is double doubleValue)
-                                writer.SetDouble($"Value_{index}", doubleValue);
-                            else if (valueToStore is string stringValue)
-                                writer.SetString($"Value_{index}", stringValue);
-                            else if (valueToStore is bool boolValue)
-                                writer.SetBoolean($"Value_{index}", boolValue);
-                            else
-                                writer.SetString($"Value_{index}", JsonSerializer.Serialize(valueToStore));
-                        }
-
-                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of stored type '{expectedType?.FullName}'");
-                        
-                        index++;
                     }
+                    else if (valueToStore != null)
+                    {
+                        writer.SetString($"ParamType_{index}", valueToStore.GetType().AssemblyQualifiedName);
+                    }
+                    else
+                    {
+                        writer.SetString($"ParamType_{index}", "null");
+                    }
+                    
+                    // Store the value based on its type
+                    if (valueToStore != null)
+                    {
+                        if (valueToStore is int intValue)
+                            writer.SetInt32($"Value_{index}", intValue);
+                        else if (valueToStore is double doubleValue)
+                            writer.SetDouble($"Value_{index}", doubleValue);
+                        else if (valueToStore is string stringValue)
+                            writer.SetString($"Value_{index}", stringValue);
+                        else if (valueToStore is bool boolValue)
+                            writer.SetBoolean($"Value_{index}", boolValue);
+                        else
+                            writer.SetString($"Value_{index}", JsonSerializer.Serialize(valueToStore));
+
+                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of type '{(expectedType?.FullName ?? valueToStore.GetType().FullName)}'");
+                    }
+                    else
+                    {
+                        writer.SetString($"Value_{index}", null);
+                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [PersistentData] Stored null output '{kvp.Key}'");
+                    }
+                    
+                    index++;
                 }
 
                 return true;
@@ -468,6 +489,9 @@ namespace SmartHopper.Core.ComponentBase
                 // Read each output
                 for (int i = 0; i < count; i++)
                 {
+                    if (!reader.ItemExists($"ParamName_{i}") || !reader.ItemExists($"ParamType_{i}"))
+                        continue;
+
                     string paramName = reader.GetString($"ParamName_{i}");
                     string typeName = reader.GetString($"ParamType_{i}");
                     Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
@@ -528,6 +552,9 @@ namespace SmartHopper.Core.ComponentBase
                     Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
                     
                     _persistentOutputs[paramName] = value;
+                    _restoredFromFile = true;
+
+                    CalculatePersistentDataHashes();
 
                     Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
                 }
@@ -555,6 +582,16 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // Store the value in persistent storage
                 _persistentOutputs[paramName] = value;
+
+                // Store the type information
+                if (value != null)
+                {
+                    _persistentDataTypes[paramName] = value.GetType();
+                }
+                else
+                {
+                    _persistentDataTypes.Remove(paramName);
+                }
 
                 // Find the output parameter
                 var param = Params.Output.FirstOrDefault(p => p.Name == paramName);
@@ -593,13 +630,51 @@ namespace SmartHopper.Core.ComponentBase
         #endregion
 
         #region AUX METHODS
-        private List<string> InputsChanged(IGH_DataAccess DA)
+        private void CalculatePersistentDataHashes()
         {
             if (_previousInputHashes == null)
             {
                 Debug.WriteLine($"[{GetType().Name}] Initializing hash dictionaries");
                 _previousInputHashes = new Dictionary<string, int>();
                 _previousBranchCounts = new Dictionary<string, int>();
+            }
+
+            // Check each input parameter
+            for (int i = 0; i < Params.Input.Count; i++)
+            {
+                var param = Params.Input[i];
+                var data = param.VolatileData;
+ 
+                // Calculate hash of current data
+                int currentHash = 0;
+                int branchCount = data.PathCount;
+
+                // Hash both the data and branch structure
+                foreach (var branch in data.Paths)
+                {
+                    int branchHash = 0;
+                    foreach (var item in data.get_Branch(branch))
+                    {
+                        if (item != null)
+                        {
+                            int itemHash = item.GetHashCode();
+                            branchHash = CombineHashCodes(branchHash, itemHash);
+                        }
+                    }
+                    currentHash = CombineHashCodes(currentHash, branchHash);
+                    currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
+                }
+
+                _previousInputHashes[param.Name] = currentHash;
+                _previousBranchCounts[param.Name] = branchCount;
+            }
+        }
+
+        private List<string> InputsChanged(IGH_DataAccess DA)
+        {
+            if (_previousInputHashes == null)
+            {
+                CalculatePersistentDataHashes();
             }
 
             var changedInputs = new List<string>();
@@ -640,35 +715,31 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 else if (previousHash != currentHash)
                 {
-                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Hash changed for '{param.Name}': {previousHash} -> {currentHash}");
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Hash changed for '{param.Name}'");
                     inputChanged = true;
                 }
-                else if (!_previousBranchCounts.TryGetValue(param.Name, out int previousBranchCount))
+
+                // Check if branch count changed
+                if (!_previousBranchCounts.TryGetValue(param.Name, out int previousBranchCount))
                 {
                     Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - No previous branch count found for '{param.Name}'");
                     inputChanged = true;
                 }
                 else if (previousBranchCount != branchCount)
                 {
-                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Branch count changed for '{param.Name}': {previousBranchCount} -> {branchCount}");
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Branch count changed for '{param.Name}'");
                     inputChanged = true;
                 }
-                else
-                {
-                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - No changes detected for '{param.Name}'");
-                }
-
-                // Update stored hashes
-                _previousInputHashes[param.Name] = currentHash;
-                _previousBranchCounts[param.Name] = branchCount;
 
                 if (inputChanged)
                 {
                     changedInputs.Add(param.Name);
                 }
-            }
 
-            Debug.WriteLine($"[{GetType().Name}] Inputs that changed: {(changedInputs.Any() ? string.Join(", ", changedInputs) : "NONE")}");
+                // Store current values for next comparison
+                _previousInputHashes[param.Name] = currentHash;
+                _previousBranchCounts[param.Name] = branchCount;
+            }
 
             return changedInputs;
         }
