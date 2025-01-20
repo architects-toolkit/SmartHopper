@@ -191,7 +191,7 @@ namespace SmartHopper.Core.ComponentBase
 
             Interlocked.Exchange(ref _setData, 0);
             // Message = "Done";
-            OnDisplayExpired(true);
+            //OnDisplayExpired(true);
 
             OnWorkerCompleted();
         }
@@ -207,10 +207,6 @@ namespace SmartHopper.Core.ComponentBase
                     task.Start();
                 }
             }
-            // else if (_state == 0 && _tasks.Count == 0)
-            // {
-            //     ExpireSolution(true);
-            // }
         }
 
         public virtual void RequestTaskCancellation()
