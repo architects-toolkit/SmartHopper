@@ -28,6 +28,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
 using System.Diagnostics;
+using System.Threading;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -129,8 +130,6 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{GetType().Name}] SolveInstance - Current State: {_currentState}");
 
-            Message = _currentState.ToString();
-
             // Execute the appropriate state handler
             switch (_currentState)
             {
@@ -177,30 +176,71 @@ namespace SmartHopper.Core.ComponentBase
         //Default state, field to store the current state
         private ComponentState _currentState = ComponentState.Waiting; 
 
+        /// <summary>
+        /// Minimum debounce time in milliseconds. Input changes within this period will be ignored.
+        /// </summary>
+        private const int MIN_DEBOUNCE_TIME = 1000;
+
+        /// <summary>
+        /// Flag indicating whether input changes are being debounced.
+        /// When true, rapid input changes will be ignored until the debounce period elapses.
+        /// </summary>
+        private volatile bool _isDebouncing;
+
+        /// <summary>
+        /// Timer used to track the debounce period. When it elapses, if inputs are stable,
+        /// the component will transition to NeedsRun state and trigger a solve.
+        /// </summary>
+        private Timer _debounceTimer;
 
         private void OnStateWaiting(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateWaiting");
+
             // Check if inputs changed
             var changedInputs = InputsChanged(DA);
 
             // If "Run?" did not change, but others did
             if (changedInputs.Any(input => input == null || input != "Run?")) 
             {
-                TransitionTo(ComponentState.NeedsRun);
+                // If already debouncing, skip solve
+                if (_isDebouncing)
+                {
+                    Debug.WriteLine($"[{GetType().Name}] Still debouncing, skipping solve");
+                    return;
+                }
+
+                Debug.WriteLine($"[{GetType().Name}] Inputs changed, starting debounce timer");
+                
+                // Start debounce timer
+                _isDebouncing = true;
+                _debounceTimer?.Dispose();
+                _debounceTimer = new Timer(_ =>
+                {
+                    _isDebouncing = false;
+                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to NeedsRun");
+                    Rhino.RhinoApp.InvokeOnUiThread((Action)(() => 
+                    {
+                        TransitionTo(ComponentState.NeedsRun);
+                        OnDisplayExpired(true);
+                    }));
+            }, null, GetDebounceTime(), Timeout.Infinite);
             }
             else
             {
                 RestorePersistentOutputs(DA);
             }
 
-            //OnDisplayExpired(true);
+            OnDisplayExpired(true);
         }
             
         private void OnStateNeedsRun(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateNeedsRun");
-            
+
+            // Keep existing outputs
+            RestorePersistentOutputs(DA);
+
             // Check Run parameter
             bool run = false;
             DA.GetData("Run?", ref run);
@@ -208,12 +248,12 @@ namespace SmartHopper.Core.ComponentBase
             if (!run)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!");
-                RestorePersistentOutputs(DA);
                 return;
             }
 
             // Transition to Processing and let base class handle async work
             TransitionTo(ComponentState.Processing);
+            ExpireSolution(true);
         }
 
         private void OnStateProcessing(IGH_DataAccess DA)
@@ -249,6 +289,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             var oldState = _currentState;
             _currentState = newState;
+
+            Message = newState.ToString();
 
             Debug.WriteLine($"[{GetType().Name}] State transition: {oldState} -> {newState}");
         }
@@ -619,6 +661,15 @@ namespace SmartHopper.Core.ComponentBase
             {
                 return ((h1 << 5) + h1) ^ h2;
             }
+        }
+
+        /// <summary>
+        /// Gets the debounce time. Override this method to provide a custom debounce time.
+        /// </summary>
+        /// <returns>The debounce time in milliseconds.</returns>
+        protected virtual int GetDebounceTime()
+        {
+            return MIN_DEBOUNCE_TIME;
         }
 
         #endregion

@@ -111,11 +111,11 @@ namespace SmartHopper.Core.ComponentBase
                 source.Cancel();
             }
 
-            //_cancellationSources.Clear();
-            //_tasks.Clear();
-            //Workers.Clear();
-            //_state = 0;
-            //_setData = 0;
+            _cancellationSources.Clear();
+            _tasks.Clear();
+            Workers.Clear();
+            _state = 0;
+            _setData = 0;
             //Message = string.Empty;
         }
 
@@ -174,8 +174,8 @@ namespace SmartHopper.Core.ComponentBase
                 Interlocked.Decrement(ref _state);
                 string doneMessage = null;
                 Workers[_state].SetOutput(DA, out doneMessage);
-                if (!string.IsNullOrEmpty(doneMessage))
-                    Message = doneMessage;
+                //if (!string.IsNullOrEmpty(doneMessage))
+                //    Message = doneMessage;
                 
                 OnSolveInstancePostSolve(DA);
             }
@@ -190,15 +190,15 @@ namespace SmartHopper.Core.ComponentBase
             _tasks.Clear();
 
             Interlocked.Exchange(ref _setData, 0);
-            Message = "Done";
-            //OnDisplayExpired(true);
+            // Message = "Done";
+            OnDisplayExpired(true);
 
             OnWorkerCompleted();
         }
 
         protected override void AfterSolveInstance()
         {
-            Debug.WriteLine($"[AsyncComponentBase] AfterSolveInstance - State: {_state}, Tasks: {_tasks.Count}");
+            Debug.WriteLine($"[AsyncComponentBase] AfterSolveInstance - State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
             if (_state == 0 && _tasks.Count > 0 && _setData == 0)
             {
                 // Run all tasks
@@ -207,6 +207,10 @@ namespace SmartHopper.Core.ComponentBase
                     task.Start();
                 }
             }
+            // else if (_state == 0 && _tasks.Count == 0)
+            // {
+            //     ExpireSolution(true);
+            // }
         }
 
         public virtual void RequestTaskCancellation()
