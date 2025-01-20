@@ -20,6 +20,7 @@
  * Grasshopper's component lifecycle.
  */
 
+using SmartHopper.Config.Configuration;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using GH_IO.Serialization;
@@ -74,7 +75,7 @@ namespace SmartHopper.Core.ComponentBase
         // implementing the necessary methods for a
         // Grasshopper Component.
 
-        #region INPUTS AND OUTPUTS
+        #region I/O
 
         private Dictionary<string, int> _previousInputHashes;
         private Dictionary<string, int> _previousBranchCounts;
@@ -115,7 +116,7 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
-        #region COMPONENT LIFECYCLE
+        #region LIFECYCLE
 
         /// <summary>
         /// Main solving method for the component.
@@ -172,29 +173,12 @@ namespace SmartHopper.Core.ComponentBase
         // 
         // Implement State Management
 
-        #region STATE MANAGEMENT
+        #region STATE
 
         // PRIVATE FIELDS
 
         //Default state, field to store the current state
         private ComponentState _currentState = ComponentState.Waiting; 
-
-        /// <summary>
-        /// Minimum debounce time in milliseconds. Input changes within this period will be ignored.
-        /// </summary>
-        private const int MIN_DEBOUNCE_TIME = 1000;
-
-        /// <summary>
-        /// Flag indicating whether input changes are being debounced.
-        /// When true, rapid input changes will be ignored until the debounce period elapses.
-        /// </summary>
-        private volatile bool _isDebouncing;
-
-        /// <summary>
-        /// Timer used to track the debounce period. When it elapses, if inputs are stable,
-        /// the component will transition to NeedsRun state and trigger a solve.
-        /// </summary>
-        private Timer _debounceTimer;
 
         private void OnStateWaiting(IGH_DataAccess DA)
         {
@@ -299,6 +283,37 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[{GetType().Name}] State transition: {oldState} -> {newState}");
         }
 
+        #endregion
+
+        #region DEBOUNCE
+
+        /// <summary>
+        /// Minimum debounce time in milliseconds. Input changes within this period will be ignored.
+        /// </summary>
+        private const int MIN_DEBOUNCE_TIME = 1000;
+
+        /// <summary>
+        /// Flag indicating whether input changes are being debounced.
+        /// When true, rapid input changes will be ignored until the debounce period elapses.
+        /// </summary>
+        private volatile bool _isDebouncing;
+
+        /// <summary>
+        /// Timer used to track the debounce period. When it elapses, if inputs are stable,
+        /// the component will transition to NeedsRun state and trigger a solve.
+        /// </summary>
+        private Timer _debounceTimer;
+
+        /// <summary>
+        /// Gets the debounce time from the SmartHopperSettings and returns the maximum between the settings value and the minimum value defined in MIN_DEBOUNCE_TIME.
+        /// </summary>
+        /// <returns>The debounce time in milliseconds.</returns>
+        protected virtual int GetDebounceTime()
+        {
+            var settingsDebounceTime = SmartHopperSettings.Load().DebounceTime;
+            return Math.Max(settingsDebounceTime, MIN_DEBOUNCE_TIME);
+        }
+
         private void RestartDebounceTimer()
         {
             _isDebouncing = true;
@@ -324,7 +339,7 @@ namespace SmartHopper.Core.ComponentBase
         // This section of code is responsible for storing
         // and retrieving persistent data for the component.
 
-        #region PERSISTENCE DATA MANAGEMENT
+        #region PERSISTENT DATA
 
         // PRIVATE FIELDS
         private readonly Dictionary<string, object> _persistentOutputs;
@@ -629,7 +644,7 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
-        #region AUX METHODS
+        #region AUX
         private void CalculatePersistentDataHashes()
         {
             if (_previousInputHashes == null)
@@ -750,15 +765,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 return ((h1 << 5) + h1) ^ h2;
             }
-        }
-
-        /// <summary>
-        /// Gets the debounce time. Override this method to provide a custom debounce time.
-        /// </summary>
-        /// <returns>The debounce time in milliseconds.</returns>
-        protected virtual int GetDebounceTime()
-        {
-            return MIN_DEBOUNCE_TIME;
         }
 
         #endregion
