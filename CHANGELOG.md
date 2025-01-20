@@ -7,19 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a new Component Base for AI-Powered components, including all these features:
+  - Added debounging timer to prevent fast recalculations.
+  - Enhanced state management system with granular state tracking
+  - Unified AIStatefulComponentBase and AsyncStatefulComponentBase for easier maintenance.
+
 ### Changed
 
-- Refactored AI Async Stateful Component Base by adding Docstrings, removing irrelevant Debug.WriteLine statements, and removing unused variables.
-- Removed IEndpointProvider
-- Clean up comments
-- Refactored Async Stateful Component Base by adding Docstrings and rearranging the order of methods
-- Refactored Async Component Base by adding Docstrings and rearranging the order of methods
-- Enhanced state management system with granular state tracking
-- Unified AIStatefulComponentBase and AsyncStatefulComponentBase for easier maintenance.
+- General clean up and refactoring, including the supression of unnecessary comments, and the removal of deprecated features
 
 ### Fixed
 
 - Fixed lack of comprehensive error when API key is not correct ([#13](https://github.com/architects-toolkit/SmartHopper/issues/13))
+- Fixed Changing Graft/Flatten from an output requires recomputing the component ([#7](https://github.com/architects-toolkit/SmartHopper/issues/7))
+- Fixed Feature request: Store outputs and prevent from recalculating on file open ([#8](https://github.com/architects-toolkit/SmartHopper/issues/8))
 
 ## [0.0.0-dev.250104] - 2025-01-04
 

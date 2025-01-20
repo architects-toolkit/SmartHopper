@@ -94,8 +94,6 @@ namespace SmartHopper.Components.Misc
                         b++;
                     }
 
-                    //ReportProgress($"{((double)count / _nthPrime * 100):F2}%");
-
                     if (isPrime)
                     {
                         count++;

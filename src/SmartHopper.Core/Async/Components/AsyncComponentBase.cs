@@ -288,11 +288,8 @@ namespace SmartHopper.Core.Async.Components
             // Only expire downstream objects if we're not in the middle of a worker completion
             // This prevents the flash of null data until the new solution is ready
             Debug.WriteLine($"[AsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {StateManager.CurrentState}, IsResultOut: {StateManager.IsResultOut}");
-            // if (StateManager.CurrentState == ComponentState.Completed && StateManager.IsResultOut)
-            // {
             Debug.WriteLine("Expiring downstream objects");
             base.ExpireDownStreamObjects();
-            // }
         }
 
         /// <summary>
