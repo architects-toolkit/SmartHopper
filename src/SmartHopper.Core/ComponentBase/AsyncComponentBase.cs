@@ -47,7 +47,7 @@ namespace SmartHopper.Core.ComponentBase
         /// This is used in conjunction with _setData to coordinate the async execution flow
         /// and ensure proper ordering of worker output processing.
         /// </summary>
-        private int _state;
+        protected int _state;
 
         /// <summary>
         /// Flag indicating whether the component is ready to process worker outputs:
@@ -57,9 +57,9 @@ namespace SmartHopper.Core.ComponentBase
         /// prevent re-execution of workers during the output phase.
         /// Set to 1 via Interlocked.Exchange when _state equals Workers.Count.
         /// </summary>
-        private int _setData;
+        protected int _setData;
 
-        private bool _inPreSolve;
+        protected bool _inPreSolve;
 
         protected List<AsyncWorkerBase> Workers { get; private set; }
         protected AsyncWorkerBase CurrentWorker { get; private set; }
@@ -106,7 +106,7 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            Debug.WriteLine("[AsyncComponentBase] Cleaning up previous run");
+            Debug.WriteLine("[AsyncComponentBase] BeforeSolveInstance - Cleaning up previous run");
             foreach (var source in _cancellationSources)
             {
                 source.Cancel();
