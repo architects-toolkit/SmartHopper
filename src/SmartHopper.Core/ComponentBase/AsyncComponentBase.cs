@@ -21,6 +21,7 @@
 
 using Grasshopper.Kernel;
 using System;
+using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -147,9 +148,13 @@ namespace SmartHopper.Core.ComponentBase
                             Rhino.RhinoApp.InvokeOnUiThread((Action)(() => ExpireSolution(true)));
                         }
                     }
+                    catch (OperationCanceledException)
+                    {
+                        Debug.WriteLine($"[AsyncComponentBase] Worker task cancelled");
+                    }
                     catch (Exception ex)
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                        Debug.WriteLine($"[AsyncComponentBase] Worker task failed: {ex.Message}");
                     }
                 }, tokenSource.Token);
 
@@ -174,8 +179,8 @@ namespace SmartHopper.Core.ComponentBase
             if (Workers.Count > 0)
             {
                 Interlocked.Decrement(ref _state);
-                string doneMessage = null;
-                Workers[_state].SetOutput(DA, out doneMessage);
+                string outMessage = null;
+                Workers[_state].SetOutput(DA, out outMessage);
                 //if (!string.IsNullOrEmpty(doneMessage))
                 //    Message = doneMessage;
                 
@@ -219,6 +224,16 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Cancel Task", (s, e) =>
+            {
+                RequestTaskCancellation();
+            });
+        }
+
         protected virtual void OnWorkerCompleted()
         {
             Debug.WriteLine($"[{GetType().Name}] All workers completed");
@@ -251,5 +266,7 @@ namespace SmartHopper.Core.ComponentBase
 
             //ExpirePreview(true);
         }
+
+
     }
 }
