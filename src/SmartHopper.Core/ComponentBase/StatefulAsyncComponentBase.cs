@@ -14,9 +14,9 @@
  */
 
 /*
- * Base class for all AI-powered SmartHopper components.
+ * Base class for all stateful asynchronous SmartHopper components.
  * This class provides the fundamental structure for components that need to perform
- * asynchronous, showing an State message and connect to AI, while maintaining
+ * asynchronous, showing an State message, while maintaining
  * Grasshopper's component lifecycle.
  */
 
@@ -37,23 +37,23 @@ using System.Threading.Tasks;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
-    /// Base class for AI-powered stateful asynchronous Grasshopper components.
+    /// Base class for stateful asynchronous Grasshopper components.
     /// Provides integrated state management, parallel processing, messaging, and persistence capabilities.
     /// </summary>
-    public abstract class AIStatefulAsyncComponentBase : AsyncComponentBase
+    public abstract class StatefulAsyncComponentBase : AsyncComponentBase
     {
 
         #region CONSTRUCTOR
 
         /// <summary>
-        /// Creates a new instance of the AI-powered stateful async component.
+        /// Creates a new instance of the stateful async component.
         /// </summary>
         /// <param name="name">The component's display name</param>
         /// <param name="nickname">The component's nickname</param>
         /// <param name="description">Description of the component's functionality</param>
         /// <param name="category">Category in the Grasshopper toolbar</param>
         /// <param name="subCategory">Subcategory in the Grasshopper toolbar</param>
-        protected AIStatefulAsyncComponentBase(
+        protected StatefulAsyncComponentBase(
             string name,
             string nickname,
             string description,
@@ -207,7 +207,7 @@ namespace SmartHopper.Core.ComponentBase
 
             base.OnWorkerCompleted();
 
-            Debug.WriteLine("[AIStatefulAsyncComponentBase] Worker completed, expiring solution");
+            Debug.WriteLine("[StatefulAsyncComponentBase] Worker completed, expiring solution");
 
             ExpireSolution(true);
         }
@@ -516,7 +516,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object</param>
         protected void RestorePersistentOutputs(IGH_DataAccess DA)
         {
-            Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Restoring persistent outputs");
+            Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Restoring persistent outputs");
             
             for (int i = 0; i < Params.Output.Count; i++)
             {
@@ -548,11 +548,11 @@ namespace SmartHopper.Core.ComponentBase
                         // Add the properly typed goo value
                         SetPersistentOutput(param.Name, gooValue, DA);
 
-                        Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "'");
+                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "'");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
+                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
                     }
                 }
             }
@@ -626,12 +626,12 @@ namespace SmartHopper.Core.ComponentBase
                         else
                             writer.SetString($"Value_{index}", JsonSerializer.Serialize(valueToStore));
 
-                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of type '{(expectedType?.FullName ?? valueToStore.GetType().FullName)}'");
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of type '{(expectedType?.FullName ?? valueToStore.GetType().FullName)}'");
                     }
                     else
                     {
                         writer.SetString($"Value_{index}", null);
-                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [PersistentData] Stored null output '{kvp.Key}'");
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Stored null output '{kvp.Key}'");
                     }
                     
                     index++;
@@ -673,7 +673,7 @@ namespace SmartHopper.Core.ComponentBase
 
                     string paramName = reader.GetString($"ParamName_{i}");
                     string typeName = reader.GetString($"ParamType_{i}");
-                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
 
                     if (typeName == "null")
                     {
@@ -685,13 +685,13 @@ namespace SmartHopper.Core.ComponentBase
                     Type type = Type.GetType(typeName);
                     if (type == null)
                     {
-                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Type '{typeName}' could not be found");
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Type '{typeName}' could not be found");
                         continue;
                     }
                     
                     // Store the type for future reference
                     _persistentDataTypes[paramName] = type;
-                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Registered type {type.Name} for parameter {paramName}");
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Registered type {type.Name} for parameter {paramName}");
                     
                     // Read value based on type
                     object value;
@@ -728,14 +728,14 @@ namespace SmartHopper.Core.ComponentBase
                         }
                     }
 
-                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
                     
                     _persistentOutputs[paramName] = value;
                     // _restoredFromFile = true;
 
                     CalculatePersistentDataHashes();
 
-                    Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
+                    Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
                 }
 
                 return true;
@@ -790,13 +790,13 @@ namespace SmartHopper.Core.ComponentBase
                     }
                     else
                     {
-                        Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] DA is null, cannot set data.");
+                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] DA is null, cannot set data.");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] [PersistentData] Failed to set output '" + paramName + "': " + ex.Message);
+                Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Failed to set output '" + paramName + "': " + ex.Message);
             }
         }
         
@@ -939,15 +939,15 @@ namespace SmartHopper.Core.ComponentBase
         #endregion
 
         #region AUX
-        
+
         protected override void ExpireDownStreamObjects()
         {
             // Only expire downstream objects if we're in the completed state, which means that data is ready to output
             // This prevents the flash of null data until the new solution is ready
-            //Debug.WriteLine($"[AIStatefulAsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_currentState} --> Expiring? {_currentState != ComponentState.Processing}");
+            //Debug.WriteLine($"[StatefulAsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_currentState} --> Expiring? {_currentState != ComponentState.Processing}");
             //if (_currentState != ComponentState.Processing)
             //{
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Expiring downstream objects");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Expiring downstream objects");
                 base.ExpireDownStreamObjects();
             //}
             return;
@@ -959,32 +959,32 @@ namespace SmartHopper.Core.ComponentBase
             Menu_AppendSeparator(menu);
             Menu_AppendItem(menu, "Debug: OnDisplayExpired(true)", (s, e) =>
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
                 OnDisplayExpired(true);
             });
             Menu_AppendItem(menu, "Debug: OnDisplayExpired(false)", (s, e) =>
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
                 OnDisplayExpired(false);
             });
             Menu_AppendItem(menu, "Debug: ExpireSolution", (s, e) =>
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Manual ExpireSolution");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireSolution");
                 ExpireSolution(true);
             });
             Menu_AppendItem(menu, "Debug: ExpireDownStreamObjects", (s, e) =>
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
                 ExpireDownStreamObjects();
             });
             Menu_AppendItem(menu, "Debug: ClearData", (s, e) =>
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Manual ClearData");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearData");
                 ClearData();
             });
             Menu_AppendItem(menu, "Debug: ClearDataOnly", (s, e) =>
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Manual ClearDataOnly");
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
                 ClearDataOnly();
             });
         }
