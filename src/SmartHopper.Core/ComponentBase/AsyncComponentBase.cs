@@ -228,7 +228,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.AppendAdditionalMenuItems(menu);
             Menu_AppendSeparator(menu);
-            Menu_AppendItem(menu, "Cancel current processing", (s, e) =>
+            Menu_AppendItem(menu, "Cancel current process", (s, e) =>
             {
                 RequestTaskCancellation();
             });
