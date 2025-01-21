@@ -67,6 +67,7 @@ namespace SmartHopper.Core.ComponentBase
             _previousBranchCounts = new Dictionary<string, int>();
  
             // Initialize timer
+            // Actions defined here will happen after the debounce time
             _debounceTimer = new Timer((state) =>
             {
                 lock (_timerLock)
@@ -114,8 +115,6 @@ namespace SmartHopper.Core.ComponentBase
         // Grasshopper Component.
 
         #region I/O
-
-
 
         private bool _run = false;
 
@@ -228,7 +227,6 @@ namespace SmartHopper.Core.ComponentBase
 
         //Default state, field to store the current state
         private ComponentState _currentState = ComponentState.Completed; 
-
         private readonly object _stateLock = new object();
         private bool _isTransitioning;
         private TaskCompletionSource<bool> _stateCompletionSource;
@@ -336,11 +334,7 @@ namespace SmartHopper.Core.ComponentBase
             // Check if inputs changed
             var changedInputs = InputsChanged();
 
-            // Check Run parameter
-            // bool run = false;
-            // DA.GetData("Run?", ref run);
-
-            // If "Run?" did not change, but others did
+            // If any other than "Run?" changed
             if (changedInputs.Any(input => input != "Run?"))
             {
                 Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
@@ -407,20 +401,19 @@ namespace SmartHopper.Core.ComponentBase
             bool run = false;
             DA.GetData("Run?", ref run);
 
-            // If any input changed, except "Run?"
+            // If any input changed (excluding "Run?" from the list)
             if (changedInputs.Any(input => input != "Run?"))
             {
                 Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
                 RestartDebounceTimer();
             }
-            // Else, if "Run?" changed, directly transition to Processing
+            // Else, if "Run?" changed and run is True, directly transition to Processing
             else if (changedInputs.Any(input => input == "Run?") && run)
             {
                 TransitionTo(ComponentState.Processing, DA);
                 ExpireSolution(true);
             }
 
-            //TransitionTo(ComponentState.Waiting, DA);
             CompleteStateTransition();
         }
 
@@ -445,7 +438,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 case ComponentState.Completed:
                     return newState == ComponentState.Waiting || newState == ComponentState.NeedsRun;
-                
                 case ComponentState.Waiting:
                     return newState == ComponentState.NeedsRun;
                 case ComponentState.NeedsRun:
@@ -822,9 +814,6 @@ namespace SmartHopper.Core.ComponentBase
             return defaultValue;
         }
 
-        #endregion
-
-        #region AUX
         private void CalculatePersistentDataHashes()
         {
             if (_previousInputHashes == null)
@@ -947,6 +936,10 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        #endregion
+
+        #region AUX
+        
         protected override void ExpireDownStreamObjects()
         {
             // Only expire downstream objects if we're in the completed state, which means that data is ready to output
