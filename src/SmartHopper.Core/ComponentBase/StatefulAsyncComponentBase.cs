@@ -181,7 +181,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 case ComponentState.Completed:
                     OnStateCompleted(DA);
-
                     // Check if inputs changed
                     var changedInputs = InputsChanged();
 
@@ -196,14 +195,7 @@ namespace SmartHopper.Core.ComponentBase
                     OnStateWaiting(DA);
                     break;
                 case ComponentState.NeedsRun:
-                    if (_state == 0)
-                    {
-                        OnStateNeedsRun(DA);
-                    }
-                    else
-                    {
-                        return;
-                    }
+                    OnStateNeedsRun(DA);
                     break;
                 case ComponentState.Processing:
                     OnStateProcessing(DA);
@@ -221,6 +213,8 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void OnWorkerCompleted()
         {
+            // Update input hashes before transitioning to prevent false input changes
+            CalculatePersistentDataHashes();
             TransitionTo(ComponentState.Completed, _lastDA);
             base.OnWorkerCompleted();
             Debug.WriteLine("[StatefulAsyncComponentBase] Worker completed, expiring solution");
@@ -1022,6 +1016,15 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        /// <summary>
+        /// Clears both persistent storage and output parameters while preserving runtime messages
+        /// </summary>
+        protected override void ClearDataOnly()
+        {
+            _persistentOutputs.Clear();
+            base.ClearDataOnly();
+        }
+
         #endregion
 
         #region AUX
@@ -1030,7 +1033,6 @@ namespace SmartHopper.Core.ComponentBase
         {
             // Only expire downstream objects if we're in the completed state, which means that data is ready to output
             // This prevents the flash of null data until the new solution is ready
-            //Debug.WriteLine($"[StatefulAsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_currentState} --> Expiring? {_currentState != ComponentState.Processing}");
             if (_currentState == ComponentState.Completed)
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Expiring downstream objects");

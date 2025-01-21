@@ -254,7 +254,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Clears only the data from all outputs while preserving runtime messages
         /// </summary>
-        protected void ClearDataOnly()
+        protected virtual void ClearDataOnly()
         {
             Debug.WriteLine($"[AsyncComponentBase] Cleaning Output Data Only");
             
@@ -264,7 +264,5 @@ namespace SmartHopper.Core.ComponentBase
                 Params.Output[i].ClearData();
             }
         }
-
-
     }
 }
