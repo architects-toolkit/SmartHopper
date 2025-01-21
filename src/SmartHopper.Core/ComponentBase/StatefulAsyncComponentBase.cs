@@ -250,6 +250,13 @@ namespace SmartHopper.Core.ComponentBase
 
             _stateCompletionSource = new TaskCompletionSource<bool>();
             
+            // Clear messages only when entering NeedsRun or Processing from a different state
+            if ((newState == ComponentState.NeedsRun || newState == ComponentState.Processing) && 
+                oldState != ComponentState.NeedsRun && oldState != ComponentState.Processing)
+            {
+                ClearPersistentRuntimeMessages();
+            }
+            
             // Actions here only happen when transitioning
             // Action in the OnState___ methods happen on every solve
             switch(newState)
@@ -328,6 +335,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateCompleted");
 
+            // Reapply runtime messages in completed state
+            ApplyPersistentRuntimeMessages();
+
             // Restore data from persistent storage, necessary when opening the file
             RestorePersistentOutputs(DA);
 
@@ -368,11 +378,13 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // Transition to Processing and let base class handle async work
                 TransitionTo(ComponentState.Processing, DA);
+                
+                // Clear the "needs_run" message if it exists
+                ClearOnePersistentRuntimeMessage("needs_run");
             }
             else
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!");
-
+                SetPersistentRuntimeMessage("needs_run", GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!", false);
                 ClearDataOnly();
             }
 
@@ -382,6 +394,7 @@ namespace SmartHopper.Core.ComponentBase
         private void OnStateProcessing(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateProcessing");
+            
             // The base AsyncComponentBase handles the actual processing
             // When done it will call OnWorkerCompleted which transitions to Completed
             base.SolveInstance(DA);
@@ -392,7 +405,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateCancelled");
 
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The execution was manually cancelled");
+            // Reapply runtime messages in cancelled state
+            ApplyPersistentRuntimeMessages();
+            SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
             
             // Check if inputs changed
             var changedInputs = InputsChanged();
@@ -420,7 +435,10 @@ namespace SmartHopper.Core.ComponentBase
         private void OnStateError(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{GetType().Name}] OnStateError");
-            // TODO: Implement error handling logic
+            
+            // Reapply runtime messages in error state
+            ApplyPersistentRuntimeMessages();
+            
             TransitionTo(ComponentState.Waiting, DA);
             CompleteStateTransition();
         }
@@ -449,6 +467,70 @@ namespace SmartHopper.Core.ComponentBase
                     return newState == ComponentState.Waiting || newState == ComponentState.NeedsRun || newState == ComponentState.Processing;
               default:
                     return false;
+            }
+        }
+
+        #endregion
+
+        #region ERRORS
+
+        private readonly Dictionary<string, (GH_RuntimeMessageLevel Level, string Message)> _runtimeMessages = new Dictionary<string, (GH_RuntimeMessageLevel, string)>();
+
+        /// <summary>
+        /// Adds or updates a runtime message and optionally transitions to Error state.
+        /// </summary>
+        /// <param name="key">Unique identifier for the message</param>
+        /// <param name="level">The message severity level</param>
+        /// <param name="message">The message content</param>
+        /// <param name="transitionToError">If true and level is Error, transitions to Error state</param>
+        protected void SetPersistentRuntimeMessage(string key, GH_RuntimeMessageLevel level, string message, bool transitionToError = true)
+        {
+            _runtimeMessages[key] = (level, message);
+            
+            if (transitionToError && level == GH_RuntimeMessageLevel.Error)
+            {
+                TransitionTo(ComponentState.Error, _lastDA);
+            }
+            else
+            {
+                ApplyPersistentRuntimeMessages();
+            }
+        }
+
+        /// <summary>
+        /// Clears a specific runtime message by its key.
+        /// </summary>
+        /// <param name="key">The unique identifier of the message to clear</param>
+        /// <returns>True if the message was found and cleared, false otherwise</returns>
+        protected bool ClearOnePersistentRuntimeMessage(string key)
+        {
+            var removed = _runtimeMessages.Remove(key);
+            if (removed)
+            {
+                ClearRuntimeMessages();
+                ApplyPersistentRuntimeMessages();
+            }
+            return removed;
+        }
+
+        /// <summary>
+        /// Clears all runtime messages.
+        /// </summary>
+        protected void ClearPersistentRuntimeMessages()
+        {
+            _runtimeMessages.Clear();
+            ClearRuntimeMessages();
+        }
+
+        /// <summary>
+        /// Applies stored runtime messages to the component.
+        /// </summary>
+        private void ApplyPersistentRuntimeMessages()
+        {
+            Debug.WriteLine($"[{GetType().Name}] [Runtime Messages] Applying {_runtimeMessages.Count} runtime messages");
+            foreach (var (level, message) in _runtimeMessages.Values)
+            {
+                AddRuntimeMessage(level, message);
             }
         }
 
@@ -986,6 +1068,21 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
                 ClearDataOnly();
+            });
+            Menu_AppendItem(menu, "Debug: Add Error", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Error");
+                SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
+            });
+            Menu_AppendItem(menu, "Debug: Add Warning", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Warning");
+                SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
+            });
+            Menu_AppendItem(menu, "Debug: Add Remark", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Remark");
+                SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
             });
         }
 
