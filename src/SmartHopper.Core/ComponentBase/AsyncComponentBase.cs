@@ -228,7 +228,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.AppendAdditionalMenuItems(menu);
             Menu_AppendSeparator(menu);
-            Menu_AppendItem(menu, "Cancel Task", (s, e) =>
+            Menu_AppendItem(menu, "Cancel current processing", (s, e) =>
             {
                 RequestTaskCancellation();
             });
@@ -263,8 +263,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Params.Output[i].ClearData();
             }
-
-            //ExpirePreview(true);
         }
 
 
