@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Persistent error tracking
   - Compatibility with button and boolean toggle in the Run input
   - Compatibility with Data Tree processing (Input and Output)
+  - Manual cancellation while processing
 
 ### Changed
 
