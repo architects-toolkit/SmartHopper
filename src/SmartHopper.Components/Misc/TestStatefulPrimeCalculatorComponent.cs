@@ -21,7 +21,7 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Components.Misc
 {
-    public class TestStatefulPrimeCalculatorComponent : AIStatefulAsyncComponentBase
+    public class TestStatefulPrimeCalculatorComponent : StatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("C2C612B0-2C57-47CE-B9FE-E10621F18935");
         protected override System.Drawing.Bitmap Icon => null;
@@ -29,7 +29,7 @@ namespace SmartHopper.Components.Misc
 
         public TestStatefulPrimeCalculatorComponent()
             : base("Test Stateful Prime Calculator", "TEST-STATEFUL-PRIME",
-                  "Test component for AIStatefulAsyncComponentBase - Calculates the nth prime number.",
+                  "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
                   "SmartHopper", "Examples")
         {
         }
