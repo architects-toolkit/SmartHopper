@@ -16,11 +16,41 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public enum ComponentState
     {
-        Waiting, // Initial state. Output the previous results, is any. On next SolveInstance, transition to NeedsRun if any input changed
-        NeedsRun, // Initial state or Run = False. On input changes && Run = True, transition to Processing
+        Completed, // Initial state. All workers finished, output the previous results, if any.
+        Waiting, // When running with a toggle set to True, waiting for input changes.On next SolveInstance (means input changed), transition to NeedsRun
+        NeedsRun, // When running with a button, Run = False. On input changes && Run = True, transition to Processing
         Processing, // Run async work, transition to Completed when all workers finish
-        Completed, // All workers finished, transition to Output
         Cancelled, // Manually cancelled, add error and transition to Waiting
         Error // An error occurred, add error and transition to Waiting
+    }
+
+    /// <summary>
+    /// Extension methods for ComponentState enum
+    /// </summary>
+    public static class ComponentStateExtensions
+    {
+        /// <summary>
+        /// Gets a user-friendly string representation of the ComponentState
+        /// </summary>
+        public static string ToMessageString(this ComponentState state)
+        {
+            switch (state)
+            {
+                case ComponentState.Waiting:
+                    return "Done";
+                case ComponentState.NeedsRun:
+                    return "Run me!";
+                case ComponentState.Processing:
+                    return "Processing...";
+                case ComponentState.Completed:
+                    return "Done";
+                case ComponentState.Cancelled:
+                    return "Cancelled";
+                case ComponentState.Error:
+                    return "Error";
+                default:
+                    return state.ToString();
+            }
+        }
     }
 }
