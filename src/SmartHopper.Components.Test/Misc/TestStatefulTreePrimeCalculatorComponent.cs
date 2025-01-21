@@ -14,76 +14,59 @@
  */
 
 using Grasshopper.Kernel;
-using SmartHopper.Core.Async.Components;
-using SmartHopper.Core.Async.Workers;
+using SmartHopper.Core.ComponentBase;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace SmartHopper.Components.Test.Misc
 {
-    /// <summary>
-    /// Example component implementing SimpleAsyncComponentBase to calculate the nth prime number.
-    /// </summary>
-    public class PrimeCalculatorComponent : SimpleAsyncComponentBase
+    public class TestStatefulTreePrimeCalculatorComponent : StatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("22C612B0-2C57-47CE-B9FE-E10621F18933");
-
+        public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
         protected override System.Drawing.Bitmap Icon => null;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
-
-        public PrimeCalculatorComponent() 
-            : base("The N-th Prime Calculator", "PRIME", 
-                  "Calculates the nth prime number.", 
+        public TestStatefulTreePrimeCalculatorComponent()
+            : base("Test Stateful Tree Prime Calculator", "TEST-STATEFUL-TREE-PRIME",
+                  "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
                   "SmartHopper", "Examples")
         {
         }
 
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("N", "N", "Which n-th prime number. Minimum 1, maximum one million.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Number", "N", "Which n-th prime number. Minimum 1, maximum one million.", GH_ParamAccess.item);
         }
 
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Output", "O", "The n-th prime number.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Output", "O", "The n-th prime number.", GH_ParamAccess.tree);
         }
 
-        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            base.AppendAdditionalMenuItems(menu);
-            Menu_AppendItem(menu, "Cancel", (s, e) =>
-            {
-                RequestTaskCancellation();
-            });
+            return new TestStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        protected override AsyncWorker CreateWorker(Action<string> progressReporter)
-        {
-            return new PrimeCalculatorWorker(progressReporter, this, AddRuntimeMessage);
-        }
-
-        private class PrimeCalculatorWorker : AsyncWorker
+        private class TestStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
         {
             private int _nthPrime = 100;
             private long _result = -1;
+            private readonly TestStatefulTreePrimeCalculatorComponent _parent;
 
-            public PrimeCalculatorWorker(
-                Action<string> progressReporter,
-                GH_Component parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-                : base(progressReporter, parent, addRuntimeMessage)
+            public TestStatefulTreePrimeCalculatorWorker(
+            TestStatefulTreePrimeCalculatorComponent parent,
+            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            : base(parent, addRuntimeMessage)
             {
+                _parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA)
             {
                 int n = 100;
                 DA.GetData(0, ref n);
-                
-                // Clamp values
                 _nthPrime = Math.Max(1, Math.Min(n, 1000000));
             }
 
@@ -111,8 +94,6 @@ namespace SmartHopper.Components.Test.Misc
                         b++;
                     }
 
-                    ReportProgress($"{((double)count / _nthPrime * 100):F2}%");
-
                     if (isPrime)
                     {
                         count++;
@@ -131,7 +112,7 @@ namespace SmartHopper.Components.Test.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                DA.SetData(0, _result);
+                _parent.SetPersistentOutput("Output", _result, DA);
                 message = $"Found {_nthPrime}th prime: {_result}";
             }
         }

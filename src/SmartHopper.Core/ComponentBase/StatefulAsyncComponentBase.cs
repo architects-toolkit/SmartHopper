@@ -174,22 +174,38 @@ namespace SmartHopper.Core.ComponentBase
             DA.GetData("Run?", ref run);
             _run = run;
 
-            Debug.WriteLine($"[{GetType().Name}] SolveInstance - Current State: {_currentState}");
+            Debug.WriteLine($"[{GetType().Name}] SolveInstance - Current State: {_currentState}, InPreSolve: {InPreSolve}, State: {_state}, SetData: {_setData}, Workers: {Workers.Count}, Changes during debounce: {_inputChangedDuringDebounce}, Run: {_run}, IsTransitioning: {_isTransitioning}, Pending Transitions: {_pendingTransitions.Count}");
 
             // Execute the appropriate state handler
             switch (_currentState)
             {
                 case ComponentState.Completed:
                     OnStateCompleted(DA);
+
+                    // Check if inputs changed
+                    var changedInputs = InputsChanged();
+
+                    // If any other than "Run?" changed
+                    if (changedInputs.Any(input => input != "Run?"))
+                    {
+                        Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
+                        RestartDebounceTimer();
+                    }
                     break;
                 case ComponentState.Waiting:
                     OnStateWaiting(DA);
                     break;
                 case ComponentState.NeedsRun:
-                    OnStateNeedsRun(DA);
+                    if (_state == 0)
+                    {
+                        OnStateNeedsRun(DA);
+                    }
+                    else
+                    {
+                        return;
+                    }
                     break;
                 case ComponentState.Processing:
-                    //// OnStateProcessing is only called when transitioning with TransitionTo
                     OnStateProcessing(DA);
                     break;
                 case ComponentState.Cancelled:
@@ -199,16 +215,15 @@ namespace SmartHopper.Core.ComponentBase
                     OnStateError(DA);
                     break;
             }
+
+            
         }
 
         protected override void OnWorkerCompleted()
         {
             TransitionTo(ComponentState.Completed, _lastDA);
-
             base.OnWorkerCompleted();
-
             Debug.WriteLine("[StatefulAsyncComponentBase] Worker completed, expiring solution");
-
             ExpireSolution(true);
         }
         
@@ -333,23 +348,13 @@ namespace SmartHopper.Core.ComponentBase
 
         private void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{GetType().Name}] OnStateCompleted");
+            Debug.WriteLine($"[{GetType().Name}] OnStateCompleted, _state: {_state}, InPreSolve: {InPreSolve}, SetData: {_setData}, Workers: {Workers.Count}, Changes during debounce: {_inputChangedDuringDebounce}");
 
             // Reapply runtime messages in completed state
             ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
             RestorePersistentOutputs(DA);
-
-            // Check if inputs changed
-            var changedInputs = InputsChanged();
-
-            // If any other than "Run?" changed
-            if (changedInputs.Any(input => input != "Run?"))
-            {
-                Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
-                RestartDebounceTimer();
-            }
 
             CompleteStateTransition();
         }
@@ -398,6 +403,7 @@ namespace SmartHopper.Core.ComponentBase
             // The base AsyncComponentBase handles the actual processing
             // When done it will call OnWorkerCompleted which transitions to Completed
             base.SolveInstance(DA);
+
             CompleteStateTransition();
         }
 
@@ -896,6 +902,37 @@ namespace SmartHopper.Core.ComponentBase
             return defaultValue;
         }
 
+        /// <summary>
+        /// Calculates the hash for a single input parameter's data and branch structure.
+        /// </summary>
+        /// <param name="param">The input parameter to calculate hash for</param>
+        /// <param name="branchCount">Output parameter that returns the number of branches in the data</param>
+        /// <returns>The combined hash of the parameter's data and branch structure</returns>
+        private int CalculatePersistentDataHash(IGH_Param param, out int branchCount)
+        {
+            var data = param.VolatileData;
+            int currentHash = 0;
+            branchCount = data.PathCount;
+
+            // Hash both the data and branch structure
+            foreach (var branch in data.Paths)
+            {
+                int branchHash = 0;
+                foreach (var item in data.get_Branch(branch))
+                {
+                    if (item != null)
+                    {
+                        int itemHash = item.GetHashCode();
+                        branchHash = CombineHashCodes(branchHash, itemHash);
+                    }
+                }
+                currentHash = CombineHashCodes(currentHash, branchHash);
+                currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
+            }
+
+            return currentHash;
+        }
+
         private void CalculatePersistentDataHashes()
         {
             if (_previousInputHashes == null)
@@ -909,31 +946,17 @@ namespace SmartHopper.Core.ComponentBase
             for (int i = 0; i < Params.Input.Count; i++)
             {
                 var param = Params.Input[i];
-                var data = param.VolatileData;
- 
-                // Calculate hash of current data
-                int currentHash = 0;
-                int branchCount = data.PathCount;
-
-                // Hash both the data and branch structure
-                foreach (var branch in data.Paths)
-                {
-                    int branchHash = 0;
-                    foreach (var item in data.get_Branch(branch))
-                    {
-                        if (item != null)
-                        {
-                            int itemHash = item.GetHashCode();
-                            branchHash = CombineHashCodes(branchHash, itemHash);
-                        }
-                    }
-                    currentHash = CombineHashCodes(currentHash, branchHash);
-                    currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
-                }
-
-                _previousInputHashes[param.Name] = currentHash;
-                _previousBranchCounts[param.Name] = branchCount;
+                StorePersistentDataHash(param);
             }
+        }
+
+        private void StorePersistentDataHash(IGH_Param param)
+        {
+            int branchCount;
+            int currentHash = CalculatePersistentDataHash(param, out branchCount);
+
+            _previousInputHashes[param.Name] = currentHash;
+            _previousBranchCounts[param.Name] = branchCount;
         }
 
         private List<string> InputsChanged()
@@ -949,27 +972,8 @@ namespace SmartHopper.Core.ComponentBase
             for (int i = 0; i < Params.Input.Count; i++)
             {
                 var param = Params.Input[i];
-                var data = param.VolatileData;
- 
-                // Calculate hash of current data
-                int currentHash = 0;
-                int branchCount = data.PathCount;
-
-                // Hash both the data and branch structure
-                foreach (var branch in data.Paths)
-                {
-                    int branchHash = 0;
-                    foreach (var item in data.get_Branch(branch))
-                    {
-                        if (item != null)
-                        {
-                            int itemHash = item.GetHashCode();
-                            branchHash = CombineHashCodes(branchHash, itemHash);
-                        }
-                    }
-                    currentHash = CombineHashCodes(currentHash, branchHash);
-                    currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
-                }
+                int branchCount;
+                int currentHash = CalculatePersistentDataHash(param, out branchCount);
 
                 bool inputChanged = false;
 
@@ -1027,11 +1031,11 @@ namespace SmartHopper.Core.ComponentBase
             // Only expire downstream objects if we're in the completed state, which means that data is ready to output
             // This prevents the flash of null data until the new solution is ready
             //Debug.WriteLine($"[StatefulAsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_currentState} --> Expiring? {_currentState != ComponentState.Processing}");
-            //if (_currentState != ComponentState.Processing)
-            //{
+            if (_currentState == ComponentState.Completed)
+            {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Expiring downstream objects");
                 base.ExpireDownStreamObjects();
-            //}
+            }
             return;
         }
 
