@@ -58,17 +58,5 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             instance.AddSource(source);
         }
-
-        //public static void SetSource(IGH_DocumentObject obj, IGH_Param source)
-        //{
-        //    if (obj is IGH_Component component)
-        //    {
-        //        SetSource(component, source);
-        //    }
-        //    else if (obj is IGH_Param param)
-        //    {
-        //        SetSource(param, source);
-        //    }
-        //}
     }
 }
