@@ -591,7 +591,6 @@ namespace SmartHopper.Core.ComponentBase
         private Dictionary<string, int> _previousBranchCounts;
         private readonly Dictionary<string, object> _persistentOutputs;
         private readonly Dictionary<string, Type> _persistentDataTypes;
-        // private bool _restoredFromFile;
         
         /// <summary>
         /// Restores all persistent outputs to their respective parameters.
@@ -639,12 +638,6 @@ namespace SmartHopper.Core.ComponentBase
                     }
                 }
             }
-            
-            // if (_restoredFromFile)
-            // {
-            //     AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Results were restored from saved file");
-            //     _restoredFromFile = false;
-            // }
         }
 
         /// <summary>
@@ -691,6 +684,10 @@ namespace SmartHopper.Core.ComponentBase
                             var writeMethod = structure.GetType().GetMethod("Write");
                             writeMethod?.Invoke(structure, new object[] { chunk });
                             writer.SetString($"Type_{paramName}", structure.GetType().AssemblyQualifiedName);
+                        }
+                        else
+                        {
+                            break;
                         }
                         
                         var chunkBytes = chunk.Serialize_Binary();
@@ -1059,7 +1056,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 else if (previousHash != currentHash)
                 {
-                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Hash changed for '{param.Name}'");
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Hash changed for '{param.Name}' ({previousHash} to {currentHash})");
                     inputChanged = true;
                 }
 
@@ -1071,7 +1068,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 else if (previousBranchCount != branchCount)
                 {
-                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Branch count changed for '{param.Name}'");
+                    Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - Branch count changed for '{param.Name}' ({previousBranchCount} to {branchCount})");
                     inputChanged = true;
                 }
 
