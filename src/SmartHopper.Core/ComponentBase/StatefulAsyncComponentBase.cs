@@ -1,6 +1,6 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024 Marc Roca Musach
+ * Copyright (C) 2025 Marc Roca Musach
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,6 @@ using Grasshopper.Kernel.Data;
 using GH_IO.Serialization;
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Linq;
 using System.Diagnostics;
 using System.Threading;
@@ -65,7 +64,7 @@ namespace SmartHopper.Core.ComponentBase
             _persistentOutputs = new Dictionary<string, object>();
             _persistentDataTypes = new Dictionary<string, Type>();
             _previousInputHashes = new Dictionary<string, int>();
-            _previousBranchCounts = new Dictionary<string, int>();
+            _previousInputBranchCounts = new Dictionary<string, int>();
  
             // Initialize timer
             // Actions defined here will happen after the debounce time
@@ -128,7 +127,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific inputs
             RegisterAdditionalInputParams(pManager);
 
-            pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -162,11 +161,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the execution flow and persistence of results.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        /// <remarks>
-        /// This method is sealed to ensure proper persistence and error handling.
-        /// Override OnSolveInstance for custom solving logic.
-        /// </remarks>
-        protected sealed override void SolveInstance(IGH_DataAccess DA)
+        protected override void SolveInstance(IGH_DataAccess DA)
         {
             _lastDA = DA;
 
@@ -588,7 +583,7 @@ namespace SmartHopper.Core.ComponentBase
 
         // PRIVATE FIELDS
         private Dictionary<string, int> _previousInputHashes;
-        private Dictionary<string, int> _previousBranchCounts;
+        private Dictionary<string, int> _previousInputBranchCounts;
         private readonly Dictionary<string, object> _persistentOutputs;
         private readonly Dictionary<string, Type> _persistentDataTypes;
         
@@ -660,7 +655,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 
                 // Store input branch counts
-                foreach (var kvp in _previousBranchCounts)
+                foreach (var kvp in _previousInputBranchCounts)
                 {
                     writer.SetInt32($"InputBranchCount_{kvp.Key}", kvp.Value);
                     Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Stored input branch count for '{kvp.Key}': {kvp.Value}");
@@ -723,7 +718,7 @@ namespace SmartHopper.Core.ComponentBase
             _previousInputHashes.Clear();
 
             // Clear previous branch counts
-            _previousBranchCounts.Clear();
+            _previousInputBranchCounts.Clear();
 
             // Clear previous outputs
             _persistentOutputs.Clear();
@@ -750,9 +745,9 @@ namespace SmartHopper.Core.ComponentBase
                     string paramName = key.Substring("InputBranchCount_".Length);
 
                     // Store data in local field
-                    _previousBranchCounts[paramName] = reader.GetInt32(key);
+                    _previousInputBranchCounts[paramName] = reader.GetInt32(key);
 
-                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored input branch count for '{paramName}': {_previousBranchCounts[paramName]}");
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored input branch count for '{paramName}': {_previousInputBranchCounts[paramName]}");
                 }
 
                 // Restore outputs
@@ -1010,7 +1005,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Debug.WriteLine($"[{GetType().Name}] Initializing hash dictionaries");
                 _previousInputHashes = new Dictionary<string, int>();
-                _previousBranchCounts = new Dictionary<string, int>();
+                _previousInputBranchCounts = new Dictionary<string, int>();
             }
 
             // Check each input parameter
@@ -1027,10 +1022,10 @@ namespace SmartHopper.Core.ComponentBase
             int currentHash = CalculatePersistentDataHash(param, out branchCount);
 
             _previousInputHashes[param.Name] = currentHash;
-            _previousBranchCounts[param.Name] = branchCount;
+            _previousInputBranchCounts[param.Name] = branchCount;
         }
 
-        private List<string> InputsChanged()
+        protected virtual List<string> InputsChanged()
         {
             if (_previousInputHashes == null)
             {
@@ -1061,7 +1056,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 // Check if branch count changed
-                if (!_previousBranchCounts.TryGetValue(param.Name, out int previousBranchCount))
+                if (!_previousInputBranchCounts.TryGetValue(param.Name, out int previousBranchCount))
                 {
                     Debug.WriteLine($"[{GetType().Name}] [CheckInputs Changed - {param.Name}] - No previous branch count found for '{param.Name}'");
                     inputChanged = true;
@@ -1079,7 +1074,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Store current values for next comparison
                 _previousInputHashes[param.Name] = currentHash;
-                _previousBranchCounts[param.Name] = branchCount;
+                _previousInputBranchCounts[param.Name] = branchCount;
             }
 
             return changedInputs;
