@@ -1,0 +1,4 @@
+1. This is a C# project.
+2. The aim of the project is to create some Grasshopper components.
+3. Use native Grasshopper types, objects and methods where possible.
+4. Use https://developer.rhino3d.com/ as the official documentation.

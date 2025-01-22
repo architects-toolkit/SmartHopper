@@ -33,7 +33,6 @@ namespace SmartHopper.Core.Async.Core
             switch (state)
             {
                 case ComponentState.NeedsRun:
-                case ComponentState.NeedsRerun:
                     _component.Message = "Run me!";
                     _component.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Set Run to True to recompute the results");
                     break;
@@ -41,6 +40,8 @@ namespace SmartHopper.Core.Async.Core
                     _component.Message = "Processing...";
                     break;
                 case ComponentState.Completed:
+                    _component.Message = "Setting results...";
+                    break;
                 case ComponentState.Waiting:
                     _component.Message = "Done";
                     break;
@@ -52,6 +53,7 @@ namespace SmartHopper.Core.Async.Core
                     break;
             }
             Debug.WriteLine("COMPONENT STATE CHANGED TO: " + state);
+            //_component.ExpireSolution(true);
         }
 
         /// <summary>
