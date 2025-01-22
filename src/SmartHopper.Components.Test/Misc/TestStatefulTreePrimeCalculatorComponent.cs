@@ -18,6 +18,7 @@ using SmartHopper.Core.ComponentBase;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace SmartHopper.Components.Test.Misc
 {
@@ -72,6 +73,7 @@ namespace SmartHopper.Components.Test.Misc
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                Debug.WriteLine($"[TestStatefulTreePrimeCalculatorComponent] Starting calculation for {_nthPrime}th prime");
                 int count = 0;
                 long a = 2;
 
@@ -100,18 +102,20 @@ namespace SmartHopper.Components.Test.Misc
                     }
                     a++;
 
-                    // Add small delay to prevent UI freeze
-                    if (count % 100 == 0)
-                    {
-                        await Task.Delay(1, token);
-                    }
+                    //// Add small delay to prevent UI freeze
+                    //if (count % 100 == 0)
+                    //{
+                    //    await Task.Delay(1, token);
+                    //}
                 }
 
                 _result = --a;
+                Debug.WriteLine($"[TestStatefulTreePrimeCalculatorComponent] Calculation complete. Found {_nthPrime}th prime: {_result}");
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
+                Debug.WriteLine($"[TestStatefulTreePrimeCalculatorComponent] SetOutput - {_result} - of type {_result.GetType().FullName}");
                 _parent.SetPersistentOutput("Output", _result, DA);
                 message = $"Found {_nthPrime}th prime: {_result}";
             }

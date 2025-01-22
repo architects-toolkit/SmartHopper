@@ -23,6 +23,7 @@
 using SmartHopper.Config.Configuration;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using Grasshopper.Kernel.Data;
 using GH_IO.Serialization;
 using System;
 using System.Collections.Generic;
@@ -630,7 +631,7 @@ namespace SmartHopper.Core.ComponentBase
                         // Add the properly typed goo value
                         SetPersistentOutput(param.Name, gooValue, DA);
 
-                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "'");
+                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "' of type '" + _persistentDataTypes[param.Name] + "'");
                     }
                     catch (Exception ex)
                     {
@@ -667,17 +668,7 @@ namespace SmartHopper.Core.ComponentBase
                 foreach (var kvp in _persistentOutputs)
                 {
                     writer.SetString($"ParamName_{index}", kvp.Key);
-                    object valueToStore = kvp.Value;
-                    
-                    // If it's a GH_ObjectWrapper, extract the inner value
-                    if (kvp.Value?.GetType()?.FullName == "Grasshopper.Kernel.Types.GH_ObjectWrapper")
-                    {
-                        var valueProperty = kvp.Value.GetType().GetProperty("Value");
-                        if (valueProperty != null)
-                        {
-                            valueToStore = valueProperty.GetValue(kvp.Value);
-                        }
-                    }
+                    object valueToStore = ExtractGHObjectWrapperValue(kvp.Value);
 
                     // Get the expected type from _persistentDataTypes
                     Type expectedType = null;
@@ -829,6 +820,46 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
+        /// Extracts the inner value from a GH_ObjectWrapper if the object is of that type.
+        /// </summary>
+        /// <param name="value">The value to extract from</param>
+        /// <returns>The inner value if the input is a GH_ObjectWrapper, otherwise returns the input value unchanged</returns>
+        private object ExtractGHObjectWrapperValue(object value)
+        {
+            if (value?.GetType()?.FullName == "Grasshopper.Kernel.Types.GH_ObjectWrapper")
+            {
+                var valueProperty = value.GetType().GetProperty("Value");
+                if (valueProperty != null)
+                {
+                    var innerValue = valueProperty.GetValue(value);
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Extracted inner value from GH_ObjectWrapper: {innerValue?.GetType()?.FullName ?? "null"}");
+                    return innerValue;
+                }
+            }
+            return value;
+        }
+
+        private void LogStructureDetails(IGH_Structure structure)
+        {
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
+            foreach (var path in structure.Paths)
+            {
+                var branch = structure.get_Branch(path);
+                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
+                if (branch != null)
+                {
+                    foreach (var item in branch)
+                    {
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Stores a value in the persistent storage.
         /// </summary>
         /// <param name="paramName">Name of the parameter to store</param>
@@ -841,34 +872,117 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                // Store the value in persistent storage
-                _persistentOutputs[paramName] = value;
-
-                // Store the type information
-                if (value != null)
-                {
-                    _persistentDataTypes[paramName] = value.GetType();
-                }
-                else
-                {
-                    _persistentDataTypes.Remove(paramName);
-                }
-
                 // Find the output parameter
                 var param = Params.Output.FirstOrDefault(p => p.Name == paramName);
                 var paramIndex = Params.Output.IndexOf(param);
                 if (param != null)
                 {
-                    // Convert to IGH_Goo if needed
-                    if (!(value is IGH_Goo))
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Initial value type: {value?.GetType()?.FullName ?? "null"}");
+
+                    // Extract inner value if it's a GH_ObjectWrapper
+                    value = ExtractGHObjectWrapperValue(value);
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Value after extraction: {value?.GetType()?.FullName ?? "null"}");
+
+                    if (value is IGH_Structure structure)
                     {
-                        value = GH_Convert.ToGoo(value);
+                        LogStructureDetails(structure);
+                    }
+
+                    // Store the value in persistent storage
+                    _persistentOutputs[paramName] = value;
+
+                    // Store the type information
+                    if (value != null)
+                    {
+                        _persistentDataTypes[paramName] = value.GetType();
+                    }
+                    else
+                    {
+                        _persistentDataTypes.Remove(paramName);
                     }
 
                     // Set the data through DA
                     if (DA != null)
                     {
-                        DA.SetData(paramIndex, value);
+                        if (param.Access == GH_ParamAccess.tree)
+                        {
+                            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Creating tree for parameter type: {param.Type.FullName}");
+                            
+                            // If the value is already a GH_Structure, use it directly
+                            if (value is IGH_Structure tree)
+                            {
+                                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Using existing tree of type: {tree.GetType().FullName}");
+                                DA.SetDataTree(paramIndex, tree);
+                            }
+                            else
+                            {
+                                // Create a new tree and add the single value
+                                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Creating new tree for single value");
+                                var newTree = new GH_Structure<IGH_Goo>();
+                                
+                                // Convert to IGH_Goo if needed
+                                if (!(value is IGH_Goo))
+                                {
+                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Converting to IGH_Goo: {value}");
+                                    value = GH_Convert.ToGoo(value);
+                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Converted type: {value?.GetType()?.FullName ?? "null"}");
+                                }
+
+                                // Convert to the correct type if needed
+                                if (value is IGH_Goo goo)
+                                {
+                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Current value is IGH_Goo of type: {goo.GetType().FullName}");
+                                    var targetType = param.Type;
+                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Target type: {targetType.FullName}");
+                                    
+                                    if (!goo.GetType().Equals(targetType))
+                                    {
+                                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Type mismatch, attempting conversion");
+                                        
+                                        // Get the raw value
+                                        var rawValue = goo.ScriptVariable();
+                                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] ScriptVariable type: {rawValue?.GetType()?.FullName ?? "null"}");
+                                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] ScriptVariable value: {rawValue}");
+
+                                        // If the target type is GH_Number, handle it specifically
+                                        if (targetType == typeof(GH_Number) && rawValue is IConvertible)
+                                        {
+                                            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Converting to GH_Number");
+                                            value = new GH_Number(Convert.ToDouble(rawValue));
+                                            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Conversion successful: {value.GetType().FullName}");
+                                        }
+                                        else
+                                        {
+                                            var converted = GH_Convert.ToGoo(rawValue);
+                                            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Converted type: {converted?.GetType()?.FullName ?? "null"}");
+                                            
+                                            if (converted != null && converted.GetType().Equals(targetType))
+                                            {
+                                                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Conversion successful");
+                                                value = converted;
+                                            }
+                                            else
+                                            {
+                                                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Conversion failed or type mismatch");
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Final value type before tree append: {value?.GetType()?.FullName ?? "null"}");
+                                newTree.Append(value as IGH_Goo, new GH_Path(0));
+                                DA.SetDataTree(paramIndex, newTree);
+                            }
+                        }
+                        else
+                        {
+                            // Convert to IGH_Goo if needed for non-tree parameters
+                            if (!(value is IGH_Goo))
+                            {
+                                value = GH_Convert.ToGoo(value);
+                            }
+                            DA.SetData(paramIndex, value);
+                        }
                     }
                     else
                     {
@@ -879,6 +993,7 @@ namespace SmartHopper.Core.ComponentBase
             catch (Exception ex)
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Failed to set output '" + paramName + "': " + ex.Message);
+                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Exception stack trace: {ex.StackTrace}");
             }
         }
         
