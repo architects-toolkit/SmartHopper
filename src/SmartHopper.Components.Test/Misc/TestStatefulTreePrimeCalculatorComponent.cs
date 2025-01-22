@@ -139,24 +139,6 @@ namespace SmartHopper.Components.Test.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                // Create a data tree with the same structure as the input tree
-                //var resultTree = new GH_Structure<GH_Number>();
-                //foreach (var path in _inputTree.Paths)
-                //{
-                //    var branch = _inputTree.get_Branch(path);
-                //    var resultBranch = new List<GH_Number>();
-
-                //    foreach (var item in branch)
-                //    {
-                //        if (item is GH_Integer ghInt)
-                //        {
-                //            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                //            resultBranch.Add(new GH_Number(_result.get_Branch(path)[branch.IndexOf(item)].Value));
-                //        }
-                //    }
-
-                //    resultTree.AppendRange(resultBranch, path);
-                //}
                 _parent.SetPersistentOutput("Output", _result, DA);
                 message = $"Found prime";
             }

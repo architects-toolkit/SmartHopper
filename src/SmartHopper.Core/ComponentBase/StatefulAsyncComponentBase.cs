@@ -659,55 +659,49 @@ namespace SmartHopper.Core.ComponentBase
             
             try
             {
-                // Store number of outputs
-                int totalCount = _persistentOutputs.Count;
-                writer.SetInt32("OutputCount", totalCount);
+                // Store input hashes
+                foreach (var kvp in _previousInputHashes)
+                {
+                    writer.SetInt32($"InputHash_{kvp.Key}", kvp.Value);
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Stored input hash for '{kvp.Key}': {kvp.Value}");
+                }
+                
+                // Store input branch counts
+                foreach (var kvp in _previousBranchCounts)
+                {
+                    writer.SetInt32($"InputBranchCount_{kvp.Key}", kvp.Value);
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Stored input branch count for '{kvp.Key}': {kvp.Value}");
+                }
 
                 // Store each output with its parameter name
-                int index = 0;
                 foreach (var kvp in _persistentOutputs)
                 {
-                    writer.SetString($"ParamName_{index}", kvp.Key);
-                    object valueToStore = ExtractGHObjectWrapperValue(kvp.Value);
-
-                    // Get the expected type from _persistentDataTypes
-                    Type expectedType = null;
-                    if (_persistentDataTypes.TryGetValue(kvp.Key, out expectedType))
-                    {
-                        writer.SetString($"ParamType_{index}", expectedType.AssemblyQualifiedName);
-                    }
-                    else if (valueToStore != null)
-                    {
-                        writer.SetString($"ParamType_{index}", valueToStore.GetType().AssemblyQualifiedName);
-                    }
-                    else
-                    {
-                        writer.SetString($"ParamType_{index}", "null");
-                    }
+                    string paramName = kvp.Key;
+                    object paramValue = kvp.Value;
                     
-                    // Store the value based on its type
-                    if (valueToStore != null)
+                    // Store the value
+                    if (paramValue != null)
                     {
-                        if (valueToStore is int intValue)
-                            writer.SetInt32($"Value_{index}", intValue);
-                        else if (valueToStore is double doubleValue)
-                            writer.SetDouble($"Value_{index}", doubleValue);
-                        else if (valueToStore is string stringValue)
-                            writer.SetString($"Value_{index}", stringValue);
-                        else if (valueToStore is bool boolValue)
-                            writer.SetBoolean($"Value_{index}", boolValue);
-                        else
-                            writer.SetString($"Value_{index}", JsonSerializer.Serialize(valueToStore));
+                        var chunk = new GH_LooseChunk($"Value_{paramName}");
+                        if (paramValue is IGH_Structure structure)
+                        {
+                            LogStructureDetails(structure);
 
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Stored output '{kvp.Key}' with value '{valueToStore}' of type '{(expectedType?.FullName ?? valueToStore.GetType().FullName)}'");
+                            // Use reflection to call Write method
+                            var writeMethod = structure.GetType().GetMethod("Write");
+                            writeMethod?.Invoke(structure, new object[] { chunk });
+                            writer.SetString($"Type_{paramName}", structure.GetType().AssemblyQualifiedName);
+                        }
+                        
+                        var chunkBytes = chunk.Serialize_Binary();
+
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Serialized chunk size: {chunkBytes.Length} bytes");
+
+                        // Write data
+                        writer.SetByteArray($"Value_{paramName}", chunkBytes);
+                        
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Stored output '{paramName}' with value '{paramValue}' of type '{paramValue.GetType().FullName}'");
                     }
-                    else
-                    {
-                        writer.SetString($"Value_{index}", null);
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Stored null output '{kvp.Key}'");
-                    }
-                    
-                    index++;
                 }
 
                 return true;
@@ -728,95 +722,66 @@ namespace SmartHopper.Core.ComponentBase
             if (!base.Read(reader))
                 return false;
 
+            // Clear previous hashes
+            _previousInputHashes.Clear();
+
+            // Clear previous branch counts
+            _previousBranchCounts.Clear();
+
+            // Clear previous outputs
             _persistentOutputs.Clear();
 
-            // Read number of outputs
-            if (!reader.ItemExists("OutputCount"))
-                return false;
-
-            int count = reader.GetInt32("OutputCount");
-
-            try
+            // Restore component specific data
+            foreach (var item in reader.Items)
             {
-                // Read each output
-                for (int i = 0; i < count; i++)
+                string key = item.Name;
+                
+                // Restore input hashes
+                if (key.StartsWith("InputHash_"))
                 {
-                    if (!reader.ItemExists($"ParamName_{i}") || !reader.ItemExists($"ParamType_{i}"))
-                        continue;
+                    string paramName = key.Substring("InputHash_".Length);
 
-                    string paramName = reader.GetString($"ParamName_{i}");
-                    string typeName = reader.GetString($"ParamType_{i}");
-                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Attempting to deserialize parameter '{paramName}' of type '{typeName}'");
+                    // Store data in local field
+                    _previousInputHashes[paramName] = reader.GetInt32(key);
 
-                    if (typeName == "null")
-                    {
-                        _persistentOutputs[paramName] = null;
-                        continue;
-                    }
-
-                    // Get the type and store it in _persistentDataTypes
-                    Type type = Type.GetType(typeName);
-                    if (type == null)
-                    {
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Type '{typeName}' could not be found");
-                        continue;
-                    }
-                    
-                    // Store the type for future reference
-                    _persistentDataTypes[paramName] = type;
-                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Registered type {type.Name} for parameter {paramName}");
-                    
-                    // Read value based on type
-                    object value;
-                    // Handle primitive types directly
-                    if (type == typeof(int))
-                        value = reader.GetInt32($"Value_{i}");
-                    else if (type == typeof(double))
-                        value = reader.GetDouble($"Value_{i}");
-                    else if (type == typeof(string))
-                        value = reader.GetString($"Value_{i}");
-                    else if (type == typeof(bool))
-                        value = reader.GetBoolean($"Value_{i}");
-                    else
-                    {
-                        var options = new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        };
-                        
-                        // If it's a Grasshopper type, create instance and set value
-                        if (type?.FullName?.StartsWith("Grasshopper.Kernel.Types.") == true)
-                        {
-                            value = Activator.CreateInstance(type);
-                            var targetValueProperty = type.GetProperty("Value");
-                            if (targetValueProperty != null)
-                            {
-                                var deserializedValue = JsonSerializer.Deserialize(reader.GetString($"Value_{i}"), targetValueProperty.PropertyType, options);
-                                targetValueProperty.SetValue(value, deserializedValue);
-                            }
-                        }
-                        else
-                        {
-                            value = JsonSerializer.Deserialize(reader.GetString($"Value_{i}"), type, options);
-                        }
-                    }
-
-                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Successfully deserialized to type {type?.FullName}");
-                    
-                    _persistentOutputs[paramName] = value;
-                    // _restoredFromFile = true;
-
-                    CalculatePersistentDataHashes();
-
-                    Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Restored output '" + paramName + "' to value '" + value + "'");
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored input hash for '{paramName}': {_previousInputHashes[paramName]}");
                 }
 
-                return true;
+                // Restore input branch counts
+                if (key.StartsWith("InputBranchCount_"))
+                {
+                    string paramName = key.Substring("InputBranchCount_".Length);
+
+                    // Store data in local field
+                    _previousBranchCounts[paramName] = reader.GetInt32(key);
+
+                    Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored input branch count for '{paramName}': {_previousBranchCounts[paramName]}");
+                }
+
+                // Restore outputs
+                if (key.StartsWith("Value_"))
+                {
+                    string paramName = key.Substring("Value_".Length);
+                    
+                    string typeName = reader.GetString($"Type_{paramName}");
+                    Type type = Type.GetType(typeName);
+
+                    // Get the binary data and create a chunk from it
+                    byte[] chunkBytes = reader.GetByteArray($"Value_{paramName}");
+                    var chunk = new GH_LooseChunk($"Value_{paramName}");
+                    chunk.Deserialize_Binary(chunkBytes);
+
+                    // Create an instance of the type and read from chunk
+                    var instance = Activator.CreateInstance(type);
+                    var readMethod = type.GetMethod("Read");
+                    readMethod?.Invoke(instance, new object[] { chunk });
+
+                    // Store data in local field
+                    _persistentOutputs[paramName] = instance;
+                }
             }
-            catch
-            {
-                return false;
-            }
+
+            return true;
         }
 
         /// <summary>
