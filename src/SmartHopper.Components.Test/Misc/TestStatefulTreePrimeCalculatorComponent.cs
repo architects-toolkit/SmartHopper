@@ -16,8 +16,12 @@
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using System.Collections.Generic;
 
 namespace SmartHopper.Components.Test.Misc
 {
@@ -36,7 +40,7 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Number", "N", "Which n-th prime number. Minimum 1, maximum one million.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Number", "N", "Which n-th prime number. Minimum 1, maximum one million.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -51,8 +55,8 @@ namespace SmartHopper.Components.Test.Misc
 
         private class TestStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
         {
-            private int _nthPrime = 100;
-            private long _result = -1;
+            private GH_Structure<GH_Integer> _inputTree;
+            private GH_Structure<GH_Number> _result;
             private readonly TestStatefulTreePrimeCalculatorComponent _parent;
 
             public TestStatefulTreePrimeCalculatorWorker(
@@ -61,21 +65,48 @@ namespace SmartHopper.Components.Test.Misc
             : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
+                _result = new GH_Structure<GH_Number>();
             }
 
             public override void GatherInput(IGH_DataAccess DA)
             {
-                int n = 100;
-                DA.GetData(0, ref n);
-                _nthPrime = Math.Max(1, Math.Min(n, 1000000));
+                _inputTree = new GH_Structure<GH_Integer>();
+                DA.GetDataTree(0, out _inputTree);
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                foreach (var path in _inputTree.Paths)
+                {
+                    var branch = _inputTree.get_Branch(path);
+                    var resultBranch = new List<GH_Number>();
+
+                    Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
+
+                    foreach (var item in branch)
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        if (item is GH_Integer ghInt)
+                        {
+                            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
+                            long result = await CalculateNthPrime(n, token);
+                            resultBranch.Add(new GH_Number(result));
+
+                            Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
+                        }
+                    }
+
+                    _result.AppendRange(resultBranch, path);
+                }
+            }
+
+            private async Task<long> CalculateNthPrime(int nthPrime, CancellationToken token)
+            {
                 int count = 0;
                 long a = 2;
 
-                while (count < _nthPrime)
+                while (count < nthPrime)
                 {
                     token.ThrowIfCancellationRequested();
 
@@ -97,23 +128,37 @@ namespace SmartHopper.Components.Test.Misc
                     if (isPrime)
                     {
                         count++;
+                        if (count == nthPrime)
+                            return a;
                     }
                     a++;
-
-                    // Add small delay to prevent UI freeze
-                    if (count % 100 == 0)
-                    {
-                        await Task.Delay(1, token);
-                    }
                 }
 
-                _result = --a;
+                return -1;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
+                // Create a data tree with the same structure as the input tree
+                //var resultTree = new GH_Structure<GH_Number>();
+                //foreach (var path in _inputTree.Paths)
+                //{
+                //    var branch = _inputTree.get_Branch(path);
+                //    var resultBranch = new List<GH_Number>();
+
+                //    foreach (var item in branch)
+                //    {
+                //        if (item is GH_Integer ghInt)
+                //        {
+                //            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
+                //            resultBranch.Add(new GH_Number(_result.get_Branch(path)[branch.IndexOf(item)].Value));
+                //        }
+                //    }
+
+                //    resultTree.AppendRange(resultBranch, path);
+                //}
                 _parent.SetPersistentOutput("Output", _result, DA);
-                message = $"Found {_nthPrime}th prime: {_result}";
+                message = $"Found prime";
             }
         }
     }
