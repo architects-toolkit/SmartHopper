@@ -25,15 +25,15 @@ using System.Collections.Generic;
 
 namespace SmartHopper.Components.Test.Misc
 {
-    public class TestStatefulTreePrimeCalculatorComponent : StatefulAsyncComponentBase
+    public class TestAIStatefulTreePrimeCalculatorComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
+        public override Guid ComponentGuid => new Guid("C349BCD4-81C8-40CC-B449-DDE7C9180CAA");
         protected override System.Drawing.Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestStatefulTreePrimeCalculatorComponent()
-            : base("Test Stateful Tree Prime Calculator", "TEST-STATEFUL-TREE-PRIME",
-                  "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
+        public TestAIStatefulTreePrimeCalculatorComponent()
+            : base("Test AI Stateful Tree Prime Calculator", "TEST-AI-STATEFUL-TREE-PRIME",
+                  "Test component for AIStatefulAsyncComponentBase - Calculates the nth prime number.",
                   "SmartHopper", "Examples")
         {
         }
@@ -50,17 +50,17 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
+            return new TestAIStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        private class TestStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
+        private class TestAIStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
         {
             private GH_Structure<GH_Integer> _inputTree;
             private GH_Structure<GH_Number> _result;
-            private readonly TestStatefulTreePrimeCalculatorComponent _parent;
+            private readonly TestAIStatefulTreePrimeCalculatorComponent _parent;
 
-            public TestStatefulTreePrimeCalculatorWorker(
-            TestStatefulTreePrimeCalculatorComponent parent,
+            public TestAIStatefulTreePrimeCalculatorWorker(
+            TestAIStatefulTreePrimeCalculatorComponent parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
