@@ -150,7 +150,16 @@ namespace SmartHopper.Core.DataTree
             CancellationToken token = default) where T : GH_String
         {
             Dictionary<string, GH_Structure<T>> result = new Dictionary<string, GH_Structure<T>>();
-            
+
+            // Get the amount of items in each tree
+            var treeLengths = new Dictionary<string, int>();
+            foreach (var tree in trees)
+            {
+                treeLengths.Add(tree.Key, tree.Value.Count());
+            }
+
+            Debug.WriteLine($"[DataTreeProcessor] Tree lengths: {string.Join(", ", treeLengths.Select(x => $"{x.Key}: {x.Value}"))}");
+
             var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
 
             foreach (var path in allPaths)

@@ -307,8 +307,15 @@ namespace SmartHopper.Core.ComponentBase
             DA.SetData("Metrics", metricsJson);
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
 
+            
+        }
+
+        protected override void BeforeSolveInstance()
+        {
+            base.BeforeSolveInstance();
+
             // Clear the stored metrics after setting the output
-            // _responseMetrics.Clear();
+            _responseMetrics.Clear();
         }
 
         protected override void RestorePersistentOutputs(IGH_DataAccess DA)

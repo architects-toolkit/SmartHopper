@@ -94,12 +94,14 @@ namespace SmartHopper.Components.Text
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 Debug.WriteLine($"[Worker] Starting DoWorkAsync");
+
                 _result = await DataTreeProcessor.RunFunctionAsync<GH_String>(
                     _inputTree,
                     async branches => await ProcessData(branches, _parent),
                     onlyMatchingPaths: false,
                     groupIdenticalBranches: true,
                     token);
+                    
                 Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", _result.Keys)}");
             }
 
