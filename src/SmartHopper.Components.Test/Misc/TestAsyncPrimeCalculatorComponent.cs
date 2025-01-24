@@ -31,7 +31,7 @@ namespace SmartHopper.Components.Misc
         public TestAsyncPrimeCalculatorComponent()
             : base("Test Async Prime Calculator", "TEST-PRIME",
                   "Test component for AsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Examples")
+                  "SmartHopper", "Testing")
         {
         }
 
