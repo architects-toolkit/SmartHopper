@@ -70,28 +70,37 @@ namespace SmartHopper.Components.Text
             : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
-                _result = new Dictionary<string, GH_Structure<GH_String>>();
+                _result = new Dictionary<string, GH_Structure<GH_String>>
+                {
+                    { "Result", new GH_Structure<GH_String>() }
+                };
             }
 
             public override void GatherInput(IGH_DataAccess DA)
             {
-                DA.GetDataTree(0, out GH_Structure<GH_String> promptTree);
-
-                DA.GetDataTree(1, out GH_Structure<GH_String> instructionsTree);
-
                 _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
-                _inputTree["Prompt"] = promptTree;
+
+                // Get the input trees
+                var instructionsTree = new GH_Structure<GH_String>();
+                var promptTree = new GH_Structure<GH_String>();
+
+                DA.GetDataTree("Instructions", out instructionsTree);
+                DA.GetDataTree("Prompt", out promptTree);
+
                 _inputTree["Instructions"] = instructionsTree;
+                _inputTree["Prompt"] = promptTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                Debug.WriteLine($"[Worker] Starting DoWorkAsync");
                 _result = await DataTreeProcessor.RunFunctionAsync<GH_String>(
                     _inputTree,
                     async branches => await ProcessData(branches, _parent),
                     onlyMatchingPaths: false,
                     groupIdenticalBranches: true,
                     token);
+                Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", _result.Keys)}");
             }
 
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
@@ -105,6 +114,9 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
+                Debug.WriteLine($"[Worker] Processing {branches.Count} branches");
+                Debug.WriteLine($"[Worker] Items per branch: {branches.Values.Max(branch => branch.Count)}");
+
                 // Get the branches
                 var instructionsTree = branches["Instructions"];
                 var promptTree = branches["Prompt"];
@@ -116,6 +128,8 @@ namespace SmartHopper.Components.Text
                 instructionsTree = normalizedLists[0];
                 promptTree = normalizedLists[1];
 
+                Debug.WriteLine($"[ProcessData] After normalization - Instructions count: {instructionsTree.Count}, Prompts count: {promptTree.Count}");
+
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
                 outputs["Result"] = new List<GH_String>();
@@ -125,6 +139,8 @@ namespace SmartHopper.Components.Text
                 int i = 0;
                 foreach (var prompt in promptTree)
                 {
+                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
+
                     // Initiate the messages array
                     var messages = new List<KeyValuePair<string, string>>();
 
@@ -156,6 +172,15 @@ namespace SmartHopper.Components.Text
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
+                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", _result.Keys)}");
+                
+                if (!_result.ContainsKey("Result"))
+                {
+                    Debug.WriteLine("[Worker] Warning: Result key not found in output dictionary");
+                    message = "Error: No result available";
+                    return;
+                }
+
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
             }
