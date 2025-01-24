@@ -12,6 +12,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -154,6 +155,8 @@ namespace SmartHopper.Core.DataTree
 
             foreach (var path in allPaths)
             {
+                Debug.WriteLine($"[DataTreeProcessor] Processing path: {path}");
+
                 // Check for cancellation
                 token.ThrowIfCancellationRequested();
 
@@ -188,8 +191,17 @@ namespace SmartHopper.Core.DataTree
                 {
                     foreach (var kvp in branchResult)
                     {
-                        var value = kvp.Value;
-                        result[kvp.Key].AppendRange(value, applyPath);
+                        if (!result.ContainsKey(kvp.Key))
+                        {
+                            result[kvp.Key] = new GH_Structure<T>();
+                            Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
+                        }
+                        
+                        if (kvp.Value != null)
+                        {
+                            Debug.WriteLine($"[DataTreeProcessor] Appending {kvp.Value.Count} items to path {applyPath} for key {kvp.Key}");
+                            result[kvp.Key].AppendRange(kvp.Value, applyPath);
+                        }
                     }
                 }
             }
