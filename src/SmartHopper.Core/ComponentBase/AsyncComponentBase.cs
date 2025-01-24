@@ -117,7 +117,6 @@ namespace SmartHopper.Core.ComponentBase
             Workers.Clear();
             _state = 0;
             _setData = 0;
-            //Message = string.Empty;
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
