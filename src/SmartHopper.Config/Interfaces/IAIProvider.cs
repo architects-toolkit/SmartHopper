@@ -11,9 +11,9 @@
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Models;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Drawing;
 
 namespace SmartHopper.Config.Interfaces
 {
@@ -25,7 +25,7 @@ namespace SmartHopper.Config.Interfaces
         /// <summary>
         /// Gets the provider's icon. Should return a 16x16 image suitable for display in the UI.
         /// </summary>
-        System.Drawing.Image Icon { get; }
+        Image Icon { get; }
 
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
 

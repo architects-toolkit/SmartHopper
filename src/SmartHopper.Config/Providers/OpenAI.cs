@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Drawing;
 
 namespace SmartHopper.Config.Providers
 {
@@ -38,14 +39,14 @@ namespace SmartHopper.Config.Providers
         /// <summary>
         /// Gets the provider's icon
         /// </summary>
-        public System.Drawing.Image Icon
+        public Image Icon
         {
             get
             {
                 var iconBytes = Properties.providersResources.openai_icon;
                 using (var ms = new System.IO.MemoryStream(iconBytes))
                 {
-                    return System.Drawing.Image.FromStream(ms);
+                    return new Bitmap(ms);
                 }
             }
         }
