@@ -214,7 +214,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="messages">The messages to send to the AI provider.</param>
         /// <param name="token">The cancellation token to cancel the operation.</param>
         /// <returns>The AI response from the provider.</returns>
-        protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages, CancellationToken token)
+        protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages)
         {
             //if (_isDebouncing)
             //{

@@ -44,7 +44,7 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Gets paths from trees based on the onlyMatchingPaths parameter
         /// </summary>
-        private static List<GH_Path> GetProcessingPaths<T>(List<GH_Structure<T>> trees, bool onlyMatchingPaths) where T : IGH_Goo
+        private static List<GH_Path> GetProcessingPaths<T>(IEnumerable<GH_Structure<T>> trees, bool onlyMatchingPaths) where T : IGH_Goo
         {
             return onlyMatchingPaths ?
                 DataTreeProcessor.GetMatchingPaths(trees) :
