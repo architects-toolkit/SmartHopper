@@ -1,0 +1,83 @@
+using System;
+using System.Drawing;
+using Grasshopper.GUI;
+using Grasshopper.GUI.Canvas;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Attributes;
+using SmartHopper.Config.Providers;
+
+namespace SmartHopper.Core.ComponentBase
+{
+    /// <summary>
+    /// Custom attributes for AI components that displays the provider logo
+    /// as a badge on the component.
+    /// </summary>
+    public class AIComponentAttributes : GH_ComponentAttributes
+    {
+        private readonly AIStatefulAsyncComponentBase _owner;
+        private const int BADGE_SIZE = 16; // Size of the provider logo badge
+        private const int BADGE_PADDING = 4; // Padding from component edge
+
+        /// <summary>
+        /// Creates a new instance of AIComponentAttributes
+        /// </summary>
+        /// <param name="owner">The AI component that owns these attributes</param>
+        public AIComponentAttributes(AIStatefulAsyncComponentBase owner) : base(owner)
+        {
+            _owner = owner;
+        }
+
+        /// <summary>
+        /// Renders the component with an additional provider logo badge
+        /// </summary>
+        /// <param name="canvas">The canvas being rendered to</param>
+        /// <param name="graphics">The graphics object to use for drawing</param>
+        /// <param name="channel">The current render channel</param>
+        protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
+        {
+            base.Render(canvas, graphics, channel);
+
+            if (channel == GH_CanvasChannel.Objects)
+            {
+                // Only render the badge if we have a valid provider
+                if (string.IsNullOrEmpty(_owner._aiProvider))
+                    return;
+
+                // Get the provider icon
+                var providerIcon = AIProviderRegistry.GetProviderIcon(_owner._aiProvider);
+                if (providerIcon == null)
+                    return;
+
+                // Calculate badge position (top-right corner)
+                var bounds = Bounds;
+                var badgeRect = new RectangleF(
+                    bounds.Right - BADGE_SIZE - BADGE_PADDING,
+                    bounds.Top + BADGE_PADDING,
+                    BADGE_SIZE,
+                    BADGE_SIZE);
+
+                // Draw the badge with a white background for visibility
+                using (var brush = new SolidBrush(Color.White))
+                {
+                    graphics.FillEllipse(brush, badgeRect);
+                }
+
+                // Draw the provider icon
+                graphics.DrawImage(providerIcon, badgeRect);
+            }
+        }
+
+        /// <summary>
+        /// Layout the component with additional space for the badge
+        /// </summary>
+        protected override void Layout()
+        {
+            base.Layout();
+            
+            // Expand the bounds slightly to accommodate the badge
+            var bounds = Bounds;
+            bounds.Width += BADGE_SIZE + (BADGE_PADDING * 2);
+            Bounds = bounds;
+        }
+    }
+}

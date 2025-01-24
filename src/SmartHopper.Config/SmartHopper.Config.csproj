@@ -59,4 +59,17 @@
   <ItemGroup>
     <None Include="..\..\.editorconfig" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\providersResources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>providersResources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\providersResources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>providersResources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

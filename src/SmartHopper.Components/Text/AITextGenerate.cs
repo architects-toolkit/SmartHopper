@@ -106,11 +106,11 @@ namespace SmartHopper.Components.Text
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
             {
                 /*
-                 * When defining the function, the inputs will
+                 * When defining the function, inputs will
                  * be available as the branches dictionary.
                  *
-                 * Outputs should be a dictionary where the keys
-                 * are each output parameter and the values are
+                 * Outputs should be a dictionary where keys
+                 * are each output parameter and values are
                  * the output values.
                  */
 
