@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Misc
         public StatefulPrimeCalculatorComponent() 
             : base("The N-th Prime Calculator (Stateful)", "PRIME", 
                   "Calculates the nth prime number with state management.", 
-                  "SmartHopper", "Examples")
+                  "SmartHopper", "Testing")
         {
             _stateManager = new ComponentStateManager(this);
             _stateManager.StateChanged += OnStateChanged;

@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Test.Misc
         public PrimeCalculatorComponent() 
             : base("The N-th Prime Calculator", "PRIME", 
                   "Calculates the nth prime number.", 
-                  "SmartHopper", "Examples")
+                  "SmartHopper", "Testing")
         {
         }
 

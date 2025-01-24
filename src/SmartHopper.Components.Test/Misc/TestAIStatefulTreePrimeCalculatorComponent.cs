@@ -1,6 +1,6 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024 Marc Roca Musach
+ * Copyright (C) 2025 Marc Roca Musach
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,16 +25,16 @@ using System.Collections.Generic;
 
 namespace SmartHopper.Components.Test.Misc
 {
-    public class TestStatefulTreePrimeCalculatorComponent : StatefulAsyncComponentBase
+    public class TestAIStatefulTreePrimeCalculatorComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
+        public override Guid ComponentGuid => new Guid("C349BCD4-81C8-40CC-B449-DDE7C9180CAA");
         protected override System.Drawing.Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestStatefulTreePrimeCalculatorComponent()
-            : base("Test Stateful Tree Prime Calculator", "TEST-STATEFUL-TREE-PRIME",
-                  "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Testing")
+        public TestAIStatefulTreePrimeCalculatorComponent()
+            : base("Test AI Stateful Tree Prime Calculator", "TEST-AI-STATEFUL-TREE-PRIME",
+                  "Test component for AIStatefulAsyncComponentBase - Calculates the nth prime number.",
+                  "SmartHopper", "Examples")
         {
         }
 
@@ -50,17 +50,17 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
+            return new TestAIStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        private class TestStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
+        private class TestAIStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
         {
             private GH_Structure<GH_Integer> _inputTree;
             private GH_Structure<GH_Number> _result;
-            private readonly TestStatefulTreePrimeCalculatorComponent _parent;
+            private readonly TestAIStatefulTreePrimeCalculatorComponent _parent;
 
-            public TestStatefulTreePrimeCalculatorWorker(
-            TestStatefulTreePrimeCalculatorComponent parent,
+            public TestAIStatefulTreePrimeCalculatorWorker(
+            TestAIStatefulTreePrimeCalculatorComponent parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
@@ -139,24 +139,6 @@ namespace SmartHopper.Components.Test.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                // Create a data tree with the same structure as the input tree
-                //var resultTree = new GH_Structure<GH_Number>();
-                //foreach (var path in _inputTree.Paths)
-                //{
-                //    var branch = _inputTree.get_Branch(path);
-                //    var resultBranch = new List<GH_Number>();
-
-                //    foreach (var item in branch)
-                //    {
-                //        if (item is GH_Integer ghInt)
-                //        {
-                //            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                //            resultBranch.Add(new GH_Number(_result.get_Branch(path)[branch.IndexOf(item)].Value));
-                //        }
-                //    }
-
-                //    resultTree.AppendRange(resultBranch, path);
-                //}
                 _parent.SetPersistentOutput("Output", _result, DA);
                 message = $"Found prime";
             }
