@@ -1,6 +1,14 @@
-using System;
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
 using System.Drawing;
-using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
@@ -50,15 +58,17 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Calculate badge position (top-right corner)
                 var bounds = Bounds;
+
+                // Calculate badge position (bottom right corner)
                 var badgeRect = new RectangleF(
                     bounds.Left + bounds.Width / 2 - BADGE_SIZE / 2 - BADGE_PADDING - 2,
                     bounds.Top + bounds.Height / 2 + BADGE_SIZE,
                     BADGE_SIZE + BADGE_PADDING * 2,
                     BADGE_SIZE + BADGE_PADDING * 2);
-                
+
                 var iconRect = new RectangleF(
                     bounds.Left + bounds.Width / 2 - BADGE_SIZE / 2 - BADGE_PADDING - 2 + BADGE_PADDING,
-                    bounds.Top + bounds.Height / 2 + BADGE_SIZE + BADGE_PADDING , 
+                    bounds.Top + bounds.Height / 2 + BADGE_SIZE + BADGE_PADDING,
                     BADGE_SIZE,
                     BADGE_SIZE);
 
