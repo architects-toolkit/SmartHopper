@@ -15,6 +15,7 @@
 
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Components.Properties;
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -22,83 +23,88 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
+using Grasshopper.Documentation;
 
-namespace SmartHopper.Components.Test.Misc
+namespace SmartHopper.Components.Text
 {
-    public class TestAIStatefulTreePrimeCalculatorComponent : AIStatefulAsyncComponentBase
+    public class AITextGenerate : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("C349BCD4-81C8-40CC-B449-DDE7C9180CAA");
-        protected override System.Drawing.Bitmap Icon => null;
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override Guid ComponentGuid => new Guid("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
+        protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        public TestAIStatefulTreePrimeCalculatorComponent()
-            : base("Test AI Stateful Tree Prime Calculator", "TEST-AI-STATEFUL-TREE-PRIME",
-                  "Test component for AIStatefulAsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Testing")
+        public AITextGenerate()
+            : base("AI Text Generate", "AITextGenerate",
+                  "Generate text using LLM.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                  "SmartHopper", "Text")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Number", "N", "Which n-th prime number. Minimum 1, maximum one million.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "The prompt to send to the AI", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Output", "O", "The n-th prime number.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestAIStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
+            return new AITextGenerateWorker(this, AddRuntimeMessage);
         }
 
-        private class TestAIStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
+        private class AITextGenerateWorker : AsyncWorkerBase
         {
-            private GH_Structure<GH_Integer> _inputTree;
-            private GH_Structure<GH_Number> _result;
-            private readonly TestAIStatefulTreePrimeCalculatorComponent _parent;
+            private GH_Structure<GH_String> _inputTree;
+            private GH_Structure<GH_String> _result;
+            private readonly AITextGenerate _parent;
 
-            public TestAIStatefulTreePrimeCalculatorWorker(
-            TestAIStatefulTreePrimeCalculatorComponent parent,
+            public AITextGenerateWorker(
+            AITextGenerate parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
-                _result = new GH_Structure<GH_Number>();
+                _result = new GH_Structure<GH_String>();
             }
 
             public override void GatherInput(IGH_DataAccess DA)
             {
-                _inputTree = new GH_Structure<GH_Integer>();
-                DA.GetDataTree(0, out _inputTree);
+                DA.GetDataTree(0, out GH_Structure<GH_String> promptTree);
+
+                DA.GetDataTree(1, out GH_Structure<GH_String> instructionsTree);
+
+                _inputTree = new GH_Structure<GH_String>();
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                foreach (var path in _inputTree.Paths)
-                {
-                    var branch = _inputTree.get_Branch(path);
-                    var resultBranch = new List<GH_Number>();
+                //foreach (var path in _inputTree.Paths)
+                //{
+                //    var branch = _inputTree.get_Branch(path);
+                //    var resultBranch = new List<GH_Number>();
 
-                    Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
+                //    Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
 
-                    foreach (var item in branch)
-                    {
-                        token.ThrowIfCancellationRequested();
+                //    foreach (var item in branch)
+                //    {
+                //        token.ThrowIfCancellationRequested();
 
-                        if (item is GH_Integer ghInt)
-                        {
-                            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                            long result = await CalculateNthPrime(n, token);
-                            resultBranch.Add(new GH_Number(result));
+                //        if (item is GH_Integer ghInt)
+                //        {
+                //            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
+                //            long result = await CalculateNthPrime(n, token);
+                //            resultBranch.Add(new GH_Number(result));
 
-                            Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
-                        }
-                    }
+                //            Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
+                //        }
+                //    }
 
-                    _result.AppendRange(resultBranch, path);
-                }
+                //    _result.AppendRange(resultBranch, path);
+                //}
             }
 
             private async Task<long> CalculateNthPrime(int nthPrime, CancellationToken token)
