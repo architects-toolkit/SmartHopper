@@ -69,5 +69,15 @@ namespace SmartHopper.Config.Properties {
                 return ((byte[])(obj));
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] openai_icon {
+            get {
+                object obj = ResourceManager.GetObject("openai_icon", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
     }
 }

@@ -42,7 +42,7 @@ namespace SmartHopper.Config.Providers
         {
             get
             {
-                var iconBytes = Properties.providersResources.mistralai_icon;
+                var iconBytes = Properties.providersResources.openai_icon;
                 using (var ms = new System.IO.MemoryStream(iconBytes))
                 {
                     return System.Drawing.Image.FromStream(ms);
