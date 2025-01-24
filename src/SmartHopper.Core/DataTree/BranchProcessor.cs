@@ -66,35 +66,35 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Processes branches item by item using the provided function
         /// </summary>
-        public static List<TResult> ProcessItemsInParallel<TKey, T, TResult>(
-            Dictionary<TKey, List<T>> branches,
-            Func<Dictionary<TKey, T>, TResult> processItemFunc) where T : IGH_Goo
-        {
-            if (branches == null || !branches.Any())
-                return new List<TResult>();
+        //public static List<TResult> ProcessItemsInParallel<TKey, T, TResult>(
+        //    Dictionary<TKey, List<T>> branches,
+        //    Func<Dictionary<TKey, T>, TResult> processItemFunc) where T : IGH_Goo
+        //{
+        //    if (branches == null || !branches.Any())
+        //        return new List<TResult>();
 
-            // First normalize branch lengths
-            var normalizedBranches = NormalizeBranchLengths(branches);
+        //    // First normalize branch lengths
+        //    var normalizedBranches = NormalizeBranchLengths(branches);
 
-            // Get the maximum length of all branches
-            int branchLength = normalizedBranches.Values.Max(branch => branch.Count);
+        //    // Get the maximum length of all branches
+        //    int branchLength = normalizedBranches.Values.Max(branch => branch.Count);
 
-            var results = new List<TResult>();
-            for (int i = 0; i < branchLength; i++)
-            {
-                // Create a dictionary of items at index i from each branch
-                var items = normalizedBranches.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value[i]
-                );
+        //    var results = new List<TResult>();
+        //    for (int i = 0; i < branchLength; i++)
+        //    {
+        //        // Create a dictionary of items at index i from each branch
+        //        var items = normalizedBranches.ToDictionary(
+        //            kvp => kvp.Key,
+        //            kvp => kvp.Value[i]
+        //        );
 
-                // Process items using the provided function
-                var result = processItemFunc(items);
-                results.Add(result);
-            }
+        //        // Process items using the provided function
+        //        var result = processItemFunc(items);
+        //        results.Add(result);
+        //    }
 
-            return results;
-        }
+        //    return results;
+        //}
 
         /// <summary>
         /// Processes branches item by item using the provided async function
