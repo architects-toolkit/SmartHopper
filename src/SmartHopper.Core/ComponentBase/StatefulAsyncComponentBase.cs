@@ -591,7 +591,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Restores all persistent outputs to their respective parameters.
         /// </summary>
         /// <param name="DA">The data access object</param>
-        protected void RestorePersistentOutputs(IGH_DataAccess DA)
+        protected virtual void RestorePersistentOutputs(IGH_DataAccess DA)
         {
             Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Restoring persistent outputs");
             

@@ -45,7 +45,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// The selected AI provider. Set up from the component's dropdown menu.
         /// </summary>
-        protected string _aiProvider { get; private set; }
+        public string _aiProvider { get; private set; }
         private string _previousSelectedProvider;
 
         /// <summary>
@@ -188,7 +188,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The API's endpoint, or empty string for default endpoint</returns>
         protected string GetEndpoint()
         {
-            return ""; // "" means that the provider will use the default endpoint
+            return ""; // With the default value, the provider will use the default endpoint
         }
 
         protected override List<string> InputsChanged()
@@ -216,18 +216,6 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The AI response from the provider.</returns>
         protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages)
         {
-            //if (_isDebouncing)
-            //{
-            //    Debug.WriteLine("[AIStatefulAsyncComponentBase] [GetResponse] Debouncing, skipping request");
-            //    return new AIResponse
-            //    {
-            //        Response = "Too many requests, please wait...",
-            //        FinishReason = "error",
-            //        InTokens = 0,
-            //        OutTokens = 0
-            //    };
-            //}
-
             try
             {
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {_aiProvider}");
@@ -278,6 +266,8 @@ namespace SmartHopper.Core.ComponentBase
             if (response != null)
             {
                 _responseMetrics.Add(response);
+
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list");
             }
         }
 
@@ -292,7 +282,7 @@ namespace SmartHopper.Core.ComponentBase
 
             if (!_responseMetrics.Any())
             {
-                Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - No response, skipping metrics");
+                Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
             }
 
@@ -318,9 +308,24 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
 
             // Clear the stored metrics after setting the output
-            _responseMetrics.Clear();
+            // _responseMetrics.Clear();
+        }
+
+        protected override void RestorePersistentOutputs(IGH_DataAccess DA)
+        {
+            base.RestorePersistentOutputs(DA);
+
+            SetMetricsOutput(DA);
         }
 
         #endregion
+
+        /// <summary>
+        /// Creates the custom attributes for this component
+        /// </summary>
+        public override void CreateAttributes()
+        {
+            m_attributes = new AIComponentAttributes(this);
+        }
     }
 }
