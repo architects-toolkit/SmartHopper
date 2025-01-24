@@ -14,6 +14,7 @@
  */
 
 using Grasshopper.Kernel;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Components.Properties;
 using System;
@@ -24,6 +25,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using Grasshopper.Documentation;
+using System.Linq;
 
 namespace SmartHopper.Components.Text
 {
@@ -58,8 +60,8 @@ namespace SmartHopper.Components.Text
 
         private class AITextGenerateWorker : AsyncWorkerBase
         {
-            private GH_Structure<GH_String> _inputTree;
-            private GH_Structure<GH_String> _result;
+            private Dictionary<string, GH_Structure<GH_String>> _inputTree;
+            private Dictionary<string, GH_Structure<GH_String>> _result;
             private readonly AITextGenerate _parent;
 
             public AITextGenerateWorker(
@@ -68,7 +70,7 @@ namespace SmartHopper.Components.Text
             : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
-                _result = new GH_Structure<GH_String>();
+                _result = new Dictionary<string, GH_Structure<GH_String>>();
             }
 
             public override void GatherInput(IGH_DataAccess DA)
@@ -77,76 +79,85 @@ namespace SmartHopper.Components.Text
 
                 DA.GetDataTree(1, out GH_Structure<GH_String> instructionsTree);
 
-                _inputTree = new GH_Structure<GH_String>();
+                _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
+                _inputTree["Prompt"] = promptTree;
+                _inputTree["Instructions"] = instructionsTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                //foreach (var path in _inputTree.Paths)
-                //{
-                //    var branch = _inputTree.get_Branch(path);
-                //    var resultBranch = new List<GH_Number>();
-
-                //    Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
-
-                //    foreach (var item in branch)
-                //    {
-                //        token.ThrowIfCancellationRequested();
-
-                //        if (item is GH_Integer ghInt)
-                //        {
-                //            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                //            long result = await CalculateNthPrime(n, token);
-                //            resultBranch.Add(new GH_Number(result));
-
-                //            Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
-                //        }
-                //    }
-
-                //    _result.AppendRange(resultBranch, path);
-                //}
+                _result = await DataTreeProcessor.RunFunctionAsync<GH_String>(
+                    _inputTree,
+                    async branches => await ProcessData(branches, _parent),
+                    onlyMatchingPaths: false,
+                    groupIdenticalBranches: true,
+                    token);
             }
 
-            private async Task<long> CalculateNthPrime(int nthPrime, CancellationToken token)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
             {
-                int count = 0;
-                long a = 2;
+                /*
+                 * When defining the function, the inputs will
+                 * be available as the branches dictionary.
+                 *
+                 * Outputs should be a dictionary where the keys
+                 * are each output parameter and the values are
+                 * the output values.
+                 */
 
-                while (count < nthPrime)
+                // Get the branches
+                var instructionsTree = branches["Instructions"];
+                var promptTree = branches["Prompt"];
+
+                // Normalize branch lengths
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { instructionsTree, promptTree });
+
+                // Reassign normalized branches
+                instructionsTree = normalizedLists[0];
+                promptTree = normalizedLists[1];
+
+                // Initialize the output
+                var outputs = new Dictionary<string, List<GH_String>>();
+                outputs["Result"] = new List<GH_String>();
+
+                // Iterate over the branches
+                // For each item in the prompt tree, get the response from AI
+                int i = 0;
+                foreach (var prompt in promptTree)
                 {
-                    token.ThrowIfCancellationRequested();
+                    // Initiate the messages array
+                    var messages = new List<KeyValuePair<string, string>>();
 
-                    long b = 2;
-                    bool isPrime = true;
-                    
-                    while (b * b <= a)
+                    // Add system prompt if available
+                    var systemPrompt = instructionsTree[i].Value;
+                    if (!string.IsNullOrWhiteSpace(systemPrompt))
                     {
-                        token.ThrowIfCancellationRequested();
-
-                        if (a % b == 0)
-                        {
-                            isPrime = false;
-                            break;
-                        }
-                        b++;
+                        messages.Add(new KeyValuePair<string, string>("system", systemPrompt));
                     }
 
-                    if (isPrime)
+                    // Add the user prompt
+                    messages.Add(new KeyValuePair<string, string>("user", prompt.Value));
+
+                    var response = await parent.GetResponse(messages);
+
+                    if (response.FinishReason == "error")
                     {
-                        count++;
-                        if (count == nthPrime)
-                            return a;
+                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"AI error while processing the response:\n{response.Response}", false);
+                        outputs["Result"].Add(new GH_String(string.Empty));
+                        continue;
                     }
-                    a++;
+
+                    outputs["Result"].Add(new GH_String(response.Response));
+                    i++;
                 }
 
-                return -1;
+                return outputs;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Output", _result, DA);
-                message = $"Found prime";
+                _parent.SetPersistentOutput("Result", _result["Result"], DA);
+                message = "Done :)";
             }
         }
     }

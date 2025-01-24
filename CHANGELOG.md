@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - General clean up and refactoring, including the suppression of unnecessary comments, and the removal of deprecated features.
 - Migrate AI Text Generate component to use the new Component Base.
+- Refactor DataTree libraries in Core to unify and simplify functionality.
 
 ### Fixed
 
