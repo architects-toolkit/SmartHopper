@@ -51,19 +51,31 @@ namespace SmartHopper.Core.ComponentBase
                 // Calculate badge position (top-right corner)
                 var bounds = Bounds;
                 var badgeRect = new RectangleF(
-                    bounds.Right - BADGE_SIZE - BADGE_PADDING,
-                    bounds.Top + BADGE_PADDING,
+                    bounds.Left + bounds.Width / 2 - BADGE_SIZE / 2 - BADGE_PADDING - 2,
+                    bounds.Top + bounds.Height / 2 + BADGE_SIZE,
+                    BADGE_SIZE + BADGE_PADDING * 2,
+                    BADGE_SIZE + BADGE_PADDING * 2);
+                
+                var iconRect = new RectangleF(
+                    bounds.Left + bounds.Width / 2 - BADGE_SIZE / 2 - BADGE_PADDING - 2 + BADGE_PADDING,
+                    bounds.Top + bounds.Height / 2 + BADGE_SIZE + BADGE_PADDING , 
                     BADGE_SIZE,
                     BADGE_SIZE);
 
-                // Draw the badge with a white background for visibility
-                using (var brush = new SolidBrush(Color.White))
+                // Draw the badge with a modern, semi-transparent background for visibility
+                using (var brush = new SolidBrush(Color.FromArgb(200, Color.White)))
                 {
                     graphics.FillEllipse(brush, badgeRect);
                 }
 
+                // Draw a border around the badge for a cleaner look
+                using (var pen = new Pen(Color.FromArgb(50, Color.Black), 1f))
+                {
+                    graphics.DrawEllipse(pen, badgeRect);
+                }
+
                 // Draw the provider icon
-                graphics.DrawImage(providerIcon, badgeRect);
+                graphics.DrawImage(providerIcon, iconRect);
             }
         }
 
@@ -73,11 +85,11 @@ namespace SmartHopper.Core.ComponentBase
         protected override void Layout()
         {
             base.Layout();
-            
-            // Expand the bounds slightly to accommodate the badge
-            var bounds = Bounds;
-            bounds.Width += BADGE_SIZE + (BADGE_PADDING * 2);
-            Bounds = bounds;
+
+            ////// Expand the bounds slightly to accommodate the badge
+            //var bounds = Bounds;
+            //bounds.Width += BADGE_SIZE + (BADGE_PADDING * 2);
+            //Bounds = bounds;
         }
     }
 }
