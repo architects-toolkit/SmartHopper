@@ -22,7 +22,6 @@ namespace SmartHopper.Core.Async.Core.StateManagement
         Completed,   // Just finished, has results to output
         Waiting,     // Results output done, waiting for input changes
         Error,       // Error occurred
-        Cancelled,   // Manually cancelled
-        NeedsRerun   // When inputs change but run is false, wait until run is true
+        Cancelled   // Manually cancelled
     }
 }

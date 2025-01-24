@@ -9,7 +9,6 @@
  */
 
 using System;
-using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Async.Core.StateManagement
 {
@@ -24,15 +23,34 @@ namespace SmartHopper.Core.Async.Core.StateManagement
         ComponentState CurrentState { get; }
 
         /// <summary>
-        /// Gets or sets whether data has been set in the current cycle.
+        /// Core state tracking properties
         /// </summary>
-        bool SetData { get; set; }
+        bool IsResultOut { get; set; }
+
+        /// <summary>
+        /// Error management properties
+        /// </summary>
+        bool HasTemporaryError { get; }
+        bool HasPersistentError { get; }
+        string LastErrorMessage { get; }
 
         /// <summary>
         /// Transitions the component to a new state.
         /// </summary>
         /// <param name="newState">The target state to transition to.</param>
         void TransitionTo(ComponentState newState);
+
+        /// <summary>
+        /// Sets an error state with the specified message
+        /// </summary>
+        /// <param name="message">Error message</param>
+        /// <param name="isPersistent">If true, marks as persistent error requiring user intervention</param>
+        void SetError(string message, bool isPersistent = false);
+
+        /// <summary>
+        /// Clears all error states
+        /// </summary>
+        void ClearErrors();
 
         /// <summary>
         /// Event raised when the component's state changes.

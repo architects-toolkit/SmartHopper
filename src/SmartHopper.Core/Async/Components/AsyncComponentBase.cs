@@ -177,106 +177,107 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="DA">The Grasshopper data access object.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[AsyncComponentBase] SolveInstance - Start. InPreSolve: {InPreSolve}, CurrentWorker: {CurrentWorker != null}, IsWorkerCompletion: {StateManager.CurrentState == ComponentState.Completed}");
+            Debug.WriteLine($"[AsyncComponentBase] SolveInstance - Start. InPreSolve: {InPreSolve}, CurrentWorker: {CurrentWorker != null}, CurrentState: {StateManager.CurrentState}");
 
-            if (StateManager.CurrentState == ComponentState.Completed)
+            switch (StateManager.CurrentState)
             {
-                Debug.WriteLine("[AsyncComponentBase] Worker completion phase, setting outputs");
-                Debug.WriteLine($"[AsyncComponentBase] Conditions: InPreSolve={InPreSolve}, ErrorMessage={ErrorMessage != null}, CurrentWorker={CurrentWorker != null}, IsDone={CurrentWorker?.IsDone}");
-                if (CurrentWorker != null && CurrentWorker.IsDone)
-                {
-                    string doneMessage = null;
-                    CurrentWorker.SetOutput(DA, out doneMessage);
-                    Message = string.IsNullOrWhiteSpace(doneMessage) ? "Done" : doneMessage;
-                }
-                return;
-            }
+                case ComponentState.Processing:
+                    Debug.WriteLine("[AsyncComponentBase] Worker processing phase"); 
+                    if (!UseTasks)
+                    {
+                        ProcessSynchronously(DA);
+                        return;
+                    }
 
-            if (!UseTasks)
-            {
-                ProcessSynchronously(DA);
-                return;
-            }
+                    Debug.WriteLine("[AsyncComponentBase] Starting new work");
+                    Debug.WriteLine($"[AsyncComponentBase] StateManager state: {(StateManager == null ? "null" : StateManager.CurrentState.ToString())}");
+                    Debug.WriteLine($"[AsyncComponentBase] _taskManager state: {(_taskManager == null ? "null" : "initialized")}");
 
-            if (!InPreSolve) // Results phase
-            {
-                Debug.WriteLine("[AsyncComponentBase] Results phase");
-                Debug.WriteLine($"[AsyncComponentBase] Conditions: InPreSolve={InPreSolve}, ErrorMessage={ErrorMessage != null}, CurrentWorker={CurrentWorker != null}, IsDone={CurrentWorker?.IsDone}");
+                    _cts = new CancellationTokenSource();
+                    Debug.WriteLine("[AsyncComponentBase] Created new CancellationTokenSource");
 
-                if (ErrorMessage != null)
-                {
-                    Debug.WriteLine($"[AsyncComponentBase] Error: {ErrorMessage}");
-                    var w = GH_RuntimeMessageLevel.Error;
-                    AddRuntimeMessage(w, ErrorMessage);
-                    Message = "Error";
-                }
-                else if (CurrentWorker != null && CurrentWorker.IsDone)
-                {
-                    Debug.WriteLine($"[AsyncComponentBase] Worker state - CurrentWorker: {CurrentWorker != null}, IsDone: {CurrentWorker?.IsDone}");
-                    Debug.WriteLine("[AsyncComponentBase] Setting output from worker");
-                    string doneMessage = null;
-                    CurrentWorker.SetOutput(DA, out doneMessage);
-                    Message = string.IsNullOrWhiteSpace(doneMessage) ? "Done" : doneMessage;
+                    // Create progress reporter
+                    _progress = new ProgressReporter(p =>
+                    {
+                        Debug.WriteLine($"[AsyncComponentBase] Progress Report: {p}");
+                        Message = p;
+                        OnDisplayExpired(true);
+                    }, _taskManager?.Token ?? CancellationToken.None);
+                    Debug.WriteLine("[AsyncComponentBase] Created ProgressReporter");
 
-                    // Mark that we've set the data
-                    StateManager.SetData = true;
-                }
-                else
-                {
-                    Debug.WriteLine($"[AsyncComponentBase] Output condition not met - CurrentWorker: {CurrentWorker != null}, IsDone: {CurrentWorker?.IsDone}");
-                }
+                    // Create and setup worker
+                    try
+                    {
+                        Debug.WriteLine("[AsyncComponentBase] About to create worker");
+                        CurrentWorker = CreateWorker(p => _progress.Report(p));
+                        Debug.WriteLine($"[AsyncComponentBase] Worker created: {(CurrentWorker == null ? "null" : "initialized")}");
 
-                if (!InPreSolve)
-                {
-                    OnDisplayExpired(true);
-                }
+                        if (CurrentWorker == null)
+                        {
+                            throw new InvalidOperationException("CreateWorker returned null");
+                        }
 
-                return;
-            }
+                        Debug.WriteLine("[AsyncComponentBase] About to gather input");
+                        Debug.WriteLine("[AsyncComponentBase] About to gather input");
+                        CurrentWorker.GatherInput(DA);
+                        Debug.WriteLine("[AsyncComponentBase] Input gathered successfully");
 
-            Debug.WriteLine("[AsyncComponentBase] Starting new work");
-            Debug.WriteLine($"[AsyncComponentBase] StateManager state: {(StateManager == null ? "null" : StateManager.CurrentState.ToString())}");
-            Debug.WriteLine($"[AsyncComponentBase] _taskManager state: {(_taskManager == null ? "null" : "initialized")}");
+                        // Start the task
+                        Debug.WriteLine("[AsyncComponentBase] About to start task");
+                        _taskManager.RunAsync(token => CurrentWorker.DoWorkAsync(token), _progress);
+                        Debug.WriteLine("[AsyncComponentBase] Task started successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[AsyncComponentBase] Exception during worker setup: {ex.GetType().Name} - {ex.Message}");
+                        Debug.WriteLine($"[AsyncComponentBase] Stack trace: {ex.StackTrace}");
+                        throw;
+                    }
+                    return;
 
-            _cts = new CancellationTokenSource();
-            Debug.WriteLine("[AsyncComponentBase] Created new CancellationTokenSource");
+                case ComponentState.Completed:
+                    Debug.WriteLine("[AsyncComponentBase] Worker completion phase, setting outputs");
+                    Debug.WriteLine($"[AsyncComponentBase] Conditions: InPreSolve={InPreSolve}, ErrorMessage={ErrorMessage != null}, CurrentWorker={CurrentWorker != null}, IsDone={CurrentWorker?.IsDone}");
 
-            // Create progress reporter
-            _progress = new ProgressReporter(p =>
-            {
-                Debug.WriteLine($"[AsyncComponentBase] Progress Report: {p}");
-                Message = p;
-                OnDisplayExpired(true);
-            }, _taskManager?.Token ?? CancellationToken.None);
-            Debug.WriteLine("[AsyncComponentBase] Created ProgressReporter");
+                    //if (CurrentWorker != null && CurrentWorker.IsDone)
+                    //{
+                    //    string doneMessage = null;
+                    //    CurrentWorker.SetOutput(DA, out doneMessage);
+                    //    Message = string.IsNullOrWhiteSpace(doneMessage) ? "Done" : doneMessage;
+                    //}
 
-            // Create and setup worker
-            try
-            {
-                Debug.WriteLine("[AsyncComponentBase] About to create worker");
-                CurrentWorker = CreateWorker(p => _progress.Report(p));
-                Debug.WriteLine($"[AsyncComponentBase] Worker created: {(CurrentWorker == null ? "null" : "initialized")}");
+                    if (!InPreSolve) // Results phase
+                    {
+                        Debug.WriteLine("[AsyncComponentBase] Results phase");
+                        Debug.WriteLine($"[AsyncComponentBase] Conditions: InPreSolve={InPreSolve}, ErrorMessage={ErrorMessage != null}, CurrentWorker={CurrentWorker != null}, IsDone={CurrentWorker?.IsDone}");
 
-                if (CurrentWorker == null)
-                {
-                    throw new InvalidOperationException("CreateWorker returned null");
-                }
+                        if (ErrorMessage != null)
+                        {
+                            Debug.WriteLine($"[AsyncComponentBase] Error: {ErrorMessage}");
+                            var w = GH_RuntimeMessageLevel.Error;
+                            AddRuntimeMessage(w, ErrorMessage);
+                            Message = "Error";
+                        }
+                        else if (CurrentWorker != null && CurrentWorker.IsDone)
+                        {
+                            Debug.WriteLine($"[AsyncComponentBase] Worker state - CurrentWorker: {CurrentWorker != null}, IsDone: {CurrentWorker?.IsDone}");
+                            Debug.WriteLine("[AsyncComponentBase] Setting output from worker");
+                            string doneMessage = null;
+                            CurrentWorker.SetOutput(DA, out doneMessage);
+                            Message = string.IsNullOrWhiteSpace(doneMessage) ? "Done" : doneMessage;
 
-                Debug.WriteLine("[AsyncComponentBase] About to gather input");
-                CurrentWorker.GatherInput(DA);
-                Debug.WriteLine("[AsyncComponentBase] Input gathered successfully");
+                            // Mark that we've set the data
+                            StateManager.IsResultOut = true;
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[AsyncComponentBase] Output condition not met - CurrentWorker: {CurrentWorker != null}, IsDone: {CurrentWorker?.IsDone}");
+                        }
 
-                // Start the task
-                Debug.WriteLine("[AsyncComponentBase] About to start task");
-                _taskManager.RunAsync(token => CurrentWorker.DoWorkAsync(token), _progress);
-                Debug.WriteLine("[AsyncComponentBase] Task started successfully");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AsyncComponentBase] Exception during worker setup: {ex.GetType().Name} - {ex.Message}");
-                Debug.WriteLine($"[AsyncComponentBase] Stack trace: {ex.StackTrace}");
-                throw;
-            }
+                        OnDisplayExpired(true);
+                    }
+                    return;
+            } 
         }
 
         /// <summary>
@@ -286,12 +287,9 @@ namespace SmartHopper.Core.Async.Components
         {
             // Only expire downstream objects if we're not in the middle of a worker completion
             // This prevents the flash of null data until the new solution is ready
-            Debug.WriteLine($"[AsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {StateManager.CurrentState}, SetData: {StateManager.SetData}");
-            // if (StateManager.CurrentState == ComponentState.Completed && StateManager.SetData)
-            // {
+            Debug.WriteLine($"[AsyncComponentBase] ExpireDownStreamObjects - Values - CurrentState: {StateManager.CurrentState}, IsResultOut: {StateManager.IsResultOut}");
             Debug.WriteLine("Expiring downstream objects");
             base.ExpireDownStreamObjects();
-            // }
         }
 
         /// <summary>
@@ -311,11 +309,11 @@ namespace SmartHopper.Core.Async.Components
                 Debug.WriteLine("[AsyncComponentBase] Inside UI thread delegate");
                 // OnDisplayExpired(true);
                 // Only expire downstream objects after we've set the data
-                if (StateManager.SetData)
+                if (StateManager.IsResultOut)
                 {
-                    Debug.WriteLine($">> [AsyncComponentBase] Expiring downstream objects after worker completion - SetData: {StateManager.SetData}");
+                    Debug.WriteLine($">> [AsyncComponentBase] Expiring downstream objects after worker completion - IsResultOut: {StateManager.IsResultOut}");
                     ExpireDownStreamObjects();
-                    StateManager.SetData = false;
+                    StateManager.IsResultOut = false;
                     Debug.WriteLine("[AsyncComponentBase] Finished expiring downstream objects");
                 }
             });
