@@ -173,15 +173,13 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            // Second pass - Post-solve
+            // Second pass - Post-solve - Setting output
             InPreSolve = false;
             if (Workers.Count > 0)
             {
                 Interlocked.Decrement(ref _state);
                 string outMessage = null;
                 Workers[_state].SetOutput(DA, out outMessage);
-                //if (!string.IsNullOrEmpty(doneMessage))
-                //    Message = doneMessage;
                 
                 OnSolveInstancePostSolve(DA);
             }
@@ -192,12 +190,9 @@ namespace SmartHopper.Core.ComponentBase
             // Clean up
             _cancellationSources.Clear();
             Workers.Clear();
-            //_progressReports.Clear();
             _tasks.Clear();
 
             Interlocked.Exchange(ref _setData, 0);
-            // Message = "Done";
-            //OnDisplayExpired(true);
 
             OnWorkerCompleted();
         }
