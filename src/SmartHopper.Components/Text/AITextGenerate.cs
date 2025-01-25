@@ -93,16 +93,29 @@ namespace SmartHopper.Components.Text
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                Debug.WriteLine($"[Worker] Starting DoWorkAsync");
+                try
+                {
+                    Debug.WriteLine($"[Worker] Starting DoWorkAsync");
+                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", _inputTree.Keys)}");
+                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", _inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                _result = await DataTreeProcessor.RunFunctionAsync<GH_String>(
-                    _inputTree,
-                    async branches => await ProcessData(branches, _parent),
-                    onlyMatchingPaths: false,
-                    groupIdenticalBranches: true,
-                    token);
-                    
-                Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", _result.Keys)}");
+                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String>(
+                        _inputTree,
+                        async branches => 
+                        {
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            return await ProcessData(branches, _parent);
+                        },
+                        onlyMatchingPaths: false,
+                        groupIdenticalBranches: true,
+                        token);
+                        
+                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", _result.Keys)}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                }
             }
 
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)

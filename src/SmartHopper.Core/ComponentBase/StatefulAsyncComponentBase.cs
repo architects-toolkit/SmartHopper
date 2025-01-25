@@ -227,7 +227,7 @@ namespace SmartHopper.Core.ComponentBase
                     else if (changedInputs.Any() && _run)
                     {
                         Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
-                        RestartDebounceTimer(ComponentState.Waiting);
+                        RestartDebounceTimer(ComponentState.Processing);
                     }
                     break;
                 default:
@@ -482,9 +482,9 @@ namespace SmartHopper.Core.ComponentBase
             switch (_currentState)
             {
                 case ComponentState.Completed:
-                    return newState == ComponentState.Waiting || newState == ComponentState.NeedsRun;
+                    return newState == ComponentState.Waiting || newState == ComponentState.NeedsRun || newState == ComponentState.Processing;
                 case ComponentState.Waiting:
-                    return newState == ComponentState.NeedsRun;
+                    return newState == ComponentState.NeedsRun || newState == ComponentState.Processing;
                 case ComponentState.NeedsRun:
                     return newState == ComponentState.Processing;
                 case ComponentState.Processing:
@@ -876,11 +876,6 @@ namespace SmartHopper.Core.ComponentBase
                     // Extract inner value if it's a GH_ObjectWrapper
                     value = ExtractGHObjectWrapperValue(value);
                     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Value after extraction: {value?.GetType()?.FullName ?? "null"}");
-
-                    if (value is IGH_Structure structure)
-                    {
-                        LogStructureDetails(structure);
-                    }
 
                     // Store the value in persistent storage
                     _persistentOutputs[paramName] = value;
