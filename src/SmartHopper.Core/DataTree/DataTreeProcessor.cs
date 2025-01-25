@@ -221,12 +221,18 @@ namespace SmartHopper.Core.DataTree
 
             var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
 
-            // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later
-            var singlePathTrees = treeLengths.Where(t => t.Value == 1).Select(t => t.Key);
-            if (singlePathTrees.Any())
+            // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later, except when there is only one path
+            if (allPaths.Count > 1)
             {
-                allPaths = allPaths.Where(p => !singlePathTrees.Any(t => trees[t].Paths.Contains(p))).ToList();
+                var singlePathTrees = treeLengths.Where(t => t.Value == 1).Select(t => t.Key);
+                if (singlePathTrees.Any())
+                {
+                    allPaths = allPaths.Where(p => !singlePathTrees.Any(t => trees[t].Paths.Contains(p))).ToList();
+
+                }
             }
+
+            Debug.WriteLine($"[DataTreeProcessor] Processing paths: {string.Join(", ", allPaths)}");
 
             foreach (var path in allPaths)
             {
@@ -261,42 +267,50 @@ namespace SmartHopper.Core.DataTree
                     }
                 }
                 
-                // Apply the function to the current branch
-                var branchResult = await function(branches);
-                
-                // If groupIdenticalBranches is true, find identical combination of branches, return the paths
-                // Allow this only for types GH_String, GH_Number, GH_Integer and GH_Boolean, which are the comparable ones
-                if (groupIdenticalBranches &&
-                    (typeof(T) == typeof(GH_String) ||
-                     typeof(T) == typeof(GH_Number) ||
-                     typeof(T) == typeof(GH_Integer) ||
-                     typeof(T) == typeof(GH_Boolean)
-                     )
-                    )
+                try 
                 {
-                    pathsToApply.AddRange(FindIdenticalBranches(trees, branches, path));
-                }
-
-                // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
-                foreach (var applyPath in pathsToApply)
-                {
-                    foreach (var kvp in branchResult)
+                    // Apply the function to the current branch and await its completion
+                    var branchResult = await function(branches);
+                    
+                    // If groupIdenticalBranches is true, find identical combination of branches only for types GH_String, GH_Number, GH_Integer and GH_Boolean, which are the comparable ones
+                    if (groupIdenticalBranches &&
+                        (typeof(T) == typeof(GH_String) ||
+                         typeof(T) == typeof(GH_Number) ||
+                         typeof(T) == typeof(GH_Integer) ||
+                         typeof(T) == typeof(GH_Boolean)
+                         )
+                        )
                     {
-                        if (!result.ContainsKey(kvp.Key))
+                        pathsToApply.AddRange(FindIdenticalBranches(trees, branches, path));
+                    }
+
+                    // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
+                    foreach (var applyPath in pathsToApply)
+                    {
+                        foreach (var kvp in branchResult)
                         {
-                            result[kvp.Key] = new GH_Structure<T>();
-                            Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
-                        }
-                        
-                        if (kvp.Value != null)
-                        {
-                            Debug.WriteLine($"[DataTreeProcessor] Appending {kvp.Value.Count} items to path {applyPath} for key {kvp.Key}");
-                            result[kvp.Key].AppendRange(kvp.Value, applyPath);
+                            if (!result.ContainsKey(kvp.Key))
+                            {
+                                result[kvp.Key] = new GH_Structure<T>();
+                                Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
+                            }
+                            
+                            if (kvp.Value != null)
+                            {
+                                Debug.WriteLine($"[DataTreeProcessor] Appending {kvp.Value.Count} items to path {applyPath} for key {kvp.Key}");
+                                result[kvp.Key].AppendRange(kvp.Value, applyPath);
+                            }
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[DataTreeProcessor] Error processing path {path}: {ex.Message}");
+                    throw;
+                }
             }
 
+            Debug.WriteLine($"[DataTreeProcessor] Finished processing all paths. Result keys: {string.Join(", ", result.Keys)}");
             return result;
         }
 
