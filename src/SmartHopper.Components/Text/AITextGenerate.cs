@@ -116,14 +116,14 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} branches");
-                Debug.WriteLine($"[Worker] Items per branch: {branches.Values.Max(branch => branch.Count)}");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
+                Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
-                // Get the branches
+                // Get the trees
                 var instructionsTree = branches["Instructions"];
                 var promptTree = branches["Prompt"];
 
-                // Normalize branch lengths
+                // Normalize tree lengths
                 var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { instructionsTree, promptTree });
 
                 // Reassign normalized branches

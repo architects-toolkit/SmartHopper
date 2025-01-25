@@ -214,7 +214,19 @@ namespace SmartHopper.Core.DataTree
 
             Debug.WriteLine($"[DataTreeProcessor] Tree lengths: {string.Join(", ", treeLengths.Select(x => $"{x.Key}: {x.Value}"))}");
 
+            foreach (var kvp in trees)
+            {
+                Debug.WriteLine($"[DataTreeProcessor] Tree key: {kvp.Key}, Paths: {string.Join(", ", kvp.Value.Paths)}");
+            }
+
             var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
+
+            // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later
+            var singlePathTrees = treeLengths.Where(t => t.Value == 1).Select(t => t.Key);
+            if (singlePathTrees.Any())
+            {
+                allPaths = allPaths.Where(p => !singlePathTrees.Any(t => trees[t].Paths.Contains(p))).ToList();
+            }
 
             foreach (var path in allPaths)
             {
@@ -232,7 +244,23 @@ namespace SmartHopper.Core.DataTree
                         kvp => kvp.Key,
                         kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
                     );
+                
+                // Check for empty branches
+                var emptyBranches = branches.Where(kvp => !kvp.Value.Any()).ToList();
 
+                // If there are any empty branches...
+                if (emptyBranches.Any())
+                {
+                    // If the branch is empty because that tree only has one branch and one item, copy that branch to the current path
+                    foreach (var emptyBranch in emptyBranches)
+                    {
+                        if (treeLengths[emptyBranch.Key] == 1)
+                        {
+                            branches[emptyBranch.Key] = GetBranchFromTree(trees[emptyBranch.Key], trees[emptyBranch.Key].Paths.First(), preserveStructure: true);
+                        }
+                    }
+                }
+                
                 // Apply the function to the current branch
                 var branchResult = await function(branches);
                 

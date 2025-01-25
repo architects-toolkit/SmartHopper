@@ -86,13 +86,13 @@ namespace SmartHopper.Core.ComponentBase
                         TransitionTo(targetState, _lastDA);
                     }));
 
-                    if (_inputChangedDuringDebounce > 0 && _run)
-                    {
-                        Rhino.RhinoApp.InvokeOnUiThread((Action)(() => 
-                        {
-                            ExpireSolution(true);
-                        }));
-                    }
+                    // if (_inputChangedDuringDebounce > 0 && _run)
+                    // {
+                    //     Rhino.RhinoApp.InvokeOnUiThread((Action)(() => 
+                    //     {
+                    //         ExpireSolution(true);
+                    //     }));
+                    // }
 
                     // Reset default values after debounce
                     Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Resetting debounce values");
@@ -177,11 +177,14 @@ namespace SmartHopper.Core.ComponentBase
             {
                 case ComponentState.Completed:
                     OnStateCompleted(DA);
+
                     // Check if inputs changed
                     var changedInputs = InputsChanged();
-
-                    // If any other than "Run?" changed
-                    if (changedInputs.Any(input => input != "Run?"))
+                    if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && !_run)
+                    {
+                        Debug.WriteLine($"[{GetType().Name}] Only Run parameter changed to false, staying in Completed state");
+                    }
+                    else if (changedInputs.Any())
                     {
                         Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
                         RestartDebounceTimer();
@@ -203,8 +206,6 @@ namespace SmartHopper.Core.ComponentBase
                     OnStateError(DA);
                     break;
             }
-
-            
         }
 
         protected override void OnWorkerCompleted()
@@ -348,7 +349,6 @@ namespace SmartHopper.Core.ComponentBase
 
             CompleteStateTransition();
         }
-
 
         private void OnStateWaiting(IGH_DataAccess DA)
         {
