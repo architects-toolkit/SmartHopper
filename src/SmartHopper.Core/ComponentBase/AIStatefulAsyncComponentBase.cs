@@ -314,7 +314,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.BeforeSolveInstance();
 
-            // Clear the stored metrics after setting the output
+            // Clear the stored metrics on start a new run
             _responseMetrics.Clear();
         }
 
