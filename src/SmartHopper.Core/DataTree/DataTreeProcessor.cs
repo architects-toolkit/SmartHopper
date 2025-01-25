@@ -60,6 +60,60 @@ namespace SmartHopper.Core.DataTree
             return preserveStructure ? new List<T>() : null;
         }
 
+        /// <summary>
+        /// Finds paths that have identical branch data for a given set of trees and current branches
+        /// </summary>
+        /// <param name="trees">The complete dictionary of trees</param>
+        /// <param name="currentBranches">The current branches being processed</param>
+        /// <returns>List of paths that have identical branch data</returns>
+        private static List<GH_Path> FindIdenticalBranches<T>(
+            Dictionary<string, GH_Structure<T>> trees,
+            Dictionary<string, List<T>> currentBranches,
+            GH_Path currentPath) where T : GH_String
+        {
+            var result = new List<GH_Path>();
+            var currentKey = GetBranchesKey(currentBranches);
+            var allPaths = GetAllUniquePaths(trees.Values);
+
+            foreach (var path in allPaths)
+            {
+                // Avoid comparing the current path
+                if (path == currentPath)
+                    continue;
+                
+                // Get branches for this path from all trees
+                var siblingBranches = trees.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
+                );
+
+                // Compare the branch data
+                if (GetBranchesKey(siblingBranches) == currentKey)
+                {
+                    result.Add(path);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Generates a unique key for a set of branches based on their content
+        /// </summary>
+        private static string GetBranchesKey<T>(Dictionary<string, List<T>> branches) where T : GH_String
+        {
+            var keyParts = branches
+                .OrderBy(kvp => kvp.Key)
+                .Select(kvp => 
+                {
+                    var branch = kvp.Value;
+                    var branchData = branch.Select(item => item.ToString());
+                    return $"{kvp.Key}:{string.Join(",", branchData)}";
+                });
+
+            return string.Join("|", keyParts);
+        }
+
         #endregion
 
         #region PATHS
@@ -216,60 +270,6 @@ namespace SmartHopper.Core.DataTree
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Finds paths that have identical branch data for a given set of trees and current branches
-        /// </summary>
-        /// <param name="trees">The complete dictionary of trees</param>
-        /// <param name="currentBranches">The current branches being processed</param>
-        /// <returns>List of paths that have identical branch data</returns>
-        private static List<GH_Path> FindIdenticalBranches<T>(
-            Dictionary<string, GH_Structure<T>> trees,
-            Dictionary<string, List<T>> currentBranches,
-            GH_Path currentPath) where T : GH_String
-        {
-            var result = new List<GH_Path>();
-            var currentKey = GetBranchesKey(currentBranches);
-            var allPaths = GetAllUniquePaths(trees.Values);
-
-            foreach (var path in allPaths)
-            {
-                // Avoid comparing the current path
-                if (path == currentPath)
-                    continue;
-                
-                // Get branches for this path from all trees
-                var siblingBranches = trees.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
-                );
-
-                // Compare the branch data
-                if (GetBranchesKey(siblingBranches) == currentKey)
-                {
-                    result.Add(path);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Generates a unique key for a set of branches based on their content
-        /// </summary>
-        private static string GetBranchesKey<T>(Dictionary<string, List<T>> branches) where T : GH_String
-        {
-            var keyParts = branches
-                .OrderBy(kvp => kvp.Key)
-                .Select(kvp => 
-                {
-                    var branch = kvp.Value;
-                    var branchData = branch.Select(item => item.ToString());
-                    return $"{kvp.Key}:{string.Join(",", branchData)}";
-                });
-
-            return string.Join("|", keyParts);
         }
 
         #endregion
