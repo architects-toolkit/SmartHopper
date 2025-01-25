@@ -19,10 +19,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
@@ -67,7 +67,7 @@ namespace SmartHopper.Core.ComponentBase
             _aiProvider = MistralAI._name; // Default to MistralAI
         }
 
-        #region I/O
+        #region PARAMS
 
         /// <summary>
         /// Registers input parameters for the component.
@@ -304,10 +304,16 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("branches_processed", _responseMetrics.Count)
             );
 
-            DA.SetData("Metrics", metricsJson);
-            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
+            // DA.SetData("Metrics", metricsJson);
 
-            
+            // Convert metricsJson to GH_String
+            var metricsJsonString = metricsJson.ToString();
+            var ghString = new GH_String(metricsJsonString);
+
+            // Set the metrics output
+            SetPersistentOutput("Metrics", ghString, DA);
+
+            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
         }
 
         protected override void BeforeSolveInstance()
@@ -318,21 +324,30 @@ namespace SmartHopper.Core.ComponentBase
             _responseMetrics.Clear();
         }
 
-        protected override void RestorePersistentOutputs(IGH_DataAccess DA)
+        protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
-            base.RestorePersistentOutputs(DA);
-
             SetMetricsOutput(DA);
         }
 
+        // protected override void RestorePersistentOutputs(IGH_DataAccess DA)
+        // {
+        //     base.RestorePersistentOutputs(DA);
+
+        //     SetMetricsOutput(DA);
+        // }
+
         #endregion
 
+        #region DESIGN
+
         /// <summary>
-        /// Creates the custom attributes for this component
+        /// Creates the custom attributes for this component, which includes the provider logo badge.
         /// </summary>
         public override void CreateAttributes()
         {
             m_attributes = new AIComponentAttributes(this);
         }
+
+        #endregion
     }
 }
