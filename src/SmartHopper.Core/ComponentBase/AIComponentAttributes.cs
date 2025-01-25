@@ -10,7 +10,6 @@
 
 using System.Drawing;
 using Grasshopper.GUI.Canvas;
-using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Config.Configuration;
 
