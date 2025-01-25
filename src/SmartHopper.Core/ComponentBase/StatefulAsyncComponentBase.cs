@@ -115,7 +115,7 @@ namespace SmartHopper.Core.ComponentBase
         // implementing the necessary methods for a
         // Grasshopper Component.
 
-        #region I/O
+        #region PARAMS
 
         private bool _run = false;
 
