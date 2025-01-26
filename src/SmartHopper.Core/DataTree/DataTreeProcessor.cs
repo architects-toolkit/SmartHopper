@@ -69,11 +69,13 @@ namespace SmartHopper.Core.DataTree
         private static List<GH_Path> FindIdenticalBranches<T>(
             Dictionary<string, GH_Structure<T>> trees,
             Dictionary<string, List<T>> currentBranches,
-            GH_Path currentPath) where T : GH_String
+            GH_Path currentPath,
+            bool onlyMatchingPaths = false) where T : GH_String
         {
             var result = new List<GH_Path>();
             var currentKey = GetBranchesKey(currentBranches);
-            var allPaths = GetAllUniquePaths(trees.Values);
+            // var allPaths = GetAllUniquePaths(trees.Values);
+            var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
 
             foreach (var path in allPaths)
             {
@@ -113,10 +115,10 @@ namespace SmartHopper.Core.DataTree
 
             return string.Join("|", keyParts);
         }
-
+        
         #endregion
 
-        #region PATHS
+        #region TREES
 
         /// <summary>
         /// Returns all unique paths that exist in ANY of the provided data trees.
@@ -175,13 +177,66 @@ namespace SmartHopper.Core.DataTree
         }
 
         /// <summary>
+        /// Gets the amount of items in each tree, indexed by position
+        /// </summary>
+        private static Dictionary<int, int> TreesLength<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
+        {
+            var treeLengths = new Dictionary<int, int>();
+            int index = 0;
+            foreach (var tree in trees)
+            {
+                treeLengths.Add(index, tree.DataCount);
+                index++;
+            }
+            return treeLengths;
+        }
+
+        /// <summary>
         /// Gets paths from trees based on the onlyMatchingPaths parameter
         /// </summary>
         private static List<GH_Path> GetProcessingPaths<T>(IEnumerable<GH_Structure<T>> trees, bool onlyMatchingPaths = false) where T : IGH_Goo
         {
+            var allPaths = new List<GH_Path>();
+            
+            if (!onlyMatchingPaths)
+            {
+                // Get the amount of items in each tree
+                var treeLengths = TreesLength(trees);
+
+                allPaths = GetAllUniquePaths(trees);
+
+                var firstTree = trees.First();
+
+                Debug.WriteLine($"[DataTreeProcessor] First tree with paths {string.Join(", ", firstTree.Paths)}");
+
+                // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later, except when there is only one path (allPaths.Count > 1)
+                if (allPaths.Count > 1)
+                {
+                    var singlePathTrees = new List<int>();
+
+                    // Are there more than one tree with a single value?
+                    if (treeLengths.Count(t => t.Value == 1) > 1)
+                    {
+                        singlePathTrees = treeLengths.Where(t => t.Value == 1 && t.Key != 0 /*Omit the first tree*/).Select(t => t.Key).ToList();
+                    }
+                    else
+                    {
+                        singlePathTrees = treeLengths.Where(t => t.Value == 1 /*Do not omit the first tree*/).Select(t => t.Key).ToList();
+                    }
+
+                    Debug.WriteLine($"[DataTreeProcessor] Single path trees: {string.Join(", ", singlePathTrees)}");
+
+                    if (singlePathTrees.Any())
+                    {
+                        var singlePathTreePaths = singlePathTrees.Select(t => trees.ElementAt(t).Paths.First()).ToList();
+                        allPaths = allPaths.Where(p => !singlePathTreePaths.Contains(p)).ToList();
+                    }
+                }
+            }
+            
             return onlyMatchingPaths ?
                 GetMatchingPaths(trees) :
-                GetAllUniquePaths(trees);
+                allPaths;
         }
 
         /// <summary>
@@ -206,11 +261,7 @@ namespace SmartHopper.Core.DataTree
             Dictionary<string, GH_Structure<T>> result = new Dictionary<string, GH_Structure<T>>();
 
             // Get the amount of items in each tree
-            var treeLengths = new Dictionary<string, int>();
-            foreach (var tree in trees)
-            {
-                treeLengths.Add(tree.Key, tree.Value.Count());
-            }
+            var treeLengths = TreesLength(trees);
 
             Debug.WriteLine($"[DataTreeProcessor] Tree lengths: {string.Join(", ", treeLengths.Select(x => $"{x.Key}: {x.Value}"))}");
 
@@ -221,22 +272,11 @@ namespace SmartHopper.Core.DataTree
 
             var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
 
-            // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later, except when there is only one path
-            if (allPaths.Count > 1)
-            {
-                var singlePathTrees = treeLengths.Where(t => t.Value == 1).Select(t => t.Key);
-                if (singlePathTrees.Any())
-                {
-                    allPaths = allPaths.Where(p => !singlePathTrees.Any(t => trees[t].Paths.Contains(p))).ToList();
-
-                }
-            }
-
             Debug.WriteLine($"[DataTreeProcessor] Processing paths: {string.Join(", ", allPaths)}");
 
             foreach (var path in allPaths)
             {
-                Debug.WriteLine($"[DataTreeProcessor] Processing path: {path}");
+                Debug.WriteLine($"[DataTreeProcessor] Generating results for path: {path}");
 
                 // Check for cancellation
                 token.ThrowIfCancellationRequested();

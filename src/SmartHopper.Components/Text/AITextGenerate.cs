@@ -81,14 +81,14 @@ namespace SmartHopper.Components.Text
                 _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
                 // Get the input trees
-                var instructionsTree = new GH_Structure<GH_String>();
                 var promptTree = new GH_Structure<GH_String>();
+                var instructionsTree = new GH_Structure<GH_String>();
 
-                DA.GetDataTree("Instructions", out instructionsTree);
                 DA.GetDataTree("Prompt", out promptTree);
+                DA.GetDataTree("Instructions", out instructionsTree);
 
-                _inputTree["Instructions"] = instructionsTree;
                 _inputTree["Prompt"] = promptTree;
+                _inputTree["Instructions"] = instructionsTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -121,11 +121,11 @@ namespace SmartHopper.Components.Text
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
             {
                 /*
-                 * When defining the function, inputs will
-                 * be available as the branches dictionary.
+                 * Inputs will be available as a dictionary
+                 * of branches. No need to deal with paths.
                  *
                  * Outputs should be a dictionary where keys
-                 * are each output parameter and values are
+                 * are each output parameter, and values are
                  * the output values.
                  */
 
@@ -133,17 +133,17 @@ namespace SmartHopper.Components.Text
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var instructionsTree = branches["Instructions"];
                 var promptTree = branches["Prompt"];
+                var instructionsTree = branches["Instructions"];
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { instructionsTree, promptTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { promptTree, instructionsTree });
 
                 // Reassign normalized branches
-                instructionsTree = normalizedLists[0];
-                promptTree = normalizedLists[1];
+                promptTree = normalizedLists[0];
+                instructionsTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Instructions count: {instructionsTree.Count}, Prompts count: {promptTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();

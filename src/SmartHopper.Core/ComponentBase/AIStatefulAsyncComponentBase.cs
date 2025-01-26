@@ -328,14 +328,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             SetMetricsOutput(DA);
         }
-
-        // protected override void RestorePersistentOutputs(IGH_DataAccess DA)
-        // {
-        //     base.RestorePersistentOutputs(DA);
-
-        //     SetMetricsOutput(DA);
-        // }
-
+        
         #endregion
 
         #region DESIGN
