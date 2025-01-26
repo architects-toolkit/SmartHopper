@@ -87,17 +87,7 @@ namespace SmartHopper.Components.List
                 DA.GetDataTree("Prompt", out promptTree);
 
                 // Convert generic data to string structure
-                var stringListTree = new GH_Structure<GH_String>();
-                foreach (var path in listTree.Paths)
-                {
-                    var branch = listTree.get_Branch(path);
-                    var stringBranch = new List<GH_String>();
-                    foreach (var item in branch)
-                    {
-                        stringBranch.Add(new GH_String(item.ToString()));
-                    }
-                    stringListTree.AppendRange(stringBranch, path);
-                }
+                var stringListTree = ConvertToGHString(listTree);
 
                 // Store the converted trees
                 _inputTree["List"] = stringListTree;
@@ -146,11 +136,11 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listTree = branches["List"];
+                var listTreeOriginal = branches["List"];
                 var promptTree = branches["Prompt"];
 
                 // Wrap list to JSON string
-                listTree = ConcatenateItems(listTree);
+                var listTree = ConcatenateItems(listTreeOriginal);
 
                 // Normalize tree lengths
                 var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, promptTree });
@@ -176,10 +166,10 @@ namespace SmartHopper.Components.List
                     var messages = new List<KeyValuePair<string, string>>();
 
                     // Add the system prompt
-                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the final order."));
+                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the order specified by the user, or in the original order if the user didn't specify an order.\n\nDO NOT RETURN ANYTHING ELSE APART FROM THE COMMA-SERATED INDICES."));
 
                     // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"Given this list of items:\n{listTree[i].Value}\n\nReturn the indices of items that match the following prompt: {prompt.Value}\n\nRespond with ONLY the comma-separated indices to be returned."));
+                    messages.Add(new KeyValuePair<string, string>("user", $"Return the indices of items that match the following prompt: \"{prompt.Value}\"\n\nApply the previous prompt to the following list:\n{listTree[i].Value}\n\n"));
 
                     var response = await parent.GetResponse(messages);
 
@@ -192,10 +182,19 @@ namespace SmartHopper.Components.List
 
                     var indices = ParseIndicesFromResponse(response.Response);
 
+                    Debug.WriteLine($"[ProcessData] Got indices: {string.Join(", ", indices)}");
+
                     var result = new List<GH_String>();
                     foreach (var index in indices)
                     {
-                        result.Add(listTree[index]);
+                        if (index >= 0 && index < listTreeOriginal.Count)
+                        {
+                            result.Add(listTreeOriginal[index]);
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[ProcessData] Invalid index {index}. Skipping.");
+                        }
                     }
 
                     outputs["Result"].AddRange(result);
