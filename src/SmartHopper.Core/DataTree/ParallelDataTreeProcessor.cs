@@ -195,63 +195,63 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Processes branch groups in parallel using a simple transformation function (item level)
         /// </summary>
-        public static async Task<GH_Structure<IGH_Goo>> ProcessBranchesInParallel(
-            GH_Structure<IGH_Goo> inputTree,
-            Func<IGH_Goo, CancellationToken, Task<IGH_Goo>> processItemFunc,
-            bool groupIdenticalBranches = true,
-            CancellationToken cancellationToken = default)
-        {
-            async Task<List<IGH_Goo>> ProcessBranch(List<IGH_Goo> branch, GH_Path path, CancellationToken token)
-            {
-                var tasks = branch.Select(item => processItemFunc(item, token));
-                var results = await Task.WhenAll(tasks);
-                return results.Where(r => r != null).ToList();
-            }
+        //public static async Task<GH_Structure<IGH_Goo>> ProcessBranchesInParallel(
+        //    GH_Structure<IGH_Goo> inputTree,
+        //    Func<IGH_Goo, CancellationToken, Task<IGH_Goo>> processItemFunc,
+        //    bool groupIdenticalBranches = true,
+        //    CancellationToken cancellationToken = default)
+        //{
+        //    async Task<List<IGH_Goo>> ProcessBranch(List<IGH_Goo> branch, GH_Path path, CancellationToken token)
+        //    {
+        //        var tasks = branch.Select(item => processItemFunc(item, token));
+        //        var results = await Task.WhenAll(tasks);
+        //        return results.Where(r => r != null).ToList();
+        //    }
 
-            return await ProcessBranchesInParallel(inputTree, ProcessBranch, groupIdenticalBranches, cancellationToken);
-        }
+        //    return await ProcessBranchesInParallel(inputTree, ProcessBranch, groupIdenticalBranches, cancellationToken);
+        //}
 
         /// <summary>
         /// Processes string data tree in parallel
         /// </summary>
-        public static async Task<GH_Structure<GH_String>> ProcessBranchesInParallel(
-            GH_Structure<GH_String> inputTree,
-            Func<List<GH_String>, GH_Path, CancellationToken, Task<List<GH_String>>> processBranchFunc,
-            bool groupIdenticalBranches = true,
-            CancellationToken cancellationToken = default)
-        {
-            Debug.WriteLine("[ProcessBranchesInParallel] Starting string parallel processing");
+        //public static async Task<GH_Structure<GH_String>> ProcessBranchesInParallel(
+        //    GH_Structure<GH_String> inputTree,
+        //    Func<List<GH_String>, GH_Path, CancellationToken, Task<List<GH_String>>> processBranchFunc,
+        //    bool groupIdenticalBranches = true,
+        //    CancellationToken cancellationToken = default)
+        //{
+        //    Debug.WriteLine("[ProcessBranchesInParallel] Starting string parallel processing");
 
-            // Convert input tree to IGH_Goo tree
-            var gooTree = new GH_Structure<IGH_Goo>();
-            foreach (var path in inputTree.Paths)
-            {
-                var branch = inputTree.get_Branch(path);
-                gooTree.AppendRange(branch.Cast<IGH_Goo>(), path);
-            }
+        //    // Convert input tree to IGH_Goo tree
+        //    var gooTree = new GH_Structure<IGH_Goo>();
+        //    foreach (var path in inputTree.Paths)
+        //    {
+        //        var branch = inputTree.get_Branch(path);
+        //        gooTree.AppendRange(branch.Cast<IGH_Goo>(), path);
+        //    }
 
-            // Process using the generic function
-            var result = await ProcessBranchesInParallel(
-                gooTree,
-                async (branch, path, ct) =>
-                {
-                    var stringBranch = branch.Cast<GH_String>().ToList();
-                    return (await processBranchFunc(stringBranch, path, ct)).Cast<IGH_Goo>().ToList();
-                },
-                groupIdenticalBranches,
-                cancellationToken);
+        //    // Process using the generic function
+        //    var result = await ProcessBranchesInParallel(
+        //        gooTree,
+        //        async (branch, path, ct) =>
+        //        {
+        //            var stringBranch = branch.Cast<GH_String>().ToList();
+        //            return (await processBranchFunc(stringBranch, path, ct)).Cast<IGH_Goo>().ToList();
+        //        },
+        //        groupIdenticalBranches,
+        //        cancellationToken);
 
-            // Convert result back to GH_String tree
-            var typedResult = new GH_Structure<GH_String>();
-            foreach (var path in result.Paths)
-            {
-                var branch = result.get_Branch(path);
-                typedResult.AppendRange(branch.Cast<GH_String>(), path);
-            }
+        //    // Convert result back to GH_String tree
+        //    var typedResult = new GH_Structure<GH_String>();
+        //    foreach (var path in result.Paths)
+        //    {
+        //        var branch = result.get_Branch(path);
+        //        typedResult.AppendRange(branch.Cast<GH_String>(), path);
+        //    }
 
-            Debug.WriteLine("[ProcessBranchesInParallel] String parallel processing complete");
-            return typedResult;
-        }
+        //    Debug.WriteLine("[ProcessBranchesInParallel] String parallel processing complete");
+        //    return typedResult;
+        //}
 
         private static string GetBranchKey(List<IGH_Goo> branch)
         {

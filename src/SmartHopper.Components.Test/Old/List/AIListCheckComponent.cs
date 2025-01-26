@@ -11,7 +11,6 @@
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Components.Properties;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
@@ -22,7 +21,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SmartHopper.Components.List
+namespace SmartHopper.Components.Test.Old.List
 {
     public class AIListCheck : AIStatefulComponentBase
     {
@@ -38,7 +37,7 @@ namespace SmartHopper.Components.List
         public AIListCheck()
             : base("AI List Check", "AIListCheck",
                 "Check a condition on a list using natural language questions. This components takes the list as a whole. This means that every question will return True or False for each provided list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
-                "SmartHopper", "List")
+                "SmartHopper", "Old")
         {
         }
 
@@ -55,7 +54,7 @@ namespace SmartHopper.Components.List
 
         public override Guid ComponentGuid => new Guid("B5F8C492-E6F3-4D9D-BF7A-2C4E9D3C8F1F");
 
-        protected override System.Drawing.Bitmap Icon => Resources.listcheck;
+        // protected override System.Drawing.Bitmap Icon => Resources.listcheck;
 
         protected override AsyncWorker CreateWorker(Action<string> progressReporter)
         {

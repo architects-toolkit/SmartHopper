@@ -220,7 +220,6 @@ namespace SmartHopper.Core.Async.Components
 
             // Then update the display - this needs to happen after ExpireSolution
             // to ensure proper synchronization
-            //Message = "Done";
             Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
             {
                 OnDisplayExpired(true);

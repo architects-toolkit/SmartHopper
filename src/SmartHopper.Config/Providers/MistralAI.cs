@@ -15,6 +15,7 @@ using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -35,6 +36,21 @@ namespace SmartHopper.Config.Providers
 
         public string Name => _name;
         public string DefaultModel => _defaultModel;
+
+        /// <summary>
+        /// Gets the provider's icon
+        /// </summary>
+        public Image Icon
+        {
+            get
+            {
+                var iconBytes = Properties.providersResources.mistralai_icon;
+                using (var ms = new System.IO.MemoryStream(iconBytes))
+                {
+                    return new Bitmap(ms);
+                }
+            }
+        }
 
         public IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {

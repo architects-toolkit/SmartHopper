@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using System;
+using System.Drawing;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -237,6 +238,22 @@ namespace SmartHopper.Config.Configuration
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the icon for the specified AI provider
+        /// </summary>
+        /// <param name="providerName">Name of the provider</param>
+        /// <returns>The provider's icon or null if not found</returns>
+        public static Image GetProviderIcon(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+                return null;
+
+            var provider = SmartHopperSettings.DiscoverProviders()
+                .FirstOrDefault(p => p.Name == providerName);
+
+            return provider?.Icon;
         }
     }
 }
