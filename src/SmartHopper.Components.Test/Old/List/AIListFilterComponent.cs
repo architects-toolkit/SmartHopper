@@ -11,11 +11,10 @@
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Components.Properties;
-using SmartHopper.Config.Models;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,7 +22,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SmartHopper.Components.List
+namespace SmartHopper.Components.Test.Old.List
 {
     public class AIListFilter : AIStatefulComponentBase
     {
@@ -39,7 +38,7 @@ namespace SmartHopper.Components.List
         public AIListFilter()
             : base("AI List Filter", "AIListFilter",
                 "Modify, filter, or reorder a list of elements using natural language prompts. Each prompt will be processed seperately against each list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
-                "SmartHopper", "List")
+                "SmartHopper", "Old")
         {
         }
 
@@ -56,7 +55,7 @@ namespace SmartHopper.Components.List
 
         public override Guid ComponentGuid => new Guid("A4F7B391-D5E2-4C8D-9F6A-1B3E8D2C7F0E");
 
-        protected override System.Drawing.Bitmap Icon => Resources.listfilter;
+        //protected override System.Drawing.Bitmap Icon => Resources.listfilter;
 
         private static List<int> ParseIndicesFromResponse(string response)
         {

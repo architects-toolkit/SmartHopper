@@ -186,7 +186,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets the API's endpoint to use when getting AI responses.
         /// </summary>
         /// <returns>The API's endpoint, or empty string for default endpoint</returns>
-        protected string GetEndpoint()
+        protected virtual string GetEndpoint()
         {
             return ""; // With the default value, the provider will use the default endpoint
         }

@@ -19,53 +19,52 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
-using Grasshopper.Documentation;
 using System.Linq;
 
-namespace SmartHopper.Components.Text
+namespace SmartHopper.Components.List
 {
-    public class AITextGenerate : AIStatefulAsyncComponentBase
+    public class AIListAlter : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
-        protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
+        public override Guid ComponentGuid => new Guid("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
+        protected override System.Drawing.Bitmap Icon => Resources.listfilter;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        public AITextGenerate()
-            : base("AI Text Generate", "AITextGenerate",
-                  "Generate text using LLM.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
-                  "SmartHopper", "Text")
+        public AIListAlter()
+            : base("AI List Alter", "AIListAlter",
+                  "Modify, Filter, or reorder a list of elements using natural language prompts. Each prompt will be processed seperately against each list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
+                  "SmartHopper", "List")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "The prompt to send to the AI", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
+            pManager.AddGenericParameter("List", "L", "List of elements to alter", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "Natural language prompt describing how to modify, filter, or reorder the list.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Result", "R", "Processed list", GH_ParamAccess.tree);
         }
 
         protected override string GetEndpoint()
         {
-            return "text-generate";
+            return "list-alter";
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextGenerateWorker(this, AddRuntimeMessage);
+            return new AIListAlterWorker(this, AddRuntimeMessage);
         }
 
-        private class AITextGenerateWorker : AsyncWorkerBase
+        private class AIListAlterWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> _inputTree;
             private Dictionary<string, GH_Structure<GH_String>> _result;
-            private readonly AITextGenerate _parent;
+            private readonly AIListAlter _parent;
 
-            public AITextGenerateWorker(
-            AITextGenerate parent,
+            public AIListAlterWorker(
+            AIListAlter parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
@@ -81,15 +80,15 @@ namespace SmartHopper.Components.Text
                 _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
                 // Get the input trees
+                var listTree = new GH_Structure<GH_String>();
                 var promptTree = new GH_Structure<GH_String>();
-                var instructionsTree = new GH_Structure<GH_String>();
 
+                DA.GetDataTree("List", out listTree);
                 DA.GetDataTree("Prompt", out promptTree);
-                DA.GetDataTree("Instructions", out instructionsTree);
 
                 // The first defined tree is the one that overrides paths in case they don't match between trees
+                _inputTree["List"] = listTree;
                 _inputTree["Prompt"] = promptTree;
-                _inputTree["Instructions"] = instructionsTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -107,7 +106,7 @@ namespace SmartHopper.Components.Text
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, _parent);
                         },
-                        onlyMatchingPaths: false,
+                        onlyMatchingPaths: true,
                         groupIdenticalBranches: true,
                         token);
                         
@@ -119,7 +118,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListAlter parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -134,17 +133,20 @@ namespace SmartHopper.Components.Text
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
+                var listTree = branches["List"];
                 var promptTree = branches["Prompt"];
-                var instructionsTree = branches["Instructions"];
+
+                // Wrap list to JSON string
+                listTree = ConcatenateItems(listTree);
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { promptTree, instructionsTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, promptTree });
 
                 // Reassign normalized branches
-                promptTree = normalizedLists[0];
-                instructionsTree = normalizedLists[1];
+                listTree = normalizedLists[0];
+                promptTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, List count: {listTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -160,15 +162,11 @@ namespace SmartHopper.Components.Text
                     // Initiate the messages array
                     var messages = new List<KeyValuePair<string, string>>();
 
-                    // Add system prompt if available
-                    var systemPrompt = instructionsTree[i].Value;
-                    if (!string.IsNullOrWhiteSpace(systemPrompt))
-                    {
-                        messages.Add(new KeyValuePair<string, string>("system", systemPrompt));
-                    }
+                    // Add the system prompt
+                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices (0-based) of items that match the given criteria.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the final order."));
 
-                    // Add the user prompt
-                    messages.Add(new KeyValuePair<string, string>("user", prompt.Value));
+                    // Add the user message
+                    messages.Add(new KeyValuePair<string, string>("user", $"Given this list of items:\n{listTree[i].Value}\n\nReturn the indices of items that match the following prompt: {prompt.Value}\n\nRespond with ONLY the comma-separated indices to be returned."));
 
                     var response = await parent.GetResponse(messages);
 
@@ -199,6 +197,23 @@ namespace SmartHopper.Components.Text
 
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
+            }
+
+            private static List<GH_String> ConcatenateItems(List<GH_String> inputList)
+            {
+                var result = new List<GH_String>();
+
+                var stringList = new List<string>();
+
+                foreach (var item in inputList)
+                {
+                    stringList.Add(item.ToString());
+                }
+
+                var concatenatedString = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
+                result.Add(new GH_String(concatenatedString));
+
+                return result;
             }
         }
     }
