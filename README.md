@@ -1,6 +1,6 @@
 # SmartHopper - Bringing AI to Grasshopper3D
 
-[![Version](https://img.shields.io/badge/version-0%2E0%2E0--dev%2E250104-yellow)](https://github.com/architects-toolkit/SmartHopper/releases/tag/0.0.0-dev.250104)
+[![Version](https://img.shields.io/badge/version-0%2E0%2E0--dev%2E250126-yellow)](https://github.com/architects-toolkit/SmartHopper/releases/tag/0.0.0-dev.250126)
 [![Status](https://img.shields.io/badge/status-Unstable%20development-yellow)](https://github.com/architects-toolkit/SmartHopper/releases/tag/0.0.0-dev.250104)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange)](https://mistral.ai/)
