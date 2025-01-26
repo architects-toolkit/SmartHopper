@@ -261,7 +261,7 @@ namespace SmartHopper.Core.DataTree
             Dictionary<string, GH_Structure<T>> result = new Dictionary<string, GH_Structure<T>>();
 
             // Get the amount of items in each tree
-            var treeLengths = TreesLength(trees);
+            var treeLengths = TreesLength<T>(trees.Values);
 
             Debug.WriteLine($"[DataTreeProcessor] Tree lengths: {string.Join(", ", treeLengths.Select(x => $"{x.Key}: {x.Value}"))}");
 
@@ -300,7 +300,7 @@ namespace SmartHopper.Core.DataTree
                     // If the branch is empty because that tree only has one branch and one item, copy that branch to the current path
                     foreach (var emptyBranch in emptyBranches)
                     {
-                        if (treeLengths[emptyBranch.Key] == 1)
+                        if (treeLengths[trees.Keys.ToList().IndexOf(emptyBranch.Key)] == 1)
                         {
                             branches[emptyBranch.Key] = GetBranchFromTree(trees[emptyBranch.Key], trees[emptyBranch.Key].Paths.First(), preserveStructure: true);
                         }

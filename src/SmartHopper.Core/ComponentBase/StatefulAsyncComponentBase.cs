@@ -119,6 +119,8 @@ namespace SmartHopper.Core.ComponentBase
 
         private bool _run = false;
 
+        public bool Run => _run;
+
         /// <summary>
         /// Registers input parameters for the component.
         /// </summary>
@@ -157,6 +159,16 @@ namespace SmartHopper.Core.ComponentBase
 
         #region LIFECYCLE
 
+        protected override void BeforeSolveInstance()
+        {
+            if (_currentState == ComponentState.Processing && !_run)
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Processing state... jumping to SolveInstance");
+                return; // Jump to SolveInstance, prevent resetting data
+            }
+            base.BeforeSolveInstance();
+        }
+
         /// <summary>
         /// Main solving method for the component.
         /// Handles the execution flow and persistence of results.
@@ -186,8 +198,7 @@ namespace SmartHopper.Core.ComponentBase
                     OnStateNeedsRun(DA);
                     break;
                 case ComponentState.Processing:
-                    // This is not called here, otherwise it runs the Solver again. It is called in ProcessTransition
-                    // OnStateProcessing(DA);
+                    OnStateProcessing(DA);
                     break;
                 case ComponentState.Cancelled:
                     OnStateCancelled(DA);
@@ -268,6 +279,13 @@ namespace SmartHopper.Core.ComponentBase
         private Queue<ComponentState> _pendingTransitions = new Queue<ComponentState>();
         private IGH_DataAccess _lastDA;
 
+        // PUBLIC PROPERTIES
+
+        /// <summary>
+        /// Gets the current state of the component.
+        /// </summary>
+        public ComponentState CurrentState => _currentState;
+
         private async Task ProcessTransition(ComponentState newState, IGH_DataAccess DA = null)
         {
             var oldState = _currentState;
@@ -308,7 +326,7 @@ namespace SmartHopper.Core.ComponentBase
                     OnDisplayExpired(true);
                     break;
                 case ComponentState.Processing:
-                    OnStateProcessing(DA);
+                    // OnStateProcessing(DA);
                     break;
                 case ComponentState.Cancelled:
                     OnStateCancelled(DA);
