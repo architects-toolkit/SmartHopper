@@ -23,55 +23,55 @@ using System.Linq;
 
 namespace SmartHopper.Components.List
 {
-    public class AIListFilter : AIStatefulAsyncComponentBase
+    public class AIListCheck : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
-        protected override System.Drawing.Bitmap Icon => Resources.listfilter;
+        public override Guid ComponentGuid => new Guid("A8BAD48D-8723-42AD-B13C-A875F940B69C");
+        protected override System.Drawing.Bitmap Icon => Resources.listcheck;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        public AIListFilter()
-            : base("AI List Filter", "AIListFilter",
-                  "Filter and reorder a list of elements using natural language prompts. Each prompt will be processed seperately against each list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
+        public AIListCheck()
+            : base("AI List Check", "AIListCheck",
+                  "Check a condition on a list using natural language questions.\nThis components takes the list as a whole. This means that every question will return True or False for each provided list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
                   "SmartHopper", "List")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("List", "L", "List of elements to filter or reorder", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Prompt", "P", "Natural language prompt describing how to modify, filter, or reorder the list.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("List", "L", "List of elements to check", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "Natural language question about the list.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Result", "R", "Processed list", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Result", "R", "Result of the check", GH_ParamAccess.tree);
         }
 
         protected override string GetEndpoint()
         {
-            return "list-filter";
+            return "list-check";
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListFilterWorker(this, AddRuntimeMessage);
+            return new AIListCheckWorker(this, AddRuntimeMessage);
         }
 
-        private class AIListFilterWorker : AsyncWorkerBase
+        private class AIListCheckWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> _inputTree;
-            private Dictionary<string, GH_Structure<GH_String>> _result;
-            private readonly AIListFilter _parent;
+            private Dictionary<string, GH_Structure<GH_Boolean>> _result;
+            private readonly AIListCheck _parent;
 
-            public AIListFilterWorker(
-            AIListFilter parent,
+            public AIListCheckWorker(
+            AIListCheck parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
-                _result = new Dictionary<string, GH_Structure<GH_String>>
+                _result = new Dictionary<string, GH_Structure<GH_Boolean>>
                 {
-                    { "Result", new GH_Structure<GH_String>() }
+                    { "Result", new GH_Structure<GH_Boolean>() }
                 };
             }
 
@@ -102,7 +102,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", _inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", _inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_String>(
+                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_Boolean>(
                         _inputTree,
                         async branches => 
                         {
@@ -121,7 +121,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListCheck parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -152,8 +152,8 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, List count: {listTree.Count}");
 
                 // Initialize the output
-                var outputs = new Dictionary<string, List<GH_String>>();
-                outputs["Result"] = new List<GH_String>();
+                var outputs = new Dictionary<string, List<GH_Boolean>>();
+                outputs["Result"] = new List<GH_Boolean>();
 
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
@@ -166,38 +166,33 @@ namespace SmartHopper.Components.List
                     var messages = new List<KeyValuePair<string, string>>();
 
                     // Add the system prompt
-                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the order specified by the user, or in the original order if the user didn't specify an order.\n\nDO NOT RETURN ANYTHING ELSE APART FROM THE COMMA-SERATED INDICES."));
+                    messages.Add(new KeyValuePair<string, string>("system", "You are a list analyzer. Your task is to analyze a list of items and return a boolean value indicating whether the list matches the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nMainly you will base your answers on the item itself, unless the user asks for something regarding the position of items in the list.\n\nRespond with TRUE or FALSE, nothing else."));
 
                     // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"Return the indices of items that match the following prompt: \"{prompt.Value}\"\n\nApply the previous prompt to the following list:\n{listTree[i].Value}\n\n"));
+                    messages.Add(new KeyValuePair<string, string>("user", $"This is my question: \"{prompt.Value}\"\n\nAnswer to the previous question with the following list:\n{listTree[i].Value}\n\n"));
 
                     var response = await parent.GetResponse(messages);
 
                     if (response.FinishReason == "error")
                     {
                         parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"AI error while processing the response:\n{response.Response}", false);
-                        outputs["Result"].Add(new GH_String(string.Empty));
+                        outputs["Result"].Add(null);
                         continue;
                     }
 
-                    var indices = ParseIndicesFromResponse(response.Response);
+                    var result = ParseBooleanFromResponse(response.Response);
 
-                    Debug.WriteLine($"[ProcessData] Got indices: {string.Join(", ", indices)}");
-
-                    var result = new List<GH_String>();
-                    foreach (var index in indices)
+                    if (result == null)
                     {
-                        if (index >= 0 && index < listTreeOriginal.Count)
-                        {
-                            result.Add(listTreeOriginal[index]);
-                        }
-                        else
-                        {
-                            Debug.WriteLine($"[ProcessData] Invalid index {index}. Skipping.");
-                        }
+                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"The AI returned an invalid response:\n{response.Response}", false);
+                        outputs["Result"].Add(null);
+                        continue;
+                    }
+                    else
+                    {
+                        outputs["Result"].Add(new GH_Boolean(result ?? false));
                     }
 
-                    outputs["Result"].AddRange(result);
                     i++;
                 }
 
@@ -238,18 +233,17 @@ namespace SmartHopper.Components.List
                 return result;
             }
 
-            private static List<int> ParseIndicesFromResponse(string response)
+            private static bool? ParseBooleanFromResponse(string response)
             {
-                var indices = new List<int>();
-                var parts = response.Split(',');
-                foreach (var part in parts)
-                {
-                    if (int.TryParse(part.Trim(), out int index))
-                    {
-                        indices.Add(index);
-                    }
-                }
-                return indices;
+                if (string.IsNullOrWhiteSpace(response)) return null;
+
+                var lowerResponse = response.ToLowerInvariant();
+                bool hasTrue = lowerResponse.Contains("true");
+                bool hasFalse = lowerResponse.Contains("false");
+
+                if (hasTrue && !hasFalse) return true;
+                if (hasFalse && !hasTrue) return false;
+                return null;
             }
         }
     }
