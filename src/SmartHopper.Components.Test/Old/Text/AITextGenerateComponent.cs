@@ -11,8 +11,6 @@
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Components.Properties;
-using SmartHopper.Config.Interfaces;
 using SmartHopper.Core.Async.Components;
 using SmartHopper.Core.Async.Workers;
 using SmartHopper.Core.DataTree;
@@ -23,7 +21,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SmartHopper.Components.Text
+namespace SmartHopper.Components.Test.Old.Text
 {
     public class AITextGenerate : AIStatefulComponentBase
     {
@@ -37,7 +35,7 @@ namespace SmartHopper.Components.Text
         }
 
         public AITextGenerate()
-          : base("AI Text Generator", "AITextGenerate", "Generate text using LLM. If a tree structure is provided, prompts and instructions will only match within the same branch paths.", "SmartHopper", "Text")
+          : base("AI Text Generator", "AITextGenerate", "Generate text using LLM. If a tree structure is provided, prompts and instructions will only match within the same branch paths.", "SmartHopper", "Old")
         {
         }
 
@@ -54,7 +52,7 @@ namespace SmartHopper.Components.Text
 
         public override Guid ComponentGuid => new Guid("A4F7B391-D5E2-4C8D-9F6A-1B3E8D2C7F0D");
 
-        protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
+        //protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
 
         protected override bool ProcessFinalResponse(IGH_DataAccess DA)
         {

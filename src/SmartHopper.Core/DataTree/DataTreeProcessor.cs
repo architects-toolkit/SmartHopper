@@ -10,8 +10,12 @@
 
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SmartHopper.Core.DataTree
 {
@@ -20,153 +24,7 @@ namespace SmartHopper.Core.DataTree
     /// </summary>
     public static class DataTreeProcessor
     {
-        /// <summary>
-        /// Filters a data tree based on specified indices for each branch
-        /// </summary>
-        public static GH_Structure<IGH_Goo> FilterByIndices(GH_Structure<IGH_Goo> inputTree, int[] indices)
-        {
-            var result = new GH_Structure<IGH_Goo>();
-
-            foreach (var path in inputTree.Paths)
-            {
-                var branch = inputTree.get_Branch(path);
-                var filteredItems = new List<IGH_Goo>();
-
-                foreach (var index in indices)
-                {
-                    if (index >= 0 && index < branch.Count)
-                    {
-                        if (branch[index] is IGH_Goo gooItem)
-                        {
-                            filteredItems.Add(gooItem);
-                        }
-                    }
-                }
-
-                // Always append the branch, even if empty
-                result.AppendRange(filteredItems, path);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Filters a data tree based on a predicate function that evaluates each item
-        /// </summary>
-        //public static GH_Structure<IGH_Goo> FilterByPredicate(
-        //    GH_Structure<IGH_Goo> inputTree, 
-        //    Func<IGH_Goo, bool> predicate)
-        //{
-        //    var result = new GH_Structure<IGH_Goo>();
-
-        //    foreach (var path in inputTree.Paths)
-        //    {
-        //        var branch = inputTree.get_Branch(path);
-        //        var filteredBranch = branch
-        //            .Cast<IGH_Goo>()
-        //            .Where(item => item != null && predicate(item))
-        //            .ToList();
-
-        //        if (filteredBranch.Any())
-        //        {
-        //            result.AppendRange(filteredBranch, path);
-        //        }
-        //    }
-
-        //    return result;
-        //}
-
-        /// <summary>
-        /// Maps items in a data tree using a transformation function while preserving the tree structure
-        /// </summary>
-        //public static GH_Structure<IGH_Goo> Map(
-        //    GH_Structure<IGH_Goo> inputTree, 
-        //    Func<IGH_Goo, IGH_Goo> transform)
-        //{
-        //    var result = new GH_Structure<IGH_Goo>();
-
-        //    foreach (var path in inputTree.Paths)
-        //    {
-        //        var branch = inputTree.get_Branch(path);
-        //        var transformedBranch = branch
-        //            .Cast<IGH_Goo>()
-        //            .Select(item => item != null ? transform(item) : null)
-        //            .Where(item => item != null)
-        //            .ToList();
-
-        //        if (transformedBranch.Any())
-        //        {
-        //            result.AppendRange(transformedBranch, path);
-        //        }
-        //    }
-
-        //    return result;
-        //}
-
-        /// <summary>
-        /// Filters branches in a data tree based on their paths
-        /// </summary>
-        //public static GH_Structure<IGH_Goo> FilterByPath(
-        //    GH_Structure<IGH_Goo> inputTree, 
-        //    Func<GH_Path, bool> pathPredicate)
-        //{
-        //    var result = new GH_Structure<IGH_Goo>();
-
-        //    foreach (var path in inputTree.Paths.Where(pathPredicate))
-        //    {
-        //        var branch = inputTree.get_Branch(path);
-        //        result.AppendRange(branch.Cast<IGH_Goo>(), path);
-        //    }
-
-        //    return result;
-        //}
-
-        /// <summary>
-        /// Matches input data tree to target data tree following Grasshopper's standard rules:
-        /// 1. Applies input data to matching paths and indices in target
-        /// 2. Returns null for non-matching paths
-        /// 3. Repeats last element when list lengths don't match
-        /// </summary>
-        // public static GH_Structure<IGH_Goo> MatchWithTarget(
-        //     GH_Structure<IGH_Goo> inputTree,
-        //     GH_Structure<IGH_Goo> targetTree)
-        // {
-        //     var result = new GH_Structure<IGH_Goo>();
-
-        //     foreach (var targetPath in targetTree.Paths)
-        //     {
-        //         var targetBranch = targetTree.get_Branch(targetPath);
-
-        //         // Try to find matching path in input tree
-        //         if (!inputTree.PathExists(targetPath))
-        //         {
-        //             // Rule 2: No matching path, add null list
-        //             result.EnsurePath(targetPath);
-        //             continue;
-        //         }
-
-        //         var inputBranch = inputTree.get_Branch(targetPath);
-        //         var matchedItems = new List<IGH_Goo>();
-
-        //         // Rule 3: Handle different list lengths
-        //         for (int i = 0; i < targetBranch.Count; i++)
-        //         {
-        //             if (i < inputBranch.Count)
-        //             {
-        //                 matchedItems.Add(inputBranch[i] as IGH_Goo);
-        //             }
-        //             else
-        //             {
-        //                 // Repeat last element
-        //                 matchedItems.Add(inputBranch[inputBranch.Count - 1] as IGH_Goo);
-        //             }
-        //         }
-
-        //         result.AppendRange(matchedItems, targetPath);
-        //     }
-
-        //     return result;
-        // }
+        #region BRANCH
 
         /// <summary>
         /// Gets a branch from a data tree, handling cases where the tree is flat (single value or list) or structured.
@@ -203,72 +61,70 @@ namespace SmartHopper.Core.DataTree
         }
 
         /// <summary>
-        /// Gets a value from a data tree, handling cases where the tree is flat (single value or list) or structured.
-        /// If the tree is flat, returns the first value for any path. If structured, returns the value at the matching path.
+        /// Finds paths that have identical branch data for a given set of trees and current branches
         /// </summary>
-        public static T GetValueFromTree<T>(GH_Structure<T> tree, GH_Path path) where T : IGH_Goo
+        /// <param name="trees">The complete dictionary of trees</param>
+        /// <param name="currentBranches">The current branches being processed</param>
+        /// <returns>List of paths that have identical branch data</returns>
+        private static List<GH_Path> FindIdenticalBranches<T>(
+            Dictionary<string, GH_Structure<T>> trees,
+            Dictionary<string, List<T>> currentBranches,
+            GH_Path currentPath,
+            bool onlyMatchingPaths = false) where T : IGH_Goo
         {
-            if (tree == null || tree.DataCount == 0)
-                return default;
+            var result = new List<GH_Path>();
+            var currentKey = GetBranchesKey(currentBranches);
+            // var allPaths = GetAllUniquePaths(trees.Values);
+            var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
 
-            // Get the branch at the specified path
-            var branch = tree.get_Branch(path);
-            if (branch == null || branch.Count == 0)
+            foreach (var path in allPaths)
             {
-                // If the target branch is empty, only use default value if tree has a non-empty branch
-                var hasNonEmptyBranch = tree.Paths.Any(p =>
-                {
-                    var b = tree.get_Branch(p);
-                    return b != null && b.Count > 0;
-                });
+                // Avoid comparing the current path
+                if (path == currentPath)
+                    continue;
+                
+                // Get branches for this path from all trees
+                var siblingBranches = trees.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
+                );
 
-                if (!hasNonEmptyBranch)
-                    return default;
-
-                // If tree has no paths (flat list) or only root path, use the first value for all paths
-                if (!tree.Paths.Any() || (tree.PathCount == 1 && tree.Paths[0].ToString() == "{0}"))
+                // Compare the branch data
+                if (GetBranchesKey(siblingBranches) == currentKey)
                 {
-                    return tree.AllData(true).Cast<T>().FirstOrDefault();
+                    result.Add(path);
                 }
             }
 
-            return branch?.Count > 0 ? (T)branch[0] : default;
+            return result;
         }
 
         /// <summary>
-        /// Checks if a branch in a data tree should be considered empty
+        /// Generates a unique key for a set of branches based on their content
         /// </summary>
-        public static bool IsBranchEmpty<T>(GH_Structure<T> tree, GH_Path path) where T : IGH_Goo
+        private static string GetBranchesKey<T>(Dictionary<string, List<T>> branches) where T : IGH_Goo
         {
-            if (tree == null) return true;
-            var branch = tree.get_Branch(path);
-            return branch == null || branch.Count == 0;
+            var keyParts = branches
+                .OrderBy(kvp => kvp.Key)
+                .Select(kvp => 
+                {
+                    var branch = kvp.Value;
+                    var branchData = branch.Select(item => item.ToString());
+                    return $"{kvp.Key}:{string.Join(",", branchData)}";
+                });
+
+            return string.Join("|", keyParts);
         }
+        
+        #endregion
+
+        #region TREES
 
         /// <summary>
         /// Returns all unique paths that exist in ANY of the provided data trees.
         /// </summary>
         /// <param name="trees">List of data trees to combine</param>
         /// <returns>List of all unique paths found across all trees</returns>
-        //public static List<GH_Path> GetAllUniquePaths<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
-        //{
-        //    if (trees == null || !trees.Any())
-        //        return new List<GH_Path>();
-
-        //    // Use HashSet for efficient unique path collection
-        //    var uniquePaths = new HashSet<GH_Path>();
-
-        //    // Collect all paths from all trees
-        //    foreach (var tree in trees)
-        //    {
-        //        foreach (var path in tree.Paths)
-        //        {
-        //            uniquePaths.Add(path);
-        //        }
-        //    }
-
-        //    return uniquePaths.ToList();
-        //}
         public static List<GH_Path> GetAllUniquePaths<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
         {
             if (trees == null || !trees.Any())
@@ -320,5 +176,236 @@ namespace SmartHopper.Core.DataTree
             return matchingPaths;
         }
 
+        /// <summary>
+        /// Gets the amount of items in each tree, indexed by position
+        /// </summary>
+        private static Dictionary<int, int> TreesLength<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
+        {
+            var treeLengths = new Dictionary<int, int>();
+            int index = 0;
+            foreach (var tree in trees)
+            {
+                treeLengths.Add(index, tree.DataCount);
+                index++;
+            }
+            return treeLengths;
+        }
+
+        /// <summary>
+        /// Gets paths from trees based on the onlyMatchingPaths parameter
+        /// </summary>
+        private static List<GH_Path> GetProcessingPaths<T>(IEnumerable<GH_Structure<T>> trees, bool onlyMatchingPaths = false) where T : IGH_Goo
+        {
+            var allPaths = new List<GH_Path>();
+            
+            if (!onlyMatchingPaths)
+            {
+                // Get the amount of items in each tree
+                var treeLengths = TreesLength(trees);
+
+                allPaths = GetAllUniquePaths(trees);
+
+                var firstTree = trees.First();
+
+                Debug.WriteLine($"[DataTreeProcessor] First tree with paths {string.Join(", ", firstTree.Paths)}");
+
+                // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later, except when there is only one path (allPaths.Count > 1)
+                if (allPaths.Count > 1)
+                {
+                    var singlePathTrees = new List<int>();
+
+                    // Are there more than one tree with a single value?
+                    if (treeLengths.Count(t => t.Value == 1) > 1)
+                    {
+                        singlePathTrees = treeLengths.Where(t => t.Value == 1 && t.Key != 0 /*Omit the first tree*/).Select(t => t.Key).ToList();
+                    }
+                    else
+                    {
+                        singlePathTrees = treeLengths.Where(t => t.Value == 1 /*Do not omit the first tree*/).Select(t => t.Key).ToList();
+                    }
+
+                    Debug.WriteLine($"[DataTreeProcessor] Single path trees: {string.Join(", ", singlePathTrees)}");
+
+                    if (singlePathTrees.Any())
+                    {
+                        var singlePathTreePaths = singlePathTrees.Select(t => trees.ElementAt(t).Paths.First()).ToList();
+                        allPaths = allPaths.Where(p => !singlePathTreePaths.Contains(p)).ToList();
+                    }
+                }
+            }
+            
+            return onlyMatchingPaths ?
+                GetMatchingPaths(trees) :
+                allPaths;
+        }
+
+        /// <summary>
+        /// Gets paths from a dictionary of trees based on the onlyMatchingPaths parameter, ignoring the dictionary keys
+        /// </summary>
+        private static List<GH_Path> GetProcessingPaths<T>(Dictionary<string, GH_Structure<T>> trees, bool onlyMatchingPaths = false) where T : IGH_Goo
+        {
+            return GetProcessingPaths(trees.Values, onlyMatchingPaths);
+        }
+
+        #endregion
+
+        #region EXEC
+
+        public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
+            Dictionary<string, GH_Structure<T>> trees,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
+            bool onlyMatchingPaths = false,
+            bool groupIdenticalBranches = false,
+            CancellationToken token = default)
+            where T : IGH_Goo
+            where U : IGH_Goo
+        {
+            Dictionary<string, GH_Structure<U>> result = new Dictionary<string, GH_Structure<U>>();
+
+            // Get the amount of items in each tree
+            var treeLengths = TreesLength<T>(trees.Values);
+
+            Debug.WriteLine($"[DataTreeProcessor] Tree lengths: {string.Join(", ", treeLengths.Select(x => $"{x.Key}: {x.Value}"))}");
+
+            foreach (var kvp in trees)
+            {
+                Debug.WriteLine($"[DataTreeProcessor] Tree key: {kvp.Key}, Paths: {string.Join(", ", kvp.Value.Paths)}");
+            }
+
+            var allPaths = GetProcessingPaths(trees, onlyMatchingPaths);
+
+            Debug.WriteLine($"[DataTreeProcessor] Processing paths: {string.Join(", ", allPaths)}");
+
+            foreach (var path in allPaths)
+            {
+                Debug.WriteLine($"[DataTreeProcessor] Generating results for path: {path}");
+
+                // Check for cancellation
+                token.ThrowIfCancellationRequested();
+
+                // Initialize paths to apply
+                var pathsToApply = new List<GH_Path> { path };
+                
+                // For each tree, get the branch corresponding to the path, preserving the original dictionary keys
+                var branches = trees
+                    .ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
+                    );
+                
+                // Check for empty branches
+                var emptyBranches = branches.Where(kvp => !kvp.Value.Any()).ToList();
+
+                // If there are any empty branches...
+                if (emptyBranches.Any())
+                {
+                    // If the branch is empty because that tree only has one branch and one item, copy that branch to the current path
+                    foreach (var emptyBranch in emptyBranches)
+                    {
+                        if (treeLengths[trees.Keys.ToList().IndexOf(emptyBranch.Key)] == 1)
+                        {
+                            branches[emptyBranch.Key] = GetBranchFromTree(trees[emptyBranch.Key], trees[emptyBranch.Key].Paths.First(), preserveStructure: true);
+                        }
+                    }
+                }
+                
+                try 
+                {
+                    // Apply the function to the current branch and await its completion
+                    var branchResult = await function(branches);
+                    
+                    // If groupIdenticalBranches is true, find identical combination of branches only for types GH_String, GH_Number, GH_Integer and GH_Boolean, which are the comparable ones
+                    if (groupIdenticalBranches &&
+                        (typeof(T) == typeof(GH_String) ||
+                         typeof(T) == typeof(GH_Number) ||
+                         typeof(T) == typeof(GH_Integer) ||
+                         typeof(T) == typeof(GH_Boolean)
+                         )
+                        )
+                    {
+                        pathsToApply.AddRange(FindIdenticalBranches(trees, branches, path));
+                    }
+
+                    // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
+                    foreach (var applyPath in pathsToApply)
+                    {
+                        foreach (var kvp in branchResult)
+                        {
+                            if (!result.ContainsKey(kvp.Key))
+                            {
+                                result[kvp.Key] = new GH_Structure<U>();
+                                Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
+                            }
+                            
+                            if (kvp.Value != null)
+                            {
+                                Debug.WriteLine($"[DataTreeProcessor] Appending {kvp.Value.Count} items to path {applyPath} for key {kvp.Key}");
+                                result[kvp.Key].AppendRange(kvp.Value, applyPath);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[DataTreeProcessor] Error processing path {path}: {ex.Message}");
+                    throw;
+                }
+            }
+
+            Debug.WriteLine($"[DataTreeProcessor] Finished processing all paths. Result keys: {string.Join(", ", result.Keys)}");
+            return result;
+        }
+
+        #endregion
+
+        #region NORMALIZATION
+
+        /// <summary>
+        /// Normalizes branch lengths by extending shorter branches with their last item
+        /// </summary>
+        /// <typeparam name="T">Type of items in the branches</typeparam>
+        /// <param name="branches">Collection of branches to normalize</param>
+        /// <returns>List of normalized branches with equal length</returns>
+        public static List<List<T>> NormalizeBranchLengths<T>(IEnumerable<List<T>> branches) where T : IGH_Goo
+        {
+            if (branches == null || !branches.Any())
+                return new List<List<T>>();
+
+            var branchesList = branches.ToList();
+
+            // Find the maximum length among all branches
+            int maxLength = branchesList.Max(branch => branch?.Count ?? 0);
+
+            var result = new List<List<T>>();
+            foreach (var branch in branchesList)
+            {
+                var currentBranch = branch ?? new List<T>();
+                var normalizedBranch = new List<T>(currentBranch);
+
+                // If branch is empty, use null or default value for all positions
+                if (currentBranch.Count == 0)
+                {
+                    for (int i = 0; i < maxLength; i++)
+                    {
+                        normalizedBranch.Add(default(T));
+                    }
+                }
+                else
+                {
+                    // Extend branch by repeating last item
+                    var lastItem = currentBranch[currentBranch.Count - 1];
+                    while (normalizedBranch.Count < maxLength)
+                    {
+                        normalizedBranch.Add(lastItem);
+                    }
+                }
+
+                result.Add(normalizedBranch);
+            }
+
+            return result;
+        }
+
+        #endregion
     }
 }
