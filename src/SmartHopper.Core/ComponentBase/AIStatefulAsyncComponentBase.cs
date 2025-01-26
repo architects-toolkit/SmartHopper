@@ -40,7 +40,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
-        protected string _model { get; private set; }
+        private string _model;
 
         /// <summary>
         /// The selected AI provider. Set up from the component's dropdown menu.
@@ -320,15 +320,21 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.BeforeSolveInstance();
 
-            // Clear the stored metrics on start a new run
-            _responseMetrics.Clear();
+            // Clear previous response metrics only when starting a new run
+            if (this.CurrentState == ComponentState.Processing && this.Run)
+            {
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics");
+
+                // Clear the stored metrics on start a new run
+                _responseMetrics.Clear();
+            }
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
             SetMetricsOutput(DA);
         }
-        
+
         #endregion
 
         #region DESIGN
