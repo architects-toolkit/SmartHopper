@@ -70,7 +70,7 @@ namespace SmartHopper.Core.DataTree
             Dictionary<string, GH_Structure<T>> trees,
             Dictionary<string, List<T>> currentBranches,
             GH_Path currentPath,
-            bool onlyMatchingPaths = false) where T : GH_String
+            bool onlyMatchingPaths = false) where T : IGH_Goo
         {
             var result = new List<GH_Path>();
             var currentKey = GetBranchesKey(currentBranches);
@@ -102,7 +102,7 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Generates a unique key for a set of branches based on their content
         /// </summary>
-        private static string GetBranchesKey<T>(Dictionary<string, List<T>> branches) where T : GH_String
+        private static string GetBranchesKey<T>(Dictionary<string, List<T>> branches) where T : IGH_Goo
         {
             var keyParts = branches
                 .OrderBy(kvp => kvp.Key)
@@ -251,14 +251,16 @@ namespace SmartHopper.Core.DataTree
 
         #region EXEC
 
-        public static async Task<Dictionary<string, GH_Structure<T>>> RunFunctionAsync<T>(
+        public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
-            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<T>>>> function,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false,
-            CancellationToken token = default) where T : GH_String
+            CancellationToken token = default)
+            where T : IGH_Goo
+            where U : IGH_Goo
         {
-            Dictionary<string, GH_Structure<T>> result = new Dictionary<string, GH_Structure<T>>();
+            Dictionary<string, GH_Structure<U>> result = new Dictionary<string, GH_Structure<U>>();
 
             // Get the amount of items in each tree
             var treeLengths = TreesLength<T>(trees.Values);
@@ -331,7 +333,7 @@ namespace SmartHopper.Core.DataTree
                         {
                             if (!result.ContainsKey(kvp.Key))
                             {
-                                result[kvp.Key] = new GH_Structure<T>();
+                                result[kvp.Key] = new GH_Structure<U>();
                                 Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
                             }
                             

@@ -100,7 +100,7 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", _inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", _inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String>(
+                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_String>(
                         _inputTree,
                         async branches => 
                         {
