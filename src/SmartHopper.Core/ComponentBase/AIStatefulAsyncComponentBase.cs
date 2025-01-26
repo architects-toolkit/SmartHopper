@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
@@ -345,6 +346,27 @@ namespace SmartHopper.Core.ComponentBase
         public override void CreateAttributes()
         {
             m_attributes = new AIComponentAttributes(this);
+        }
+
+        #endregion
+
+        #region TYPE
+
+        protected static GH_Structure<GH_String> ConvertToGHString(GH_Structure<IGH_Goo> tree)
+        {
+            var stringTree = new GH_Structure<GH_String>();
+            foreach (var path in tree.Paths)
+            {
+                var branch = tree.get_Branch(path);
+                var stringBranch = new List<GH_String>();
+                foreach (var item in branch)
+                {
+                    stringBranch.Add(new GH_String(item.ToString()));
+                }
+                stringTree.AppendRange(stringBranch, path);
+            }
+
+            return stringTree;
         }
 
         #endregion
