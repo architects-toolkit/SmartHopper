@@ -19,10 +19,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
+using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
@@ -40,12 +41,12 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
-        protected string _model { get; private set; }
+        private string _model;
 
         /// <summary>
         /// The selected AI provider. Set up from the component's dropdown menu.
         /// </summary>
-        protected string _aiProvider { get; private set; }
+        public string _aiProvider { get; private set; }
         private string _previousSelectedProvider;
 
         /// <summary>
@@ -67,7 +68,7 @@ namespace SmartHopper.Core.ComponentBase
             _aiProvider = MistralAI._name; // Default to MistralAI
         }
 
-        #region I/O
+        #region PARAMS
 
         /// <summary>
         /// Registers input parameters for the component.
@@ -186,9 +187,9 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets the API's endpoint to use when getting AI responses.
         /// </summary>
         /// <returns>The API's endpoint, or empty string for default endpoint</returns>
-        protected string GetEndpoint()
+        protected virtual string GetEndpoint()
         {
-            return ""; // "" means that the provider will use the default endpoint
+            return ""; // With the default value, the provider will use the default endpoint
         }
 
         protected override List<string> InputsChanged()
@@ -214,20 +215,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="messages">The messages to send to the AI provider.</param>
         /// <param name="token">The cancellation token to cancel the operation.</param>
         /// <returns>The AI response from the provider.</returns>
-        protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages, CancellationToken token)
+        protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages)
         {
-            //if (_isDebouncing)
-            //{
-            //    Debug.WriteLine("[AIStatefulAsyncComponentBase] [GetResponse] Debouncing, skipping request");
-            //    return new AIResponse
-            //    {
-            //        Response = "Too many requests, please wait...",
-            //        FinishReason = "error",
-            //        InTokens = 0,
-            //        OutTokens = 0
-            //    };
-            //}
-
             try
             {
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {_aiProvider}");
@@ -278,6 +267,8 @@ namespace SmartHopper.Core.ComponentBase
             if (response != null)
             {
                 _responseMetrics.Add(response);
+
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list");
             }
         }
 
@@ -292,7 +283,7 @@ namespace SmartHopper.Core.ComponentBase
 
             if (!_responseMetrics.Any())
             {
-                Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - No response, skipping metrics");
+                Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
             }
 
@@ -314,11 +305,68 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("branches_processed", _responseMetrics.Count)
             );
 
-            DA.SetData("Metrics", metricsJson);
-            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
+            // DA.SetData("Metrics", metricsJson);
 
-            // Clear the stored metrics after setting the output
-            _responseMetrics.Clear();
+            // Convert metricsJson to GH_String
+            var metricsJsonString = metricsJson.ToString();
+            var ghString = new GH_String(metricsJsonString);
+
+            // Set the metrics output
+            SetPersistentOutput("Metrics", ghString, DA);
+
+            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
+        }
+
+        protected override void BeforeSolveInstance()
+        {
+            base.BeforeSolveInstance();
+
+            // Clear previous response metrics only when starting a new run
+            if (this.CurrentState == ComponentState.Processing && this.Run)
+            {
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics");
+
+                // Clear the stored metrics on start a new run
+                _responseMetrics.Clear();
+            }
+        }
+
+        protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
+        {
+            SetMetricsOutput(DA);
+        }
+
+        #endregion
+
+        #region DESIGN
+
+        /// <summary>
+        /// Creates the custom attributes for this component, which includes the provider logo badge.
+        /// </summary>
+        public override void CreateAttributes()
+        {
+            m_attributes = new AIComponentAttributes(this);
+        }
+
+        #endregion
+
+        #region TYPE
+
+        protected static GH_Structure<GH_String> ConvertToGHString(GH_Structure<IGH_Goo> tree)
+        {
+            var stringTree = new GH_Structure<GH_String>();
+            foreach (var path in tree.Paths)
+            {
+                var branch = tree.get_Branch(path);
+                var stringBranch = new List<GH_String>();
+                foreach (var item in branch)
+                {
+                    stringBranch.Add(new GH_String(item.ToString()));
+                }
+                stringTree.AppendRange(stringBranch, path);
+            }
+
+            return stringTree;
         }
 
         #endregion

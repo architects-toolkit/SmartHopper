@@ -12,10 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a new Component Base for AI-Powered components, including these features:
   - Debouncing timer to prevent fast recalculations
   - Enhanced state management system with granular state tracking
-  - Unified AIStatefulComponentBase and AsyncStatefulComponentBase for easier maintenance
+  - Better stability in the state management, that prevents unwanted recalculations
   - Store outputs and prevent from recalculating on file open
   - Store outputs and prevent from recalculating on modifying Graft/Flatten/Simplify
-  - Persistent error tracking
+  - Persistent error tracking through states
   - Compatibility with button and boolean toggle in the Run input
   - Compatibility with Data Tree processing (Input and Output)
   - Manual cancellation while processing
@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - General clean up and refactoring, including the suppression of unnecessary comments, and the removal of deprecated features.
 - Migrate AI Text Generate component to use the new Component Base.
+- Refactor DataTree libraries in Core to unify and simplify functionality.
 
 ### Fixed
 

@@ -100,7 +100,7 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void BeforeSolveInstance()
         {
-            if (_state != 0 && _setData == 1)
+            if (_state > 0 && _setData == 1)
             {
                 // Skip BeforeSolveInstance and jump to SolveInstance
                 return;
@@ -117,88 +117,94 @@ namespace SmartHopper.Core.ComponentBase
             Workers.Clear();
             _state = 0;
             _setData = 0;
-            //Message = string.Empty;
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[AsyncComponentBase] SolveInstance - State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
-            
+
             // Initial run
-            if (_state == 0)
+            if (_state == 0 && _tasks.Count == 0)
             {
-                var worker = CreateWorker(m => Message = m);
+                Debug.WriteLine($"[AsyncComponentBase] Creating a new worker, State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}, Workers: {Workers.Count}, CancellationSources: {_cancellationSources.Count}, CurrentWorker: {CurrentWorker != null}, Message: {Message}");
 
-                // Set up worker
+                // First pass - Pre-solve
+                InPreSolve = true;
+
+                // Create a new worker and add it to the list
+                var worker = CreateWorker(s => Message = s);
+                Workers.Add(worker);
+
+                Debug.WriteLine("[AsyncComponentBase] Gathering input");
+                
+                // Gather input before starting the task
                 worker.GatherInput(DA);
-                var tokenSource = new CancellationTokenSource();
-                _cancellationSources.Add(tokenSource);
+                CurrentWorker = worker;
 
-                // Create task
-                var task = new Task(async () =>
+                // Create cancellation token source
+                var source = new CancellationTokenSource();
+                _cancellationSources.Add(source);
+
+                // Create task that properly awaits the async work
+                var task = Task.Run(async () => 
                 {
-                    try
+                    try 
                     {
-                        await worker.DoWorkAsync(tokenSource.Token);
-                        Interlocked.Increment(ref _state);
-                        if (_state == Workers.Count && _setData == 0)
-                        {
-                            Interlocked.Exchange(ref _setData, 1);
-                            Workers.Reverse();
-                            Rhino.RhinoApp.InvokeOnUiThread((Action)(() => ExpireSolution(true)));
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Debug.WriteLine($"[AsyncComponentBase] Worker task cancelled");
+                        await worker.DoWorkAsync(source.Token);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AsyncComponentBase] Worker task failed: {ex.Message}");
+                        Debug.WriteLine($"[AsyncComponentBase] Task failed with error: {ex.Message}");
+                        throw; // Re-throw to be caught by ContinueWith
                     }
-                }, tokenSource.Token);
+                });
 
-                Workers.Add(worker);
-                CurrentWorker = worker;
+                // Add task to the list
                 _tasks.Add(task);
-                
-                // First pass - Pre-solve
-                InPreSolve = true;
+
                 OnSolveInstancePreSolve(DA);
-                return;
+                return; // Jump to AfterSolveInstance to execute tasks
             }
 
-            if (_setData == 0)
-            {
-                // Skip SolveInstance, jump to AfterSolveInstance
-                return;
-            }
+            /* _state != 0 || _tasks.Count != 0 */
 
-            // Second pass - Post-solve
+            // Second pass - Post-solve - Setting output
             InPreSolve = false;
+
+            Debug.WriteLine($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {InPreSolve}, State: {_state}, SetData: {_setData}, Workers.Count: {Workers.Count}");
+
             if (Workers.Count > 0)
             {
-                Interlocked.Decrement(ref _state);
-                string outMessage = null;
-                Workers[_state].SetOutput(DA, out outMessage);
-                //if (!string.IsNullOrEmpty(doneMessage))
-                //    Message = doneMessage;
+                // Call SetOutput for each worker in reverse order
+                for (int i = Workers.Count - 1; i >= 0; i--)
+                {
+                    Debug.WriteLine($"[AsyncComponentBase] Setting output for worker {i + 1}/{Workers.Count}");
+                    string outMessage = null;
+                    
+                    // Ensure SetOutput runs on UI thread
+                    Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                    {
+                        Workers[i].SetOutput(DA, out outMessage);
+                        Message = outMessage;
+                        Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
+                    }));
+                    
+                    Interlocked.Decrement(ref _state);
+                }
                 
+                Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {_state}");
                 OnSolveInstancePostSolve(DA);
             }
 
             if (_state != 0)
-                return;
+                return; // Call SolveInstanve again until state is 0
 
             // Clean up
             _cancellationSources.Clear();
             Workers.Clear();
-            //_progressReports.Clear();
             _tasks.Clear();
 
             Interlocked.Exchange(ref _setData, 0);
-            // Message = "Done";
-            //OnDisplayExpired(true);
 
             OnWorkerCompleted();
         }
@@ -206,13 +212,53 @@ namespace SmartHopper.Core.ComponentBase
         protected override void AfterSolveInstance()
         {
             Debug.WriteLine($"[AsyncComponentBase] AfterSolveInstance - State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
+
             if (_state == 0 && _tasks.Count > 0 && _setData == 0)
             {
-                // Run all tasks
-                foreach (var task in _tasks)
-                {
-                    task.Start();
-                }
+                Debug.WriteLine($"[AsyncComponentBase] Starting {_tasks.Count} tasks");
+                
+                // Create a continuation task that will handle completion of all tasks
+                Task.WhenAll(_tasks)
+                    .ContinueWith(t =>
+                    {
+                        if (t.IsFaulted)
+                        {
+                            Debug.WriteLine($"[AsyncComponentBase] Task exceptions occurred:");
+                            var ae = t.Exception;
+                            foreach (var ex in ae.InnerExceptions)
+                            {
+                                Debug.WriteLine($"[AsyncComponentBase] - {ex.Message}");
+                                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Task error: {ex.Message}");
+                            }
+                            // Ensure state is valid even on error
+                            if (_state == 0)
+                            {
+                                _state = Workers.Count;
+                                _setData = 1;
+                            }
+                        }
+                        else
+                        {
+                            // Only increment state and set data if we haven't already
+                            if (_state == 0 && _setData == 0)
+                            {
+                                Interlocked.Increment(ref _state);
+                                if (_state == Workers.Count)
+                                {
+                                    Interlocked.Exchange(ref _setData, 1);
+                                    Workers.Reverse();
+                                }
+                            }
+                            
+                            Debug.WriteLine($"[AsyncComponentBase] All tasks completed successfully. State: {_state}, SetData: {_setData}, Workers: {Workers.Count}");
+                        }
+
+                        // Schedule component update on UI thread
+                        Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                        {
+                            ExpireSolution(true);
+                        }));
+                    }, TaskScheduler.Default);
             }
         }
 
@@ -236,7 +282,7 @@ namespace SmartHopper.Core.ComponentBase
 
         protected virtual void OnWorkerCompleted()
         {
-            Debug.WriteLine($"[{GetType().Name}] All workers completed");
+            Debug.WriteLine($"[{GetType().Name}] All workers completed. State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
         }
 
         /// <summary>
