@@ -135,6 +135,8 @@ namespace SmartHopper.Core.ComponentBase
                 var worker = CreateWorker(s => Message = s);
                 Workers.Add(worker);
 
+                Debug.WriteLine("[AsyncComponentBase] Gathering input");
+                
                 // Gather input before starting the task
                 worker.GatherInput(DA);
                 CurrentWorker = worker;
