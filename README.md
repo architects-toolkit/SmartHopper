@@ -25,12 +25,11 @@ SmartHopper brings the power of AI assistance directly into your Grasshopper wor
 - 🌱 Compatible with Data Tree processing in Grasshopper3D.
 - ⌚ Asynchronous execution to prevent blocking the canvas.
 - 🔄 Run the components with a Button (single manual run) or a Boolean Toggle (run on every input change).
-- 🏗️ Optimized for parallel processing.
 - 🧱 Clean, modular architecture for stability and future extensibility.
 
 ## 💻 Installation
 
-SmartHopper is not yet available through Food4Rhino. We will be releasing it soon! In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
+SmartHopper is not yet available through Food4Rhino. <span style="color: red;">We will be releasing it soon!</span> In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
 
 ## 📊 Development Status
 
@@ -43,7 +42,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | AI Text Alter (AiTextAlter)<br><sub>Modify and process text based on AI-driven criteria</sub> | ⚪ | - | - | - |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI language models</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI List Check (AiListCheck)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | - |
-| AI List Filter (AiListFilter)<br><sub>Filter and process items in lists based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | - |
+| AI List Alter (AiListAlter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | - | - | - |

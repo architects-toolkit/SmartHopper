@@ -72,49 +72,56 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="DA">The Grasshopper data access object.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            Debug.WriteLine("[AsyncStatefulComponentBase] SolveInstance - Start");
+            Debug.WriteLine($"[AsyncStatefulComponentBase] SolveInstance - State: {_stateManager.CurrentState}; InPreSolve: {InPreSolve}; HasTemporaryError: {_stateManager.HasTemporaryError}; HasPersistentError: {_stateManager.HasPersistentError}");
+
+            // Store the data access instance
             if (DataAccess == null) DataAccess = DA;
 
+            // Check for Run input
             bool run = false;
             DA.GetData("Run", ref run);
 
-            // Update needsRun based on input changes and current state
-            bool needsRun = run;
-            if (_stateManager.CurrentState == ComponentState.Completed)
+            switch (_stateManager.CurrentState)
             {
-                needsRun = false;
-            }
+                case ComponentState.NeedsRun:
+                    if (run && InPreSolve)
+                    {
+                        _stateManager.TransitionTo(ComponentState.Processing);
+                    }
+                    break;
+                
+                case ComponentState.Processing:
+                    base.SolveInstance(DA);
+                    break;
+                
+                case ComponentState.Completed:
+                    // If we're not in PreSolve, set outputs
+                    if (!InPreSolve)
+                    {
+                        // Set outputs and transition to waiting state
+                        _lastCompletionTime = DateTime.Now;
+                        base.SolveInstance(DA);
+                        _stateManager.TransitionTo(ComponentState.Waiting);
+                    }
+                    break;
 
-            // Log the current state and flags for debugging
-            Debug.WriteLine($"[AsyncStatefulComponentBase] SolveInstance - State: {_stateManager.CurrentState}, Run: {run}, NeedsRun: {needsRun}, InPreSolve: {InPreSolve}, IsWorkerCompletion: {_stateManager.CurrentState == ComponentState.Completed}");
+                case ComponentState.Waiting:
+                    // If run is true, transition to NeedsRun, else to Processing
+                    if (run)
+                    {
+                        _stateManager.TransitionTo(ComponentState.Processing);
+                    }
+                    else
+                    {
+                        _stateManager.TransitionTo(ComponentState.NeedsRun);
+                    }
+                    break;
 
-            if (InPreSolve && needsRun && _stateManager.CurrentState != ComponentState.Processing)
-            {
-                // Start the asynchronous operation during PreSolve phase
-                TransitionTo(ComponentState.Processing);
-                base.SolveInstance(DA);
-            }
-            else if (_stateManager.CurrentState == ComponentState.Completed && !InPreSolve)
-            {
-                // The worker has completed and we're not in PreSolve, so it's safe to set outputs
-                Debug.WriteLine("[AsyncStatefulComponentBase] In Completed state (results phase), calling base to set outputs");
-                base.SolveInstance(DA);
-
-                // Transition back to Waiting state after outputs are set and update completion time
-                Debug.WriteLine("[AsyncStatefulComponentBase] Completed state finished outputting, transitioning to Waiting");
-                _lastCompletionTime = DateTime.Now;
-                TransitionTo(ComponentState.Waiting);
-            }
-            else if (!InPreSolve &&
-                (DateTime.Now - _lastCompletionTime).TotalMilliseconds > DEBOUNCE_MS &&
-                (_stateManager.CurrentState == ComponentState.Waiting ||
-                _stateManager.CurrentState == ComponentState.NeedsRerun ||
-                _stateManager.CurrentState == ComponentState.NeedsRun ||
-                _stateManager.CurrentState == ComponentState.Error ||
-                _stateManager.CurrentState == ComponentState.Cancelled)
-                )
-            {
-                Debug.WriteLine($"[AsyncStatefulComponentBase] External solution expiration while Waiting (Time since completion: {(DateTime.Now - _lastCompletionTime).TotalMilliseconds}ms), transitioning to NeedsRerun");
-                TransitionTo(ComponentState.NeedsRerun);
+                // If the component state is not defined, default to NeedsRun to start back to the beginning
+                default:
+                    _stateManager.TransitionTo(ComponentState.NeedsRun);
+                    break;
             }
         }
 
@@ -127,12 +134,12 @@ namespace SmartHopper.Core.Async.Components
             // Only expire downstream objects if we're not in the middle of a worker completion
             // This prevents the flash of null data until the new solution is ready
             Debug.WriteLine($"[AsyncStatefulComponentBase] ExpireDownStreamObjects - Values - CurrentState: {_stateManager.CurrentState} --> Expiring? {_stateManager.CurrentState == ComponentState.Completed}");
-            if (StateManager.CurrentState == ComponentState.Completed ||
-                StateManager.CurrentState == ComponentState.NeedsRun)
+            if (StateManager.CurrentState == ComponentState.Completed)
             {
                 Debug.WriteLine("Expiring downstream objects from AsyncStatefulComponentBase");
                 base.ExpireDownStreamObjects();
             }
+            return;
         }
 
         /// <summary>
@@ -178,6 +185,7 @@ namespace SmartHopper.Core.Async.Components
         internal virtual void TransitionTo(ComponentState newState)
         {
             Debug.WriteLine($"[AsyncStatefulComponentBase] State transition: {_stateManager.CurrentState} -> {newState}");
+
             _stateManager.TransitionTo(newState);
         }
 
@@ -187,10 +195,12 @@ namespace SmartHopper.Core.Async.Components
         /// <param name="newState">The new state to transition to.</param>
         protected virtual void OnStateChanged(ComponentState newState)
         {
-            if (newState == ComponentState.Completed)
+            switch (newState)
             {
-                Debug.WriteLine("[AsyncStatefulComponentBase] Worker completed, calling OnWorkerCompleted");
-                OnWorkerCompleted();
+                case ComponentState.Completed:
+                    Debug.WriteLine("[AsyncStatefulComponentBase] Worker completed, calling OnWorkerCompleted");
+                    OnWorkerCompleted();
+                    break;
             }
         }
 
@@ -199,29 +209,21 @@ namespace SmartHopper.Core.Async.Components
         /// </summary>
         internal void OnWorkerCompleted()
         {
-            try
-            {
-                TransitionTo(ComponentState.Completed);
-                Debug.WriteLine("[AsyncStatefulComponentBase] Worker completed, expiring solution");
+            TransitionTo(ComponentState.Completed);
+            Debug.WriteLine("[AsyncStatefulComponentBase] Worker completed, expiring solution");
 
-                // First, trigger the solution expiration on the UI thread
-                Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
-                {
-                    ExpireSolution(true);
-                });
-
-                // Then update the display - this needs to happen after ExpireSolution
-                // to ensure proper synchronization
-                Message = "Done";
-                Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
-                {
-                    OnDisplayExpired(true);
-                });
-            }
-            finally
+            // First, trigger the solution expiration on the UI thread
+            Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
             {
-                // State will transition to Waiting in SolveInstance
-            }
+                ExpireSolution(true);
+            });
+
+            // Then update the display - this needs to happen after ExpireSolution
+            // to ensure proper synchronization
+            Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+            {
+                OnDisplayExpired(true);
+            });
         }
 
         /// <summary>

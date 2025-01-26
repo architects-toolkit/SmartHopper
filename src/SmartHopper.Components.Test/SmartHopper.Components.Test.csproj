@@ -5,15 +5,16 @@
   <PropertyGroup>
     <TargetFrameworks>net7.0-windows;net7.0;net48</TargetFrameworks>
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TargetExt>.gha</TargetExt>
     <NoWarn>NU1701;NETSDK1086</NoWarn>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   
   <PropertyGroup>
     <Version>$(SolutionVersion)</Version>
-    <Title>SmartHopper Configuration</Title>
+    <Title>SmartHopper Components Test</Title>
     <Company>Architect's Toolkit (RKTK.tools) + SmartHopper Community</Company>
-    <Description>Menu and settings management for SmartHopper</Description>
+    <Description>Test components for SmartHopper</Description>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -21,26 +22,25 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="Grasshopper" Version="8.13.24317.13001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="RhinoCommon" Version="8.13.24317.13001">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <!-- <PackageReference Include="Markdig" Version="0.35.0" /> -->
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.59" />
-    <!-- <PackageReference Include="RestSharp" Version="112.1.0" /> -->
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+	<PackageReference Include="System.Resources.Extensions" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
+    <ProjectReference Include="..\SmartHopper.Core\SmartHopper.Core.csproj" />
+    <ProjectReference Include="..\SmartHopper.Core.Grasshopper\SmartHopper.Core.Grasshopper.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">
     <UseWindowsForms>true</UseWindowsForms>
-    <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
   </PropertyGroup>
-
   
   <!-- Reference WinForms for .NET 7.0 on macOS -->
   <ItemGroup Condition="!($(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4')))">
@@ -50,7 +50,7 @@
     <!-- Rhino 8.10 and earlier -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" ExcludeAssets="all" GeneratePathProperty="true" />
     <Reference Include="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net48)\build\.NETFramework\v4.8\System.Windows.Forms.dll" Private="False" />
-    <PackageReference Include="System.Drawing.Common" Version="7.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
@@ -58,18 +58,5 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\.editorconfig" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Update="Properties\providersResources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>providersResources.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\providersResources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>providersResources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
   </ItemGroup>
 </Project>
