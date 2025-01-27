@@ -177,6 +177,7 @@ namespace SmartHopper.Components.List
                     {
                         parent.AIErrorToPersistentRuntimeMessage(response);
                         outputs["Result"].Add(new GH_String(string.Empty));
+                        i++;
                         continue;
                     }
 

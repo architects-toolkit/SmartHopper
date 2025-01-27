@@ -24,23 +24,23 @@ using System.Linq;
 
 namespace SmartHopper.Components.Text
 {
-    public class AITextGenerate : AIStatefulAsyncComponentBase
+    public class AITextCheck : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
-        protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
+        public override Guid ComponentGuid => new Guid("D3EB06A8-C219-46E3-854E-15EC798AD63A");
+        protected override System.Drawing.Bitmap Icon => Resources.textcheck;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        public AITextGenerate()
-            : base("AI Text Generate", "AITextGenerate",
-                  "Generate text using LLM.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+        public AITextCheck()
+            : base("AI Text Check", "AITextCheck",
+                  "Ask true or false questions agains a text using natural language.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "The prompt to send to the AI", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Text", "T", "The text to evaluate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Question", "Q", "Ask a true or false question. The AI will answer it based on the input text", GH_ParamAccess.tree, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -55,24 +55,24 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextGenerateWorker(this, AddRuntimeMessage);
+            return new AITextCheckWorker(this, AddRuntimeMessage);
         }
 
-        private class AITextGenerateWorker : AsyncWorkerBase
+        private class AITextCheckWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> _inputTree;
-            private Dictionary<string, GH_Structure<GH_String>> _result;
-            private readonly AITextGenerate _parent;
+            private Dictionary<string, GH_Structure<GH_Boolean>> _result;
+            private readonly AITextCheck _parent;
 
-            public AITextGenerateWorker(
-            AITextGenerate parent,
+            public AITextCheckWorker(
+            AITextCheck parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
-                _result = new Dictionary<string, GH_Structure<GH_String>>
+                _result = new Dictionary<string, GH_Structure<GH_Boolean>>
                 {
-                    { "Result", new GH_Structure<GH_String>() }
+                    { "Result", new GH_Structure<GH_Boolean>() }
                 };
             }
 
@@ -81,15 +81,15 @@ namespace SmartHopper.Components.Text
                 _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
                 // Get the input trees
-                var promptTree = new GH_Structure<GH_String>();
-                var instructionsTree = new GH_Structure<GH_String>();
+                var textTree = new GH_Structure<GH_String>();
+                var questionTree = new GH_Structure<GH_String>();
 
-                DA.GetDataTree("Prompt", out promptTree);
-                DA.GetDataTree("Instructions", out instructionsTree);
+                DA.GetDataTree("Text", out textTree);
+                DA.GetDataTree("Question", out questionTree);
 
                 // The first defined tree is the one that overrides paths in case they don't match between trees
-                _inputTree["Prompt"] = promptTree;
-                _inputTree["Instructions"] = instructionsTree;
+                _inputTree["Text"] = textTree;
+                _inputTree["Question"] = questionTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -100,7 +100,7 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", _inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", _inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_String>(
+                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_Boolean>(
                         _inputTree,
                         async branches => 
                         {
@@ -119,7 +119,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextCheck parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -134,53 +134,62 @@ namespace SmartHopper.Components.Text
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var promptTree = branches["Prompt"];
-                var instructionsTree = branches["Instructions"];
+                var textTree = branches["Text"];
+                var questionTree = branches["Question"];
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { promptTree, instructionsTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { textTree, questionTree });
 
                 // Reassign normalized branches
-                promptTree = normalizedLists[0];
-                instructionsTree = normalizedLists[1];
+                textTree = normalizedLists[0];
+                questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Text count: {textTree.Count}, Question count: {questionTree.Count}");
 
                 // Initialize the output
-                var outputs = new Dictionary<string, List<GH_String>>();
-                outputs["Result"] = new List<GH_String>();
+                var outputs = new Dictionary<string, List<GH_Boolean>>();
+                outputs["Result"] = new List<GH_Boolean>();
 
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
                 int i = 0;
-                foreach (var prompt in promptTree)
+                foreach (var text in textTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
+                    Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textTree.Count}");
 
                     // Initiate the messages array
                     var messages = new List<KeyValuePair<string, string>>();
 
-                    // Add system prompt if available
-                    var systemPrompt = instructionsTree[i].Value;
-                    if (!string.IsNullOrWhiteSpace(systemPrompt))
-                    {
-                        messages.Add(new KeyValuePair<string, string>("system", systemPrompt));
-                    }
+                    // Add the system prompt
+                    messages.Add(new KeyValuePair<string, string>("system", "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\nRespond with TRUE or FALSE, nothing else.\n\nIn case the text does not match the criteria, respond with FALSE."));
 
-                    // Add the user prompt
-                    messages.Add(new KeyValuePair<string, string>("user", prompt.Value));
+                    // Add the user message
+                    messages.Add(new KeyValuePair<string, string>("user", $"This is my question: \"{questionTree[i].Value}\"\n\nAnswer to the previous question on the following text:\n{textTree[i].Value}\n\n"));
 
                     var response = await parent.GetResponse(messages);
 
                     if (response.FinishReason == "error")
                     {
                         parent.AIErrorToPersistentRuntimeMessage(response);
-                        outputs["Result"].Add(new GH_String(string.Empty));
+                        outputs["Result"].Add(null);
                         i++;
                         continue;
                     }
 
-                    outputs["Result"].Add(new GH_String(response.Response));
+                    var result = ParseBooleanFromResponse(response.Response);
+
+                    if (result == null)
+                    {
+                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"The AI returned an invalid response:\n{response.Response}", false);
+                        outputs["Result"].Add(null);
+                        i++;
+                        continue;
+                    }
+                    else
+                    {
+                        outputs["Result"].Add(new GH_Boolean(result ?? false));
+                    }
+
                     i++;
                 }
 
@@ -200,6 +209,19 @@ namespace SmartHopper.Components.Text
 
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
+            }
+
+            private static bool? ParseBooleanFromResponse(string response)
+            {
+                if (string.IsNullOrWhiteSpace(response)) return null;
+
+                var lowerResponse = response.ToLowerInvariant();
+                bool hasTrue = lowerResponse.Contains("true");
+                bool hasFalse = lowerResponse.Contains("false");
+
+                if (hasTrue && !hasFalse) return true;
+                if (hasFalse && !hasTrue) return false;
+                return null;
             }
         }
     }

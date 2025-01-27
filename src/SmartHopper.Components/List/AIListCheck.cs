@@ -177,6 +177,7 @@ namespace SmartHopper.Components.List
                     {
                         parent.AIErrorToPersistentRuntimeMessage(response);
                         outputs["Result"].Add(null);
+                        i++;
                         continue;
                     }
 
@@ -186,6 +187,7 @@ namespace SmartHopper.Components.List
                     {
                         parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"The AI returned an invalid response:\n{response.Response}", false);
                         outputs["Result"].Add(null);
+                        i++;
                         continue;
                     }
                     else
@@ -209,8 +211,6 @@ namespace SmartHopper.Components.List
                     message = "Error: No result available";
                     return;
                 }
-
-
 
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
