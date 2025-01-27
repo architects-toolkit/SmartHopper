@@ -93,9 +93,9 @@ namespace SmartHopper.Components.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap listcheck {
+        internal static System.Drawing.Bitmap listevaluate {
             get {
-                object obj = ResourceManager.GetObject("listcheck", resourceCulture);
+                object obj = ResourceManager.GetObject("listevaluate", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -106,6 +106,36 @@ namespace SmartHopper.Components.Properties {
         internal static System.Drawing.Bitmap listfilter {
             get {
                 object obj = ResourceManager.GetObject("listfilter", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap textevaluate {
+            get {
+                object obj = ResourceManager.GetObject("textevaluate", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap textalter {
+            get {
+                object obj = ResourceManager.GetObject("textalter", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap listgenerate {
+            get {
+                object obj = ResourceManager.GetObject("listgenerate", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+
+## [0.1.0-alpha] - 2025-01-27
+
+### Added
+
+- Added the new AITextEvaluate component.
+
+### Changed
+
+- Renamed the AI List Check components to AI List Evaluate.
+- Improved AI provider's icon visualization.
+
+### Removed
+
+- Removed components based on the old Component Base.
+- Removed the code for the old Component Base.
+
+### Fixed
+
+- Fixed Feature request: Full rewrite of the Component Base ([#20](https://github.com/architects-toolkit/SmartHopper/issues/20))
+- Fixed Feature request: AI Text Check Component ([#4](https://github.com/architects-toolkit/SmartHopper/issues/4))
+
+## [0.0.0-dev.250126] - 2025-01-26
+
 ### Added
 
 - Added a new Component Base for AI-Powered components, including these features:
@@ -32,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed lack of comprehensive error when API key is not correct ([#13](https://github.com/architects-toolkit/SmartHopper/issues/13))
 - Fixed Changing Graft/Flatten from an output requires recomputing the component ([#7](https://github.com/architects-toolkit/SmartHopper/issues/7))
 - Fixed Feature request: Store outputs and prevent from recalculating on file open ([#8](https://github.com/architects-toolkit/SmartHopper/issues/8))
+- Fixed Bug: Multiple calls to SolveInstance cause multipe API calls (in dev branch) ([#24](https://github.com/architects-toolkit/SmartHopper/issues/24))
 
 ## [0.0.0-dev.250104] - 2025-01-04
 

@@ -249,6 +249,31 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
+        {
+            var responseMessage = response.Response.ToLower();
+            
+            if (responseMessage.Contains("401") ||
+                responseMessage.Contains("unauthorized"))
+            {
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    $"AUTHENTICATION ERROR: is the API key correct?",
+                    false
+                );
+            }
+            else
+            {
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    $"AI error while processing the response:\n{response.Response}",
+                    false
+                );
+            }
+        }
+
         #endregion
 
         #region METRICS
@@ -292,11 +317,14 @@ namespace SmartHopper.Core.ComponentBase
             int totalOutTokens = _responseMetrics.Sum(r => r.OutTokens);
             string finishReason = _responseMetrics.Last().FinishReason;
             double totalCompletionTime = _responseMetrics.Sum(r => r.CompletionTime);
+            string usedModels = string.Join(", ", _responseMetrics
+                .Select(r => r.Model)
+                .Distinct());
 
             // Create JSON object with metrics
             var metricsJson = new JObject(
                 new JProperty("ai_provider", _aiProvider),
-                new JProperty("ai_model", _model),
+                new JProperty("ai_model", usedModels),
                 new JProperty("tokens_input", totalInTokens),
                 new JProperty("tokens_output", totalOutTokens),
                 new JProperty("finish_reason", finishReason),

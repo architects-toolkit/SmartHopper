@@ -9,8 +9,10 @@
  */
 
 using System.Drawing;
+using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
+using Grasshopper.GUI.Canvas.Interaction;
 using SmartHopper.Config.Configuration;
 
 namespace SmartHopper.Core.ComponentBase
@@ -24,6 +26,8 @@ namespace SmartHopper.Core.ComponentBase
         private readonly AIStatefulAsyncComponentBase _owner;
         private const int BADGE_SIZE = 16; // Size of the provider logo badge
         private const int BADGE_PADDING = 4; // Padding from component edge
+        private const float MIN_ZOOM_THRESHOLD = 0.5f; // Minimum zoom level to show the badge
+        private const int PROVIDER_STRIP_HEIGHT = 20; // Height of the provider strip
 
         /// <summary>
         /// Creates a new instance of AIComponentAttributes
@@ -35,7 +39,23 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Renders the component with an additional provider logo badge
+        /// Layout the component with additional space for the provider strip
+        /// </summary>
+        protected override void Layout()
+        {
+            base.Layout();
+
+            // Only extend bounds if we have a valid provider
+            if (!string.IsNullOrEmpty(_owner._aiProvider))
+            {
+                var bounds = Bounds;
+                bounds.Height += PROVIDER_STRIP_HEIGHT;
+                Bounds = bounds;
+            }
+        }
+
+        /// <summary>
+        /// Renders the component with an additional provider strip
         /// </summary>
         /// <param name="canvas">The canvas being rendered to</param>
         /// <param name="graphics">The graphics object to use for drawing</param>
@@ -46,8 +66,8 @@ namespace SmartHopper.Core.ComponentBase
 
             if (channel == GH_CanvasChannel.Objects)
             {
-                // Only render the badge if we have a valid provider
-                if (string.IsNullOrEmpty(_owner._aiProvider))
+                // Only render the provider strip if we have a valid provider and we're zoomed in enough
+                if (string.IsNullOrEmpty(_owner._aiProvider) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
                     return;
 
                 // Get the provider icon
@@ -55,50 +75,32 @@ namespace SmartHopper.Core.ComponentBase
                 if (providerIcon == null)
                     return;
 
-                // Calculate badge position (top-right corner)
+                // Get the bounds of the component
                 var bounds = Bounds;
 
-                // Calculate badge position (bottom right corner)
-                var badgeRect = new RectangleF(
-                    bounds.Left + bounds.Width / 2 - BADGE_SIZE / 2 - BADGE_PADDING - 2,
-                    bounds.Top + bounds.Height / 2 + BADGE_SIZE,
-                    BADGE_SIZE + BADGE_PADDING * 2,
-                    BADGE_SIZE + BADGE_PADDING * 2);
+                // Calculate strip position at the bottom of the component
+                var stripRect = new RectangleF(
+                    bounds.Left,
+                    bounds.Bottom - PROVIDER_STRIP_HEIGHT,
+                    bounds.Width,
+                    PROVIDER_STRIP_HEIGHT);
 
+                // Calculate starting X position to center the pack
+                var startX = bounds.Left + (bounds.Width - BADGE_SIZE) / 2;
+
+                // Calculate icon position within strip
                 var iconRect = new RectangleF(
-                    bounds.Left + bounds.Width / 2 - BADGE_SIZE / 2 - BADGE_PADDING - 2 + BADGE_PADDING,
-                    bounds.Top + bounds.Height / 2 + BADGE_SIZE + BADGE_PADDING,
+                    startX,
+                    bounds.Bottom - PROVIDER_STRIP_HEIGHT + (PROVIDER_STRIP_HEIGHT - BADGE_SIZE) / 2,
                     BADGE_SIZE,
                     BADGE_SIZE);
 
-                // Draw the badge with a modern, semi-transparent background for visibility
-                using (var brush = new SolidBrush(Color.FromArgb(200, Color.White)))
+                // Draw the provider icon using GH methods
+                if (providerIcon != null)
                 {
-                    graphics.FillEllipse(brush, badgeRect);
+                    GH_GraphicsUtil.RenderIcon(graphics, iconRect, providerIcon);
                 }
-
-                // Draw a border around the badge for a cleaner look
-                using (var pen = new Pen(Color.FromArgb(50, Color.Black), 1f))
-                {
-                    graphics.DrawEllipse(pen, badgeRect);
-                }
-
-                // Draw the provider icon
-                graphics.DrawImage(providerIcon, iconRect);
             }
-        }
-
-        /// <summary>
-        /// Layout the component with additional space for the badge
-        /// </summary>
-        protected override void Layout()
-        {
-            base.Layout();
-
-            ////// Expand the bounds slightly to accommodate the badge
-            //var bounds = Bounds;
-            //bounds.Width += BADGE_SIZE + (BADGE_PADDING * 2);
-            //Bounds = bounds;
         }
     }
 }
