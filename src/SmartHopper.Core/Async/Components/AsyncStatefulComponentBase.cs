@@ -209,7 +209,7 @@ namespace SmartHopper.Core.Async.Components
         /// <summary>
         /// Handles the completion of the worker process, updating component state and triggering necessary UI updates.
         /// </summary>
-        internal void OnWorkerCompleted()
+        protected override void OnWorkerCompleted()
         {
             TransitionTo(ComponentState.Completed);
             Debug.WriteLine("[AsyncStatefulComponentBase] Worker completed, expiring solution");
