@@ -32,15 +32,15 @@ namespace SmartHopper.Components.Text
 
         public AITextGenerate()
             : base("AI Text Generate", "AITextGenerate",
-                  "Generate text using LLM.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                  "Generate text from natural language instructions.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "The prompt to send to the AI", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optionally, specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)

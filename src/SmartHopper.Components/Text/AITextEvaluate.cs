@@ -32,7 +32,7 @@ namespace SmartHopper.Components.Text
 
         public AITextEvaluate()
             : base("AI Text Evaluate", "AITextEvaluate",
-                  "Ask true or false questions against a text using natural language.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                  "Use natural language to ask a true or false question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
         }
@@ -40,12 +40,12 @@ namespace SmartHopper.Components.Text
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Text", "T", "The text to evaluate", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Question", "Q", "Ask a true or false question. The AI will answer it based on the input text", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question.\nThe AI will answer this question based on the input text", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
         }
 
         protected override string GetEndpoint()

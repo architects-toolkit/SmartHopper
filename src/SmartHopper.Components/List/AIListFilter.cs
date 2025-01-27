@@ -31,20 +31,20 @@ namespace SmartHopper.Components.List
 
         public AIListFilter()
             : base("AI List Filter", "AIListFilter",
-                  "Filter and reorder a list of elements using natural language prompts. Each prompt will be processed seperately against each list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
+                  "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nEach criterion will be processed separately against each list. If a tree structure is provided, criteria and lists will only match within the same branch paths.",
                   "SmartHopper", "List")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("List", "L", "List of elements to filter or reorder", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Prompt", "P", "Natural language prompt describing how to modify, filter, or reorder the list.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("List", "L", "REQUIRED List of items", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Criteria", "C", "REQUIRED Natural language prompt describing how to filter, reorder, shuffle, repeat items or combine multiple tasks on the list.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Result", "R", "Processed list", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Result", "R", "Result after processing the list", GH_ParamAccess.tree);
         }
 
         protected override string GetEndpoint()
@@ -81,17 +81,17 @@ namespace SmartHopper.Components.List
 
                 // Get the input trees
                 var listTree = new GH_Structure<IGH_Goo>();
-                var promptTree = new GH_Structure<GH_String>();
+                var criteriaTree = new GH_Structure<GH_String>();
 
                 DA.GetDataTree("List", out listTree);
-                DA.GetDataTree("Prompt", out promptTree);
+                DA.GetDataTree("Criteria", out criteriaTree);
 
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
 
                 // Store the converted trees
                 _inputTree["List"] = stringListTree;
-                _inputTree["Prompt"] = promptTree;
+                _inputTree["Criteria"] = criteriaTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -137,19 +137,19 @@ namespace SmartHopper.Components.List
 
                 // Get the trees
                 var listTreeOriginal = branches["List"];
-                var promptTree = branches["Prompt"];
+                var criteriaTree = branches["Criteria"];
 
                 // Wrap list to JSON string
                 var listTree = ConcatenateItems(listTreeOriginal);
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, promptTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, criteriaTree });
 
                 // Reassign normalized branches
                 listTree = normalizedLists[0];
-                promptTree = normalizedLists[1];
+                criteriaTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, List count: {listTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {criteriaTree.Count}, List count: {listTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -158,18 +158,18 @@ namespace SmartHopper.Components.List
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
                 int i = 0;
-                foreach (var prompt in promptTree)
+                foreach (var criterion in criteriaTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
+                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{criteriaTree.Count}");
 
                     // Initiate the messages array
                     var messages = new List<KeyValuePair<string, string>>();
 
                     // Add the system prompt
-                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the order specified by the user, or in the original order if the user didn't specify an order.\n\nDO NOT RETURN ANYTHING ELSE APART FROM THE COMMA-SERATED INDICES."));
+                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the order specified by the user, or in the original order if the user didn't specify an order.\n\nDO NOT RETURN ANYTHING ELSE APART FROM THE COMMA-SEPARATED INDICES."));
 
                     // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"Return the indices of items that match the following prompt: \"{prompt.Value}\"\n\nApply the previous prompt to the following list:\n{listTree[i].Value}\n\n"));
+                    messages.Add(new KeyValuePair<string, string>("user", $"Return the indices of items that match the following prompt: \"{criterion.Value}\"\n\nApply the previous prompt to the following list:\n{listTree[i].Value}\n\n"));
 
                     var response = await parent.GetResponse(messages);
 
