@@ -9,8 +9,10 @@
  */
 
 using System.Drawing;
+using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
+using Grasshopper.GUI.Canvas.Interaction;
 using SmartHopper.Config.Configuration;
 
 namespace SmartHopper.Core.ComponentBase
@@ -83,35 +85,20 @@ namespace SmartHopper.Core.ComponentBase
                     bounds.Width,
                     PROVIDER_STRIP_HEIGHT);
 
+                // Calculate starting X position to center the pack
+                var startX = bounds.Left + (bounds.Width - BADGE_SIZE) / 2;
+
                 // Calculate icon position within strip
                 var iconRect = new RectangleF(
-                    bounds.Left + BADGE_PADDING,
+                    startX,
                     bounds.Bottom - PROVIDER_STRIP_HEIGHT + (PROVIDER_STRIP_HEIGHT - BADGE_SIZE) / 2,
                     BADGE_SIZE,
                     BADGE_SIZE);
 
-                // Draw the provider icon
-                graphics.DrawImage(providerIcon, iconRect);
-
-                // Draw provider name
-                using (var font = new Font("Arial", 8f))
-                using (var brush = new SolidBrush(Color.Black))
+                // Draw the provider icon using GH methods
+                if (providerIcon != null)
                 {
-                    var textRect = new RectangleF(
-                        iconRect.Right + BADGE_PADDING,
-                        stripRect.Y,
-                        stripRect.Width - iconRect.Width - BADGE_PADDING * 3,
-                        stripRect.Height);
-
-                    var format = new StringFormat
-                    {
-                        Alignment = StringAlignment.Near,
-                        LineAlignment = StringAlignment.Center,
-                        Trimming = StringTrimming.EllipsisCharacter,
-                        FormatFlags = StringFormatFlags.NoWrap
-                    };
-
-                    graphics.DrawString(_owner._aiProvider, font, brush, textRect, format);
+                    GH_GraphicsUtil.RenderIcon(graphics, iconRect, providerIcon);
                 }
             }
         }
