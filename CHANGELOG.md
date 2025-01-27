@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the new AITextEvaluate component.
+
+### Changed
+
+- Renamed the AI List Check components to AI List Evaluate.
+
+### Removed
+
+- Removed components based on the old Component Base.
+- Removed the code for the old Component Base.
+
+## [0.0.0-dev.250126] - 2025-01-26
+
+### Added
+
 - Added a new Component Base for AI-Powered components, including these features:
   - Debouncing timer to prevent fast recalculations
   - Enhanced state management system with granular state tracking
@@ -20,14 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Compatibility with Data Tree processing (Input and Output)
   - Manual cancellation while processing
 - Added a new library with testing components.
-- Added the new AITextEvaluate component.
 
 ### Changed
 
 - General clean up and refactoring, including the suppression of unnecessary comments, and the removal of deprecated features.
 - Migrate AI Text Generate component to use the new Component Base.
 - Refactor DataTree libraries in Core to unify and simplify functionality.
-- Renamed the AI List Check components to AI List Evaluate.
 
 ### Fixed
 
