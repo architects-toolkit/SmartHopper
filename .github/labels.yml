@@ -56,23 +56,6 @@
   color: "DDA0DD"
   description: "Ready for review"
 
-# Size Labels
-- name: "size: XS"
-  color: "98FB98"
-  description: "Extra small task"
-- name: "size: S"
-  color: "90EE90"
-  description: "Small task"
-- name: "size: M"
-  color: "3CB371"
-  description: "Medium task"
-- name: "size: L"
-  color: "2E8B57"
-  description: "Large task"
-- name: "size: XL"
-  color: "006400"
-  description: "Extra large task"
-
 # Component Labels
 - name: "component: GhGet"
   color: "000"
