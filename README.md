@@ -42,7 +42,7 @@ SmartHopper is not yet available through Food4Rhino. <span style="color: red;">W
 | AI Text Alter (AiTextAlter)<br><sub>Modify and process text based on AI-driven criteria</sub> | ⚪ | - | - | - |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI language models</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI List Check (AiListCheck)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | - |
-| AI List Alter (AiListAlter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | - |
+| AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | - | - | - |
