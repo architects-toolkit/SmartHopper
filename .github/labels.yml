@@ -100,7 +100,7 @@
   description: "Issues related to the AI ListFilter component"
 - name: "component: AI ListGenerate"
   color: "000"
-  description: "Issues related to the AI Generate component"
+  description: "Issues related to the AI ListGenerate component"
 - name: "component: Deconstruct Metrics"
   color: "000"
   description: "Issues related to the Deconstruct Metrics component"
