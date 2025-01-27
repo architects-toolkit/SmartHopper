@@ -31,7 +31,7 @@ namespace SmartHopper.Components.List
 
         public AIListFilter()
             : base("AI List Filter", "AIListFilter",
-                  "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nEach criterion will be processed separately against each list. If a tree structure is provided, criteria and lists will only match within the same branch paths.",
+                  "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
                   "SmartHopper", "List")
         {
         }
