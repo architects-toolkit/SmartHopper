@@ -45,12 +45,12 @@ namespace SmartHopper.Components.Text
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
         }
 
         protected override string GetEndpoint()
         {
-            return "text-generate";
+            return "text-check";
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
