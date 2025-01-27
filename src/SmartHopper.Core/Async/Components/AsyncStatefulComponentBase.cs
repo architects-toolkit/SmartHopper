@@ -264,7 +264,5 @@ namespace SmartHopper.Core.Async.Components
         {
             _messaging.ReportRemark(message);
         }
-
-        
     }
 }
