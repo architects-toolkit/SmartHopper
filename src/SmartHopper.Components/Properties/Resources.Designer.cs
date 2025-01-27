@@ -93,9 +93,9 @@ namespace SmartHopper.Components.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap listcheck {
+        internal static System.Drawing.Bitmap listevaluate {
             get {
-                object obj = ResourceManager.GetObject("listcheck", resourceCulture);
+                object obj = ResourceManager.GetObject("listevaluate", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -113,9 +113,9 @@ namespace SmartHopper.Components.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap textcheck {
+        internal static System.Drawing.Bitmap textevaluate {
             get {
-                object obj = ResourceManager.GetObject("textcheck", resourceCulture);
+                object obj = ResourceManager.GetObject("textevaluate", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
