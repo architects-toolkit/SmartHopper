@@ -20,12 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Compatibility with Data Tree processing (Input and Output)
   - Manual cancellation while processing
 - Added a new library with testing components.
+- Added the new AITextEvaluate component.
 
 ### Changed
 
 - General clean up and refactoring, including the suppression of unnecessary comments, and the removal of deprecated features.
 - Migrate AI Text Generate component to use the new Component Base.
 - Refactor DataTree libraries in Core to unify and simplify functionality.
+- Renamed the AI List Check components to AI List Evaluate.
 
 ### Fixed
 

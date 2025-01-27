@@ -23,48 +23,48 @@ using System.Linq;
 
 namespace SmartHopper.Components.List
 {
-    public class AIListCheck : AIStatefulAsyncComponentBase
+    public class AIListEvaluate : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("A8BAD48D-8723-42AD-B13C-A875F940B69C");
-        protected override System.Drawing.Bitmap Icon => Resources.listcheck;
+        protected override System.Drawing.Bitmap Icon => Resources.listevaluate;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        public AIListCheck()
-            : base("AI List Check", "AIListCheck",
-                  "Check a condition on a list using natural language questions.\nThis components takes the list as a whole. This means that every question will return True or False for each provided list. If a tree structure is provided, questions and lists will only match within the same branch paths.",
+        public AIListEvaluate()
+            : base("AI List Evaluate", "AIListEvaluate",
+                  "Use natural language to evaluate a list and get a true/false answer.\nThis components takes the list as a whole. This means that every question will return True or False for each provided list (not for each individual items).\nIf a tree structure is provided, questions and lists will only match within the same branch paths.",
                   "SmartHopper", "List")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("List", "L", "List of elements to check", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Prompt", "P", "Natural language question about the list.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("List", "L", " REQUIRED List of items to evaluate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question. The AI will answer it based on the input list.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Result", "R", "Result of the check", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
         }
 
         protected override string GetEndpoint()
         {
-            return "list-check";
+            return "list-evaluate";
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListCheckWorker(this, AddRuntimeMessage);
+            return new AIListEvaluateWorker(this, AddRuntimeMessage);
         }
 
-        private class AIListCheckWorker : AsyncWorkerBase
+        private class AIListEvaluateWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> _inputTree;
             private Dictionary<string, GH_Structure<GH_Boolean>> _result;
-            private readonly AIListCheck _parent;
+            private readonly AIListEvaluate _parent;
 
-            public AIListCheckWorker(
-            AIListCheck parent,
+            public AIListEvaluateWorker(
+            AIListEvaluate parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
@@ -81,17 +81,17 @@ namespace SmartHopper.Components.List
 
                 // Get the input trees
                 var listTree = new GH_Structure<IGH_Goo>();
-                var promptTree = new GH_Structure<GH_String>();
+                var questionTree = new GH_Structure<GH_String>();
 
                 DA.GetDataTree("List", out listTree);
-                DA.GetDataTree("Prompt", out promptTree);
+                DA.GetDataTree("Question", out questionTree);
 
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
 
                 // Store the converted trees
                 _inputTree["List"] = stringListTree;
-                _inputTree["Prompt"] = promptTree;
+                _inputTree["Question"] = questionTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -121,7 +121,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListCheck parent)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListEvaluate parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -137,19 +137,19 @@ namespace SmartHopper.Components.List
 
                 // Get the trees
                 var listTreeOriginal = branches["List"];
-                var promptTree = branches["Prompt"];
+                var questionTree = branches["Question"];
 
                 // Wrap list to JSON string
                 var listTree = ConcatenateItems(listTreeOriginal);
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, promptTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, questionTree });
 
                 // Reassign normalized branches
                 listTree = normalizedLists[0];
-                promptTree = normalizedLists[1];
+                questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, List count: {listTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {listTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_Boolean>>();
@@ -158,9 +158,9 @@ namespace SmartHopper.Components.List
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
                 int i = 0;
-                foreach (var prompt in promptTree)
+                foreach (var question in questionTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
+                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
 
                     // Initiate the messages array
                     var messages = new List<KeyValuePair<string, string>>();
@@ -169,14 +169,15 @@ namespace SmartHopper.Components.List
                     messages.Add(new KeyValuePair<string, string>("system", "You are a list analyzer. Your task is to analyze a list of items and return a boolean value indicating whether the list matches the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nMainly you will base your answers on the item itself, unless the user asks for something regarding the position of items in the list.\n\nRespond with TRUE or FALSE, nothing else."));
 
                     // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"This is my question: \"{prompt.Value}\"\n\nAnswer to the previous question with the following list:\n{listTree[i].Value}\n\n"));
+                    messages.Add(new KeyValuePair<string, string>("user", $"This is my question: \"{question.Value}\"\n\nAnswer to the previous question with the following list:\n{listTree[i].Value}\n\n"));
 
                     var response = await parent.GetResponse(messages);
 
                     if (response.FinishReason == "error")
                     {
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"AI error while processing the response:\n{response.Response}", false);
+                        parent.AIErrorToPersistentRuntimeMessage(response);
                         outputs["Result"].Add(null);
+                        i++;
                         continue;
                     }
 
@@ -186,6 +187,7 @@ namespace SmartHopper.Components.List
                     {
                         parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"The AI returned an invalid response:\n{response.Response}", false);
                         outputs["Result"].Add(null);
+                        i++;
                         continue;
                     }
                     else
@@ -209,8 +211,6 @@ namespace SmartHopper.Components.List
                     message = "Error: No result available";
                     return;
                 }
-
-
 
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
