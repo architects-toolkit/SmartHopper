@@ -175,7 +175,7 @@ namespace SmartHopper.Components.List
 
                     if (response.FinishReason == "error")
                     {
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"AI error while processing the response:\n{response.Response}", false);
+                        parent.AIErrorToPersistentRuntimeMessage(response);
                         outputs["Result"].Add(null);
                         continue;
                     }

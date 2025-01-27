@@ -249,6 +249,31 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
+        {
+            var responseMessage = response.Response.ToLower();
+            
+            if (responseMessage.Contains("401") ||
+                responseMessage.Contains("unauthorized"))
+            {
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    $"AUTHENTICATION ERROR: is the API key correct?",
+                    false
+                );
+            }
+            else
+            {
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    $"AI error while processing the response:\n{response.Response}",
+                    false
+                );
+            }
+        }
+
         #endregion
 
         #region METRICS

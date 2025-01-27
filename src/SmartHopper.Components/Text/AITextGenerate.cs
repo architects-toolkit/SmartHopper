@@ -174,7 +174,7 @@ namespace SmartHopper.Components.Text
 
                     if (response.FinishReason == "error")
                     {
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"AI error while processing the response:\n{response.Response}", false);
+                        parent.AIErrorToPersistentRuntimeMessage(response);
                         outputs["Result"].Add(new GH_String(string.Empty));
                         continue;
                     }
