@@ -6,7 +6,6 @@ As SmartHopper is currently in active development, limitations and constraints a
 
 ## Known Limitations
 
-- (0.0.0-dev.250122) The state restoration mechanism for `StatefulAsyncComponentBase` is only restored when the component outputs a `GH_Structure`. When the component outputs primitive types directly (such as `int`, `string`, etc.), state is not restored during copy/paste or file open operations.
 - (0.0.0-dev.250122) Probably, the restoration mechanism is not fully compatible with all data types.
 
 ## Reporting Limitations
