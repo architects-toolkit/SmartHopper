@@ -90,12 +90,6 @@ namespace SmartHopper.Core.ComponentBase
                     BADGE_SIZE,
                     BADGE_SIZE);
 
-                // // Draw strip border
-                // using (var pen = new Pen(Color.FromArgb(50, Color.Black), 1f))
-                // {
-                //     graphics.DrawRectangle(pen, stripRect.X, stripRect.Y, stripRect.Width, stripRect.Height);
-                // }
-
                 // Draw the provider icon
                 graphics.DrawImage(providerIcon, iconRect);
 
