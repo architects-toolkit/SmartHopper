@@ -29,7 +29,7 @@ SmartHopper brings the power of AI assistance directly into your Grasshopper wor
 
 ## 💻 Installation
 
-SmartHopper is not yet available through Food4Rhino. <span style="color: red;">We will be releasing it soon!</span> In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
+SmartHopper is not yet available through Food4Rhino. We will be releasing it soon! In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
 
 ## 📊 Development Status
 
