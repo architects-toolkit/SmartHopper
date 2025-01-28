@@ -147,61 +147,38 @@ jobs:
     - name: Create and push branch
       if: env.BADGES_CHANGED == 'true'
       run: |
-        echo "BADGES_CHANGED value: $BADGES_CHANGED"
-        
-        echo "Current git status before checkout:"
-        git status
-        
         echo "Creating new branch: ${{ env.BADGE_BRANCH }}"
         git checkout -b ${{ env.BADGE_BRANCH }}
         
-        echo "Current directory contents:"
-        ls -la
-        
-        # echo "README.md contents:"
-        # cat README.md
-        
         echo "Staging changes:"
         git add README.md
-        git status
         
         echo "Committing changes:"
         git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
         
-        echo "Commit details:"
-        git show --stat
-        git show --name-status
-        
-        echo "Remote URLs:"
-        git remote -v
-        
         echo "Pushing changes:"
-        git push origin ${{ env.BADGE_BRANCH }} --force
-        
-        echo "Verifying remote branches:"
-        git ls-remote --heads origin
-        
-        echo "Local branches:"
-        git branch -a
+        git push origin ${{ env.BADGE_BRANCH }}
 
     - name: Create Pull Request
       if: env.BADGES_CHANGED == 'true'
-      uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ env.BADGE_BRANCH }}
-        base: ${{ env.TARGET_BRANCH }}
-        delete-branch: false
-        title: "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
-        body: |
-          Automated PR to update version badge in README.md for ${{ env.TARGET_BRANCH }} branch
+      run: |
+        # Check if PR already exists
+        PR_EXISTS=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.BADGE_BRANCH }} --json number --jq '.[0].number')
+        
+        if [ ! -z "$PR_EXISTS" ]; then
+          echo "Found existing PR #$PR_EXISTS, closing it"
+          gh pr close $PR_EXISTS
+        fi
+
+        # Create new PR
+        gh pr create \
+          --base "${{ env.TARGET_BRANCH }}" \
+          --head "${{ env.BADGE_BRANCH }}" \
+          --title "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}" \
+          --body "Automated PR to update version badge in README.md for ${{ env.TARGET_BRANCH }} branch
 
           Changes:
           - Updated version badge to ${{ env.VERSION }}
-          - Updated status and color based on version type
-          - Properly encoded version for shields.io compatibility
-
-          This PR was automatically created by the update-version-badge workflow.
-        labels: |
-          documentation
-          automated
+          - Updated status and color based on version type"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
