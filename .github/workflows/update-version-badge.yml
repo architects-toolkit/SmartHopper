@@ -91,19 +91,25 @@ jobs:
         # Clean up backup
         rm README.md.bak
 
-    - name: Commit and push changes
+    - name: Commit changes
       if: env.BADGES_CHANGED == 'true'
       run: |
         git add README.md
         git commit -m "docs: Update version badge to ${{ env.VERSION }}"
-        git push origin docs/update-version-badge
+
+    - name: Push changes
+      if: env.BADGES_CHANGED == 'true'
+      run: |
+        git push origin docs/update-version-badge --force
 
     - name: Create Pull Request
       if: env.BADGES_CHANGED == 'true'
       uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e # v5
       with:
+        token: ${{ github.token }}
         branch: docs/update-version-badge
         base: main
+        delete-branch: true
         title: "docs: Update version badge to ${{ env.VERSION }}"
         body: |
           Automated PR to update version badge in README.md
@@ -114,7 +120,6 @@ jobs:
           - Properly encoded version for shields.io compatibility
           
           This PR was automatically created by the update-version-badge workflow.
-        delete-branch: true
         labels: |
           documentation
           automated
