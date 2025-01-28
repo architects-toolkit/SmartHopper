@@ -6,12 +6,15 @@ on:
       - main
       - dev
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   version-check:
     name: 📦 Version Check
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+
     steps:
       - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3
 
