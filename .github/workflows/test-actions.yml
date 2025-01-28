@@ -1,0 +1,13 @@
+name: Test GitHub Actions
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions: {}  # No specific permissions required for this test
+    
+    steps:
+      - name: Simple Echo Test
+        run: echo "Hello World! GitHub Actions is working!"

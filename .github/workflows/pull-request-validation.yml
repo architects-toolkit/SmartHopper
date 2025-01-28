@@ -11,13 +11,13 @@ permissions:
   pull-requests: read
 
 jobs:
-  validate:
+  version-check:
+    name: 📦 Version Check
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3
 
-      # Version Check
       - name: Validate Version in Solution.props
         run: |
           VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
@@ -26,13 +26,22 @@ jobs:
             exit 1
           fi
 
-      # Changelog Validation
+  changelog-check:
+    name: 📝 Changelog Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3
+
       - name: Check CHANGELOG.md is Updated
         uses: tj-actions/changed-files@d6e91a2266cdb9d62096cebf1e8546899c6aa18f # v45.0.6
         id: changelog-check
         with:
           files: CHANGELOG.md
-      - name: Fail if CHANGELOG.md not updated
+
+      - name: Validate Changelog Update
         if: steps.changelog-check.outputs.any_changed != 'true'
         env:
           CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
@@ -40,8 +49,13 @@ jobs:
           echo "Error: CHANGELOG.md must be updated with pull request changes"
           exit 1
 
-      # PR Title Validation
-      - name: Validate PR Title
+  title-check:
+    name: 🏷️ PR Title Style Check
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Validate PR Title Style
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
           if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?:.+ ]]; then
