@@ -50,16 +50,16 @@ jobs:
       id: update-badges
       run: |
         # Determine status from version
-        if [[ $VERSION == *"-dev."* ]]; then
+        if [[ $VERSION == *"-dev"* ]]; then
           STATUS="Unstable%20development"
           STATUS_COLOR="yellow"
-        elif [[ $VERSION == *"-alpha."* ]]; then
+        elif [[ $VERSION == *"-alpha"* ]]; then
           STATUS="Alpha"
           STATUS_COLOR="orange"
-        elif [[ $VERSION == *"-beta."* ]]; then
+        elif [[ $VERSION == *"-beta"* ]]; then
           STATUS="Beta"
           STATUS_COLOR="blue"
-        elif [[ $VERSION == *"-rc."* ]]; then
+        elif [[ $VERSION == *"-rc"* ]]; then
           STATUS="Release%20candidate"
           STATUS_COLOR="green"
         else
@@ -70,26 +70,26 @@ jobs:
         echo "Status determined as: $STATUS"
         echo "Color determined as: $STATUS_COLOR"
         
-        # Store current badges content
-        CURRENT_VERSION_BADGE=$(grep "!\[Version\]" README.md || true)
-        CURRENT_STATUS_BADGE=$(grep "!\[Status\]" README.md || true)
-        
-        # Update version badge with properly encoded version
-        NEW_VERSION_BADGE="![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})"
-        NEW_STATUS_BADGE="![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})"
+        # Create backup of README
+        cp README.md README.md.bak
         
         # Update badges in README
-        sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|${NEW_VERSION_BADGE}|g" README.md
-        sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|${NEW_STATUS_BADGE}|g" README.md
+        sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})|g" README.md
+        sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})|g" README.md
         
-        # Check if badges changed
-        if [ "$CURRENT_VERSION_BADGE" != "$NEW_VERSION_BADGE" ] || [ "$CURRENT_STATUS_BADGE" != "$NEW_STATUS_BADGE" ]; then
+        # Compare files to detect changes
+        if ! cmp -s README.md README.md.bak; then
           echo "BADGES_CHANGED=true" >> $GITHUB_ENV
           echo "Badges were updated"
+          # Show the diff for debugging
+          diff README.md README.md.bak || true
         else
           echo "BADGES_CHANGED=false" >> $GITHUB_ENV
           echo "No changes to badges needed"
         fi
+        
+        # Clean up backup
+        rm README.md.bak
 
     - name: Commit and push changes
       if: env.BADGES_CHANGED == 'true'
