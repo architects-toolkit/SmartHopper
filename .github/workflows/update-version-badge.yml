@@ -1,53 +1,52 @@
 name: Update Version Badge
 
 on:
+  workflow_dispatch:
   push:
+    branches: [main, dev]
     paths:
       - 'Solution.props'
-    branches:
-      - main
-      - dev
-  pull_request:
-    types: [closed]
-    branches:
-      - main
-      - dev
-  workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update-badge:
     runs-on: ubuntu-latest
-    # Only run on PR merge, not on PR close without merge
-    if: github.event.pull_request.merged == true || github.event_name != 'pull_request'
-    
     steps:
     - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
       with:
         fetch-depth: 0
 
-    - name: Create and checkout new branch
+    - name: Configure Git
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git checkout -b docs/update-version-badge
-        
-    - name: Extract version from Solution.props
-      id: get-version
+
+    - name: Get target branch
+      run: |
+        TARGET_BRANCH="${{ github.ref_name }}"
+        echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
+        echo "BADGE_BRANCH=docs/update-version-badge-$TARGET_BRANCH" >> $GITHUB_ENV
+
+    - name: Delete existing badge branches
+      run: |
+        # Delete local branch if it exists
+        git branch -D ${{ env.BADGE_BRANCH }} 2>/dev/null || true
+        # Delete remote branch if it exists
+        git push origin --delete ${{ env.BADGE_BRANCH }} 2>/dev/null || true
+
+    - name: Extract version
       run: |
         VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
         # Format version for shields.io by encoding special characters
         # Use -- for dashes and %2E for dots
         SHIELDS_VERSION=$(echo $VERSION | sed 's/-/--/g' | sed 's/\./%2E/g')
-        echo "Extracted VERSION=$VERSION"
-        echo "Shields VERSION=$SHIELDS_VERSION"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "SHIELDS_VERSION=$SHIELDS_VERSION" >> $GITHUB_ENV
 
-    - name: Update README badges
-      id: update-badges
+    - name: Update badges
       run: |
         # Determine status from version
         if [[ $VERSION == *"-dev"* ]]; then
@@ -66,17 +65,17 @@ jobs:
           STATUS="Ready%20for%20production"
           STATUS_COLOR="brightgreen"
         fi
-        
+
         echo "Status determined as: $STATUS"
         echo "Color determined as: $STATUS_COLOR"
-        
+
         # Create backup of README
         cp README.md README.md.bak
-        
+
         # Update badges in README
         sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})|g" README.md
         sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})|g" README.md
-        
+
         # Compare files to detect changes
         if ! cmp -s README.md README.md.bak; then
           echo "BADGES_CHANGED=true" >> $GITHUB_ENV
@@ -87,38 +86,34 @@ jobs:
           echo "BADGES_CHANGED=false" >> $GITHUB_ENV
           echo "No changes to badges needed"
         fi
-        
+
         # Clean up backup
         rm README.md.bak
 
-    - name: Commit changes
+    - name: Create branch and commit changes
       if: env.BADGES_CHANGED == 'true'
       run: |
+        git checkout -b ${{ env.BADGE_BRANCH }}
         git add README.md
-        git commit -m "docs: Update version badge to ${{ env.VERSION }}"
-
-    - name: Push changes
-      if: env.BADGES_CHANGED == 'true'
-      run: |
-        git push origin docs/update-version-badge --force
+        git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
+        git push origin ${{ env.BADGE_BRANCH }} --force
 
     - name: Create Pull Request
       if: env.BADGES_CHANGED == 'true'
       uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e # v5
       with:
-        token: ${{ github.token }}
-        branch: docs/update-version-badge
-        base: main
-        delete-branch: true
-        title: "docs: Update version badge to ${{ env.VERSION }}"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ env.BADGE_BRANCH }}
+        base: ${{ env.TARGET_BRANCH }}
+        title: "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
         body: |
-          Automated PR to update version badge in README.md
-          
+          Automated PR to update version badge in README.md for ${{ env.TARGET_BRANCH }} branch
+
           Changes:
           - Updated version badge to ${{ env.VERSION }}
           - Updated status and color based on version type
           - Properly encoded version for shields.io compatibility
-          
+
           This PR was automatically created by the update-version-badge workflow.
         labels: |
           documentation
