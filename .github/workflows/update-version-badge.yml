@@ -18,6 +18,7 @@ jobs:
     - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
       with:
         fetch-depth: 0
+        ref: ${{ github.ref }}
 
     - name: Configure Git
       run: |
@@ -31,11 +32,10 @@ jobs:
         echo "BADGE_BRANCH=docs/update-version-badge-$TARGET_BRANCH" >> $GITHUB_ENV
 
     - name: Delete existing badge branches
+      continue-on-error: true
       run: |
-        # Delete local branch if it exists
-        git branch -D ${{ env.BADGE_BRANCH }} 2>/dev/null || true
         # Delete remote branch if it exists
-        git push origin --delete ${{ env.BADGE_BRANCH }} 2>/dev/null || true
+        git push origin --delete ${{ env.BADGE_BRANCH }} || true
 
     - name: Extract version
       run: |
@@ -47,6 +47,7 @@ jobs:
         echo "SHIELDS_VERSION=$SHIELDS_VERSION" >> $GITHUB_ENV
 
     - name: Update badges
+      id: update_badges
       run: |
         # Determine status from version
         if [[ $VERSION == *"-dev"* ]]; then
@@ -79,12 +80,11 @@ jobs:
         # Compare files to detect changes
         if ! cmp -s README.md README.md.bak; then
           echo "BADGES_CHANGED=true" >> $GITHUB_ENV
-          echo "Badges were updated"
-          # Show the diff for debugging
+          echo "Changes detected:"
           diff README.md README.md.bak || true
         else
           echo "BADGES_CHANGED=false" >> $GITHUB_ENV
-          echo "No changes to badges needed"
+          echo "No changes needed"
         fi
 
         # Clean up backup
@@ -93,9 +93,14 @@ jobs:
     - name: Create branch and commit changes
       if: env.BADGES_CHANGED == 'true'
       run: |
+        # Create and switch to new branch
         git checkout -b ${{ env.BADGE_BRANCH }}
+        
+        # Stage and commit changes
         git add README.md
         git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
+        
+        # Push changes to the branch
         git push origin ${{ env.BADGE_BRANCH }} --force
 
     - name: Create Pull Request
@@ -105,6 +110,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         branch: ${{ env.BADGE_BRANCH }}
         base: ${{ env.TARGET_BRANCH }}
+        delete-branch: false
         title: "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
         body: |
           Automated PR to update version badge in README.md for ${{ env.TARGET_BRANCH }} branch
