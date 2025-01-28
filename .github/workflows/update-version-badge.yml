@@ -3,7 +3,7 @@ name: Update Version Badge
 on:
   workflow_dispatch:
   push:
-    branches: [main, dev]
+    branches: [ main, dev ]
     paths:
       - 'Solution.props'
 
@@ -34,8 +34,14 @@ jobs:
     - name: Delete existing badge branches
       continue-on-error: true
       run: |
+        echo "Current branches before deletion:"
+        git branch -a
+        
         # Delete remote branch if it exists
         git push origin --delete ${{ env.BADGE_BRANCH }} || true
+        
+        echo "Branches after deletion:"
+        git branch -a
 
     - name: Delete existing PR
       continue-on-error: true
@@ -121,22 +127,38 @@ jobs:
         # Clean up backup
         rm README.md.bak
 
-    - name: Create branch and commit changes
+    - name: Create and push branch
       if: env.BADGES_CHANGED == 'true'
       run: |
-        # Create and switch to new branch
+        echo "Current git status:"
+        git status
+
+        echo "Creating new branch: ${{ env.BADGE_BRANCH }}"
         git checkout -b ${{ env.BADGE_BRANCH }}
         
-        # Stage and commit changes
+        echo "Staging changes:"
         git add README.md
-        git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
+        git status
         
-        # Push changes to the branch
+        echo "Committing changes:"
+        git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
+        git log -1 --stat
+        
+        echo "Remote URLs:"
+        git remote -v
+        
+        echo "Pushing changes:"
         git push origin ${{ env.BADGE_BRANCH }} --force
+        
+        echo "Verifying remote branches:"
+        git ls-remote --heads origin
+        
+        echo "Local branches:"
+        git branch -a
 
     - name: Create Pull Request
       if: env.BADGES_CHANGED == 'true'
-      uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e # v5
+      uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         branch: ${{ env.BADGE_BRANCH }}
