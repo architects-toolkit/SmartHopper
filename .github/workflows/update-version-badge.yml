@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'Solution.props'
+    branches:
+      - main
+      - dev
   pull_request:
     types: [closed]
     branches:
@@ -21,9 +24,15 @@ jobs:
     if: github.event.pull_request.merged == true || github.event_name != 'pull_request'
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
       with:
         fetch-depth: 0
+
+    - name: Create and checkout new branch
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git checkout -b docs/update-version-badge
         
     - name: Extract version from Solution.props
       id: get-version
@@ -76,9 +85,29 @@ jobs:
         grep -A 1 "!\[Version\]" README.md || true
         grep -A 1 "!\[Status\]" README.md || true
 
-    - name: Commit and push if changed
+    - name: Commit changes
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
         git add README.md
-        git diff --quiet && git diff --staged --quiet || (git commit -m "docs: Update version badge to ${{ env.VERSION }}" && git push)
+        git commit -m "docs: Update version badge to ${{ env.VERSION }}"
+        git push origin docs/update-version-badge
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e # v5
+      with:
+        branch: docs/update-version-badge
+        base: main
+        title: "docs: Update version badge to ${{ env.VERSION }}"
+        body: |
+          Automated PR to update version badge in README.md
+          
+          Changes made:
+          - Updated version badge to ${{ env.VERSION }}
+          - Updated status color and text based on version type
+          - Properly encoded version for shields.io compatibility
+          
+          This PR was automatically created by the update-version-badge workflow
+          to comply with repository rules requiring changes through pull requests.
+        delete-branch: true
+        labels: |
+          documentation
+          automated
