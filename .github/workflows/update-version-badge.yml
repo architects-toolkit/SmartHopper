@@ -47,6 +47,7 @@ jobs:
         echo "SHIELDS_VERSION=$SHIELDS_VERSION" >> $GITHUB_ENV
 
     - name: Update README badges
+      id: update-badges
       run: |
         # Determine status from version
         if [[ $VERSION == *"-dev."* ]]; then
@@ -69,29 +70,36 @@ jobs:
         echo "Status determined as: $STATUS"
         echo "Color determined as: $STATUS_COLOR"
         
-        # Show current badges
-        echo "Current badges in README:"
-        grep -A 1 "!\[Version\]" README.md || true
-        grep -A 1 "!\[Status\]" README.md || true
+        # Store current badges content
+        CURRENT_VERSION_BADGE=$(grep "!\[Version\]" README.md || true)
+        CURRENT_STATUS_BADGE=$(grep "!\[Status\]" README.md || true)
         
         # Update version badge with properly encoded version
-        sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})|g" README.md
+        NEW_VERSION_BADGE="![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})"
+        NEW_STATUS_BADGE="![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})"
         
-        # Update status badge
-        sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})|g" README.md
+        # Update badges in README
+        sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|${NEW_VERSION_BADGE}|g" README.md
+        sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|${NEW_STATUS_BADGE}|g" README.md
         
-        # Show updated badges
-        echo "Updated badges in README:"
-        grep -A 1 "!\[Version\]" README.md || true
-        grep -A 1 "!\[Status\]" README.md || true
+        # Check if badges changed
+        if [ "$CURRENT_VERSION_BADGE" != "$NEW_VERSION_BADGE" ] || [ "$CURRENT_STATUS_BADGE" != "$NEW_STATUS_BADGE" ]; then
+          echo "BADGES_CHANGED=true" >> $GITHUB_ENV
+          echo "Badges were updated"
+        else
+          echo "BADGES_CHANGED=false" >> $GITHUB_ENV
+          echo "No changes to badges needed"
+        fi
 
-    - name: Commit changes
+    - name: Commit and push changes
+      if: env.BADGES_CHANGED == 'true'
       run: |
         git add README.md
         git commit -m "docs: Update version badge to ${{ env.VERSION }}"
         git push origin docs/update-version-badge
 
     - name: Create Pull Request
+      if: env.BADGES_CHANGED == 'true'
       uses: peter-evans/create-pull-request@70a41aba780001da0a30141984ae2a0c95d8704e # v5
       with:
         branch: docs/update-version-badge
@@ -100,13 +108,12 @@ jobs:
         body: |
           Automated PR to update version badge in README.md
           
-          Changes made:
+          Changes:
           - Updated version badge to ${{ env.VERSION }}
-          - Updated status color and text based on version type
+          - Updated status and color based on version type
           - Properly encoded version for shields.io compatibility
           
-          This PR was automatically created by the update-version-badge workflow
-          to comply with repository rules requiring changes through pull requests.
+          This PR was automatically created by the update-version-badge workflow.
         delete-branch: true
         labels: |
           documentation
