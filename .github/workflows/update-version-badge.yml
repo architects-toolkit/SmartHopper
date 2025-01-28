@@ -91,11 +91,15 @@ jobs:
         echo "Shields Version: $SHIELDS_VERSION"
 
         # Debug: Show original README content
-        echo "Original README content:"
-        cat README.md
+        # echo "Original README content:"
+        # cat README.md
 
         # Create backup of README
         cp README.md README.md.bak
+
+        echo "Updating version badge with:"
+        echo "Pattern: !\[Version\]\(https://img\.shields\.io/badge/version-[^)]+\)"
+        echo "Replacement: ![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})"
 
         # Update badges in README with exact pattern matching
         sed -i -E 's|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]+\)|![Version](https://img.shields.io/badge/version-'"${SHIELDS_VERSION}"'-'"${STATUS_COLOR}"')|' README.md
@@ -104,6 +108,10 @@ jobs:
           exit 1
         fi
 
+        echo "Updating status badge with:"
+        echo "Pattern: !\[Status\]\(https://img\.shields\.io/badge/status-[^)]+\)"
+        echo "Replacement: ![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})"
+
         sed -i -E 's|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]+\)|![Status](https://img.shields.io/badge/status-'"${STATUS}"'-'"${STATUS_COLOR}"')|' README.md
         if [ $? -ne 0 ]; then
           echo "Error: Failed to update status badge"
@@ -111,14 +119,14 @@ jobs:
         fi
 
         # Debug: Show updated README content
-        echo "Updated README content:"
-        cat README.md
+        # echo "Updated README content:"
+        # cat README.md
 
         # Compare files to detect changes
         if ! cmp -s README.md README.md.bak; then
           echo "BADGES_CHANGED=true" >> $GITHUB_ENV
           echo "Changes detected:"
-          diff README.md README.md.bak || true
+          diff -u README.md.bak README.md || true
         else
           echo "BADGES_CHANGED=false" >> $GITHUB_ENV
           echo "No changes needed"
@@ -127,14 +135,31 @@ jobs:
         # Clean up backup
         rm README.md.bak
 
+    - name: Debug environment
+      run: |
+        echo "Environment variables:"
+        echo "BADGES_CHANGED: $BADGES_CHANGED"
+        echo "VERSION: $VERSION"
+        echo "SHIELDS_VERSION: $SHIELDS_VERSION"
+        echo "TARGET_BRANCH: $TARGET_BRANCH"
+        echo "BADGE_BRANCH: $BADGE_BRANCH"
+
     - name: Create and push branch
       if: env.BADGES_CHANGED == 'true'
       run: |
-        echo "Current git status:"
+        echo "BADGES_CHANGED value: $BADGES_CHANGED"
+        
+        echo "Current git status before checkout:"
         git status
-
+        
         echo "Creating new branch: ${{ env.BADGE_BRANCH }}"
         git checkout -b ${{ env.BADGE_BRANCH }}
+        
+        echo "Current directory contents:"
+        ls -la
+        
+        echo "README.md contents:"
+        cat README.md
         
         echo "Staging changes:"
         git add README.md
@@ -142,7 +167,10 @@ jobs:
         
         echo "Committing changes:"
         git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
-        git log -1 --stat
+        
+        echo "Commit details:"
+        git show --stat
+        git show --name-status
         
         echo "Remote URLs:"
         git remote -v
