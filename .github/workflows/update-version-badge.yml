@@ -37,6 +37,18 @@ jobs:
         # Delete remote branch if it exists
         git push origin --delete ${{ env.BADGE_BRANCH }} || true
 
+    - name: Delete existing PR
+      continue-on-error: true
+      run: |
+        # Get PR number if it exists
+        PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.BADGE_BRANCH }} --json number --jq '.[0].number')
+        if [ ! -z "$PR_NUMBER" ]; then
+          echo "Found existing PR #$PR_NUMBER, closing it"
+          gh pr close $PR_NUMBER --delete-branch
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Extract version
       run: |
         VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
