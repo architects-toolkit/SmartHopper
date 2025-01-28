@@ -4,6 +4,9 @@ on:
   issues:
     types: [closed]
 
+permissions:
+  issues: write
+
 jobs:
   remove-status-labels:
     runs-on: ubuntu-latest
