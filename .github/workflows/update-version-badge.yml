@@ -69,13 +69,32 @@ jobs:
 
         echo "Status determined as: $STATUS"
         echo "Color determined as: $STATUS_COLOR"
+        echo "Version: $VERSION"
+        echo "Shields Version: $SHIELDS_VERSION"
+
+        # Debug: Show original README content
+        echo "Original README content:"
+        cat README.md
 
         # Create backup of README
         cp README.md README.md.bak
 
-        # Update badges in README
-        sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})|g" README.md
-        sed -i -E "s|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]*\)|![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})|g" README.md
+        # Update badges in README with more precise patterns
+        sed -i -E 's|!\[Version\]\(https://img\.shields\.io/badge/version-[^-]*-[^)]*\)|![Version](https://img.shields.io/badge/version-'"${SHIELDS_VERSION}"'-'"${STATUS_COLOR}"')|g' README.md
+        if [ $? -ne 0 ]; then
+          echo "Error: Failed to update version badge"
+          exit 1
+        fi
+
+        sed -i -E 's|!\[Status\]\(https://img\.shields\.io/badge/status-[^-]*-[^)]*\)|![Status](https://img.shields.io/badge/status-'"${STATUS}"'-'"${STATUS_COLOR}"')|g' README.md
+        if [ $? -ne 0 ]; then
+          echo "Error: Failed to update status badge"
+          exit 1
+        fi
+
+        # Debug: Show updated README content
+        echo "Updated README content:"
+        cat README.md
 
         # Compare files to detect changes
         if ! cmp -s README.md README.md.bak; then
