@@ -158,8 +158,8 @@ jobs:
         echo "Current directory contents:"
         ls -la
         
-        echo "README.md contents:"
-        cat README.md
+        # echo "README.md contents:"
+        # cat README.md
         
         echo "Staging changes:"
         git add README.md
