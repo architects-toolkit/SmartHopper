@@ -13,12 +13,6 @@
   description: "Low priority issue"
 
 # Type Labels
-- name: "type: bug"
-  color: "FF1493"
-  description: "Something isn't working"
-- name: "type: feature"
-  color: "1E90FF"
-  description: "New feature request"
 - name: "type: suggestion"
   color: "1E90FF"
   description: "Suggestion for improvement"
