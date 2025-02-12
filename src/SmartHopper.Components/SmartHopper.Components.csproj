@@ -15,6 +15,8 @@
     <Title>SmartHopper Components</Title>
     <Company>Architect's Toolkit (RKTK.tools) + SmartHopper Community</Company>
     <Description>Grasshopper components for SmartHopper</Description>
+    <Authors>Marc Roca Musach + SmartHopper Community</Authors>
+    <Copyright>Copyright (c) 2024 Marc Roca Musach</Copyright>
   </PropertyGroup>
 
   <PropertyGroup>
