@@ -12,7 +12,6 @@ using System.Drawing;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
-using Grasshopper.GUI.Canvas.Interaction;
 using SmartHopper.Config.Configuration;
 
 namespace SmartHopper.Core.ComponentBase
@@ -25,7 +24,6 @@ namespace SmartHopper.Core.ComponentBase
     {
         private readonly AIStatefulAsyncComponentBase _owner;
         private const int BADGE_SIZE = 16; // Size of the provider logo badge
-        private const int BADGE_PADDING = 4; // Padding from component edge
         private const float MIN_ZOOM_THRESHOLD = 0.5f; // Minimum zoom level to show the badge
         private const int PROVIDER_STRIP_HEIGHT = 20; // Height of the provider strip
 

@@ -19,20 +19,20 @@ namespace SmartHopper.Core.Converters
 {
     public static class FormatConverter
     {
-        public static string ConvertMarkdownToRtf(string markdown)
-        {
-            var pipeline = new MarkdownPipelineBuilder().Build();
-            var html = Markdig.Markdown.ToHtml(markdown, pipeline);
+        //public static string ConvertMarkdownToRtf(string markdown)
+        //{
+        //    var pipeline = new MarkdownPipelineBuilder().Build();
+        //    var html = Markdig.Markdown.ToHtml(markdown, pipeline);
 
-            html = "<html><body>" + html + "</body></html>";
+        //    html = "<html><body>" + html + "</body></html>";
 
-            var rtfBody = ConvertHtmlToRtf(html);
+        //    var rtfBody = ConvertHtmlToRtf(html);
 
-            var rtfHeader = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Segoe UI;}}\\fs19\\cf1 {\\colortbl;\\red255\\green255\\blue255;}\n";
-            var rtfFooter = "}";
+        //    var rtfHeader = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Segoe UI;}}\\fs19\\cf1 {\\colortbl;\\red255\\green255\\blue255;}\n";
+        //    var rtfFooter = "}";
 
-            return rtfHeader + rtfBody + rtfFooter;
-        }
+        //    return rtfHeader + rtfBody + rtfFooter;
+        //}
 
         private static string ConvertNodeToRtf(HtmlNode node, StringBuilder rtf)
         {
@@ -61,112 +61,112 @@ namespace SmartHopper.Core.Converters
             }
         }
 
-        public static string ConvertHtmlToRtf(string html)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(html))
-                    return "";
+        //public static string ConvertHtmlToRtf(string html)
+        //{
+        //    try
+        //    {
+        //        if (string.IsNullOrEmpty(html))
+        //            return "";
 
-                const int LIST_INDENT_VALUE = 150;
-                html = html.Replace("&quot;", "\\\"");
+        //        const int LIST_INDENT_VALUE = 150;
+        //        html = html.Replace("&quot;", "\\\"");
 
-                var doc = new HtmlAgilityPack.HtmlDocument();
-                doc.LoadHtml(html);
+        //        var doc = new HtmlAgilityPack.HtmlDocument();
+        //        doc.LoadHtml(html);
 
-                if (doc.DocumentNode == null)
-                    return "";
+        //        if (doc.DocumentNode == null)
+        //            return "";
 
-                var rtf = new StringBuilder();
-                var listLevel = 0;
+        //        var rtf = new StringBuilder();
+        //        var listLevel = 0;
 
-                foreach (var node in doc.DocumentNode.DescendantsAndSelf())
-                {
-                    if (node == null) continue;
+        //        foreach (var node in doc.DocumentNode.DescendantsAndSelf())
+        //        {
+        //            if (node == null) continue;
 
-                    switch (node.Name?.ToLowerInvariant())
-                    {
-                        case "h1":
-                            rtf.Append("\\pard\\fs32\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
-                            break;
-                        case "h2":
-                            rtf.Append("\\pard\\fs28\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
-                            break;
-                        case "h3":
-                            rtf.Append("\\pard\\fs24\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
-                            break;
-                        case "p":
-                            if (node.ParentNode?.Name != "li")
-                            {
-                                rtf.Append("\\pard\\fs20 ").Append(ConvertNodeToRtf(node, rtf)).Append("\\par\\par ");
-                            }
-                            break;
-                        case "ol":
-                        case "ul":
-                            listLevel++;
-                            break;
-                        case "li":
-                            rtf.Append("\\pard\\li").Append(listLevel * LIST_INDENT_VALUE);
-                            if (node.ParentNode?.Name == "ol")
-                            {
-                                int index = 1;
-                                var previous = node.PreviousSibling;
-                                while (previous != null)
-                                {
-                                    if (previous.Name == "li")
-                                        index++;
-                                    previous = previous.PreviousSibling;
-                                }
-                                rtf.Append("\\fs20 ").Append(index).Append(". ");
-                            }
-                            else
-                            {
-                                rtf.Append("\\fs20 • ");
-                            }
+        //            switch (node.Name?.ToLowerInvariant())
+        //            {
+        //                case "h1":
+        //                    rtf.Append("\\pard\\fs32\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
+        //                    break;
+        //                case "h2":
+        //                    rtf.Append("\\pard\\fs28\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
+        //                    break;
+        //                case "h3":
+        //                    rtf.Append("\\pard\\fs24\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
+        //                    break;
+        //                case "p":
+        //                    if (node.ParentNode?.Name != "li")
+        //                    {
+        //                        rtf.Append("\\pard\\fs20 ").Append(ConvertNodeToRtf(node, rtf)).Append("\\par\\par ");
+        //                    }
+        //                    break;
+        //                case "ol":
+        //                case "ul":
+        //                    listLevel++;
+        //                    break;
+        //                case "li":
+        //                    rtf.Append("\\pard\\li").Append(listLevel * LIST_INDENT_VALUE);
+        //                    if (node.ParentNode?.Name == "ol")
+        //                    {
+        //                        int index = 1;
+        //                        var previous = node.PreviousSibling;
+        //                        while (previous != null)
+        //                        {
+        //                            if (previous.Name == "li")
+        //                                index++;
+        //                            previous = previous.PreviousSibling;
+        //                        }
+        //                        rtf.Append("\\fs20 ").Append(index).Append(". ");
+        //                    }
+        //                    else
+        //                    {
+        //                        rtf.Append("\\fs20 • ");
+        //                    }
 
-                            foreach (var childNode in node.ChildNodes)
-                            {
-                                if (childNode.Name == "p" && childNode != node.FirstChild)
-                                {
-                                    rtf.Append("\\par\\li").Append(listLevel * LIST_INDENT_VALUE).Append("   ");
-                                }
-                                rtf.Append(ConvertNodeToRtf(childNode, rtf));
-                            }
-                            rtf.Append("\\par ");
-                            break;
-                        case "#text":
-                            if (node.ParentNode?.Name != "li" &&
-                                node.ParentNode?.Name != "p" &&
-                                !new[] { "strong", "b", "em", "i", "code" }.Contains(node.ParentNode?.Name))
-                            {
-                                var text = ConvertNodeToRtf(node, rtf);
-                                if (!string.IsNullOrWhiteSpace(text))
-                                {
-                                    rtf.Append("\\pard\\fs20 ").Append(text).Append("\\par ");
-                                }
-                            }
-                            break;
-                    }
+        //                    foreach (var childNode in node.ChildNodes)
+        //                    {
+        //                        if (childNode.Name == "p" && childNode != node.FirstChild)
+        //                        {
+        //                            rtf.Append("\\par\\li").Append(listLevel * LIST_INDENT_VALUE).Append("   ");
+        //                        }
+        //                        rtf.Append(ConvertNodeToRtf(childNode, rtf));
+        //                    }
+        //                    rtf.Append("\\par ");
+        //                    break;
+        //                case "#text":
+        //                    if (node.ParentNode?.Name != "li" &&
+        //                        node.ParentNode?.Name != "p" &&
+        //                        !new[] { "strong", "b", "em", "i", "code" }.Contains(node.ParentNode?.Name))
+        //                    {
+        //                        var text = ConvertNodeToRtf(node, rtf);
+        //                        if (!string.IsNullOrWhiteSpace(text))
+        //                        {
+        //                            rtf.Append("\\pard\\fs20 ").Append(text).Append("\\par ");
+        //                        }
+        //                    }
+        //                    break;
+        //            }
 
-                    if ((node.Name == "ol" || node.Name == "ul") && !node.HasChildNodes)
-                    {
-                        listLevel = Math.Max(0, listLevel - 1);
-                    }
-                    else if (node.NextSibling == null && node.ParentNode != null &&
-                            (node.ParentNode.Name == "ol" || node.ParentNode.Name == "ul"))
-                    {
-                        listLevel = Math.Max(0, listLevel - 1);
-                        rtf.Append("\\pard\\par ");
-                    }
-                }
+        //            if ((node.Name == "ol" || node.Name == "ul") && !node.HasChildNodes)
+        //            {
+        //                listLevel = Math.Max(0, listLevel - 1);
+        //            }
+        //            else if (node.NextSibling == null && node.ParentNode != null &&
+        //                    (node.ParentNode.Name == "ol" || node.ParentNode.Name == "ul"))
+        //            {
+        //                listLevel = Math.Max(0, listLevel - 1);
+        //                rtf.Append("\\pard\\par ");
+        //            }
+        //        }
 
-                return rtf.ToString().TrimEnd(new[] { ' ', '\\', 'p', 'a', 'r' });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error converting HTML to RTF: {ex.Message}");
-                return html;
-            }
-        }
+        //        return rtf.ToString().TrimEnd(new[] { ' ', '\\', 'p', 'a', 'r' });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine($"Error converting HTML to RTF: {ex.Message}");
+        //        return html;
+        //    }
+        //}
     }
 }
