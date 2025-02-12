@@ -24,47 +24,47 @@ namespace SmartHopper.Core.Utils
 {
     public static class AIUtils
     {
-        public static string ExtractToolName(string assistantMessage)
-        {
-            if (string.IsNullOrEmpty(assistantMessage))
-                return null;
+        //public static string ExtractToolName(string assistantMessage)
+        //{
+        //    if (string.IsNullOrEmpty(assistantMessage))
+        //        return null;
 
-            var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
-            return match.Success ? match.Groups[1].Value : null;
-        }
+        //    var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
+        //    return match.Success ? match.Groups[1].Value : null;
+        //}
 
-        public static string ExtractToolArgs(string assistantMessage)
-        {
-            if (string.IsNullOrEmpty(assistantMessage))
-                return null;
+        //public static string ExtractToolArgs(string assistantMessage)
+        //{
+        //    if (string.IsNullOrEmpty(assistantMessage))
+        //        return null;
 
-            var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
-            return match.Success ? match.Groups[1].Value : null;
-        }
+        //    var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
+        //    return match.Success ? match.Groups[1].Value : null;
+        //}
 
-        public static bool TryParseJson(string strInput, out JToken jToken)
-        {
-            try
-            {
-                jToken = JToken.Parse(strInput);
-                return true;
-            }
-            catch (Exception)
-            {
-                jToken = null;
-                return false;
-            }
-        }
+        //public static bool TryParseJson(string strInput, out JToken jToken)
+        //{
+        //    try
+        //    {
+        //        jToken = JToken.Parse(strInput);
+        //        return true;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        jToken = null;
+        //        return false;
+        //    }
+        //}
 
-        public static Dictionary<string, string> GetRoleReplacement()
-        {
-            return new Dictionary<string, string>()
-            {
-                { OpenAI._name, "assistant" },
-                { MistralAI._name, "assistant" },
-                { "User", "user" }
-            };
-        }
+        //public static Dictionary<string, string> GetRoleReplacement()
+        //{
+        //    return new Dictionary<string, string>()
+        //    {
+        //        { OpenAI._name, "assistant" },
+        //        { MistralAI._name, "assistant" },
+        //        { "User", "user" }
+        //    };
+        //}
 
         public static async Task<AIResponse> GetResponse(string providerName, string model, List<KeyValuePair<string, string>> messages, string jsonSchema = "", string endpoint = "")
         {
