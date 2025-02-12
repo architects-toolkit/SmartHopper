@@ -26,8 +26,8 @@ namespace SmartHopper.Core.JSON
         public Dictionary<string, object> Properties { get; set; }
         public bool Selected { get; set; }
         public List<object> Pivot { get; set; }
-        public List<String> Warnings { get; set; }
-        public List<String> Errors { get; set; }
+        public List<string> Warnings { get; set; }
+        public List<string> Errors { get; set; }
     }
 
     public class JsonInput
@@ -152,16 +152,16 @@ namespace SmartHopper.Core.JSON
 
             return childPropertyValues;
         }
-        public static void AddChildPropertiesToDictionary(Dictionary<string, object> dictionary, string propertyName, Dictionary<string, object> childPropertyValues, object value)
-        {
-            if (childPropertyValues.Count > 0)
-            {
-                dictionary[propertyName] = childPropertyValues;
-            }
-            else
-            {
-                dictionary[propertyName] = value;
-            }
-        }
+        //public static void AddChildPropertiesToDictionary(Dictionary<string, object> dictionary, string propertyName, Dictionary<string, object> childPropertyValues, object value)
+        //{
+        //    if (childPropertyValues.Count > 0)
+        //    {
+        //        dictionary[propertyName] = childPropertyValues;
+        //    }
+        //    else
+        //    {
+        //        dictionary[propertyName] = value;
+        //    }
+        //}
     }
 }

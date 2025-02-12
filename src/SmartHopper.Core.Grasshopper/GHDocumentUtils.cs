@@ -23,29 +23,29 @@ namespace SmartHopper.Core.Grasshopper
 {
     public class GHDocumentUtils
     {
-        public static IGH_DocumentObject GroupObjects(Guid[] guids, string groupName = null)
-        {
-            GH_Document doc = GHCanvasUtils.GetCurrentCanvas();
-            GH_Group group = new GH_Group();
+        //public static IGH_DocumentObject GroupObjects(Guid[] guids, string groupName = null)
+        //{
+        //    GH_Document doc = GHCanvasUtils.GetCurrentCanvas();
+        //    GH_Group group = new GH_Group();
 
-            if (!string.IsNullOrEmpty(groupName))
-            {
-                group.NickName = groupName;
-                group.Colour = Color.FromArgb(255, 100, 100, 100);
-            }
+        //    if (!string.IsNullOrEmpty(groupName))
+        //    {
+        //        group.NickName = groupName;
+        //        group.Colour = Color.FromArgb(255, 100, 100, 100);
+        //    }
 
-            foreach (var guid in guids)
-            {
-                IGH_DocumentObject obj = doc.FindObject(guid, true);
-                if (obj != null)
-                {
-                    group.AddObject(obj.InstanceGuid);
-                }
-            }
+        //    foreach (var guid in guids)
+        //    {
+        //        IGH_DocumentObject obj = doc.FindObject(guid, true);
+        //        if (obj != null)
+        //        {
+        //            group.AddObject(obj.InstanceGuid);
+        //        }
+        //    }
 
-            doc.AddObject(group, false);
-            return group;
-        }
+        //    doc.AddObject(group, false);
+        //    return group;
+        //}
 
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects)
         {
