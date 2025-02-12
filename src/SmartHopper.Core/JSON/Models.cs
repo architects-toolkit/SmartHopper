@@ -113,15 +113,15 @@ namespace SmartHopper.Core.JSON
         /// <summary>
         /// Creates a new ComponentProperty with the specified value and optional human-readable format.
         /// </summary>
-        public static ComponentProperty Create<T>(T value, string humanReadable = null)
-        {
-            return new ComponentProperty
-            {
-                Value = value,
-                Type = typeof(T).Name,
-                HumanReadable = humanReadable ?? value?.ToString()
-            };
-        }
+        //public static ComponentProperty Create<T>(T value, string humanReadable = null)
+        //{
+        //    return new ComponentProperty
+        //    {
+        //        Value = value,
+        //        Type = typeof(T).Name,
+        //        HumanReadable = humanReadable ?? value?.ToString()
+        //    };
+        //}
     }
 
     /// <summary>

@@ -214,37 +214,37 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 .Contains(propertyName);
         }
 
-        public static void SetPersistentData(IGH_DocumentObject instance, JObject persistentDataDict)
-        {
-            switch (instance)
-            {
-                case Param_Number paramNumber:
-                    Func<JToken, GH_Number> convertFunctionToNumber = (token) => new GH_Number(token.Value<float>());
-                    var pDataNumber = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToNumber);
-                    paramNumber.SetPersistentData(pDataNumber);
-                    break;
+        //public static void SetPersistentData(IGH_DocumentObject instance, JObject persistentDataDict)
+        //{
+        //    switch (instance)
+        //    {
+        //        case Param_Number paramNumber:
+        //            Func<JToken, GH_Number> convertFunctionToNumber = (token) => new GH_Number(token.Value<float>());
+        //            var pDataNumber = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToNumber);
+        //            paramNumber.SetPersistentData(pDataNumber);
+        //            break;
 
-                case Param_Integer paramInt:
-                    Func<JToken, GH_Integer> convertFunctionToInt = (token) => new GH_Integer(token.Value<int>());
-                    var pDataInt = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToInt);
-                    paramInt.SetPersistentData(pDataInt);
-                    break;
+        //        case Param_Integer paramInt:
+        //            Func<JToken, GH_Integer> convertFunctionToInt = (token) => new GH_Integer(token.Value<int>());
+        //            var pDataInt = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToInt);
+        //            paramInt.SetPersistentData(pDataInt);
+        //            break;
 
-                case Param_String paramString:
-                    Func<JToken, GH_String> convertFunctionToString = (token) => new GH_String(token.ToString());
-                    var pDataString = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToString);
-                    paramString.SetPersistentData(pDataString);
-                    break;
+        //        case Param_String paramString:
+        //            Func<JToken, GH_String> convertFunctionToString = (token) => new GH_String(token.ToString());
+        //            var pDataString = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToString);
+        //            paramString.SetPersistentData(pDataString);
+        //            break;
 
-                case Param_Boolean paramBoolean:
-                    Func<JToken, GH_Boolean> convertFunctionToBoolean = (token) => new GH_Boolean(token.Value<bool>());
-                    var pDataBoolean = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToBoolean);
-                    paramBoolean.SetPersistentData(pDataBoolean);
-                    break;
+        //        case Param_Boolean paramBoolean:
+        //            Func<JToken, GH_Boolean> convertFunctionToBoolean = (token) => new GH_Boolean(token.Value<bool>());
+        //            var pDataBoolean = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToBoolean);
+        //            paramBoolean.SetPersistentData(pDataBoolean);
+        //            break;
 
-                default:
-                    Debug.WriteLine($"No handling implemented for type {instance.GetType().Name}"); break;
-            }
-        }
+        //        default:
+        //            Debug.WriteLine($"No handling implemented for type {instance.GetType().Name}"); break;
+        //    }
+        //}
     }
 }

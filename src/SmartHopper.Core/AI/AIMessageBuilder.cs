@@ -18,15 +18,15 @@ namespace SmartHopper.Core.AI
 {
     public static class AIMessageBuilder
     {
-        public static Dictionary<string, string> GetRoleReplacement()
-        {
-            return new Dictionary<string, string>()
-            {
-                { OpenAI._name, "assistant" },
-                { MistralAI._name, "assistant" },
-                { "User", "user" }
-            };
-        }
+        //public static Dictionary<string, string> GetRoleReplacement()
+        //{
+        //    return new Dictionary<string, string>()
+        //    {
+        //        { OpenAI._name, "assistant" },
+        //        { MistralAI._name, "assistant" },
+        //        { "User", "user" }
+        //    };
+        //}
 
         /// <summary>
         /// Creates a message array from a list of key-value pairs.
