@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
 
+- New About menu item using Eto.Forms instead of WinForms.
 
 ## [0.1.0-alpha] - 2025-01-27
 
