@@ -196,13 +196,14 @@ namespace SmartHopper.Components.Grasshopper
             base.Layout();
 
             // Add space for the button at the bottom of the component
-            var width = (int)Bounds.Width;
+            const int margin = 5;
+            var width = (int)Bounds.Width - (2 * margin);  // Subtract margins from both sides
             var height = 24;
-            var x = (int)Bounds.X;
-            var y = (int)Bounds.Bottom + 5;
+            var x = (int)Bounds.X + margin;
+            var y = (int)Bounds.Bottom;
 
             ButtonBounds = new Rectangle(x, y, width, height);
-            Bounds = new RectangleF(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height + height + 10);
+            Bounds = new RectangleF(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height + height + margin);
         }
 
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
