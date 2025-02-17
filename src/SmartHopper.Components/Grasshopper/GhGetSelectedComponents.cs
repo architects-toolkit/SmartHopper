@@ -182,11 +182,13 @@ namespace SmartHopper.Components.Grasshopper
         private new readonly GhGetSelectedComponents Owner;
         private Rectangle ButtonBounds;
         private bool IsHovering;
+        private bool IsClicking;
 
         public GhGetSelectedComponentsAttributes(GhGetSelectedComponents owner) : base(owner)
         {
             Owner = owner;
             IsHovering = false;
+            IsClicking = false;
         }
 
         protected override void Layout()
@@ -211,8 +213,9 @@ namespace SmartHopper.Components.Grasshopper
             {
                 var button = ButtonBounds;
 
-                // Draw button background
-                var capsule = GH_Capsule.CreateCapsule(button, IsHovering ? GH_Palette.White : GH_Palette.Black);
+                // Draw button background with different states
+                var palette = IsClicking ? GH_Palette.White : (IsHovering ? GH_Palette.Grey : GH_Palette.Black);
+                var capsule = GH_Capsule.CreateCapsule(button, palette);
                 capsule.Render(graphics, Selected, Owner.Locked, false);
                 capsule.Dispose();
 
@@ -224,7 +227,7 @@ namespace SmartHopper.Components.Grasshopper
                 // Use PointF for text position
                 var tx = button.X + (button.Width - textSize.Width) / 2;
                 var ty = button.Y + (button.Height - textSize.Height) / 2;
-                graphics.DrawString(text, font, IsHovering ? Brushes.Black : Brushes.White, new PointF(tx, ty));
+                graphics.DrawString(text, font, IsHovering || IsClicking ? Brushes.Black : Brushes.White, new PointF(tx, ty));
             }
         }
 
@@ -234,6 +237,8 @@ namespace SmartHopper.Components.Grasshopper
             {
                 if (ButtonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y))
                 {
+                    IsClicking = true;
+                    Owner.ExpireSolution(true);
                     Owner.EnableSelectionMode();
                     return GH_ObjectResponse.Handled;
                 }
@@ -252,6 +257,16 @@ namespace SmartHopper.Components.Grasshopper
             }
             
             return base.RespondToMouseMove(sender, e);
+        }
+
+        public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            if (IsClicking)
+            {
+                IsClicking = false;
+                Owner.ExpireSolution(true);
+            }
+            return base.RespondToMouseUp(sender, e);
         }
     }
 }
