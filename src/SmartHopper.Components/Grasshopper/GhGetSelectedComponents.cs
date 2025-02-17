@@ -20,7 +20,6 @@ using SmartHopper.Core.Grasshopper;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -66,16 +65,13 @@ namespace SmartHopper.Components.Grasshopper
 
             // Enable selection mode
             canvas.ContextMenuStrip?.Hide();
-            Canvas_SelectionChanged(canvas, EventArgs.Empty);
-            
-            // Set message to guide user
-            Message = "Select components and press Enter";
+            Canvas_SelectionChanged();
             
             // Force component update
             ExpireSolution(true);
         }
 
-        private void Canvas_SelectionChanged(object sender, EventArgs e)
+        private void Canvas_SelectionChanged()
         {
             if (!inSelectionMode) return;
 
@@ -88,10 +84,10 @@ namespace SmartHopper.Components.Grasshopper
                 .ToList();
             
             // Update message with selection count
-            this.Message = $"{selectedObjects.Count} components selected";
+            Message = $"{selectedObjects.Count} selected";
             
             // Force component update
-            this.ExpireSolution(true);
+            ExpireSolution(true);
         }
 
         protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
@@ -185,10 +181,12 @@ namespace SmartHopper.Components.Grasshopper
     {
         private new readonly GhGetSelectedComponents Owner;
         private Rectangle ButtonBounds;
+        private bool IsHovering;
 
         public GhGetSelectedComponentsAttributes(GhGetSelectedComponents owner) : base(owner)
         {
             Owner = owner;
+            IsHovering = false;
         }
 
         protected override void Layout()
@@ -214,19 +212,19 @@ namespace SmartHopper.Components.Grasshopper
                 var button = ButtonBounds;
 
                 // Draw button background
-                var capsule = GH_Capsule.CreateCapsule(button, GH_Palette.Normal);
+                var capsule = GH_Capsule.CreateCapsule(button, IsHovering ? GH_Palette.White : GH_Palette.Black);
                 capsule.Render(graphics, Selected, Owner.Locked, false);
                 capsule.Dispose();
 
                 // Draw button text
                 var font = GH_FontServer.Standard;
-                var text = "Select Components";
+                var text = "Select";
                 var textSize = graphics.MeasureString(text, font);
                 
                 // Use PointF for text position
                 var tx = button.X + (button.Width - textSize.Width) / 2;
                 var ty = button.Y + (button.Height - textSize.Height) / 2;
-                graphics.DrawString(text, font, Brushes.Black, new PointF(tx, ty));
+                graphics.DrawString(text, font, IsHovering ? Brushes.Black : Brushes.White, new PointF(tx, ty));
             }
         }
 
@@ -241,6 +239,19 @@ namespace SmartHopper.Components.Grasshopper
                 }
             }
             return base.RespondToMouseDown(sender, e);
+        }
+
+        public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            bool wasHovering = IsHovering;
+            IsHovering = ButtonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
+            
+            if (wasHovering != IsHovering)
+            {
+                Owner.ExpireSolution(true);
+            }
+            
+            return base.RespondToMouseMove(sender, e);
         }
     }
 }
