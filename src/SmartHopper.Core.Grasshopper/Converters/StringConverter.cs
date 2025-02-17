@@ -85,7 +85,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
 
         public static GH_DataMapping StringToGHDataMapping(object value)
         {
-            if (value == typeof(long) || value == typeof(string))
+            if (value is long || value is string)
             {
                 //Convert type of value to Int32
                 value = Convert.ToInt32(value);
