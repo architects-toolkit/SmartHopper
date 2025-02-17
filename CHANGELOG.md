@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added the new GhGetSelectedComponents component.
+
 ### Changed
 
 - New About menu item using Eto.Forms instead of WinForms.
