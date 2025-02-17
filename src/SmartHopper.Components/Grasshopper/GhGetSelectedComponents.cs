@@ -34,7 +34,7 @@ namespace SmartHopper.Components.Grasshopper
         private List<string> lastComponentNames = new List<string>();
         private List<string> lastComponentGuids = new List<string>();
         private string lastJsonOutput = "";
-        private List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
+        internal List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
         private bool inSelectionMode = false;
 
         public GhGetSelectedComponents()
@@ -229,6 +229,29 @@ namespace SmartHopper.Components.Grasshopper
                 var tx = button.X + (button.Width - textSize.Width) / 2;
                 var ty = button.Y + (button.Height - textSize.Height) / 2;
                 graphics.DrawString(text, font, IsHovering || IsClicking ? Brushes.Black : Brushes.White, new PointF(tx, ty));
+
+                // Draw rectangles around selected components when hovering
+                if (IsHovering && Owner.selectedObjects.Count > 0)
+                {
+                    using (var pen = new Pen(Color.DodgerBlue, 2f))
+                    {
+                        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        foreach (var obj in Owner.selectedObjects)
+                        {
+                            if (obj is IGH_DocumentObject docObj)
+                            {
+                                // Get current bounds of the component
+                                var bounds = docObj.Attributes.Bounds;
+                                
+                                // Add a small padding around the component
+                                var padding = 4f;
+                                var highlightBounds = RectangleF.Inflate(bounds, padding, padding);
+                                graphics.DrawRectangle(pen, highlightBounds.X, highlightBounds.Y, 
+                                                    highlightBounds.Width, highlightBounds.Height);
+                            }
+                        }
+                    }
+                }
             }
         }
 
