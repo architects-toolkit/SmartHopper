@@ -36,7 +36,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | Component | Planned | In Progress | Testing | Released 🎉 |
 |-----------|:-------:|:-----------:|:-------:|:------------------------:|
 | Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Get Selected Components (GhGetSelected)<br><sub>Select some components and convert them to GhJSON format</sub> | ⚪ | 🟡 | - | - |
+| Grasshopper Get Selected Components (GhGetSelected)<br><sub>Select some components and convert them to GhJSON format</sub> | ⚪ | 🟡 | 🟠 | - |
 | Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate Definitions (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -45,7 +45,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
-| AI Context (AiContext)<br><sub>Set a context for the current document</sub> | ⚪ | - | - | - |
+| AI Context (AiContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | - |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | - | - | - |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | ⚪ | - | - | - |
