@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - New About menu item using Eto.Forms instead of WinForms.
+- Refactored AI text evaluation tools to improve code organization and reusability:
+  - Added generic `AIEvaluationResult<T>` for standardized tool-component communication
+  - Created `ParsingTools` class for reusable AI response parsing
+  - Created `TextTools` with method `EvaluateTextAsync` (replacement of `AiTextEvaluate` main function)
 
 ### Fixed
 
