@@ -15,6 +15,8 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.JSON;
+using SmartHopper.Core.Graph;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -99,6 +101,46 @@ namespace SmartHopper.Components.Grasshopper
                 // Get the starting position for the components
                 var startPoint = GHCanvasUtils.StartPoint(100);
 
+                // Check if any components are missing pivot positions
+                bool needsPositioning = document.Components.Any(c => c.Pivot == null || c.Pivot.IsEmpty);
+                Dictionary<string, PointF> generatedPositions = null;
+
+                if (needsPositioning)
+                {
+                    try
+                    {
+                        // Convert to JsonStructure format for DependencyGraphUtils
+                        var jsonStructures = document.Components.Select(c => new JsonStructure
+                        {
+                            ID = c.InstanceGuid,
+                            Name = c.Name,
+                            Inputs = document.GetComponentConnections(c.InstanceGuid)
+                                .Where(conn => conn.To.ComponentId == c.InstanceGuid)
+                                .Select(conn => new JsonInput
+                                {
+                                    Sources = new List<Guid> { conn.From.ComponentId }
+                                }).ToList()
+                        }).ToList();
+
+                        // Generate positions for components using DependencyGraphUtils
+                        var positions = DependencyGraphUtils.Program.CreateComponentGrid(jsonStructures);
+                        
+                        // Update component positions in the document
+                        foreach (var component in document.Components)
+                        {
+                            if (positions.TryGetValue(component.InstanceGuid.ToString(), out var position))
+                            {
+                                component.Pivot = new System.Drawing.Point((int)position.X * 150, (int)position.Y * 150);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error generating component positions: {ex.Message}");
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate optimal component positions");
+                    }
+                }
+
                 // Create components
                 foreach (var component in document.Components)
                 {
@@ -139,11 +181,21 @@ namespace SmartHopper.Components.Grasshopper
                             GHPropertyManager.SetProperties(instance, filteredProperties);
                         }
 
-                        // Set position
-                        var position = new PointF(
-                            component.Pivot.X + startPoint.X,
-                            component.Pivot.Y + startPoint.Y
-                        );
+                        // Set position - use generated position if pivot is missing
+                        PointF position;
+                        if (component.Pivot == null || component.Pivot.IsEmpty)
+                        {
+                            position = generatedPositions != null && generatedPositions.TryGetValue(component.InstanceGuid.ToString(), out PointF genPos)
+                                ? new PointF(genPos.X + startPoint.X, genPos.Y + startPoint.Y)
+                                : startPoint; // Fallback to startPoint if no generated position
+                        }
+                        else
+                        {
+                            position = new PointF(
+                                component.Pivot.X + startPoint.X,
+                                component.Pivot.Y + startPoint.Y
+                            );
+                        }
 
                         // Add to canvas
                         GHCanvasUtils.AddObjectToCanvas(instance, position, true);
