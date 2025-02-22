@@ -11,6 +11,7 @@
 using Grasshopper.Kernel;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.Grasshopper.Tools;
 using SmartHopper.Components.Properties;
 using System;
 using System.Diagnostics;
@@ -157,39 +158,26 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textTree.Count}");
 
-                    // Initiate the messages array
-                    var messages = new List<KeyValuePair<string, string>>();
+                    // Evaluate text using AI with the component's GetResponse
+                    var result = await TextTools.EvaluateTextAsync(textTree[i], questionTree[i], 
+                        messages => parent.GetResponse(messages));
 
-                    // Add the system prompt
-                    messages.Add(new KeyValuePair<string, string>("system", "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\nRespond with TRUE or FALSE, nothing else.\n\nIn case the text does not match the criteria, respond with FALSE."));
-
-                    // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"This is my question: \"{questionTree[i].Value}\"\n\nAnswer to the previous question on the following text:\n{textTree[i].Value}\n\n"));
-
-                    var response = await parent.GetResponse(messages);
-
-                    if (response.FinishReason == "error")
+                    if (!result.Success)
                     {
-                        parent.AIErrorToPersistentRuntimeMessage(response);
+                        if (result.Response?.FinishReason == "error")
+                        {
+                            parent.AIErrorToPersistentRuntimeMessage(result.Response);
+                        }
+                        else
+                        {
+                            parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
+                        }
                         outputs["Result"].Add(null);
                         i++;
                         continue;
                     }
 
-                    var result = ParseBooleanFromResponse(response.Response);
-
-                    if (result == null)
-                    {
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"The AI returned an invalid response:\n{response.Response}", false);
-                        outputs["Result"].Add(null);
-                        i++;
-                        continue;
-                    }
-                    else
-                    {
-                        outputs["Result"].Add(new GH_Boolean(result ?? false));
-                    }
-
+                    outputs["Result"].Add(result.Result);
                     i++;
                 }
 
@@ -209,19 +197,6 @@ namespace SmartHopper.Components.Text
 
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
-            }
-
-            private static bool? ParseBooleanFromResponse(string response)
-            {
-                if (string.IsNullOrWhiteSpace(response)) return null;
-
-                var lowerResponse = response.ToLowerInvariant();
-                bool hasTrue = lowerResponse.Contains("true");
-                bool hasFalse = lowerResponse.Contains("false");
-
-                if (hasTrue && !hasFalse) return true;
-                if (hasFalse && !hasTrue) return false;
-                return null;
             }
         }
     }
