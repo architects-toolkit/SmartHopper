@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  * 
@@ -69,47 +69,65 @@ namespace SmartHopper.Core.Grasshopper
             return result;
         }
 
-        //public static GH_Structure<T> JObjectToIGHStructure<T>(JObject jObject, Func<JToken, T> convertFunction) where T : IGH_Goo
-        //{
-        //    GH_Structure<T> result = new GH_Structure<T>();
+        public static GH_Structure<T> JObjectToIGHStructure<T>(JToken input, Func<JToken, T> convertFunction) where T : IGH_Goo
+        {
+            GH_Structure<T> result = new GH_Structure<T>();
 
-        //    foreach (var path in jObject)
-        //    {
-        //        GH_Path p = new GH_Path(ParseKeyToPath(path.Key));
-        //        JObject items = (JObject)path.Value;
+            // Handle JArray input
+            if (input is JArray array)
+            {
+                var defaultPath = new GH_Path(0);
+                foreach (var value in array)
+                {
+                    result.Append(convertFunction(value), defaultPath);
+                }
+                return result;
+            }
 
-        //        foreach (var item in items)
-        //        {
-        //            foreach (var property in item.Value as JObject)
-        //            {
-        //                if (property.Key == "Value")
-        //                {
-        //                    result.Append(convertFunction(property.Value), p);
-        //                    Debug.WriteLine($"{p} value found to be: {property.Value}");
-        //                }
-        //            }
-        //        }
-        //    }
+            // Handle JObject input
+            if (input is JObject jObject)
+            {
+                foreach (var path in jObject)
+                {
+                    GH_Path p = new GH_Path(ParseKeyToPath(path.Key));
+                    JObject items = (JObject)path.Value;
 
-        //    return result;
-        //}
-        //private static GH_Path ParseKeyToPath(string key)
-        //{
-        //    // Remove list indices in parentheses and split the key by semicolons
-        //    string cleanedKey = Regex.Replace(key, @"\(\d+\)", "");
-        //    var pathElements = cleanedKey.Trim('{', '}').Split(';');
+                    foreach (var item in items)
+                    {
+                        foreach (var property in item.Value as JObject)
+                        {
+                            if (property.Key == "Value")
+                            {
+                                result.Append(convertFunction(property.Value), p);
+                                Debug.WriteLine($"{p} value found to be: {property.Value}");
+                            }
+                        }
+                    }
+                }
+                return result;
+            }
 
-        //    // Convert the path elements to integers and create a new GH_Path
-        //    List<int> indices = new List<int>();
-        //    foreach (var element in pathElements)
-        //    {
-        //        if (int.TryParse(element, out int index))
-        //        {
-        //            indices.Add(index);
-        //        }
-        //    }
+            // Handle single value input
+            result.Append(convertFunction(input), new GH_Path(0));
+            return result;
+        }
+        private static GH_Path ParseKeyToPath(string key)
+        {
+            // Remove list indices in parentheses and split the key by semicolons
+            string cleanedKey = Regex.Replace(key, @"\(\d+\)", "");
+            var pathElements = cleanedKey.Trim('{', '}').Split(';');
 
-        //    return new GH_Path(indices.ToArray());
-        //}
+            // Convert the path elements to integers and create a new GH_Path
+            List<int> indices = new List<int>();
+            foreach (var element in pathElements)
+            {
+                if (int.TryParse(element, out int index))
+                {
+                    indices.Add(index);
+                }
+            }
+
+            return new GH_Path(indices.ToArray());
+        }
     }
 }
