@@ -130,5 +130,94 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         #endregion
+
+        #region List Evaluation
+
+        /// <summary>
+        /// Evaluates a list based on a natural language question using AI with a custom GetResponse function
+        /// </summary>
+        /// <param name="jsonList">The list of items to evaluate in JSON format</param>
+        /// <param name="question">The natural language question to answer</param>
+        /// <param name="getResponse">Custom function to get AI response</param>
+        /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
+        public static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+            string jsonList,
+            GH_String question,
+            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
+        {
+            try
+            {
+                // Prepare messages for the AI
+                var messages = new List<KeyValuePair<string, string>>
+                {
+                    // System prompt
+                    new KeyValuePair<string, string>("system", 
+                        "You are a list analyzer. Your task is to analyze a list of items and return a boolean value indicating whether the list matches the given criteria.\n\n" +
+                        "The list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\n" +
+                        "Mainly you will base your answers on the item itself, unless the user asks for something regarding the position of items in the list.\n\n" +
+                        "Respond with TRUE or FALSE, nothing else."),
+
+                    // User message
+                    new KeyValuePair<string, string>("user", 
+                        $"This is my question: \"{question.Value}\"\n\n" +
+                        $"Answer to the previous question with the following list:\n{jsonList}\n\n")
+                };
+
+                // Get response using the provided function
+                var response = await getResponse(messages);
+
+                // Check for API errors
+                if (response.FinishReason == "error")
+                {
+                    return AIEvaluationResult<bool>.CreateError(
+                        response.Response,
+                        GH_RuntimeMessageLevel.Error,
+                        response);
+                }
+
+                // Parse the boolean from the response
+                var result = ParsingTools.ParseBooleanFromResponse(response.Response);
+                
+                if (result == null)
+                {
+                    return AIEvaluationResult<bool>.CreateError(
+                        $"The AI returned an invalid response:\n{response.Response}",
+                        GH_RuntimeMessageLevel.Error,
+                        response);
+                }
+
+                // Success case
+                return AIEvaluationResult<bool>.CreateSuccess(
+                    response,
+                    result.Value);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in EvaluateListAsync: {ex.Message}");
+                return AIEvaluationResult<bool>.CreateError(
+                    $"Error evaluating list: {ex.Message}",
+                    GH_RuntimeMessageLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// Evaluates a list based on a natural language question using AI with the default AIUtils.GetResponse
+        /// </summary>
+        /// <param name="jsonList">The list of items to evaluate in JSON format</param>
+        /// <param name="question">The natural language question to answer</param>
+        /// <param name="provider">The AI provider to use</param>
+        /// <param name="model">The model to use, or empty for default</param>
+        /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
+        public static Task<AIEvaluationResult<bool>> EvaluateListAsync(
+            string jsonList,
+            GH_String question,
+            string provider,
+            string model = "")
+        {
+            return EvaluateListAsync(jsonList, question,
+                messages => AIUtils.GetResponse(provider, model, messages));
+        }
+
+        #endregion
     }
 }

@@ -20,6 +20,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
+using SmartHopper.Core.Grasshopper.Tools;
 
 namespace SmartHopper.Components.List
 {
@@ -139,17 +140,17 @@ namespace SmartHopper.Components.List
                 var listTreeOriginal = branches["List"];
                 var questionTree = branches["Question"];
 
-                // Wrap list to JSON string
-                var listTree = ConcatenateItems(listTreeOriginal);
+                // Convert list to JSON format before normalization
+                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, questionTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, questionTree });
 
                 // Reassign normalized branches
-                listTree = normalizedLists[0];
+                listTreeJson = normalizedLists[0];
                 questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {listTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {listTreeJson.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_Boolean>>();
@@ -161,38 +162,33 @@ namespace SmartHopper.Components.List
                 foreach (var question in questionTree)
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
+                    
+                    var currentList = listTreeJson[i];
 
-                    // Initiate the messages array
-                    var messages = new List<KeyValuePair<string, string>>();
+                    // Use the generic ListTools.EvaluateListAsync method
+                    var evaluationResult = await ListTools.EvaluateListAsync(
+                        currentList.Value,
+                        question,
+                        messages => parent.GetResponse(messages));
 
-                    // Add the system prompt
-                    messages.Add(new KeyValuePair<string, string>("system", "You are a list analyzer. Your task is to analyze a list of items and return a boolean value indicating whether the list matches the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nMainly you will base your answers on the item itself, unless the user asks for something regarding the position of items in the list.\n\nRespond with TRUE or FALSE, nothing else."));
-
-                    // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"This is my question: \"{question.Value}\"\n\nAnswer to the previous question with the following list:\n{listTree[i].Value}\n\n"));
-
-                    var response = await parent.GetResponse(messages);
-
-                    if (response.FinishReason == "error")
+                    if (!evaluationResult.Success)
                     {
-                        parent.AIErrorToPersistentRuntimeMessage(response);
+                        // Handle error
+                        if (evaluationResult.Response != null && evaluationResult.Response.FinishReason == "error")
+                        {
+                            parent.AIErrorToPersistentRuntimeMessage(evaluationResult.Response);
+                        }
+                        else
+                        {
+                            parent.SetPersistentRuntimeMessage("ai_error", evaluationResult.ErrorLevel, evaluationResult.ErrorMessage, false);
+                        }
+                        
                         outputs["Result"].Add(null);
-                        i++;
-                        continue;
-                    }
-
-                    var result = ParseBooleanFromResponse(response.Response);
-
-                    if (result == null)
-                    {
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, $"The AI returned an invalid response:\n{response.Response}", false);
-                        outputs["Result"].Add(null);
-                        i++;
-                        continue;
                     }
                     else
                     {
-                        outputs["Result"].Add(new GH_Boolean(result ?? false));
+                        // Add the result
+                        outputs["Result"].Add(new GH_Boolean(evaluationResult.Result));
                     }
 
                     i++;
@@ -214,36 +210,6 @@ namespace SmartHopper.Components.List
 
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
-            }
-
-            private static List<GH_String> ConcatenateItems(List<GH_String> inputList)
-            {
-                var result = new List<GH_String>();
-
-                var stringList = new List<string>();
-
-                foreach (var item in inputList)
-                {
-                    stringList.Add(item.ToString());
-                }
-
-                var concatenatedString = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
-                result.Add(new GH_String(concatenatedString));
-
-                return result;
-            }
-
-            private static bool? ParseBooleanFromResponse(string response)
-            {
-                if (string.IsNullOrWhiteSpace(response)) return null;
-
-                var lowerResponse = response.ToLowerInvariant();
-                bool hasTrue = lowerResponse.Contains("true");
-                bool hasFalse = lowerResponse.Contains("false");
-
-                if (hasTrue && !hasFalse) return true;
-                if (hasFalse && !hasTrue) return false;
-                return null;
             }
         }
     }
