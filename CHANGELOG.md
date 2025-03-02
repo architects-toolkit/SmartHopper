@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the new GhGetSelectedComponents component.
 - Added the new AiContext component.
+- Added the new ListTools class with method `FilterListAsync` (migrated from `AIListFilter` component)
 
 ### Changed
 
@@ -22,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `GenerateTextAsync` methods to `TextTools` (migrated from `AITextGenerate` component)
   - Updated `AITextGenerate` component to use the new generic tools
   - Added regions in `TextTools` to improve code organization
+- Refactored AI list processing tools to improve code organization and reusability:
+  - Added `ParseIndicesFromResponse` method to `ParsingTools` for reusable response parsing
+  - Updated `AIListFilter` component to use the new generic tools
+  - Added `ConcatenateItemsToJson` method to `ParsingTools` for formatting list data
+  - Added regions in `ListTools` and `ParsingTools` to improve code organization
 
 ### Fixed
 
