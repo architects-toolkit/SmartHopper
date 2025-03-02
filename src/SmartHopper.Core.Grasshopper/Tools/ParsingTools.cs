@@ -8,6 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using Grasshopper.Kernel.Types;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace SmartHopper.Core.Grasshopper.Tools
 {
     /// <summary>
@@ -15,6 +19,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// </summary>
     public static class ParsingTools
     {
+        #region Response Parsing
+
         /// <summary>
         /// Parses a boolean value from the AI response
         /// </summary>
@@ -33,5 +39,50 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             return null;
         }
+
+        /// <summary>
+        /// Parses a comma-separated list of indices from the AI response
+        /// </summary>
+        /// <param name="response">Raw response from the AI</param>
+        /// <returns>List of parsed integer indices</returns>
+        public static List<int> ParseIndicesFromResponse(string response)
+        {
+            var indices = new List<int>();
+            if (string.IsNullOrWhiteSpace(response))
+                return indices;
+
+            var parts = response.Split(',');
+            foreach (var part in parts)
+            {
+                if (int.TryParse(part.Trim(), out int index))
+                {
+                    indices.Add(index);
+                }
+            }
+            return indices;
+        }
+
+        #endregion
+
+        #region Data Formatting
+
+        /// <summary>
+        /// Concatenates a list of GH_String items into a JSON dictionary format
+        /// </summary>
+        /// <param name="inputList">The list of GH_String items</param>
+        /// <returns>A JSON string representing the list as a dictionary</returns>
+        public static string ConcatenateItemsToJson(List<GH_String> inputList)
+        {
+            var stringList = new List<string>();
+
+            foreach (var item in inputList)
+            {
+                stringList.Add(item.ToString());
+            }
+
+            return "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
+        }
+
+        #endregion
     }
 }
