@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added generic `AIEvaluationResult<T>` for standardized tool-component communication
   - Created `ParsingTools` class for reusable AI response parsing
   - Created `TextTools` with method `EvaluateTextAsync` (replacement of `AiTextEvaluate` main function)
+  - Added `GenerateTextAsync` methods to `TextTools` (migrated from `AITextGenerate` component)
+  - Updated `AITextGenerate` component to use the new generic tools
+  - Added regions in `TextTools` to improve code organization
 
 ### Fixed
 
