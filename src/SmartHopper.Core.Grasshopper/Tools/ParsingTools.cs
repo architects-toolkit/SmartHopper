@@ -83,6 +83,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
             return "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
         }
 
+        /// <summary>
+        /// Concatenates a list of GH_String items into a JSON dictionary format and returns it as a GH_String list with a single item
+        /// </summary>
+        /// <param name="inputList">The list of GH_String items</param>
+        /// <returns>A list containing a single GH_String with the JSON representation of the input list</returns>
+        public static List<GH_String> ConcatenateItemsToJsonList(List<GH_String> inputList)
+        {
+            var result = new List<GH_String>();
+            var jsonString = ConcatenateItemsToJson(inputList);
+            result.Add(new GH_String(jsonString));
+            return result;
+        }
+
         #endregion
     }
 }
