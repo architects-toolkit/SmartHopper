@@ -21,6 +21,7 @@ using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Tools;
+using Rhino.Commands;
 
 namespace SmartHopper.Components.List
 {
@@ -140,14 +141,17 @@ namespace SmartHopper.Components.List
                 var listTreeOriginal = branches["List"];
                 var criteriaTree = branches["Criteria"];
 
+                // Convert list to JSON format before normalization
+                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
+
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeOriginal, criteriaTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, criteriaTree });
 
                 // Reassign normalized branches
-                var normalizedListTree = normalizedLists[0];
+                listTreeJson = normalizedLists[0];
                 var normalizedCriteriaTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {normalizedListTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {listTreeJson.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -160,26 +164,32 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
-                    // Use the new generic tool to filter the list
-                    var result = await ListTools.FilterListAsync(normalizedListTree, criterion, 
+                    // Use the generic ListTools.FilterListAsync method with the original list
+                    var filterResult = await ListTools.FilterListAsync(
+                        listTreeOriginal,
+                        criterion,
                         messages => parent.GetResponse(messages));
 
-                    if (!result.Success)
+                    if (!filterResult.Success)
                     {
-                        if (result.Response?.FinishReason == "error")
+                        // Handle error
+                        if (filterResult.Response != null && filterResult.Response.FinishReason == "error")
                         {
-                            parent.AIErrorToPersistentRuntimeMessage(result.Response);
+                            parent.AIErrorToPersistentRuntimeMessage(filterResult.Response);
                         }
                         else
                         {
-                            parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
+                            parent.SetPersistentRuntimeMessage("ai_error", filterResult.ErrorLevel, filterResult.ErrorMessage, false);
                         }
+                        
                         outputs["Result"].Add(new GH_String(string.Empty));
-                        i++;
-                        continue;
+                    }
+                    else
+                    {
+                        // Add the filtered results
+                        outputs["Result"].AddRange(filterResult.Result);
                     }
 
-                    outputs["Result"].AddRange(result.Result);
                     i++;
                 }
 

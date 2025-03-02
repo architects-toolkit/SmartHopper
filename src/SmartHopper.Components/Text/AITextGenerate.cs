@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
-using Grasshopper.Documentation;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Tools;
 
