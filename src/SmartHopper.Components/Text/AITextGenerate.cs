@@ -19,8 +19,8 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
-using Grasshopper.Documentation;
 using System.Linq;
+using SmartHopper.Core.Grasshopper.Tools;
 
 namespace SmartHopper.Components.Text
 {
@@ -157,30 +157,26 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
 
-                    // Initiate the messages array
-                    var messages = new List<KeyValuePair<string, string>>();
+                    // Use the new generic tool to generate text
+                    var result = await TextTools.GenerateTextAsync(promptTree[i], instructionsTree[i], 
+                        messages => parent.GetResponse(messages));
 
-                    // Add system prompt if available
-                    var systemPrompt = instructionsTree[i].Value;
-                    if (!string.IsNullOrWhiteSpace(systemPrompt))
+                    if (!result.Success)
                     {
-                        messages.Add(new KeyValuePair<string, string>("system", systemPrompt));
-                    }
-
-                    // Add the user prompt
-                    messages.Add(new KeyValuePair<string, string>("user", prompt.Value));
-
-                    var response = await parent.GetResponse(messages);
-
-                    if (response.FinishReason == "error")
-                    {
-                        parent.AIErrorToPersistentRuntimeMessage(response);
+                        if (result.Response?.FinishReason == "error")
+                        {
+                            parent.AIErrorToPersistentRuntimeMessage(result.Response);
+                        }
+                        else
+                        {
+                            parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
+                        }
                         outputs["Result"].Add(new GH_String(string.Empty));
                         i++;
                         continue;
                     }
 
-                    outputs["Result"].Add(new GH_String(response.Response));
+                    outputs["Result"].Add(result.Result);
                     i++;
                 }
 

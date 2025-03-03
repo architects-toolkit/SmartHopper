@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.1.1-alpha] - 2025-03-03
+
+### Added
+
+- Added the new GhGetSelectedComponents component.
+- Added the new AiContext component.
+- Added the new ListTools class with methods:
+  - `FilterListAsync` (migrated from `AIListFilter` component)
+  - `EvaluateListAsync` (migrated from `AIListEvaluate` component)
+
+### Changed
+
+- Updated README.md to better emphasize the plugin's ability to enable AI to directly read and interact with Grasshopper files.
+- New About menu item using Eto.Forms instead of WinForms.
+- Refactored AI text evaluation tools to improve code organization and reusability:
+  - Added generic `AIEvaluationResult<T>` for standardized tool-component communication
+  - Created `ParsingTools` class for reusable AI response parsing
+  - Created `TextTools` with method `EvaluateTextAsync` (replacement of `AiTextEvaluate` main function)
+  - Added `GenerateTextAsync` methods to `TextTools` (migrated from `AITextGenerate` component)
+  - Updated `AITextGenerate` component to use the new generic tools
+  - Added regions in `TextTools` to improve code organization
+- Refactored AI list processing tools to improve code organization and reusability:
+  - Added `ParseIndicesFromResponse` method to `ParsingTools` for reusable response parsing
+  - Added `ConcatenateItemsToJson` method to `ParsingTools` for formatting list data
+  - Added `ConcatenateItemsToJsonList` method to `ParsingTools` for list-to-JSON conversion
+  - Added regions in `ListTools` and `ParsingTools` to improve code organization
+  - Updated `AIListFilter` component to use the new generic tools
+  - Updated `AIListEvaluate` component to use the new generic tools
+  - Fixed error handling in list processing components to use standardized error reporting
+  - Improved list processing to ensure entire lists are processed as a unit
+
+### Fixed
+
+- Restored functionality to set Persistent Data with the GhPutComponents component.
+- Restored functionality to generate pivot grid if missing in JSON input in GhPutComponents.
+- AI messages will only include context if it is not null or empty.
+
 ## [0.1.0-alpha] - 2025-01-27
 
 ### Added

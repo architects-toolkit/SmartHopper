@@ -2,3 +2,8 @@
 2. The aim of the project is to create some Grasshopper components.
 3. Use native Grasshopper types, objects and methods where possible.
 4. Use https://developer.rhino3d.com/ as the official documentation.
+
+When the user asks to add, change, deprecate, remove, fix, and/or security edit changes in the code, execute also the following tasks:
+1. If the version defined in @Solution.props is a dev version in format X.X.X-dev.250101, update the date to today's date.
+2. Mention the edit in the @CHANGELOG.md file, under the "Unreleased" section.
+3. Finish the conversation suggesting a title and description for the PR, following the guidelines in @.github/PULL_REQUEST_TEMPLATE.md

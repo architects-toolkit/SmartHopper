@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  * 
@@ -69,28 +69,46 @@ namespace SmartHopper.Core.Grasshopper
             return result;
         }
 
-        public static GH_Structure<T> JObjectToIGHStructure<T>(JObject jObject, Func<JToken, T> convertFunction) where T : IGH_Goo
+        public static GH_Structure<T> JObjectToIGHStructure<T>(JToken input, Func<JToken, T> convertFunction) where T : IGH_Goo
         {
             GH_Structure<T> result = new GH_Structure<T>();
 
-            foreach (var path in jObject)
+            // Handle JArray input
+            if (input is JArray array)
             {
-                GH_Path p = new GH_Path(ParseKeyToPath(path.Key));
-                JObject items = (JObject)path.Value;
-
-                foreach (var item in items)
+                var defaultPath = new GH_Path(0);
+                foreach (var value in array)
                 {
-                    foreach (var property in item.Value as JObject)
+                    result.Append(convertFunction(value), defaultPath);
+                }
+                return result;
+            }
+
+            // Handle JObject input
+            if (input is JObject jObject)
+            {
+                foreach (var path in jObject)
+                {
+                    GH_Path p = new GH_Path(ParseKeyToPath(path.Key));
+                    JObject items = (JObject)path.Value;
+
+                    foreach (var item in items)
                     {
-                        if (property.Key == "Value")
+                        foreach (var property in item.Value as JObject)
                         {
-                            result.Append(convertFunction(property.Value), p);
-                            Debug.WriteLine($"{p} value found to be: {property.Value}");
+                            if (property.Key == "Value")
+                            {
+                                result.Append(convertFunction(property.Value), p);
+                                Debug.WriteLine($"{p} value found to be: {property.Value}");
+                            }
                         }
                     }
                 }
+                return result;
             }
 
+            // Handle single value input
+            result.Append(convertFunction(input), new GH_Path(0));
             return result;
         }
         private static GH_Path ParseKeyToPath(string key)

@@ -67,6 +67,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 Debug.WriteLine($"Property path: {propertyPath}");
                 Debug.WriteLine($"Trying to set property '{propertyPath}' value to '{value}' on object '{obj.GetType().Name}'");
 
+                // Special handling for PersistentData
+                if (propertyPath == "PersistentData" && obj is IGH_DocumentObject docObj && value is JObject persistentDataObj)
+                {
+                    SetPersistentData(docObj, persistentDataObj);
+                    return;
+                }
+
                 // Navigate through the property path
                 for (int i = 0; i < parts.Length - 1; i++)
                 {
@@ -216,29 +223,48 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
         public static void SetPersistentData(IGH_DocumentObject instance, JObject persistentDataDict)
         {
+            // Extract values from nested structure
+            var values = new List<JToken>();
+            foreach (var path in persistentDataDict)
+            {
+                if (path.Value is JObject pathData)
+                {
+                    foreach (var item in pathData)
+                    {
+                        if (item.Value is JObject itemData)
+                        {
+                            values.Add(itemData["Value"]);
+                        }
+                    }
+                }
+            }
+
+            // Create a simple array structure
+            var arrayData = new JArray(values);
+
             switch (instance)
             {
                 case Param_Number paramNumber:
                     Func<JToken, GH_Number> convertFunctionToNumber = (token) => new GH_Number(token.Value<float>());
-                    var pDataNumber = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToNumber);
+                    var pDataNumber = IGHStructureProcessor.JObjectToIGHStructure(arrayData, convertFunctionToNumber);
                     paramNumber.SetPersistentData(pDataNumber);
                     break;
 
                 case Param_Integer paramInt:
                     Func<JToken, GH_Integer> convertFunctionToInt = (token) => new GH_Integer(token.Value<int>());
-                    var pDataInt = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToInt);
+                    var pDataInt = IGHStructureProcessor.JObjectToIGHStructure(arrayData, convertFunctionToInt);
                     paramInt.SetPersistentData(pDataInt);
                     break;
 
                 case Param_String paramString:
                     Func<JToken, GH_String> convertFunctionToString = (token) => new GH_String(token.ToString());
-                    var pDataString = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToString);
+                    var pDataString = IGHStructureProcessor.JObjectToIGHStructure(arrayData, convertFunctionToString);
                     paramString.SetPersistentData(pDataString);
                     break;
 
                 case Param_Boolean paramBoolean:
                     Func<JToken, GH_Boolean> convertFunctionToBoolean = (token) => new GH_Boolean(token.Value<bool>());
-                    var pDataBoolean = IGHStructureProcessor.JObjectToIGHStructure(persistentDataDict, convertFunctionToBoolean);
+                    var pDataBoolean = IGHStructureProcessor.JObjectToIGHStructure(arrayData, convertFunctionToBoolean);
                     paramBoolean.SetPersistentData(pDataBoolean);
                     break;
 

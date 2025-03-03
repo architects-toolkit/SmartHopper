@@ -20,6 +20,8 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
+using SmartHopper.Core.Grasshopper.Tools;
+using Rhino.Commands;
 
 namespace SmartHopper.Components.List
 {
@@ -139,17 +141,17 @@ namespace SmartHopper.Components.List
                 var listTreeOriginal = branches["List"];
                 var criteriaTree = branches["Criteria"];
 
-                // Wrap list to JSON string
-                var listTree = ConcatenateItems(listTreeOriginal);
+                // Convert list to JSON format before normalization
+                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTree, criteriaTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, criteriaTree });
 
                 // Reassign normalized branches
-                listTree = normalizedLists[0];
-                criteriaTree = normalizedLists[1];
+                listTreeJson = normalizedLists[0];
+                var normalizedCriteriaTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {criteriaTree.Count}, List count: {listTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {listTreeJson.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -158,47 +160,36 @@ namespace SmartHopper.Components.List
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
                 int i = 0;
-                foreach (var criterion in criteriaTree)
+                foreach (var criterion in normalizedCriteriaTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{criteriaTree.Count}");
+                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
-                    // Initiate the messages array
-                    var messages = new List<KeyValuePair<string, string>>();
+                    // Use the generic ListTools.FilterListAsync method with the original list
+                    var filterResult = await ListTools.FilterListAsync(
+                        listTreeOriginal,
+                        criterion,
+                        messages => parent.GetResponse(messages));
 
-                    // Add the system prompt
-                    messages.Add(new KeyValuePair<string, string>("system", "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\nThe list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\nYou can be asked to:\n- Reorder the list (return the same number of indices in a different order)\n- Filter the list (return less items than the original list)\n- Repeat some items (return some indices multiple times)\n- Shuffle the list (return a random order of indices)\n- Combination of the above\n\nReturn ONLY the comma-separated indices of the selected items in the order specified by the user, or in the original order if the user didn't specify an order.\n\nDO NOT RETURN ANYTHING ELSE APART FROM THE COMMA-SEPARATED INDICES."));
-
-                    // Add the user message
-                    messages.Add(new KeyValuePair<string, string>("user", $"Return the indices of items that match the following prompt: \"{criterion.Value}\"\n\nApply the previous prompt to the following list:\n{listTree[i].Value}\n\n"));
-
-                    var response = await parent.GetResponse(messages);
-
-                    if (response.FinishReason == "error")
+                    if (!filterResult.Success)
                     {
-                        parent.AIErrorToPersistentRuntimeMessage(response);
-                        outputs["Result"].Add(new GH_String(string.Empty));
-                        i++;
-                        continue;
-                    }
-
-                    var indices = ParseIndicesFromResponse(response.Response);
-
-                    Debug.WriteLine($"[ProcessData] Got indices: {string.Join(", ", indices)}");
-
-                    var result = new List<GH_String>();
-                    foreach (var index in indices)
-                    {
-                        if (index >= 0 && index < listTreeOriginal.Count)
+                        // Handle error
+                        if (filterResult.Response != null && filterResult.Response.FinishReason == "error")
                         {
-                            result.Add(listTreeOriginal[index]);
+                            parent.AIErrorToPersistentRuntimeMessage(filterResult.Response);
                         }
                         else
                         {
-                            Debug.WriteLine($"[ProcessData] Invalid index {index}. Skipping.");
+                            parent.SetPersistentRuntimeMessage("ai_error", filterResult.ErrorLevel, filterResult.ErrorMessage, false);
                         }
+                        
+                        outputs["Result"].Add(new GH_String(string.Empty));
+                    }
+                    else
+                    {
+                        // Add the filtered results
+                        outputs["Result"].AddRange(filterResult.Result);
                     }
 
-                    outputs["Result"].AddRange(result);
                     i++;
                 }
 
@@ -216,41 +207,8 @@ namespace SmartHopper.Components.List
                     return;
                 }
 
-
-
                 _parent.SetPersistentOutput("Result", _result["Result"], DA);
                 message = "Done :)";
-            }
-
-            private static List<GH_String> ConcatenateItems(List<GH_String> inputList)
-            {
-                var result = new List<GH_String>();
-
-                var stringList = new List<string>();
-
-                foreach (var item in inputList)
-                {
-                    stringList.Add(item.ToString());
-                }
-
-                var concatenatedString = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
-                result.Add(new GH_String(concatenatedString));
-
-                return result;
-            }
-
-            private static List<int> ParseIndicesFromResponse(string response)
-            {
-                var indices = new List<int>();
-                var parts = response.Split(',');
-                foreach (var part in parts)
-                {
-                    if (int.TryParse(part.Trim(), out int index))
-                    {
-                        indices.Add(index);
-                    }
-                }
-                return indices;
             }
         }
     }
