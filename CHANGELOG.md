@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the new AiChat component with interactive chat interface.
 - Added ChatDialog class using Eto.Forms for a modern chat UI experience.
 - Added ChatUtils class with helper methods for AI chat interactions.
+- Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
+
+### Changed
+
+- Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
 
 ## [0.1.1-alpha] - 2025-03-03
 

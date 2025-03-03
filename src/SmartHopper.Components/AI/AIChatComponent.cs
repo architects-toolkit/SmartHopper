@@ -40,6 +40,8 @@ namespace SmartHopper.Components.AI
                 "SmartHopper",
                 "AI")
         {
+            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
+            RunOnlyOnInputChanges = false;
         }
 
         /// <summary>
