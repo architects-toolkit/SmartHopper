@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
 
+- Added the new AiChat component with interactive chat interface.
+- Added ChatDialog class using Eto.Forms for a modern chat UI experience.
+- Added ChatUtils class with helper methods for AI chat interactions.
 
 ## [0.1.1-alpha] - 2025-03-03
 
