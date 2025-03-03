@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restored functionality to set Persistent Data with the GhPutComponents component.
 - Restored functionality to generate pivot grid if missing in JSON input in GhPutComponents.
+- AI messages will only include context if it is not null or empty.
 
 ## [0.1.0-alpha] - 2025-01-27
 
