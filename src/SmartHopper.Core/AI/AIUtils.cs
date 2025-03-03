@@ -85,18 +85,25 @@ namespace SmartHopper.Core.Utils
                 var contextData = AIContextManager.GetCurrentContext();
                 if (contextData.Count > 0)
                 {
-                    var contextMessage = "Use the following context when generating an answer:\n\n" + 
-                                      string.Join("\n", contextData.Select(kv => $"- {kv.Key}: {kv.Value}"));
-                    var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
-                    { 
-                        new KeyValuePair<string, string>("system", contextMessage)
-                    });
-                    
-                    // Insert context at the beginning of messages
-                    var newMessages = new JArray();
-                    newMessages.Merge(contextArray);
-                    newMessages.Merge(messages);
-                    messages = newMessages;
+                    var contextMessages = contextData
+                        .Where(kv => !string.IsNullOrEmpty(kv.Value))
+                        .Select(kv => $"- {kv.Key}: {kv.Value}");
+
+                    if (contextMessages.Any())
+                    {
+                        var contextMessage = "Use the following context when generating an answer:\n\n" + 
+                                             string.Join("\n", contextMessages);
+                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
+                        { 
+                            new KeyValuePair<string, string>("system", contextMessage)
+                        });
+                        
+                        // Insert context at the beginning of messages
+                        var newMessages = new JArray();
+                        newMessages.Merge(contextArray);
+                        newMessages.Merge(messages);
+                        messages = newMessages;
+                    }
                 }
             }
             catch (Exception ex)
