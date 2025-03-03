@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated README.md to better emphasize the plugin's ability to enable AI to directly read and interact with Grasshopper files.
 - New About menu item using Eto.Forms instead of WinForms.
 - Refactored AI text evaluation tools to improve code organization and reusability:
   - Added generic `AIEvaluationResult<T>` for standardized tool-component communication
