@@ -110,41 +110,5 @@ namespace SmartHopper.Components.Grasshopper
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
-
-        //private List<string> GetUniqueComponentNames(List<object> componentDetails)
-        //{
-        //    var names = new List<string>();
-        //    foreach (var component in componentDetails)
-        //    {
-        //        var dict = component as Dictionary<string, object>;
-        //        if (dict != null && dict.ContainsKey("name"))
-        //        {
-        //            var name = dict["name"] as string;
-        //            if (!string.IsNullOrEmpty(name) && !names.Contains(name))
-        //            {
-        //                names.Add(name);
-        //            }
-        //        }
-        //    }
-        //    return names;
-        //}
-
-        //private List<string> GetUniqueComponentGuids(List<object> componentDetails)
-        //{
-        //    var guids = new List<string>();
-        //    foreach (var component in componentDetails)
-        //    {
-        //        var dict = component as Dictionary<string, object>;
-        //        if (dict != null && dict.ContainsKey("componentGuid"))
-        //        {
-        //            var guid = dict["componentGuid"].ToString();
-        //            if (!string.IsNullOrEmpty(guid) && !guids.Contains(guid))
-        //            {
-        //                guids.Add(guid);
-        //            }
-        //        }
-        //    }
-        //    return guids;
-        //}
     }
 }

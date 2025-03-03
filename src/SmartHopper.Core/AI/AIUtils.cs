@@ -24,47 +24,47 @@ namespace SmartHopper.Core.Utils
 {
     public static class AIUtils
     {
-        public static string ExtractToolName(string assistantMessage)
-        {
-            if (string.IsNullOrEmpty(assistantMessage))
-                return null;
+        //public static string ExtractToolName(string assistantMessage)
+        //{
+        //    if (string.IsNullOrEmpty(assistantMessage))
+        //        return null;
 
-            var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
-            return match.Success ? match.Groups[1].Value : null;
-        }
+        //    var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
+        //    return match.Success ? match.Groups[1].Value : null;
+        //}
 
-        public static string ExtractToolArgs(string assistantMessage)
-        {
-            if (string.IsNullOrEmpty(assistantMessage))
-                return null;
+        //public static string ExtractToolArgs(string assistantMessage)
+        //{
+        //    if (string.IsNullOrEmpty(assistantMessage))
+        //        return null;
 
-            var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
-            return match.Success ? match.Groups[1].Value : null;
-        }
+        //    var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
+        //    return match.Success ? match.Groups[1].Value : null;
+        //}
 
-        public static bool TryParseJson(string strInput, out JToken jToken)
-        {
-            try
-            {
-                jToken = JToken.Parse(strInput);
-                return true;
-            }
-            catch (Exception)
-            {
-                jToken = null;
-                return false;
-            }
-        }
+        //public static bool TryParseJson(string strInput, out JToken jToken)
+        //{
+        //    try
+        //    {
+        //        jToken = JToken.Parse(strInput);
+        //        return true;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        jToken = null;
+        //        return false;
+        //    }
+        //}
 
-        public static Dictionary<string, string> GetRoleReplacement()
-        {
-            return new Dictionary<string, string>()
-            {
-                { OpenAI._name, "assistant" },
-                { MistralAI._name, "assistant" },
-                { "User", "user" }
-            };
-        }
+        //public static Dictionary<string, string> GetRoleReplacement()
+        //{
+        //    return new Dictionary<string, string>()
+        //    {
+        //        { OpenAI._name, "assistant" },
+        //        { MistralAI._name, "assistant" },
+        //        { "User", "user" }
+        //    };
+        //}
 
         public static async Task<AIResponse> GetResponse(string providerName, string model, List<KeyValuePair<string, string>> messages, string jsonSchema = "", string endpoint = "")
         {
@@ -78,6 +78,39 @@ namespace SmartHopper.Core.Utils
 
         private static async Task<AIResponse> GetResponse(string providerName, string model, JArray messages, string jsonSchema = "", string endpoint = "")
         {
+            // Add message context
+            try
+            {
+                // Add context from the context provider to the messages
+                var contextData = AIContextManager.GetCurrentContext();
+                if (contextData.Count > 0)
+                {
+                    var contextMessages = contextData
+                        .Where(kv => !string.IsNullOrEmpty(kv.Value))
+                        .Select(kv => $"- {kv.Key}: {kv.Value}");
+
+                    if (contextMessages.Any())
+                    {
+                        var contextMessage = "Use the following context when generating an answer:\n\n" + 
+                                             string.Join("\n", contextMessages);
+                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
+                        { 
+                            new KeyValuePair<string, string>("system", contextMessage)
+                        });
+                        
+                        // Insert context at the beginning of messages
+                        var newMessages = new JArray();
+                        newMessages.Merge(contextArray);
+                        newMessages.Merge(messages);
+                        messages = newMessages;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error adding context: {ex.Message}");
+            }
+
             try
             {
                 var stopwatch = new System.Diagnostics.Stopwatch();
