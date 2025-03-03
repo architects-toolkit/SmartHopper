@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
+- Improved ChatDialog UI with a modern chat-like interface featuring message bubbles, better layout, and visual styling.
+- Enhanced message bubbles to properly wrap text and resize dynamically with the window size.
 
 ## [0.1.1-alpha] - 2025-03-03
 
