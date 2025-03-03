@@ -1,7 +1,7 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E1%2E1--dev%2E250303-yellow)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Unstable%20development-yellow)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E1%2E1--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange)](https://mistral.ai/)
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
@@ -14,7 +14,7 @@ SmartHopper is a groundbreaking plugin that enables AI to directly read, interpr
 - 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
 - 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
 - 🤖 **Multiple AI Provider Support**: Choose between **MistralAI** and **OpenAI** APIs based on your preferences and requirements. Provide your own API keys and pay for usage.
-- 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper definitions, but it can also generate and place definitions directly on your canvas [coming soon].
+- 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas [coming soon].
 
 ## 👥 Who Is This For?
 - **Architects and engineers** looking to enhance their parametric design workflow with AI assistance.
@@ -36,7 +36,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | Component | Planned | In Progress | Testing | Released 🎉 |
 |-----------|:-------:|:-----------:|:-------:|:------------------------:|
 | Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Get Selected Components (GhGetSelected)<br><sub>Select some components and convert them to GhJSON format</sub> | ⚪ | 🟡 | 🟠 | - |
+| Grasshopper Get Selected Components (GhGetSelected)<br><sub>Select some components and convert them to GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate Definitions (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -45,7 +45,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
-| AI Context (AiContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | - |
+| AI Context (AiContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | - | - | - |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | ⚪ | - | - | - |
