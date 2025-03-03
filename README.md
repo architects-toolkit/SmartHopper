@@ -1,4 +1,4 @@
-# SmartHopper - Bringing AI to Grasshopper3D
+# SmartHopper - AI-Powered Grasshopper3D Plugin
 
 [![Version](https://img.shields.io/badge/version-0%2E1%2E1--dev%2E250303-yellow)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20development-yellow)](https://github.com/architects-toolkit/SmartHopper/releases)
@@ -7,25 +7,25 @@
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
-SmartHopper brings the power of AI assistance directly into your Grasshopper workflow! This innovative plugin seamlessly integrates advanced AI capabilities into the Grasshopper environment, enabling architects, engineers, and designers, to enhance their parametric design process.
+SmartHopper is a groundbreaking plugin that enables AI to directly read, interpret, and generate Grasshopper definitions [coming soon]. This plugin bridges the gap between artificial intelligence and parametric design by allowing AI to understand and interact with your Grasshopper files in their native format.
 
-## 🎯 Why SmartHopper?
+## 🎯 Key Features
 
-- 🖌️ SmartHopper is coded by designers, to designers.
-- 🤖 The emerging artificial intelligence revolution is transforming the way we work. SmartHopper is a tool that empowers designers to harness the power of AI in your Grasshopper3D projects.
-- ⚖️ SmartHopper is about making choices. It integrates **MistralAI** and **OpenAI** APIs. Provide your own API keys and pay for usage.
-- ☁️ **SmartHopper Cloud** *[coming soon]* is a custom implementation of the MistralAI API that enhances the native AI capabilities by adding cascaded prompts and RAG, providing necessary context on the Grasshopper3D environment.
+- 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
+- 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
+- 🤖 **Multiple AI Provider Support**: Choose between **MistralAI** and **OpenAI** APIs based on your preferences and requirements. Provide your own API keys and pay for usage.
+- 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper definitions, but it can also generate and place definitions directly on your canvas [coming soon].
 
 ## 👥 Who Is This For?
-- **Architects and engineers** looking to enhance their parametric design workflow.
-- **Computational designers** seeking AI assistance in their Grasshopper projects.
-- Anyone interested in exploring the intersection of AI and parametric design.
+- **Architects and engineers** looking to enhance their parametric design workflow with AI assistance.
+- **Computational designers** seeking to automate repetitive tasks and generate creative solutions.
+- **Researchers** exploring the intersection of AI and parametric design methodologies.
 
-## 🛠️ Technical Details
-- 🌱 Compatible with Data Tree processing in Grasshopper3D.
-- ⌚ Asynchronous execution to prevent blocking the canvas.
-- 🔄 Run the components with a Button (single manual run) or a Boolean Toggle (run on every input change).
-- 🧱 Clean, modular architecture for stability and future extensibility.
+## 🛠️ Technical Capabilities
+- 🌱 Seamless integration with Grasshopper's Data Tree structure.
+- ⌚ Asynchronous execution to maintain a responsive design environment.
+- 🔄 Flexible triggering options: run components manually or automatically when inputs change.
+- 🧱 Modular architecture designed for stability and future extensibility.
 
 ## 💻 Installation
 
