@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
 - Improved ChatDialog UI with a modern chat-like interface featuring message bubbles, better layout, and visual styling.
 - Enhanced message bubbles to properly wrap text and resize dynamically with the window size.
+- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 
 ## [0.1.1-alpha] - 2025-03-03
 
