@@ -53,6 +53,23 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 
 Is there something missing? Do you have a suggestion? Please open a [Feature Request](https://github.com/architects-toolkit/SmartHopper/issues/new/choose) in the Issues tab.
 
+## 🔢 Supported Data Types
+
+SmartHopper is designed to work with various Grasshopper-native data types. Below is a table showing the currently supported types and those planned for future implementation:
+
+| Data Type | Status |
+|-----------|:------:|
+| Text | ✅ Supported |
+| Number | ✅ Supported |
+| Integer | ✅ Supported |
+| Boolean | ✅ Supported |
+| Point | 🔜 Planned |
+| Plane | 🔜 Planned |
+| Line | 🔜 Planned |
+| Circle | 🔜 Planned |
+
+Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
+
 ## 📚 Usage Examples
 
 ### 1 Generate a Title for the Current Document
