@@ -17,6 +17,7 @@
 # Critical repository files
 /.gitignore         @marc-romu
 /.gitattributes     @marc-romu
+/.windsurfrules     @marc-romu
 
 # Critical solution files
 /*.sln              @marc-romu
