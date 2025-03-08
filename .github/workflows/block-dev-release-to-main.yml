@@ -1,0 +1,34 @@
+name: Block Dev Release to Main
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Solution.props'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-dev-release:
+    name: 🚫 Block Dev Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Check for Dev Release
+        id: check-dev
+        run: |
+          VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+          echo "Version found: $VERSION"
+          
+          if [[ $VERSION == *"-dev"* ]]; then
+            echo "::error::Development release versions (-dev) cannot be merged into main branch"
+            echo "IS_DEV_RELEASE=true" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "IS_DEV_RELEASE=false" >> $GITHUB_ENV
+          fi
