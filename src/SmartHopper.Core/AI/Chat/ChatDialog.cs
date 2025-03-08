@@ -30,8 +30,9 @@ namespace SmartHopper.Core.AI.Chat
     public class ChatDialog : Form
     {
         // UI Components
-        private readonly TextArea _chatHistoryTextArea;
-        private readonly TextBox _userInputTextBox;
+        private readonly StackLayout _chatHistoryPanel;
+        private readonly Scrollable _chatScrollable;
+        private readonly TextArea _userInputTextArea;
         private readonly Button _sendButton;
         private readonly Button _clearButton;
         private readonly ProgressBar _progressBar;
@@ -41,6 +42,12 @@ namespace SmartHopper.Core.AI.Chat
         private readonly List<KeyValuePair<string, string>> _chatHistory;
         private bool _isProcessing;
         private readonly Func<List<KeyValuePair<string, string>>, Task<AIResponse>> _getResponse;
+
+        // Colors for the chat bubbles
+        private readonly Color _userBubbleColor = Color.Parse("#E1FFC7"); // Light green
+        private readonly Color _botBubbleColor = Color.Parse("#FFFFFF");  // White
+        private readonly Color _systemBubbleColor = Color.Parse("#F0F0F0"); // Light gray
+        private readonly Color _chatBackgroundColor = Color.Parse("#ECE5DD"); // Light beige
 
         /// <summary>
         /// Event raised when a new AI response is received.
@@ -60,19 +67,26 @@ namespace SmartHopper.Core.AI.Chat
             _chatHistory = new List<KeyValuePair<string, string>>();
 
             // Initialize UI components
-            _chatHistoryTextArea = new TextArea
+            _chatHistoryPanel = new StackLayout
             {
-                ReadOnly = true,
-                Wrap = true,
-                Height = 400
+                Spacing = 10,
+                Padding = new Padding(10),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
             };
 
-            _userInputTextBox = new TextBox
+            _chatScrollable = new Scrollable
             {
-                PlaceholderText = "Type your message here...",
+                Content = _chatHistoryPanel,
+                ExpandContentWidth = true,
+                Height = 400,
+                BackgroundColor = _chatBackgroundColor
+            };
+
+            _userInputTextArea = new TextArea
+            {
                 Height = 60
             };
-            _userInputTextBox.KeyDown += UserInputTextBox_KeyDown;
+            _userInputTextArea.KeyDown += UserInputTextArea_KeyDown;
 
             _sendButton = new Button
             {
@@ -109,22 +123,32 @@ namespace SmartHopper.Core.AI.Chat
                 {
                     new TableRow
                     {
-                        Cells = { new TableCell(_chatHistoryTextArea, true) }
+                        Cells = { new TableCell(_chatScrollable, true) }
                     },
                     new TableRow
                     {
-                        Cells = { _userInputTextBox }
-                    },
-                    new TableRow
-                    {
-                        Cells =
-                        {
+                        Cells = 
+                        { 
                             new TableLayout
                             {
                                 Spacing = new Size(5, 0),
-                                Rows = { new TableRow { Cells = { _sendButton, _clearButton } } }
+                                Rows = 
+                                { 
+                                    new TableRow 
+                                    { 
+                                        Cells = 
+                                        { 
+                                            new TableCell(_userInputTextArea, true),
+                                            _sendButton
+                                        } 
+                                    } 
+                                }
                             }
                         }
+                    },
+                    new TableRow
+                    {
+                        Cells = { _clearButton }
                     },
                     new TableRow
                     {
@@ -141,12 +165,12 @@ namespace SmartHopper.Core.AI.Chat
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
         }
 
-        private void UserInputTextBox_KeyDown(object sender, KeyEventArgs e)
+        private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Keys.Enter && e.Modifiers.HasFlag(Keys.Shift))
             {
                 // Shift+Enter adds a new line
-                _userInputTextBox.Text += Environment.NewLine;
+                _userInputTextArea.Text += Environment.NewLine;
                 e.Handled = true;
             }
             else if (e.Key == Keys.Enter && !_isProcessing)
@@ -168,7 +192,7 @@ namespace SmartHopper.Core.AI.Chat
         private void ClearButton_Click(object sender, EventArgs e)
         {
             _chatHistory.Clear();
-            _chatHistoryTextArea.Text = string.Empty;
+            _chatHistoryPanel.Items.Clear();
             
             // Add system message to start the conversation
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
@@ -177,66 +201,114 @@ namespace SmartHopper.Core.AI.Chat
         private void AddSystemMessage(string message)
         {
             _chatHistory.Add(new KeyValuePair<string, string>("system", message));
-            UpdateChatDisplay();
+            AddMessageBubble("system", message);
         }
 
         private void AddUserMessage(string message)
         {
             _chatHistory.Add(new KeyValuePair<string, string>("user", message));
-            UpdateChatDisplay();
+            AddMessageBubble("user", message);
         }
 
         private void AddAssistantMessage(string message)
         {
             _chatHistory.Add(new KeyValuePair<string, string>("assistant", message));
-            UpdateChatDisplay();
+            AddMessageBubble("assistant", message);
         }
 
-        private void UpdateChatDisplay()
+        private void AddMessageBubble(string role, string content)
         {
-            _chatHistoryTextArea.Text = string.Empty;
-            
-            foreach (var message in _chatHistory)
+            Color bubbleColor;
+            bool isUserMessage = false;
+            string displayRole;
+
+            // Set bubble color and alignment based on role
+            switch (role)
             {
-                string role = message.Key;
-                string content = message.Value;
-                
-                string displayRole;
-                
-                // Traditional switch statement instead of switch expression for C# 7.3 compatibility
-                switch (role)
-                {
-                    case "user":
-                        displayRole = "You";
-                        break;
-                    case "assistant":
-                        displayRole = "AI";
-                        break;
-                    case "system":
-                        displayRole = "System";
-                        break;
-                    default:
-                        displayRole = role;
-                        break;
-                }
-                
-                _chatHistoryTextArea.Text += $"{displayRole}: {content}{Environment.NewLine}{Environment.NewLine}";
+                case "user":
+                    bubbleColor = _userBubbleColor;
+                    isUserMessage = true;
+                    displayRole = "You";
+                    break;
+                case "assistant":
+                    bubbleColor = _botBubbleColor;
+                    displayRole = "AI";
+                    break;
+                case "system":
+                    bubbleColor = _systemBubbleColor;
+                    displayRole = "System";
+                    break;
+                default:
+                    bubbleColor = _botBubbleColor;
+                    displayRole = role;
+                    break;
             }
+
+            // Create the message label with word wrapping
+            var messageLabel = new Label
+            {
+                Text = content,
+                Wrap = WrapMode.Word
+            };
+
+            // Create the message bubble
+            var messageBubble = new Panel
+            {
+                BackgroundColor = bubbleColor,
+                Padding = new Padding(10),
+                Content = messageLabel
+            };
+
+            // Add rounded corners to the bubble
+            messageBubble.Style = "border-radius: 10px;";
             
+            // Create a container for the bubble with proper alignment
+            var bubbleContainer = new StackLayout
+            {
+                Spacing = 5,
+                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                Items = 
+                {
+                    new StackLayoutItem
+                    {
+                        Control = messageBubble,
+                        HorizontalAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                        Expand = false
+                    }
+                }
+            };
+
+            // Add a small label for the role name
+            if (role != "user" && role != "assistant")
+            {
+                bubbleContainer.Items.Insert(0, new Label
+                {
+                    Text = displayRole,
+                    TextColor = Colors.Gray,
+                    Font = new Font(SystemFont.Default, 8)
+                });
+            }
+
+            // Add the bubble to the chat history
+            _chatHistoryPanel.Items.Add(bubbleContainer);
+
             // Scroll to the bottom
-            _chatHistoryTextArea.CaretIndex = _chatHistoryTextArea.Text.Length;
+            Application.Instance.AsyncInvoke(() =>
+            {
+                _chatScrollable.ScrollPosition = new Point(0, int.MaxValue);
+            });
         }
 
         private async void SendMessage()
         {
-            string userMessage = _userInputTextBox.Text.Trim();
+            string userMessage = _userInputTextArea.Text.Trim();
             if (string.IsNullOrEmpty(userMessage))
             {
                 return;
             }
 
             // Clear input and add message to history
-            _userInputTextBox.Text = string.Empty;
+            _userInputTextArea.Text = string.Empty;
             AddUserMessage(userMessage);
 
             // Update UI state
