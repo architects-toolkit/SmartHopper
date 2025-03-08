@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ChatDialog class using Eto.Forms for a modern chat UI experience.
 - Added ChatUtils class with helper methods for AI chat interactions.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
+- Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
+- Added default provider selection in the settings dialog to set the global default AI provider.
 
 ### Changed
 
@@ -20,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved ChatDialog UI with a modern chat-like interface featuring message bubbles, better layout, and visual styling.
 - Enhanced message bubbles to properly wrap text and resize dynamically with the window size.
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
+- Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
+- Updated component icon display to show the actual provider icon when "Default" is selected.
 
 ## [0.1.1-alpha] - 2025-03-03
 
