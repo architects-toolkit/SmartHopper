@@ -22,7 +22,7 @@ jobs:
         run: |
           VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
           if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
-            echo "Invalid version format in Solution.props. Must follow semantic versioning."
+            echo "Invalid version format in Solution.props ($VERSION). Must follow semantic versioning."
             exit 1
           fi
 
@@ -60,6 +60,7 @@ jobs:
           PR_TITLE="${{ github.event.pull_request.title }}"
           if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?:.+ ]]; then
             echo "Error: Pull request title must follow conventional commits format"
+            echo "Current title: $PR_TITLE"
             echo "Example formats:"
             echo "  feat: add new feature"
             echo "  fix(component): resolve specific issue"
