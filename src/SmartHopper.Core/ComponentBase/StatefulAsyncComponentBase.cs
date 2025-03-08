@@ -713,7 +713,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="writer">The writer to use for serialization</param>
         /// <returns>True if the write operation succeeds, false if it fails or an exception occurs</returns>
-        public sealed override bool Write(GH_IWriter writer)
+        public override bool Write(GH_IWriter writer)
         {
             if (!base.Write(writer))
                 return false;
@@ -782,7 +782,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="reader">The reader to use for deserialization</param>
         /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs</returns>
-        public sealed override bool Read(GH_IReader reader)
+        public override bool Read(GH_IReader reader)
         {
             if (!base.Read(reader))
                 return false;
