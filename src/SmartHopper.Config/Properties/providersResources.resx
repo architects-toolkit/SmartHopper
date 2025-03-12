@@ -124,4 +124,7 @@
   <data name="openai_icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\openai_icon.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="smarthopper_256" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\smarthopper_256.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
 </root>
