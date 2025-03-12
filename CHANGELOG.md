@@ -9,14 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the new AiChat component with interactive chat interface.
+- Added the new AIChat component with interactive chat interface.
 - Added ChatDialog class using Eto.Forms for a modern chat UI experience.
 - Added ChatUtils class with helper methods for AI chat interactions.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
 - Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
 - Added default provider selection in the settings dialog to set the global default AI provider.
 - Added custom icon for the SmartHopper tab in Grasshopper.
-- Placed proper icon for the AI chat component.
 
 ### Changed
 
@@ -26,13 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
 - Updated component icon display to show the actual provider icon when "Default" is selected.
+- Placed proper icon for the AI chat component.
+- Decreased font size of the About dialog.
+- Defined a minimum size for the About dialog.
+
+# Fixed
+
+- Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
 
 ## [0.1.1-alpha] - 2025-03-03
 
 ### Added
 
 - Added the new GhGetSelectedComponents component.
-- Added the new AiContext component.
+- Added the new AiContext component ([#40](https://github.com/architects-toolkit/SmartHopper/issues/40)).
 - Added the new ListTools class with methods:
   - `FilterListAsync` (migrated from `AIListFilter` component)
   - `EvaluateListAsync` (migrated from `AIListEvaluate` component)

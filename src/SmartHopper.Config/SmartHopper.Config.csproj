@@ -18,6 +18,12 @@
     <Copyright>Copyright (c) 2024 Marc Roca Musach</Copyright>
   </PropertyGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SmartHopper.Menu</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputPath>$(SolutionDir)bin/$(SolutionVersion)/$(Configuration)</OutputPath>
   </PropertyGroup>
