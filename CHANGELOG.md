@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
 - Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
 - Added default provider selection in the settings dialog to set the global default AI provider.
+- Added custom icon for the SmartHopper tab in Grasshopper.
+- Placed proper icon for the AI chat component.
 
 ### Changed
 
