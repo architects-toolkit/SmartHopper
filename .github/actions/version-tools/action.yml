@@ -85,7 +85,6 @@ runs:
         sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ inputs.new-version }}<\/SolutionVersion>/" Solution.props
         echo "Updated Solution.props with new version: ${{ inputs.new-version }}"
 
-    # Badge will always be updated after version updates
     - name: Update version badge in README.md
       id: update-badge
       if: inputs.task == 'update-badge' || inputs.task == 'update-version'
@@ -127,81 +126,72 @@ runs:
         if [[ -f "README.md" ]]; then
           BADGES_CHANGED=false
           
-          # Update version badge
-          if grep -q "\[\!\[Version\]\]" README.md; then
-            echo "Found existing version badge, updating it"
-            # Use perl for more reliable regex replacement
+          # Check if badges exist
+          HAS_VERSION_BADGE=$(grep -c "\[\!\[Version\]\]" README.md || echo "0")
+          HAS_STATUS_BADGE=$(grep -c "\[\!\[Status\]\]" README.md || echo "0")
+          
+          if [[ $HAS_VERSION_BADGE -gt 0 && $HAS_STATUS_BADGE -gt 0 ]]; then
+            echo "Both badges exist, updating them"
+            # Update version badge
             perl -i -pe 's|\[\!\[Version\]\]\(https://img\.shields\.io/badge/version[^)]*\)|\[\!\[Version\]\]\('$VERSION_BADGE_URL'\)|g' README.md
+            # Update status badge
+            perl -i -pe 's|\[\!\[Status\]\]\(https://img\.shields\.io/badge/status[^)]*\)|\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)|g' README.md
+            
             if [ $? -eq 0 ]; then
-              echo "Updated existing version badge in README.md"
+              echo "Updated existing badges in README.md"
               BADGES_CHANGED=true
             else
-              echo "Failed to update version badge"
+              echo "Failed to update badges"
+            fi
+          elif [[ $HAS_VERSION_BADGE -gt 0 ]]; then
+            echo "Only version badge exists, updating it and adding status badge"
+            # Update version badge
+            perl -i -pe 's|\[\!\[Version\]\]\(https://img\.shields\.io/badge/version[^)]*\)|\[\!\[Version\]\]\('$VERSION_BADGE_URL'\)|g' README.md
+            # Add status badge after version badge
+            perl -i -pe 's|(\[\!\[Version\]\].*\))|\1\n\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)\(https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases\)|' README.md
+            
+            if [ $? -eq 0 ]; then
+              echo "Updated version badge and added status badge in README.md"
+              BADGES_CHANGED=true
+            else
+              echo "Failed to update badges"
+            fi
+          elif [[ $HAS_STATUS_BADGE -gt 0 ]]; then
+            echo "Only status badge exists, updating it and adding version badge"
+            # Update status badge
+            perl -i -pe 's|\[\!\[Status\]\]\(https://img\.shields\.io/badge/status[^)]*\)|\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)|g' README.md
+            # Add version badge before status badge
+            perl -i -pe 's|(\[\!\[Status\]\])|[![Version]('$VERSION_BADGE_URL')](https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases)\n\1|' README.md
+            
+            if [ $? -eq 0 ]; then
+              echo "Updated status badge and added version badge in README.md"
+              BADGES_CHANGED=true
+            else
+              echo "Failed to update badges"
             fi
           else
-            echo "No version badge found, adding one"
-            # Add new badge after the title
+            echo "No badges found, adding both"
+            # Get the title line
             TITLE=$(head -n 1 README.md)
-            BADGE_LINE="[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
             
-            # Create a temporary file with the new content
-            echo "$TITLE" > README.md.new
-            echo "" >> README.md.new
-            echo "$BADGE_LINE" >> README.md.new
-            echo "" >> README.md.new
+            # Create new content with badges
+            {
+              echo "$TITLE"
+              echo ""
+              echo "[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+              echo "[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+              echo ""
+              tail -n +2 README.md
+            } > README.md.new
             
-            # Append the rest of the file (skipping the first line)
-            tail -n +2 README.md >> README.md.new
-            
-            # Replace the original file
+            # Replace original file
             mv README.md.new README.md
             
             if [ $? -eq 0 ]; then
-              echo "Added new version badge to README.md"
+              echo "Added both badges to README.md"
               BADGES_CHANGED=true
             else
-              echo "Failed to add version badge"
-            fi
-          fi
-          
-          # Update status badge
-          if grep -q "\[\!\[Status\]\]" README.md; then
-            echo "Found existing status badge, updating it"
-            # Use perl for more reliable regex replacement
-            perl -i -pe 's|\[\!\[Status\]\]\(https://img\.shields\.io/badge/status[^)]*\)|\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)|g' README.md
-            if [ $? -eq 0 ]; then
-              echo "Updated existing status badge in README.md"
-              BADGES_CHANGED=true
-            else
-              echo "Failed to update status badge"
-            fi
-          else
-            echo "No status badge found, adding one after version badge"
-            # Add status badge after version badge if it exists
-            if grep -q "\[\!\[Version\]\]" README.md; then
-              perl -i -pe 's|(\[\!\[Version\]\].*\n)|$1\n[![Status]('$STATUS_BADGE_URL')](https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases)|' README.md
-            else
-              # Add at the top if no version badge
-              TITLE=$(head -n 1 README.md)
-              BADGE_LINE="[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
-              
-              # Create a temporary file with the new content
-              echo "$TITLE" > README.md.new
-              echo "" >> README.md.new
-              echo "$BADGE_LINE" >> README.md.new
-              echo "" >> README.md.new
-              
-              # Append the rest of the file (skipping the first line)
-              tail -n +2 README.md >> README.md.new
-              
-              # Replace the original file
-              mv README.md.new README.md
-            fi
-            if [ $? -eq 0 ]; then
-              echo "Added new status badge to README.md"
-              BADGES_CHANGED=true
-            else
-              echo "Failed to add status badge"
+              echo "Failed to add badges"
             fi
           fi
           
