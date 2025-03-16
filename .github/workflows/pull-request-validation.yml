@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3
+      - uses: actions/checkout@v4
 
       - name: Validate Version in Solution.props
         run: |
@@ -33,10 +33,10 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3
+      - uses: actions/checkout@v4
 
       - name: Check CHANGELOG.md is Updated
-        uses: tj-actions/changed-files@d6e91a2266cdb9d62096cebf1e8546899c6aa18f # v45.0.6
+        uses: tj-actions/changed-files@v46.0.1
         id: changelog-check
         with:
           files: CHANGELOG.md
