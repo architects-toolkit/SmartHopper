@@ -75,12 +75,33 @@ jobs:
       - name: Set branch name
         id: set-branch
         run: |
-          SECURITY_BRANCH="security/patch-${{ steps.calculate-version.outputs.new-version }}"
-          echo "security_branch=$SECURITY_BRANCH" >> $GITHUB_OUTPUT
+          echo "security_branch=security/patch-${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
+        shell: bash
 
-      - name: Create new branch
+      - name: Check if branch exists
+        id: check-branch
         run: |
-          git checkout -b ${{ steps.set-branch.outputs.security_branch }}
+          if git ls-remote --heads origin ${{ steps.set-branch.outputs.security_branch }} | grep -q ${{ steps.set-branch.outputs.security_branch }}; then
+            echo "branch_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "branch_exists=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Create or update branch
+        id: create-branch
+        run: |
+          if [[ "${{ steps.check-branch.outputs.branch_exists }}" == "true" ]]; then
+            # Branch exists, fetch it and reset to match remote
+            git fetch origin ${{ steps.set-branch.outputs.security_branch }}
+            git checkout -B ${{ steps.set-branch.outputs.security_branch }} origin/${{ steps.set-branch.outputs.security_branch }}
+            echo "Using existing branch: ${{ steps.set-branch.outputs.security_branch }}"
+          else
+            # Create new branch
+            git checkout -b ${{ steps.set-branch.outputs.security_branch }}
+            echo "Created new branch: ${{ steps.set-branch.outputs.security_branch }}"
+          fi
+        shell: bash
 
       - name: Update Solution.props with new version
         uses: ./.github/actions/version-tools
@@ -88,21 +109,20 @@ jobs:
           task: update-version
           new-version: ${{ steps.calculate-version.outputs.new-version }}
 
-      - name: Update badges in README.md
-        id: update-badge
+      - name: Update badges
         uses: ./.github/actions/version-tools
         with:
           task: update-badge
 
       - name: Update CHANGELOG.md
-        id: update-changelog
+        if: ${{ github.event.inputs.update_changelog == 'true' }}
         uses: ./.github/actions/version-tools/changelog-updater
         with:
           version: ${{ steps.calculate-version.outputs.new-version }}
-          security-fix: ${{ github.event.inputs.update_changelog == 'true' }}
+          security-fix: true
           security-description: ${{ github.event.inputs.description }}
 
-      - name: Commit changes
+      - name: Commit and push changes
         id: commit-changes
         run: |
           git add Solution.props README.md CHANGELOG.md
@@ -113,9 +133,12 @@ jobs:
             echo "changes_made=false" >> $GITHUB_OUTPUT
           else
             git commit -m "security: bump version to ${{ steps.calculate-version.outputs.new-version }} for security patch"
-            git push origin ${{ steps.set-branch.outputs.security_branch }}
+            
+            # Force push to ensure we can update the branch if it exists
+            git push --force origin ${{ steps.set-branch.outputs.security_branch }}
             echo "changes_made=true" >> $GITHUB_OUTPUT
           fi
+        shell: bash
 
       - name: Check milestones for version collision
         id: check-milestones
