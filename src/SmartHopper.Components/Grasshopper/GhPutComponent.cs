@@ -102,7 +102,7 @@ namespace SmartHopper.Components.Grasshopper
                 var startPoint = GHCanvasUtils.StartPoint(100);
 
                 // Check if any components are missing pivot positions
-                bool needsPositioning = document.Components.Any(c => c.Pivot == null || c.Pivot.IsEmpty);
+                bool needsPositioning = document.Components.Any(c => c.Pivot.IsEmpty);
                 Dictionary<string, PointF> generatedPositions = null;
 
                 if (needsPositioning)
@@ -183,7 +183,7 @@ namespace SmartHopper.Components.Grasshopper
 
                         // Set position - use generated position if pivot is missing
                         PointF position;
-                        if (component.Pivot == null || component.Pivot.IsEmpty)
+                        if (component.Pivot.IsEmpty)
                         {
                             position = generatedPositions != null && generatedPositions.TryGetValue(component.InstanceGuid.ToString(), out PointF genPos)
                                 ? new PointF(genPos.X + startPoint.X, genPos.Y + startPoint.Y)

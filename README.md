@@ -1,7 +1,7 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E1%2E2--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E1%2E3--dev%2E250316-yellow)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Unstable%20development-yellow)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange)](https://mistral.ai/)
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
@@ -46,12 +46,31 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
 | AI Context (AiContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | - | - | - |
+| AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | - | - |
+| AI Chat Input (AiChatInput)<br><sub>Send some data from your Grasshopper to the AI Chat</sub> | ⚪ | - | - | - |
+| AI Chat Output (AiChatOutput)<br><sub>Receive some data from the AI Chat to your Grasshopper</sub> | ⚪ | - | - | - |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | ⚪ | - | - | - |
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | ⚪ | - | - | - |
 
 Is there something missing? Do you have a suggestion? Please open a [Feature Request](https://github.com/architects-toolkit/SmartHopper/issues/new/choose) in the Issues tab.
+
+## 🔢 Supported Data Types
+
+SmartHopper is designed to work with various Grasshopper-native data types. Below is a table showing the currently supported types and those planned for future implementation:
+
+| Data Type | Status |
+|-----------|:------:|
+| Text | ✅ Supported |
+| Number | ✅ Supported |
+| Integer | ✅ Supported |
+| Boolean | ✅ Supported |
+| Point | 🔜 Planned |
+| Plane | 🔜 Planned |
+| Line | 🔜 Planned |
+| Circle | 🔜 Planned |
+
+Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
 
 ## 📚 Usage Examples
 
