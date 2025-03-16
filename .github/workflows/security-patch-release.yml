@@ -7,11 +7,6 @@ on:
         description: 'Security fix description'
         required: true
         type: string
-      update_changelog:
-        description: 'Update CHANGELOG.md with the security fix'
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -119,7 +114,7 @@ jobs:
         with:
           version: ${{ steps.calculate-version.outputs.new-version }}
           security-fix: true
-          security-description: ${{ github.event.inputs.update_changelog == 'true' && github.event.inputs.description || '' }}
+          security-description: ${{ github.event.inputs.description }}
 
       - name: Commit and push changes
         id: commit-changes
@@ -276,7 +271,7 @@ jobs:
 
       - name: Create PR for security patch
         id: create-pr
-        if: github.event.inputs.update_changelog == 'true' || steps.commit-changes.outputs.changes_made == 'true'
+        if: steps.commit-changes.outputs.changes_made == 'true'
         uses: actions/github-script@v7.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -296,11 +291,6 @@ jobs:
             
             - Bumped version to ${{ steps.calculate-version.outputs.new-version }}
             - Updated badges in README.md`;
-            
-            // Add changelog update if applicable
-            if ('${{ github.event.inputs.update_changelog }}' === 'true') {
-              prBody += '\n- Updated CHANGELOG.md with security fix details';
-            }
             
             // Add milestone update info if available
             const milestoneResult = '${{ toJSON(steps.check-milestones.outputs.result) }}';
