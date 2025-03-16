@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated actions/setup-dotnet to v4
   - Updated actions/upload-artifact to v4
   - Updated actions/github-script to v7
+- Enhanced pull-request-validation.yml workflow with improved error logging for version and PR title checks
+- Added new security-patch-release.yml workflow for creating security patch releases outside the milestone process
+
+### Removed
+
+- Removed Test GitHub Actions workflow
 
 ## [0.1.1-alpha] - 2025-03-03
 
