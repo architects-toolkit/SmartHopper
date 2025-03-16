@@ -56,111 +56,31 @@ jobs:
 
       - name: Get current version from Solution.props
         id: current-version
-        run: |
-          CURRENT_VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
-          echo "Current version in Solution.props: $CURRENT_VERSION"
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          
-          # If we have a latest release, use that as the base for incrementing
-          LATEST_RELEASE="${{ steps.latest-release.outputs.result }}"
-          if [[ -n "$LATEST_RELEASE" ]]; then
-            echo "Using latest release as base: $LATEST_RELEASE"
-            BASE_VERSION="$LATEST_RELEASE"
-          else
-            echo "No latest release found, using current version from Solution.props"
-            BASE_VERSION="$CURRENT_VERSION"
-          fi
-          
-          echo "BASE_VERSION=$BASE_VERSION" >> $GITHUB_OUTPUT
-          
-          # Parse version components
-          if [[ $BASE_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
-            MAJOR="${BASH_REMATCH[1]}"
-            MINOR="${BASH_REMATCH[2]}"
-            PATCH="${BASH_REMATCH[3]}"
-            SUFFIX="${BASH_REMATCH[4]}"
-            
-            # Increment patch version
-            NEW_PATCH=$((PATCH + 1))
-            if [[ -n "$SUFFIX" ]]; then
-              NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH$SUFFIX"
-            else
-              NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-            fi
-            
-            echo "New version: $NEW_VERSION"
-            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-            echo "MAJOR=$MAJOR" >> $GITHUB_OUTPUT
-            echo "MINOR=$MINOR" >> $GITHUB_OUTPUT
-            echo "PATCH=$PATCH" >> $GITHUB_OUTPUT
-            echo "NEW_PATCH=$NEW_PATCH" >> $GITHUB_OUTPUT
-            echo "SUFFIX=$SUFFIX" >> $GITHUB_OUTPUT
-          else
-            echo "Error: Version format does not follow semantic versioning."
-            exit 1
-          fi
+        uses: ./.github/actions/version-tools
+        with:
+          task: get-version
+
+      - name: Calculate new version
+        id: calculate-version
+        uses: ./.github/actions/version-tools/version-calculator
+        with:
+          version: ${{ steps.latest-release.outputs.result || steps.current-version.outputs.version }}
+          increment: patch
 
       - name: Update Solution.props with new version
-        run: |
-          sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ steps.current-version.outputs.NEW_VERSION }}<\/SolutionVersion>/" Solution.props
-          echo "Updated Solution.props with new version: ${{ steps.current-version.outputs.NEW_VERSION }}"
+        uses: ./.github/actions/version-tools
+        with:
+          task: update-version
+          new-version: ${{ steps.calculate-version.outputs.new-version }}
+          update-badge: true
 
       - name: Update CHANGELOG.md
-        if: ${{ github.event.inputs.update_changelog == 'true' }}
-        run: |
-          # Get today's date in YYYY-MM-DD format
-          TODAY=$(date +%Y-%m-%d)
-          
-          # Extract the entire Unreleased section content
-          UNRELEASED_CONTENT=$(sed -n '/## \[Unreleased\]/,/## \[[0-9]/p' CHANGELOG.md | sed '1d;$d')
-          
-          # Create a temporary file with the new content
-          cat > temp_changelog.md << EOF
-          # Changelog
-
-          All notable changes to SmartHopper will be documented in this file.
-
-          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-          ## [Unreleased]
-
-
-          EOF
-          
-          # Add the new version section with the previous Unreleased content
-          cat >> temp_changelog.md << EOF
-          ## [${{ steps.current-version.outputs.NEW_VERSION }}] - $TODAY
-
-          $UNRELEASED_CONTENT
-          EOF
-          
-          # Check if there's already a Security section in the new version
-          if ! echo "$UNRELEASED_CONTENT" | grep -q "### Security"; then
-            # If no Security section exists, add it at the end of the new version section
-            cat >> temp_changelog.md << EOF
-
-          ### Security
-
-          - ${{ github.event.inputs.description }}
-          EOF
-          else
-            # If Security section exists, add the new entry to it
-            # First, find the line number where to insert the new entry
-            LINE_NUM=$(grep -n "### Security" temp_changelog.md | head -1 | cut -d: -f1)
-            # Add 2 to get past the "### Security" line and any potential empty line
-            LINE_NUM=$((LINE_NUM + 2))
-            # Insert the new entry at that line
-            sed -i "${LINE_NUM}i- ${{ github.event.inputs.description }}" temp_changelog.md
-          fi
-          
-          # Add the rest of the original changelog
-          sed -n '/## \[[0-9]/,$p' CHANGELOG.md >> temp_changelog.md
-          
-          # Replace the original changelog with the new one
-          mv temp_changelog.md CHANGELOG.md
-          
-          echo "Updated CHANGELOG.md with security patch information"
+        id: update-changelog
+        uses: ./.github/actions/version-tools/changelog-updater
+        with:
+          version: ${{ steps.calculate-version.outputs.new-version }}
+          security-fix: ${{ github.event.inputs.update_changelog == 'true' }}
+          security-description: ${{ github.event.inputs.description }}
 
       - name: Commit changes
         run: |
@@ -172,7 +92,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit, continuing with next steps"
           else
-            git commit -m "chore: bump version to ${{ steps.current-version.outputs.NEW_VERSION }} for security patch"
+            git commit -m "chore: bump version to ${{ steps.calculate-version.outputs.new-version }} for security patch"
           fi
 
       - name: Check milestones for version collision
@@ -186,9 +106,9 @@ jobs:
               state: 'open'
             });
             
-            const newVersion = '${{ steps.current-version.outputs.NEW_VERSION }}';
-            const major = '${{ steps.current-version.outputs.MAJOR }}';
-            const minor = '${{ steps.current-version.outputs.MINOR }}';
+            const newVersion = '${{ steps.calculate-version.outputs.new-version }}';
+            const major = '${{ steps.calculate-version.outputs.major }}';
+            const minor = '${{ steps.calculate-version.outputs.minor }}';
             const updatedMilestones = [];
             
             for (const milestone of milestones.data) {
@@ -203,8 +123,8 @@ jobs:
                   const milestoneSuffix = match[4] || '';
                   
                   // If milestone patch is less than or equal to our new patch, increment it
-                  if (milestonePatch <= parseInt('${{ steps.current-version.outputs.NEW_PATCH }}')) {
-                    const newMilestonePatch = parseInt('${{ steps.current-version.outputs.NEW_PATCH }}') + 1;
+                  if (milestonePatch <= parseInt('${{ steps.calculate-version.outputs.patch }}')) {
+                    const newMilestonePatch = parseInt('${{ steps.calculate-version.outputs.patch }}') + 1;
                     const updatedMilestoneVersion = `${milestoneMajor}.${milestoneMinor}.${newMilestonePatch}${milestoneSuffix}`;
                     
                     // Update milestone title
@@ -251,13 +171,13 @@ jobs:
               DEV_SUFFIX="${BASH_REMATCH[4]}"
               
               # Check if dev version has same major.minor as our new version
-              if [ "$DEV_MAJOR" == "${{ steps.current-version.outputs.MAJOR }}" ] && [ "$DEV_MINOR" == "${{ steps.current-version.outputs.MINOR }}" ]; then
+              if [ "$DEV_MAJOR" == "${{ steps.calculate-version.outputs.major }}" ] && [ "$DEV_MINOR" == "${{ steps.calculate-version.outputs.minor }}" ]; then
                 # Check if dev patch is less than or equal to our new patch
-                if [ "$DEV_PATCH" -le "${{ steps.current-version.outputs.NEW_PATCH }}" ]; then
+                if [ "$DEV_PATCH" -le "${{ steps.calculate-version.outputs.patch }}" ]; then
                   echo "DEV_COLLISION=true" >> $GITHUB_OUTPUT
                   
                   # Increment patch version to be one more than our new patch
-                  NEW_PATCH="${{ steps.current-version.outputs.NEW_PATCH }}"
+                  NEW_PATCH="${{ steps.calculate-version.outputs.patch }}"
                   DEV_NEW_PATCH=$((NEW_PATCH + 1))
                   if [[ -n "$DEV_SUFFIX" ]]; then
                     DEV_NEW_VERSION="$DEV_MAJOR.$DEV_MINOR.$DEV_NEW_PATCH$DEV_SUFFIX"
@@ -322,14 +242,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.current-version.outputs.NEW_VERSION }}
-          name: Security Release ${{ steps.current-version.outputs.NEW_VERSION }}
+          tag_name: ${{ steps.calculate-version.outputs.new-version }}
+          name: Security Release ${{ steps.calculate-version.outputs.new-version }}
           body: |
-            ## Security Release ${{ steps.current-version.outputs.NEW_VERSION }}
+            ## Security Release ${{ steps.calculate-version.outputs.new-version }}
             
             ### Security Fix
             
-            ${{ github.event.inputs.description }}
+            - ${{ github.event.inputs.description }}
             
             This is a security patch release that addresses critical security issues.
           draft: true

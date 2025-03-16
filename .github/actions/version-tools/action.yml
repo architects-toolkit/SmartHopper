@@ -1,0 +1,149 @@
+name: 'Version Tools'
+description: 'Common tools for version management in SmartHopper'
+inputs:
+  task:
+    description: 'Task to perform'
+    required: true
+    type: choice
+    options:
+      - get-version
+      - update-version
+      - update-badge
+  new-version:
+    description: 'New version to set (only for update-version task)'
+    required: false
+  branch:
+    description: 'Branch name (for context)'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'Current version from Solution.props'
+    value: ${{ steps.get-version.outputs.version }}
+  major:
+    description: 'Major version component'
+    value: ${{ steps.parse-version.outputs.major }}
+  minor:
+    description: 'Minor version component'
+    value: ${{ steps.parse-version.outputs.minor }}
+  patch:
+    description: 'Patch version component'
+    value: ${{ steps.parse-version.outputs.patch }}
+  suffix:
+    description: 'Version suffix (if any)'
+    value: ${{ steps.parse-version.outputs.suffix }}
+  badges-changed:
+    description: 'Whether badges were changed'
+    value: ${{ steps.update-badge.outputs.badges-changed || 'false' }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get version from Solution.props
+      id: get-version
+      if: inputs.task == 'get-version' || inputs.task == 'update-version' || inputs.task == 'update-badge'
+      shell: bash
+      run: |
+        VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+        echo "Current version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Parse version components
+      id: parse-version
+      if: inputs.task == 'get-version' || inputs.task == 'update-version'
+      shell: bash
+      run: |
+        VERSION="${{ steps.get-version.outputs.version }}"
+        if [[ $VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          SUFFIX="${BASH_REMATCH[4]}"
+          
+          echo "Parsed version: Major=$MAJOR, Minor=$MINOR, Patch=$PATCH, Suffix=$SUFFIX"
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+        else
+          echo "Error: Version format does not follow semantic versioning."
+          exit 1
+        fi
+
+    - name: Update version in Solution.props
+      id: update-version
+      if: inputs.task == 'update-version'
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.new-version }}" ]]; then
+          echo "Error: new-version input is required for update-version task"
+          exit 1
+        fi
+        
+        echo "Updating version from ${{ steps.get-version.outputs.version }} to ${{ inputs.new-version }}"
+        sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ inputs.new-version }}<\/SolutionVersion>/" Solution.props
+        echo "Updated Solution.props with new version: ${{ inputs.new-version }}"
+
+    # Badge will always be updated after version updates
+    - name: Update version badge in README.md
+      id: update-badge
+      if: inputs.task == 'update-badge' || inputs.task == 'update-version'
+      shell: bash
+      run: |
+        # Get the current version (either the updated one or the original)
+        if [[ "${{ inputs.task }}" == "update-version" ]]; then
+          VERSION="${{ inputs.new-version }}"
+        else
+          VERSION="${{ steps.get-version.outputs.version }}"
+        fi
+        
+        # Format version for shields.io by encoding special characters
+        ENCODED_VERSION=$(echo "$VERSION" | sed 's/-/--/g')
+        
+        # Determine color based on version
+        if [[ $VERSION == *"-dev"* ]]; then
+          COLOR="blue"
+          LABEL="version (dev)"
+        elif [[ $VERSION == *"-alpha"* ]]; then
+          COLOR="orange"
+          LABEL="version (alpha)"
+        elif [[ $VERSION == *"-beta"* ]]; then
+          COLOR="yellow"
+          LABEL="version (beta)"
+        elif [[ $VERSION == *"-rc"* ]]; then
+          COLOR="yellowgreen"
+          LABEL="version (rc)"
+        else
+          COLOR="brightgreen"
+          LABEL="version"
+        fi
+        
+        # Create new badge URL
+        NEW_BADGE_URL="https://img.shields.io/badge/$LABEL-$ENCODED_VERSION-$COLOR"
+        
+        # Update README.md with new badge
+        if [[ -f "README.md" ]]; then
+          # Check if README already has a version badge
+          if grep -q "img.shields.io/badge/version" README.md || grep -q "img.shields.io/badge/$LABEL" README.md; then
+            # Replace existing badge
+            sed -i "s|https://img.shields.io/badge/[^)]*|$NEW_BADGE_URL|" README.md
+            echo "Updated existing version badge in README.md"
+          else
+            # Add new badge at the top of the file, after the title
+            sed -i "0,/^# /s/^# \(.*\)/# \1\n\n![Version]($NEW_BADGE_URL)/" README.md
+            echo "Added new version badge to README.md"
+          fi
+          
+          # Check if badges were changed
+          if git diff --exit-code README.md; then
+            echo "No changes to README.md badges"
+            echo "badges-changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "README.md badges were updated"
+            echo "badges-changed=true" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "README.md not found, skipping badge update"
+          echo "badges-changed=false" >> $GITHUB_OUTPUT
+        fi

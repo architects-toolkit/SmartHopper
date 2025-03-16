@@ -1,0 +1,148 @@
+name: 'Changelog Updater'
+description: 'Update CHANGELOG.md structure and content with new version information'
+inputs:
+  version:
+    description: 'Version to add to changelog'
+    required: true
+  date:
+    description: 'Release date (defaults to today)'
+    required: false
+  update-structure-only:
+    description: 'Only update the structure without adding any specific entries'
+    required: false
+    default: 'false'
+  security-fix:
+    description: 'Whether this is a security fix (affects description)'
+    required: false
+    default: 'false'
+  security-description:
+    description: 'Description of the security fix'
+    required: false
+  changelog-path:
+    description: 'Path to CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+
+outputs:
+  updated:
+    description: 'Whether the changelog was updated'
+    value: ${{ steps.update-changelog.outputs.updated }}
+  unreleased-content:
+    description: 'Content that was in the Unreleased section'
+    value: ${{ steps.update-changelog.outputs.unreleased-content }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Update CHANGELOG.md
+      id: update-changelog
+      shell: bash
+      run: |
+        # Set today's date if not provided
+        if [[ -z "${{ inputs.date }}" ]]; then
+          TODAY=$(date +%Y-%m-%d)
+        else
+          TODAY="${{ inputs.date }}"
+        fi
+        
+        CHANGELOG="${{ inputs.changelog-path }}"
+        VERSION="${{ inputs.version }}"
+        
+        echo "Updating CHANGELOG.md with new version: $VERSION (date: $TODAY)"
+        
+        # Check if CHANGELOG.md exists
+        if [[ ! -f "$CHANGELOG" ]]; then
+          echo "CHANGELOG.md not found at '$CHANGELOG', creating new file"
+          
+          # Create a basic CHANGELOG structure
+          cat > "$CHANGELOG" << EOF
+        # Changelog
+
+        All notable changes to this project will be documented in this file.
+
+        The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+        and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+        ## [Unreleased]
+
+        EOF
+          
+          # Add security fix if specified
+          if [[ "${{ inputs.security-fix }}" == "true" && -n "${{ inputs.security-description }}" ]]; then
+            cat >> "$CHANGELOG" << EOF
+        ### Security
+        - ${{ inputs.security-description }}
+        EOF
+          fi
+          
+          # Add new version section
+          cat >> "$CHANGELOG" << EOF
+
+        ## [$VERSION] - $TODAY
+
+        ### Added
+        - Initial release
+        EOF
+          
+          echo "Created new CHANGELOG.md with initial structure"
+          echo "updated=true" >> $GITHUB_OUTPUT
+          echo "unreleased-content=" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Extract existing Unreleased content
+        UNRELEASED_CONTENT=$(awk '/^## \[Unreleased\]/,/^## \[[0-9]+\.[0-9]+\.[0-9]+/ {if (!/^## \[/) print}' "$CHANGELOG" | sed '/./,$!d')
+        echo "Unreleased content extracted:"
+        echo "$UNRELEASED_CONTENT"
+        
+        # Create a multiline output for unreleased content
+        echo "unreleased-content<<EOF" >> $GITHUB_OUTPUT
+        echo "$UNRELEASED_CONTENT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # Create temporary file for new changelog
+        TMP_CHANGELOG="${CHANGELOG}.tmp"
+        
+        # Add header part (until Unreleased section)
+        awk '/^# Changelog/,/^## \[Unreleased\]/ {print}' "$CHANGELOG" > "$TMP_CHANGELOG"
+        
+        # Add empty line after Unreleased header if not present
+        if ! grep -q "^## \[Unreleased\]$" "$TMP_CHANGELOG"; then
+          sed -i '$s/$/\n/' "$TMP_CHANGELOG"
+        fi
+        
+        # Add security fix if specified and not structure-only
+        if [[ "${{ inputs.security-fix }}" == "true" && "${{ inputs.update-structure-only }}" != "true" && -n "${{ inputs.security-description }}" ]]; then
+          cat >> "$TMP_CHANGELOG" << EOF
+
+        ### Security
+        - ${{ inputs.security-description }}
+        EOF
+        fi
+        
+        # Add the new version section with the previous Unreleased content
+        cat >> "$TMP_CHANGELOG" << EOF
+
+        ## [$VERSION] - $TODAY
+
+        EOF
+        
+        # Add unreleased content to the new version section
+        if [[ -n "$UNRELEASED_CONTENT" ]]; then
+          echo "$UNRELEASED_CONTENT" >> "$TMP_CHANGELOG"
+        elif [[ "${{ inputs.security-fix }}" == "true" && "${{ inputs.update-structure-only }}" != "true" ]]; then
+          # Add a security section if this is a security fix and there's no content
+          cat >> "$TMP_CHANGELOG" << EOF
+        ### Security
+        - ${{ inputs.security-description }}
+        EOF
+        fi
+        
+        # Add the rest of the file (everything after the Unreleased section)
+        awk 'found==1 {print} /^## \[[0-9]+\.[0-9]+\.[0-9]+/ {found=1}' "$CHANGELOG" >> "$TMP_CHANGELOG"
+        
+        # Replace the original changelog with the new one
+        mv "$TMP_CHANGELOG" "$CHANGELOG"
+        
+        echo "Updated CHANGELOG.md structure with new version: $VERSION"
+        echo "updated=true" >> $GITHUB_OUTPUT
