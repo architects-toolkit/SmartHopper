@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed version-calculator to always perform the requested increment type without conditional logic, ensuring consistent behavior
 - Fixed security-patch-release.yml workflow to create a release draft only when no PR is created
 - Added new security-release-after-merge.yml workflow to create a release draft when a security patch PR is merged
+- Fixed GitHub release creation by removing invalid target_commitish parameter
 
 ### Changed
 
