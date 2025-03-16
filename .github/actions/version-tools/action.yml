@@ -140,8 +140,22 @@ runs:
             fi
           else
             echo "No version badge found, adding one"
-            # Add new badge at the top of the file, after the title
-            sed -i "0,/^# /s/^# \(.*\)/# \1\n\n[![Version]($VERSION_BADGE_URL)](https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases)/" README.md
+            # Add new badge after the title
+            TITLE=$(head -n 1 README.md)
+            BADGE_LINE="[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+            
+            # Create a temporary file with the new content
+            echo "$TITLE" > README.md.new
+            echo "" >> README.md.new
+            echo "$BADGE_LINE" >> README.md.new
+            echo "" >> README.md.new
+            
+            # Append the rest of the file (skipping the first line)
+            tail -n +2 README.md >> README.md.new
+            
+            # Replace the original file
+            mv README.md.new README.md
+            
             if [ $? -eq 0 ]; then
               echo "Added new version badge to README.md"
               BADGES_CHANGED=true
@@ -168,7 +182,20 @@ runs:
               perl -i -pe 's|(\[\!\[Version\]\].*\n)|$1\n[![Status]('$STATUS_BADGE_URL')](https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases)|' README.md
             else
               # Add at the top if no version badge
-              sed -i "0,/^# /s/^# \(.*\)/# \1\n\n[![Status]($STATUS_BADGE_URL)](https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases)/" README.md
+              TITLE=$(head -n 1 README.md)
+              BADGE_LINE="[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+              
+              # Create a temporary file with the new content
+              echo "$TITLE" > README.md.new
+              echo "" >> README.md.new
+              echo "$BADGE_LINE" >> README.md.new
+              echo "" >> README.md.new
+              
+              # Append the rest of the file (skipping the first line)
+              tail -n +2 README.md >> README.md.new
+              
+              # Replace the original file
+              mv README.md.new README.md
             fi
             if [ $? -eq 0 ]; then
               echo "Added new status badge to README.md"

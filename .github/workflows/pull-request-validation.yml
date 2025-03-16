@@ -16,16 +16,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
 
       - name: Validate Version in Solution.props
+        id: version-check
+        uses: ./.github/actions/version-tools
+        with:
+          task: get-version
+
+      - name: Verify Version Format
         run: |
-          VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+          VERSION="${{ steps.version-check.outputs.version }}"
           echo "Checking version: $VERSION"
-          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
-            echo "Invalid version format in Solution.props. Must follow semantic versioning."
+          if [[ -z "$VERSION" ]]; then
+            echo "Error: Failed to extract version from Solution.props"
             exit 1
           fi
+
+          echo "Version components:"
+          echo "- Major: ${{ steps.version-check.outputs.major }}"
+          echo "- Minor: ${{ steps.version-check.outputs.minor }}"
+          echo "- Patch: ${{ steps.version-check.outputs.patch }}"
+          echo "- Suffix: ${{ steps.version-check.outputs.suffix }}"
 
   changelog-check:
     name: 📝 Changelog Check
@@ -34,10 +48,10 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Check CHANGELOG.md is Updated
-        uses: tj-actions/changed-files@v46.0.1
+        uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46.0.1
         id: changelog-check
         with:
           files: CHANGELOG.md
@@ -60,11 +74,36 @@ jobs:
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
           echo "Checking PR title: $PR_TITLE"
-          if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?:.+ ]]; then
+          
+          # Valid types based on conventional commits
+          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security"
+          
+          # Check if PR title follows conventional commits format
+          if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]]; then
             echo "Error: Pull request title must follow conventional commits format"
-            echo "Example formats:"
-            echo "  feat: add new feature"
-            echo "  fix(component): resolve specific issue"
-            echo "  docs(readme): update documentation"
+            echo ""
+            echo "Required format: <type>(<optional-scope>): <description>"
+            echo ""
+            echo "Where <type> is one of:"
+            echo "  feat:     A new feature"
+            echo "  fix:      A bug fix"
+            echo "  docs:     Documentation changes"
+            echo "  style:    Code style changes (formatting, etc)"
+            echo "  refactor: Code refactoring"
+            echo "  perf:     Performance improvements"
+            echo "  test:     Adding or modifying tests"
+            echo "  build:    Changes to build process or tools"
+            echo "  ci:       Changes to CI configuration"
+            echo "  chore:    Other changes that don't modify src or test files"
+            echo "  revert:   Revert a previous commit"
+            echo "  security: Security-related changes"
+            echo ""
+            echo "Examples:"
+            echo "  feat: add new grasshopper component"
+            echo "  fix(component): resolve issue with parameter handling"
+            echo "  docs(readme): update installation instructions"
+            echo "  security: update dependencies to address vulnerabilities"
             exit 1
+          else
+            echo "PR title format is valid! ✅"
           fi
