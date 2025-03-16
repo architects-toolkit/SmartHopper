@@ -31,11 +31,18 @@ namespace SmartHopper.Config.Configuration
 
         public Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
         public int DebounceTime { get; set; }
+        
+        /// <summary>
+        /// The default AI provider to use when not explicitly specified in components.
+        /// If not set or the provider doesn't exist, the first available provider will be used.
+        /// </summary>
+        public string DefaultAIProvider { get; set; }
 
         public SmartHopperSettings()
         {
             ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             DebounceTime = 1000;
+            DefaultAIProvider = string.Empty;
         }
 
         // Use a constant key and IV for encryption (these could be moved to secure configuration)
@@ -208,7 +215,8 @@ namespace SmartHopper.Config.Configuration
                 var settingsToSave = new SmartHopperSettings
                 {
                     ProviderSettings = EncryptSensitiveSettings(ProviderSettings),
-                    DebounceTime = DebounceTime
+                    DebounceTime = DebounceTime,
+                    DefaultAIProvider = DefaultAIProvider
                 };
 
                 var json = JsonConvert.SerializeObject(settingsToSave, Formatting.Indented);
@@ -238,6 +246,25 @@ namespace SmartHopper.Config.Configuration
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the default AI provider from settings, or the first available provider if not set.
+        /// </summary>
+        /// <returns>The default AI provider name</returns>
+        public string GetDefaultAIProvider()
+        {
+            var providers = DiscoverProviders().ToList();
+            
+            // If the DefaultAIProvider is set and exists in the available providers, use it
+            if (!string.IsNullOrEmpty(DefaultAIProvider) && 
+                providers.Any(p => p.Name == DefaultAIProvider))
+            {
+                return DefaultAIProvider;
+            }
+            
+            // Otherwise, return the first available provider or empty string if none
+            return providers.Any() ? providers.First().Name : string.Empty;
         }
 
         /// <summary>
