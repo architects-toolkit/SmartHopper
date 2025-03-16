@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed version badge update workflow to only modify the version badge and not affect other badges in README.md
+- Fixed badge addition logic in version-tools action to properly handle cases when badges don't exist
+
+### Changed
+
+- Updated pull-request-validation.yml workflow to use version-tools for version validation
+- Improved PR title validation with more detailed error messages and support for additional conventional commit types
+- Added "security" as a valid commit type in PR title validation
 
 ### Security
 
@@ -21,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated actions/github-script to v7
 - Enhanced pull-request-validation.yml workflow with improved error logging for version and PR title checks
 - Added new security-patch-release.yml workflow for creating security patch releases outside the milestone process
+- Implemented GitHub Actions security best practices by pinning actions to full commit SHAs instead of version tags
 
 ### Removed
 
