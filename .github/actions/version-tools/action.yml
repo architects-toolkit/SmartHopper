@@ -130,72 +130,37 @@ runs:
         if [[ -f "README.md" ]]; then
           BADGES_CHANGED=false
           
-          # Create a temporary file for the new content
-          touch README.md.new
-          
-          # Process the README.md file line by line
-          TITLE_PROCESSED=false
-          VERSION_BADGE_PROCESSED=false
-          STATUS_BADGE_PROCESSED=false
-          FIRST_CONTENT_LINE_AFTER_BADGES=false
-          
-          while IFS= read -r line || [[ -n "$line" ]]; do
-            # Process the title (first line)
-            if [[ $TITLE_PROCESSED == false ]]; then
-              echo "$line" > README.md.new
-              TITLE_PROCESSED=true
-              continue
-            fi
+          # Check if version badge exists and update it
+          if grep -q "\[\!\[Version\]\]" README.md; then
+            # Get current version badge
+            CURRENT_VERSION_BADGE=$(grep "\[\!\[Version\]\]" README.md)
             
-            # Skip empty lines right after title until we find content
-            if [[ $TITLE_PROCESSED == true && $VERSION_BADGE_PROCESSED == false && $STATUS_BADGE_PROCESSED == false && -z "$line" ]]; then
-              continue
-            fi
-            
-            # Process version badge
-            if [[ $line == *"[![Version]"*"badge/version"* ]]; then
-              if [[ $VERSION_BADGE_PROCESSED == false ]]; then
-                echo "" >> README.md.new
-                echo "$VERSION_BADGE" >> README.md.new
-                VERSION_BADGE_PROCESSED=true
-                BADGES_CHANGED=true
-              fi
-              continue
-            fi
-            
-            # Process status badge
-            if [[ $line == *"[![Status]"*"badge/status"* ]]; then
-              if [[ $STATUS_BADGE_PROCESSED == false ]]; then
-                if [[ $VERSION_BADGE_PROCESSED == false ]]; then
-                  echo "" >> README.md.new
-                  echo "$VERSION_BADGE" >> README.md.new
-                  VERSION_BADGE_PROCESSED=true
-                fi
-                echo "$STATUS_BADGE" >> README.md.new
-                STATUS_BADGE_PROCESSED=true
-                BADGES_CHANGED=true
-              fi
-              continue
-            fi
-            
-            # Add badges after title if they haven't been processed and we've found the first content line
-            if [[ $VERSION_BADGE_PROCESSED == false && $STATUS_BADGE_PROCESSED == false && -n "$line" && $FIRST_CONTENT_LINE_AFTER_BADGES == false ]]; then
-              echo "" >> README.md.new
-              echo "$VERSION_BADGE" >> README.md.new
-              echo "$STATUS_BADGE" >> README.md.new
-              echo "" >> README.md.new
-              VERSION_BADGE_PROCESSED=true
-              STATUS_BADGE_PROCESSED=true
-              FIRST_CONTENT_LINE_AFTER_BADGES=true
+            # Check if badge needs updating
+            if [[ "$CURRENT_VERSION_BADGE" != "$VERSION_BADGE" ]]; then
+              # Use sed to replace the version badge
+              sed -i "s|\[\!\[Version\]\](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
+              echo "Updated version badge"
               BADGES_CHANGED=true
+            else
+              echo "Version badge already up to date"
             fi
-            
-            # Process all other lines
-            echo "$line" >> README.md.new
-          done < README.md
+          fi
           
-          # Replace the original file with the new one
-          mv README.md.new README.md
+          # Check if status badge exists and update it
+          if grep -q "\[\!\[Status\]\]" README.md; then
+            # Get current status badge
+            CURRENT_STATUS_BADGE=$(grep "\[\!\[Status\]\]" README.md)
+            
+            # Check if badge needs updating
+            if [[ "$CURRENT_STATUS_BADGE" != "$STATUS_BADGE" ]]; then
+              # Use sed to replace the status badge
+              sed -i "s|\[\!\[Status\]\](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
+              echo "Updated status badge"
+              BADGES_CHANGED=true
+            else
+              echo "Status badge already up to date"
+            fi
+          fi
           
           # Check if badges were changed
           if [ "$BADGES_CHANGED" = true ]; then
