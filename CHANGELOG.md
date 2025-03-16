@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed badge addition logic in version-tools action to properly handle cases when badges don't exist
 - Fixed security-patch-release.yml workflow to create a PR instead of pushing directly to main, resolving repository rule violations
 - Fixed version-calculator to always perform the requested increment type without conditional logic, ensuring consistent behavior
+- Fixed security-patch-release.yml workflow to create a release draft only when no PR is created
+- Added new security-release-after-merge.yml workflow to create a release draft when a security patch PR is merged
 
 ### Changed
 
