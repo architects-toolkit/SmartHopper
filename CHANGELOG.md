@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
 
+- Updated several github workflows to use the latest version of actions:
+  - Updated tj-actions/changed-files from v45.0 to v46.0.1
+  - Updated actions/checkout to v4 across all workflows
+  - Updated actions/setup-dotnet to v4
+  - Updated actions/upload-artifact to v4
+  - Updated actions/github-script to v7
 
 ## [0.1.1-alpha] - 2025-03-03
 
