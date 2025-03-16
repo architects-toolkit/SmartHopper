@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Update workflow actions to the latest versions
+
+## [0.1.2-alpha] - 2025-03-16
+
 ### Fixed
 
 - Fixed version badge update workflow to only modify the version badge and not affect other badges in README.md
@@ -40,8 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed Test GitHub Actions workflow
-
-## [0.1.1-alpha] - 2025-03-03
 
 ### Added
 
