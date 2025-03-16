@@ -55,130 +55,30 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract version
-      run: |
-        VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
-        # Format version for shields.io by encoding special characters
-        # Use -- for dashes and %2E for dots
-        SHIELDS_VERSION=$(echo $VERSION | sed 's/-/--/g' | sed 's/\./%2E/g')
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "SHIELDS_VERSION=$SHIELDS_VERSION" >> $GITHUB_ENV
-
-    - name: Update badges
-      id: update_badges
-      run: |
-        # Determine status from version
-        if [[ $VERSION == *"-dev"* ]]; then
-          STATUS="Unstable%20development"
-          STATUS_COLOR="yellow"
-        elif [[ $VERSION == *"-alpha"* ]]; then
-          STATUS="Alpha"
-          STATUS_COLOR="orange"
-        elif [[ $VERSION == *"-beta"* ]]; then
-          STATUS="Beta"
-          STATUS_COLOR="blue"
-        elif [[ $VERSION == *"-rc"* ]]; then
-          STATUS="Release%20candidate"
-          STATUS_COLOR="green"
-        else
-          STATUS="Ready%20for%20production"
-          STATUS_COLOR="brightgreen"
-        fi
-
-        echo "Status determined as: $STATUS"
-        echo "Color determined as: $STATUS_COLOR"
-        echo "Version: $VERSION"
-        echo "Shields Version: $SHIELDS_VERSION"
-
-        # Debug: Show original README content
-        # echo "Original README content:"
-        # cat README.md
-
-        # Create backup of README
-        cp README.md README.md.bak
-
-        echo "Updating version badge with:"
-        echo "Pattern: !\[Version\]\(https://img\.shields\.io/badge/version-[^)]+\)"
-        echo "Replacement: ![Version](https://img.shields.io/badge/version-${SHIELDS_VERSION}-${STATUS_COLOR})"
-
-        # Update badges in README with exact pattern matching
-        sed -i -E 's|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]+\)|![Version](https://img.shields.io/badge/version-'"${SHIELDS_VERSION}"'-'"${STATUS_COLOR}"')|' README.md
-        if [ $? -ne 0 ]; then
-          echo "Error: Failed to update version badge"
-          exit 1
-        fi
-
-        echo "Updating status badge with:"
-        echo "Pattern: !\[Status\]\(https://img\.shields\.io/badge/status-[^)]+\)"
-        echo "Replacement: ![Status](https://img.shields.io/badge/status-${STATUS}-${STATUS_COLOR})"
-
-        sed -i -E 's|!\[Status\]\(https://img\.shields\.io/badge/status-[^)]+\)|![Status](https://img.shields.io/badge/status-'"${STATUS}"'-'"${STATUS_COLOR}"')|' README.md
-        if [ $? -ne 0 ]; then
-          echo "Error: Failed to update status badge"
-          exit 1
-        fi
-
-        # Debug: Show updated README content
-        # echo "Updated README content:"
-        # cat README.md
-
-        # Compare files to detect changes
-        if ! cmp -s README.md README.md.bak; then
-          echo "BADGES_CHANGED=true" >> $GITHUB_ENV
-          echo "Changes detected:"
-          diff -u README.md.bak README.md || true
-        else
-          echo "BADGES_CHANGED=false" >> $GITHUB_ENV
-          echo "No changes needed"
-        fi
-
-        # Clean up backup
-        rm README.md.bak
-
-    - name: Debug environment
-      run: |
-        echo "Environment variables:"
-        echo "BADGES_CHANGED: $BADGES_CHANGED"
-        echo "VERSION: $VERSION"
-        echo "SHIELDS_VERSION: $SHIELDS_VERSION"
-        echo "TARGET_BRANCH: $TARGET_BRANCH"
-        echo "BADGE_BRANCH: $BADGE_BRANCH"
+    - name: Update version badge
+      id: update-badge
+      uses: ./.github/actions/version-tools
+      with:
+        task: update-badge
+        branch: ${{ github.ref_name }}
 
     - name: Create and push branch
-      if: env.BADGES_CHANGED == 'true'
+      if: steps.update-badge.outputs.badges-changed == 'true'
       run: |
         echo "Creating new branch: ${{ env.BADGE_BRANCH }}"
         git checkout -b ${{ env.BADGE_BRANCH }}
-        
-        echo "Staging changes:"
         git add README.md
-        
-        echo "Committing changes:"
-        git commit -m "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}"
-        
-        echo "Pushing changes:"
+        git commit -m "docs: update version badge for ${{ env.TARGET_BRANCH }}"
         git push origin ${{ env.BADGE_BRANCH }}
 
-    - name: Create Pull Request
-      if: env.BADGES_CHANGED == 'true'
+    - name: Create PR
+      if: steps.update-badge.outputs.badges-changed == 'true'
       run: |
-        # Check if PR already exists
-        PR_EXISTS=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.BADGE_BRANCH }} --json number --jq '.[0].number')
+        PR_TITLE="docs: update version badge for ${{ env.TARGET_BRANCH }}"
+        PR_BODY="This PR updates the version badge in the README.md to match the current version in Solution.props.
+
+        This is an automated PR created by the Update Version Badge workflow."
         
-        if [ ! -z "$PR_EXISTS" ]; then
-          echo "Found existing PR #$PR_EXISTS, closing it"
-          gh pr close $PR_EXISTS
-        fi
-
-        # Create new PR
-        gh pr create \
-          --base "${{ env.TARGET_BRANCH }}" \
-          --head "${{ env.BADGE_BRANCH }}" \
-          --title "docs: Update version badge to ${{ env.VERSION }} on ${{ env.TARGET_BRANCH }}" \
-          --body "Automated PR to update version badge in README.md for ${{ env.TARGET_BRANCH }} branch
-
-          Changes:
-          - Updated version badge to ${{ env.VERSION }}
-          - Updated status and color based on version type"
+        gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.BADGE_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,74 @@
+name: Update Development Version Date
+
+# This workflow automatically updates the date component in development versions
+# when changes are pushed to development branches.
+
+on:
+  push:
+    branches: [ dev ]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'Solution.props'
+      - '!.github/**'
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: write
+
+jobs:
+  update-date:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Get current version
+        id: current-version
+        uses: ./.github/actions/version-tools
+        with:
+          task: get-version
+
+      - name: Auto-update version date if needed
+        id: calculate-version
+        uses: ./.github/actions/version-tools/version-calculator
+        with:
+          version: ${{ steps.current-version.outputs.version }}
+          increment: auto-date
+          change-pre-release: none
+
+      # Only proceed if the date was actually updated
+      - name: Update Solution.props with new version date
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        uses: ./.github/actions/version-tools
+        with:
+          task: update-version
+          new-version: ${{ steps.calculate-version.outputs.new-version }}
+
+      # Update the CHANGELOG.md with a note about the date update
+      - name: Update CHANGELOG.md
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        uses: ./.github/actions/version-tools/changelog-updater
+        with:
+          version: Unreleased
+          update-structure-only: true
+
+      - name: Commit changes
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        run: |
+          git add Solution.props README.md CHANGELOG.md
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit, continuing with next steps"
+          else
+            git commit -m "chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}"
+            git push
+          fi

@@ -1,0 +1,231 @@
+name: 'Version Calculator'
+description: 'Calculate new version numbers based on semantic versioning rules'
+inputs:
+  version:
+    description: 'Input version in format X.X.X or X.X.X-suffix.YYMMDD'
+    required: true
+  increment:
+    description: 'Type of increment to perform on version numbers'
+    required: true
+    type: choice
+    options:
+      - none       # No increment, only apply other changes
+      - patch      # Increment patch version
+      - minor      # Increment minor version
+      - major      # Increment major version
+      - date       # Explicitly update the date part of a pre-release version
+      - auto-date  # Auto-detect if this is a dated version and update it if needed
+  change-pre-release:
+    description: 'Change or add pre-release suffix'
+    required: false
+    type: choice
+    options:
+      - none   # No change to pre-release suffix
+      - dev    # Change to development pre-release
+      - alpha  # Change to alpha pre-release
+      - beta   # Change to beta pre-release
+      - rc     # Change to release candidate
+      - remove # Remove pre-release suffix entirely
+    default: 'none'
+  pre-release-date:
+    description: 'Date to use for pre-release in format YYMMDD (defaults to today)'
+    required: false
+
+outputs:
+  new-version:
+    description: 'Calculated new version'
+    value: ${{ steps.calculate.outputs.new-version }}
+  is-prerelease:
+    description: 'Whether the calculated version is a pre-release'
+    value: ${{ steps.calculate.outputs.is-prerelease }}
+  was-date-updated:
+    description: 'Whether the date was updated in a development version'
+    value: ${{ steps.calculate.outputs.was-date-updated }}
+  major:
+    description: 'Major version component of new version'
+    value: ${{ steps.calculate.outputs.major }}
+  minor:
+    description: 'Minor version component of new version'
+    value: ${{ steps.calculate.outputs.minor }}
+  patch:
+    description: 'Patch version component of new version'
+    value: ${{ steps.calculate.outputs.patch }}
+  suffix:
+    description: 'Suffix of new version (if any)'
+    value: ${{ steps.calculate.outputs.suffix }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Calculate new version
+      id: calculate
+      shell: bash
+      run: |
+        # Parse input version
+        INPUT_VERSION="${{ inputs.version }}"
+        INCREMENT="${{ inputs.increment }}"
+        CHANGE_PRE_RELEASE="${{ inputs.change-pre-release }}"
+        
+        echo "Input version: $INPUT_VERSION"
+        echo "Increment type: $INCREMENT"
+        echo "Pre-release change: $CHANGE_PRE_RELEASE"
+        
+        # Get today's date in YYMMDD format for version updates
+        TODAY=$(date +%y%m%d)
+        echo "Today's date (YYMMDD): $TODAY"
+        
+        # Parse version components using regex
+        if [[ $INPUT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          SUFFIX="${BASH_REMATCH[4]}"
+          
+          echo "Current version components:"
+          echo "  Major: $MAJOR"
+          echo "  Minor: $MINOR"
+          echo "  Patch: $PATCH"
+          echo "  Suffix: $SUFFIX"
+          
+          # Initialize variables for tracking changes
+          WAS_DATE_UPDATED="false"
+          IS_PRERELEASE="false"
+          if [[ -n "$SUFFIX" ]]; then
+            IS_PRERELEASE="true"
+          fi
+          
+          # Step 1: Handle auto-date increment - detect if this is a dated version
+          if [[ "$INCREMENT" == "auto-date" ]]; then
+            # Check if this is a version with a date component
+            if [[ $SUFFIX =~ ^-([a-zA-Z]+)\.([0-9]{6})$ ]]; then
+              PRE_RELEASE_TYPE="${BASH_REMATCH[1]}"
+              DATE_PART="${BASH_REMATCH[2]}"
+              
+              echo "Detected dated pre-release: $PRE_RELEASE_TYPE.$DATE_PART"
+              
+              # Check if date needs updating
+              if [[ "$DATE_PART" != "$TODAY" ]]; then
+                echo "Date component needs updating from $DATE_PART to $TODAY"
+                # Update the suffix with the new date
+                SUFFIX="-$PRE_RELEASE_TYPE.$TODAY"
+                WAS_DATE_UPDATED="true"
+              else
+                echo "Date component is already current, no update needed"
+              fi
+            else
+              echo "Not a dated pre-release version, no date update needed"
+            fi
+          fi
+          
+          # Step 2: Apply version number increments
+          case "$INCREMENT" in
+            "none")
+              # No increment to version numbers
+              ;;
+              
+            "patch")
+              if [[ -z "$SUFFIX" || "$CHANGE_PRE_RELEASE" == "remove" ]]; then
+                # For released versions, just increment patch
+                PATCH=$((PATCH + 1))
+              fi
+              ;;
+              
+            "minor")
+              # Increment minor, reset patch
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+              
+            "major")
+              # Increment major, reset minor and patch
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+              
+            "date")
+              # Explicitly update date part in pre-release suffix
+              if [[ $SUFFIX =~ ^-([a-zA-Z]+)(\.[0-9]+)?$ ]]; then
+                # Extract the pre-release type (dev, alpha, beta, rc)
+                PRE_RELEASE_TYPE="${BASH_REMATCH[1]}"
+                
+                # Calculate new date (today or from input)
+                if [[ -n "${{ inputs.pre-release-date }}" ]]; then
+                  NEW_DATE="${{ inputs.pre-release-date }}"
+                else
+                  NEW_DATE="$TODAY"
+                fi
+                
+                # Update the suffix with the new date
+                SUFFIX="-$PRE_RELEASE_TYPE.$NEW_DATE"
+                WAS_DATE_UPDATED="true"
+              else
+                echo "Error: Input version doesn't contain a valid pre-release suffix for date update."
+                echo "Current suffix: $SUFFIX"
+                echo "Expected format: -type or -type.date"
+                
+                # If no valid suffix, but one is specified, try to add the date
+                if [[ -n "$SUFFIX" ]]; then
+                  echo "Attempting to add date to existing suffix..."
+                  # Remove leading dash if present for the comparison
+                  SUFFIX_CLEAN="${SUFFIX#-}"
+                  SUFFIX="-$SUFFIX_CLEAN.$TODAY"
+                  WAS_DATE_UPDATED="true"
+                  echo "Created new suffix: $SUFFIX"
+                else
+                  echo "No suffix found, cannot update date."
+                  exit 1
+                fi
+              fi
+              ;;
+          esac
+          
+          # Step 3: Apply pre-release changes
+          if [[ "$CHANGE_PRE_RELEASE" != "none" ]]; then
+            if [[ "$CHANGE_PRE_RELEASE" == "remove" ]]; then
+              # Remove pre-release suffix entirely
+              SUFFIX=""
+              IS_PRERELEASE="false"
+              echo "Removed pre-release suffix"
+            else
+              # Add or change pre-release suffix
+              # Calculate date (today or from input)
+              if [[ -n "${{ inputs.pre-release-date }}" ]]; then
+                NEW_DATE="${{ inputs.pre-release-date }}"
+              else
+                NEW_DATE="$TODAY"
+              fi
+              
+              SUFFIX="-$CHANGE_PRE_RELEASE.$NEW_DATE"
+              IS_PRERELEASE="true"
+              WAS_DATE_UPDATED="true"
+              echo "Changed pre-release suffix to: $SUFFIX"
+            fi
+          fi
+          
+          # Build the new version string
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH$SUFFIX"
+          
+          # Parse new version components for output
+          if [[ $NEW_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+            NEW_MAJOR="${BASH_REMATCH[1]}"
+            NEW_MINOR="${BASH_REMATCH[2]}"
+            NEW_PATCH="${BASH_REMATCH[3]}"
+            NEW_SUFFIX="${BASH_REMATCH[4]}"
+          else
+            echo "Error: Generated version doesn't match expected format: $NEW_VERSION"
+            exit 1
+          fi
+          
+          echo "Calculated new version: $NEW_VERSION"
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "is-prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "was-date-updated=$WAS_DATE_UPDATED" >> $GITHUB_OUTPUT
+          echo "major=$NEW_MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$NEW_MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$NEW_PATCH" >> $GITHUB_OUTPUT
+          echo "suffix=$NEW_SUFFIX" >> $GITHUB_OUTPUT
+        else
+          echo "Error: Input version format doesn't follow semantic versioning: $INPUT_VERSION"
+          exit 1
+        fi
