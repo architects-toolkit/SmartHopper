@@ -124,10 +124,8 @@ runs:
               ;;
               
             "patch")
-              if [[ -z "$SUFFIX" || "$CHANGE_PRE_RELEASE" == "remove" ]]; then
-                # For released versions, just increment patch
-                PATCH=$((PATCH + 1))
-              fi
+              # Increment patch version
+              PATCH=$((PATCH + 1))
               ;;
               
             "minor")
