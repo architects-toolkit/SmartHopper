@@ -1,11 +1,11 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E1%2E2--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
-[![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange)](https://mistral.ai/)
-[![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
-[![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
+[![Version](https://img.shields.io/badge/version (alpha)-0.1.2--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/version (alpha)-0.1.2--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Grasshopper](https://img.shields.io/badge/version (alpha)-0.1.2--alpha-orange)](https://www.rhino3d.com/)
+[![MistralAI](https://img.shields.io/badge/version (alpha)-0.1.2--alpha-orange)](https://mistral.ai/)
+[![OpenAI](https://img.shields.io/badge/version (alpha)-0.1.2--alpha-orange)](https://openai.com/)
+[![License](https://img.shields.io/badge/version (alpha)-0.1.2--alpha-orange)](LICENSE)
 
 SmartHopper is a groundbreaking plugin that enables AI to directly read, interpret, and generate Grasshopper definitions [coming soon]. This plugin bridges the gap between artificial intelligence and parametric design by allowing AI to understand and interact with your Grasshopper files in their native format.
 
