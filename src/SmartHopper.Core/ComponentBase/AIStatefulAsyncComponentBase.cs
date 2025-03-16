@@ -39,6 +39,11 @@ namespace SmartHopper.Core.ComponentBase
     public abstract class AIStatefulAsyncComponentBase : StatefulAsyncComponentBase
     {
         /// <summary>
+        /// Special value used to indicate that the default provider from settings should be used.
+        /// </summary>
+        public const string DEFAULT_PROVIDER = "Default";
+
+        /// <summary>
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
         private string _model;
@@ -65,7 +70,8 @@ namespace SmartHopper.Core.ComponentBase
             string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            _aiProvider = MistralAI._name; // Default to MistralAI
+            // Set the default provider option
+            _aiProvider = DEFAULT_PROVIDER;
         }
 
         #region PARAMS
@@ -132,6 +138,33 @@ namespace SmartHopper.Core.ComponentBase
             // Add provider selection submenu
             var providersMenu = new ToolStripMenuItem("Select AI Provider");
             menu.Items.Add(providersMenu);
+
+            // Add the Default option first
+            var defaultItem = new ToolStripMenuItem(DEFAULT_PROVIDER)
+            {
+                Checked = _aiProvider == DEFAULT_PROVIDER,
+                CheckOnClick = true,
+                Tag = DEFAULT_PROVIDER
+            };
+
+            defaultItem.Click += (s, e) =>
+            {
+                var menuItem = s as ToolStripMenuItem;
+                if (menuItem != null)
+                {
+                    // Uncheck all other items
+                    foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
+                    {
+                        if (otherItem != menuItem)
+                            otherItem.Checked = false;
+                    }
+
+                    _aiProvider = DEFAULT_PROVIDER;
+                    ExpireSolution(true);
+                }
+            };
+
+            providersMenu.DropDownItems.Add(defaultItem);
 
             // Get all available providers
             var providers = SmartHopperSettings.DiscoverProviders();
@@ -219,7 +252,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {_aiProvider}");
+                // Get the actual provider name to use
+                string actualProvider = GetActualProviderName();
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {actualProvider} (Selected: {_aiProvider})");
 
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Number of messages: " + messages.Count);
 
@@ -229,7 +264,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 var response = await AIUtils.GetResponse(
-                    _aiProvider,
+                    actualProvider,
                     model: GetModel(),
                     messages,
                     endpoint: GetEndpoint());
@@ -312,6 +347,9 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
+            // Get the actual provider name
+            string actualProvider = GetActualProviderName();
+
             // Aggregate metrics
             int totalInTokens = _responseMetrics.Sum(r => r.InTokens);
             int totalOutTokens = _responseMetrics.Sum(r => r.OutTokens);
@@ -323,7 +361,7 @@ namespace SmartHopper.Core.ComponentBase
 
             // Create JSON object with metrics
             var metricsJson = new JObject(
-                new JProperty("ai_provider", _aiProvider),
+                new JProperty("ai_provider", actualProvider),
                 new JProperty("ai_model", usedModels),
                 new JProperty("tokens_input", totalInTokens),
                 new JProperty("tokens_output", totalOutTokens),
@@ -398,5 +436,94 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         #endregion
+
+        #region PERSISTENCE
+
+        /// <summary>
+        /// Writes the component's persistent data to the Grasshopper file.
+        /// </summary>
+        /// <param name="writer">The writer to use for serialization</param>
+        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs</returns>
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
+        {
+            if (!base.Write(writer))
+                return false;
+
+            try
+            {
+                // Store the selected AI provider
+                writer.SetString("AIProvider", _aiProvider);
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Write] Stored AI provider: {_aiProvider}");
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Write] Exception: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Reads the component's persistent data from the Grasshopper file.
+        /// </summary>
+        /// <param name="reader">The reader to use for deserialization</param>
+        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs</returns>
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            if (!base.Read(reader))
+                return false;
+
+            try
+            {
+                // Read the stored AI provider if available
+                if (reader.ItemExists("AIProvider"))
+                {
+                    string storedProvider = reader.GetString("AIProvider");
+                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Read stored AI provider: {storedProvider}");
+                    
+                    // Check if the provider exists in the available providers
+                    var providers = SmartHopperSettings.DiscoverProviders();
+                    if (providers.Any(p => p.Name == storedProvider))
+                    {
+                        _aiProvider = storedProvider;
+                        _previousSelectedProvider = storedProvider;
+                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Restored AI provider: {_aiProvider}");
+                    }
+                    else
+                    {
+                        // If the provider doesn't exist, use the first available provider
+                        _aiProvider = providers.Any() ? providers.First().Name : MistralAI._name;
+                        _previousSelectedProvider = _aiProvider;
+                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Provider not found, using default: {_aiProvider}");
+                    }
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Exception: {ex.Message}");
+                return false;
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Gets the actual provider name to use for AI processing.
+        /// If the selected provider is "Default", returns the default provider from settings.
+        /// </summary>
+        /// <returns>The actual provider name to use</returns>
+        protected string GetActualProviderName()
+        {
+            if (_aiProvider == DEFAULT_PROVIDER)
+            {
+                var settings = SmartHopperSettings.Load();
+                return settings.GetDefaultAIProvider();
+            }
+            
+            return _aiProvider;
+        }
     }
 }

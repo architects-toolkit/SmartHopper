@@ -74,7 +74,7 @@ namespace SmartHopper.Menu.Items
 
                 // Calculate total rows needed
                 int totalRows = providers.Sum(p => p.GetSettingDescriptors().Count() * 2 + 1); // *2 for description rows, +1 for provider header
-                totalRows += 3; // Add 3 rows: 1 for general header, 2 for debounce time (control + description)
+                totalRows += 4; // Add 4 rows: 1 for general header, 3 for default provider selection and debounce time (control + description)
                 panel.RowCount = totalRows;
                 panel.ColumnCount = 2;
 
@@ -96,6 +96,54 @@ namespace SmartHopper.Menu.Items
                 };
                 panel.Controls.Add(generalHeader, 0, row);
                 panel.SetColumnSpan(generalHeader, 2);
+                row++;
+
+                // Add default provider selection
+                panel.Controls.Add(new Label
+                {
+                    Text = "Default AI Provider:",
+                    Dock = DockStyle.Fill,
+                    AutoSize = true
+                }, 0, row);
+
+                var defaultProviderComboBox = new ComboBox
+                {
+                    Dock = DockStyle.Fill,
+                    DropDownStyle = ComboBoxStyle.DropDownList
+                };
+                
+                // Add all providers to the dropdown
+                foreach (var provider in providers)
+                {
+                    defaultProviderComboBox.Items.Add(provider.Name);
+                }
+                
+                // Select the current default provider if set
+                if (!string.IsNullOrEmpty(settings.DefaultAIProvider) && 
+                    defaultProviderComboBox.Items.Contains(settings.DefaultAIProvider))
+                {
+                    defaultProviderComboBox.SelectedItem = settings.DefaultAIProvider;
+                }
+                else if (defaultProviderComboBox.Items.Count > 0)
+                {
+                    defaultProviderComboBox.SelectedIndex = 0;
+                }
+                
+                panel.Controls.Add(defaultProviderComboBox, 1, row);
+                row++;
+
+                // Add default provider description
+                var defaultProviderDescription = new Label
+                {
+                    Text = "The default AI provider to use when 'Default' is selected in components",
+                    ForeColor = SystemColors.GrayText,
+                    Font = new Font(form.Font.FontFamily, form.Font.Size - 1),
+                    Dock = DockStyle.Fill,
+                    AutoSize = true,
+                    Padding = new Padding(5, 0, 0, 5)
+                };
+                panel.Controls.Add(defaultProviderDescription, 0, row);
+                panel.SetColumnSpan(defaultProviderDescription, 2);
                 row++;
 
                 // Add debounce time setting
@@ -249,6 +297,9 @@ namespace SmartHopper.Menu.Items
 
                     // Save debounce time
                     settings.DebounceTime = (int)debounceControl.Value;
+                    
+                    // Save default provider
+                    settings.DefaultAIProvider = defaultProviderComboBox.SelectedItem?.ToString() ?? "";
 
                     settings.Save();
                 }
