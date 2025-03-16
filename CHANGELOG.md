@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed version badge update workflow to only modify the version badge and not affect other badges in README.md
 - Fixed badge addition logic in version-tools action to properly handle cases when badges don't exist
 - Fixed security-patch-release.yml workflow to create a PR instead of pushing directly to main, resolving repository rule violations
+- Fixed version-calculator to always perform the requested increment type without conditional logic, ensuring consistent behavior
 
 ### Changed
 
