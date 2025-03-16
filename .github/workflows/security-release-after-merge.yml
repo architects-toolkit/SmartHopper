@@ -1,0 +1,39 @@
+name: Security Release After PR Merge
+
+# This workflow creates a GitHub Release when a security patch PR is merged
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  create-release:
+    name: Create Release After Security PR Merge
+    runs-on: ubuntu-latest
+    # Only run when a PR with a security patch branch is merged
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'security/patch-')
+    permissions:
+      contents: write  # Required for creating releases
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: main
+      
+      - name: Extract version from branch name
+        id: extract-version
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          VERSION=${BRANCH_NAME#security/patch-}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.extract-version.outputs.version }}
+          name: Security Release ${{ steps.extract-version.outputs.version }}
+          body: ${{ github.event.pull_request.body }}
+          draft: true
+          prerelease: false
