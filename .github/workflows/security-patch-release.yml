@@ -365,7 +365,7 @@ jobs:
         if: steps.create-pr.outcome == 'skipped' || steps.create-pr.outputs.result == 'null'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.calculate-version.outputs.new-version }}
+          tag_name: ${{ steps.calculate-version.outputs.new-version }}
           name: Security Release ${{ steps.calculate-version.outputs.new-version }}
           body: |
             ## Security Release ${{ steps.calculate-version.outputs.new-version }}
