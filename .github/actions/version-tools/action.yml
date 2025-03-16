@@ -122,78 +122,80 @@ runs:
         VERSION_BADGE_URL="https://img.shields.io/badge/version-$ENCODED_VERSION-$COLOR"
         STATUS_BADGE_URL="https://img.shields.io/badge/status-$STATUS-$COLOR"
         
+        # Create badge markdown
+        VERSION_BADGE="[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+        STATUS_BADGE="[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+        
         # Update README.md with new badges
         if [[ -f "README.md" ]]; then
           BADGES_CHANGED=false
           
-          # Check if badges exist
-          HAS_VERSION_BADGE=$(grep -c "\[\!\[Version\]\]" README.md || echo "0")
-          HAS_STATUS_BADGE=$(grep -c "\[\!\[Status\]\]" README.md || echo "0")
+          # Create a temporary file for the new content
+          touch README.md.new
           
-          if [[ $HAS_VERSION_BADGE -gt 0 && $HAS_STATUS_BADGE -gt 0 ]]; then
-            echo "Both badges exist, updating them"
-            # Update version badge
-            perl -i -pe 's|\[\!\[Version\]\]\(https://img\.shields\.io/badge/version[^)]*\)|\[\!\[Version\]\]\('$VERSION_BADGE_URL'\)|g' README.md
-            # Update status badge
-            perl -i -pe 's|\[\!\[Status\]\]\(https://img\.shields\.io/badge/status[^)]*\)|\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)|g' README.md
-            
-            if [ $? -eq 0 ]; then
-              echo "Updated existing badges in README.md"
-              BADGES_CHANGED=true
-            else
-              echo "Failed to update badges"
+          # Process the README.md file line by line
+          TITLE_PROCESSED=false
+          VERSION_BADGE_PROCESSED=false
+          STATUS_BADGE_PROCESSED=false
+          FIRST_CONTENT_LINE_AFTER_BADGES=false
+          
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            # Process the title (first line)
+            if [[ $TITLE_PROCESSED == false ]]; then
+              echo "$line" > README.md.new
+              TITLE_PROCESSED=true
+              continue
             fi
-          elif [[ $HAS_VERSION_BADGE -gt 0 ]]; then
-            echo "Only version badge exists, updating it and adding status badge"
-            # Update version badge
-            perl -i -pe 's|\[\!\[Version\]\]\(https://img\.shields\.io/badge/version[^)]*\)|\[\!\[Version\]\]\('$VERSION_BADGE_URL'\)|g' README.md
-            # Add status badge after version badge
-            perl -i -pe 's|(\[\!\[Version\]\].*\))|\1\n\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)\(https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases\)|' README.md
             
-            if [ $? -eq 0 ]; then
-              echo "Updated version badge and added status badge in README.md"
-              BADGES_CHANGED=true
-            else
-              echo "Failed to update badges"
+            # Skip empty lines right after title until we find content
+            if [[ $TITLE_PROCESSED == true && $VERSION_BADGE_PROCESSED == false && $STATUS_BADGE_PROCESSED == false && -z "$line" ]]; then
+              continue
             fi
-          elif [[ $HAS_STATUS_BADGE -gt 0 ]]; then
-            echo "Only status badge exists, updating it and adding version badge"
-            # Update status badge
-            perl -i -pe 's|\[\!\[Status\]\]\(https://img\.shields\.io/badge/status[^)]*\)|\[\!\[Status\]\]\('$STATUS_BADGE_URL'\)|g' README.md
-            # Add version badge before status badge
-            perl -i -pe 's|(\[\!\[Status\]\])|[![Version]('$VERSION_BADGE_URL')](https:\/\/github.com\/architects-toolkit\/SmartHopper\/releases)\n\1|' README.md
             
-            if [ $? -eq 0 ]; then
-              echo "Updated status badge and added version badge in README.md"
-              BADGES_CHANGED=true
-            else
-              echo "Failed to update badges"
+            # Process version badge
+            if [[ $line == *"[![Version]"*"badge/version"* ]]; then
+              if [[ $VERSION_BADGE_PROCESSED == false ]]; then
+                echo "" >> README.md.new
+                echo "$VERSION_BADGE" >> README.md.new
+                VERSION_BADGE_PROCESSED=true
+                BADGES_CHANGED=true
+              fi
+              continue
             fi
-          else
-            echo "No badges found, adding both"
-            # Get the title line
-            TITLE=$(head -n 1 README.md)
             
-            # Create new content with badges
-            {
-              echo "$TITLE"
-              echo ""
-              echo "[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
-              echo "[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
-              echo ""
-              tail -n +2 README.md
-            } > README.md.new
-            
-            # Replace original file
-            mv README.md.new README.md
-            
-            if [ $? -eq 0 ]; then
-              echo "Added both badges to README.md"
-              BADGES_CHANGED=true
-            else
-              echo "Failed to add badges"
+            # Process status badge
+            if [[ $line == *"[![Status]"*"badge/status"* ]]; then
+              if [[ $STATUS_BADGE_PROCESSED == false ]]; then
+                if [[ $VERSION_BADGE_PROCESSED == false ]]; then
+                  echo "" >> README.md.new
+                  echo "$VERSION_BADGE" >> README.md.new
+                  VERSION_BADGE_PROCESSED=true
+                fi
+                echo "$STATUS_BADGE" >> README.md.new
+                STATUS_BADGE_PROCESSED=true
+                BADGES_CHANGED=true
+              fi
+              continue
             fi
-          fi
+            
+            # Add badges after title if they haven't been processed and we've found the first content line
+            if [[ $VERSION_BADGE_PROCESSED == false && $STATUS_BADGE_PROCESSED == false && -n "$line" && $FIRST_CONTENT_LINE_AFTER_BADGES == false ]]; then
+              echo "" >> README.md.new
+              echo "$VERSION_BADGE" >> README.md.new
+              echo "$STATUS_BADGE" >> README.md.new
+              echo "" >> README.md.new
+              VERSION_BADGE_PROCESSED=true
+              STATUS_BADGE_PROCESSED=true
+              FIRST_CONTENT_LINE_AFTER_BADGES=true
+              BADGES_CHANGED=true
+            fi
+            
+            # Process all other lines
+            echo "$line" >> README.md.new
+          done < README.md
+          
+          # Replace the original file with the new one
+          mv README.md.new README.md
           
           # Check if badges were changed
           if [ "$BADGES_CHANGED" = true ]; then
