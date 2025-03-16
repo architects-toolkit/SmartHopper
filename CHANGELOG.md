@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed version badge update workflow to only modify the version badge and not affect other badges in README.md
+
 ### Security
 
 - Updated several github workflows to use the latest version of actions:
