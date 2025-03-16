@@ -74,7 +74,7 @@ jobs:
     - name: Create PR
       if: steps.update-badge.outputs.badges-changed == 'true'
       run: |
-        PR_TITLE="docs: update version badge for ${{ env.TARGET_BRANCH }}"
+        PR_TITLE="docs: update version badge for ${{ env.TARGET_BRANCH }} to ${{ steps.version-check.outputs.version }}"
         PR_BODY="This PR updates the version badge in the README.md to match the current version in Solution.props.
 
         This is an automated PR created by the Update Version Badge workflow."

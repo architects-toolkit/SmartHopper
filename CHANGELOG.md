@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated pull-request-validation.yml workflow to use version-tools for version validation
 - Improved PR title validation with more detailed error messages and support for additional conventional commit types
 - Added "security" as a valid commit type in PR title validation
+- Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
 
 ### Security
 
