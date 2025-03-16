@@ -15,10 +15,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
     
@@ -76,7 +76,7 @@ jobs:
         & $ilmerge.FullName /out:"$outputDir/$($mainAssembly.Name)" /targetplatform:"v4" "$($mainAssembly.FullName)" $dependencyList
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: plugin-package
         path: merged/
