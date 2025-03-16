@@ -8,8 +8,8 @@ This directory contains several composite actions that help with various aspects
 
 1. **Version Tools** (`action.yml`) - The main action for core version operations:
    - `get-version`: Extract the current version from Solution.props
-   - `update-version`: Update the version in Solution.props (automatically updates README badges)
-   - `update-badge`: Only update the version badge in README.md
+   - `update-version`: Update the version in Solution.props
+   - `update-badge`: Update the version and status badges in README.md
 
 2. **Version Calculator** (`version-calculator/action.yml`) - For calculating new versions based on semantic versioning rules:
    - Supports multiple increment types: `patch`, `minor`, `major`, `date`, `auto-date`, `pre-release`
@@ -75,6 +75,16 @@ This directory contains several composite actions that help with various aspects
   with:
     task: update-version
     new-version: ${{ steps.calculate-version.outputs.new-version }}
+```
+
+### Updating Badges in README.md
+
+```yaml
+- name: Update badges
+  id: update-badge
+  uses: ./.github/actions/version-tools
+  with:
+    task: update-badge
 ```
 
 ### Updating the CHANGELOG.md
