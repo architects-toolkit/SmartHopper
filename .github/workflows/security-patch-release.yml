@@ -167,7 +167,13 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add Solution.props CHANGELOG.md
-          git commit -m "chore: bump version to ${{ steps.current-version.outputs.NEW_VERSION }} for security patch"
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit, continuing with next steps"
+          else
+            git commit -m "chore: bump version to ${{ steps.current-version.outputs.NEW_VERSION }} for security patch"
+          fi
 
       - name: Check milestones for version collision
         id: check-milestones
@@ -306,7 +312,12 @@ jobs:
 
       - name: Push changes to main
         run: |
-          git push origin main
+          # Check if there are changes to push
+          if git diff --quiet origin/main; then
+            echo "No changes to push, continuing with next steps"
+          else
+            git push origin main
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
