@@ -1,0 +1,326 @@
+name: Security Patch Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      description:
+        description: 'Security fix description'
+        required: true
+        type: string
+      update_changelog:
+        description: 'Update CHANGELOG.md with the security fix'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  create-security-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Get latest release version
+        id: latest-release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const latestRelease = await github.rest.repos.getLatestRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+              
+              // Remove 'v' prefix if present
+              let version = latestRelease.data.tag_name;
+              if (version.startsWith('v')) {
+                version = version.substring(1);
+              }
+              
+              console.log(`Latest release version: ${version}`);
+              return version;
+            } catch (error) {
+              console.log('No releases found or error fetching latest release');
+              console.log(error);
+              return '';
+            }
+          result-encoding: string
+
+      - name: Get current version from Solution.props
+        id: current-version
+        run: |
+          CURRENT_VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+          echo "Current version in Solution.props: $CURRENT_VERSION"
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # If we have a latest release, use that as the base for incrementing
+          LATEST_RELEASE="${{ steps.latest-release.outputs.result }}"
+          if [[ -n "$LATEST_RELEASE" ]]; then
+            echo "Using latest release as base: $LATEST_RELEASE"
+            BASE_VERSION="$LATEST_RELEASE"
+          else
+            echo "No latest release found, using current version from Solution.props"
+            BASE_VERSION="$CURRENT_VERSION"
+          fi
+          
+          echo "BASE_VERSION=$BASE_VERSION" >> $GITHUB_OUTPUT
+          
+          # Parse version components
+          if [[ $BASE_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            SUFFIX="${BASH_REMATCH[4]}"
+            
+            # Increment patch version
+            NEW_PATCH=$((PATCH + 1))
+            if [[ -n "$SUFFIX" ]]; then
+              NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH$SUFFIX"
+            else
+              NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+            fi
+            
+            echo "New version: $NEW_VERSION"
+            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "MAJOR=$MAJOR" >> $GITHUB_OUTPUT
+            echo "MINOR=$MINOR" >> $GITHUB_OUTPUT
+            echo "PATCH=$PATCH" >> $GITHUB_OUTPUT
+            echo "NEW_PATCH=$NEW_PATCH" >> $GITHUB_OUTPUT
+            echo "SUFFIX=$SUFFIX" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Version format does not follow semantic versioning."
+            exit 1
+          fi
+
+      - name: Update Solution.props with new version
+        run: |
+          sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ steps.current-version.outputs.NEW_VERSION }}<\/SolutionVersion>/" Solution.props
+          echo "Updated Solution.props with new version: ${{ steps.current-version.outputs.NEW_VERSION }}"
+
+      - name: Update CHANGELOG.md
+        if: ${{ github.event.inputs.update_changelog == 'true' }}
+        run: |
+          # Get today's date in YYYY-MM-DD format
+          TODAY=$(date +%Y-%m-%d)
+          
+          # Extract the entire Unreleased section content
+          UNRELEASED_CONTENT=$(sed -n '/## \[Unreleased\]/,/## \[[0-9]/p' CHANGELOG.md | sed '1d;$d')
+          
+          # Create a temporary file with the new content
+          cat > temp_changelog.md << EOF
+          # Changelog
+
+          All notable changes to SmartHopper will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+
+          EOF
+          
+          # Add the new version section with the previous Unreleased content
+          cat >> temp_changelog.md << EOF
+          ## [${{ steps.current-version.outputs.NEW_VERSION }}] - $TODAY
+
+          $UNRELEASED_CONTENT
+          EOF
+          
+          # Check if there's already a Security section in the new version
+          if ! echo "$UNRELEASED_CONTENT" | grep -q "### Security"; then
+            # If no Security section exists, add it at the end of the new version section
+            cat >> temp_changelog.md << EOF
+
+          ### Security
+
+          - ${{ github.event.inputs.description }}
+          EOF
+          else
+            # If Security section exists, add the new entry to it
+            # First, find the line number where to insert the new entry
+            LINE_NUM=$(grep -n "### Security" temp_changelog.md | head -1 | cut -d: -f1)
+            # Add 2 to get past the "### Security" line and any potential empty line
+            LINE_NUM=$((LINE_NUM + 2))
+            # Insert the new entry at that line
+            sed -i "${LINE_NUM}i- ${{ github.event.inputs.description }}" temp_changelog.md
+          fi
+          
+          # Add the rest of the original changelog
+          sed -n '/## \[[0-9]/,$p' CHANGELOG.md >> temp_changelog.md
+          
+          # Replace the original changelog with the new one
+          mv temp_changelog.md CHANGELOG.md
+          
+          echo "Updated CHANGELOG.md with security patch information"
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Solution.props CHANGELOG.md
+          git commit -m "chore: bump version to ${{ steps.current-version.outputs.NEW_VERSION }} for security patch"
+
+      - name: Check milestones for version collision
+        id: check-milestones
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            const newVersion = '${{ steps.current-version.outputs.NEW_VERSION }}';
+            const major = '${{ steps.current-version.outputs.MAJOR }}';
+            const minor = '${{ steps.current-version.outputs.MINOR }}';
+            const updatedMilestones = [];
+            
+            for (const milestone of milestones.data) {
+              // Check if milestone shares the same major.minor
+              if (milestone.title.match(new RegExp(`^${major}\\.${minor}\\.\\d+(-[a-zA-Z0-9]+(\\.[0-9]+)?)?$`))) {
+                // Parse milestone version
+                const match = milestone.title.match(/^(\d+)\.(\d+)\.(\d+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$/);
+                if (match) {
+                  const milestoneMajor = match[1];
+                  const milestoneMinor = match[2];
+                  const milestonePatch = parseInt(match[3]);
+                  const milestoneSuffix = match[4] || '';
+                  
+                  // If milestone patch is less than or equal to our new patch, increment it
+                  if (milestonePatch <= parseInt('${{ steps.current-version.outputs.NEW_PATCH }}')) {
+                    const newMilestonePatch = parseInt('${{ steps.current-version.outputs.NEW_PATCH }}') + 1;
+                    const updatedMilestoneVersion = `${milestoneMajor}.${milestoneMinor}.${newMilestonePatch}${milestoneSuffix}`;
+                    
+                    // Update milestone title
+                    await github.rest.issues.updateMilestone({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      milestone_number: milestone.number,
+                      title: updatedMilestoneVersion
+                    });
+                    
+                    updatedMilestones.push({
+                      from: milestone.title,
+                      to: updatedMilestoneVersion
+                    });
+                    
+                    console.log(`Updated milestone ${milestone.title} to ${updatedMilestoneVersion}`);
+                  }
+                }
+              }
+            }
+            
+            return { updatedMilestones: updatedMilestones };
+
+      - name: Check dev branch for version collision
+        id: check-dev
+        run: |
+          # Fetch dev branch
+          git fetch origin dev
+          
+          # Check if dev branch exists
+          if git rev-parse --verify origin/dev >/dev/null 2>&1; then
+            # Checkout dev branch
+            git checkout origin/dev
+            
+            # Get version from dev branch
+            DEV_VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+            echo "Dev version: $DEV_VERSION"
+            
+            # Parse dev version components
+            if [[ $DEV_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+              DEV_MAJOR="${BASH_REMATCH[1]}"
+              DEV_MINOR="${BASH_REMATCH[2]}"
+              DEV_PATCH="${BASH_REMATCH[3]}"
+              DEV_SUFFIX="${BASH_REMATCH[4]}"
+              
+              # Check if dev version has same major.minor as our new version
+              if [ "$DEV_MAJOR" == "${{ steps.current-version.outputs.MAJOR }}" ] && [ "$DEV_MINOR" == "${{ steps.current-version.outputs.MINOR }}" ]; then
+                # Check if dev patch is less than or equal to our new patch
+                if [ "$DEV_PATCH" -le "${{ steps.current-version.outputs.NEW_PATCH }}" ]; then
+                  echo "DEV_COLLISION=true" >> $GITHUB_OUTPUT
+                  
+                  # Increment patch version to be one more than our new patch
+                  NEW_PATCH="${{ steps.current-version.outputs.NEW_PATCH }}"
+                  DEV_NEW_PATCH=$((NEW_PATCH + 1))
+                  if [[ -n "$DEV_SUFFIX" ]]; then
+                    DEV_NEW_VERSION="$DEV_MAJOR.$DEV_MINOR.$DEV_NEW_PATCH$DEV_SUFFIX"
+                  else
+                    DEV_NEW_VERSION="$DEV_MAJOR.$DEV_MINOR.$DEV_NEW_PATCH"
+                  fi
+                  
+                  echo "New dev version: $DEV_NEW_VERSION"
+                  echo "DEV_NEW_VERSION=$DEV_NEW_VERSION" >> $GITHUB_OUTPUT
+                  echo "DEV_VERSION=$DEV_VERSION" >> $GITHUB_OUTPUT
+                else
+                  echo "Dev patch is already higher than our new patch, no collision"
+                  echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+                fi
+              else
+                echo "Dev version has different major.minor, no collision"
+                echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "Error parsing dev version, skipping collision check"
+              echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Dev branch does not exist, skipping check"
+            echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Return to main branch
+          git checkout main
+
+      - name: Update dev branch if version collision
+        if: steps.check-dev.outputs.DEV_COLLISION == 'true'
+        run: |
+          # Checkout dev branch
+          git checkout -b dev origin/dev
+          
+          # Update Solution.props with new dev version
+          sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ steps.check-dev.outputs.DEV_NEW_VERSION }}<\/SolutionVersion>/" Solution.props
+          echo "Updated Solution.props in dev branch with new version: ${{ steps.check-dev.outputs.DEV_NEW_VERSION }}"
+          
+          # Commit changes to dev branch
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Solution.props
+          git commit -m "chore: bump version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} to avoid collision with security patch"
+          
+          # Push changes to dev branch
+          git push origin dev
+          
+          # Return to main branch
+          git checkout main
+
+      - name: Push changes to main
+        run: |
+          git push origin main
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.current-version.outputs.NEW_VERSION }}
+          name: Security Release ${{ steps.current-version.outputs.NEW_VERSION }}
+          body: |
+            ## Security Release ${{ steps.current-version.outputs.NEW_VERSION }}
+            
+            ### Security Fix
+            
+            ${{ github.event.inputs.description }}
+            
+            This is a security patch release that addresses critical security issues.
+          draft: true
+          prerelease: false
+          target_commitish: main

@@ -21,6 +21,7 @@ jobs:
       - name: Validate Version in Solution.props
         run: |
           VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+          echo "Checking version: $VERSION"
           if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
             echo "Invalid version format in Solution.props. Must follow semantic versioning."
             exit 1
@@ -58,6 +59,7 @@ jobs:
       - name: Validate PR Title Style
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "Checking PR title: $PR_TITLE"
           if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?:.+ ]]; then
             echo "Error: Pull request title must follow conventional commits format"
             echo "Example formats:"
