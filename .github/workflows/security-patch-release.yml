@@ -259,7 +259,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prTitle = `security: release security patch v${{ steps.calculate-version.outputs.new-version }}`;
-            const prBody = `## Security Patch Release v${{ steps.calculate-version.outputs.new-version }}
+            
+            // Create PR body with proper variable handling
+            let prBody = `## Security Patch Release v${{ steps.calculate-version.outputs.new-version }}
             
             ### Security Fix
             
@@ -270,11 +272,33 @@ jobs:
             ### Changes
             
             - Bumped version to ${{ steps.calculate-version.outputs.new-version }}
-            - Updated badges in README.md
-            ${${{ github.event.inputs.update_changelog }} ? '- Updated CHANGELOG.md with security fix details' : ''}
+            - Updated badges in README.md`;
             
-            ${steps.check-milestones.outputs.result && steps.check-milestones.outputs.result.updatedMilestones.length > 0 ? '### Updated Milestones\n\n' + steps.check-milestones.outputs.result.updatedMilestones.map(m => `- ${m.from} → ${m.to}`).join('\n') : ''}
-            ${steps.check-dev.outputs.DEV_COLLISION == 'true' ? `\n### Dev Branch Update\n\nThe dev branch version has been updated from ${steps.check-dev.outputs.DEV_VERSION} to ${steps.check-dev.outputs.DEV_NEW_VERSION} to avoid version collision.` : ''}`;
+            // Add changelog update if applicable
+            if ('${{ github.event.inputs.update_changelog }}' === 'true') {
+              prBody += '\n- Updated CHANGELOG.md with security fix details';
+            }
+            
+            // Add milestone update info if available
+            const milestoneResult = '${{ toJSON(steps.check-milestones.outputs.result) }}';
+            if (milestoneResult && milestoneResult !== 'null' && milestoneResult !== '""') {
+              try {
+                const milestoneData = JSON.parse(milestoneResult);
+                if (milestoneData.updatedMilestones && milestoneData.updatedMilestones.length > 0) {
+                  prBody += '\n\n### Updated Milestones\n\n';
+                  for (const m of milestoneData.updatedMilestones) {
+                    prBody += `- ${m.from} → ${m.to}\n`;
+                  }
+                }
+              } catch (e) {
+                console.log('Error parsing milestone data:', e);
+              }
+            }
+            
+            // Add dev branch update info if applicable
+            if ('${{ steps.check-dev.outputs.DEV_COLLISION }}' === 'true') {
+              prBody += `\n\n### Dev Branch Update\n\nThe dev branch version has been updated from ${{ steps.check-dev.outputs.DEV_VERSION }} to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} to avoid version collision.`;
+            }
             
             try {
               const pr = await github.rest.pulls.create({
