@@ -1,4 +1,15 @@
-name: Build
+name: 🚀 Build Project
+
+# Description: This workflow builds the project to verify that it compiles correctly.
+# It can be triggered manually to validate the build process without creating a release.
+#
+# Triggers:
+# - Manually via workflow_dispatch
+# - (Commented out) Automatically on push to main branch
+# - (Commented out) Automatically on pull requests to main branch
+#
+# Permissions:
+# - contents:read - Required to read repository content for building
 
 on:
   workflow_dispatch:

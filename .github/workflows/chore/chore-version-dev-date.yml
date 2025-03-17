@@ -1,7 +1,16 @@
-name: Update Development Version Date
+name: 📅 Update Development Version Date
 
-# This workflow automatically updates the date component in development versions
-# when changes are pushed to development branches.
+# Description: This workflow automatically updates the date component in development versions
+# when changes are pushed to development branches. It creates a PR with the updated date
+# to ensure the version reflects the latest changes.
+#
+# Triggers:
+# - Automatically when code files or Solution.props are modified in dev branch
+# - Manually via workflow_dispatch
+#
+# Permissions:
+# - contents:write - Required to commit version changes
+# - pull-requests:write - Required to create PRs with version updates
 
 on:
   push:
@@ -85,6 +94,14 @@ jobs:
         with:
           task: update-version
           new-version: ${{ steps.calculate-version.outputs.new-version }}
+
+      # Update badges to match the new version
+      - name: Update badges
+        id: update-badges
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        uses: ./.github/actions/version-tools
+        with:
+          task: update-badge
 
       # Update the CHANGELOG.md with a note about the date update
       - name: Update CHANGELOG.md

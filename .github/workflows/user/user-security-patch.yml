@@ -1,4 +1,19 @@
-name: Security Patch Release
+name: 👤🚨 Security Patch Release
+
+# Description: This workflow creates a security patch release by:
+# 1. Creating a new security patch branch
+# 2. Incrementing the patch version number
+# 3. Creating a pull request for the security fix
+# 
+# This workflow is manually triggered and requires a description of the security fix.
+#
+# Triggers:
+# - Manually via workflow_dispatch with a security fix description
+#
+# Permissions:
+# - contents:write - Required to create branches and commit changes
+# - issues:read - Required to read issue information
+# - pull-requests:write - Required to create pull requests
 
 on:
   workflow_dispatch:
