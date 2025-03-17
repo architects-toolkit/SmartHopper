@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+
 - Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
+
+### Fixed
+
+- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property
 
 ## [0.1.2-alpha] - 2025-03-17
 
@@ -30,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
 
 ### Security
-- (automatically added) Security release to update all workflow actions to the latest version.
 
+- (automatically added) Security release to update all workflow actions to the latest version.
 - Updated several github workflows to use the latest version of actions:
   - Updated tj-actions/changed-files from v45.0 to v46.0.1
   - Updated actions/checkout to v4 across all workflows
