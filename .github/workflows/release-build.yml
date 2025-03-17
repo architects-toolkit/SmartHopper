@@ -125,7 +125,7 @@ jobs:
         $version = "${{ github.event.release.tag_name }}"
         $zipName = "SmartHopper-$version.zip"
         Compress-Archive -Path artifacts -DestinationPath $zipName
-        "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+        echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
