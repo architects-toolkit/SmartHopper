@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
+- Simplified release build process by removing ILMerge dependency and directly packaging all build artifacts
 
 ### Fixed
 
