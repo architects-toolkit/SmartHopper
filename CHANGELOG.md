@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
+
 ## [0.1.2-alpha] - 2025-03-17
 
 ### Fixed
@@ -43,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed Test GitHub Actions workflow
+
 ## [0.1.1-alpha] - 2025-03-03
 
 ### Added
