@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2-alpha] - 2025-03-17
+
 ### Fixed
 
 - Fixed version badge update workflow to only modify the version badge and not affect other badges in README.md
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
 
 ### Security
+- (automatically added) Update all workflow actions to the latest version.
 
 - Updated several github workflows to use the latest version of actions:
   - Updated tj-actions/changed-files from v45.0 to v46.0.1
@@ -40,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed Test GitHub Actions workflow
-
 ## [0.1.1-alpha] - 2025-03-03
 
 ### Added
