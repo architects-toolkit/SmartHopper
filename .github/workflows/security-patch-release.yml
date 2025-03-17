@@ -109,12 +109,18 @@ jobs:
         with:
           task: update-badge
 
+      - name: Add security fix to CHANGELOG.md
+        uses: ./.github/actions/version-tools/changelog-updater
+        with:
+          action: add-line
+          section: Security
+          description: ${{ github.event.inputs.description }}
+
       - name: Update CHANGELOG.md with version changes
         uses: ./.github/actions/version-tools/changelog-updater
         with:
+          action: create-release
           version: ${{ steps.calculate-version.outputs.new-version }}
-          security-fix: true
-          security-description: ${{ github.event.inputs.description }}
 
       - name: Commit and push changes
         id: commit-changes
