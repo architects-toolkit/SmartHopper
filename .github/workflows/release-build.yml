@@ -2,34 +2,56 @@ name: 🚀 Build Project
 
 # Description: This workflow builds the project to verify that it compiles correctly.
 # It can be triggered manually to validate the build process without creating a release.
+# It also builds and attaches artifacts when a non-draft release is published.
 #
 # Triggers:
 # - Manually via workflow_dispatch
+# - Automatically when a release is published (excluding drafts)
 # - (Commented out) Automatically on push to main branch
 # - (Commented out) Automatically on pull requests to main branch
 #
 # Permissions:
 # - contents:read - Required to read repository content for building
+# - contents:write - Required to upload assets to releases (only when triggered by release)
 
 on:
   workflow_dispatch:
+  release:
+    types: [published]
   # push:
   #   branches: [ main ]
   # pull_request:
   #   branches: [ main ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: windows-latest
-
+    
     steps:
-    - uses: actions/checkout@v4
+    - name: Check if release is draft
+      if: github.event_name == 'release'
+      id: check_draft
+      run: |
+        echo "IS_DRAFT=${{ github.event.release.draft }}" >> $GITHUB_OUTPUT
+      shell: bash
+      
+    - name: Exit if release is draft
+      if: github.event_name == 'release' && steps.check_draft.outputs.IS_DRAFT == 'true'
+      run: |
+        echo "This is a draft release. Skipping build and upload."
+        exit 0
+      shell: bash
+      
+    - name: Checkout repository
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
+      with:
+        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
     
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v4
       with:
         dotnet-version: '8.0.x'
     
@@ -86,8 +108,29 @@ jobs:
         # Run ILMerge
         & $ilmerge.FullName /out:"$outputDir/$($mainAssembly.Name)" /targetplatform:"v4" "$($mainAssembly.FullName)" $dependencyList
 
+    - name: Create ZIP Archive
+      if: github.event_name == 'release'
+      id: create_zip
+      shell: pwsh
+      run: |
+        $version = "${{ github.event.release.tag_name }}"
+        $zipName = "SmartHopper-$version.zip"
+        Compress-Archive -Path merged/* -DestinationPath $zipName
+        echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
       with:
         name: plugin-package
         path: merged/
+        
+    - name: Upload Release Asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ steps.create_zip.outputs.zip_name }}
+        asset_name: ${{ steps.create_zip.outputs.zip_name }}
+        asset_content_type: application/zip
