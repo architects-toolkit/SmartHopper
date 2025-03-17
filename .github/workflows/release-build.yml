@@ -101,11 +101,16 @@ jobs:
         # Copy all .gha files and their dependencies
         Get-ChildItem -Path $buildDir -Recurse -Include "*.gha","*.dll" -Exclude "*Rhino*","*Grasshopper*" | 
           ForEach-Object {
-            $targetDir = Join-Path $outputDir (Split-Path $_.FullName -Parent).Replace("$buildDir\", "")
+            $relativePath = $_.FullName.Replace("$((Get-Location).Path)\$buildDir\", "")
+            $targetPath = Join-Path $outputDir $relativePath
+            $targetDir = Split-Path -Parent $targetPath
+            
             if (!(Test-Path $targetDir)) {
               New-Item -ItemType Directory -Force -Path $targetDir
             }
-            Copy-Item $_.FullName -Destination $targetDir
+            
+            Write-Host "Copying $($_.FullName) to $targetPath"
+            Copy-Item $_.FullName -Destination $targetPath
           }
         
         # List all copied files for verification
