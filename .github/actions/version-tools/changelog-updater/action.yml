@@ -108,7 +108,7 @@ runs:
             fi
             
             # Add the rest of the file (everything after the Unreleased section)
-            awk 'found==1 {print} /^## \[[0-9]+\.[0-9]+\.[0-9]+/ {found=1}' "$CHANGELOG" >> "$TMP_CHANGELOG"
+            awk '/^## \[[0-9]+\.[0-9]+\.[0-9]+/ {found=1} found==1 {print}' "$CHANGELOG" >> "$TMP_CHANGELOG"
             
             # Replace the original changelog with the new one
             mv "$TMP_CHANGELOG" "$CHANGELOG"
@@ -138,9 +138,9 @@ runs:
           
           # Create the line content
           if [[ -n "$ISSUE_NUMBER" ]]; then
-            LINE_CONTENT="- $DESCRIPTION ([#$ISSUE_NUMBER](https://github.com/architects-toolkit/SmartHopper/issues/$ISSUE_NUMBER))"
+            LINE_CONTENT="- (automatically added) $DESCRIPTION ([#$ISSUE_NUMBER](https://github.com/architects-toolkit/SmartHopper/issues/$ISSUE_NUMBER))"
           else
-            LINE_CONTENT="- $DESCRIPTION"
+            LINE_CONTENT="- (automatically added) $DESCRIPTION"
           fi
           
           # Check if the Unreleased section exists
