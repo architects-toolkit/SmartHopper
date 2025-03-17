@@ -1,4 +1,16 @@
-name: Create Release on Milestone Close
+name: 🏁 Create Release on Milestone Close
+
+# Description: This workflow automatically creates a GitHub Release when a milestone is closed.
+# It extracts the milestone title as the version number and compiles release notes from
+# all issues and pull requests associated with the milestone.
+#
+# Triggers:
+# - Automatically when a milestone is closed
+#
+# Permissions:
+# - contents:write - Required to create GitHub releases
+# - issues:read - Required to read issue information for release notes
+# - pull-requests:read - Required to read PR information for release notes
 
 on:
   milestone:

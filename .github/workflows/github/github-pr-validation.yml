@@ -1,4 +1,15 @@
-name: Pull Request Validation
+name: 🔍 Pull Request Validation
+
+# Description: This workflow validates pull requests to ensure they meet project standards.
+# It checks for version conflicts, validates formatting, and performs other quality checks
+# to maintain code integrity before merging.
+#
+# Triggers:
+# - Automatically when a pull request is created or updated targeting main or dev branches
+#
+# Permissions:
+# - contents:read - Required to read repository content
+# - pull-requests:read - Required to read pull request information
 
 on:
   pull_request:

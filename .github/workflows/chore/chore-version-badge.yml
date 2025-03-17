@@ -1,4 +1,15 @@
-name: Update Version Badge
+name: 🔄 Update Version Badge
+
+# Description: This workflow automatically updates the version badge in the README.md
+# when the version in Solution.props changes.
+#
+# Triggers:
+# - Manually via workflow_dispatch
+# - Automatically when Solution.props is modified in main or dev branches
+#
+# Permissions:
+# - contents:write - Required to commit changes to README.md
+# - pull-requests:write - Required to create PRs with badge updates
 
 on:
   workflow_dispatch:
@@ -61,6 +72,18 @@ jobs:
       with:
         task: update-badge
         branch: ${{ github.ref_name }}
+
+    - name: Check if badges need updating
+      id: check-badges
+      run: |
+        if [[ "${{ steps.update-badge.outputs.badges-changed }}" == "false" ]]; then
+          echo "Badges are already up to date. No changes needed."
+          echo "::notice::Badges are already up to date with the current version. Workflow execution stopped."
+          exit 0
+        else
+          echo "Badges need to be updated. Continuing workflow."
+        fi
+      shell: bash
 
     - name: Create and push branch
       if: steps.update-badge.outputs.badges-changed == 'true'
