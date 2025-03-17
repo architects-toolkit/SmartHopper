@@ -34,16 +34,17 @@ jobs:
     - name: Check if release is draft
       if: github.event_name == 'release'
       id: check_draft
+      shell: pwsh
       run: |
-        echo "IS_DRAFT=${{ github.event.release.draft }}" >> $GITHUB_OUTPUT
-      shell: bash
+        $isDraft = "${{ github.event.release.draft }}"
+        "IS_DRAFT=$isDraft" >> $env:GITHUB_OUTPUT
       
     - name: Exit if release is draft
       if: github.event_name == 'release' && steps.check_draft.outputs.IS_DRAFT == 'true'
+      shell: pwsh
       run: |
-        echo "This is a draft release. Skipping build and upload."
+        Write-Host "This is a draft release. Skipping build and upload."
         exit 0
-      shell: bash
       
     - name: Checkout repository
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
@@ -53,7 +54,16 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v4
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: |
+          7.0.x
+          8.0.x
+    
+    - name: Setup .NET Framework
+      shell: pwsh
+      run: |
+        # .NET Framework 4.8 is pre-installed on Windows 2022 runner
+        # Just verify it's available
+        Get-ChildItem "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\"
     
     - name: Configure NuGet Sources
       shell: pwsh
@@ -69,14 +79,14 @@ jobs:
         
         # Add sources
         dotnet nuget add source "https://api.nuget.org/v3/index.json" -n nugetSource
-        dotnet nuget add source "https://download.rhino3d.com/nuget/rhino/8.0" -n rhinoSource
+        dotnet nuget add source "https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages" -n rhinoSource
         
         # Verify configuration
         dotnet nuget list source
         
     - name: Install ILMerge
       run: |
-        nuget install ILMerge -Version 3.0.41 -Source nugetSource
+        nuget install ILMerge -Version 3.0.41
         
     - name: Restore dependencies
       run: dotnet restore
@@ -115,8 +125,8 @@ jobs:
       run: |
         $version = "${{ github.event.release.tag_name }}"
         $zipName = "SmartHopper-$version.zip"
-        Compress-Archive -Path merged/* -DestinationPath $zipName
-        echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+        Compress-Archive -Path (Get-ChildItem -Path merged\*).FullName -DestinationPath $zipName
+        "zip_name=$zipName" >> $env:GITHUB_OUTPUT
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
