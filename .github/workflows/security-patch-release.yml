@@ -73,6 +73,47 @@ jobs:
           echo "security_branch=security/patch-${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
         shell: bash
 
+      - name: Check for existing security PR
+        id: check-existing-pr
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const securityBranch = '${{ steps.set-branch.outputs.security_branch }}';
+            
+            console.log(`Checking for existing PRs from branch: ${securityBranch}`);
+            
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${securityBranch}`
+            });
+            
+            if (prs.data.length > 0) {
+              console.log(`Found existing PR from security branch ${securityBranch}:`);
+              for (const pr of prs.data) {
+                console.log(`- #${pr.number}: ${pr.title} (${pr.html_url})`);
+              }
+              return {
+                exists: true,
+                pr_number: prs.data[0].number,
+                pr_url: prs.data[0].html_url
+              };
+            } else {
+              console.log(`No existing PR found from security branch ${securityBranch}`);
+              return {
+                exists: false
+              };
+            }
+
+      - name: Exit if PR exists
+        if: fromJSON(steps.check-existing-pr.outputs.result).exists == true
+        run: |
+          echo "::error::An open PR already exists for security patch v${{ steps.calculate-version.outputs.new-version }}. See PR #$(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_number) at $(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_url)"
+          exit 1
+        shell: bash
+
       - name: Check if branch exists
         id: check-branch
         run: |
@@ -356,19 +397,19 @@ jobs:
               return null;
             }
 
-      - name: Create GitHub Release Draft
-        if: steps.create-pr.outcome == 'skipped' || steps.create-pr.outputs.result == 'null'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.calculate-version.outputs.new-version }}
-          name: Security Release ${{ steps.calculate-version.outputs.new-version }}
-          body: |
-            ## Security Release ${{ steps.calculate-version.outputs.new-version }}
+      # - name: Create GitHub Release Draft
+      #   if: steps.create-pr.outcome == 'skipped' || steps.create-pr.outputs.result == 'null'
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: ${{ steps.calculate-version.outputs.new-version }}
+      #     name: Security Release ${{ steps.calculate-version.outputs.new-version }}
+      #     body: |
+      #       ## Security Release ${{ steps.calculate-version.outputs.new-version }}
             
-            ### Security Fix
+      #       ### Security Fix
             
-            - ${{ github.event.inputs.description }}
+      #       - ${{ github.event.inputs.description }}
             
-            This is a security patch release that addresses critical security issues.
-          draft: true
-          prerelease: false
+      #       This is a security patch release that addresses critical security issues.
+      #     draft: true
+      #     prerelease: false
