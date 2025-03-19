@@ -128,9 +128,13 @@ namespace SmartHopper.Components.AI
                     Debug.WriteLine("[AIChatWorker] Starting chat worker");
                     _progressReporter?.Invoke("Starting chat interface...");
 
+                    // Get the actual provider name to use
+                    string actualProvider = _component.GetActualProviderName();
+                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {_component._aiProvider})");
+
                     // Create a chat worker
                     var chatWorker = ChatUtils.CreateChatWorker(
-                        _component._aiProvider,
+                        actualProvider,
                         _component.GetModel(),
                         _component.GetEndpoint(),
                         _progressReporter);
