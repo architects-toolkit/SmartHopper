@@ -114,7 +114,7 @@ namespace SmartHopper.Core.Converters
                     
                     // Set font size based on heading level (h1-h6)
                     float fontSize = 14 - (heading.Level - 1);
-                    headingLabel.Font = new Font(SystemFont.Bold, fontSize);
+                    headingLabel.Font = new Font(headingLabel.Font.Family, fontSize, FontStyle.Bold);
                     
                     container.Items.Add(headingLabel);
                     break;
@@ -259,34 +259,41 @@ namespace SmartHopper.Core.Converters
             // Check for formatting in the inline content
             bool hasBold = false;
             bool hasItalic = false;
+            bool hasUnderline = false;
             
             // Scan for formatting
-            ScanForFormatting(inline, ref hasBold, ref hasItalic);
+            ScanForFormatting(inline, ref hasBold, ref hasItalic, ref hasUnderline);
             
             // Apply formatting if found
-            if (hasBold && hasItalic)
+            FontStyle style = FontStyle.None;
+            if (hasBold)
+                style |= FontStyle.Bold;
+            if (hasItalic)
+                style |= FontStyle.Italic;
+                
+            if (style != FontStyle.None)
+                label.Font = new Font(label.Font.Family, label.Font.Size, style);
+                
+            // Handle underline separately (if Eto.Forms supports it)
+            if (hasUnderline)
             {
-                label.Font = new Font(SystemFont.BoldItalic);
-            }
-            else if (hasBold)
-            {
-                label.Font = new Font(SystemFont.Bold);
-            }
-            else if (hasItalic)
-            {
-                label.Font = new Font(SystemFont.Italic);
+                // Note: If Eto.Forms doesn't directly support underline,
+                // we could use TextDecoration or a custom approach
+                // For now, we'll just indicate it in the text
+                label.ToolTip = "This text contains underlined content";
             }
             
             return label;
         }
         
         /// <summary>
-        /// Scans inline content for formatting (bold and italic)
+        /// Scans inline content for formatting (bold, italic, underline)
         /// </summary>
         /// <param name="inline">The inline content to scan</param>
         /// <param name="hasBold">Reference to a boolean indicating if bold formatting was found</param>
         /// <param name="hasItalic">Reference to a boolean indicating if italic formatting was found</param>
-        private static void ScanForFormatting(ContainerInline inline, ref bool hasBold, ref bool hasItalic)
+        /// <param name="hasUnderline">Reference to a boolean indicating if underline formatting was found</param>
+        private static void ScanForFormatting(ContainerInline inline, ref bool hasBold, ref bool hasItalic, ref bool hasUnderline)
         {
             if (inline == null)
                 return;
@@ -295,24 +302,40 @@ namespace SmartHopper.Core.Converters
             {
                 if (item is EmphasisInline emphasis)
                 {
-                    if (emphasis.DelimiterCount == 2)
+                    // Check for combined bold+italic (*** or ___)
+                    if (emphasis.DelimiterCount >= 3)
                     {
-                        // Bold
+                        hasBold = true;
+                        hasItalic = true;
+                    }
+                    // Check for bold (** or __)
+                    else if (emphasis.DelimiterCount == 2)
+                    {
                         hasBold = true;
                     }
+                    // Check for italic (* or _)
                     else if (emphasis.DelimiterCount == 1)
                     {
-                        // Italic
                         hasItalic = true;
                     }
                     
                     // Recursively scan the emphasis content
-                    ScanForFormatting(emphasis, ref hasBold, ref hasItalic);
+                    ScanForFormatting(emphasis, ref hasBold, ref hasItalic, ref hasUnderline);
+                }
+                else if (item is HtmlInline html)
+                {
+                    // Check for HTML tags like <u> for underline
+                    string htmlTag = html.Tag.ToLowerInvariant();
+                    if (htmlTag.Contains("<u>") || htmlTag.Contains("<u "))
+                    {
+                        hasUnderline = true;
+                    }
+                    // Could add more HTML tag handling here
                 }
                 else if (item is ContainerInline container)
                 {
                     // Recursively scan other containers
-                    ScanForFormatting(container, ref hasBold, ref hasItalic);
+                    ScanForFormatting(container, ref hasBold, ref hasItalic, ref hasUnderline);
                 }
             }
         }
@@ -358,6 +381,23 @@ namespace SmartHopper.Core.Converters
                         
                     case LineBreakInline lb:
                         text += Environment.NewLine;
+                        break;
+                        
+                    case HtmlInline html:
+                        // For HTML content, extract the text between tags
+                        if (html.Tag.StartsWith("<") && !html.Tag.StartsWith("</"))
+                        {
+                            // This is an opening tag, we don't add anything to the text
+                        }
+                        else if (html.Tag.StartsWith("</"))
+                        {
+                            // This is a closing tag, we don't add anything to the text
+                        }
+                        else
+                        {
+                            // This is text content within HTML tags
+                            text += html.Tag;
+                        }
                         break;
                         
                     default:
