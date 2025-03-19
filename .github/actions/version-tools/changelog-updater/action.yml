@@ -1,0 +1,169 @@
+name: 'Changelog Updater'
+description: 'Update CHANGELOG.md structure and content with new version information'
+inputs:
+  action:
+    description: 'Action to perform on the changelog'
+    required: true
+    type: choice
+    options:
+      - create-release    # Create a new release section from Unreleased content
+      - add-line          # Add a new line to a section in the Unreleased area
+  version:
+    description: 'Version to add to changelog (required for create-release action)'
+    required: false
+  date:
+    description: 'Release date (defaults to today)'
+    required: false
+  section:
+    description: 'Section to add the line to (required for add-line action)'
+    required: false
+    type: choice
+    options:
+      - Added
+      - Changed
+      - Deprecated
+      - Removed
+      - Fixed
+      - Security
+  description:
+    description: 'Description to add as a new line (required for add-line action)'
+    required: false
+  issue-number:
+    description: 'Issue number to reference in the new line (optional for add-line action)'
+    required: false
+  changelog-path:
+    description: 'Path to CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+
+outputs:
+  updated:
+    description: 'Whether the changelog was updated'
+    value: ${{ steps.update-changelog.outputs.updated }}
+  unreleased-content:
+    description: 'Content that was in the Unreleased section'
+    value: ${{ steps.update-changelog.outputs.unreleased-content }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Update CHANGELOG.md
+      id: update-changelog
+      shell: bash
+      run: |
+        # Set today's date if not provided
+        if [[ -z "${{ inputs.date }}" ]]; then
+          TODAY=$(date +%Y-%m-%d)
+        else
+          TODAY="${{ inputs.date }}"
+        fi
+        
+        CHANGELOG="${{ inputs.changelog-path }}"
+        ACTION="${{ inputs.action }}"
+        
+        echo "Updating CHANGELOG.md with action: $ACTION"
+        
+        # Check if CHANGELOG.md exists
+        if [[ ! -f "$CHANGELOG" ]]; then
+          echo "Error: CHANGELOG.md not found at '$CHANGELOG'"
+          exit 1
+        fi
+        
+        # Handle different actions
+        if [[ "$ACTION" == "create-release" ]]; then
+          # Create a new release section from Unreleased content
+          VERSION="${{ inputs.version }}"
+          
+          if [[ -z "$VERSION" ]]; then
+            echo "Error: version is required for create-release action"
+            exit 1
+          fi
+          
+          echo "Creating new release section for version: $VERSION (date: $TODAY)"
+          
+          # Extract existing Unreleased content
+          UNRELEASED_CONTENT=$(awk '/^## \[Unreleased\]/,/^## \[[0-9]+\.[0-9]+\.[0-9]+/ {if (!/^## \[/) print}' "$CHANGELOG" | sed '/./,$!d')
+          
+          # Create a multiline output for unreleased content
+          echo "unreleased-content<<EOF" >> $GITHUB_OUTPUT
+          echo "$UNRELEASED_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Only proceed if we're creating an actual release (not just updating Unreleased)
+          if [[ "$VERSION" != "Unreleased" ]]; then
+            # Create temporary file for new changelog
+            TMP_CHANGELOG="${CHANGELOG}.tmp"
+            
+            # Add header part and Unreleased section
+            awk '/^# Changelog/,/^## \[Unreleased\]/ {print}' "$CHANGELOG" > "$TMP_CHANGELOG"
+            echo "" >> "$TMP_CHANGELOG"
+            
+            # Add the new version section
+            echo "## [$VERSION] - $TODAY" >> "$TMP_CHANGELOG"
+            echo "" >> "$TMP_CHANGELOG"
+            
+            # Add unreleased content to the new version section if it exists
+            if [[ -n "$UNRELEASED_CONTENT" ]]; then
+              echo "$UNRELEASED_CONTENT" >> "$TMP_CHANGELOG"
+            fi
+            
+            # Add the rest of the file (everything after the Unreleased section)
+            awk '/^## \[[0-9]+\.[0-9]+\.[0-9]+/ {found=1} found==1 {print}' "$CHANGELOG" >> "$TMP_CHANGELOG"
+            
+            # Replace the original changelog with the new one
+            mv "$TMP_CHANGELOG" "$CHANGELOG"
+            
+            echo "Updated CHANGELOG.md with new version: $VERSION"
+          fi
+          
+          echo "updated=true" >> $GITHUB_OUTPUT
+          
+        elif [[ "$ACTION" == "add-line" ]]; then
+          # Add a new line to a section in the Unreleased area
+          SECTION="${{ inputs.section }}"
+          DESCRIPTION="${{ inputs.description }}"
+          ISSUE_NUMBER="${{ inputs.issue-number }}"
+          
+          if [[ -z "$SECTION" ]]; then
+            echo "Error: section is required for add-line action"
+            exit 1
+          fi
+          
+          if [[ -z "$DESCRIPTION" ]]; then
+            echo "Error: description is required for add-line action"
+            exit 1
+          fi
+          
+          echo "Adding new line to section: $SECTION"
+          
+          # Create the line content
+          if [[ -n "$ISSUE_NUMBER" ]]; then
+            LINE_CONTENT="- (automatically added) $DESCRIPTION ([#$ISSUE_NUMBER](https://github.com/architects-toolkit/SmartHopper/issues/$ISSUE_NUMBER))"
+          else
+            LINE_CONTENT="- (automatically added) $DESCRIPTION"
+          fi
+          
+          # Check if the Unreleased section exists
+          if ! grep -q "^## \[Unreleased\]" "$CHANGELOG"; then
+            echo "Error: Unreleased section not found in CHANGELOG.md"
+            exit 1
+          fi
+          
+          # Check if the section exists in the Unreleased area
+          SECTION_EXISTS=$(awk '/^## \[Unreleased\]/,/^## \[[0-9]+\.[0-9]+\.[0-9]+/ {if ($0 ~ /^### '"$SECTION"'/) print "yes"}' "$CHANGELOG")
+          
+          if [[ "$SECTION_EXISTS" == "yes" ]]; then
+            # Section exists, add the line to it
+            sed -i "/^### $SECTION/a $LINE_CONTENT" "$CHANGELOG"
+          else
+            # Section doesn't exist, create it and add the line
+            sed -i "/^## \[Unreleased\]/a \n### $SECTION\n$LINE_CONTENT" "$CHANGELOG"
+          fi
+          
+          echo "Added new line to CHANGELOG.md in section: $SECTION"
+          echo "updated=true" >> $GITHUB_OUTPUT
+          
+        else
+          echo "Error: Unknown action '$ACTION'"
+          exit 1
+        fi
