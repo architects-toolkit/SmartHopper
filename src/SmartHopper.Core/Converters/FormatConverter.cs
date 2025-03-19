@@ -249,14 +249,72 @@ namespace SmartHopper.Core.Converters
         /// <returns>A formatted label control</returns>
         private static Label CreateFormattedLabel(ContainerInline inline)
         {
-            // For simple cases, just use a label with the text
+            // Create a label with the text
             var label = new Label
             {
                 Text = GetInlineText(inline),
                 Wrap = WrapMode.Word
             };
             
+            // Check for formatting in the inline content
+            bool hasBold = false;
+            bool hasItalic = false;
+            
+            // Scan for formatting
+            ScanForFormatting(inline, ref hasBold, ref hasItalic);
+            
+            // Apply formatting if found
+            if (hasBold && hasItalic)
+            {
+                label.Font = new Font(SystemFont.BoldItalic);
+            }
+            else if (hasBold)
+            {
+                label.Font = new Font(SystemFont.Bold);
+            }
+            else if (hasItalic)
+            {
+                label.Font = new Font(SystemFont.Italic);
+            }
+            
             return label;
+        }
+        
+        /// <summary>
+        /// Scans inline content for formatting (bold and italic)
+        /// </summary>
+        /// <param name="inline">The inline content to scan</param>
+        /// <param name="hasBold">Reference to a boolean indicating if bold formatting was found</param>
+        /// <param name="hasItalic">Reference to a boolean indicating if italic formatting was found</param>
+        private static void ScanForFormatting(ContainerInline inline, ref bool hasBold, ref bool hasItalic)
+        {
+            if (inline == null)
+                return;
+                
+            foreach (var item in inline)
+            {
+                if (item is EmphasisInline emphasis)
+                {
+                    if (emphasis.DelimiterCount == 2)
+                    {
+                        // Bold
+                        hasBold = true;
+                    }
+                    else if (emphasis.DelimiterCount == 1)
+                    {
+                        // Italic
+                        hasItalic = true;
+                    }
+                    
+                    // Recursively scan the emphasis content
+                    ScanForFormatting(emphasis, ref hasBold, ref hasItalic);
+                }
+                else if (item is ContainerInline container)
+                {
+                    // Recursively scan other containers
+                    ScanForFormatting(container, ref hasBold, ref hasItalic);
+                }
+            }
         }
         
         /// <summary>
@@ -280,18 +338,8 @@ namespace SmartHopper.Core.Converters
                         break;
                         
                     case EmphasisInline emphasis:
-                        // Add formatting indicators for emphasis
-                        var emphasisText = GetInlineText(emphasis);
-                        if (emphasis.DelimiterCount == 2)
-                        {
-                            // Bold
-                            text += emphasisText;
-                        }
-                        else
-                        {
-                            // Italic
-                            text += emphasisText;
-                        }
+                        // Just get the text without adding any formatting indicators
+                        text += GetInlineText(emphasis);
                         break;
                         
                     case LinkInline link:
