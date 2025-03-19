@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Eto.Forms;
 using Eto.Drawing;
@@ -306,6 +307,29 @@ namespace SmartHopper.Core.AI.Chat
             // Add rounded corners to the bubble
             messageBubble.Style = "border-radius: 10px;";
             
+            // Add context menu for copy operations
+            var contextMenu = new ContextMenu();
+            var copyMenuItem = new ButtonMenuItem { Text = "Copy Message" };
+            copyMenuItem.Click += (sender, e) => 
+            {
+                Clipboard.Instance.Text = content;
+                
+                // Show a temporary tooltip or status message
+                ShowTemporaryStatusMessage("Message copied to clipboard");
+            };
+            
+            contextMenu.Items.Add(copyMenuItem);
+            
+            // Show context menu on right-click
+            messageBubble.MouseDown += (sender, e) => 
+            {
+                if (e.Buttons == MouseButtons.Alternate)
+                {
+                    contextMenu.Show(messageBubble);
+                    e.Handled = true;
+                }
+            };
+
             // Create a container for the bubble with proper alignment
             var bubbleContainer = new StackLayout
             {
@@ -353,6 +377,20 @@ namespace SmartHopper.Core.AI.Chat
             {
                 _chatScrollable.ScrollPosition = new Point(0, int.MaxValue);
             });
+        }
+
+        private void ShowTemporaryStatusMessage(string message, int seconds = 2)
+        {
+            _statusLabel.Text = message;
+            
+            // Reset status after specified seconds using a UITimer
+            var statusResetTimer = new UITimer { Interval = seconds };
+            statusResetTimer.Elapsed += (sender, e) => 
+            {
+                _statusLabel.Text = "Ready";
+                statusResetTimer.Stop();
+            };
+            statusResetTimer.Start();
         }
 
         private async void SendMessage()
