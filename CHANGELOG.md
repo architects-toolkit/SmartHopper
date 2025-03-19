@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added custom icon for the SmartHopper tab in Grasshopper.
 - Added dedicated MarkdownToEtoConverter class for converting Markdown text to Eto.Forms controls.
 - Added Markdown formatting support in ChatDialog for rich text display in chat messages.
+- Added Markdown support for HTML tags like underline in Markdown text.
 
 ### Changed
 
@@ -46,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property
 - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
 - Fixed Markdown formatting in lists to properly display bold and italic text.
+- Fixed combined formatting (bold+italic) in Markdown text.
 
 ## [0.1.2-alpha] - 2025-03-17
 
