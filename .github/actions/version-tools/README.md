@@ -12,13 +12,14 @@ This directory contains several composite actions that help with various aspects
    - `update-badge`: Update the version and status badges in README.md
 
 2. **Version Calculator** (`version-calculator/action.yml`) - For calculating new versions based on semantic versioning rules:
-   - Supports multiple increment types: `patch`, `minor`, `major`, `date`, `auto-date`, `pre-release`
+   - Supports multiple increment types: `patch`, `minor`, `major`, `date`, `auto-date`
    - Automatically detects and updates dates in development versions when using `auto-date`
+   - Handles pre-release suffixes: `dev`, `alpha`, `beta`, `rc`, or removal
 
 3. **Changelog Updater** (`changelog-updater/action.yml`) - For updating the CHANGELOG.md file:
-   - Updates both structure and content
-   - Supports security fixes
-   - Maintains proper changelog format
+   - `create-release`: Creates a new release section from Unreleased content
+   - `add-line`: Adds a new line to a section in the Unreleased area
+   - Supports security fixes and issue references
 
 ## Usage Examples
 
@@ -87,15 +88,26 @@ This directory contains several composite actions that help with various aspects
     task: update-badge
 ```
 
-### Updating the CHANGELOG.md
+### Adding a Line to CHANGELOG.md
 
 ```yaml
-- name: Update changelog
+- name: Add security fix to CHANGELOG.md
   uses: ./.github/actions/version-tools/changelog-updater
   with:
+    action: add-line
+    section: Security
+    description: "Fixed critical security vulnerability in XYZ component"
+    issue-number: 123  # Optional
+```
+
+### Creating a New Release in CHANGELOG.md
+
+```yaml
+- name: Update CHANGELOG.md with version changes
+  uses: ./.github/actions/version-tools/changelog-updater
+  with:
+    action: create-release
     version: ${{ steps.calculate-version.outputs.new-version }}
-    security-fix: true
-    security-description: "Fixed critical security vulnerability in XYZ component"
 ```
 
 ## Action Inputs and Outputs
@@ -141,11 +153,14 @@ This directory contains several composite actions that help with various aspects
 ### Changelog Updater
 
 **Inputs:**
-- `version`: (required) Version to add to changelog
+- `action`: (required) Action to perform on the changelog:
+  - `create-release`: Create a new release section from Unreleased content
+  - `add-line`: Add a new line to a section in the Unreleased area
+- `version`: (required for create-release) Version to add to changelog
 - `date`: (optional) Release date (defaults to today)
-- `update-structure-only`: (optional) Only update structure without adding entries
-- `security-fix`: (optional) Whether this is a security fix
-- `security-description`: (optional) Description of the security fix
+- `section`: (required for add-line) Section to add the line to (Added, Changed, Deprecated, Removed, Fixed, Security)
+- `description`: (required for add-line) Description to add as a new line
+- `issue-number`: (optional for add-line) Issue number to reference in the new line
 - `changelog-path`: (optional) Path to CHANGELOG.md file
 
 **Outputs:**

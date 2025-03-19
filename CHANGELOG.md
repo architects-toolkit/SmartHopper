@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
+- Modified release-build.yml workflow to create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders
 
 ### Fixed
 
