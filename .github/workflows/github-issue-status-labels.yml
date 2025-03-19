@@ -1,4 +1,14 @@
-name: Remove Status Labels on Issue Close
+name: 🏷️ Remove Status Labels on Issue Close
+
+# Description: This workflow automatically removes status labels (e.g., 'status:in-progress')
+# from issues when they are closed. This helps maintain a clean label system and
+# prevents closed issues from having active status labels.
+#
+# Triggers:
+# - Automatically when an issue is closed
+#
+# Permissions:
+# - issues:write - Required to modify issue labels
 
 on:
   issues:
@@ -12,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Remove status labels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const issue = context.payload.issue;

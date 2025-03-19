@@ -1,0 +1,142 @@
+name: 📅 Update Development Version Date
+
+# Description: This workflow automatically updates the date component in development versions
+# when changes are pushed to development branches. It creates a PR with the updated date
+# to ensure the version reflects the latest changes.
+#
+# Triggers:
+# - Automatically when code files or Solution.props are modified in dev branch
+# - Manually via workflow_dispatch
+#
+# Permissions:
+# - contents:write - Required to commit version changes
+# - pull-requests:write - Required to create PRs with version updates
+
+on:
+  push:
+    branches: [ dev ]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'Solution.props'
+      - '!.github/**'
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-date:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Set branch names
+        id: set-branches
+        run: |
+          TARGET_BRANCH="${{ github.ref_name }}"
+          DATE_BRANCH="chore/update-dev-version-date-$TARGET_BRANCH"
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "date_branch=$DATE_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Delete existing date branches
+        continue-on-error: true
+        run: |
+          echo "Current branches before deletion:"
+          git branch -a
+          
+          # Delete remote branch if it exists
+          git push origin --delete ${{ steps.set-branches.outputs.date_branch }} || true
+          
+          echo "Branches after deletion:"
+          git branch -a
+
+      - name: Delete existing PR
+        continue-on-error: true
+        run: |
+          # Get PR number if it exists
+          PR_NUMBER=$(gh pr list --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.date_branch }} --json number --jq '.[0].number')
+          if [ ! -z "$PR_NUMBER" ]; then
+            echo "Found existing PR #$PR_NUMBER, closing it"
+            gh pr close $PR_NUMBER --delete-branch
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current version
+        id: current-version
+        uses: ./.github/actions/version-tools
+        with:
+          task: get-version
+
+      - name: Auto-update version date if needed
+        id: calculate-version
+        uses: ./.github/actions/version-tools/version-calculator
+        with:
+          version: ${{ steps.current-version.outputs.version }}
+          increment: auto-date
+          change-pre-release: none
+
+      # Only proceed if the date was actually updated
+      - name: Update Solution.props with new version date
+        id: update-version
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        uses: ./.github/actions/version-tools
+        with:
+          task: update-version
+          new-version: ${{ steps.calculate-version.outputs.new-version }}
+
+      # Update badges to match the new version
+      - name: Update badges
+        id: update-badges
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        uses: ./.github/actions/version-tools
+        with:
+          task: update-badge
+
+      # Update the CHANGELOG.md with a note about the date update
+      - name: Update CHANGELOG.md
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        uses: ./.github/actions/version-tools/changelog-updater
+        with:
+          action: create-release
+          version: Unreleased
+
+      - name: Create and push branch
+        if: steps.calculate-version.outputs.was-date-updated == 'true'
+        id: create-branch
+        run: |
+          echo "Creating new branch: ${{ steps.set-branches.outputs.date_branch }}"
+          git checkout -b ${{ steps.set-branches.outputs.date_branch }}
+          git add Solution.props README.md CHANGELOG.md
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit, skipping PR creation"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}"
+            git push origin ${{ steps.set-branches.outputs.date_branch }}
+            echo "changes_made=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR
+        if: steps.create-branch.outputs.changes_made == 'true'
+        run: |
+          PR_TITLE="chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}"
+          PR_BODY="This PR updates the development version date in Solution.props to reflect the latest changes.
+
+          This is an automated PR created by the Update Development Version Date workflow."
+          
+          gh pr create --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.date_branch }} --title "$PR_TITLE" --body "$PR_BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,107 @@
+name: 🔄 Update Version Badge
+
+# Description: This workflow automatically updates the version badge in the README.md
+# when the version in Solution.props changes.
+#
+# Triggers:
+# - Manually via workflow_dispatch
+# - Automatically when Solution.props is modified in main or dev branches
+#
+# Permissions:
+# - contents:write - Required to commit changes to README.md
+# - pull-requests:write - Required to create PRs with badge updates
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'Solution.props'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        fetch-depth: 0
+        ref: ${{ github.ref }}
+
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Get target branch
+      run: |
+        TARGET_BRANCH="${{ github.ref_name }}"
+        echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
+        echo "BADGE_BRANCH=docs/update-version-badge-$TARGET_BRANCH" >> $GITHUB_ENV
+
+    - name: Delete existing badge branches
+      continue-on-error: true
+      run: |
+        echo "Current branches before deletion:"
+        git branch -a
+        
+        # Delete remote branch if it exists
+        git push origin --delete ${{ env.BADGE_BRANCH }} || true
+        
+        echo "Branches after deletion:"
+        git branch -a
+
+    - name: Delete existing PR
+      continue-on-error: true
+      run: |
+        # Get PR number if it exists
+        PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.BADGE_BRANCH }} --json number --jq '.[0].number')
+        if [ ! -z "$PR_NUMBER" ]; then
+          echo "Found existing PR #$PR_NUMBER, closing it"
+          gh pr close $PR_NUMBER --delete-branch
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update version badge
+      id: update-badge
+      uses: ./.github/actions/version-tools
+      with:
+        task: update-badge
+        branch: ${{ github.ref_name }}
+
+    - name: Check if badges need updating
+      id: check-badges
+      run: |
+        if [[ "${{ steps.update-badge.outputs.badges-changed }}" == "false" ]]; then
+          echo "Badges are already up to date. No changes needed."
+          echo "::notice::Badges are already up to date with the current version. Workflow execution stopped."
+          exit 0
+        else
+          echo "Badges need to be updated. Continuing workflow."
+        fi
+      shell: bash
+
+    - name: Create and push branch
+      if: steps.update-badge.outputs.badges-changed == 'true'
+      run: |
+        echo "Creating new branch: ${{ env.BADGE_BRANCH }}"
+        git checkout -b ${{ env.BADGE_BRANCH }}
+        git add README.md
+        git commit -m "docs: update version badge for ${{ env.TARGET_BRANCH }}"
+        git push origin ${{ env.BADGE_BRANCH }}
+
+    - name: Create PR
+      if: steps.update-badge.outputs.badges-changed == 'true'
+      run: |
+        PR_TITLE="docs: update version badge for ${{ env.TARGET_BRANCH }} to ${{ steps.version-check.outputs.version }}"
+        PR_BODY="This PR updates the version badge in the README.md to match the current version in Solution.props.
+
+        This is an automated PR created by the Update Version Badge workflow."
+        
+        gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.BADGE_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

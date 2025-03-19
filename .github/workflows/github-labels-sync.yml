@@ -1,0 +1,38 @@
+name: 🏷️ Synchronize Repository Labels
+
+# Description: This workflow ensures that repository labels are synchronized with
+# the definitions in .github/labels.yml. It maintains consistent labeling across
+# the repository by adding, updating, or removing labels as needed.
+#
+# Triggers:
+# - Automatically when labels.yml is modified in the main branch
+# - Manually via workflow_dispatch
+#
+# Permissions:
+# - issues:write - Required to create, update, and delete repository labels
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/labels.yml
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }}
+      
+      - uses: micnncim/action-label-syncer@v1.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        with:
+          manifest: .github/labels.yml
+          prune: false
