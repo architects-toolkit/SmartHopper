@@ -28,19 +28,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Placed proper icon for the AI chat component.
 - Decreased font size of the About dialog.
 - Defined a minimum size for the About dialog.
+- Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
+- Modified release-build.yml workflow to create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders
 
 ### Fixed
 
 - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
+- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property
+
+## [0.1.2-alpha] - 2025-03-17
+
+### Fixed
+
+- Fixed version badge update workflow to only modify the version badge and not affect other badges in README.md
+- Fixed badge addition logic in version-tools action to properly handle cases when badges don't exist
+- Fixed security-patch-release.yml workflow to create a PR instead of pushing directly to main, resolving repository rule violations
+- Fixed version-calculator to always perform the requested increment type without conditional logic, ensuring consistent behavior
+- Fixed security-patch-release.yml workflow to create a release draft only when no PR is created
+- Added new security-release-after-merge.yml workflow to create a release draft when a security patch PR is merged
+- Fixed GitHub release creation by removing invalid target_commitish parameter
+
+### Changed
+
+- Updated pull-request-validation.yml workflow to use version-tools for version validation
+- Improved PR title validation with more detailed error messages and support for additional conventional commit types
+- Added "security" as a valid commit type in PR title validation
+- Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
 
 ### Security
 
+- (automatically added) Security release to update all workflow actions to the latest version.
 - Updated several github workflows to use the latest version of actions:
   - Updated tj-actions/changed-files from v45.0 to v46.0.1
   - Updated actions/checkout to v4 across all workflows
   - Updated actions/setup-dotnet to v4
   - Updated actions/upload-artifact to v4
   - Updated actions/github-script to v7
+- Enhanced pull-request-validation.yml workflow with improved error logging for version and PR title checks
+- Added new security-patch-release.yml workflow for creating security patch releases outside the milestone process
+- Implemented GitHub Actions security best practices by pinning actions to full commit SHAs instead of version tags
+- Updated security-patch-release.yml workflow to create a PR instead of pushing directly to main, resolving repository rule violations
+
+### Removed
+
+- Removed Test GitHub Actions workflow
 
 ## [0.1.1-alpha] - 2025-03-03
 
