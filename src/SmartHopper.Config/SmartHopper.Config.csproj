@@ -38,9 +38,6 @@
     <PackageReference Include="RhinoCommon" Version="8.13.24317.13001">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <!-- <PackageReference Include="Markdig" Version="0.35.0" /> -->
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.59" />
-    <!-- <PackageReference Include="RestSharp" Version="112.1.0" /> -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 

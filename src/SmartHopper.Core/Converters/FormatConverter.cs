@@ -8,165 +8,422 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using HtmlAgilityPack;
 using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using Eto.Forms;
+using Eto.Drawing;
 
 namespace SmartHopper.Core.Converters
 {
+    /// <summary>
+    /// Provides generic methods for converting between different text formats
+    /// </summary>
     public static class FormatConverter
     {
-        //public static string ConvertMarkdownToRtf(string markdown)
-        //{
-        //    var pipeline = new MarkdownPipelineBuilder().Build();
-        //    var html = Markdig.Markdown.ToHtml(markdown, pipeline);
+        // This class can contain general format conversion utilities
+        // that are not specific to any particular format
+    }
 
-        //    html = "<html><body>" + html + "</body></html>";
-
-        //    var rtfBody = ConvertHtmlToRtf(html);
-
-        //    var rtfHeader = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Segoe UI;}}\\fs19\\cf1 {\\colortbl;\\red255\\green255\\blue255;}\n";
-        //    var rtfFooter = "}";
-
-        //    return rtfHeader + rtfBody + rtfFooter;
-        //}
-
-        private static string ConvertNodeToRtf(HtmlNode node, StringBuilder rtf)
+    /// <summary>
+    /// Provides methods for converting Markdown text to Eto.Forms controls
+    /// </summary>
+    public static class MarkdownToEtoConverter
+    {
+        /// <summary>
+        /// Checks if the content likely contains Markdown formatting
+        /// </summary>
+        /// <param name="content">Text content to check</param>
+        /// <returns>True if the content appears to contain Markdown</returns>
+        public static bool ContainsMarkdown(string content)
         {
-            if (node == null) return string.Empty;
-
-            switch (node.NodeType)
-            {
-                case HtmlNodeType.Text:
-                    return node.InnerText;
-                case HtmlNodeType.Element:
-                    switch (node.Name.ToLowerInvariant())
-                    {
-                        case "strong":
-                        case "b":
-                            return $"\\b {node.InnerText?.Trim() ?? ""}\\b0 ";
-                        case "em":
-                        case "i":
-                            return $"\\i {node.InnerText?.Trim() ?? ""}\\i0 ";
-                        case "code":
-                            return $"\\highlight15\\f1\\fs18 {node.InnerText?.Trim() ?? ""}\\highlight0\\f0\\fs20 ";
-                        default:
-                            return node.InnerText?.Trim() ?? "";
-                    }
-                default:
-                    return string.Empty;
-            }
+            if (string.IsNullOrEmpty(content))
+                return false;
+                
+            // Check for common Markdown patterns
+            return content.Contains("```") || // Code blocks
+                   content.Contains("**") || // Bold
+                   content.Contains("*") || // Italic
+                   content.Contains("__") || // Bold
+                   content.Contains("_") || // Italic
+                   content.Contains("##") || // Headers
+                   content.Contains("#") || // Headers
+                   content.Contains("- ") || // Lists
+                   content.Contains("1. ") || // Numbered lists
+                   content.Contains("[") && content.Contains("]("); // Links
         }
 
-        //public static string ConvertHtmlToRtf(string html)
-        //{
-        //    try
-        //    {
-        //        if (string.IsNullOrEmpty(html))
-        //            return "";
-
-        //        const int LIST_INDENT_VALUE = 150;
-        //        html = html.Replace("&quot;", "\\\"");
-
-        //        var doc = new HtmlAgilityPack.HtmlDocument();
-        //        doc.LoadHtml(html);
-
-        //        if (doc.DocumentNode == null)
-        //            return "";
-
-        //        var rtf = new StringBuilder();
-        //        var listLevel = 0;
-
-        //        foreach (var node in doc.DocumentNode.DescendantsAndSelf())
-        //        {
-        //            if (node == null) continue;
-
-        //            switch (node.Name?.ToLowerInvariant())
-        //            {
-        //                case "h1":
-        //                    rtf.Append("\\pard\\fs32\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
-        //                    break;
-        //                case "h2":
-        //                    rtf.Append("\\pard\\fs28\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
-        //                    break;
-        //                case "h3":
-        //                    rtf.Append("\\pard\\fs24\\b ").Append(ConvertNodeToRtf(node, rtf)).Append("\\b0\\par\\par ");
-        //                    break;
-        //                case "p":
-        //                    if (node.ParentNode?.Name != "li")
-        //                    {
-        //                        rtf.Append("\\pard\\fs20 ").Append(ConvertNodeToRtf(node, rtf)).Append("\\par\\par ");
-        //                    }
-        //                    break;
-        //                case "ol":
-        //                case "ul":
-        //                    listLevel++;
-        //                    break;
-        //                case "li":
-        //                    rtf.Append("\\pard\\li").Append(listLevel * LIST_INDENT_VALUE);
-        //                    if (node.ParentNode?.Name == "ol")
-        //                    {
-        //                        int index = 1;
-        //                        var previous = node.PreviousSibling;
-        //                        while (previous != null)
-        //                        {
-        //                            if (previous.Name == "li")
-        //                                index++;
-        //                            previous = previous.PreviousSibling;
-        //                        }
-        //                        rtf.Append("\\fs20 ").Append(index).Append(". ");
-        //                    }
-        //                    else
-        //                    {
-        //                        rtf.Append("\\fs20 • ");
-        //                    }
-
-        //                    foreach (var childNode in node.ChildNodes)
-        //                    {
-        //                        if (childNode.Name == "p" && childNode != node.FirstChild)
-        //                        {
-        //                            rtf.Append("\\par\\li").Append(listLevel * LIST_INDENT_VALUE).Append("   ");
-        //                        }
-        //                        rtf.Append(ConvertNodeToRtf(childNode, rtf));
-        //                    }
-        //                    rtf.Append("\\par ");
-        //                    break;
-        //                case "#text":
-        //                    if (node.ParentNode?.Name != "li" &&
-        //                        node.ParentNode?.Name != "p" &&
-        //                        !new[] { "strong", "b", "em", "i", "code" }.Contains(node.ParentNode?.Name))
-        //                    {
-        //                        var text = ConvertNodeToRtf(node, rtf);
-        //                        if (!string.IsNullOrWhiteSpace(text))
-        //                        {
-        //                            rtf.Append("\\pard\\fs20 ").Append(text).Append("\\par ");
-        //                        }
-        //                    }
-        //                    break;
-        //            }
-
-        //            if ((node.Name == "ol" || node.Name == "ul") && !node.HasChildNodes)
-        //            {
-        //                listLevel = Math.Max(0, listLevel - 1);
-        //            }
-        //            else if (node.NextSibling == null && node.ParentNode != null &&
-        //                    (node.ParentNode.Name == "ol" || node.ParentNode.Name == "ul"))
-        //            {
-        //                listLevel = Math.Max(0, listLevel - 1);
-        //                rtf.Append("\\pard\\par ");
-        //            }
-        //        }
-
-        //        return rtf.ToString().TrimEnd(new[] { ' ', '\\', 'p', 'a', 'r' });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine($"Error converting HTML to RTF: {ex.Message}");
-        //        return html;
-        //    }
-        //}
+        /// <summary>
+        /// Converts Markdown text to formatted Eto.Forms controls
+        /// </summary>
+        /// <param name="markdown">Markdown text to convert</param>
+        /// <returns>A control containing the formatted text</returns>
+        public static Control ConvertToEtoControl(string markdown)
+        {
+            if (string.IsNullOrEmpty(markdown))
+                return new Label { Text = string.Empty };
+                
+            try
+            {
+                // Parse the markdown document
+                var document = Markdig.Markdown.Parse(markdown);
+                
+                // Create a container for all the formatted elements
+                var container = new StackLayout
+                {
+                    Spacing = 5,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch
+                };
+                
+                // Process each block in the markdown document
+                foreach (var block in document)
+                {
+                    ProcessMarkdownBlock(block, container);
+                }
+                
+                return container;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error converting Markdown to formatted text: {ex.Message}");
+                // Fallback to plain text on error
+                return new Label { Text = markdown, Wrap = WrapMode.Word };
+            }
+        }
+        
+        /// <summary>
+        /// Processes a Markdown block and adds appropriate controls to the container
+        /// </summary>
+        /// <param name="block">The Markdown block to process</param>
+        /// <param name="container">The container to add controls to</param>
+        private static void ProcessMarkdownBlock(Block block, StackLayout container)
+        {
+            switch (block)
+            {
+                case HeadingBlock heading:
+                    // Create a heading with appropriate font size
+                    var headingLabel = new Label
+                    {
+                        Text = GetInlineText(heading.Inline),
+                        Wrap = WrapMode.Word
+                    };
+                    
+                    // Set font size based on heading level (h1-h6)
+                    float fontSize = 14 - (heading.Level - 1);
+                    headingLabel.Font = new Font(SystemFont.Bold, fontSize);
+                    
+                    container.Items.Add(headingLabel);
+                    break;
+                    
+                case ParagraphBlock paragraph:
+                    // Create a paragraph with normal text
+                    var paragraphText = GetInlineText(paragraph.Inline);
+                    if (!string.IsNullOrWhiteSpace(paragraphText))
+                    {
+                        var paragraphLabel = CreateFormattedLabel(paragraph.Inline);
+                        container.Items.Add(paragraphLabel);
+                    }
+                    break;
+                    
+                case ListBlock list:
+                    // Process list items
+                    ProcessListBlock(list, container);
+                    break;
+                    
+                case FencedCodeBlock codeBlock:
+                    // Create a code block with monospace font and background
+                    var codeText = string.Join(Environment.NewLine, codeBlock.Lines.Lines.Select(l => l.ToString()));
+                    var codePanel = new Panel
+                    {
+                        Padding = new Padding(5),
+                        BackgroundColor = Colors.LightGrey
+                    };
+                    
+                    var codeLabel = new Label
+                    {
+                        Text = codeText,
+                        Wrap = WrapMode.Word,
+                        Font = new Font(FontFamilies.Monospace, 9)
+                    };
+                    
+                    codePanel.Content = codeLabel;
+                    container.Items.Add(codePanel);
+                    break;
+                    
+                case QuoteBlock quoteBlock:
+                    // Create a quote block with left border
+                    var quotePanel = new Panel
+                    {
+                        Padding = new Padding(10, 5, 5, 5)
+                    };
+                    
+                    // Add a left border to indicate a quote
+                    quotePanel.Style = "border-left: 3px solid #ccc; padding-left: 10px;";
+                    
+                    var quoteContainer = new StackLayout
+                    {
+                        Spacing = 5,
+                        HorizontalContentAlignment = HorizontalAlignment.Stretch
+                    };
+                    
+                    // Process each block in the quote
+                    foreach (var innerBlock in quoteBlock)
+                    {
+                        ProcessMarkdownBlock(innerBlock, quoteContainer);
+                    }
+                    
+                    quotePanel.Content = quoteContainer;
+                    container.Items.Add(quotePanel);
+                    break;
+                    
+                // Add more block types as needed
+                
+                default:
+                    // For any other block types, just get the text
+                    if (block is LeafBlock leafBlock && leafBlock.Inline != null)
+                    {
+                        var label = CreateFormattedLabel(leafBlock.Inline);
+                        container.Items.Add(label);
+                    }
+                    break;
+            }
+        }
+        
+        /// <summary>
+        /// Processes a Markdown list block and adds appropriate controls to the container
+        /// </summary>
+        /// <param name="list">The list block to process</param>
+        /// <param name="container">The container to add controls to</param>
+        private static void ProcessListBlock(ListBlock list, StackLayout container)
+        {
+            int itemNumber = 1;
+            
+            foreach (var item in list)
+            {
+                if (item is ListItemBlock listItem)
+                {
+                    // Create a container for the list item with bullet or number
+                    var itemContainer = new StackLayout
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 5,
+                        VerticalContentAlignment = VerticalAlignment.Top
+                    };
+                    
+                    // Add bullet or number
+                    string prefix = list.IsOrdered ? $"{itemNumber++}. " : "• ";
+                    itemContainer.Items.Add(new Label
+                    {
+                        Text = prefix,
+                        Width = 20,
+                        VerticalAlignment = VerticalAlignment.Top
+                    });
+                    
+                    // Container for the list item content
+                    var contentContainer = new StackLayout
+                    {
+                        Spacing = 5,
+                        HorizontalContentAlignment = HorizontalAlignment.Stretch
+                    };
+                    
+                    // Process each block in the list item
+                    foreach (var block in listItem)
+                    {
+                        ProcessMarkdownBlock(block, contentContainer);
+                    }
+                    
+                    itemContainer.Items.Add(contentContainer);
+                    container.Items.Add(itemContainer);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Creates a formatted label from Markdown inline content
+        /// </summary>
+        /// <param name="inline">The inline content to format</param>
+        /// <returns>A formatted label control</returns>
+        private static Label CreateFormattedLabel(ContainerInline inline)
+        {
+            // For simple cases, just use a label with the text
+            var label = new Label
+            {
+                Text = GetInlineText(inline),
+                Wrap = WrapMode.Word
+            };
+            
+            return label;
+        }
+        
+        /// <summary>
+        /// Extracts text from Markdown inline content
+        /// </summary>
+        /// <param name="inline">The inline content to extract text from</param>
+        /// <returns>Plain text representation of the inline content</returns>
+        private static string GetInlineText(ContainerInline inline)
+        {
+            if (inline == null)
+                return string.Empty;
+                
+            var text = string.Empty;
+            
+            foreach (var item in inline)
+            {
+                switch (item)
+                {
+                    case LiteralInline literal:
+                        text += literal.Content.ToString();
+                        break;
+                        
+                    case EmphasisInline emphasis:
+                        // Add formatting indicators for emphasis
+                        var emphasisText = GetInlineText(emphasis);
+                        if (emphasis.DelimiterCount == 2)
+                        {
+                            // Bold
+                            text += emphasisText;
+                        }
+                        else
+                        {
+                            // Italic
+                            text += emphasisText;
+                        }
+                        break;
+                        
+                    case LinkInline link:
+                        // For links, use the label text
+                        text += GetInlineText(link);
+                        if (!string.IsNullOrEmpty(link.Url))
+                        {
+                            text += $" ({link.Url})";
+                        }
+                        break;
+                        
+                    case CodeInline code:
+                        // For inline code, just use the content
+                        text += code.Content;
+                        break;
+                        
+                    case LineBreakInline lb:
+                        text += Environment.NewLine;
+                        break;
+                        
+                    default:
+                        // For other inline types, try to get their content
+                        if (item is ContainerInline container)
+                        {
+                            text += GetInlineText(container);
+                        }
+                        break;
+                }
+            }
+            
+            return text;
+        }
+        
+        /// <summary>
+        /// Converts Markdown text to plain text, removing all formatting
+        /// </summary>
+        /// <param name="markdown">Markdown text to convert</param>
+        /// <returns>Plain text without any Markdown formatting</returns>
+        public static string ConvertToPlainText(string markdown)
+        {
+            if (string.IsNullOrEmpty(markdown))
+                return string.Empty;
+                
+            try
+            {
+                // Parse the markdown document
+                var document = Markdig.Markdown.Parse(markdown);
+                
+                var plainText = new StringBuilder();
+                
+                // Process each block in the markdown document
+                foreach (var block in document)
+                {
+                    ExtractPlainText(block, plainText);
+                    
+                    // Add a newline between blocks
+                    if (plainText.Length > 0 && !plainText.ToString().EndsWith(Environment.NewLine))
+                    {
+                        plainText.AppendLine();
+                    }
+                }
+                
+                return plainText.ToString().TrimEnd();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error converting Markdown to plain text: {ex.Message}");
+                return markdown;
+            }
+        }
+        
+        /// <summary>
+        /// Extracts plain text from a Markdown block
+        /// </summary>
+        /// <param name="block">The Markdown block to process</param>
+        /// <param name="plainText">StringBuilder to append the plain text to</param>
+        private static void ExtractPlainText(Block block, StringBuilder plainText)
+        {
+            switch (block)
+            {
+                case HeadingBlock heading:
+                    plainText.AppendLine(GetInlineText(heading.Inline));
+                    break;
+                    
+                case ParagraphBlock paragraph:
+                    plainText.AppendLine(GetInlineText(paragraph.Inline));
+                    break;
+                    
+                case ListBlock list:
+                    int itemNumber = 1;
+                    foreach (var item in list)
+                    {
+                        if (item is ListItemBlock listItem)
+                        {
+                            string prefix = list.IsOrdered ? $"{itemNumber++}. " : "• ";
+                            plainText.Append(prefix);
+                            
+                            foreach (var listItemBlock in listItem)
+                            {
+                                ExtractPlainText(listItemBlock, plainText);
+                            }
+                        }
+                    }
+                    break;
+                    
+                case FencedCodeBlock codeBlock:
+                    var codeText = string.Join(Environment.NewLine, codeBlock.Lines.Lines.Select(l => l.ToString()));
+                    plainText.AppendLine(codeText);
+                    break;
+                    
+                case QuoteBlock quoteBlock:
+                    foreach (var innerBlock in quoteBlock)
+                    {
+                        plainText.Append("> ");
+                        ExtractPlainText(innerBlock, plainText);
+                    }
+                    break;
+                    
+                default:
+                    if (block is LeafBlock leafBlock && leafBlock.Inline != null)
+                    {
+                        plainText.AppendLine(GetInlineText(leafBlock.Inline));
+                    }
+                    else if (block is ContainerBlock containerBlock)
+                    {
+                        foreach (var innerBlock in containerBlock)
+                        {
+                            ExtractPlainText(innerBlock, plainText);
+                        }
+                    }
+                    break;
+            }
+        }
     }
 }
