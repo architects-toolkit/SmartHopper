@@ -49,6 +49,10 @@ namespace SmartHopper.Core.AI.Chat
         private readonly Color _systemBubbleColor = Color.Parse("#F0F0F0"); // Light gray
         private readonly Color _chatBackgroundColor = Color.Parse("#ECE5DD"); // Light beige
 
+        // Message bubble sizing
+        private const int MinMessageWidth = 350;
+        private const double MaxMessageWidthPercentage = 0.8; // 80% of dialog width
+
         /// <summary>
         /// Event raised when a new AI response is received.
         /// </summary>
@@ -62,7 +66,7 @@ namespace SmartHopper.Core.AI.Chat
         {
             Title = "SmartHopper AI Chat";
             MinimumSize = new Size(500, 600);
-            
+                        
             _getResponse = getResponse ?? throw new ArgumentNullException(nameof(getResponse));
             _chatHistory = new List<KeyValuePair<string, string>>();
 
@@ -71,15 +75,16 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Spacing = 10,
                 Padding = new Padding(10),
-                HorizontalContentAlignment = HorizontalAlignment.Stretch
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                BackgroundColor = _chatBackgroundColor
             };
 
             _chatScrollable = new Scrollable
             {
                 Content = _chatHistoryPanel,
                 ExpandContentWidth = true,
-                Height = 400,
-                BackgroundColor = _chatBackgroundColor
+                Border = BorderType.None,
+                Size = new Size(-1, 400) // -1 means auto width, 400 is initial height
             };
 
             _userInputTextArea = new TextArea
@@ -163,6 +168,39 @@ namespace SmartHopper.Core.AI.Chat
 
             // Add system message to start the conversation
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
+
+            // Handle window resize to update message bubble widths
+            this.SizeChanged += ChatDialog_SizeChanged;
+        }
+
+        private void ChatDialog_SizeChanged(object sender, EventArgs e)
+        {
+            // Recalculate message widths when dialog size changes
+            UpdateMessageBubbleWidths();
+        }
+
+        /// <summary>
+        /// Updates the width of all message bubbles based on the current dialog width
+        /// </summary>
+        private void UpdateMessageBubbleWidths()
+        {
+            // Calculate new width based on dialog width
+            int newWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
+            
+            // Update width of all message bubbles
+            foreach (var item in _chatHistoryPanel.Items)
+            {
+                if (item is StackLayoutItem stackLayoutItem && stackLayoutItem.Control is StackLayout bubbleContainer)
+                {
+                    foreach (var containerItem in bubbleContainer.Items)
+                    {
+                        if (containerItem is StackLayoutItem stackItem && stackItem.Control is Panel messageBubble)
+                        {
+                            messageBubble.Width = newWidth;
+                        }
+                    }
+                }
+            }
         }
 
         private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
@@ -244,19 +282,25 @@ namespace SmartHopper.Core.AI.Chat
                     break;
             }
 
+            // Calculate message width based on dialog width
+            int messageWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
+
             // Create the message label with word wrapping
             var messageLabel = new Label
             {
                 Text = content,
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
+                TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left
             };
 
-            // Create the message bubble
+            // Create the message bubble with width constraint to ensure wrapping
             var messageBubble = new Panel
             {
                 BackgroundColor = bubbleColor,
                 Padding = new Padding(10),
-                Content = messageLabel
+                Content = messageLabel,
+                // Set width based on calculated value
+                Width = messageWidth
             };
 
             // Add rounded corners to the bubble
@@ -266,26 +310,38 @@ namespace SmartHopper.Core.AI.Chat
             var bubbleContainer = new StackLayout
             {
                 Spacing = 5,
-                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                Items = 
-                {
-                    new StackLayoutItem
-                    {
-                        Control = messageBubble,
-                        HorizontalAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                        Expand = false
-                    }
-                }
+                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left
             };
-
-            // Add a small label for the role name
-            if (role != "user" && role != "assistant")
+            
+            if (isUserMessage)
             {
-                bubbleContainer.Items.Insert(0, new Label
+                // For user messages, align to the right
+                bubbleContainer.Items.Add(new StackLayoutItem
                 {
-                    Text = displayRole,
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 8)
+                    Control = messageBubble,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Expand = false
+                });
+            }
+            else
+            {
+                // For AI/system messages, align to the left
+                // Add a small label for the role name if it's not user or assistant
+                if (role != "user" && role != "assistant")
+                {
+                    bubbleContainer.Items.Add(new Label
+                    {
+                        Text = displayRole,
+                        TextColor = Colors.Gray,
+                        Font = new Font(SystemFont.Default, 8)
+                    });
+                }
+                
+                bubbleContainer.Items.Add(new StackLayoutItem
+                {
+                    Control = messageBubble,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Expand = false
                 });
             }
 

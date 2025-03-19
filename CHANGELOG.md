@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
 - Improved ChatDialog UI with a modern chat-like interface featuring message bubbles, better layout, and visual styling.
 - Enhanced message bubbles to properly wrap text and resize dynamically with the window size.
+- Improved ChatDialog UI by limiting message width and enabling proper text wrapping to prevent horizontal scrolling.
+- Added responsive message sizing in ChatDialog that adapts to the dialog width (80% max width with 350px minimum).
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
 - Updated component icon display to show the actual provider icon when "Default" is selected.
