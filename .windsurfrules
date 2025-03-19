@@ -14,8 +14,7 @@
    - All components should inherit from ComponentBase or a derived class.
    - Components should be named with the pattern [Category][Action][Type]Component (e.g., AITextGenerateComponent).
    - Consider using AIStatefulAsyncComponentBase since it already implements most of the required structure to manage AI methods, states and async operations.
-8. When asked for a PR title or description, follow the rules in @.github/PULL_REQUEST_TEMPLATE.md
+8. When asked for a PR/commit title or description, follow the rules in @.github/PULL_REQUEST_TEMPLATE.md
 
 When the user asks to add, change, deprecate, remove, fix, or security edit changes in the code, execute also the following tasks:
-1. Only on the first edit, check if the version defined in @Solution.props is a dev version in format X.X.X-dev.YYMMDD. If so, update the date to today.
-2. If relevant, mention the edit in the @CHANGELOG.md file under the "Unreleased" section. Do not modify other parts of the file.
+1. If relevant, mention the edit in the @CHANGELOG.md file under the "Unreleased" section. Do not modify other parts of the file.
