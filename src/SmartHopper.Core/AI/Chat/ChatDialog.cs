@@ -21,6 +21,7 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
+using SmartHopper.Core.Converters;
 using SmartHopper.Core.Utils;
 
 namespace SmartHopper.Core.AI.Chat
@@ -286,20 +287,31 @@ namespace SmartHopper.Core.AI.Chat
             // Calculate message width based on dialog width
             int messageWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
 
-            // Create the message label with word wrapping
-            var messageLabel = new Label
+            // Create the message container with word wrapping
+            Control messageContent;
+            
+            // Check if content contains markdown and convert if needed
+            if (MarkdownToEtoConverter.ContainsMarkdown(content))
             {
-                Text = content,
-                Wrap = WrapMode.Word,
-                TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left
-            };
+                messageContent = MarkdownToEtoConverter.ConvertToEtoControl(content);
+            }
+            else
+            {
+                // Use regular label for plain text
+                messageContent = new Label
+                {
+                    Text = content,
+                    Wrap = WrapMode.Word,
+                    TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left
+                };
+            }
 
             // Create the message bubble with width constraint to ensure wrapping
             var messageBubble = new Panel
             {
                 BackgroundColor = bubbleColor,
                 Padding = new Padding(10),
-                Content = messageLabel,
+                Content = messageContent,
                 // Set width based on calculated value
                 Width = messageWidth
             };

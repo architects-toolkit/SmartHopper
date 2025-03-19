@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
 - Added default provider selection in the settings dialog to set the global default AI provider.
 - Added custom icon for the SmartHopper tab in Grasshopper.
+- Added dedicated MarkdownToEtoConverter class for converting Markdown text to Eto.Forms controls.
+- Added Markdown formatting support in ChatDialog for rich text display in chat messages.
 
 ### Changed
 
@@ -34,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
 - Modified release-build.yml workflow to create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders
 
+### Removed
+
+- Removed dependency on HtmlAgilityPack
+
 ### Fixed
 
 - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
@@ -41,6 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
 
 ## [0.1.2-alpha] - 2025-03-17
+
+### Changed
+
+- Updated pull-request-validation.yml workflow to use version-tools for version validation
+- Improved PR title validation with more detailed error messages and support for additional conventional commit types
+- Added "security" as a valid commit type in PR title validation
+- Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
+
+### Removed
+
+- Removed Test GitHub Actions workflow
 
 ### Fixed
 
@@ -51,13 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed security-patch-release.yml workflow to create a release draft only when no PR is created
 - Added new security-release-after-merge.yml workflow to create a release draft when a security patch PR is merged
 - Fixed GitHub release creation by removing invalid target_commitish parameter
-
-### Changed
-
-- Updated pull-request-validation.yml workflow to use version-tools for version validation
-- Improved PR title validation with more detailed error messages and support for additional conventional commit types
-- Added "security" as a valid commit type in PR title validation
-- Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
 
 ### Security
 
@@ -72,10 +82,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new security-patch-release.yml workflow for creating security patch releases outside the milestone process
 - Implemented GitHub Actions security best practices by pinning actions to full commit SHAs instead of version tags
 - Updated security-patch-release.yml workflow to create a PR instead of pushing directly to main, resolving repository rule violations
-
-### Removed
-
-- Removed Test GitHub Actions workflow
 
 ## [0.1.1-alpha] - 2025-03-03
 
