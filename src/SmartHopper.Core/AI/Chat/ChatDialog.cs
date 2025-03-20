@@ -26,6 +26,8 @@ using Avalonia.Threading;
 using Markdown.Avalonia;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Logging;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -58,10 +60,47 @@ namespace SmartHopper.Core.AI.Chat
         private const int MinMessageWidth = 350;
         private const double MaxMessageWidthPercentage = 0.8; // 80% of dialog width
 
+        // Static flag to track if Avalonia has been initialized
+        private static bool _avaloniaInitialized = false;
+        
+        // Static lock for thread-safe initialization
+        private static readonly object _initLock = new object();
+
         /// <summary>
         /// Event raised when a new AI response is received.
         /// </summary>
         public event EventHandler<AIResponse> ResponseReceived;
+
+        /// <summary>
+        /// Ensures that Avalonia is initialized before creating any UI components
+        /// </summary>
+        public static void EnsureAvaloniaInitialized()
+        {
+            if (_avaloniaInitialized)
+                return;
+                
+            lock (_initLock)
+            {
+                if (_avaloniaInitialized)
+                    return;
+                    
+                try
+                {
+                    // Initialize Avalonia
+                    AppBuilder.Configure<Application>()
+                        .UsePlatformDetect()
+                        .LogToTrace(LogEventLevel.Warning)
+                        .SetupWithoutStarting();
+                        
+                    _avaloniaInitialized = true;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error initializing Avalonia: {ex.Message}");
+                    throw;
+                }
+            }
+        }
 
         /// <summary>
         /// Creates a new chat dialog.
@@ -69,6 +108,8 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="getResponse">Function to get responses from the AI provider</param>
         public ChatDialog(Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
+            EnsureAvaloniaInitialized();
+
             Title = "SmartHopper AI Chat";
             MinWidth = 500;
             MinHeight = 600;
