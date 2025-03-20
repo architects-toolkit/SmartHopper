@@ -10,13 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added the new AIChat component with interactive chat interface.
-- Added ChatDialog class using Eto.Forms for a modern chat UI experience.
+- Added ChatDialog class using Avalonia for a modern chat UI experience.
 - Added ChatUtils class with helper methods for AI chat interactions.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
 - Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
 - Added default provider selection in the settings dialog to set the global default AI provider.
 - Added custom icon for the SmartHopper tab in Grasshopper.
-- Added dedicated MarkdownToEtoConverter class for converting Markdown text to Eto.Forms controls.
 - Added Markdown formatting support in ChatDialog for rich text display in chat messages.
 - Added Markdown support for HTML tags like underline in Markdown text.
 
@@ -103,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Updated README.md to better emphasize the plugin's ability to enable AI to directly read and interact with Grasshopper files.
-- New About menu item using Eto.Forms instead of WinForms.
+- New About menu item using Avalonia instead of WinForms.
 - Refactored AI text evaluation tools to improve code organization and reusability:
   - Added generic `AIEvaluationResult<T>` for standardized tool-component communication
   - Created `ParsingTools` class for reusable AI response parsing

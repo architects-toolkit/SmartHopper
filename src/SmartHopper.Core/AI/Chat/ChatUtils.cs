@@ -18,7 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Eto.Forms;
+using Avalonia.Threading;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
@@ -43,8 +43,11 @@ namespace SmartHopper.Core.AI.Chat
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse lastResponse = null;
 
+            // Ensure Avalonia is initialized before creating the dialog
+            ChatDialog.EnsureAvaloniaInitialized();
+
             // Create and show the dialog on the UI thread
-            Application.Instance.Invoke(() =>
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
                 // Create a function to get responses from the AI provider
                 Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
