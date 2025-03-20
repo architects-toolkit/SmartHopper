@@ -8,15 +8,15 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Markdig;
-using Markdig.Syntax;
-using Markdig.Syntax.Inlines;
+// using Markdig;
+// using Markdig.Syntax;
+// using Markdig.Syntax.Inlines;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using Eto.Forms;
-using Eto.Drawing;
+// using Eto.Forms;
+// using Eto.Drawing;
 
 namespace SmartHopper.Core.Converters
 {
@@ -31,7 +31,9 @@ namespace SmartHopper.Core.Converters
 
     /// <summary>
     /// Provides methods for converting Markdown text to Eto.Forms controls
+    /// This class is deprecated and replaced with Markdown.Avalonia
     /// </summary>
+    /*
     public static class MarkdownToEtoConverter
     {
         /// <summary>
@@ -514,4 +516,5 @@ namespace SmartHopper.Core.Converters
             }
         }
     }
+    */
 }
