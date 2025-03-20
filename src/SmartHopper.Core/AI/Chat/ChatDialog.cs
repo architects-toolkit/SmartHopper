@@ -9,7 +9,7 @@
  */
 
 /*
- * Chat dialog interface using Eto.Forms.
+ * Chat dialog interface using Avalonia UI.
  * This class provides a dialog-based chat interface for interacting with AI providers.
  */
 
@@ -18,10 +18,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Eto.Forms;
-using Eto.Drawing;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Markdown.Avalonia;
 using SmartHopper.Config.Models;
-using SmartHopper.Core.Converters;
 using SmartHopper.Core.Utils;
 
 namespace SmartHopper.Core.AI.Chat
@@ -29,16 +32,16 @@ namespace SmartHopper.Core.AI.Chat
     /// <summary>
     /// Dialog-based chat interface for interacting with AI providers.
     /// </summary>
-    public class ChatDialog : Form
+    public class ChatDialog : Window
     {
         // UI Components
-        private readonly StackLayout _chatHistoryPanel;
-        private readonly Scrollable _chatScrollable;
-        private readonly TextArea _userInputTextArea;
+        private readonly StackPanel _chatHistoryPanel;
+        private readonly ScrollViewer _chatScrollable;
+        private readonly TextBox _userInputTextArea;
         private readonly Button _sendButton;
         private readonly Button _clearButton;
         private readonly ProgressBar _progressBar;
-        private readonly Label _statusLabel;
+        private readonly TextBlock _statusLabel;
 
         // Chat state
         private readonly List<KeyValuePair<string, string>> _chatHistory;
@@ -46,10 +49,10 @@ namespace SmartHopper.Core.AI.Chat
         private readonly Func<List<KeyValuePair<string, string>>, Task<AIResponse>> _getResponse;
 
         // Colors for the chat bubbles
-        private readonly Color _userBubbleColor = Color.Parse("#E1FFC7"); // Light green
-        private readonly Color _botBubbleColor = Color.Parse("#FFFFFF");  // White
-        private readonly Color _systemBubbleColor = Color.Parse("#F0F0F0"); // Light gray
-        private readonly Color _chatBackgroundColor = Color.Parse("#ECE5DD"); // Light beige
+        private readonly IBrush _userBubbleColor = new SolidColorBrush(Color.Parse("#E1FFC7")); // Light green
+        private readonly IBrush _botBubbleColor = new SolidColorBrush(Color.Parse("#FFFFFF"));  // White
+        private readonly IBrush _systemBubbleColor = new SolidColorBrush(Color.Parse("#F0F0F0")); // Light gray
+        private readonly IBrush _chatBackgroundColor = new SolidColorBrush(Color.Parse("#ECE5DD")); // Light beige
 
         // Message bubble sizing
         private const int MinMessageWidth = 350;
@@ -67,118 +70,111 @@ namespace SmartHopper.Core.AI.Chat
         public ChatDialog(Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
             Title = "SmartHopper AI Chat";
-            MinimumSize = new Size(500, 600);
+            MinWidth = 500;
+            MinHeight = 600;
                         
             _getResponse = getResponse ?? throw new ArgumentNullException(nameof(getResponse));
             _chatHistory = new List<KeyValuePair<string, string>>();
 
             // Initialize UI components
-            _chatHistoryPanel = new StackLayout
+            _chatHistoryPanel = new StackPanel
             {
                 Spacing = 10,
-                Padding = new Padding(10),
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                BackgroundColor = _chatBackgroundColor
+                Margin = new Thickness(10),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Background = _chatBackgroundColor
             };
 
-            _chatScrollable = new Scrollable
+            _chatScrollable = new ScrollViewer
             {
                 Content = _chatHistoryPanel,
-                ExpandContentWidth = true,
-                Border = BorderType.None,
-                Size = new Size(-1, 400) // -1 means auto width, 400 is initial height
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                Height = 400 // Initial height
             };
 
-            _userInputTextArea = new TextArea
+            _userInputTextArea = new TextBox
             {
-                Height = 60
+                Height = 60,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap
             };
             _userInputTextArea.KeyDown += UserInputTextArea_KeyDown;
 
             _sendButton = new Button
             {
-                Text = "Send",
-                Enabled = true
+                Content = "Send",
+                IsEnabled = true
             };
             _sendButton.Click += SendButton_Click;
 
             _clearButton = new Button
             {
-                Text = "Clear Chat",
-                Enabled = true
+                Content = "Clear Chat",
+                IsEnabled = true
             };
             _clearButton.Click += ClearButton_Click;
 
             _progressBar = new ProgressBar
             {
-                Indeterminate = true,
-                Visible = false
+                IsIndeterminate = true,
+                IsVisible = false
             };
 
-            _statusLabel = new Label
+            _statusLabel = new TextBlock
             {
                 Text = "Ready",
                 TextAlignment = TextAlignment.Center
             };
 
             // Layout
-            Content = new TableLayout
-            {
-                Padding = new Padding(10),
-                Spacing = new Size(5, 5),
-                Rows =
-                {
-                    new TableRow
-                    {
-                        Cells = { new TableCell(_chatScrollable, true) }
-                    },
-                    new TableRow
-                    {
-                        Cells = 
-                        { 
-                            new TableLayout
-                            {
-                                Spacing = new Size(5, 0),
-                                Rows = 
-                                { 
-                                    new TableRow 
-                                    { 
-                                        Cells = 
-                                        { 
-                                            new TableCell(_userInputTextArea, true),
-                                            _sendButton
-                                        } 
-                                    } 
-                                }
-                            }
-                        }
-                    },
-                    new TableRow
-                    {
-                        Cells = { _clearButton }
-                    },
-                    new TableRow
-                    {
-                        Cells = { _progressBar }
-                    },
-                    new TableRow
-                    {
-                        Cells = { _statusLabel }
-                    }
-                }
-            };
+            var mainPanel = new Grid();
+            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
+            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            mainPanel.Children.Add(_chatScrollable);
+            Grid.SetRow(_chatScrollable, 0);
+
+            var inputPanel = new Grid();
+            inputPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
+            inputPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            inputPanel.Children.Add(_userInputTextArea);
+            inputPanel.Children.Add(_sendButton);
+            Grid.SetColumn(_userInputTextArea, 0);
+            Grid.SetColumn(_sendButton, 1);
+
+            mainPanel.Children.Add(inputPanel);
+            Grid.SetRow(inputPanel, 1);
+
+            mainPanel.Children.Add(_clearButton);
+            Grid.SetRow(_clearButton, 2);
+
+            mainPanel.Children.Add(_progressBar);
+            Grid.SetRow(_progressBar, 3);
+
+            mainPanel.Children.Add(_statusLabel);
+            Grid.SetRow(_statusLabel, 4);
+
+            Content = mainPanel;
+            Padding = new Thickness(10);
 
             // Add system message to start the conversation
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
 
             // Handle window resize to update message bubble widths
-            this.SizeChanged += ChatDialog_SizeChanged;
+            this.PropertyChanged += ChatDialog_PropertyChanged;
         }
 
-        private void ChatDialog_SizeChanged(object sender, EventArgs e)
+        private void ChatDialog_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
         {
-            // Recalculate message widths when dialog size changes
-            UpdateMessageBubbleWidths();
+            if (e.Property == BoundsProperty)
+            {
+                // Recalculate message widths when dialog size changes
+                UpdateMessageBubbleWidths();
+            }
         }
 
         /// <summary>
@@ -187,33 +183,33 @@ namespace SmartHopper.Core.AI.Chat
         private void UpdateMessageBubbleWidths()
         {
             // Calculate new width based on dialog width
-            int newWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
+            int newWidth = Math.Max(MinMessageWidth, (int)(this.Bounds.Width * MaxMessageWidthPercentage));
             
             // Update width of all message bubbles
-            foreach (var item in _chatHistoryPanel.Items)
+            foreach (var item in _chatHistoryPanel.Children)
             {
-                if (item is StackLayoutItem stackLayoutItem && stackLayoutItem.Control is StackLayout bubbleContainer)
+                if (item is StackPanel bubbleContainer)
                 {
-                    foreach (var containerItem in bubbleContainer.Items)
+                    foreach (var messageBubble in bubbleContainer.Children)
                     {
-                        if (containerItem is StackLayoutItem stackItem && stackItem.Control is Panel messageBubble)
+                        if (messageBubble is Border border)
                         {
-                            messageBubble.Width = newWidth;
+                            border.Width = newWidth;
                         }
                     }
                 }
             }
         }
 
-        private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
+        private void UserInputTextArea_KeyDown(object sender, Avalonia.Input.KeyEventArgs e)
         {
-            if (e.Key == Keys.Enter && e.Modifiers.HasFlag(Keys.Shift))
+            if (e.Key == Avalonia.Input.Key.Enter && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
             {
                 // Shift+Enter adds a new line
                 _userInputTextArea.Text += Environment.NewLine;
                 e.Handled = true;
             }
-            else if (e.Key == Keys.Enter && !_isProcessing)
+            else if (e.Key == Avalonia.Input.Key.Enter && !_isProcessing && !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
             {
                 // Enter sends the message
                 SendMessage();
@@ -221,7 +217,7 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
-        private void SendButton_Click(object sender, EventArgs e)
+        private void SendButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             if (!_isProcessing)
             {
@@ -229,10 +225,10 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
-        private void ClearButton_Click(object sender, EventArgs e)
+        private void ClearButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             _chatHistory.Clear();
-            _chatHistoryPanel.Items.Clear();
+            _chatHistoryPanel.Children.Clear();
             
             // Add system message to start the conversation
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
@@ -258,7 +254,7 @@ namespace SmartHopper.Core.AI.Chat
 
         private void AddMessageBubble(string role, string content)
         {
-            Color bubbleColor;
+            IBrush bubbleColor;
             bool isUserMessage = false;
             string displayRole;
 
@@ -285,109 +281,87 @@ namespace SmartHopper.Core.AI.Chat
             }
 
             // Calculate message width based on dialog width
-            int messageWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
+            int messageWidth = Math.Max(MinMessageWidth, (int)(this.Bounds.Width * MaxMessageWidthPercentage));
 
             // Create the message container with word wrapping
             Control messageContent;
             
-            // Check if content contains markdown and convert if needed
-            if (MarkdownToEtoConverter.ContainsMarkdown(content))
+            // Use Markdown.Avalonia for rendering all non-user messages
+            // User messages are kept as plain text for simplicity
+            if (role != "user")
             {
-                messageContent = MarkdownToEtoConverter.ConvertToEtoControl(content);
+                // Use Markdown.Avalonia for rendering markdown
+                var markdownScrollViewer = new MarkdownScrollViewer
+                {
+                    Markdown = content
+                };
+                
+                messageContent = markdownScrollViewer;
             }
             else
             {
-                // Use regular label for plain text
-                messageContent = new Label
+                // Use regular TextBlock for plain text
+                messageContent = new TextBlock
                 {
                     Text = content,
-                    Wrap = WrapMode.Word,
+                    TextWrapping = TextWrapping.Wrap,
                     TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left
                 };
             }
 
             // Create the message bubble with width constraint to ensure wrapping
-            var messageBubble = new Panel
+            var messageBubble = new Border
             {
-                BackgroundColor = bubbleColor,
-                Padding = new Padding(10),
-                Content = messageContent,
-                // Set width based on calculated value
-                Width = messageWidth
+                Background = bubbleColor,
+                Padding = new Thickness(10),
+                Child = messageContent,
+                Width = messageWidth,
+                CornerRadius = new CornerRadius(10)
             };
-
-            // Add rounded corners to the bubble
-            messageBubble.Style = "border-radius: 10px;";
             
             // Add context menu for copy operations
             var contextMenu = new ContextMenu();
-            var copyMenuItem = new ButtonMenuItem { Text = "Copy Message" };
+            var copyMenuItem = new MenuItem { Header = "Copy Message" };
             copyMenuItem.Click += (sender, e) => 
             {
-                Clipboard.Instance.Text = content;
+                TopLevel.GetTopLevel(messageBubble)?.Clipboard?.SetTextAsync(content);
                 
                 // Show a temporary tooltip or status message
                 ShowTemporaryStatusMessage("Message copied to clipboard");
             };
             
             contextMenu.Items.Add(copyMenuItem);
-            
-            // Show context menu on right-click
-            messageBubble.MouseDown += (sender, e) => 
-            {
-                if (e.Buttons == MouseButtons.Alternate)
-                {
-                    contextMenu.Show(messageBubble);
-                    e.Handled = true;
-                }
-            };
+            messageBubble.ContextMenu = contextMenu;
 
             // Create a container for the bubble with proper alignment
-            var bubbleContainer = new StackLayout
+            var bubbleContainer = new StackPanel
             {
                 Spacing = 5,
-                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left
+                HorizontalAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left
             };
             
-            if (isUserMessage)
+            if (role != "user" && role != "assistant")
             {
-                // For user messages, align to the right
-                bubbleContainer.Items.Add(new StackLayoutItem
+                bubbleContainer.Children.Add(new TextBlock
                 {
-                    Control = messageBubble,
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    Expand = false
+                    Text = displayRole,
+                    Foreground = new SolidColorBrush(Colors.Gray),
+                    FontSize = 8
                 });
             }
-            else
-            {
-                // For AI/system messages, align to the left
-                // Add a small label for the role name if it's not user or assistant
-                if (role != "user" && role != "assistant")
-                {
-                    bubbleContainer.Items.Add(new Label
-                    {
-                        Text = displayRole,
-                        TextColor = Colors.Gray,
-                        Font = new Font(SystemFont.Default, 8)
-                    });
-                }
-                
-                bubbleContainer.Items.Add(new StackLayoutItem
-                {
-                    Control = messageBubble,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Expand = false
-                });
-            }
+            
+            bubbleContainer.Children.Add(messageBubble);
 
             // Add the bubble to the chat history
-            _chatHistoryPanel.Items.Add(bubbleContainer);
+            _chatHistoryPanel.Children.Add(bubbleContainer);
 
             // Scroll to the bottom
-            Application.Instance.AsyncInvoke(() =>
+            Dispatcher.UIThread.Post(() =>
             {
-                _chatScrollable.ScrollPosition = new Point(0, int.MaxValue);
+                if (_chatScrollable.Extent.Height > _chatScrollable.Viewport.Height)
+                {
+                    _chatScrollable.Offset = new Vector(_chatScrollable.Offset.X, _chatScrollable.Extent.Height - _chatScrollable.Viewport.Height);
+                }
             });
         }
 
@@ -395,14 +369,14 @@ namespace SmartHopper.Core.AI.Chat
         {
             _statusLabel.Text = message;
             
-            // Reset status after specified seconds using a UITimer
-            var statusResetTimer = new UITimer { Interval = seconds };
-            statusResetTimer.Elapsed += (sender, e) => 
+            // Reset status after specified seconds using a DispatcherTimer
+            var statusResetTimer = new System.Threading.Timer(_ =>
             {
-                _statusLabel.Text = "Ready";
-                statusResetTimer.Stop();
-            };
-            statusResetTimer.Start();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _statusLabel.Text = "Ready";
+                });
+            }, null, seconds * 1000, Timeout.Infinite);
         }
 
         private async void SendMessage()
@@ -419,8 +393,8 @@ namespace SmartHopper.Core.AI.Chat
 
             // Update UI state
             _isProcessing = true;
-            _sendButton.Enabled = false;
-            _progressBar.Visible = true;
+            _sendButton.IsEnabled = false;
+            _progressBar.IsVisible = true;
             _statusLabel.Text = "Waiting for response...";
 
             try
@@ -456,8 +430,8 @@ namespace SmartHopper.Core.AI.Chat
             {
                 // Restore UI state
                 _isProcessing = false;
-                _sendButton.Enabled = true;
-                _progressBar.Visible = false;
+                _sendButton.IsEnabled = true;
+                _progressBar.IsVisible = false;
             }
         }
     }
