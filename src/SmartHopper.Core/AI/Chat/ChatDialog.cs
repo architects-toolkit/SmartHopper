@@ -74,15 +74,15 @@ namespace SmartHopper.Core.AI.Chat
         /// <summary>
         /// Ensures that Avalonia is initialized before creating any UI components
         /// </summary>
-        public static void EnsureAvaloniaInitialized()
+        public static bool EnsureAvaloniaInitialized()
         {
             if (_avaloniaInitialized)
-                return;
+                return true;
                 
             lock (_initLock)
             {
                 if (_avaloniaInitialized)
-                    return;
+                    return true;
                     
                 try
                 {
@@ -93,11 +93,16 @@ namespace SmartHopper.Core.AI.Chat
                         .SetupWithoutStarting();
                         
                     _avaloniaInitialized = true;
+                    return true;
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Error initializing Avalonia: {ex.Message}");
-                    throw;
+                    if (ex.InnerException != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                    }
+                    return false;
                 }
             }
         }
@@ -108,7 +113,10 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="getResponse">Function to get responses from the AI provider</param>
         public ChatDialog(Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
-            EnsureAvaloniaInitialized();
+            if (!EnsureAvaloniaInitialized())
+            {
+                throw new InvalidOperationException("Failed to initialize Avalonia");
+            }
 
             Title = "SmartHopper AI Chat";
             MinWidth = 500;

@@ -44,32 +44,44 @@ namespace SmartHopper.Core.AI.Chat
             AIResponse lastResponse = null;
 
             // Ensure Avalonia is initialized before creating the dialog
-            ChatDialog.EnsureAvaloniaInitialized();
+            if (!ChatDialog.EnsureAvaloniaInitialized())
+            {
+                Debug.WriteLine("[ChatUtils] Failed to initialize Avalonia");
+                throw new InvalidOperationException("Failed to initialize Avalonia UI framework. This may be due to missing native dependencies.");
+            }
 
             // Create and show the dialog on the UI thread
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // Create a function to get responses from the AI provider
-                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
-                    messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint);
+                try
+                {
+                    // Create a function to get responses from the AI provider
+                    Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
+                        messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint);
 
-                var dialog = new ChatDialog(getResponse);
-                
-                // Handle dialog closing
-                dialog.Closed += (sender, e) => 
+                    var dialog = new ChatDialog(getResponse);
+                    
+                    // Handle dialog closing
+                    dialog.Closed += (sender, e) => 
+                    {
+                        // Complete the task with the last response
+                        tcs.TrySetResult(lastResponse);
+                    };
+                    
+                    // Handle responses
+                    dialog.ResponseReceived += (sender, response) => 
+                    {
+                        lastResponse = response;
+                    };
+                    
+                    // Show the dialog non-modally to prevent freezing the canvas
+                    dialog.Show();
+                }
+                catch (Exception ex)
                 {
-                    // Complete the task with the last response
-                    tcs.TrySetResult(lastResponse);
-                };
-                
-                // Handle responses
-                dialog.ResponseReceived += (sender, response) => 
-                {
-                    lastResponse = response;
-                };
-                
-                // Show the dialog non-modally to prevent freezing the canvas
-                dialog.Show();
+                    Debug.WriteLine($"[ChatUtils] Error creating or showing dialog: {ex.Message}");
+                    tcs.TrySetException(ex);
+                }
             });
 
             // Wait for the dialog to close and return the result
