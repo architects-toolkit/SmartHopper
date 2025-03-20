@@ -6,11 +6,11 @@
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
- */
-
-/*
- * Chat dialog interface using Avalonia UI.
- * This class provides a dialog-based chat interface for interacting with AI providers.
+ * 
+ * Portions of this code use AvaloniaUI
+ * https://github.com/AvaloniaUI/Avalonia/tree/master
+ * MIT License (MIT)
+ * Copyright (c) AvaloniaUI OÜ
  */
 
 using System;
@@ -28,6 +28,9 @@ using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Logging;
+using System.IO;
+using System.Runtime.InteropServices;
+using Avalonia.Win32;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -86,12 +89,12 @@ namespace SmartHopper.Core.AI.Chat
                     
                 try
                 {
-                    // Initialize Avalonia
-                    AppBuilder.Configure<Application>()
-                        .UsePlatformDetect()
-                        .LogToTrace(LogEventLevel.Warning)
-                        .SetupWithoutStarting();
-                        
+                    // Initialize Avalonia with default settings
+                    var builder = AppBuilder.Configure<Application>();
+                    builder.UsePlatformDetect();
+                    builder.LogToTrace();
+                    
+                    var app = builder.SetupWithoutStarting();
                     _avaloniaInitialized = true;
                     return true;
                 }

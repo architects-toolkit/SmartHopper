@@ -32,11 +32,12 @@
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Resources.Extensions" Version="7.0.0" />
-    <PackageReference Include="Avalonia" Version="11.0.5" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.0.5" />
-    <PackageReference Include="SkiaSharp" Version="2.88.6" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.6" />
-    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.6" />
+    <PackageReference Include="Avalonia" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.5" />
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.116.1" />
   </ItemGroup>
 
   <ItemGroup>
