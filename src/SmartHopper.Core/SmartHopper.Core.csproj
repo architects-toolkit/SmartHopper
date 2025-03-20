@@ -37,21 +37,19 @@
     <PackageReference Include="RhinoCommon" Version="8.13.24317.13001">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <!-- <PackageReference Include="Markdig" Version="0.35.0" /> -->
-    <!-- <PackageReference Include="RestSharp" Version="112.1.0" /> -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="Avalonia" Version="11.0.5" />
     <PackageReference Include="Avalonia.Desktop" Version="11.0.5" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.5" />
     <PackageReference Include="Markdown.Avalonia" Version="11.0.2" />
-    <PackageReference Include="SkiaSharp" Version="2.88.6" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.6" />
-    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.6" />
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.116.1" />
   </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
+  </ItemGroup>
 
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">
