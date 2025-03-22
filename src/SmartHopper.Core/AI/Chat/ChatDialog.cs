@@ -7,10 +7,10 @@
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  * 
- * Portions of this code use AvaloniaUI
- * https://github.com/AvaloniaUI/Avalonia/tree/master
- * MIT License (MIT)
- * Copyright (c) AvaloniaUI OÜ
+ * Portions of this code were inspired by:
+ * https://github.com/agreentejada/winforms-chat
+ * MIT License
+ * Copyright (C) 2020 agreentejada 
  */
 
 using System;
@@ -18,35 +18,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Layout;
-using Avalonia.Media;
-using Avalonia.Threading;
-using Markdown.Avalonia;
+using Eto.Forms;
+using Eto.Drawing;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Logging;
-using System.IO;
-using System.Runtime.InteropServices;
-using Avalonia.Win32;
+using System.Diagnostics;
 
 namespace SmartHopper.Core.AI.Chat
 {
     /// <summary>
     /// Dialog-based chat interface for interacting with AI providers.
     /// </summary>
-    public class ChatDialog : Window
+    public class ChatDialog : Form
     {
         // UI Components
-        private readonly StackPanel _chatHistoryPanel;
-        private readonly ScrollViewer _chatScrollable;
-        private readonly TextBox _userInputTextArea;
+        private readonly StackLayout _chatHistoryPanel;
+        private readonly Scrollable _chatScrollable;
+        private readonly TextArea _userInputTextArea;
         private readonly Button _sendButton;
         private readonly Button _clearButton;
         private readonly ProgressBar _progressBar;
-        private readonly TextBlock _statusLabel;
+        private readonly Label _statusLabel;
 
         // Chat state
         private readonly List<KeyValuePair<string, string>> _chatHistory;
@@ -54,20 +46,14 @@ namespace SmartHopper.Core.AI.Chat
         private readonly Func<List<KeyValuePair<string, string>>, Task<AIResponse>> _getResponse;
 
         // Colors for the chat bubbles
-        private readonly IBrush _userBubbleColor = new SolidColorBrush(Color.Parse("#E1FFC7")); // Light green
-        private readonly IBrush _botBubbleColor = new SolidColorBrush(Color.Parse("#FFFFFF"));  // White
-        private readonly IBrush _systemBubbleColor = new SolidColorBrush(Color.Parse("#F0F0F0")); // Light gray
-        private readonly IBrush _chatBackgroundColor = new SolidColorBrush(Color.Parse("#ECE5DD")); // Light beige
+        private readonly Color _userBubbleColor = Color.FromArgb(225, 255, 199); // Light green
+        private readonly Color _botBubbleColor = Colors.White;  // White
+        private readonly Color _systemBubbleColor = Color.FromArgb(240, 240, 240); // Light gray
+        private readonly Color _chatBackgroundColor = Color.FromArgb(236, 229, 221); // Light beige
 
         // Message bubble sizing
         private const int MinMessageWidth = 350;
         private const double MaxMessageWidthPercentage = 0.8; // 80% of dialog width
-
-        // Static flag to track if Avalonia has been initialized
-        private static bool _avaloniaInitialized = false;
-        
-        // Static lock for thread-safe initialization
-        private static readonly object _initLock = new object();
 
         /// <summary>
         /// Event raised when a new AI response is received.
@@ -75,158 +61,104 @@ namespace SmartHopper.Core.AI.Chat
         public event EventHandler<AIResponse> ResponseReceived;
 
         /// <summary>
-        /// Ensures that Avalonia is initialized before creating any UI components
-        /// </summary>
-        public static bool EnsureAvaloniaInitialized()
-        {
-            if (_avaloniaInitialized)
-                return true;
-                
-            lock (_initLock)
-            {
-                if (_avaloniaInitialized)
-                    return true;
-                    
-                try
-                {
-                    // Initialize Avalonia with default settings
-                    var builder = AppBuilder.Configure<Application>();
-                    builder.UsePlatformDetect();
-                    builder.LogToTrace();
-                    
-                    var app = builder.SetupWithoutStarting();
-                    _avaloniaInitialized = true;
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error initializing Avalonia: {ex.Message}");
-                    if (ex.InnerException != null)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Inner exception: {ex.InnerException.Message}");
-                    }
-                    return false;
-                }
-            }
-        }
-
-        /// <summary>
         /// Creates a new chat dialog.
         /// </summary>
         /// <param name="getResponse">Function to get responses from the AI provider</param>
         public ChatDialog(Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
-            if (!EnsureAvaloniaInitialized())
-            {
-                throw new InvalidOperationException("Failed to initialize Avalonia");
-            }
-
             Title = "SmartHopper AI Chat";
-            MinWidth = 500;
-            MinHeight = 600;
+            MinimumSize = new Size(500, 600);
+            Size = new Size(600, 700);
                         
             _getResponse = getResponse ?? throw new ArgumentNullException(nameof(getResponse));
             _chatHistory = new List<KeyValuePair<string, string>>();
 
             // Initialize UI components
-            _chatHistoryPanel = new StackPanel
+            _chatHistoryPanel = new StackLayout
             {
                 Spacing = 10,
-                Margin = new Thickness(10),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Background = _chatBackgroundColor
+                Padding = new Padding(10),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
             };
 
-            _chatScrollable = new ScrollViewer
+            _chatScrollable = new Scrollable
             {
                 Content = _chatHistoryPanel,
-                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                ExpandContentWidth = true,
                 Height = 400 // Initial height
             };
+            
+            // Set the background color of the chat area
+            _chatScrollable.BackgroundColor = _chatBackgroundColor;
 
-            _userInputTextArea = new TextBox
+            _userInputTextArea = new TextArea
             {
                 Height = 60,
                 AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap
+                AcceptsTab = false,
+                Wrap = true
             };
             _userInputTextArea.KeyDown += UserInputTextArea_KeyDown;
 
             _sendButton = new Button
             {
-                Content = "Send",
-                IsEnabled = true
+                Text = "Send",
+                Enabled = true
             };
             _sendButton.Click += SendButton_Click;
 
             _clearButton = new Button
             {
-                Content = "Clear Chat",
-                IsEnabled = true
+                Text = "Clear Chat",
+                Enabled = true
             };
             _clearButton.Click += ClearButton_Click;
 
             _progressBar = new ProgressBar
             {
-                IsIndeterminate = true,
-                IsVisible = false
+                Indeterminate = true,
+                Visible = false
             };
 
-            _statusLabel = new TextBlock
+            _statusLabel = new Label
             {
                 Text = "Ready",
                 TextAlignment = TextAlignment.Center
             };
 
             // Layout
-            var mainPanel = new Grid();
-            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
-            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            mainPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            mainPanel.Children.Add(_chatScrollable);
-            Grid.SetRow(_chatScrollable, 0);
-
-            var inputPanel = new Grid();
-            inputPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
-            inputPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            inputPanel.Children.Add(_userInputTextArea);
-            inputPanel.Children.Add(_sendButton);
-            Grid.SetColumn(_userInputTextArea, 0);
-            Grid.SetColumn(_sendButton, 1);
-
-            mainPanel.Children.Add(inputPanel);
-            Grid.SetRow(inputPanel, 1);
-
-            mainPanel.Children.Add(_clearButton);
-            Grid.SetRow(_clearButton, 2);
-
-            mainPanel.Children.Add(_progressBar);
-            Grid.SetRow(_progressBar, 3);
-
-            mainPanel.Children.Add(_statusLabel);
-            Grid.SetRow(_statusLabel, 4);
-
-            Content = mainPanel;
-            Padding = new Thickness(10);
+            var mainLayout = new DynamicLayout();
+            
+            // Chat history area
+            mainLayout.Add(_chatScrollable, yscale: true);
+            
+            // Input area
+            var inputLayout = new DynamicLayout();
+            inputLayout.BeginHorizontal();
+            inputLayout.Add(_userInputTextArea, xscale: true);
+            inputLayout.Add(_sendButton);
+            inputLayout.EndHorizontal();
+            mainLayout.Add(inputLayout);
+            
+            // Controls area
+            mainLayout.Add(_clearButton);
+            mainLayout.Add(_progressBar);
+            mainLayout.Add(_statusLabel);
+            
+            Content = mainLayout;
+            Padding = new Padding(10);
 
             // Add system message to start the conversation
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
-
+            
             // Handle window resize to update message bubble widths
-            this.PropertyChanged += ChatDialog_PropertyChanged;
+            this.SizeChanged += ChatDialog_SizeChanged;
         }
 
-        private void ChatDialog_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
+        private void ChatDialog_SizeChanged(object sender, EventArgs e)
         {
-            if (e.Property == BoundsProperty)
-            {
-                // Recalculate message widths when dialog size changes
-                UpdateMessageBubbleWidths();
-            }
+            // Recalculate message widths when dialog size changes
+            UpdateMessageBubbleWidths();
         }
 
         /// <summary>
@@ -235,33 +167,33 @@ namespace SmartHopper.Core.AI.Chat
         private void UpdateMessageBubbleWidths()
         {
             // Calculate new width based on dialog width
-            int newWidth = Math.Max(MinMessageWidth, (int)(this.Bounds.Width * MaxMessageWidthPercentage));
+            int newWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
             
             // Update width of all message bubbles
-            foreach (var item in _chatHistoryPanel.Children)
+            foreach (var control in _chatHistoryPanel.Items)
             {
-                if (item is StackPanel bubbleContainer)
+                if (control is StackLayout bubbleContainer)
                 {
-                    foreach (var messageBubble in bubbleContainer.Children)
+                    foreach (var child in bubbleContainer.Items)
                     {
-                        if (messageBubble is Border border)
+                        if (child is Panel messageBubble)
                         {
-                            border.Width = newWidth;
+                            messageBubble.Width = newWidth;
                         }
                     }
                 }
             }
         }
 
-        private void UserInputTextArea_KeyDown(object sender, Avalonia.Input.KeyEventArgs e)
+        private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Avalonia.Input.Key.Enter && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
+            if (e.Key == Keys.Enter && e.Modifiers.HasFlag(Keys.Shift))
             {
                 // Shift+Enter adds a new line
                 _userInputTextArea.Text += Environment.NewLine;
                 e.Handled = true;
             }
-            else if (e.Key == Avalonia.Input.Key.Enter && !_isProcessing && !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
+            else if (e.Key == Keys.Enter && !_isProcessing && !e.Modifiers.HasFlag(Keys.Shift))
             {
                 // Enter sends the message
                 SendMessage();
@@ -269,7 +201,7 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
-        private void SendButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void SendButton_Click(object sender, EventArgs e)
         {
             if (!_isProcessing)
             {
@@ -277,10 +209,10 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
-        private void ClearButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void ClearButton_Click(object sender, EventArgs e)
         {
             _chatHistory.Clear();
-            _chatHistoryPanel.Children.Clear();
+            _chatHistoryPanel.Items.Clear();
             
             // Add system message to start the conversation
             AddSystemMessage("I'm an AI assistant. How can I help you today?");
@@ -306,7 +238,7 @@ namespace SmartHopper.Core.AI.Chat
 
         private void AddMessageBubble(string role, string content)
         {
-            IBrush bubbleColor;
+            Color bubbleColor;
             bool isUserMessage = false;
             string displayRole;
 
@@ -333,50 +265,56 @@ namespace SmartHopper.Core.AI.Chat
             }
 
             // Calculate message width based on dialog width
-            int messageWidth = Math.Max(MinMessageWidth, (int)(this.Bounds.Width * MaxMessageWidthPercentage));
+            int messageWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
 
-            // Create the message container with word wrapping
+            // Create the message content
             Control messageContent;
             
-            // Use Markdown.Avalonia for rendering all non-user messages
-            // User messages are kept as plain text for simplicity
-            if (role != "user")
+            // For assistant messages, use a WebView with HTML for better markdown rendering
+            if (role == "assistant")
             {
-                // Use Markdown.Avalonia for rendering markdown
-                var markdownScrollViewer = new MarkdownScrollViewer
+                // Convert markdown to HTML
+                string html = MarkdownToHtml(content);
+                
+                var textArea = new TextArea
                 {
-                    Markdown = content
+                    Text = content,
+                    ReadOnly = true,
+                    Wrap = true,
+                    Width = messageWidth - 20, // Account for padding
                 };
                 
-                messageContent = markdownScrollViewer;
+                messageContent = textArea;
             }
             else
             {
-                // Use regular TextBlock for plain text
-                messageContent = new TextBlock
+                // Use regular Label for plain text
+                var label = new Label
                 {
                     Text = content,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left
+                    Wrap = WrapMode.Word,
+                    TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left,
+                    Width = messageWidth - 20, // Account for padding
                 };
+                
+                messageContent = label;
             }
 
             // Create the message bubble with width constraint to ensure wrapping
-            var messageBubble = new Border
+            var messageBubble = new Panel
             {
-                Background = bubbleColor,
-                Padding = new Thickness(10),
-                Child = messageContent,
+                Content = messageContent,
+                Padding = new Padding(10),
                 Width = messageWidth,
-                CornerRadius = new CornerRadius(10)
             };
+            messageBubble.BackgroundColor = bubbleColor;
             
             // Add context menu for copy operations
             var contextMenu = new ContextMenu();
-            var copyMenuItem = new MenuItem { Header = "Copy Message" };
+            var copyMenuItem = new ButtonMenuItem { Text = "Copy Message" };
             copyMenuItem.Click += (sender, e) => 
             {
-                TopLevel.GetTopLevel(messageBubble)?.Clipboard?.SetTextAsync(content);
+                Clipboard.Instance.Text = content;
                 
                 // Show a temporary tooltip or status message
                 ShowTemporaryStatusMessage("Message copied to clipboard");
@@ -386,45 +324,130 @@ namespace SmartHopper.Core.AI.Chat
             messageBubble.ContextMenu = contextMenu;
 
             // Create a container for the bubble with proper alignment
-            var bubbleContainer = new StackPanel
+            var bubbleContainer = new StackLayout
             {
                 Spacing = 5,
-                HorizontalAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left
+                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left
             };
             
             if (role != "user" && role != "assistant")
             {
-                bubbleContainer.Children.Add(new TextBlock
+                bubbleContainer.Items.Add(new Label
                 {
                     Text = displayRole,
-                    Foreground = new SolidColorBrush(Colors.Gray),
-                    FontSize = 8
+                    TextColor = Colors.Gray,
+                    Font = new Font(SystemFont.Default, 8)
                 });
             }
             
-            bubbleContainer.Children.Add(messageBubble);
+            bubbleContainer.Items.Add(messageBubble);
 
             // Add the bubble to the chat history
-            _chatHistoryPanel.Children.Add(bubbleContainer);
+            _chatHistoryPanel.Items.Add(bubbleContainer);
 
             // Scroll to the bottom
-            Dispatcher.UIThread.Post(() =>
+            Application.Instance.AsyncInvoke(() =>
             {
-                if (_chatScrollable.Extent.Height > _chatScrollable.Viewport.Height)
-                {
-                    _chatScrollable.Offset = new Vector(_chatScrollable.Offset.X, _chatScrollable.Extent.Height - _chatScrollable.Viewport.Height);
-                }
+                _chatScrollable.ScrollPosition = new Point(
+                    _chatScrollable.ScrollPosition.X,
+                    _chatScrollable.ScrollSize.Height);
             });
+        }
+
+        /// <summary>
+        /// Converts markdown text to HTML for display
+        /// </summary>
+        private string MarkdownToHtml(string markdown)
+        {
+            // Simple markdown to HTML conversion
+            // This is a basic implementation - you may want to use a proper markdown parser
+            
+            // Replace code blocks
+            var codeBlockPattern = @"```(.*?)```";
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                codeBlockPattern,
+                m => $"<pre><code>{m.Groups[1].Value}</code></pre>",
+                System.Text.RegularExpressions.RegexOptions.Singleline
+            );
+            
+            // Replace inline code
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"`([^`]+)`",
+                "<code>$1</code>"
+            );
+            
+            // Replace headers
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^# (.+)$",
+                "<h1>$1</h1>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^## (.+)$",
+                "<h2>$1</h2>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^### (.+)$",
+                "<h3>$1</h3>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            // Replace bold
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"\*\*(.+?)\*\*",
+                "<strong>$1</strong>"
+            );
+            
+            // Replace italic
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"\*(.+?)\*",
+                "<em>$1</em>"
+            );
+            
+            // Replace links
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"\[(.+?)\]\((.+?)\)",
+                "<a href=\"$2\">$1</a>"
+            );
+            
+            // Replace lists
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^- (.+)$",
+                "<li>$1</li>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            // Replace paragraphs
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^(?!<[hl]|<li|<pre)(.+)$",
+                "<p>$1</p>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            return $"<html><body style=\"font-family: Arial, sans-serif;\">{markdown}</body></html>";
         }
 
         private void ShowTemporaryStatusMessage(string message, int seconds = 2)
         {
             _statusLabel.Text = message;
             
-            // Reset status after specified seconds using a DispatcherTimer
+            // Reset status after specified seconds using a Timer
             var statusResetTimer = new System.Threading.Timer(_ =>
             {
-                Dispatcher.UIThread.Post(() =>
+                Application.Instance.AsyncInvoke(() =>
                 {
                     _statusLabel.Text = "Ready";
                 });
@@ -445,8 +468,8 @@ namespace SmartHopper.Core.AI.Chat
 
             // Update UI state
             _isProcessing = true;
-            _sendButton.IsEnabled = false;
-            _progressBar.IsVisible = true;
+            _sendButton.Enabled = false;
+            _progressBar.Visible = true;
             _statusLabel.Text = "Waiting for response...";
 
             try
@@ -482,8 +505,8 @@ namespace SmartHopper.Core.AI.Chat
             {
                 // Restore UI state
                 _isProcessing = false;
-                _sendButton.IsEnabled = true;
-                _progressBar.IsVisible = false;
+                _sendButton.Enabled = true;
+                _progressBar.Visible = false;
             }
         }
     }

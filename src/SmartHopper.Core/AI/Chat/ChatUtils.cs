@@ -6,6 +6,11 @@
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ * 
+ * Portions of this code were inspired by:
+ * https://github.com/agreentejada/winforms-chat
+ * MIT License
+ * Copyright (C) 2020 agreentejada
  */
 
 /*
@@ -18,7 +23,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Threading;
+using Eto.Forms;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
@@ -43,49 +48,63 @@ namespace SmartHopper.Core.AI.Chat
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse lastResponse = null;
 
-            // Ensure Avalonia is initialized before creating the dialog
-            if (!ChatDialog.EnsureAvaloniaInitialized())
+            Debug.WriteLine("[ChatUtils] Preparing to show dialog");
+
+            try
             {
-                Debug.WriteLine("[ChatUtils] Failed to initialize Avalonia");
-                throw new InvalidOperationException("Failed to initialize Avalonia UI framework. This may be due to missing native dependencies.");
+                // Create a function to get responses from the AI provider
+                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
+                    messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint);
+
+                // Initialize Eto.Forms application if needed
+                if (Application.Instance == null)
+                {
+                    Debug.WriteLine("[ChatUtils] Initializing Eto.Forms application");
+                    var platform = Eto.Platform.Detect;
+                    new Application(platform).Attach();
+                }
+
+                Debug.WriteLine("[ChatUtils] Creating chat dialog");
+                var dialog = new ChatDialog(getResponse);
+                
+                // Handle dialog closing
+                dialog.Closed += (sender, e) => 
+                {
+                    Debug.WriteLine("[ChatUtils] Dialog closed");
+                    // Complete the task with the last response
+                    tcs.TrySetResult(lastResponse);
+                };
+                
+                // Handle responses
+                dialog.ResponseReceived += (sender, response) => 
+                {
+                    Debug.WriteLine("[ChatUtils] Response received");
+                    lastResponse = response;
+                };
+                
+                // Configure the dialog window
+                dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
+                
+                // Show the dialog
+                Debug.WriteLine("[ChatUtils] Showing dialog");
+                dialog.Show();
+                
+                // Ensure the dialog is visible and active
+                dialog.BringToFront();
+                dialog.Focus();
+                
+                // Wait for the dialog to close
+                return await tcs.Task;
             }
-
-            // Create and show the dialog on the UI thread
-            Dispatcher.UIThread.InvokeAsync(() =>
+            catch (Exception ex)
             {
-                try
+                Debug.WriteLine($"[ChatUtils] Error showing chat dialog: {ex.Message}");
+                if (ex.InnerException != null)
                 {
-                    // Create a function to get responses from the AI provider
-                    Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
-                        messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint);
-
-                    var dialog = new ChatDialog(getResponse);
-                    
-                    // Handle dialog closing
-                    dialog.Closed += (sender, e) => 
-                    {
-                        // Complete the task with the last response
-                        tcs.TrySetResult(lastResponse);
-                    };
-                    
-                    // Handle responses
-                    dialog.ResponseReceived += (sender, response) => 
-                    {
-                        lastResponse = response;
-                    };
-                    
-                    // Show the dialog non-modally to prevent freezing the canvas
-                    dialog.Show();
+                    Debug.WriteLine($"[ChatUtils] Inner exception: {ex.InnerException.Message}");
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[ChatUtils] Error creating or showing dialog: {ex.Message}");
-                    tcs.TrySetException(ex);
-                }
-            });
-
-            // Wait for the dialog to close and return the result
-            return await tcs.Task;
+                throw;
+            }
         }
 
         /// <summary>
@@ -146,6 +165,16 @@ namespace SmartHopper.Core.AI.Chat
             }
             
             return $"{displayRole}: {content}";
+        }
+
+        /// <summary>
+        /// Converts a chat message to a Grasshopper string.
+        /// </summary>
+        /// <param name="message">The message to convert</param>
+        /// <returns>A GH_String containing the message</returns>
+        public static GH_String ToGrasshopperString(string message)
+        {
+            return new GH_String(message);
         }
 
         /// <summary>
