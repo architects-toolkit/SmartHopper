@@ -208,7 +208,7 @@ namespace SmartHopper.Core.Converters
                         Font = codeFont, 
                         Color = Colors.DarkGray,
                         IsLineBreak = true,
-                        BackgroundColor = Colors.LightGray,
+                        BackgroundColor = Colors.LightGrey,
                         HasBackground = true
                     });
                 }
@@ -289,7 +289,7 @@ namespace SmartHopper.Core.Converters
                     Text = span.Text, 
                     Font = spanFont, 
                     Color = span.IsCode ? Colors.DarkGray : defaultColor,
-                    BackgroundColor = span.IsCode ? Colors.LightGray : Colors.Transparent,
+                    BackgroundColor = span.IsCode ? Colors.LightGrey : Colors.Transparent,
                     HasBackground = span.IsCode
                 });
                 
