@@ -188,7 +188,7 @@ namespace SmartHopper.Core.Converters
             }
             
             // Find bold text (**text** or __text__)
-            var boldRegex = new Regex(@"(\*{2}|_{2})(.+?)(\*{2}|_{2})");
+            var boldRegex = new Regex(@"(\*{2}|_{2})(?!\*)(.+?)(?<!\*)(\*{2}|_{2})");
             foreach (Match match in boldRegex.Matches(text))
             {
                 // Skip if this is part of a bold+italic match or link
@@ -207,8 +207,8 @@ namespace SmartHopper.Core.Converters
                 }
             }
             
-            // Find italic text (*text* or _text_)
-            var italicRegex = new Regex(@"(\*|_)(.+?)(\*|_)");
+            // Find italic text (*text* or _text_) - single asterisk or underscore
+            var italicRegex = new Regex(@"(?<!\*|_)(\*|_)(?!\*|_)(.+?)(?<!\*|_)(\*|_)(?!\*|_)");
             foreach (Match match in italicRegex.Matches(text))
             {
                 // Skip if this is part of a bold, bold+italic match, or link
