@@ -300,6 +300,10 @@ namespace SmartHopper.Core.AI.Chat
                 _chatScrollable.ScrollPosition = new Point(
                     _chatScrollable.ScrollPosition.X,
                     _chatScrollable.ScrollSize.Height);
+                
+                // Recalculate message widths after adding a new message
+                // This ensures text wrapping works correctly without requiring manual window resize
+                // UpdateMessageBubbleWidths();
             });
         }
 

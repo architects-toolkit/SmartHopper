@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed bold and italic formatting not properly rendering in Markdown text
 - Fixed links not being clickable in Markdown formatted text
 - Fixed formatting issues in list items not supporting rich text
+- Fixed text wrapping in chat messages that wasn't automatically applied until window resize
 
 ## [0.1.2-alpha] - 2025-03-17
 
