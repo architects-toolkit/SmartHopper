@@ -276,7 +276,7 @@ namespace SmartHopper.Core.AI.Chat
                 ControlFont = SystemFonts.Default(9),
                 TextColor = Colors.Black,
                 ControlBackgroundColor = bubbleColor,
-                Padding = 10
+                ControlPadding = 10
             };
             
             // Add the message to the bubble

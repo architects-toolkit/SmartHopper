@@ -10,7 +10,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Core.Converters;
@@ -99,7 +98,7 @@ namespace SmartHopper.Core.Controls
         /// <summary>
         /// Gets or sets the padding around the text
         /// </summary>
-        public int Padding
+        public int ControlPadding
         {
             get => _padding;
             set

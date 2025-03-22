@@ -22,68 +22,68 @@ namespace SmartHopper.Core.Converters
     /// </summary>
     public static class Markdown
     {
-        /// <summary>
-        /// Converts markdown text to HTML
-        /// </summary>
-        /// <param name="markdown">The markdown text to convert</param>
-        /// <returns>HTML representation of the markdown</returns>
-        public static string ToHtml(string markdown)
-        {
-            if (string.IsNullOrEmpty(markdown))
-                return string.Empty;
+        ///// <summary>
+        ///// Converts markdown text to HTML
+        ///// </summary>
+        ///// <param name="markdown">The markdown text to convert</param>
+        ///// <returns>HTML representation of the markdown</returns>
+        //public static string ToHtml(string markdown)
+        //{
+        //    if (string.IsNullOrEmpty(markdown))
+        //        return string.Empty;
 
-            // Replace code blocks
-            var codeBlockPattern = @"```(.*?)```";
-            markdown = Regex.Replace(
-                markdown,
-                codeBlockPattern,
-                m => $"<pre><code>{m.Groups[1].Value}</code></pre>",
-                RegexOptions.Singleline
-            );
+        //    // Replace code blocks
+        //    var codeBlockPattern = @"```(.*?)```";
+        //    markdown = Regex.Replace(
+        //        markdown,
+        //        codeBlockPattern,
+        //        m => $"<pre><code>{m.Groups[1].Value}</code></pre>",
+        //        RegexOptions.Singleline
+        //    );
 
-            // Replace inline code
-            markdown = Regex.Replace(markdown, @"`([^`]+)`", "<code>$1</code>");
+        //    // Replace inline code
+        //    markdown = Regex.Replace(markdown, @"`([^`]+)`", "<code>$1</code>");
 
-            // Replace headers
-            markdown = Regex.Replace(markdown, @"^# (.*?)$", "<h1>$1</h1>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^## (.*?)$", "<h2>$1</h2>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^### (.*?)$", "<h3>$1</h3>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^#### (.*?)$", "<h4>$1</h4>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^##### (.*?)$", "<h5>$1</h5>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^###### (.*?)$", "<h6>$1</h6>", RegexOptions.Multiline);
+        //    // Replace headers
+        //    markdown = Regex.Replace(markdown, @"^# (.*?)$", "<h1>$1</h1>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^## (.*?)$", "<h2>$1</h2>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^### (.*?)$", "<h3>$1</h3>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^#### (.*?)$", "<h4>$1</h4>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^##### (.*?)$", "<h5>$1</h5>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^###### (.*?)$", "<h6>$1</h6>", RegexOptions.Multiline);
 
-            // Replace bold
-            markdown = Regex.Replace(markdown, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
-            markdown = Regex.Replace(markdown, @"__(.*?)__", "<strong>$1</strong>");
+        //    // Replace bold
+        //    markdown = Regex.Replace(markdown, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+        //    markdown = Regex.Replace(markdown, @"__(.*?)__", "<strong>$1</strong>");
 
-            // Replace italic
-            markdown = Regex.Replace(markdown, @"\*(.*?)\*", "<em>$1</em>");
-            markdown = Regex.Replace(markdown, @"_(.*?)_", "<em>$1</em>");
+        //    // Replace italic
+        //    markdown = Regex.Replace(markdown, @"\*(.*?)\*", "<em>$1</em>");
+        //    markdown = Regex.Replace(markdown, @"_(.*?)_", "<em>$1</em>");
 
-            // Replace blockquotes
-            markdown = Regex.Replace(markdown, @"^> (.*?)$", "<blockquote>$1</blockquote>", RegexOptions.Multiline);
+        //    // Replace blockquotes
+        //    markdown = Regex.Replace(markdown, @"^> (.*?)$", "<blockquote>$1</blockquote>", RegexOptions.Multiline);
 
-            // Replace links
-            markdown = Regex.Replace(markdown, @"\[(.*?)\]\((.*?)\)", "<a href=\"$2\">$1</a>");
+        //    // Replace links
+        //    markdown = Regex.Replace(markdown, @"\[(.*?)\]\((.*?)\)", "<a href=\"$2\">$1</a>");
 
-            // Replace lists
-            markdown = Regex.Replace(markdown, @"^\* (.*?)$", "<ul><li>$1</li></ul>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^- (.*?)$", "<ul><li>$1</li></ul>", RegexOptions.Multiline);
-            markdown = Regex.Replace(markdown, @"^(\d+)\. (.*?)$", "<ol><li>$2</li></ol>", RegexOptions.Multiline);
+        //    // Replace lists
+        //    markdown = Regex.Replace(markdown, @"^\* (.*?)$", "<ul><li>$1</li></ul>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^- (.*?)$", "<ul><li>$1</li></ul>", RegexOptions.Multiline);
+        //    markdown = Regex.Replace(markdown, @"^(\d+)\. (.*?)$", "<ol><li>$2</li></ol>", RegexOptions.Multiline);
 
-            // Replace consecutive </ul><ul> with just a line break
-            markdown = markdown.Replace("</ul>\r\n<ul>", "\r\n");
-            markdown = markdown.Replace("</ul>\n<ul>", "\n");
+        //    // Replace consecutive </ul><ul> with just a line break
+        //    markdown = markdown.Replace("</ul>\r\n<ul>", "\r\n");
+        //    markdown = markdown.Replace("</ul>\n<ul>", "\n");
 
-            // Replace consecutive </ol><ol> with just a line break
-            markdown = markdown.Replace("</ol>\r\n<ol>", "\r\n");
-            markdown = markdown.Replace("</ol>\n<ol>", "\n");
+        //    // Replace consecutive </ol><ol> with just a line break
+        //    markdown = markdown.Replace("</ol>\r\n<ol>", "\r\n");
+        //    markdown = markdown.Replace("</ol>\n<ol>", "\n");
 
-            // Replace line breaks with <br>
-            markdown = Regex.Replace(markdown, @"\r\n|\n", "<br>");
+        //    // Replace line breaks with <br>
+        //    markdown = Regex.Replace(markdown, @"\r\n|\n", "<br>");
 
-            return markdown;
-        }
+        //    return markdown;
+        //}
 
         /// <summary>
         /// Represents a segment of text with formatting information
@@ -363,37 +363,37 @@ namespace SmartHopper.Core.Converters
             return spans;
         }
 
-        /// <summary>
-        /// Processes plain text into segments
-        /// </summary>
-        public static void ProcessPlainText(string text, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics, List<TextSegment> segments)
-        {
-            string[] lines = text.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
+        ///// <summary>
+        ///// Processes plain text into segments
+        ///// </summary>
+        //public static void ProcessPlainText(string text, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics, List<TextSegment> segments)
+        //{
+        //    string[] lines = text.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
             
-            foreach (string line in lines)
-            {
-                if (string.IsNullOrEmpty(line))
-                {
-                    // Add an empty line
-                    segments.Add(new TextSegment { Text = string.Empty, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-                    continue;
-                }
+        //    foreach (string line in lines)
+        //    {
+        //        if (string.IsNullOrEmpty(line))
+        //        {
+        //            // Add an empty line
+        //            segments.Add(new TextSegment { Text = string.Empty, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
+        //            continue;
+        //        }
 
-                // Measure the text to see if it needs to be wrapped
-                SizeF textSize = graphics.MeasureString(defaultFont, line);
+        //        // Measure the text to see if it needs to be wrapped
+        //        SizeF textSize = graphics.MeasureString(defaultFont, line);
                 
-                if (textSize.Width <= availableWidth)
-                {
-                    // The line fits, no need to wrap
-                    segments.Add(new TextSegment { Text = line, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-                }
-                else
-                {
-                    // Need to wrap the text
-                    WrapTextIntoSegments(line, availableWidth, graphics, defaultFont, defaultColor, segments);
-                }
-            }
-        }
+        //        if (textSize.Width <= availableWidth)
+        //        {
+        //            // The line fits, no need to wrap
+        //            segments.Add(new TextSegment { Text = line, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
+        //        }
+        //        else
+        //        {
+        //            // Need to wrap the text
+        //            WrapTextIntoSegments(line, availableWidth, graphics, defaultFont, defaultColor, segments);
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Wraps text into multiple segments based on available width
