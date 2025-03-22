@@ -170,13 +170,15 @@ namespace SmartHopper.Core.AI.Chat
             int newWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
             
             // Update width of all message bubbles
-            foreach (var control in _chatHistoryPanel.Items)
+            foreach (var item in _chatHistoryPanel.Items)
             {
-                if (control is StackLayout bubbleContainer)
+                // In Eto.Forms, Items collection contains StackLayoutItem objects
+                if (item is StackLayoutItem layoutItem && layoutItem.Control is StackLayout bubbleContainer)
                 {
-                    foreach (var child in bubbleContainer.Items)
+                    foreach (var childItem in bubbleContainer.Items)
                     {
-                        if (child is Panel messageBubble)
+                        if (childItem is StackLayoutItem childLayoutItem && 
+                            childLayoutItem.Control is Panel messageBubble)
                         {
                             messageBubble.Width = newWidth;
                         }
@@ -276,6 +278,7 @@ namespace SmartHopper.Core.AI.Chat
                 // Convert markdown to HTML
                 string html = MarkdownToHtml(content);
                 
+                // Use a TextArea with styling to hide scrollbars
                 var textArea = new TextArea
                 {
                     Text = content,
@@ -283,6 +286,14 @@ namespace SmartHopper.Core.AI.Chat
                     Wrap = true,
                     Width = messageWidth - 20, // Account for padding
                 };
+                
+                // Calculate approximate height based on content
+                int lineCount = content.Split('\n').Length;
+                int estimatedHeight = Math.Max(60, lineCount * 20); // Minimum 60px, ~20px per line
+                textArea.Height = estimatedHeight;
+                
+                // Set background color to match the bubble for seamless appearance
+                textArea.BackgroundColor = bubbleColor;
                 
                 messageContent = textArea;
             }

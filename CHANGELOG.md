@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved ChatDialog UI by limiting message width and enabling proper text wrapping to prevent horizontal scrolling.
 - Added responsive message sizing in ChatDialog that adapts to the dialog width (80% max width with 350px minimum).
 - Added message selection and copying capabilities to ChatDialog with a context menu.
+- Improved ChatDialog UI by automatically adjusting message height based on content and removing visible scrollbars.
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
 - Updated component icon display to show the actual provider icon when "Default" is selected.

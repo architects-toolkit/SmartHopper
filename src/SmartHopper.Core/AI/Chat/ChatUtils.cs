@@ -25,6 +25,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper.Kernel.Types;
+using Rhino;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
 
@@ -42,12 +43,11 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="modelName">The model to use for AI processing</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response</returns>
-        public static async Task<AIResponse> ShowChatDialog(string providerName, string modelName, string endpoint = "")
+        public static async Task<AIResponse> ShowChatDialog(string providerName, string modelName, string endpoint = null)
         {
-            // Create a TaskCompletionSource to get the result from the dialog
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse lastResponse = null;
-
+            
             Debug.WriteLine("[ChatUtils] Preparing to show dialog");
 
             try
@@ -56,42 +56,55 @@ namespace SmartHopper.Core.AI.Chat
                 Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
                     messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint);
 
-                // Initialize Eto.Forms application if needed
-                if (Application.Instance == null)
+                // We need to use Rhino's UI thread to show the dialog
+                // This is important because Eto.Forms requires UI operations on the UI thread
+                Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
                 {
-                    Debug.WriteLine("[ChatUtils] Initializing Eto.Forms application");
-                    var platform = Eto.Platform.Detect;
-                    new Application(platform).Attach();
-                }
+                    try
+                    {
+                        // Initialize Eto.Forms application if needed
+                        if (Application.Instance == null)
+                        {
+                            Debug.WriteLine("[ChatUtils] Initializing Eto.Forms application");
+                            var platform = Eto.Platform.Detect;
+                            new Application(platform).Attach();
+                        }
 
-                Debug.WriteLine("[ChatUtils] Creating chat dialog");
-                var dialog = new ChatDialog(getResponse);
-                
-                // Handle dialog closing
-                dialog.Closed += (sender, e) => 
-                {
-                    Debug.WriteLine("[ChatUtils] Dialog closed");
-                    // Complete the task with the last response
-                    tcs.TrySetResult(lastResponse);
-                };
-                
-                // Handle responses
-                dialog.ResponseReceived += (sender, response) => 
-                {
-                    Debug.WriteLine("[ChatUtils] Response received");
-                    lastResponse = response;
-                };
-                
-                // Configure the dialog window
-                dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
-                
-                // Show the dialog
-                Debug.WriteLine("[ChatUtils] Showing dialog");
-                dialog.Show();
-                
-                // Ensure the dialog is visible and active
-                dialog.BringToFront();
-                dialog.Focus();
+                        Debug.WriteLine("[ChatUtils] Creating chat dialog");
+                        var dialog = new ChatDialog(getResponse);
+                        
+                        // Handle dialog closing
+                        dialog.Closed += (sender, e) => 
+                        {
+                            Debug.WriteLine("[ChatUtils] Dialog closed");
+                            // Complete the task with the last response
+                            tcs.TrySetResult(lastResponse);
+                        };
+                        
+                        // Handle responses
+                        dialog.ResponseReceived += (sender, response) => 
+                        {
+                            Debug.WriteLine("[ChatUtils] Response received");
+                            lastResponse = response;
+                        };
+                        
+                        // Configure the dialog window
+                        dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
+                        
+                        // Show the dialog
+                        Debug.WriteLine("[ChatUtils] Showing dialog");
+                        dialog.Show();
+                        
+                        // Ensure the dialog is visible and active
+                        dialog.BringToFront();
+                        dialog.Focus();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ChatUtils] Error in UI thread: {ex.Message}");
+                        tcs.TrySetException(ex);
+                    }
+                }));
                 
                 // Wait for the dialog to close
                 return await tcs.Task;
@@ -99,10 +112,6 @@ namespace SmartHopper.Core.AI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ChatUtils] Error showing chat dialog: {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"[ChatUtils] Inner exception: {ex.InnerException.Message}");
-                }
                 throw;
             }
         }
