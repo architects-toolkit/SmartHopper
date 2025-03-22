@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Core.Converters;
@@ -27,7 +28,7 @@ namespace SmartHopper.Core.Controls
         private Color _textColor;
         private Color _backgroundColor;
         private int _padding;
-        private readonly List<Markdown.TextSegment> _segments = new List<Markdown.TextSegment>();
+        private readonly List<MarkdownToEto.TextSegment> _segments = new List<MarkdownToEto.TextSegment>();
 
         /// <summary>
         /// Gets or sets the text content to display
@@ -148,27 +149,30 @@ namespace SmartHopper.Core.Controls
             using (var graphics = new Graphics(new Bitmap(1, 1, PixelFormat.Format32bppRgba)))
             {
                 // Always process as markdown
-                _segments.AddRange(Markdown.ProcessMarkdown(_text, availableWidth, _font, _textColor, graphics));
+                _segments.AddRange(MarkdownToEto.ProcessMarkdown(_text, availableWidth, _font, _textColor, graphics));
 
                 // Calculate the layout of segments
-                Markdown.CalculateSegmentLayout(_segments, Width, _padding, graphics);
+                MarkdownToEto.CalculateSegmentLayout(_segments, Width, _padding, graphics);
                 
                 // Calculate the required height based on the segments
-                float maxY = 0;
-                float maxHeight = 0;
+                float totalHeight = 0;
                 
-                foreach (var segment in _segments)
+                // Group segments by their Y position to properly calculate line heights
+                var lineGroups = _segments.GroupBy(s => s.Y).OrderBy(g => g.Key);
+                
+                foreach (var lineGroup in lineGroups)
                 {
-                    SizeF segmentSize = graphics.MeasureString(segment.Font, segment.Text);
-                    if (segment.Y > maxY)
+                    float lineHeight = 0;
+                    foreach (var segment in lineGroup)
                     {
-                        maxY = segment.Y;
-                        maxHeight = segmentSize.Height;
+                        SizeF segmentSize = graphics.MeasureString(segment.Font, segment.Text);
+                        lineHeight = Math.Max(lineHeight, segmentSize.Height);
                     }
+                    totalHeight += lineHeight;
                 }
                 
                 // Set the height of the control to fit the content
-                Height = (int)Math.Ceiling(maxY + maxHeight + _padding);
+                Height = (int)Math.Ceiling(totalHeight + (_padding * 2));
             }
         }
 
