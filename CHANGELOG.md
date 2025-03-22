@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed heading positioning and spacing in Markdown rendered text
 - Simplified text segment layout calculation for better performance and maintainability
 - Fixed build errors in MarkdownToEto and FormattedMessageControl classes to ensure compatibility with the latest Markdig and Eto.Forms libraries
+- Fixed Markdown rendering issue in ChatDialog where Markdig objects were displayed as "Markdig.Syntax.Inlines.ContainerInline" instead of properly formatted text.
 
 ## [0.1.2-alpha] - 2025-03-17
 
