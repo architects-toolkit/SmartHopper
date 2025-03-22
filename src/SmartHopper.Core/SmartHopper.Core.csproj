@@ -39,14 +39,7 @@
     </PackageReference>
     <PackageReference Include="System.Resources.Extensions" Version="7.0.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <PackageReference Include="Eto.Forms" Version="2.8.0" />
-    <PackageReference Include="Eto.Platform.Windows" Version="2.8.0" Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))" />
-    <PackageReference Include="Eto.Platform.Mac64" Version="2.8.0" Condition="!$(TargetFramework.Contains('-windows')) and !$(TargetFramework.StartsWith('net4'))" />
-    <!-- <PackageReference Include="Avalonia" Version="11.2.5" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.2.5" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.5" />
-    <PackageReference Include="Markdown.Avalonia" Version="11.0.3" />
-    <PackageReference Include="Markdown.Avalonia.SyntaxHigh" Version="11.0.3" /> -->
+    <PackageReference Include="Markdig" Version="0.40.0" />
   </ItemGroup>
 
   <ItemGroup>

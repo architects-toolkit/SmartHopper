@@ -11,9 +11,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using Eto.Drawing;
+using Markdig;
+using Markdig.Syntax;
 
 namespace SmartHopper.Core.Converters
 {
@@ -64,139 +65,23 @@ namespace SmartHopper.Core.Converters
         /// Processes markdown text into formatted segments
         /// </summary>
         /// <param name="markdown">The markdown text to process</param>
-        /// <param name="availableWidth">The available width for text layout</param>
-        /// <param name="defaultFont">The default font to use for unformatted text</param>
-        /// <param name="defaultColor">The default color to use for unformatted text</param>
+        /// <param name="font">The default font to use for unformatted text</param>
+        /// <param name="textColor">The default color to use for unformatted text</param>
         /// <param name="graphics">The graphics context for measuring text</param>
         /// <returns>A list of formatted text segments</returns>
-        public static List<TextSegment> ProcessMarkdown(string markdown, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics)
+        public static List<TextSegment> ProcessMarkdown(string markdown, Font font, Color textColor, Graphics graphics)
         {
-            var segments = new List<TextSegment>();
-            
             if (string.IsNullOrEmpty(markdown))
-                return segments;
-
-            // Split the markdown into lines while preserving line breaks
-            string[] lines = markdown.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
-            
-            // Process each line in order
-            for (int i = 0; i < lines.Length; i++)
             {
-                string line = lines[i];
-                
-                if (string.IsNullOrEmpty(line))
-                {
-                    // Add an empty line
-                    segments.Add(new TextSegment { Text = string.Empty, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-                    continue;
-                }
-                
-                // Check for heading
-                var headingMatch = Regex.Match(line, @"^(#{1,6})\s+(.+)$");
-                if (headingMatch.Success)
-                {
-                    ProcessHeadingLine(headingMatch.Groups[1].Value, headingMatch.Groups[2].Value, defaultFont, defaultColor, segments);
-                    continue;
-                }
-                
-                // Check for code block start
-                if (line.Trim().StartsWith("```"))
-                {
-                    StringBuilder codeBlock = new StringBuilder();
-                    //string language = line.Trim().Substring(3).Trim(); // Extract language identifier if present
-                    i++; // Move to the next line
-                    
-                    // Collect all lines until the closing ```
-                    while (i < lines.Length && !lines[i].Trim().Equals("```"))
-                    {
-                        codeBlock.AppendLine(lines[i]);
-                        i++;
-                    }
-                    
-                    // Process the code block
-                    ProcessCodeBlockContent(codeBlock.ToString(), defaultFont, segments);
-                    continue;
-                }
-                
-                // Check for horizontal rule
-                if (line.Trim().Equals("---") || line.Trim().Equals("***") || line.Trim().Equals("___"))
-                {
-                    segments.Add(new TextSegment { 
-                        Text = string.Empty, 
-                        Font = defaultFont, 
-                        Color = defaultColor, 
-                        IsLineBreak = true,
-                        IsHorizontalRule = true
-                    });
-                    continue;
-                }
-                
-                // Check for blockquote
-                var blockquoteMatch = Regex.Match(line, @"^>\s*(.*)$");
-                if (blockquoteMatch.Success)
-                {
-                    string quoteText = blockquoteMatch.Groups[1].Value;
-                    
-                    // Process the blockquote text for inline formatting
-                    var quoteSegments = new List<TextSegment>();
-                    ProcessInlineFormatting(quoteText, defaultFont, defaultColor, quoteSegments);
-                    
-                    // Add the blockquote with proper formatting
-                    foreach (var segment in quoteSegments)
-                    {
-                        segment.IsBlockquote = true;
-                        segments.Add(segment);
-                    }
-                    
-                    // Make sure the last segment has a line break
-                    if (quoteSegments.Count > 0)
-                    {
-                        quoteSegments[quoteSegments.Count - 1].IsLineBreak = true;
-                    }
-                    else
-                    {
-                        // Empty blockquote line (e.g., ">")
-                        segments.Add(new TextSegment { 
-                            Text = string.Empty, 
-                            Font = defaultFont, 
-                            Color = defaultColor, 
-                            IsLineBreak = true,
-                            IsBlockquote = true
-                        });
-                    }
-                    
-                    continue;
-                }
-                
-                // Check for unordered list item
-                var unorderedListMatch = Regex.Match(line, @"^([ \t]*)(\*|\-|\+)\s+(.+)$");
-                if (unorderedListMatch.Success)
-                {
-                    string indent = unorderedListMatch.Groups[1].Value;
-                    string marker = unorderedListMatch.Groups[2].Value;
-                    string itemText = unorderedListMatch.Groups[3].Value;
-                    int indentLevel = indent.Length / 2;
-                    
-                    ProcessListItem(itemText, indentLevel, marker, false, defaultFont, defaultColor, segments);
-                    continue;
-                }
-                
-                // Check for ordered list item
-                var orderedListMatch = Regex.Match(line, @"^([ \t]*)(\d+)\.?\s+(.+)$");
-                if (orderedListMatch.Success)
-                {
-                    string indent = orderedListMatch.Groups[1].Value;
-                    string number = orderedListMatch.Groups[2].Value;
-                    string itemText = orderedListMatch.Groups[3].Value;
-                    int indentLevel = indent.Length / 2;
-                    
-                    ProcessListItem(itemText, indentLevel, number, true, defaultFont, defaultColor, segments);
-                    continue;
-                }
-                
-                // Process regular line with inline formatting
-                ProcessInlineFormatting(line, defaultFont, defaultColor, segments);
+                return new List<TextSegment>();
             }
+            
+            var segments = new List<TextSegment>();
+            var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+            var document = Markdig.Markdown.Parse(markdown, pipeline);
+            
+            // Process each block
+            ProcessBlocks(document, segments, font, textColor, 0);
             
             return segments;
         }
@@ -218,17 +103,23 @@ namespace SmartHopper.Core.Converters
         /// </summary>
         private static void ProcessCodeBlockContent(string codeContent, Font defaultFont, List<TextSegment> segments)
         {
+            // Use monospace font for code blocks
             var codeFont = new Font(FontFamilies.Monospace, defaultFont.Size);
             
+            // Split code into lines
             string[] codeLines = codeContent.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
+            
             for (int i = 0; i < codeLines.Length; i++)
             {
-                segments.Add(new TextSegment { 
-                    Text = codeLines[i], 
-                    Font = codeFont, 
+                string line = codeLines[i];
+                
+                segments.Add(new TextSegment
+                {
+                    Text = line,
+                    Font = codeFont,
                     Color = Colors.Black,
-                    BackgroundColor = Colors.LightGrey,
                     HasBackground = true,
+                    BackgroundColor = Colors.LightGrey,
                     IsLineBreak = true
                 });
             }
@@ -239,35 +130,20 @@ namespace SmartHopper.Core.Converters
         /// </summary>
         private static void ProcessListItem(string itemText, int indentLevel, string marker, bool isOrdered, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
-            // Process the item text for inline formatting
-            var itemSegments = new List<TextSegment>();
-            ProcessInlineFormatting(itemText, defaultFont, defaultColor, itemSegments);
-            
-            // Set list properties for all segments
-            foreach (var segment in itemSegments)
+            // Create a segment for the list item
+            var segment = new TextSegment
             {
-                segment.IsList = true;
-                segment.IsOrderedList = isOrdered;
-                segment.ListIndent = indentLevel;
-                segment.ListMarker = isOrdered ? marker + "." : marker;
-            }
+                Text = itemText,
+                Font = defaultFont,
+                Color = defaultColor,
+                IsList = true,
+                IsOrderedList = isOrdered,
+                ListIndent = indentLevel,
+                ListMarker = isOrdered ? marker + "." : "•",
+                IsLineBreak = true
+            };
             
-            // Add a line break at the end
-            if (itemSegments.Count > 0 && !itemSegments[itemSegments.Count - 1].IsLineBreak)
-            {
-                itemSegments.Add(new TextSegment { 
-                    Text = string.Empty, 
-                    Font = defaultFont, 
-                    Color = defaultColor, 
-                    IsLineBreak = true,
-                    IsList = true,
-                    IsOrderedList = isOrdered,
-                    ListIndent = indentLevel,
-                    ListMarker = isOrdered ? marker + "." : marker
-                });
-            }
-            
-            segments.AddRange(itemSegments);
+            segments.Add(segment);
         }
 
         /// <summary>
@@ -377,69 +253,17 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Processes inline formatting in markdown
         /// </summary>
-        private static void ProcessInlineFormatting(string line, Font defaultFont, Color defaultColor, List<TextSegment> segments)
+        private static void ProcessInlineFormatting(string text, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
-            // Find all formatting spans in the line
-            var formatSpans = FindFormatSpans(line);
-            
-            // Process the line with formatting
-            int currentIndex = 0;
-            
-            foreach (var span in formatSpans.OrderBy(s => s.StartIndex))
+            // Simple implementation - add the text as a single segment
+            // In a full implementation, this would parse for bold, italic, links, etc.
+            segments.Add(new TextSegment
             {
-                // Add text before this format span
-                if (span.StartIndex > currentIndex)
-                {
-                    string beforeText = line.Substring(currentIndex, span.StartIndex - currentIndex);
-                    segments.Add(new TextSegment { Text = beforeText, Font = defaultFont, Color = defaultColor });
-                }
-                
-                // Add the formatted text
-                Font spanFont = defaultFont;
-                if (span.IsBold && span.IsItalic)
-                {
-                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Bold | FontStyle.Italic);
-                }
-                else if (span.IsBold)
-                {
-                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Bold);
-                }
-                else if (span.IsItalic)
-                {
-                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Italic);
-                }
-                else if (span.IsCode)
-                {
-                    spanFont = new Font(FontFamilies.Monospace, defaultFont.Size);
-                }
-                
-                var segment = new TextSegment { 
-                    Text = span.Text, 
-                    Font = spanFont, 
-                    Color = span.IsCode ? Colors.Black : (span.IsLink ? Colors.Blue : defaultColor),
-                    BackgroundColor = span.IsCode ? Colors.LightGrey : Colors.Transparent,
-                    HasBackground = span.IsCode
-                };
-                
-                // Add link information if needed
-                if (span.IsLink)
-                {
-                    segment.IsLink = true;
-                    segment.Url = span.Url;
-                    segment.Text = segment.Text + " (" + span.Url + ")";
-                }
-                
-                segments.Add(segment);
-                
-                currentIndex = span.EndIndex;
-            }
-            
-            // Add any remaining text after the last format span
-            if (currentIndex < line.Length)
-            {
-                string afterText = line.Substring(currentIndex);
-                segments.Add(new TextSegment { Text = afterText, Font = defaultFont, Color = defaultColor });
-            }
+                Text = text,
+                Font = defaultFont,
+                Color = defaultColor,
+                IsLineBreak = true
+            });
         }
 
         /// <summary>
@@ -449,231 +273,149 @@ namespace SmartHopper.Core.Converters
         {
             float currentX = padding;
             float currentY = padding;
-            float lineHeight = 0;
             float availableWidth = width - (padding * 2);
             
-            // Group segments by line breaks
-            var currentLine = new List<TextSegment>();
-            
-            foreach (var segment in segments)
+            // Process each segment in sequence
+            for (int i = 0; i < segments.Count; i++)
             {
+                var segment = segments[i];
+                
+                // Handle line breaks
                 if (segment.IsLineBreak)
                 {
-                    // Process the current line
-                    LayoutLine(currentLine, currentX, currentY, availableWidth, graphics);
-                    
-                    // Calculate the max height of this line
-                    lineHeight = currentLine.Count > 0 
-                        ? currentLine.Max(s => graphics.MeasureString(s.Font, s.Text).Height) 
-                        : 0;
-                    
                     // Move to the next line
-                    currentY += lineHeight > 0 ? lineHeight : 20;
-                    currentX = padding;
-                    currentLine.Clear();
-                    
-                    // Skip the rest for line break segments
-                    segment.X = currentX;
-                    segment.Y = currentY;
+                    float lineHeight = 20; // Default line height
                     
                     // Add extra space for horizontal rules
                     if (segment.IsHorizontalRule)
                     {
-                        currentY += 20; // Add space after horizontal rule
+                        lineHeight += 10;
                     }
                     
+                    currentY += lineHeight;
+                    currentX = padding;
+                    segment.X = currentX;
+                    segment.Y = currentY;
                     continue;
                 }
                 
-                // Handle list indentation
+                // Check if this segment is a heading (based on font size)
+                bool isHeading = segment.Font != null && segment.Font.Size > 12;
+                
+                // If this is a heading and not at the start of the document, add some space before it
+                if (isHeading && currentY > padding && (i == 0 || !segments[i-1].IsLineBreak))
+                {
+                    currentY += 15; // Add space before heading
+                    currentX = padding; // Reset X position for heading
+                }
+                
+                // Handle list indentation and markers
                 if (segment.IsList)
                 {
                     float indentSize = 20; // Base indent size
-                    float markerWidth = 15; // Width for the marker (bullet or number)
-                    float totalIndent = (segment.ListIndent * indentSize) + markerWidth + 5; // Add extra space between marker and text
+                    float listIndent = segment.ListIndent * indentSize;
                     
-                    // If this is the first segment of a list item, adjust X position
-                    if (currentLine.Count == 0)
+                    // Check if this is the first segment of a list item or a continuation
+                    bool isFirstInListItem = i == 0 || segments[i - 1].IsLineBreak;
+                    
+                    if (isFirstInListItem)
                     {
-                        currentX = padding + totalIndent;
+                        // Reset X position at the start of a list item
+                        currentX = padding + listIndent;
+                        
+                        // Add list marker as a separate segment if this is the first segment of a list item
+                        if (!string.IsNullOrEmpty(segment.ListMarker))
+                        {
+                            var markerSegment = new TextSegment
+                            {
+                                Text = segment.ListMarker,
+                                Font = segment.Font,
+                                Color = segment.Color,
+                                X = currentX - 20, // Position marker before the text
+                                Y = currentY,
+                                IsList = false // Prevent recursion
+                            };
+                            
+                            // Insert the marker segment before the current one
+                            segments.Insert(i, markerSegment);
+                            i++; // Skip the newly inserted segment
+                        }
                     }
                 }
                 
                 // Handle blockquote indentation
-                if (segment.IsBlockquote && currentLine.Count == 0)
+                if (segment.IsBlockquote)
                 {
-                    currentX = padding + 15; // Add extra indentation for blockquotes
+                    // Add indentation for blockquotes if at the start of a line
+                    if (currentX == padding)
+                    {
+                        currentX += 15;
+                    }
                 }
                 
-                // Add segment to current line
+                // Position the segment
                 segment.X = currentX;
                 segment.Y = currentY;
-                currentLine.Add(segment);
                 
-                // Move X position for next segment
-                currentX += graphics.MeasureString(segment.Font, segment.Text).Width;
-            }
-            
-            // Process the last line if not empty
-            if (currentLine.Count > 0)
-            {
-                LayoutLine(currentLine, padding, currentY, availableWidth, graphics);
-            }
-        }
-
-        /// <summary>
-        /// Layouts a single line of text segments with word wrapping
-        /// </summary>
-        private static void LayoutLine(List<TextSegment> line, float startX, float startY, float availableWidth, Graphics graphics)
-        {
-            if (line.Count == 0)
-                return;
-                
-            float currentX = startX;
-            float currentY = startY;
-            float lineHeight = line.Max(s => graphics.MeasureString(s.Font, s.Text).Height);
-            
-            // Check if the line needs wrapping
-            float totalWidth = 0;
-            foreach (var segment in line)
-            {
-                totalWidth += graphics.MeasureString(segment.Font, segment.Text).Width;
-                if (totalWidth > availableWidth)
-                    break;
-            }
-            
-            if (totalWidth <= availableWidth)
-            {
-                // No wrapping needed, just update X positions
-                foreach (var segment in line)
+                // For non-line-break segments, move to the next position
+                if (!segment.IsLineBreak)
                 {
-                    segment.X = currentX;
-                    segment.Y = currentY;
-                    currentX += graphics.MeasureString(segment.Font, segment.Text).Width;
-                }
-                return;
-            }
-            
-            // Need to wrap text
-            List<TextSegment> newSegments = new List<TextSegment>();
-            List<TextSegment> segmentsToRemove = new List<TextSegment>();
-            
-            foreach (var segment in line)
-            {
-                // Get the text and measure it
-                string text = segment.Text;
-                SizeF textSize = graphics.MeasureString(segment.Font, text);
-                
-                // If this segment fits on the current line, add it
-                if (currentX + textSize.Width <= startX + availableWidth)
-                {
-                    segment.X = currentX;
-                    segment.Y = currentY;
-                    currentX += textSize.Width;
-                    continue;
-                }
-                
-                // This segment doesn't fit, try to wrap it
-                segmentsToRemove.Add(segment);
-                string[] words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                string currentWord = "";
-                float wordX = currentX;
-                
-                foreach (string word in words)
-                {
-                    // Measure this word with a space
-                    string wordWithSpace = currentWord.Length > 0 ? currentWord + " " + word : word;
-                    SizeF wordSize = graphics.MeasureString(segment.Font, wordWithSpace);
-                    
-                    // If it fits on this line, add it to the current word
-                    if (wordX + wordSize.Width <= startX + availableWidth)
+                    // For headings, move to the next line after the heading
+                    if (isHeading)
                     {
-                        currentWord = wordWithSpace;
+                        currentY += graphics.MeasureString(segment.Font, segment.Text).Height + 10;
+                        currentX = padding;
                     }
                     else
                     {
-                        // This word doesn't fit, create a new segment for the current word
-                        if (currentWord.Length > 0)
-                        {
-                            var newSegment = new TextSegment
-                            {
-                                Text = currentWord,
-                                Font = segment.Font,
-                                Color = segment.Color,
-                                X = wordX,
-                                Y = currentY,
-                                HasBackground = segment.HasBackground,
-                                BackgroundColor = segment.BackgroundColor,
-                                IsBlockquote = segment.IsBlockquote,
-                                IsList = segment.IsList,
-                                IsOrderedList = segment.IsOrderedList,
-                                ListIndent = segment.ListIndent,
-                                ListMarker = segment.ListMarker,
-                                IsLink = segment.IsLink,
-                                Url = segment.Url
-                            };
-                            
-                            newSegments.Add(newSegment);
-                        }
+                        // For regular text, just move to the right
+                        // The actual wrapping will be handled by Eto.Forms DrawText with FormattedTextWrapMode.Word
+                        currentX += graphics.MeasureString(segment.Font, segment.Text).Width;
                         
-                        // Move to the next line
-                        currentY += lineHeight;
-                        wordX = startX;
-                        
-                        // Handle list and blockquote indentation on wrapped lines
-                        if (segment.IsList)
+                        // If we've reached the end of the line, move to the next line
+                        if (currentX > width - padding)
                         {
-                            float indentSize = 20; // Base indent size
-                            float markerWidth = 15; // Width for the marker (bullet or number)
-                            float totalIndent = (segment.ListIndent * indentSize) + markerWidth + 5; // Add extra space between marker and text
-                            wordX += totalIndent;
+                            currentY += 20; // Standard line height
+                            currentX = padding;
                         }
-                        else if (segment.IsBlockquote)
-                        {
-                            wordX += 15; // Add extra indentation for blockquotes
-                        }
-                        
-                        // Start with this word on the new line
-                        currentWord = word;
                     }
                 }
-                
-                // Add the last word if there is one
-                if (currentWord.Length > 0)
+            }
+        }
+
+        private static void ProcessBlocks(Markdig.Syntax.MarkdownDocument document, List<TextSegment> segments, Font font, Color textColor, int indentLevel)
+        {
+            foreach (var block in document)
+            {
+                if (block is Markdig.Syntax.HeadingBlock headingBlock)
                 {
-                    var lastSegment = new TextSegment
+                    ProcessHeadingLine(new string('#', headingBlock.Level), headingBlock.Inline.ToString(), font, textColor, segments);
+                }
+                else if (block is Markdig.Syntax.ParagraphBlock paragraphBlock)
+                {
+                    ProcessInlineFormatting(paragraphBlock.Inline.ToString(), font, textColor, segments);
+                }
+                else if (block is Markdig.Syntax.ListBlock listBlock)
+                {
+                    foreach (var item in listBlock)
                     {
-                        Text = currentWord,
-                        Font = segment.Font,
-                        Color = segment.Color,
-                        X = wordX,
-                        Y = currentY,
-                        HasBackground = segment.HasBackground,
-                        BackgroundColor = segment.BackgroundColor,
-                        IsBlockquote = segment.IsBlockquote,
-                        IsList = segment.IsList,
-                        IsOrderedList = segment.IsOrderedList,
-                        ListIndent = segment.ListIndent,
-                        ListMarker = segment.ListMarker,
-                        IsLink = segment.IsLink,
-                        Url = segment.Url
-                    };
-                    
-                    newSegments.Add(lastSegment);
-                    
-                    // Update currentX for the next segment
-                    currentX = wordX + graphics.MeasureString(segment.Font, currentWord).Width;
+                        ProcessListItem(item.ToString(), indentLevel, "", false, font, textColor, segments);
+                    }
+                }
+                else if (block is Markdig.Syntax.CodeBlock codeBlock)
+                {
+                    ProcessCodeBlockContent(codeBlock.ToString(), font, segments);
+                }
+                else if (block is Markdig.Syntax.QuoteBlock quoteBlock)
+                {
+                    foreach (var childBlock in quoteBlock)
+                    {
+                        var childDocument = new Markdig.Syntax.MarkdownDocument();
+                        childDocument.Add(childBlock);
+                        ProcessBlocks(childDocument, segments, font, textColor, indentLevel + 1);
+                    }
                 }
             }
-            
-            // Remove the original segments that were wrapped
-            foreach (var segment in segmentsToRemove)
-            {
-                line.Remove(segment);
-            }
-            
-            // Add all the new segments to the line
-            line.AddRange(newSegments);
         }
     }
 }

@@ -147,7 +147,7 @@ namespace SmartHopper.Core.Controls
             // Process markdown into segments
             using (var graphics = new Graphics(new Bitmap(1, 1, PixelFormat.Format32bppRgba)))
             {
-                var segments = MarkdownToEto.ProcessMarkdown(_text, Width - (_padding * 2), _font, _textColor, graphics);
+                var segments = MarkdownToEto.ProcessMarkdown(_text, _font, _textColor, graphics);
                 
                 // Calculate layout
                 MarkdownToEto.CalculateSegmentLayout(segments, Width, _padding, graphics);
@@ -199,67 +199,38 @@ namespace SmartHopper.Core.Controls
                 // Draw blockquote marker if needed
                 if (segment.IsBlockquote)
                 {
-                    SizeF segmentSize = e.Graphics.MeasureString(segment.Font, segment.Text);
-                    // Draw background rectangle
+                    // Draw a vertical line to the left of blockquote text
                     e.Graphics.FillRectangle(
-                        new Color(Colors.Blue, 0.3f), 
-                        new RectangleF(segment.X - 10, segment.Y - 2, Width - segment.X, segmentSize.Height + 4)
+                        Colors.Gray,
+                        new RectangleF(segment.X - 10, segment.Y, 3, e.Graphics.MeasureString(segment.Font, segment.Text).Height)
                     );
-                    
-                    // Draw left border
-                    e.Graphics.FillRectangle(
-                        Colors.Gray, 
-                        new RectangleF(segment.X - 10, segment.Y - 2, 3, segmentSize.Height + 4)
-                    );
-                }
-                
-                // Draw list marker if needed
-                if (segment.IsList)
-                {
-                    float indentSize = 20; // Base indent size
-                    float markerWidth = 15; // Width for the marker (bullet or number)
-                    float markerX = segment.X - markerWidth - 5; // Position marker with 5px gap before text
-                    float markerY = segment.Y;
-                    
-                    // Apply indentation based on list level
-                    markerX -= (segment.ListIndent * indentSize);
-                    
-                    // Draw the marker
-                    if (segment.IsOrderedList)
-                    {
-                        // Draw ordered list marker (number)
-                        e.Graphics.DrawText(segment.Font, segment.Color, markerX, markerY, segment.ListMarker);
-                    }
-                    else
-                    {
-                        // Draw unordered list marker (bullet)
-                        float bulletSize = segment.Font.Size / 2;
-                        float bulletY = markerY + (segment.Font.Size / 2) - (bulletSize / 2);
-                        
-                        e.Graphics.FillEllipse(
-                            segment.Color,
-                            new RectangleF(markerX + 2, bulletY, bulletSize, bulletSize)
-                        );
-                    }
                 }
                 
                 // Draw horizontal rule if needed
                 if (segment.IsHorizontalRule)
                 {
-                    float ruleHeight = 2;
-                    float ruleY = segment.Y + (segment.Font.Size / 2) - (ruleHeight / 2);
-                    
-                    e.Graphics.FillRectangle(
+                    e.Graphics.DrawLine(
                         Colors.Gray,
-                        new RectangleF(_padding, ruleY, Width - (_padding * 2), ruleHeight)
+                        new PointF(_padding, segment.Y + 5),
+                        new PointF(Width - _padding, segment.Y + 5)
                     );
-                    
-                    // Skip drawing text for horizontal rules
-                    continue;
+                    continue; // Skip text drawing for horizontal rules
                 }
                 
-                // Draw the text
-                e.Graphics.DrawText(segment.Font, segment.Color, segment.X, segment.Y, segment.Text);
+                // Draw the text with wrapping
+                if (!string.IsNullOrEmpty(segment.Text))
+                {
+                    // Use Eto.Forms' native text wrapping by setting a maximum width
+                    RectangleF textRect = new RectangleF(
+                        segment.X, 
+                        segment.Y, 
+                        Width - segment.X - _padding, // Available width from segment position to right edge
+                        float.MaxValue // No height constraint
+                    );
+                    
+                    // Draw the text with wrapping
+                    e.Graphics.DrawText(segment.Font, new SolidBrush(segment.Color), textRect, segment.Text);
+                }
             }
         }
 
