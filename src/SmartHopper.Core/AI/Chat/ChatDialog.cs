@@ -253,7 +253,7 @@ namespace SmartHopper.Core.AI.Chat
                     bubbleColor = Colors.LightSkyBlue;
                     break;
                 case "system":
-                    bubbleColor = Colors.LightGray;
+                    bubbleColor = Colors.LightGrey;
                     break;
                 default:
                     bubbleColor = Colors.White;
