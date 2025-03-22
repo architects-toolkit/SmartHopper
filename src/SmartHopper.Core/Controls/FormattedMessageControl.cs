@@ -14,6 +14,7 @@ using System.Linq;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Core.Converters;
+using Markdig;
 
 namespace SmartHopper.Core.Controls
 {
@@ -21,14 +22,14 @@ namespace SmartHopper.Core.Controls
     /// A custom control for displaying formatted text messages without borders or scrollbars.
     /// Supports markdown formatting and automatically adjusts its height based on content.
     /// </summary>
-    public class FormattedMessageControl : Drawable
+    public class FormattedMessageControl : Panel
     {
         private string _text;
         private Font _font;
         private Color _textColor;
         private Color _backgroundColor;
         private int _padding;
-        private List<MarkdownToEto.TextSegment> _segments;
+        private StackLayout _contentLayout;
 
         /// <summary>
         /// Gets or sets the text content to display
@@ -42,7 +43,6 @@ namespace SmartHopper.Core.Controls
                 {
                     _text = value;
                     ProcessText();
-                    Invalidate();
                 }
             }
         }
@@ -59,7 +59,6 @@ namespace SmartHopper.Core.Controls
                 {
                     _font = value;
                     ProcessText();
-                    Invalidate();
                 }
             }
         }
@@ -75,7 +74,7 @@ namespace SmartHopper.Core.Controls
                 if (_textColor != value)
                 {
                     _textColor = value;
-                    Invalidate();
+                    ProcessText();
                 }
             }
         }
@@ -91,7 +90,7 @@ namespace SmartHopper.Core.Controls
                 if (_backgroundColor != value)
                 {
                     _backgroundColor = value;
-                    Invalidate();
+                    BackgroundColor = value;
                 }
             }
         }
@@ -107,8 +106,8 @@ namespace SmartHopper.Core.Controls
                 if (_padding != value)
                 {
                     _padding = value;
+                    _contentLayout.Padding = new Padding(_padding);
                     ProcessText();
-                    Invalidate();
                 }
             }
         }
@@ -123,124 +122,417 @@ namespace SmartHopper.Core.Controls
             _textColor = Colors.Black;
             _backgroundColor = Colors.Transparent;
             _padding = 10;
-            _segments = new List<MarkdownToEto.TextSegment>();
 
-            // Enable mouse events for selection and context menu
-            CanFocus = true;
+            // Create a stack layout for content
+            _contentLayout = new StackLayout
+            {
+                Orientation = Orientation.Vertical,
+                Spacing = 0,
+                Padding = new Padding(_padding),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Top
+            };
+
+            Content = _contentLayout;
             
-            // Set minimum size
+            // Set control properties
+            BackgroundColor = _backgroundColor;
             MinimumSize = new Size(100, 20);
         }
 
         /// <summary>
-        /// Processes text into segments and calculates layout
+        /// Processes text into formatted controls and displays them in the layout
         /// </summary>
         private void ProcessText()
         {
+            // Clear existing content
+            _contentLayout.Items.Clear();
+
             if (string.IsNullOrEmpty(_text))
             {
-                _segments.Clear();
-                Height = _padding * 2;
                 return;
             }
-            
-            // Process markdown into segments
+
+            // Create controls from markdown
             using (var graphics = new Graphics(new Bitmap(1, 1, PixelFormat.Format32bppRgba)))
             {
-                var segments = MarkdownToEto.ProcessMarkdown(_text, _font, _textColor, graphics);
+                var controls = CreateControlsFromMarkdown(_text, graphics);
                 
-                // Calculate layout
-                MarkdownToEto.CalculateSegmentLayout(segments, Width, _padding, graphics);
-                
-                // Calculate height based on segment positions
-                // Group segments by their Y position to find the tallest segment in each line
-                var lineGroups = segments.GroupBy(s => s.Y).OrderBy(g => g.Key);
-                float totalHeight = _padding; // Start with top padding
-                
-                foreach (var lineGroup in lineGroups)
+                // Add controls to layout
+                foreach (var control in controls)
                 {
-                    float lineHeight = lineGroup.Max(s => graphics.MeasureString(s.Font, s.Text).Height);
-                    totalHeight += lineHeight;
+                    _contentLayout.Items.Add(new StackLayoutItem(control, true) {
+                        VerticalAlignment = VerticalAlignment.Top,
+                        Expand = false // Don't expand to fill available space
+                    });
                 }
-                
-                // Add bottom padding
-                totalHeight += _padding;
-                
-                // Update control height
-                Height = (int)Math.Ceiling(totalHeight);
-                
-                _segments = segments;
             }
         }
 
         /// <summary>
-        /// Paints the control
+        /// Creates Eto.Forms controls from markdown text
         /// </summary>
-        protected override void OnPaint(PaintEventArgs e)
+        private List<Control> CreateControlsFromMarkdown(string markdownText, Graphics graphics)
         {
-            base.OnPaint(e);
+            var result = new List<Control>();
             
-            // Draw background
-            e.Graphics.FillRectangle(_backgroundColor, new RectangleF(0, 0, Width, Height));
+            // Parse markdown
+            var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+            var document = Markdig.Parsers.MarkdownParser.Parse(markdownText, pipeline);
             
-            // Draw text segments
-            foreach (var segment in _segments)
+            // Process each block in the document
+            foreach (var block in document)
             {
-                // Draw segment background if needed
-                if (segment.HasBackground)
-                {
-                    SizeF segmentSize = e.Graphics.MeasureString(segment.Font, segment.Text);
-                    e.Graphics.FillRectangle(
-                        segment.BackgroundColor, 
-                        new RectangleF(segment.X - 2, segment.Y - 2, segmentSize.Width + 4, segmentSize.Height + 4)
-                    );
-                }
-                
-                // Draw blockquote marker if needed
-                if (segment.IsBlockquote)
-                {
-                    // Draw a vertical line to the left of blockquote text
-                    e.Graphics.FillRectangle(
-                        Colors.Gray,
-                        new RectangleF(segment.X - 10, segment.Y, 3, e.Graphics.MeasureString(segment.Font, segment.Text).Height)
-                    );
-                }
-                
-                // Draw horizontal rule if needed
-                if (segment.IsHorizontalRule)
-                {
-                    e.Graphics.DrawLine(
-                        Colors.Gray,
-                        new PointF(_padding, segment.Y + 5),
-                        new PointF(Width - _padding, segment.Y + 5)
-                    );
-                    continue; // Skip text drawing for horizontal rules
-                }
-                
-                // Draw the text with wrapping
-                if (!string.IsNullOrEmpty(segment.Text))
-                {
-                    // Use Eto.Forms' native text wrapping by setting a maximum width
-                    RectangleF textRect = new RectangleF(
-                        segment.X, 
-                        segment.Y, 
-                        Width - segment.X - _padding, // Available width from segment position to right edge
-                        float.MaxValue // No height constraint
-                    );
-                    
-                    // Draw the text with wrapping
-                    e.Graphics.DrawText(segment.Font, new SolidBrush(segment.Color), textRect, segment.Text);
-                }
+                ProcessBlock(block, result, graphics);
             }
+            
+            return result;
         }
 
         /// <summary>
-        /// Called when the control is resized
+        /// Processes a markdown block and converts it to Eto.Forms controls
         /// </summary>
-        protected override void OnSizeChanged(EventArgs e)
+        private void ProcessBlock(Markdig.Syntax.Block block, List<Control> controls, Graphics graphics)
         {
-            base.OnSizeChanged(e);
-            ProcessText();
+            if (block is Markdig.Syntax.HeadingBlock headingBlock)
+            {
+                // Extract the text content
+                string headingText = MarkdownToEto.ExtractInlineText(headingBlock.Inline);
+                
+                // Create a label with appropriate font size based on heading level
+                float size = _font.Size;
+                switch (headingBlock.Level)
+                {
+                    case 1: size = _font.Size * 2.0f; break;
+                    case 2: size = _font.Size * 1.7f; break;
+                    case 3: size = _font.Size * 1.4f; break;
+                    case 4: size = _font.Size * 1.2f; break;
+                    case 5: size = _font.Size * 1.0f; break;
+                    case 6: size = _font.Size * 0.9f; break;
+                }
+                
+                var headingLabel = new Label
+                {
+                    Text = headingText,
+                    Font = new Font(_font.Family, size, _font.Bold ? FontStyle.Bold : FontStyle.None),
+                    TextColor = _textColor,
+                    Wrap = WrapMode.Word,
+                    VerticalAlignment = VerticalAlignment.Top
+                };
+                
+                controls.Add(headingLabel);
+            }
+            else if (block is Markdig.Syntax.ParagraphBlock paragraphBlock)
+            {
+                // Extract the text content with proper inline formatting
+                string paragraphText = MarkdownToEto.ExtractInlineText(paragraphBlock.Inline);
+                
+                // Use a DynamicLayout to handle rich text formatting
+                var richTextLayout = new DynamicLayout
+                {
+                    Padding = new Padding(0),
+                    Spacing = new Size(0, 0)
+                };
+                
+                // Get formatted segments from MarkdownToEto
+                var segments = MarkdownToEto.ProcessMarkdown(paragraphText, _font, _textColor, graphics);
+                
+                // Create a TableLayout for inline formatting
+                var tableLayout = new TableLayout();
+                var row = new TableRow();
+                
+                foreach (var segment in segments)
+                {
+                    var label = new Label
+                    {
+                        Text = segment.Text,
+                        Font = segment.Font,
+                        TextColor = segment.Color,
+                        VerticalAlignment = VerticalAlignment.Top
+                    };
+                    
+                    // Handle links
+                    if (segment.IsLink && !string.IsNullOrEmpty(segment.Url))
+                    {
+                        var linkButton = new LinkButton
+                        {
+                            Text = segment.Text,
+                            Font = segment.Font,
+                            TextColor = Colors.Blue
+                            //VerticalAlignment = VerticalAlignment.Top
+                        };
+                        
+                        // Store URL in Tag for click event
+                        linkButton.Tag = segment.Url;
+                        
+                        // Handle link click
+                        linkButton.Click += (sender, e) => 
+                        {
+                            if (sender is LinkButton lb && lb.Tag is string url)
+                            {
+                                try
+                                {
+                                    Application.Instance.Open(url);
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Show error message if URL can't be opened
+                                    MessageBox.Show($"Could not open link: {ex.Message}", "Error", MessageBoxType.Error);
+                                }
+                            }
+                        };
+                        
+                        row.Cells.Add(linkButton);
+                    }
+                    else
+                    {
+                        row.Cells.Add(label);
+                    }
+                }
+                
+                tableLayout.Rows.Add(row);
+                
+                // Create a container panel for the rich text
+                var richTextPanel = new Panel
+                {
+                    Content = tableLayout,
+                    Padding = new Padding(0),
+                };
+                
+                richTextLayout.Add(richTextPanel);
+                
+                controls.Add(richTextLayout);
+            }
+            else if (block is Markdig.Syntax.ListBlock listBlock)
+            {
+                // Create a stack panel for the list
+                var listPanel = new StackLayout
+                {
+                    Orientation = Orientation.Vertical,
+                    Spacing = 5, // Consistent spacing between items
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    VerticalContentAlignment = VerticalAlignment.Top // Ensure vertical alignment is consistent
+                };
+                
+                // Get the starting index for ordered lists
+                int index = 1; // Default to 1
+                if (listBlock.IsOrdered)
+                {
+                    // Try to parse the OrderedStart value as an integer
+                    if (int.TryParse(listBlock.OrderedStart.ToString(), out int parsedValue))
+                    {
+                        index = parsedValue;
+                    }
+                }
+                
+                foreach (var item in listBlock)
+                {
+                    if (item is Markdig.Syntax.ListItemBlock listItemBlock)
+                    {
+                        // Extract the text content
+                        string itemText = MarkdownToEto.ExtractBlockText(listItemBlock);
+                        
+                        // Create layout for this list item
+                        var itemLayout = new StackLayout
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 5,
+                            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                            VerticalContentAlignment = VerticalAlignment.Top // Ensure vertical alignment is consistent
+                        };
+                        
+                        // Create marker based on list type
+                        string marker = listBlock.IsOrdered ? $"{index}." : "•";
+                        var markerLabel = new Label
+                        {
+                            Text = marker,
+                            Font = _font,
+                            TextColor = _textColor,
+                            Width = 20,
+                            TextAlignment = TextAlignment.Right,
+                            VerticalAlignment = VerticalAlignment.Top,
+                            Height = (int)_font.LineHeight
+                        };
+                        
+                        // Add marker to layout
+                        itemLayout.Items.Add(new StackLayoutItem(markerLabel, false) {
+                            VerticalAlignment = VerticalAlignment.Top
+                        });
+                        
+                        // Create rich text content using the same approach as paragraphs
+                        var contentTable = new TableLayout();
+                        var contentRow = new TableRow();
+                        
+                        // Get formatted segments from MarkdownToEto
+                        var segments = MarkdownToEto.ProcessMarkdown(itemText, _font, _textColor, graphics);
+                        
+                        foreach (var segment in segments)
+                        {
+                            if (segment.IsLink && !string.IsNullOrEmpty(segment.Url))
+                            {
+                                var linkButton = new LinkButton
+                                {
+                                    Text = segment.Text,
+                                    Font = segment.Font,
+                                    TextColor = Colors.Blue
+                                    //VerticalAlignment = VerticalAlignment.Top
+                                };
+                                
+                                // Store URL in Tag for click event
+                                linkButton.Tag = segment.Url;
+                                
+                                // Handle link click
+                                linkButton.Click += (sender, e) => 
+                                {
+                                    if (sender is LinkButton lb && lb.Tag is string url)
+                                    {
+                                        try
+                                        {
+                                            Application.Instance.Open(url);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            MessageBox.Show($"Could not open link: {ex.Message}", "Error", MessageBoxType.Error);
+                                        }
+                                    }
+                                };
+                                
+                                contentRow.Cells.Add(linkButton);
+                            }
+                            else
+                            {
+                                // Regular text segment
+                                var segmentLabel = new Label
+                                {
+                                    Text = segment.Text,
+                                    Font = segment.Font,
+                                    TextColor = segment.Color,
+                                    VerticalAlignment = VerticalAlignment.Top
+                                };
+                                
+                                contentRow.Cells.Add(segmentLabel);
+                            }
+                        }
+                        
+                        contentTable.Rows.Add(contentRow);
+                        
+                        // Add content to layout
+                        itemLayout.Items.Add(new StackLayoutItem(contentTable, true) {
+                            VerticalAlignment = VerticalAlignment.Top
+                        });
+                        
+                        // Add item to list
+                        listPanel.Items.Add(new StackLayoutItem(itemLayout, true) {
+                            VerticalAlignment = VerticalAlignment.Top,
+                            Expand = false // Don't expand to fill available space
+                        });
+                        
+                        // Increment index for ordered lists
+                        if (listBlock.IsOrdered)
+                        {
+                            index++;
+                        }
+                    }
+                }
+                
+                // Add list to controls
+                controls.Add(listPanel);
+            }
+            else if (block is Markdig.Syntax.FencedCodeBlock fencedCodeBlock || block is Markdig.Syntax.CodeBlock codeBlock)
+            {
+                // Extract code content
+                string codeContent = block is Markdig.Syntax.FencedCodeBlock ? 
+                    MarkdownToEto.ExtractCodeBlockContent((Markdig.Syntax.FencedCodeBlock)block) : 
+                    MarkdownToEto.ExtractCodeBlockContent((Markdig.Syntax.CodeBlock)block);
+                
+                // Create a code panel
+                var codePanel = new Panel
+                {
+                    BackgroundColor = Colors.LightGrey,
+                    Padding = new Padding(5),
+                    MinimumSize = new Size(0, 10)
+                };
+                
+                // Create a label with monospace font
+                var codeLabel = new Label
+                {
+                    Text = codeContent,
+                    Font = new Font(FontFamilies.Monospace, _font.Size),
+                    TextColor = _textColor,
+                    Wrap = WrapMode.Word,
+                    VerticalAlignment = VerticalAlignment.Top
+                };
+                
+                codePanel.Content = codeLabel;
+                controls.Add(codePanel);
+                
+                // Use a minimal spacing marker
+                var spacer = new Panel { 
+                    Size = new Size(0, 2),
+                    MinimumSize = new Size(0, 2),
+                    BackgroundColor = Colors.Red
+                };
+                controls.Add(spacer);
+            }
+            else if (block is Markdig.Syntax.QuoteBlock quoteBlock)
+            {
+                // Extract quote content
+                string quoteText = MarkdownToEto.ExtractBlockText(quoteBlock);
+                
+                // Create quote panel with a border
+                var quotePanel = new Panel
+                {
+                    Padding = new Padding(10, 0, 0, 0)
+                };
+                
+                // Add a left border to the panel
+                var borderDrawable = new Drawable
+                {
+                    Width = 3,
+                    BackgroundColor = Colors.Gray
+                };
+                
+                var quoteLayout = new StackLayout
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 7,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch
+                };
+                
+                var quoteLabel = new Label
+                {
+                    Text = quoteText,
+                    Font = _font,
+                    TextColor = _textColor,
+                    Wrap = WrapMode.Word,
+                    VerticalAlignment = VerticalAlignment.Top
+                };
+                
+                quoteLayout.Items.Add(new StackLayoutItem(borderDrawable, false));
+                quoteLayout.Items.Add(new StackLayoutItem(quoteLabel, true));
+                
+                quotePanel.Content = quoteLayout;
+                controls.Add(quotePanel);
+            }
+            else if (block is Markdig.Syntax.ThematicBreakBlock)
+            {
+                // Create a horizontal rule
+                var hrPanel = new Panel
+                {
+                    Height = 20
+                };
+                
+                var hrDrawable = new Drawable();
+                hrDrawable.Paint += (sender, e) =>
+                {
+                    e.Graphics.DrawLine(Colors.Gray, 
+                        new PointF(0, e.ClipRectangle.Height / 2), 
+                        new PointF(e.ClipRectangle.Width, e.ClipRectangle.Height / 2));
+                };
+                
+                hrPanel.Content = hrDrawable;
+                controls.Add(hrPanel);
+            }
         }
     }
 }
