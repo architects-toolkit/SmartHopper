@@ -42,6 +42,7 @@ namespace SmartHopper.Core.Converters
             public string ListMarker { get; set; }
             public bool IsLink { get; set; }
             public string Url { get; set; }
+            public bool IsHorizontalRule { get; set; }
         }
 
         /// <summary>
@@ -102,7 +103,7 @@ namespace SmartHopper.Core.Converters
                 if (line.Trim().StartsWith("```"))
                 {
                     StringBuilder codeBlock = new StringBuilder();
-                    string language = line.Trim().Substring(3).Trim(); // Extract language identifier if present
+                    //string language = line.Trim().Substring(3).Trim(); // Extract language identifier if present
                     i++; // Move to the next line
                     
                     // Collect all lines until the closing ```
@@ -113,7 +114,20 @@ namespace SmartHopper.Core.Converters
                     }
                     
                     // Process the code block
-                    ProcessCodeBlockContent(codeBlock.ToString(), defaultFont, defaultColor, segments);
+                    ProcessCodeBlockContent(codeBlock.ToString(), defaultFont, segments);
+                    continue;
+                }
+                
+                // Check for horizontal rule
+                if (line.Trim().Equals("---") || line.Trim().Equals("***") || line.Trim().Equals("___"))
+                {
+                    segments.Add(new TextSegment { 
+                        Text = string.Empty, 
+                        Font = defaultFont, 
+                        Color = defaultColor, 
+                        IsLineBreak = true,
+                        IsHorizontalRule = true
+                    });
                     continue;
                 }
                 
@@ -125,7 +139,7 @@ namespace SmartHopper.Core.Converters
                     
                     // Process the blockquote text for inline formatting
                     var quoteSegments = new List<TextSegment>();
-                    ProcessInlineFormatting(quoteText, availableWidth - 10, defaultFont, defaultColor, graphics, quoteSegments);
+                    ProcessInlineFormatting(quoteText, defaultFont, defaultColor, quoteSegments);
                     
                     // Add the blockquote with proper formatting
                     foreach (var segment in quoteSegments)
@@ -163,7 +177,7 @@ namespace SmartHopper.Core.Converters
                     string itemText = unorderedListMatch.Groups[3].Value;
                     int indentLevel = indent.Length / 2;
                     
-                    ProcessListItem(itemText, indentLevel, marker, false, availableWidth, defaultFont, defaultColor, graphics, segments);
+                    ProcessListItem(itemText, indentLevel, marker, false, defaultFont, defaultColor, segments);
                     continue;
                 }
                 
@@ -176,12 +190,12 @@ namespace SmartHopper.Core.Converters
                     string itemText = orderedListMatch.Groups[3].Value;
                     int indentLevel = indent.Length / 2;
                     
-                    ProcessListItem(itemText, indentLevel, number, true, availableWidth, defaultFont, defaultColor, graphics, segments);
+                    ProcessListItem(itemText, indentLevel, number, true, defaultFont, defaultColor, segments);
                     continue;
                 }
                 
                 // Process regular line with inline formatting
-                ProcessInlineFormatting(line, availableWidth, defaultFont, defaultColor, graphics, segments);
+                ProcessInlineFormatting(line, defaultFont, defaultColor, segments);
             }
             
             return segments;
@@ -202,7 +216,7 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Processes a code block's content
         /// </summary>
-        private static void ProcessCodeBlockContent(string codeContent, Font defaultFont, Color defaultColor, List<TextSegment> segments)
+        private static void ProcessCodeBlockContent(string codeContent, Font defaultFont, List<TextSegment> segments)
         {
             var codeFont = new Font(FontFamilies.Monospace, defaultFont.Size);
             
@@ -223,27 +237,37 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Processes a list item
         /// </summary>
-        private static void ProcessListItem(string itemText, int indentLevel, string marker, bool isOrdered, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics, List<TextSegment> segments)
+        private static void ProcessListItem(string itemText, int indentLevel, string marker, bool isOrdered, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
             // Process the item text for inline formatting
             var itemSegments = new List<TextSegment>();
-            ProcessInlineFormatting(itemText, availableWidth - 20 * (indentLevel + 1), defaultFont, defaultColor, graphics, itemSegments);
+            ProcessInlineFormatting(itemText, defaultFont, defaultColor, itemSegments);
             
-            // Add the list item with proper indentation
+            // Set list properties for all segments
             foreach (var segment in itemSegments)
             {
                 segment.IsList = true;
                 segment.IsOrderedList = isOrdered;
                 segment.ListIndent = indentLevel;
                 segment.ListMarker = isOrdered ? marker + "." : marker;
-                segments.Add(segment);
             }
             
-            // Make sure the last segment has a line break
-            if (itemSegments.Count > 0)
+            // Add a line break at the end
+            if (itemSegments.Count > 0 && !itemSegments[itemSegments.Count - 1].IsLineBreak)
             {
-                itemSegments[itemSegments.Count - 1].IsLineBreak = true;
+                itemSegments.Add(new TextSegment { 
+                    Text = string.Empty, 
+                    Font = defaultFont, 
+                    Color = defaultColor, 
+                    IsLineBreak = true,
+                    IsList = true,
+                    IsOrderedList = isOrdered,
+                    ListIndent = indentLevel,
+                    ListMarker = isOrdered ? marker + "." : marker
+                });
             }
+            
+            segments.AddRange(itemSegments);
         }
 
         /// <summary>
@@ -353,7 +377,7 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Processes inline formatting in markdown
         /// </summary>
-        private static void ProcessInlineFormatting(string line, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics, List<TextSegment> segments)
+        private static void ProcessInlineFormatting(string line, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
             // Find all formatting spans in the line
             var formatSpans = FindFormatSpans(line);
@@ -410,70 +434,11 @@ namespace SmartHopper.Core.Converters
                 currentIndex = span.EndIndex;
             }
             
-            // Add any remaining text
+            // Add any remaining text after the last format span
             if (currentIndex < line.Length)
             {
-                string remainingText = line.Substring(currentIndex);
-                segments.Add(new TextSegment { Text = remainingText, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-            }
-            else
-            {
-                // Ensure line break at the end
-                segments[segments.Count - 1].IsLineBreak = true;
-            }
-        }
-
-        /// <summary>
-        /// Wraps text into multiple segments based on available width
-        /// </summary>
-        private static void WrapTextIntoSegments(string text, int availableWidth, Graphics graphics, Font font, Color color, List<TextSegment> segments)
-        {
-            string[] words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            StringBuilder currentLine = new StringBuilder();
-            
-            foreach (string word in words)
-            {
-                string testLine = currentLine.ToString();
-                if (testLine.Length > 0)
-                    testLine += " ";
-                testLine += word;
-                
-                SizeF testSize = graphics.MeasureString(font, testLine);
-                
-                if (testSize.Width <= availableWidth)
-                {
-                    // Word fits on the current line
-                    if (currentLine.Length > 0)
-                        currentLine.Append(" ");
-                    currentLine.Append(word);
-                }
-                else
-                {
-                    // Word doesn't fit, create a new line
-                    if (currentLine.Length > 0)
-                    {
-                        segments.Add(new TextSegment { Text = currentLine.ToString(), Font = font, Color = color, IsLineBreak = true });
-                        currentLine.Clear();
-                    }
-                    
-                    // If the word itself is too long, we need to break it
-                    if (graphics.MeasureString(font, word).Width > availableWidth)
-                    {
-                        // This is a simplified approach - in a real implementation
-                        // you'd want to break the word at character boundaries
-                        currentLine.Append(word);
-                    }
-                    else
-                    {
-                        currentLine.Append(word);
-                    }
-                }
-            }
-            
-            // Add the last line if there's anything left
-            if (currentLine.Length > 0)
-            {
-                segments.Add(new TextSegment { Text = currentLine.ToString(), Font = font, Color = color, IsLineBreak = true });
+                string afterText = line.Substring(currentIndex);
+                segments.Add(new TextSegment { Text = afterText, Font = defaultFont, Color = defaultColor });
             }
         }
 
@@ -482,40 +447,233 @@ namespace SmartHopper.Core.Converters
         /// </summary>
         public static void CalculateSegmentLayout(List<TextSegment> segments, int width, int padding, Graphics graphics)
         {
-            float y = padding;
-            float x = padding;
+            float currentX = padding;
+            float currentY = padding;
             float lineHeight = 0;
+            float availableWidth = width - (padding * 2);
+            
+            // Group segments by line breaks
+            var currentLine = new List<TextSegment>();
             
             foreach (var segment in segments)
             {
-                SizeF segmentSize = graphics.MeasureString(segment.Font, segment.Text);
-                
-                // If this segment would exceed the width, move to the next line
-                if (x + segmentSize.Width > width - padding && x > padding)
-                {
-                    y += lineHeight;
-                    x = padding;
-                    lineHeight = 0;
-                }
-                
-                // Update segment position
-                segment.X = x;
-                segment.Y = y;
-                
-                // Update position for next segment
-                x += segmentSize.Width;
-                
-                // Update line height if this segment is taller
-                lineHeight = Math.Max(lineHeight, segmentSize.Height);
-                
-                // If this is a line break, move to the next line
                 if (segment.IsLineBreak)
                 {
-                    y += lineHeight;
-                    x = padding;
-                    lineHeight = 0;
+                    // Process the current line
+                    LayoutLine(currentLine, currentX, currentY, availableWidth, graphics);
+                    
+                    // Calculate the max height of this line
+                    lineHeight = currentLine.Count > 0 
+                        ? currentLine.Max(s => graphics.MeasureString(s.Font, s.Text).Height) 
+                        : 0;
+                    
+                    // Move to the next line
+                    currentY += lineHeight > 0 ? lineHeight : 20;
+                    currentX = padding;
+                    currentLine.Clear();
+                    
+                    // Skip the rest for line break segments
+                    segment.X = currentX;
+                    segment.Y = currentY;
+                    
+                    // Add extra space for horizontal rules
+                    if (segment.IsHorizontalRule)
+                    {
+                        currentY += 20; // Add space after horizontal rule
+                    }
+                    
+                    continue;
+                }
+                
+                // Handle list indentation
+                if (segment.IsList)
+                {
+                    float indentSize = 20; // Base indent size
+                    float markerWidth = 15; // Width for the marker (bullet or number)
+                    float totalIndent = (segment.ListIndent * indentSize) + markerWidth + 5; // Add extra space between marker and text
+                    
+                    // If this is the first segment of a list item, adjust X position
+                    if (currentLine.Count == 0)
+                    {
+                        currentX = padding + totalIndent;
+                    }
+                }
+                
+                // Handle blockquote indentation
+                if (segment.IsBlockquote && currentLine.Count == 0)
+                {
+                    currentX = padding + 15; // Add extra indentation for blockquotes
+                }
+                
+                // Add segment to current line
+                segment.X = currentX;
+                segment.Y = currentY;
+                currentLine.Add(segment);
+                
+                // Move X position for next segment
+                currentX += graphics.MeasureString(segment.Font, segment.Text).Width;
+            }
+            
+            // Process the last line if not empty
+            if (currentLine.Count > 0)
+            {
+                LayoutLine(currentLine, padding, currentY, availableWidth, graphics);
+            }
+        }
+
+        /// <summary>
+        /// Layouts a single line of text segments with word wrapping
+        /// </summary>
+        private static void LayoutLine(List<TextSegment> line, float startX, float startY, float availableWidth, Graphics graphics)
+        {
+            if (line.Count == 0)
+                return;
+                
+            float currentX = startX;
+            float currentY = startY;
+            float lineHeight = line.Max(s => graphics.MeasureString(s.Font, s.Text).Height);
+            
+            // Check if the line needs wrapping
+            float totalWidth = 0;
+            foreach (var segment in line)
+            {
+                totalWidth += graphics.MeasureString(segment.Font, segment.Text).Width;
+                if (totalWidth > availableWidth)
+                    break;
+            }
+            
+            if (totalWidth <= availableWidth)
+            {
+                // No wrapping needed, just update X positions
+                foreach (var segment in line)
+                {
+                    segment.X = currentX;
+                    segment.Y = currentY;
+                    currentX += graphics.MeasureString(segment.Font, segment.Text).Width;
+                }
+                return;
+            }
+            
+            // Need to wrap text
+            List<TextSegment> newSegments = new List<TextSegment>();
+            List<TextSegment> segmentsToRemove = new List<TextSegment>();
+            
+            foreach (var segment in line)
+            {
+                // Get the text and measure it
+                string text = segment.Text;
+                SizeF textSize = graphics.MeasureString(segment.Font, text);
+                
+                // If this segment fits on the current line, add it
+                if (currentX + textSize.Width <= startX + availableWidth)
+                {
+                    segment.X = currentX;
+                    segment.Y = currentY;
+                    currentX += textSize.Width;
+                    continue;
+                }
+                
+                // This segment doesn't fit, try to wrap it
+                segmentsToRemove.Add(segment);
+                string[] words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                string currentWord = "";
+                float wordX = currentX;
+                
+                foreach (string word in words)
+                {
+                    // Measure this word with a space
+                    string wordWithSpace = currentWord.Length > 0 ? currentWord + " " + word : word;
+                    SizeF wordSize = graphics.MeasureString(segment.Font, wordWithSpace);
+                    
+                    // If it fits on this line, add it to the current word
+                    if (wordX + wordSize.Width <= startX + availableWidth)
+                    {
+                        currentWord = wordWithSpace;
+                    }
+                    else
+                    {
+                        // This word doesn't fit, create a new segment for the current word
+                        if (currentWord.Length > 0)
+                        {
+                            var newSegment = new TextSegment
+                            {
+                                Text = currentWord,
+                                Font = segment.Font,
+                                Color = segment.Color,
+                                X = wordX,
+                                Y = currentY,
+                                HasBackground = segment.HasBackground,
+                                BackgroundColor = segment.BackgroundColor,
+                                IsBlockquote = segment.IsBlockquote,
+                                IsList = segment.IsList,
+                                IsOrderedList = segment.IsOrderedList,
+                                ListIndent = segment.ListIndent,
+                                ListMarker = segment.ListMarker,
+                                IsLink = segment.IsLink,
+                                Url = segment.Url
+                            };
+                            
+                            newSegments.Add(newSegment);
+                        }
+                        
+                        // Move to the next line
+                        currentY += lineHeight;
+                        wordX = startX;
+                        
+                        // Handle list and blockquote indentation on wrapped lines
+                        if (segment.IsList)
+                        {
+                            float indentSize = 20; // Base indent size
+                            float markerWidth = 15; // Width for the marker (bullet or number)
+                            float totalIndent = (segment.ListIndent * indentSize) + markerWidth + 5; // Add extra space between marker and text
+                            wordX += totalIndent;
+                        }
+                        else if (segment.IsBlockquote)
+                        {
+                            wordX += 15; // Add extra indentation for blockquotes
+                        }
+                        
+                        // Start with this word on the new line
+                        currentWord = word;
+                    }
+                }
+                
+                // Add the last word if there is one
+                if (currentWord.Length > 0)
+                {
+                    var lastSegment = new TextSegment
+                    {
+                        Text = currentWord,
+                        Font = segment.Font,
+                        Color = segment.Color,
+                        X = wordX,
+                        Y = currentY,
+                        HasBackground = segment.HasBackground,
+                        BackgroundColor = segment.BackgroundColor,
+                        IsBlockquote = segment.IsBlockquote,
+                        IsList = segment.IsList,
+                        IsOrderedList = segment.IsOrderedList,
+                        ListIndent = segment.ListIndent,
+                        ListMarker = segment.ListMarker,
+                        IsLink = segment.IsLink,
+                        Url = segment.Url
+                    };
+                    
+                    newSegments.Add(lastSegment);
+                    
+                    // Update currentX for the next segment
+                    currentX = wordX + graphics.MeasureString(segment.Font, currentWord).Width;
                 }
             }
+            
+            // Remove the original segments that were wrapped
+            foreach (var segment in segmentsToRemove)
+            {
+                line.Remove(segment);
+            }
+            
+            // Add all the new segments to the line
+            line.AddRange(newSegments);
         }
     }
 }

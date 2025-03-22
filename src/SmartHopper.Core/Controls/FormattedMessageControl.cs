@@ -28,7 +28,7 @@ namespace SmartHopper.Core.Controls
         private Color _textColor;
         private Color _backgroundColor;
         private int _padding;
-        private readonly List<MarkdownToEto.TextSegment> _segments = new List<MarkdownToEto.TextSegment>();
+        private List<MarkdownToEto.TextSegment> _segments;
 
         /// <summary>
         /// Gets or sets the text content to display
@@ -123,6 +123,7 @@ namespace SmartHopper.Core.Controls
             _textColor = Colors.Black;
             _backgroundColor = Colors.Transparent;
             _padding = 10;
+            _segments = new List<MarkdownToEto.TextSegment>();
 
             // Enable mouse events for selection and context menu
             CanFocus = true;
@@ -132,47 +133,43 @@ namespace SmartHopper.Core.Controls
         }
 
         /// <summary>
-        /// Processes the text and creates formatted segments
+        /// Processes text into segments and calculates layout
         /// </summary>
         private void ProcessText()
         {
-            _segments.Clear();
-            
             if (string.IsNullOrEmpty(_text))
+            {
+                _segments.Clear();
+                Height = _padding * 2;
                 return;
-
-            // Get the available width for text
-            int availableWidth = Width - (_padding * 2);
-            if (availableWidth <= 0)
-                return;
-
+            }
+            
+            // Process markdown into segments
             using (var graphics = new Graphics(new Bitmap(1, 1, PixelFormat.Format32bppRgba)))
             {
-                // Always process as markdown
-                _segments.AddRange(MarkdownToEto.ProcessMarkdown(_text, availableWidth, _font, _textColor, graphics));
-
-                // Calculate the layout of segments
-                MarkdownToEto.CalculateSegmentLayout(_segments, Width, _padding, graphics);
+                var segments = MarkdownToEto.ProcessMarkdown(_text, Width - (_padding * 2), _font, _textColor, graphics);
                 
-                // Calculate the required height based on the segments
-                float totalHeight = 0;
+                // Calculate layout
+                MarkdownToEto.CalculateSegmentLayout(segments, Width, _padding, graphics);
                 
-                // Group segments by their Y position to properly calculate line heights
-                var lineGroups = _segments.GroupBy(s => s.Y).OrderBy(g => g.Key);
+                // Calculate height based on segment positions
+                // Group segments by their Y position to find the tallest segment in each line
+                var lineGroups = segments.GroupBy(s => s.Y).OrderBy(g => g.Key);
+                float totalHeight = _padding; // Start with top padding
                 
                 foreach (var lineGroup in lineGroups)
                 {
-                    float lineHeight = 0;
-                    foreach (var segment in lineGroup)
-                    {
-                        SizeF segmentSize = graphics.MeasureString(segment.Font, segment.Text);
-                        lineHeight = Math.Max(lineHeight, segmentSize.Height);
-                    }
+                    float lineHeight = lineGroup.Max(s => graphics.MeasureString(s.Font, s.Text).Height);
                     totalHeight += lineHeight;
                 }
                 
-                // Set the height of the control to fit the content
-                Height = (int)Math.Ceiling(totalHeight + (_padding * 2));
+                // Add bottom padding
+                totalHeight += _padding;
+                
+                // Update control height
+                Height = (int)Math.Ceiling(totalHeight);
+                
+                _segments = segments;
             }
         }
 
@@ -202,9 +199,17 @@ namespace SmartHopper.Core.Controls
                 // Draw blockquote marker if needed
                 if (segment.IsBlockquote)
                 {
+                    SizeF segmentSize = e.Graphics.MeasureString(segment.Font, segment.Text);
+                    // Draw background rectangle
+                    e.Graphics.FillRectangle(
+                        new Color(Colors.Blue, 0.3f), 
+                        new RectangleF(segment.X - 10, segment.Y - 2, Width - segment.X, segmentSize.Height + 4)
+                    );
+                    
+                    // Draw left border
                     e.Graphics.FillRectangle(
                         Colors.Gray, 
-                        new RectangleF(segment.X - _padding, segment.Y, 3, e.Graphics.MeasureString(segment.Font, segment.Text).Height)
+                        new RectangleF(segment.X - 10, segment.Y - 2, 3, segmentSize.Height + 4)
                     );
                 }
                 
@@ -212,7 +217,8 @@ namespace SmartHopper.Core.Controls
                 if (segment.IsList)
                 {
                     float indentSize = 20; // Base indent size
-                    float markerX = segment.X - indentSize;
+                    float markerWidth = 15; // Width for the marker (bullet or number)
+                    float markerX = segment.X - markerWidth - 5; // Position marker with 5px gap before text
                     float markerY = segment.Y;
                     
                     // Apply indentation based on list level
@@ -227,7 +233,7 @@ namespace SmartHopper.Core.Controls
                     else
                     {
                         // Draw unordered list marker (bullet)
-                        float bulletSize = segment.Font.Size / 3;
+                        float bulletSize = segment.Font.Size / 2;
                         float bulletY = markerY + (segment.Font.Size / 2) - (bulletSize / 2);
                         
                         e.Graphics.FillEllipse(
@@ -235,6 +241,21 @@ namespace SmartHopper.Core.Controls
                             new RectangleF(markerX + 2, bulletY, bulletSize, bulletSize)
                         );
                     }
+                }
+                
+                // Draw horizontal rule if needed
+                if (segment.IsHorizontalRule)
+                {
+                    float ruleHeight = 2;
+                    float ruleY = segment.Y + (segment.Font.Size / 2) - (ruleHeight / 2);
+                    
+                    e.Graphics.FillRectangle(
+                        Colors.Gray,
+                        new RectangleF(_padding, ruleY, Width - (_padding * 2), ruleHeight)
+                    );
+                    
+                    // Skip drawing text for horizontal rules
+                    continue;
                 }
                 
                 // Draw the text
