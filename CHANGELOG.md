@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added the new AIChat component with interactive chat interface.
-- Added ChatDialog class using Avalonia for a modern chat UI experience.
+- Added ChatDialog class using Eto.Forms for a cross-platform chat UI experience.
 - Added ChatUtils class with helper methods for AI chat interactions.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
 - Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- Deprecated MarkdownToEtoConverter class in favor of Markdown.Avalonia
+<!-- - Deprecated MarkdownToEtoConverter class in favor of Markdown.Avalonia -->
 
 ### Removed
 
