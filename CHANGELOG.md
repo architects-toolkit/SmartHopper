@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
 - Fixed Markdown formatting in lists to properly display bold and italic text.
 - Fixed combined formatting (bold+italic) in Markdown text.
+- Improved Markdown rendering with native Eto.Forms text wrapping for better line breaks and text layout
+- Fixed heading positioning and spacing in Markdown rendered text
+- Simplified text segment layout calculation for better performance and maintainability
+- Fixed build errors in MarkdownToEto and FormattedMessageControl classes to ensure compatibility with the latest Markdig and Eto.Forms libraries
 
 ## [0.1.2-alpha] - 2025-03-17
 
