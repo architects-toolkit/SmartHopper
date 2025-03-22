@@ -389,22 +389,49 @@ namespace SmartHopper.Core.Converters
             {
                 if (block is Markdig.Syntax.HeadingBlock headingBlock)
                 {
-                    ProcessHeadingLine(new string('#', headingBlock.Level), headingBlock.Inline.ToString(), font, textColor, segments);
+                    // Extract the actual text content from the heading inline
+                    string headingText = ExtractInlineText(headingBlock.Inline);
+                    ProcessHeadingLine(new string('#', headingBlock.Level), headingText, font, textColor, segments);
                 }
                 else if (block is Markdig.Syntax.ParagraphBlock paragraphBlock)
                 {
-                    ProcessInlineFormatting(paragraphBlock.Inline.ToString(), font, textColor, segments);
+                    // Extract the actual text content from the paragraph inline
+                    string paragraphText = ExtractInlineText(paragraphBlock.Inline);
+                    ProcessInlineFormatting(paragraphText, font, textColor, segments);
                 }
                 else if (block is Markdig.Syntax.ListBlock listBlock)
                 {
                     foreach (var item in listBlock)
                     {
-                        ProcessListItem(item.ToString(), indentLevel, "", false, font, textColor, segments);
+                        if (item is Markdig.Syntax.ListItemBlock listItemBlock)
+                        {
+                            // Process each block within the list item
+                            var childDocument = new Markdig.Syntax.MarkdownDocument();
+                            foreach (var childBlock in listItemBlock)
+                            {
+                                childDocument.Add(childBlock);
+                            }
+                            
+                            // Use ordered list marker if the parent list is ordered
+                            bool isOrdered = listBlock.IsOrdered;
+                            string marker = isOrdered ? listBlock.OrderedStart.ToString() : "";
+                            
+                            // Process the list item blocks
+                            ProcessListItem(ExtractBlockText(listItemBlock), indentLevel, marker, isOrdered, font, textColor, segments);
+                        }
                     }
+                }
+                else if (block is Markdig.Syntax.FencedCodeBlock fencedCodeBlock)
+                {
+                    // Extract code content from the fenced code block
+                    string codeContent = ExtractCodeBlockContent(fencedCodeBlock);
+                    ProcessCodeBlockContent(codeContent, font, segments);
                 }
                 else if (block is Markdig.Syntax.CodeBlock codeBlock)
                 {
-                    ProcessCodeBlockContent(codeBlock.ToString(), font, segments);
+                    // Extract code content from the regular code block
+                    string codeContent = ExtractCodeBlockContent(codeBlock);
+                    ProcessCodeBlockContent(codeContent, font, segments);
                 }
                 else if (block is Markdig.Syntax.QuoteBlock quoteBlock)
                 {
@@ -415,7 +442,130 @@ namespace SmartHopper.Core.Converters
                         ProcessBlocks(childDocument, segments, font, textColor, indentLevel + 1);
                     }
                 }
+                else if (block is Markdig.Syntax.ThematicBreakBlock)
+                {
+                    // Add a horizontal rule
+                    segments.Add(new TextSegment
+                    {
+                        Text = "",
+                        Font = font,
+                        Color = textColor,
+                        IsHorizontalRule = true,
+                        IsLineBreak = true
+                    });
+                }
             }
+        }
+
+        /// <summary>
+        /// Extracts text content from an inline container
+        /// </summary>
+        private static string ExtractInlineText(Markdig.Syntax.Inlines.ContainerInline inline)
+        {
+            if (inline == null)
+                return string.Empty;
+            
+            var text = new System.Text.StringBuilder();
+            
+            foreach (var item in inline)
+            {
+                if (item is Markdig.Syntax.Inlines.LiteralInline literal)
+                {
+                    text.Append(literal.Content.ToString());
+                }
+                else if (item is Markdig.Syntax.Inlines.EmphasisInline emphasis)
+                {
+                    // Add the emphasis markers
+                    string marker = emphasis.DelimiterChar.ToString();
+                    int count = emphasis.DelimiterCount;
+                    
+                    text.Append(new string(emphasis.DelimiterChar, count));
+                    text.Append(ExtractInlineText(emphasis));
+                    text.Append(new string(emphasis.DelimiterChar, count));
+                }
+                else if (item is Markdig.Syntax.Inlines.LinkInline link)
+                {
+                    if (link.IsImage)
+                    {
+                        text.Append($"![{ExtractInlineText(link)}]({link.Url})");
+                    }
+                    else
+                    {
+                        text.Append($"[{ExtractInlineText(link)}]({link.Url})");
+                    }
+                }
+                else if (item is Markdig.Syntax.Inlines.CodeInline code)
+                {
+                    text.Append($"`{code.Content}`");
+                }
+                else if (item is Markdig.Syntax.Inlines.LineBreakInline)
+                {
+                    text.Append("\n");
+                }
+                else if (item is Markdig.Syntax.Inlines.ContainerInline container)
+                {
+                    text.Append(ExtractInlineText(container));
+                }
+            }
+            
+            return text.ToString();
+        }
+
+        /// <summary>
+        /// Extracts text content from a code block
+        /// </summary>
+        private static string ExtractCodeBlockContent(Markdig.Syntax.CodeBlock codeBlock)
+        {
+            if (codeBlock == null)
+                return string.Empty;
+            
+            var text = new System.Text.StringBuilder();
+            
+            // Extract lines from the code block
+            foreach (var line in codeBlock.Lines.Lines)
+            {
+                if (line.Slice.Length > 0)
+                {
+                    text.AppendLine(line.Slice.ToString());
+                }
+                else
+                {
+                    text.AppendLine();
+                }
+            }
+            
+            return text.ToString().TrimEnd();
+        }
+
+        /// <summary>
+        /// Extracts text content from a block
+        /// </summary>
+        private static string ExtractBlockText(Markdig.Syntax.Block block)
+        {
+            if (block == null)
+                return string.Empty;
+            
+            var text = new System.Text.StringBuilder();
+            
+            if (block is Markdig.Syntax.LeafBlock leafBlock && leafBlock.Inline != null)
+            {
+                text.Append(ExtractInlineText(leafBlock.Inline));
+            }
+            else if (block is Markdig.Syntax.ContainerBlock containerBlock)
+            {
+                foreach (var childBlock in containerBlock)
+                {
+                    text.Append(ExtractBlockText(childBlock));
+                    
+                    // Add a line break between blocks
+                    if (childBlock != containerBlock.LastChild)
+                    {
+                        text.AppendLine();
+                    }
+                }
+            }
+            
+            return text.ToString();
         }
     }
 }
