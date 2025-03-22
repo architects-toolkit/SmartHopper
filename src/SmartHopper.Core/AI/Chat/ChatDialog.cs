@@ -21,8 +21,8 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
-using SmartHopper.Core.Utils;
-using System.Diagnostics;
+using SmartHopper.Core.Controls;
+using SmartHopper.Core.Converters;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -242,213 +242,65 @@ namespace SmartHopper.Core.AI.Chat
         {
             Color bubbleColor;
             bool isUserMessage = false;
-            string displayRole;
-
-            // Set bubble color and alignment based on role
+            
             switch (role)
             {
                 case "user":
-                    bubbleColor = _userBubbleColor;
+                    bubbleColor = Colors.LightGreen;
                     isUserMessage = true;
-                    displayRole = "You";
                     break;
                 case "assistant":
-                    bubbleColor = _botBubbleColor;
-                    displayRole = "AI";
+                    bubbleColor = Colors.LightSkyBlue;
                     break;
                 case "system":
-                    bubbleColor = _systemBubbleColor;
-                    displayRole = "System";
+                    bubbleColor = Colors.LightGray;
                     break;
                 default:
-                    bubbleColor = _botBubbleColor;
-                    displayRole = role;
+                    bubbleColor = Colors.White;
                     break;
             }
-
-            // Calculate message width based on dialog width
-            int messageWidth = Math.Max(MinMessageWidth, (int)(this.Width * MaxMessageWidthPercentage));
-
-            // Create the message content
-            Control messageContent;
             
-            // For assistant messages, use a WebView with HTML for better markdown rendering
-            if (role == "assistant")
+            // Create a bubble container
+            var bubble = new StackLayout
             {
-                // Convert markdown to HTML
-                string html = MarkdownToHtml(content);
-                
-                // Use a TextArea with styling to hide scrollbars
-                var textArea = new TextArea
-                {
-                    Text = content,
-                    ReadOnly = true,
-                    Wrap = true,
-                    Width = messageWidth - 20, // Account for padding
-                };
-                
-                // Calculate approximate height based on content
-                int lineCount = content.Split('\n').Length;
-                int estimatedHeight = Math.Max(60, lineCount * 20); // Minimum 60px, ~20px per line
-                textArea.Height = estimatedHeight;
-                
-                // Set background color to match the bubble for seamless appearance
-                textArea.BackgroundColor = bubbleColor;
-                
-                messageContent = textArea;
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Padding = new Padding(5),
+                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Left : HorizontalAlignment.Right
+            };
+            
+            // Use our custom FormattedMessageControl for all messages
+            var formattedMessage = new FormattedMessageControl
+            {
+                Text = content,
+                ControlFont = SystemFonts.Default(9),
+                TextColor = Colors.Black,
+                ControlBackgroundColor = bubbleColor,
+                Padding = 10
+            };
+            
+            // Add the message to the bubble
+            if (isUserMessage)
+            {
+                bubble.Items.Add(new StackLayoutItem(new Label { Text = "You", TextColor = Colors.Gray, Font = SystemFonts.Bold(8) }));
+                bubble.Items.Add(new StackLayoutItem(formattedMessage, true));
             }
             else
             {
-                // Use regular Label for plain text
-                var label = new Label
-                {
-                    Text = content,
-                    Wrap = WrapMode.Word,
-                    TextAlignment = isUserMessage ? TextAlignment.Right : TextAlignment.Left,
-                    Width = messageWidth - 20, // Account for padding
-                };
-                
-                messageContent = label;
-            }
-
-            // Create the message bubble with width constraint to ensure wrapping
-            var messageBubble = new Panel
-            {
-                Content = messageContent,
-                Padding = new Padding(10),
-                Width = messageWidth,
-            };
-            messageBubble.BackgroundColor = bubbleColor;
-            
-            // Add context menu for copy operations
-            var contextMenu = new ContextMenu();
-            var copyMenuItem = new ButtonMenuItem { Text = "Copy Message" };
-            copyMenuItem.Click += (sender, e) => 
-            {
-                Clipboard.Instance.Text = content;
-                
-                // Show a temporary tooltip or status message
-                ShowTemporaryStatusMessage("Message copied to clipboard");
-            };
-            
-            contextMenu.Items.Add(copyMenuItem);
-            messageBubble.ContextMenu = contextMenu;
-
-            // Create a container for the bubble with proper alignment
-            var bubbleContainer = new StackLayout
-            {
-                Spacing = 5,
-                HorizontalContentAlignment = isUserMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left
-            };
-            
-            if (role != "user" && role != "assistant")
-            {
-                bubbleContainer.Items.Add(new Label
-                {
-                    Text = displayRole,
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 8)
-                });
+                bubble.Items.Add(new StackLayoutItem(formattedMessage, true));
+                bubble.Items.Add(new StackLayoutItem(new Label { Text = "AI", TextColor = Colors.Gray, Font = SystemFonts.Bold(8) }));
             }
             
-            bubbleContainer.Items.Add(messageBubble);
-
-            // Add the bubble to the chat history
-            _chatHistoryPanel.Items.Add(bubbleContainer);
-
-            // Scroll to the bottom
+            // Add the bubble to the chat container
+            _chatHistoryPanel.Items.Add(bubble);
+            
+            // Scroll to the bottom to show the new message
             Application.Instance.AsyncInvoke(() =>
             {
                 _chatScrollable.ScrollPosition = new Point(
                     _chatScrollable.ScrollPosition.X,
                     _chatScrollable.ScrollSize.Height);
             });
-        }
-
-        /// <summary>
-        /// Converts markdown text to HTML for display
-        /// </summary>
-        private string MarkdownToHtml(string markdown)
-        {
-            // Simple markdown to HTML conversion
-            // This is a basic implementation - you may want to use a proper markdown parser
-            
-            // Replace code blocks
-            var codeBlockPattern = @"```(.*?)```";
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                codeBlockPattern,
-                m => $"<pre><code>{m.Groups[1].Value}</code></pre>",
-                System.Text.RegularExpressions.RegexOptions.Singleline
-            );
-            
-            // Replace inline code
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"`([^`]+)`",
-                "<code>$1</code>"
-            );
-            
-            // Replace headers
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"^# (.+)$",
-                "<h1>$1</h1>",
-                System.Text.RegularExpressions.RegexOptions.Multiline
-            );
-            
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"^## (.+)$",
-                "<h2>$1</h2>",
-                System.Text.RegularExpressions.RegexOptions.Multiline
-            );
-            
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"^### (.+)$",
-                "<h3>$1</h3>",
-                System.Text.RegularExpressions.RegexOptions.Multiline
-            );
-            
-            // Replace bold
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"\*\*(.+?)\*\*",
-                "<strong>$1</strong>"
-            );
-            
-            // Replace italic
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"\*(.+?)\*",
-                "<em>$1</em>"
-            );
-            
-            // Replace links
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"\[(.+?)\]\((.+?)\)",
-                "<a href=\"$2\">$1</a>"
-            );
-            
-            // Replace lists
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"^- (.+)$",
-                "<li>$1</li>",
-                System.Text.RegularExpressions.RegexOptions.Multiline
-            );
-            
-            // Replace paragraphs
-            markdown = System.Text.RegularExpressions.Regex.Replace(
-                markdown,
-                @"^(?!<[hl]|<li|<pre)(.+)$",
-                "<p>$1</p>",
-                System.Text.RegularExpressions.RegexOptions.Multiline
-            );
-            
-            return $"<html><body style=\"font-family: Arial, sans-serif;\">{markdown}</body></html>";
         }
 
         private void ShowTemporaryStatusMessage(string message, int seconds = 2)

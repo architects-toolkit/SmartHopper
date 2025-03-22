@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added custom icon for the SmartHopper tab in Grasshopper.
 - Added Markdown formatting support in ChatDialog for rich text display in chat messages.
 - Added Markdown support for HTML tags like underline in Markdown text.
+- Added custom FormattedMessageControl for borderless message display with markdown support.
+- Added a dedicated Markdown class in the Converters namespace for centralized markdown processing
+- Enhanced markdown formatting support in chat messages (headings, code blocks, blockquotes, and inline formatting)
 
 ### Changed
 
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added responsive message sizing in ChatDialog that adapts to the dialog width (80% max width with 350px minimum).
 - Added message selection and copying capabilities to ChatDialog with a context menu.
 - Improved ChatDialog UI by automatically adjusting message height based on content and removing visible scrollbars.
+- Refactored markdown formatting code from ChatDialog to FormatConverter class for better code organization.
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
 - Updated component icon display to show the actual provider icon when "Default" is selected.
@@ -36,14 +40,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Defined a minimum size for the About dialog.
 - Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
 - Modified release-build.yml workflow to create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders
-
-### Deprecated
-
-<!-- - Deprecated MarkdownToEtoConverter class in favor of Markdown.Avalonia -->
+- Migrated all markdown formatting logic from FormattedMessageControl and ChatDialog to the new Markdown class
+- All chat messages are now treated as markdown by default for consistent formatting
+- Improved the chat interface with better message formatting and scrolling behavior.
+- Enhanced the About dialog with better layout and styling.
+- Improved error handling in the AIStatefulAsyncComponentBase.
+- Simplified FormattedMessageControl by removing the IsMarkdown property since all messages use markdown formatting
 
 ### Removed
 
 - Removed dependency on HtmlAgilityPack
+- Removed the IsMarkdown property in FormattedMessageControl
 
 ### Fixed
 

@@ -25,6 +25,97 @@ namespace SmartHopper.Core.Converters
     /// </summary>
     public static class FormatConverter
     {
+        /// <summary>
+        /// Converts markdown text to HTML for display
+        /// </summary>
+        /// <param name="markdown">The markdown text to convert</param>
+        /// <returns>HTML representation of the markdown</returns>
+        public static string MarkdownToHtml(string markdown)
+        {
+            if (string.IsNullOrEmpty(markdown))
+                return string.Empty;
+                
+            // Simple markdown to HTML conversion
+            // This is a basic implementation - you may want to use a proper markdown parser
+            
+            // Replace code blocks
+            var codeBlockPattern = @"```(.*?)```";
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                codeBlockPattern,
+                m => $"<pre><code>{m.Groups[1].Value}</code></pre>",
+                System.Text.RegularExpressions.RegexOptions.Singleline
+            );
+            
+            // Replace inline code
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"`([^`]+)`",
+                "<code>$1</code>"
+            );
+            
+            // Replace headers
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^# (.+)$",
+                "<h1>$1</h1>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^## (.+)$",
+                "<h2>$1</h2>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^### (.+)$",
+                "<h3>$1</h3>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            // Replace bold
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"\*\*(.+?)\*\*",
+                "<strong>$1</strong>"
+            );
+            
+            // Replace italic
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"\*(.+?)\*",
+                "<em>$1</em>"
+            );
+            
+            // Replace links
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"\[(.+?)\]\((.+?)\)",
+                "<a href=\"$2\">$1</a>"
+            );
+            
+            // Replace lists
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^- (.+)$",
+                "<li>$1</li>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            // Replace paragraphs
+            markdown = System.Text.RegularExpressions.Regex.Replace(
+                markdown,
+                @"^(?!<[hl]|<li|<pre)(.+)$",
+                "<p>$1</p>",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+            
+            return $"<html><body style=\"font-family: Arial, sans-serif;\">{markdown}</body></html>";
+        }
+        
         // This class can contain general format conversion utilities
         // that are not specific to any particular format
     }
