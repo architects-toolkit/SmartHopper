@@ -40,12 +40,14 @@ namespace SmartHopper.Core.Converters
             public bool IsOrderedList { get; set; }
             public int ListIndent { get; set; }
             public string ListMarker { get; set; }
+            public bool IsLink { get; set; }
+            public string Url { get; set; }
         }
 
         /// <summary>
         /// Represents an inline formatting span
         /// </summary>
-        public class InlineFormatSpan
+        private class InlineFormatSpan
         {
             public int StartIndex { get; set; }
             public int EndIndex { get; set; }
@@ -53,6 +55,8 @@ namespace SmartHopper.Core.Converters
             public bool IsBold { get; set; }
             public bool IsItalic { get; set; }
             public bool IsCode { get; set; }
+            public bool IsLink { get; set; }
+            public string Url { get; set; }
         }
 
         /// <summary>
@@ -95,13 +99,14 @@ namespace SmartHopper.Core.Converters
                 }
                 
                 // Check for code block start
-                if (line.Trim() == "```")
+                if (line.Trim().StartsWith("```"))
                 {
                     StringBuilder codeBlock = new StringBuilder();
+                    string language = line.Trim().Substring(3).Trim(); // Extract language identifier if present
                     i++; // Move to the next line
                     
                     // Collect all lines until the closing ```
-                    while (i < lines.Length && lines[i].Trim() != "```")
+                    while (i < lines.Length && !lines[i].Trim().Equals("```"))
                     {
                         codeBlock.AppendLine(lines[i]);
                         i++;
@@ -112,8 +117,45 @@ namespace SmartHopper.Core.Converters
                     continue;
                 }
                 
+                // Check for blockquote
+                var blockquoteMatch = Regex.Match(line, @"^>\s*(.*)$");
+                if (blockquoteMatch.Success)
+                {
+                    string quoteText = blockquoteMatch.Groups[1].Value;
+                    
+                    // Process the blockquote text for inline formatting
+                    var quoteSegments = new List<TextSegment>();
+                    ProcessInlineFormatting(quoteText, availableWidth - 10, defaultFont, defaultColor, graphics, quoteSegments);
+                    
+                    // Add the blockquote with proper formatting
+                    foreach (var segment in quoteSegments)
+                    {
+                        segment.IsBlockquote = true;
+                        segments.Add(segment);
+                    }
+                    
+                    // Make sure the last segment has a line break
+                    if (quoteSegments.Count > 0)
+                    {
+                        quoteSegments[quoteSegments.Count - 1].IsLineBreak = true;
+                    }
+                    else
+                    {
+                        // Empty blockquote line (e.g., ">")
+                        segments.Add(new TextSegment { 
+                            Text = string.Empty, 
+                            Font = defaultFont, 
+                            Color = defaultColor, 
+                            IsLineBreak = true,
+                            IsBlockquote = true
+                        });
+                    }
+                    
+                    continue;
+                }
+                
                 // Check for unordered list item
-                var unorderedListMatch = Regex.Match(line, @"^([ \t]*)([\*\-])\s+(.+)$");
+                var unorderedListMatch = Regex.Match(line, @"^([ \t]*)(\*|\-|\+)\s+(.+)$");
                 if (unorderedListMatch.Success)
                 {
                     string indent = unorderedListMatch.Groups[1].Value;
@@ -205,43 +247,120 @@ namespace SmartHopper.Core.Converters
         }
 
         /// <summary>
+        /// Finds inline formatting spans in text
+        /// </summary>
+        private static List<InlineFormatSpan> FindFormatSpans(string text)
+        {
+            var spans = new List<InlineFormatSpan>();
+            
+            // Find links [text](url)
+            var linkRegex = new Regex(@"\[(.+?)\]\((.+?)\)");
+            foreach (Match match in linkRegex.Matches(text))
+            {
+                spans.Add(new InlineFormatSpan {
+                    StartIndex = match.Index,
+                    EndIndex = match.Index + match.Length,
+                    Text = match.Groups[1].Value,
+                    IsLink = true,
+                    Url = match.Groups[2].Value
+                });
+            }
+            
+            // Find bold+italic text (***text*** or ___text___)
+            var boldItalicRegex = new Regex(@"(\*{3}|_{3})(.+?)(\*{3}|_{3})");
+            foreach (Match match in boldItalicRegex.Matches(text))
+            {
+                // Skip if this is part of a link
+                bool isPartOfLink = spans.Any(s => s.IsLink && 
+                    ((match.Index >= s.StartIndex && match.Index < s.EndIndex) ||
+                     (match.Index + match.Length > s.StartIndex && match.Index + match.Length <= s.EndIndex)));
+                
+                if (!isPartOfLink)
+                {
+                    spans.Add(new InlineFormatSpan {
+                        StartIndex = match.Index,
+                        EndIndex = match.Index + match.Length,
+                        Text = match.Groups[2].Value,
+                        IsBold = true,
+                        IsItalic = true
+                    });
+                }
+            }
+            
+            // Find bold text (**text** or __text__)
+            var boldRegex = new Regex(@"(\*{2}|_{2})(.+?)(\*{2}|_{2})");
+            foreach (Match match in boldRegex.Matches(text))
+            {
+                // Skip if this is part of a bold+italic match or link
+                bool isPartOfOtherFormat = spans.Any(s => (s.IsBold && s.IsItalic) || s.IsLink && 
+                    ((match.Index >= s.StartIndex && match.Index < s.EndIndex) ||
+                     (match.Index + match.Length > s.StartIndex && match.Index + match.Length <= s.EndIndex)));
+                
+                if (!isPartOfOtherFormat)
+                {
+                    spans.Add(new InlineFormatSpan {
+                        StartIndex = match.Index,
+                        EndIndex = match.Index + match.Length,
+                        Text = match.Groups[2].Value,
+                        IsBold = true
+                    });
+                }
+            }
+            
+            // Find italic text (*text* or _text_)
+            var italicRegex = new Regex(@"(\*|_)(.+?)(\*|_)");
+            foreach (Match match in italicRegex.Matches(text))
+            {
+                // Skip if this is part of a bold, bold+italic match, or link
+                bool isPartOfOtherFormat = spans.Any(s => (s.IsBold || (s.IsBold && s.IsItalic) || s.IsLink) && 
+                    ((match.Index >= s.StartIndex && match.Index < s.EndIndex) ||
+                     (match.Index + match.Length > s.StartIndex && match.Index + match.Length <= s.EndIndex)));
+                
+                if (!isPartOfOtherFormat)
+                {
+                    spans.Add(new InlineFormatSpan {
+                        StartIndex = match.Index,
+                        EndIndex = match.Index + match.Length,
+                        Text = match.Groups[2].Value,
+                        IsItalic = true
+                    });
+                }
+            }
+            
+            // Find inline code (`text`)
+            var codeRegex = new Regex(@"`(.+?)`");
+            foreach (Match match in codeRegex.Matches(text))
+            {
+                // Skip if this is part of a link
+                bool isPartOfLink = spans.Any(s => s.IsLink && 
+                    ((match.Index >= s.StartIndex && match.Index < s.EndIndex) ||
+                     (match.Index + match.Length > s.StartIndex && match.Index + match.Length <= s.EndIndex)));
+                
+                if (!isPartOfLink)
+                {
+                    spans.Add(new InlineFormatSpan {
+                        StartIndex = match.Index,
+                        EndIndex = match.Index + match.Length,
+                        Text = match.Groups[1].Value,
+                        IsCode = true
+                    });
+                }
+            }
+            
+            return spans;
+        }
+
+        /// <summary>
         /// Processes inline formatting in markdown
         /// </summary>
         private static void ProcessInlineFormatting(string line, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics, List<TextSegment> segments)
         {
-            // Process blockquotes
-            if (line.StartsWith(">"))
-            {
-                string quoteText = line.Substring(1).Trim();
-                segments.Add(new TextSegment { 
-                    Text = quoteText, 
-                    Font = defaultFont, 
-                    Color = Colors.DarkGray,
-                    IsLineBreak = true,
-                    IsBlockquote = true
-                });
-                return;
-            }
+            // Find all formatting spans in the line
+            var formatSpans = FindFormatSpans(line);
             
-            // Process inline formatting
+            // Process the line with formatting
             int currentIndex = 0;
-            List<InlineFormatSpan> formatSpans = FindFormatSpans(line);
             
-            if (formatSpans.Count == 0)
-            {
-                // No formatting, just add the line as is
-                if (graphics.MeasureString(defaultFont, line).Width <= availableWidth)
-                {
-                    segments.Add(new TextSegment { Text = line, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-                }
-                else
-                {
-                    WrapTextIntoSegments(line, availableWidth, graphics, defaultFont, defaultColor, segments);
-                }
-                return;
-            }
-            
-            // Process text with inline formatting
             foreach (var span in formatSpans.OrderBy(s => s.StartIndex))
             {
                 // Add text before this format span
@@ -253,7 +372,11 @@ namespace SmartHopper.Core.Converters
                 
                 // Add the formatted text
                 Font spanFont = defaultFont;
-                if (span.IsBold)
+                if (span.IsBold && span.IsItalic)
+                {
+                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Bold | FontStyle.Italic);
+                }
+                else if (span.IsBold)
                 {
                     spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Bold);
                 }
@@ -266,13 +389,23 @@ namespace SmartHopper.Core.Converters
                     spanFont = new Font(FontFamilies.Monospace, defaultFont.Size);
                 }
                 
-                segments.Add(new TextSegment { 
+                var segment = new TextSegment { 
                     Text = span.Text, 
                     Font = spanFont, 
-                    Color = span.IsCode ? Colors.Black : defaultColor,
+                    Color = span.IsCode ? Colors.Black : (span.IsLink ? Colors.Blue : defaultColor),
                     BackgroundColor = span.IsCode ? Colors.LightGrey : Colors.Transparent,
                     HasBackground = span.IsCode
-                });
+                };
+                
+                // Add link information if needed
+                if (span.IsLink)
+                {
+                    segment.IsLink = true;
+                    segment.Url = span.Url;
+                    segment.Text = segment.Text + " (" + span.Url + ")";
+                }
+                
+                segments.Add(segment);
                 
                 currentIndex = span.EndIndex;
             }
@@ -288,60 +421,6 @@ namespace SmartHopper.Core.Converters
                 // Ensure line break at the end
                 segments[segments.Count - 1].IsLineBreak = true;
             }
-        }
-
-        /// <summary>
-        /// Finds inline formatting spans in text
-        /// </summary>
-        private static List<InlineFormatSpan> FindFormatSpans(string text)
-        {
-            var spans = new List<InlineFormatSpan>();
-            
-            // Find bold text (**text**)
-            var boldRegex = new Regex(@"\*\*(.+?)\*\*");
-            foreach (Match match in boldRegex.Matches(text))
-            {
-                spans.Add(new InlineFormatSpan {
-                    StartIndex = match.Index,
-                    EndIndex = match.Index + match.Length,
-                    Text = match.Groups[1].Value,
-                    IsBold = true
-                });
-            }
-            
-            // Find italic text (*text*)
-            var italicRegex = new Regex(@"\*(.+?)\*");
-            foreach (Match match in italicRegex.Matches(text))
-            {
-                // Skip if this is part of a bold match
-                bool isPartOfBold = spans.Any(s => s.IsBold && 
-                    ((match.Index >= s.StartIndex && match.Index < s.EndIndex) ||
-                     (match.Index + match.Length > s.StartIndex && match.Index + match.Length <= s.EndIndex)));
-                
-                if (!isPartOfBold)
-                {
-                    spans.Add(new InlineFormatSpan {
-                        StartIndex = match.Index,
-                        EndIndex = match.Index + match.Length,
-                        Text = match.Groups[1].Value,
-                        IsItalic = true
-                    });
-                }
-            }
-            
-            // Find inline code (`text`)
-            var codeRegex = new Regex(@"`(.+?)`");
-            foreach (Match match in codeRegex.Matches(text))
-            {
-                spans.Add(new InlineFormatSpan {
-                    StartIndex = match.Index,
-                    EndIndex = match.Index + match.Length,
-                    Text = match.Groups[1].Value,
-                    IsCode = true
-                });
-            }
-            
-            return spans;
         }
 
         /// <summary>
