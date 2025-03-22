@@ -255,11 +255,109 @@ namespace SmartHopper.Core.Converters
         /// </summary>
         private static void ProcessInlineFormatting(string text, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
-            // Simple implementation - add the text as a single segment
-            // In a full implementation, this would parse for bold, italic, links, etc.
+            // Find formatting spans in the text
+            var formatSpans = FindFormatSpans(text);
+            
+            if (formatSpans.Count == 0)
+            {
+                // No special formatting, add as a single segment
+                segments.Add(new TextSegment
+                {
+                    Text = text,
+                    Font = defaultFont,
+                    Color = defaultColor,
+                    IsLineBreak = true
+                });
+                return;
+            }
+            
+            // Sort spans by start index
+            formatSpans = formatSpans.OrderBy(s => s.StartIndex).ToList();
+            
+            // Process text with formatting
+            int lastIndex = 0;
+            foreach (var span in formatSpans)
+            {
+                // Add any text before this span
+                if (span.StartIndex > lastIndex)
+                {
+                    string beforeText = text.Substring(lastIndex, span.StartIndex - lastIndex);
+                    if (!string.IsNullOrEmpty(beforeText))
+                    {
+                        segments.Add(new TextSegment
+                        {
+                            Text = beforeText,
+                            Font = defaultFont,
+                            Color = defaultColor,
+                            IsLineBreak = false
+                        });
+                    }
+                }
+                
+                // Create appropriate font for the formatting
+                Font spanFont = defaultFont;
+                if (span.IsBold && span.IsItalic)
+                {
+                    // Bold + Italic
+                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Bold | FontStyle.Italic);
+                }
+                else if (span.IsBold)
+                {
+                    // Bold only
+                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Bold);
+                }
+                else if (span.IsItalic)
+                {
+                    // Italic only
+                    spanFont = new Font(defaultFont.Family, defaultFont.Size, FontStyle.Italic);
+                }
+                else if (span.IsCode)
+                {
+                    // Code
+                    spanFont = new Font(FontFamilies.Monospace, defaultFont.Size);
+                }
+                
+                // Add the formatted segment
+                var formattedSegment = new TextSegment
+                {
+                    Text = span.Text,
+                    Font = spanFont,
+                    Color = defaultColor,
+                    IsLineBreak = false
+                };
+                
+                // Handle links
+                if (span.IsLink)
+                {
+                    formattedSegment.IsLink = true;
+                    formattedSegment.Url = span.Url;
+                    formattedSegment.Color = Colors.Blue; // Use a different color for links
+                }
+                
+                segments.Add(formattedSegment);
+                lastIndex = span.EndIndex;
+            }
+            
+            // Add any remaining text
+            if (lastIndex < text.Length)
+            {
+                string afterText = text.Substring(lastIndex);
+                if (!string.IsNullOrEmpty(afterText))
+                {
+                    segments.Add(new TextSegment
+                    {
+                        Text = afterText,
+                        Font = defaultFont,
+                        Color = defaultColor,
+                        IsLineBreak = false
+                    });
+                }
+            }
+            
+            // Add a line break after processing all inline formatting
             segments.Add(new TextSegment
             {
-                Text = text,
+                Text = "",
                 Font = defaultFont,
                 Color = defaultColor,
                 IsLineBreak = true
@@ -272,7 +370,7 @@ namespace SmartHopper.Core.Converters
         public static void CalculateSegmentLayout(List<TextSegment> segments, int width, int padding, Graphics graphics)
         {
             float currentX = padding;
-            float currentY = padding;
+            float currentY = 0;
             float availableWidth = width - (padding * 2);
             
             // Process each segment in sequence
@@ -405,19 +503,16 @@ namespace SmartHopper.Core.Converters
                     {
                         if (item is Markdig.Syntax.ListItemBlock listItemBlock)
                         {
-                            // Process each block within the list item
-                            var childDocument = new Markdig.Syntax.MarkdownDocument();
-                            foreach (var childBlock in listItemBlock)
-                            {
-                                childDocument.Add(childBlock);
-                            }
+                            // Instead of creating a new document and adding existing blocks,
+                            // just process the text content directly
+                            string itemText = ExtractBlockText(listItemBlock);
                             
                             // Use ordered list marker if the parent list is ordered
                             bool isOrdered = listBlock.IsOrdered;
                             string marker = isOrdered ? listBlock.OrderedStart.ToString() : "";
                             
-                            // Process the list item blocks
-                            ProcessListItem(ExtractBlockText(listItemBlock), indentLevel, marker, isOrdered, font, textColor, segments);
+                            // Process the list item text
+                            ProcessListItem(itemText, indentLevel, marker, isOrdered, font, textColor, segments);
                         }
                     }
                 }
@@ -435,12 +530,21 @@ namespace SmartHopper.Core.Converters
                 }
                 else if (block is Markdig.Syntax.QuoteBlock quoteBlock)
                 {
-                    foreach (var childBlock in quoteBlock)
+                    // Instead of creating a new document and adding existing blocks,
+                    // extract the text content and process it
+                    string quoteText = ExtractBlockText(quoteBlock);
+                    
+                    // Create a blockquote segment
+                    var blockquoteSegment = new TextSegment
                     {
-                        var childDocument = new Markdig.Syntax.MarkdownDocument();
-                        childDocument.Add(childBlock);
-                        ProcessBlocks(childDocument, segments, font, textColor, indentLevel + 1);
-                    }
+                        Text = quoteText,
+                        Font = font,
+                        Color = textColor,
+                        IsBlockquote = true,
+                        IsLineBreak = true
+                    };
+                    
+                    segments.Add(blockquoteSegment);
                 }
                 else if (block is Markdig.Syntax.ThematicBreakBlock)
                 {
@@ -460,7 +564,7 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Extracts text content from an inline container
         /// </summary>
-        private static string ExtractInlineText(Markdig.Syntax.Inlines.ContainerInline inline)
+        public static string ExtractInlineText(Markdig.Syntax.Inlines.ContainerInline inline)
         {
             if (inline == null)
                 return string.Empty;
@@ -514,7 +618,7 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Extracts text content from a code block
         /// </summary>
-        private static string ExtractCodeBlockContent(Markdig.Syntax.CodeBlock codeBlock)
+        public static string ExtractCodeBlockContent(Markdig.Syntax.CodeBlock codeBlock)
         {
             if (codeBlock == null)
                 return string.Empty;
@@ -540,7 +644,7 @@ namespace SmartHopper.Core.Converters
         /// <summary>
         /// Extracts text content from a block
         /// </summary>
-        private static string ExtractBlockText(Markdig.Syntax.Block block)
+        public static string ExtractBlockText(Markdig.Syntax.Block block)
         {
             if (block == null)
                 return string.Empty;
