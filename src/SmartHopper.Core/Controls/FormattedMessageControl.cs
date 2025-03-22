@@ -208,6 +208,35 @@ namespace SmartHopper.Core.Controls
                     );
                 }
                 
+                // Draw list marker if needed
+                if (segment.IsList)
+                {
+                    float indentSize = 20; // Base indent size
+                    float markerX = segment.X - indentSize;
+                    float markerY = segment.Y;
+                    
+                    // Apply indentation based on list level
+                    markerX -= (segment.ListIndent * indentSize);
+                    
+                    // Draw the marker
+                    if (segment.IsOrderedList)
+                    {
+                        // Draw ordered list marker (number)
+                        e.Graphics.DrawText(segment.Font, segment.Color, markerX, markerY, segment.ListMarker);
+                    }
+                    else
+                    {
+                        // Draw unordered list marker (bullet)
+                        float bulletSize = segment.Font.Size / 3;
+                        float bulletY = markerY + (segment.Font.Size / 2) - (bulletSize / 2);
+                        
+                        e.Graphics.FillEllipse(
+                            segment.Color,
+                            new RectangleF(markerX + 2, bulletY, bulletSize, bulletSize)
+                        );
+                    }
+                }
+                
                 // Draw the text
                 e.Graphics.DrawText(segment.Font, segment.Color, segment.X, segment.Y, segment.Text);
             }

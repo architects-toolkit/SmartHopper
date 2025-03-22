@@ -36,6 +36,10 @@ namespace SmartHopper.Core.Converters
             public bool HasBackground { get; set; }
             public Color BackgroundColor { get; set; }
             public bool IsBlockquote { get; set; }
+            public bool IsList { get; set; }
+            public bool IsOrderedList { get; set; }
+            public int ListIndent { get; set; }
+            public string ListMarker { get; set; }
         }
 
         /// <summary>
@@ -67,17 +71,14 @@ namespace SmartHopper.Core.Converters
             if (string.IsNullOrEmpty(markdown))
                 return segments;
 
-            // Process headings
-            markdown = ProcessHeadings(markdown, defaultFont, defaultColor, segments);
-            
-            // Process code blocks
-            markdown = ProcessCodeBlocks(markdown, defaultFont, defaultColor, segments);
-            
-            // Process remaining lines with inline formatting
+            // Split the markdown into lines while preserving line breaks
             string[] lines = markdown.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
             
-            foreach (string line in lines)
+            // Process each line in order
+            for (int i = 0; i < lines.Length; i++)
             {
+                string line = lines[i];
+                
                 if (string.IsNullOrEmpty(line))
                 {
                     // Add an empty line
@@ -85,79 +86,122 @@ namespace SmartHopper.Core.Converters
                     continue;
                 }
                 
-                // Process inline formatting
+                // Check for heading
+                var headingMatch = Regex.Match(line, @"^(#{1,6})\s+(.+)$");
+                if (headingMatch.Success)
+                {
+                    ProcessHeadingLine(headingMatch.Groups[1].Value, headingMatch.Groups[2].Value, defaultFont, defaultColor, segments);
+                    continue;
+                }
+                
+                // Check for code block start
+                if (line.Trim() == "```")
+                {
+                    StringBuilder codeBlock = new StringBuilder();
+                    i++; // Move to the next line
+                    
+                    // Collect all lines until the closing ```
+                    while (i < lines.Length && lines[i].Trim() != "```")
+                    {
+                        codeBlock.AppendLine(lines[i]);
+                        i++;
+                    }
+                    
+                    // Process the code block
+                    ProcessCodeBlockContent(codeBlock.ToString(), defaultFont, defaultColor, segments);
+                    continue;
+                }
+                
+                // Check for unordered list item
+                var unorderedListMatch = Regex.Match(line, @"^([ \t]*)([\*\-])\s+(.+)$");
+                if (unorderedListMatch.Success)
+                {
+                    string indent = unorderedListMatch.Groups[1].Value;
+                    string marker = unorderedListMatch.Groups[2].Value;
+                    string itemText = unorderedListMatch.Groups[3].Value;
+                    int indentLevel = indent.Length / 2;
+                    
+                    ProcessListItem(itemText, indentLevel, marker, false, availableWidth, defaultFont, defaultColor, graphics, segments);
+                    continue;
+                }
+                
+                // Check for ordered list item
+                var orderedListMatch = Regex.Match(line, @"^([ \t]*)(\d+)\.?\s+(.+)$");
+                if (orderedListMatch.Success)
+                {
+                    string indent = orderedListMatch.Groups[1].Value;
+                    string number = orderedListMatch.Groups[2].Value;
+                    string itemText = orderedListMatch.Groups[3].Value;
+                    int indentLevel = indent.Length / 2;
+                    
+                    ProcessListItem(itemText, indentLevel, number, true, availableWidth, defaultFont, defaultColor, graphics, segments);
+                    continue;
+                }
+                
+                // Process regular line with inline formatting
                 ProcessInlineFormatting(line, availableWidth, defaultFont, defaultColor, graphics, segments);
             }
             
             return segments;
         }
-
+        
         /// <summary>
-        /// Processes headings in markdown
+        /// Processes a heading line
         /// </summary>
-        private static string ProcessHeadings(string markdown, Font defaultFont, Color defaultColor, List<TextSegment> segments)
+        private static void ProcessHeadingLine(string hashMarks, string headingText, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
-            var headingRegex = new Regex(@"^(#{1,6})\s+(.+)$", RegexOptions.Multiline);
-            var result = headingRegex.Replace(markdown, match => {
-                int level = match.Groups[1].Length;
-                string headingText = match.Groups[2].Value;
-                
-                // Create a font for the heading based on level
-                float fontSize = defaultFont.Size + (6 - level);
-                var headingFont = new Font(defaultFont.Family, fontSize, FontStyle.Bold);
-                
-                // Add the heading as a segment
-                segments.Add(new TextSegment { 
-                    Text = headingText, 
-                    Font = headingFont, 
-                    Color = defaultColor,
-                    IsLineBreak = true 
-                });
-                
-                // Return empty string to remove the heading from further processing
-                return "";
-            });
+            int level = hashMarks.Length;
+            float sizeFactor = Math.Max(1.0f, 2.0f - ((level - 1) * 0.2f));
             
-            return result;
+            var headingFont = new Font(defaultFont.Family, defaultFont.Size * sizeFactor, FontStyle.Bold);
+            segments.Add(new TextSegment { Text = headingText, Font = headingFont, Color = defaultColor, IsLineBreak = true });
         }
-
+        
         /// <summary>
-        /// Processes code blocks in markdown
+        /// Processes a code block's content
         /// </summary>
-        private static string ProcessCodeBlocks(string markdown, Font defaultFont, Color defaultColor, List<TextSegment> segments)
+        private static void ProcessCodeBlockContent(string codeContent, Font defaultFont, Color defaultColor, List<TextSegment> segments)
         {
-            var codeBlockRegex = new Regex(@"```(.*?)```", RegexOptions.Singleline);
-            var result = codeBlockRegex.Replace(markdown, match => {
-                string codeContent = match.Groups[1].Value.Trim();
-                string[] codeLines = codeContent.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
-                
-                // Use a monospace font for code
-                var codeFont = new Font(FontFamilies.Monospace, defaultFont.Size);
-                
-                // Add a line break before code block
-                segments.Add(new TextSegment { Text = string.Empty, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-                
-                // Add each line of code
-                foreach (string line in codeLines)
-                {
-                    segments.Add(new TextSegment { 
-                        Text = line, 
-                        Font = codeFont, 
-                        Color = Colors.Black,
-                        IsLineBreak = true,
-                        BackgroundColor = Colors.LightGrey,
-                        HasBackground = true
-                    });
-                }
-                
-                // Add a line break after code block
-                segments.Add(new TextSegment { Text = string.Empty, Font = defaultFont, Color = defaultColor, IsLineBreak = true });
-                
-                // Return empty string to remove the code block from further processing
-                return "";
-            });
+            var codeFont = new Font(FontFamilies.Monospace, defaultFont.Size);
             
-            return result;
+            string[] codeLines = codeContent.Split(new[] { Environment.NewLine, "\n" }, StringSplitOptions.None);
+            for (int i = 0; i < codeLines.Length; i++)
+            {
+                segments.Add(new TextSegment { 
+                    Text = codeLines[i], 
+                    Font = codeFont, 
+                    Color = Colors.Black,
+                    BackgroundColor = Colors.LightGrey,
+                    HasBackground = true,
+                    IsLineBreak = true
+                });
+            }
+        }
+        
+        /// <summary>
+        /// Processes a list item
+        /// </summary>
+        private static void ProcessListItem(string itemText, int indentLevel, string marker, bool isOrdered, int availableWidth, Font defaultFont, Color defaultColor, Graphics graphics, List<TextSegment> segments)
+        {
+            // Process the item text for inline formatting
+            var itemSegments = new List<TextSegment>();
+            ProcessInlineFormatting(itemText, availableWidth - 20 * (indentLevel + 1), defaultFont, defaultColor, graphics, itemSegments);
+            
+            // Add the list item with proper indentation
+            foreach (var segment in itemSegments)
+            {
+                segment.IsList = true;
+                segment.IsOrderedList = isOrdered;
+                segment.ListIndent = indentLevel;
+                segment.ListMarker = isOrdered ? marker + "." : marker;
+                segments.Add(segment);
+            }
+            
+            // Make sure the last segment has a line break
+            if (itemSegments.Count > 0)
+            {
+                itemSegments[itemSegments.Count - 1].IsLineBreak = true;
+            }
         }
 
         /// <summary>
