@@ -55,7 +55,7 @@ namespace SmartHopper.Core.AI.Chat
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             
-            Title = "SmartHopper AI Web Chat";
+            Title = "SmartHopper AI Chat";
             MinimumSize = new Size(600, 700);
             Size = new Size(700, 800);
                         

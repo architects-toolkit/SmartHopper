@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the new AIChat component with interactive chat interface and proper icon.
 - Added chat interfaces:
   - Eto.Forms-based chat interface with ChatDialog class and custom FormattedMessageControl for borderless message display with markdown support.
-  - WebView-based chat interface with AIWebChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
+  - WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
 - Added ChatUtils class with helper methods for AI chat interactions.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
 - Added AI provider selection improvements:
