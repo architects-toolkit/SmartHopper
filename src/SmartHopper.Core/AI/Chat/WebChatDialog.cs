@@ -37,6 +37,8 @@ namespace SmartHopper.Core.AI.Chat
         private bool _isProcessing;
         private readonly Func<List<KeyValuePair<string, string>>, Task<AIResponse>> _getResponse;
         private readonly HtmlChatRenderer _htmlRenderer;
+        private bool _webViewInitialized = false;
+        private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
 
         /// <summary>
         /// Event raised when a new AI response is received.
@@ -63,9 +65,9 @@ namespace SmartHopper.Core.AI.Chat
                 Height = 500
             };
             
-            // Initialize the WebView with base HTML
-            _webView.LoadHtml(_htmlRenderer.GetInitialHtml());
-
+            // Initialize WebView and handle its initialization
+            InitializeWebViewAsync();
+            
             _userInputTextArea = new TextArea
             {
                 Height = 60,
@@ -97,7 +99,7 @@ namespace SmartHopper.Core.AI.Chat
 
             _statusLabel = new Label
             {
-                Text = "Ready",
+                Text = "Initializing WebView...",
                 TextAlignment = TextAlignment.Center
             };
 
@@ -122,9 +124,58 @@ namespace SmartHopper.Core.AI.Chat
             
             Content = mainLayout;
             Padding = new Padding(10);
-
-            // Add system message to start the conversation
-            AddSystemMessage("I'm an AI assistant. How can I help you today?");
+            
+            // Add system message once WebView is initialized
+            Task.Run(async () => 
+            {
+                await _webViewInitializedTcs.Task;
+                Application.Instance.AsyncInvoke(() => 
+                {
+                    AddSystemMessage("I'm an AI assistant. How can I help you today?");
+                    _statusLabel.Text = "Ready";
+                });
+            });
+        }
+        
+        /// <summary>
+        /// Initializes the WebView control asynchronously.
+        /// </summary>
+        private async void InitializeWebViewAsync()
+        {
+            try
+            {
+                // For Windows, we need to ensure CoreWebView2 is initialized
+                if (Eto.Platform.Detect.IsWpf)
+                {
+                    // Set a URL to trigger initialization
+                    _webView.Url = new Uri("about:blank");
+                    
+                    // Wait for the WebView to load
+                    var loadCompleteTcs = new TaskCompletionSource<bool>();
+                    _webView.DocumentLoaded += (sender, e) => loadCompleteTcs.TrySetResult(true);
+                    
+                    // Set a timeout for initialization
+                    var timeoutTask = Task.Delay(5000);
+                    var completedTask = await Task.WhenAny(loadCompleteTcs.Task, timeoutTask);
+                    
+                    if (completedTask == timeoutTask)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[WebChatDialog] WebView initialization timed out");
+                    }
+                }
+                
+                // Now load the initial HTML
+                _webView.LoadHtml(_htmlRenderer.GetInitialHtml());
+                
+                _webViewInitialized = true;
+                _webViewInitializedTcs.TrySetResult(true);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WebChatDialog] Error initializing WebView: {ex.Message}");
+                _statusLabel.Text = $"Error initializing WebView: {ex.Message}";
+                _webViewInitializedTcs.TrySetException(ex);
+            }
         }
 
         private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
@@ -182,14 +233,32 @@ namespace SmartHopper.Core.AI.Chat
 
         private void AddMessageToWebView(string role, string content)
         {
-            // Generate HTML for the message
-            string messageHtml = _htmlRenderer.GenerateMessageHtml(role, content);
+            if (!_webViewInitialized)
+            {
+                // Queue the message to be added after initialization
+                Task.Run(async () => 
+                {
+                    await _webViewInitializedTcs.Task;
+                    Application.Instance.AsyncInvoke(() => AddMessageToWebView(role, content));
+                });
+                return;
+            }
             
-            // Execute JavaScript to add the message to the WebView
-            _webView.ExecuteScript($"addMessage(`{messageHtml.Replace("`", "\\`")}`)");
-            
-            // Scroll to bottom
-            _webView.ExecuteScript("scrollToBottom()");
+            try
+            {
+                // Generate HTML for the message
+                string messageHtml = _htmlRenderer.GenerateMessageHtml(role, content);
+                
+                // Execute JavaScript to add the message to the WebView
+                _webView.ExecuteScript($"addMessage(`{messageHtml.Replace("`", "\\`")}`)");
+                
+                // Scroll to bottom
+                _webView.ExecuteScript("scrollToBottom()");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WebChatDialog] Error adding message to WebView: {ex.Message}");
+            }
         }
 
         private void ShowTemporaryStatusMessage(string message, int seconds = 2)
@@ -208,6 +277,12 @@ namespace SmartHopper.Core.AI.Chat
 
         private async void SendMessage()
         {
+            if (!_webViewInitialized)
+            {
+                ShowTemporaryStatusMessage("WebView is still initializing. Please wait...", 3);
+                return;
+            }
+            
             string userMessage = _userInputTextArea.Text.Trim();
             if (string.IsNullOrEmpty(userMessage))
             {
