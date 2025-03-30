@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added custom FormattedMessageControl for borderless message display with markdown support.
 - Added a dedicated Markdown class in the Converters namespace for centralized markdown processing
 - Enhanced markdown formatting support in chat messages (headings, code blocks, blockquotes, and inline formatting)
+- Added AIWebChatComponent with WebView-based chat interface for HTML rendering of messages.
+- Added WebChatDialog class using Eto.Forms WebView for rendering chat messages in HTML format.
+- Added HtmlChatRenderer utility class for converting markdown messages to HTML.
 
 ### Changed
 
