@@ -16,10 +16,9 @@
 using System;
 using System.IO;
 using System.Reflection;
-using System.Text;
+using System.Net;
 using System.Diagnostics;
 using System.Linq;
-using System.Web;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -55,10 +54,59 @@ namespace SmartHopper.Core.AI.Chat
         }
 
         /// <summary>
-        /// Gets the chat template HTML with CSS and JS paths replaced.
+        /// Creates a complete HTML document with embedded CSS and JS for offline use.
         /// </summary>
-        /// <returns>The complete chat template HTML.</returns>
-        public string GetChatTemplate()
+        /// <returns>The complete HTML document.</returns>
+        public string GetCompleteHtml()
+        {
+            Debug.WriteLine("[ChatResourceManager] Creating complete HTML with embedded resources");
+            
+            try
+            {
+                // Load all required resources
+                string cssContent = GetCssContent();
+                string jsContent = GetJsContent();
+                string messageTemplate = GetMessageTemplate();
+                string chatTemplate = GetChatTemplate();
+                
+                // Escape single quotes in the message template to avoid breaking the JavaScript
+                messageTemplate = messageTemplate.Replace("'", "\\'");
+                
+                // Replace all placeholders with actual content
+                string completeHtml = chatTemplate
+                    .Replace("{{cssChat}}", cssContent)
+                    .Replace("{{jsChat}}", jsContent)
+                    .Replace("{{messageTemplate}}", messageTemplate);
+
+                Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
+                
+                // Write the complete HTML to a debug file for inspection
+                try
+                {
+                    string debugPath = Path.Combine(Path.GetTempPath(), "SmartHopper_WebChat_Debug.html");
+                    File.WriteAllText(debugPath, completeHtml);
+                    Debug.WriteLine($"[ChatResourceManager] Wrote complete HTML to debug file: {debugPath}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ChatResourceManager] Failed to write debug file: {ex.Message}");
+                }
+                
+                return completeHtml;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChatResourceManager] Error creating complete HTML: {ex.Message}");
+                Debug.WriteLine($"[ChatResourceManager] Error stack trace: {ex.StackTrace}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Gets the chat template HTML.
+        /// </summary>
+        /// <returns>The chat template HTML.</returns>
+        private string GetChatTemplate()
         {
             Debug.WriteLine("[ChatResourceManager] Getting chat template");
             
@@ -67,36 +115,16 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CHAT_TEMPLATE_RESOURCE}");
                 _cachedChatTemplate = ReadEmbeddedResource(CHAT_TEMPLATE_RESOURCE);
                 Debug.WriteLine($"[ChatResourceManager] Chat template loaded, length: {_cachedChatTemplate?.Length ?? 0}");
-                
-                // Output the template content for debugging
-                if (_cachedChatTemplate != null)
-                {
-                    Debug.WriteLine($"[ChatResourceManager] Chat template content: {_cachedChatTemplate}");
-                }
             }
 
-            // Get the message template to inject
-            string messageTemplate = GetMessageTemplate();
-            
-            // Escape single quotes in the message template to avoid breaking the JavaScript
-            messageTemplate = messageTemplate.Replace("'", "\\'");
-            Debug.WriteLine("[ChatResourceManager] Message template prepared for injection");
-
-            // Replace placeholders with actual paths and content
-            string result = _cachedChatTemplate
-                .Replace("{{cssPath}}", "embedded-css") // Not used, but kept for compatibility
-                .Replace("{{jsPath}}", "embedded-js") // Not used, but kept for compatibility
-                .Replace("{{messageTemplate}}", messageTemplate);
-
-            Debug.WriteLine("[ChatResourceManager] Chat template prepared with placeholders replaced");
-            return result;
+            return _cachedChatTemplate;
         }
 
         /// <summary>
         /// Gets the message template HTML.
         /// </summary>
         /// <returns>The message template HTML.</returns>
-        public string GetMessageTemplate()
+        private string GetMessageTemplate()
         {
             Debug.WriteLine("[ChatResourceManager] Getting message template");
             
@@ -105,12 +133,6 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {MESSAGE_TEMPLATE_RESOURCE}");
                 _cachedMessageTemplate = ReadEmbeddedResource(MESSAGE_TEMPLATE_RESOURCE);
                 Debug.WriteLine($"[ChatResourceManager] Message template loaded, length: {_cachedMessageTemplate?.Length ?? 0}");
-                
-                // Output the template content for debugging
-                if (_cachedMessageTemplate != null)
-                {
-                    Debug.WriteLine($"[ChatResourceManager] Message template content: {_cachedMessageTemplate}");
-                }
             }
 
             return _cachedMessageTemplate;
@@ -161,7 +183,7 @@ namespace SmartHopper.Core.AI.Chat
         /// Gets the CSS content.
         /// </summary>
         /// <returns>The CSS content.</returns>
-        public string GetCssContent()
+        private string GetCssContent()
         {
             Debug.WriteLine("[ChatResourceManager] Getting CSS content");
             
@@ -179,7 +201,7 @@ namespace SmartHopper.Core.AI.Chat
         /// Gets the JavaScript content.
         /// </summary>
         /// <returns>The JavaScript content.</returns>
-        public string GetJsContent()
+        private string GetJsContent()
         {
             Debug.WriteLine("[ChatResourceManager] Getting JavaScript content");
             
@@ -191,56 +213,6 @@ namespace SmartHopper.Core.AI.Chat
             }
 
             return _cachedJsContent;
-        }
-
-        /// <summary>
-        /// Creates a complete HTML document with embedded CSS and JS for offline use.
-        /// </summary>
-        /// <returns>The complete HTML document.</returns>
-        public string GetCompleteHtml()
-        {
-            Debug.WriteLine("[ChatResourceManager] Creating complete HTML with embedded resources");
-            
-            try
-            {
-                string cssContent = GetCssContent();
-                string jsContent = GetJsContent();
-                string templateHtml = GetChatTemplate();
-
-                // Replace CSS and JS path references with inline content
-                string completeHtml = templateHtml
-                    .Replace("<link rel=\"stylesheet\" href=\"{{cssPath}}\">", $"<style>\n{cssContent}\n</style>")
-                    .Replace("<script src=\"{{jsPath}}\"></script>", $"<script>\n{jsContent}\n</script>");
-
-                Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
-                
-                // For debugging, write the first 100 characters
-                if (completeHtml != null && completeHtml.Length > 0)
-                {
-                    string preview = completeHtml.Length > 100 ? completeHtml.Substring(0, 100) + "..." : completeHtml;
-                    Debug.WriteLine($"[ChatResourceManager] HTML preview: {preview}");
-                    
-                    // Write the complete HTML to a debug file for inspection
-                    try
-                    {
-                        string debugPath = Path.Combine(Path.GetTempPath(), "SmartHopper_WebChat_Debug.html");
-                        File.WriteAllText(debugPath, completeHtml);
-                        Debug.WriteLine($"[ChatResourceManager] Wrote complete HTML to debug file: {debugPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ChatResourceManager] Failed to write debug file: {ex.Message}");
-                    }
-                }
-                
-                return completeHtml;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ChatResourceManager] Error creating complete HTML: {ex.Message}");
-                Debug.WriteLine($"[ChatResourceManager] Error stack trace: {ex.StackTrace}");
-                throw;
-            }
         }
 
         /// <summary>
@@ -262,13 +234,6 @@ namespace SmartHopper.Core.AI.Chat
                 .Replace("{{content}}", content);
                 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
-            
-            // For debugging, write the first 100 characters
-            if (result != null && result.Length > 0)
-            {
-                string preview = result.Length > 100 ? result.Substring(0, 100) + "..." : result;
-                Debug.WriteLine($"[ChatResourceManager] Message HTML preview: {preview}");
-            }
             
             return result;
         }

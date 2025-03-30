@@ -232,23 +232,6 @@ namespace SmartHopper.Core.AI.Chat
                     Debug.WriteLine("[WebChatDialog] Chat HTML loading timed out");
                 }
                 
-                // Test if JavaScript is working by executing a simple script
-                try
-                {
-                    Debug.WriteLine("[WebChatDialog] Testing JavaScript execution");
-                    string result = _webView.ExecuteScript("document.body.innerHTML");
-                    Debug.WriteLine($"[WebChatDialog] JavaScript test result: {(string.IsNullOrEmpty(result) ? "empty" : "success")}");
-                    
-                    if (!string.IsNullOrEmpty(result))
-                    {
-                        Debug.WriteLine($"[WebChatDialog] Body content: {result.Substring(0, Math.Min(result.Length, 100))}...");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[WebChatDialog] JavaScript test failed: {ex.Message}");
-                }
-                
                 _webViewInitialized = true;
                 _webViewInitializedTcs.TrySetResult(true);
                 Debug.WriteLine("[WebChatDialog] WebView initialization completed successfully");
