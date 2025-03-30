@@ -90,14 +90,25 @@ jobs:
       run: |
         echo "Creating new branch: ${{ env.BADGE_BRANCH }}"
         git checkout -b ${{ env.BADGE_BRANCH }}
-        git add README.md
-        git commit -m "docs: update version badge for ${{ env.TARGET_BRANCH }}"
-        git push origin ${{ env.BADGE_BRANCH }}
+        
+        # Check if there are actual changes to commit
+        if [[ -n "$(git status --porcelain README.md)" ]]; then
+          echo "Changes detected in README.md, committing and pushing"
+          git add README.md
+          git commit -m "docs: update version badge for ${{ env.TARGET_BRANCH }}"
+          git push origin ${{ env.BADGE_BRANCH }}
+          echo "CHANGES_PUSHED=true" >> $GITHUB_ENV
+        else
+          echo "No actual changes detected in README.md despite badges-changed=true"
+          echo "This might indicate a parsing issue in the version-tools action"
+          echo "::warning::No changes to commit for README.md despite badges-changed=true"
+          echo "CHANGES_PUSHED=false" >> $GITHUB_ENV
+        fi
 
     - name: Create PR
-      if: steps.update-badge.outputs.badges-changed == 'true'
+      if: steps.update-badge.outputs.badges-changed == 'true' && env.CHANGES_PUSHED == 'true'
       run: |
-        PR_TITLE="docs: update version badge for ${{ env.TARGET_BRANCH }} to ${{ steps.version-check.outputs.version }}"
+        PR_TITLE="docs: update version badge for ${{ env.TARGET_BRANCH }} to ${{ steps.update-badge.outputs.version }}"
         PR_BODY="This PR updates the version badge in the README.md to match the current version in Solution.props.
 
         This is an automated PR created by the Update Version Badge workflow."
