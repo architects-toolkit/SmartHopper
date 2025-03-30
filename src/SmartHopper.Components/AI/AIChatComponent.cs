@@ -10,7 +10,7 @@
 
 /*
  * AI Chat Component for Grasshopper.
- * This component provides a chat interface for interacting with AI providers.
+ * This component provides a WebView-based chat interface for interacting with AI providers.
  */
 
 using System;
@@ -25,7 +25,7 @@ using SmartHopper.Core.ComponentBase;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
-    /// Component that provides an interactive AI chat interface.
+    /// Component that provides an interactive AI chat interface using WebView for HTML rendering.
     /// </summary>
     public class AIChatComponent : AIStatefulAsyncComponentBase
     {
@@ -36,7 +36,7 @@ namespace SmartHopper.Components.AI
             : base(
                 "AI Chat",
                 "AiChat",
-                "Interactive AI-powered conversational interface",
+                "Interactive AI-powered conversational interface with HTML rendering",
                 "SmartHopper",
                 "AI")
         {
@@ -85,7 +85,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the unique ID for this component type.
         /// </summary>
-        public override Guid ComponentGuid => new Guid("5C4E89A3-D7D4-4F9A-B6C8-1A2B3C4D5E6F");
+        public override Guid ComponentGuid => new Guid("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
         /// <summary>
         /// Worker class for the AI Chat component.
@@ -125,12 +125,16 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AIChatWorker] Starting chat worker");
-                    _progressReporter?.Invoke("Starting chat interface...");
+                    Debug.WriteLine("[AIChatWorker] Starting web chat worker");
+                    _progressReporter?.Invoke("Starting web chat interface...");
 
-                    // Create a chat worker
-                    var chatWorker = ChatUtils.CreateChatWorker(
-                        _component._aiProvider,
+                    // Get the actual provider name to use
+                    string actualProvider = _component.GetActualProviderName();
+                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {_component._aiProvider})");
+
+                    // Create a web chat worker
+                    var chatWorker = WebChatUtils.CreateWebChatWorker(
+                        actualProvider,
                         _component.GetModel(),
                         _component.GetEndpoint(),
                         _progressReporter);
@@ -141,8 +145,8 @@ namespace SmartHopper.Components.AI
                     // Get the last response
                     _lastResponse = chatWorker.GetLastResponse();
 
-                    Debug.WriteLine("[AIChatWorker] Chat worker completed");
-                    _progressReporter?.Invoke("Chat completed");
+                    Debug.WriteLine("[AIChatWorker] Web chat worker completed");
+                    _progressReporter?.Invoke("Web chat completed");
                 }
                 catch (Exception ex)
                 {
@@ -159,7 +163,7 @@ namespace SmartHopper.Components.AI
             /// <param name="message">Output message.</param>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                message = "Chat completed";
+                message = "Web chat completed";
 
                 if (_lastResponse != null)
                 {
@@ -170,13 +174,13 @@ namespace SmartHopper.Components.AI
                     // Store metrics for the base class to output
                     _component.StoreResponseMetrics(_lastResponse);
 
-                    message = $"Chat completed. Used {_lastResponse.InTokens} input tokens, {_lastResponse.OutTokens} output tokens.";
+                    message = $"Web chat completed. Used {_lastResponse.InTokens} input tokens, {_lastResponse.OutTokens} output tokens.";
                 }
                 else
                 {
                     // Set empty output if no response
                     _component.SetPersistentOutput("Last Response", new GH_String(""), DA);
-                    message = "Chat completed without a response.";
+                    message = "Web chat completed without a response.";
                 }
             }
         }
