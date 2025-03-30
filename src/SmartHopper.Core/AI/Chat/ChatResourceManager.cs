@@ -26,58 +26,23 @@ namespace SmartHopper.Core.AI.Chat
     /// </summary>
     public class ChatResourceManager
     {
-        private readonly string _resourceBasePath;
         private string _cachedChatTemplate;
         private string _cachedMessageTemplate;
         private string _cachedCssContent;
         private string _cachedJsContent;
+
+        // Resource names
+        private const string CSS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.css.chat-styles.css";
+        private const string JS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.js.chat-script.js";
+        private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.chat-template.html";
+        private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.message-template.html";
 
         /// <summary>
         /// Initializes a new instance of the ChatResourceManager class.
         /// </summary>
         public ChatResourceManager()
         {
-            // Get the base path for resources relative to the executing assembly
-            string assemblyLocation = Assembly.GetExecutingAssembly().Location;
-            string assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
-            _resourceBasePath = Path.Combine(assemblyDirectory, "AI", "Chat", "Resources");
-            
-            // Ensure resource directories exist
-            EnsureResourceDirectoriesExist();
-        }
-
-        /// <summary>
-        /// Gets the path to the CSS file.
-        /// </summary>
-        public string CssPath => Path.Combine(_resourceBasePath, "css", "chat-styles.css");
-
-        /// <summary>
-        /// Gets the path to the JavaScript file.
-        /// </summary>
-        public string JsPath => Path.Combine(_resourceBasePath, "js", "chat-script.js");
-
-        /// <summary>
-        /// Gets the path to the chat template file.
-        /// </summary>
-        public string ChatTemplatePath => Path.Combine(_resourceBasePath, "templates", "chat-template.html");
-
-        /// <summary>
-        /// Gets the path to the message template file.
-        /// </summary>
-        public string MessageTemplatePath => Path.Combine(_resourceBasePath, "templates", "message-template.html");
-
-        /// <summary>
-        /// Ensures that the resource directories exist.
-        /// </summary>
-        private void EnsureResourceDirectoriesExist()
-        {
-            string cssDir = Path.Combine(_resourceBasePath, "css");
-            string jsDir = Path.Combine(_resourceBasePath, "js");
-            string templatesDir = Path.Combine(_resourceBasePath, "templates");
-
-            Directory.CreateDirectory(cssDir);
-            Directory.CreateDirectory(jsDir);
-            Directory.CreateDirectory(templatesDir);
+            // No initialization needed
         }
 
         /// <summary>
@@ -88,7 +53,7 @@ namespace SmartHopper.Core.AI.Chat
         {
             if (string.IsNullOrEmpty(_cachedChatTemplate))
             {
-                _cachedChatTemplate = File.ReadAllText(ChatTemplatePath);
+                _cachedChatTemplate = ReadEmbeddedResource(CHAT_TEMPLATE_RESOURCE);
             }
 
             // Get the message template to inject
@@ -99,8 +64,8 @@ namespace SmartHopper.Core.AI.Chat
 
             // Replace placeholders with actual paths and content
             string result = _cachedChatTemplate
-                .Replace("{{cssPath}}", CssPath)
-                .Replace("{{jsPath}}", JsPath)
+                .Replace("{{cssPath}}", "embedded-css") // Not used, but kept for compatibility
+                .Replace("{{jsPath}}", "embedded-js") // Not used, but kept for compatibility
                 .Replace("{{messageTemplate}}", messageTemplate);
 
             return result;
@@ -114,7 +79,7 @@ namespace SmartHopper.Core.AI.Chat
         {
             if (string.IsNullOrEmpty(_cachedMessageTemplate))
             {
-                _cachedMessageTemplate = File.ReadAllText(MessageTemplatePath);
+                _cachedMessageTemplate = ReadEmbeddedResource(MESSAGE_TEMPLATE_RESOURCE);
             }
 
             return _cachedMessageTemplate;
@@ -128,7 +93,7 @@ namespace SmartHopper.Core.AI.Chat
         {
             if (string.IsNullOrEmpty(_cachedCssContent))
             {
-                _cachedCssContent = File.ReadAllText(CssPath);
+                _cachedCssContent = ReadEmbeddedResource(CSS_RESOURCE);
             }
 
             return _cachedCssContent;
@@ -142,7 +107,7 @@ namespace SmartHopper.Core.AI.Chat
         {
             if (string.IsNullOrEmpty(_cachedJsContent))
             {
-                _cachedJsContent = File.ReadAllText(JsPath);
+                _cachedJsContent = ReadEmbeddedResource(JS_RESOURCE);
             }
 
             return _cachedJsContent;
@@ -181,6 +146,29 @@ namespace SmartHopper.Core.AI.Chat
                 .Replace("{{role}}", role)
                 .Replace("{{displayName}}", displayName)
                 .Replace("{{content}}", content);
+        }
+
+        /// <summary>
+        /// Reads an embedded resource from the assembly.
+        /// </summary>
+        /// <param name="resourceName">The name of the resource to read.</param>
+        /// <returns>The content of the resource as a string.</returns>
+        private string ReadEmbeddedResource(string resourceName)
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            
+            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (stream == null)
+                {
+                    throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
+                }
+                
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
         }
     }
 }

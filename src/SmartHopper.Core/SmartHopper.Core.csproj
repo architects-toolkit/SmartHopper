@@ -29,6 +29,11 @@
     <None Remove="Settings\**" />
   </ItemGroup>
 
+  <!-- Embed the AI Web Chat resource files in the assembly -->
+  <ItemGroup>
+    <EmbeddedResource Include="AI\Chat\Resources\**\*.*" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Grasshopper" Version="8.13.24317.13001" ExcludeAssets="runtime">

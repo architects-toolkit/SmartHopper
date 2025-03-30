@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling in the AIStatefulAsyncComponentBase.
 - Simplified FormattedMessageControl by removing the IsMarkdown property since all messages use markdown formatting
 - Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
+- Improved security by embedding WebChat resources in the assembly instead of copying them to the output directory.
 
 ### Removed
 
