@@ -52,7 +52,7 @@ namespace SmartHopper.Menu.Dialogs
             );
         }
 
-        private Control CreateLogoPanel()
+        private static Control CreateLogoPanel()
         {
             // Create an ImageView with the SmartHopper logo from the resources
             var imageView = new ImageView();
@@ -199,7 +199,7 @@ namespace SmartHopper.Menu.Dialogs
             };
         }
 
-        private LinkButton CreateLinkButton(string text, string url)
+        private static LinkButton CreateLinkButton(string text, string url)
         {
             var link = new LinkButton
             {
@@ -212,7 +212,7 @@ namespace SmartHopper.Menu.Dialogs
             return link;
         }
 
-        private void OpenUrl(string url)
+        private static void OpenUrl(string url)
         {
             try
             {
