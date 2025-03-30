@@ -10,12 +10,9 @@
 
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
-using System.Drawing;
 using Rhino;
 
 namespace SmartHopper.Menu.Items
@@ -26,15 +23,10 @@ namespace SmartHopper.Menu.Items
         {
             [typeof(string)] = descriptor => 
             {
-                // Use PasswordBox for secret fields, TextBox for regular text
                 if (descriptor.IsSecret)
-                {
                     return new Eto.Forms.PasswordBox();
-                }
                 else
-                {
                     return new Eto.Forms.TextBox();
-                }
             },
             [typeof(int)] = descriptor => new Eto.Forms.NumericStepper
             {
@@ -74,21 +66,13 @@ namespace SmartHopper.Menu.Items
                     var settings = SmartHopperSettings.Load();
 
                     // Create the main layout
-                    var layout = new Eto.Forms.TableLayout
-                    {
-                        Spacing = new Eto.Drawing.Size(5, 5),
-                        Padding = new Eto.Drawing.Padding(10)
-                    };
-
-                    var scrollable = new Eto.Forms.Scrollable
-                    {
-                        Content = layout
-                    };
+                    var layout = new Eto.Forms.TableLayout { Spacing = new Eto.Drawing.Size(5, 5), Padding = new Eto.Drawing.Padding(10) };
+                    var scrollable = new Eto.Forms.Scrollable { Content = layout };
 
                     // Dictionary to store all controls for later retrieval
                     var allControls = new Dictionary<string, Dictionary<string, Eto.Forms.Control>>();
-                    // Dictionary to track original API key values to avoid overwriting unchanged values
-                    var originalApiKeys = new Dictionary<string, Dictionary<string, string>>();
+                    // Dictionary to track original values to avoid overwriting unchanged sensitive data
+                    var originalValues = new Dictionary<string, Dictionary<string, string>>();
 
                     // Add general settings section
                     layout.Rows.Add(new Eto.Forms.TableRow(
@@ -101,21 +85,15 @@ namespace SmartHopper.Menu.Items
                     ));
 
                     // Add default provider selection
-                    var defaultProviderRow = new Eto.Forms.TableLayout
-                    {
-                        Spacing = new Eto.Drawing.Size(5, 5),
-                        Padding = new Eto.Drawing.Padding(0)
-                    };
-
+                    var defaultProviderRow = new Eto.Forms.TableLayout { Spacing = new Eto.Drawing.Size(5, 5) };
                     var defaultProviderComboBox = new Eto.Forms.DropDown();
                     
-                    // Add all providers to the dropdown
+                    // Add all providers to the dropdown and select current default
                     foreach (var provider in providers)
                     {
                         defaultProviderComboBox.Items.Add(new Eto.Forms.ListItem { Text = provider.Name });
                     }
                     
-                    // Select the current default provider if set
                     if (!string.IsNullOrEmpty(settings.DefaultAIProvider))
                     {
                         for (int i = 0; i < defaultProviderComboBox.Items.Count; i++)
@@ -142,19 +120,14 @@ namespace SmartHopper.Menu.Items
                     layout.Rows.Add(new Eto.Forms.TableRow(
                         new Eto.Forms.TableCell(new Eto.Forms.Label
                         {
-                            Text = "The default AI provider to use when 'Default' is selected in components",
+                            Text = "The default AI provider to use when the 'Default' provider is selected",
                             TextColor = Eto.Drawing.Colors.Gray,
                             Font = new Eto.Drawing.Font(Eto.Drawing.SystemFont.Default, 10)
                         })
                     ));
 
                     // Add debounce time setting
-                    var debounceRow = new Eto.Forms.TableLayout
-                    {
-                        Spacing = new Eto.Drawing.Size(5, 5),
-                        Padding = new Eto.Drawing.Padding(0)
-                    };
-
+                    var debounceRow = new Eto.Forms.TableLayout { Spacing = new Eto.Drawing.Size(5, 5) };
                     var debounceControl = new Eto.Forms.NumericStepper
                     {
                         MinValue = 1000,
@@ -182,8 +155,10 @@ namespace SmartHopper.Menu.Items
                     foreach (var provider in providers)
                     {
                         var descriptors = provider.GetSettingDescriptors().ToList();
+                        var controls = new Dictionary<string, Eto.Forms.Control>();
+                        originalValues[provider.Name] = new Dictionary<string, string>();
 
-                        // Create a row for the provider header with icon
+                        // Create provider header with icon
                         var headerLayout = new Eto.Forms.StackLayout
                         {
                             Orientation = Eto.Forms.Orientation.Horizontal,
@@ -192,21 +167,18 @@ namespace SmartHopper.Menu.Items
                             Padding = new Eto.Drawing.Padding(0, 15, 0, 10)
                         };
 
-                        // Add provider icon
+                        // Add provider icon if available
                         if (provider.Icon != null)
                         {
-                            // Convert System.Drawing.Image to Eto.Drawing.Image
                             using (var ms = new System.IO.MemoryStream())
                             {
                                 provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
                                 ms.Position = 0;
-                                var etoImage = new Eto.Drawing.Bitmap(ms);
-                                var imageView = new Eto.Forms.ImageView
+                                headerLayout.Items.Add(new Eto.Forms.ImageView
                                 {
-                                    Image = etoImage,
+                                    Image = new Eto.Drawing.Bitmap(ms),
                                     Size = new Eto.Drawing.Size(16, 16)
-                                };
-                                headerLayout.Items.Add(imageView);
+                                });
                             }
                         }
 
@@ -220,28 +192,23 @@ namespace SmartHopper.Menu.Items
 
                         layout.Rows.Add(new Eto.Forms.TableRow(new Eto.Forms.TableCell(headerLayout)));
 
-                        var controls = new Dictionary<string, Eto.Forms.Control>();
-                        originalApiKeys[provider.Name] = new Dictionary<string, string>();
-                        
+                        // Add settings for this provider
                         foreach (var descriptor in descriptors)
                         {
-                            // Create a row for each setting
-                            var settingRow = new Eto.Forms.TableLayout
-                            {
-                                Spacing = new Eto.Drawing.Size(5, 5),
-                                Padding = new Eto.Drawing.Padding(0)
-                            };
-
-                            // Create the control based on the descriptor type
+                            // Create control for this setting
                             var control = ControlFactories[descriptor.Type](descriptor);
+                            controls[descriptor.Name] = control;
                             
+                            // Add label and control
+                            var settingRow = new Eto.Forms.TableLayout { Spacing = new Eto.Drawing.Size(5, 5) };
                             settingRow.Rows.Add(new Eto.Forms.TableRow(
-                                new Eto.Forms.TableCell(new Eto.Forms.Label { Text = descriptor.DisplayName + ":", VerticalAlignment = Eto.Forms.VerticalAlignment.Center }),
+                                new Eto.Forms.TableCell(new Eto.Forms.Label { 
+                                    Text = descriptor.DisplayName + ":", 
+                                    VerticalAlignment = Eto.Forms.VerticalAlignment.Center 
+                                }),
                                 new Eto.Forms.TableCell(control)
                             ));
                             layout.Rows.Add(settingRow);
-
-                            controls[descriptor.Name] = control;
 
                             // Add description if available
                             if (!string.IsNullOrWhiteSpace(descriptor.Description))
@@ -256,54 +223,30 @@ namespace SmartHopper.Menu.Items
                                 ));
                             }
 
-                            // Load current value if exists
+                            // Load current value
+                            string currentValue = null;
                             if (settings.ProviderSettings.ContainsKey(provider.Name) &&
                                 settings.ProviderSettings[provider.Name].ContainsKey(descriptor.Name))
                             {
-                                var value = settings.ProviderSettings[provider.Name][descriptor.Name];
-                                
-                                if (control is Eto.Forms.TextBox textBox)
-                                {
-                                    textBox.Text = value?.ToString() ?? "";
-                                    
-                                    // Store original value for API keys
-                                    if (descriptor.IsSecret)
-                                    {
-                                        originalApiKeys[provider.Name][descriptor.Name] = textBox.Text;
-                                    }
-                                }
-                                else if (control is Eto.Forms.PasswordBox passwordBox)
-                                {
-                                    passwordBox.Text = value?.ToString() ?? "";
-                                    
-                                    // Store original value for API keys
-                                    originalApiKeys[provider.Name][descriptor.Name] = passwordBox.Text;
-                                }
-                                else if (control is Eto.Forms.NumericStepper numericStepper && value != null)
-                                {
-                                    numericStepper.Value = Convert.ToInt32(value);
-                                }
+                                currentValue = settings.ProviderSettings[provider.Name][descriptor.Name]?.ToString();
                             }
                             else if (descriptor.DefaultValue != null)
                             {
+                                currentValue = descriptor.DefaultValue.ToString();
+                            }
+
+                            // Set value to control and store original for comparison
+                            if (currentValue != null)
+                            {
                                 if (control is Eto.Forms.TextBox textBox)
-                                {
-                                    textBox.Text = descriptor.DefaultValue.ToString();
-                                }
+                                    textBox.Text = currentValue;
                                 else if (control is Eto.Forms.PasswordBox passwordBox)
-                                {
-                                    passwordBox.Text = descriptor.DefaultValue.ToString();
-                                    
-                                    // Store original value for API keys
-                                    if (descriptor.IsSecret)
-                                    {
-                                        originalApiKeys[provider.Name][descriptor.Name] = passwordBox.Text;
-                                    }
-                                }
+                                    passwordBox.Text = currentValue;
                                 else if (control is Eto.Forms.NumericStepper numericStepper)
-                                {
-                                    numericStepper.Value = Convert.ToInt32(descriptor.DefaultValue);
-                                }
+                                    numericStepper.Value = Convert.ToInt32(currentValue);
+                                
+                                // Store original value for comparison
+                                originalValues[provider.Name][descriptor.Name] = currentValue;
                             }
                         }
 
@@ -340,75 +283,58 @@ namespace SmartHopper.Menu.Items
                     // Handle button clicks
                     saveButton.Click += (sender, e) =>
                     {
-                        // Save settings
+                        // Create a copy of the current settings to preserve encrypted values
+                        var updatedSettings = new Dictionary<string, Dictionary<string, object>>();
+                        foreach (var providerSetting in settings.ProviderSettings)
+                        {
+                            updatedSettings[providerSetting.Key] = new Dictionary<string, object>(providerSetting.Value);
+                        }
+                        
+                        // Update with new values from the UI
                         foreach (var provider in providers)
                         {
-                            if (!settings.ProviderSettings.ContainsKey(provider.Name))
-                                settings.ProviderSettings[provider.Name] = new Dictionary<string, object>();
+                            if (!updatedSettings.ContainsKey(provider.Name))
+                                updatedSettings[provider.Name] = new Dictionary<string, object>();
 
                             var controls = allControls[provider.Name];
                             foreach (var descriptor in provider.GetSettingDescriptors())
                             {
                                 var control = controls[descriptor.Name];
-                                object value = null;
-
-                                // Only update API keys if they've changed
-                                if (descriptor.IsSecret)
+                                
+                                // Get new value from control
+                                object newValue = null;
+                                if (control is Eto.Forms.TextBox textBox)
+                                    newValue = textBox.Text;
+                                else if (control is Eto.Forms.PasswordBox passwordBox)
+                                    newValue = passwordBox.Text;
+                                else if (control is Eto.Forms.NumericStepper numericStepper)
+                                    newValue = (int)numericStepper.Value;
+                                
+                                // For sensitive data, only update if changed and not empty
+                                if (descriptor.IsSecret && newValue is string strValue)
                                 {
-                                    string newValue = null;
-                                    
-                                    if (control is Eto.Forms.TextBox textBox)
-                                        newValue = textBox.Text;
-                                    else if (control is Eto.Forms.PasswordBox passwordBox)
-                                        newValue = passwordBox.Text;
-                                    
-                                    // Check if API key has changed
-                                    if (string.IsNullOrEmpty(newValue))
-                                    {
-                                        // If empty, don't update (keep existing value)
-                                        continue;
-                                    }
-                                    else if (originalApiKeys[provider.Name].ContainsKey(descriptor.Name) && 
-                                             newValue == originalApiKeys[provider.Name][descriptor.Name])
-                                    {
-                                        // If unchanged, don't update
-                                        continue;
-                                    }
-                                    else
-                                    {
-                                        // Value has changed, update it
-                                        value = newValue;
-                                    }
+                                    if (string.IsNullOrEmpty(strValue))
+                                        continue; // Keep existing value
+                                        
+                                    if (originalValues[provider.Name].ContainsKey(descriptor.Name) && 
+                                        strValue == originalValues[provider.Name][descriptor.Name])
+                                        continue; // Skip unchanged values
                                 }
-                                else
-                                {
-                                    // For non-secret fields, always update
-                                    if (control is Eto.Forms.TextBox textBox)
-                                        value = textBox.Text;
-                                    else if (control is Eto.Forms.PasswordBox passwordBox)
-                                        value = passwordBox.Text;
-                                    else if (control is Eto.Forms.NumericStepper numericStepper)
-                                        value = (int)numericStepper.Value;
-                                }
-
-                                // Only update if we have a value to set
-                                if (value != null)
-                                {
-                                    settings.ProviderSettings[provider.Name][descriptor.Name] = value;
-                                }
+                                
+                                // Update the setting
+                                updatedSettings[provider.Name][descriptor.Name] = newValue;
                             }
                         }
-
-                        // Save debounce time
+                        
+                        // Update settings
+                        settings.ProviderSettings = updatedSettings;
                         settings.DebounceTime = (int)debounceControl.Value;
                         
                         // Save default provider
-                        settings.DefaultAIProvider = defaultProviderComboBox.SelectedValue?.ToString() ?? "";
-                        if (string.IsNullOrEmpty(settings.DefaultAIProvider) && defaultProviderComboBox.SelectedIndex >= 0)
-                        {
+                        if (defaultProviderComboBox.SelectedIndex >= 0)
                             settings.DefaultAIProvider = defaultProviderComboBox.Items[defaultProviderComboBox.SelectedIndex].Text;
-                        }
-
+                        
+                        // Save settings (this will handle encryption)
                         settings.Save();
                         dialog.Close();
                     };
