@@ -12,298 +12,321 @@ using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Windows.Forms;
+using Rhino;
 
 namespace SmartHopper.Menu.Items
 {
     internal static class SettingsMenuItem
     {
-        private static readonly Dictionary<Type, Func<SettingDescriptor, Control>> ControlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
+        private static readonly Dictionary<Type, Func<SettingDescriptor, Eto.Forms.Control>> ControlFactories = new Dictionary<Type, Func<SettingDescriptor, Eto.Forms.Control>>
         {
-            [typeof(string)] = descriptor => new TextBox
+            [typeof(string)] = descriptor => new Eto.Forms.TextBox
             {
-                UseSystemPasswordChar = descriptor.IsSecret,
-                Dock = DockStyle.Fill
+                // Use ReadOnly for passwords
+                ReadOnly = descriptor.IsSecret
             },
-            [typeof(int)] = descriptor => new NumericUpDown
+            [typeof(int)] = descriptor => new Eto.Forms.NumericStepper
             {
-                Minimum = 1,
-                Maximum = 4096,
-                Value = Convert.ToInt32(descriptor.DefaultValue),
-                Dock = DockStyle.Fill
+                MinValue = 1,
+                MaxValue = 4096,
+                Value = Convert.ToInt32(descriptor.DefaultValue)
             }
         };
 
-        public static ToolStripMenuItem Create()
+        public static System.Windows.Forms.ToolStripMenuItem Create()
         {
-            var item = new ToolStripMenuItem("Settings");
+            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
             item.Click += (sender, e) => ShowSettingsDialog();
             return item;
         }
 
         private static void ShowSettingsDialog()
         {
-            using (var form = new Form())
+            // Use RhinoApp.InvokeOnUiThread to ensure UI operations run on Rhino's main UI thread
+            RhinoApp.InvokeOnUiThread(new Action(() =>
             {
-                form.Text = "SmartHopper Settings";
-                form.Size = new Size(500, 400);
-                form.StartPosition = FormStartPosition.CenterScreen;
-                form.AutoScroll = true;
-
-                var providers = SmartHopperSettings.DiscoverProviders().ToArray();
-                var settings = SmartHopperSettings.Load();
-
-                System.Diagnostics.Debug.WriteLine($"Number of providers: {providers.Length}");
-
-                var outerPanel = new Panel
+                using (var dialog = new Eto.Forms.Dialog())
                 {
-                    Dock = DockStyle.Fill,
-                    AutoScroll = true
-                };
-                form.Controls.Add(outerPanel);
+                    dialog.Title = "SmartHopper Settings";
+                    dialog.Size = new Eto.Drawing.Size(500, 400);
+                    dialog.Padding = new Eto.Drawing.Padding(10);
 
-                var panel = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Top,
-                    AutoSize = true,
-                    Padding = new Padding(10)
-                };
-                outerPanel.Controls.Add(panel);
+                    var providers = SmartHopperSettings.DiscoverProviders().ToArray();
+                    var settings = SmartHopperSettings.Load();
 
-                // Calculate total rows needed
-                int totalRows = providers.Sum(p => p.GetSettingDescriptors().Count() * 2 + 1); // *2 for description rows, +1 for provider header
-                totalRows += 4; // Add 4 rows: 1 for general header, 3 for default provider selection and debounce time (control + description)
-                panel.RowCount = totalRows;
-                panel.ColumnCount = 2;
-
-                // Set column widths
-                panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));  // First column takes 40% of the width
-                panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));  // Second column takes 60% of the width
-
-                var row = 0;
-                var allControls = new Dictionary<string, Dictionary<string, Control>>();
-
-                // Add general settings section
-                var generalHeader = new Label
-                {
-                    Text = "General Settings",
-                    Font = new Font(form.Font, FontStyle.Bold),
-                    Dock = DockStyle.Fill,
-                    Padding = new Padding(0, 15, 0, 10),
-                    AutoSize = true
-                };
-                panel.Controls.Add(generalHeader, 0, row);
-                panel.SetColumnSpan(generalHeader, 2);
-                row++;
-
-                // Add default provider selection
-                panel.Controls.Add(new Label
-                {
-                    Text = "Default AI Provider:",
-                    Dock = DockStyle.Fill,
-                    AutoSize = true
-                }, 0, row);
-
-                var defaultProviderComboBox = new ComboBox
-                {
-                    Dock = DockStyle.Fill,
-                    DropDownStyle = ComboBoxStyle.DropDownList
-                };
-                
-                // Add all providers to the dropdown
-                foreach (var provider in providers)
-                {
-                    defaultProviderComboBox.Items.Add(provider.Name);
-                }
-                
-                // Select the current default provider if set
-                if (!string.IsNullOrEmpty(settings.DefaultAIProvider) && 
-                    defaultProviderComboBox.Items.Contains(settings.DefaultAIProvider))
-                {
-                    defaultProviderComboBox.SelectedItem = settings.DefaultAIProvider;
-                }
-                else if (defaultProviderComboBox.Items.Count > 0)
-                {
-                    defaultProviderComboBox.SelectedIndex = 0;
-                }
-                
-                panel.Controls.Add(defaultProviderComboBox, 1, row);
-                row++;
-
-                // Add default provider description
-                var defaultProviderDescription = new Label
-                {
-                    Text = "The default AI provider to use when 'Default' is selected in components",
-                    ForeColor = SystemColors.GrayText,
-                    Font = new Font(form.Font.FontFamily, form.Font.Size - 1),
-                    Dock = DockStyle.Fill,
-                    AutoSize = true,
-                    Padding = new Padding(5, 0, 0, 5)
-                };
-                panel.Controls.Add(defaultProviderDescription, 0, row);
-                panel.SetColumnSpan(defaultProviderDescription, 2);
-                row++;
-
-                // Add debounce time setting
-                panel.Controls.Add(new Label
-                {
-                    Text = "Debounce Time (ms):",
-                    Dock = DockStyle.Fill,
-                    AutoSize = true
-                }, 0, row);
-
-                var debounceControl = new NumericUpDown
-                {
-                    Minimum = 1000,
-                    Maximum = 5000,
-                    Value = settings.DebounceTime,
-                    Dock = DockStyle.Fill
-                };
-                panel.Controls.Add(debounceControl, 1, row);
-                row++;
-
-                // Add debounce description
-                var debounceDescription = new Label
-                {
-                    Text = "Time to wait before sending a new request (in milliseconds)",
-                    ForeColor = SystemColors.GrayText,
-                    Font = new Font(form.Font.FontFamily, form.Font.Size - 1),
-                    Dock = DockStyle.Fill,
-                    AutoSize = true,
-                    Padding = new Padding(5, 0, 0, 5)
-                };
-                panel.Controls.Add(debounceDescription, 0, row);
-                panel.SetColumnSpan(debounceDescription, 2);
-                row++;
-
-                foreach (var provider in providers)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Provider: {provider.Name}");
-                    var descriptors = provider.GetSettingDescriptors().ToList();
-                    System.Diagnostics.Debug.WriteLine($"Number of descriptors: {descriptors.Count}");
-
-                    // Provider header
-                    var header = new Label
+                    // Create the main layout
+                    var layout = new Eto.Forms.TableLayout
                     {
-                        Text = provider.Name,
-                        Font = new Font(form.Font, FontStyle.Bold),
-                        Dock = DockStyle.Fill,
-                        Padding = new Padding(0, 15, 0, 10),
-                        AutoSize = true
+                        Spacing = new Eto.Drawing.Size(5, 5),
+                        Padding = new Eto.Drawing.Padding(10)
                     };
-                    panel.Controls.Add(header, 0, row);
-                    panel.SetColumnSpan(header, 2);
-                    row++;
 
-                    var controls = new Dictionary<string, Control>();
-                    foreach (var descriptor in descriptors)
+                    var scrollable = new Eto.Forms.Scrollable
                     {
-                        System.Diagnostics.Debug.WriteLine($"Creating control for: {descriptor.Name} ({descriptor.DisplayName})");
+                        Content = layout
+                    };
 
-                        // Add label and control
-                        panel.Controls.Add(new Label
+                    // Dictionary to store all controls for later retrieval
+                    var allControls = new Dictionary<string, Dictionary<string, Eto.Forms.Control>>();
+
+                    // Add general settings section
+                    layout.Rows.Add(new Eto.Forms.TableRow(
+                        new Eto.Forms.TableCell(new Eto.Forms.Label
                         {
-                            Text = descriptor.DisplayName + ":",
-                            Dock = DockStyle.Fill,
-                            AutoSize = true
-                        }, 0, row);
+                            Text = "General Settings",
+                            Font = new Eto.Drawing.Font(Eto.Drawing.SystemFont.Bold, 12),
+                            VerticalAlignment = Eto.Forms.VerticalAlignment.Center
+                        })
+                    ));
 
-                        var control = ControlFactories[descriptor.Type](descriptor);
-                        panel.Controls.Add(control, 1, row);
-                        controls[descriptor.Name] = control;
-                        row++;
+                    // Add default provider selection
+                    var defaultProviderRow = new Eto.Forms.TableLayout
+                    {
+                        Spacing = new Eto.Drawing.Size(5, 5),
+                        Padding = new Eto.Drawing.Padding(0)
+                    };
 
-                        // Add description
-                        if (!string.IsNullOrWhiteSpace(descriptor.Description))
-                        {
-                            var descriptionLabel = new Label
-                            {
-                                Text = descriptor.Description,
-                                ForeColor = SystemColors.GrayText,
-                                Font = new Font(form.Font.FontFamily, form.Font.Size - 1),
-                                Dock = DockStyle.Fill,
-                                AutoSize = true,
-                                Padding = new Padding(5, 0, 0, 5)
-                            };
-                            panel.Controls.Add(descriptionLabel, 0, row);
-                            panel.SetColumnSpan(descriptionLabel, 2);
-                            row++;
-                        }
-
-                        // Load current value if exists
-                        if (settings.ProviderSettings.ContainsKey(provider.Name) &&
-                            settings.ProviderSettings[provider.Name].ContainsKey(descriptor.Name))
-                        {
-                            var value = settings.ProviderSettings[provider.Name][descriptor.Name];
-                            if (control is TextBox textBox)
-                                textBox.Text = value?.ToString() ?? "";
-                            else if (control is NumericUpDown numericUpDown && value != null)
-                                numericUpDown.Value = Convert.ToInt32(value);
-                        }
-                        else if (descriptor.DefaultValue != null)
-                        {
-                            if (control is TextBox textBox)
-                                textBox.Text = descriptor.DefaultValue.ToString();
-                            else if (control is NumericUpDown numericUpDown)
-                                numericUpDown.Value = Convert.ToInt32(descriptor.DefaultValue);
-                        }
-                    }
-
-                    allControls[provider.Name] = controls;
-                }
-
-                // Add save button at the bottom
-                var buttonPanel = new Panel
-                {
-                    Dock = DockStyle.Bottom,
-                    Height = 40,
-                    Padding = new Padding(5)
-                };
-
-                var saveButton = new Button
-                {
-                    Text = "Save",
-                    DialogResult = DialogResult.OK,
-                    Dock = DockStyle.Right
-                };
-                buttonPanel.Controls.Add(saveButton);
-                form.Controls.Add(buttonPanel);
-                form.AcceptButton = saveButton;
-
-                if (form.ShowDialog() == DialogResult.OK)
-                {
-                    // Save settings
+                    var defaultProviderComboBox = new Eto.Forms.DropDown();
+                    
+                    // Add all providers to the dropdown
                     foreach (var provider in providers)
                     {
-                        if (!settings.ProviderSettings.ContainsKey(provider.Name))
-                            settings.ProviderSettings[provider.Name] = new Dictionary<string, object>();
-
-                        var controls = allControls[provider.Name];
-                        foreach (var descriptor in provider.GetSettingDescriptors())
+                        defaultProviderComboBox.Items.Add(new Eto.Forms.ListItem { Text = provider.Name });
+                    }
+                    
+                    // Select the current default provider if set
+                    if (!string.IsNullOrEmpty(settings.DefaultAIProvider))
+                    {
+                        for (int i = 0; i < defaultProviderComboBox.Items.Count; i++)
                         {
-                            var control = controls[descriptor.Name];
-                            object value = null;
-
-                            if (control is TextBox textBox)
-                                value = textBox.Text;
-                            else if (control is NumericUpDown numericUpDown)
-                                value = (int)numericUpDown.Value;
-
-                            settings.ProviderSettings[provider.Name][descriptor.Name] = value;
+                            if (defaultProviderComboBox.Items[i].Text == settings.DefaultAIProvider)
+                            {
+                                defaultProviderComboBox.SelectedIndex = i;
+                                break;
+                            }
                         }
                     }
+                    else if (defaultProviderComboBox.Items.Count > 0)
+                    {
+                        defaultProviderComboBox.SelectedIndex = 0;
+                    }
 
-                    // Save debounce time
-                    settings.DebounceTime = (int)debounceControl.Value;
-                    
-                    // Save default provider
-                    settings.DefaultAIProvider = defaultProviderComboBox.SelectedItem?.ToString() ?? "";
+                    defaultProviderRow.Rows.Add(new Eto.Forms.TableRow(
+                        new Eto.Forms.TableCell(new Eto.Forms.Label { Text = "Default AI Provider:", VerticalAlignment = Eto.Forms.VerticalAlignment.Center }),
+                        new Eto.Forms.TableCell(defaultProviderComboBox)
+                    ));
+                    layout.Rows.Add(defaultProviderRow);
 
-                    settings.Save();
+                    // Add default provider description
+                    layout.Rows.Add(new Eto.Forms.TableRow(
+                        new Eto.Forms.TableCell(new Eto.Forms.Label
+                        {
+                            Text = "The default AI provider to use when 'Default' is selected in components",
+                            TextColor = Eto.Drawing.Colors.Gray,
+                            Font = new Eto.Drawing.Font(Eto.Drawing.SystemFont.Default, 10)
+                        })
+                    ));
+
+                    // Add debounce time setting
+                    var debounceRow = new Eto.Forms.TableLayout
+                    {
+                        Spacing = new Eto.Drawing.Size(5, 5),
+                        Padding = new Eto.Drawing.Padding(0)
+                    };
+
+                    var debounceControl = new Eto.Forms.NumericStepper
+                    {
+                        MinValue = 1000,
+                        MaxValue = 5000,
+                        Value = settings.DebounceTime
+                    };
+
+                    debounceRow.Rows.Add(new Eto.Forms.TableRow(
+                        new Eto.Forms.TableCell(new Eto.Forms.Label { Text = "Debounce Time (ms):", VerticalAlignment = Eto.Forms.VerticalAlignment.Center }),
+                        new Eto.Forms.TableCell(debounceControl)
+                    ));
+                    layout.Rows.Add(debounceRow);
+
+                    // Add debounce description
+                    layout.Rows.Add(new Eto.Forms.TableRow(
+                        new Eto.Forms.TableCell(new Eto.Forms.Label
+                        {
+                            Text = "Time to wait before sending a new request (in milliseconds)",
+                            TextColor = Eto.Drawing.Colors.Gray,
+                            Font = new Eto.Drawing.Font(Eto.Drawing.SystemFont.Default, 10)
+                        })
+                    ));
+
+                    // Add provider settings
+                    foreach (var provider in providers)
+                    {
+                        var descriptors = provider.GetSettingDescriptors().ToList();
+
+                        // Create a row for the provider header with icon
+                        var headerLayout = new Eto.Forms.StackLayout
+                        {
+                            Orientation = Eto.Forms.Orientation.Horizontal,
+                            Spacing = 5,
+                            VerticalContentAlignment = Eto.Forms.VerticalAlignment.Center,
+                            Padding = new Eto.Drawing.Padding(0, 15, 0, 10)
+                        };
+
+                        // Add provider icon
+                        if (provider.Icon != null)
+                        {
+                            // Convert System.Drawing.Image to Eto.Drawing.Image
+                            using (var ms = new System.IO.MemoryStream())
+                            {
+                                provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                                ms.Position = 0;
+                                var etoImage = new Eto.Drawing.Bitmap(ms);
+                                var imageView = new Eto.Forms.ImageView
+                                {
+                                    Image = etoImage,
+                                    Size = new Eto.Drawing.Size(16, 16)
+                                };
+                                headerLayout.Items.Add(imageView);
+                            }
+                        }
+
+                        // Add provider name
+                        headerLayout.Items.Add(new Eto.Forms.Label
+                        {
+                            Text = provider.Name,
+                            Font = new Eto.Drawing.Font(Eto.Drawing.SystemFont.Bold, 12),
+                            VerticalAlignment = Eto.Forms.VerticalAlignment.Center
+                        });
+
+                        layout.Rows.Add(new Eto.Forms.TableRow(new Eto.Forms.TableCell(headerLayout)));
+
+                        var controls = new Dictionary<string, Eto.Forms.Control>();
+                        foreach (var descriptor in descriptors)
+                        {
+                            // Create a row for each setting
+                            var settingRow = new Eto.Forms.TableLayout
+                            {
+                                Spacing = new Eto.Drawing.Size(5, 5),
+                                Padding = new Eto.Drawing.Padding(0)
+                            };
+
+                            // Create the control based on the descriptor type
+                            var control = ControlFactories[descriptor.Type](descriptor);
+                            
+                            settingRow.Rows.Add(new Eto.Forms.TableRow(
+                                new Eto.Forms.TableCell(new Eto.Forms.Label { Text = descriptor.DisplayName + ":", VerticalAlignment = Eto.Forms.VerticalAlignment.Center }),
+                                new Eto.Forms.TableCell(control)
+                            ));
+                            layout.Rows.Add(settingRow);
+
+                            controls[descriptor.Name] = control;
+
+                            // Add description if available
+                            if (!string.IsNullOrWhiteSpace(descriptor.Description))
+                            {
+                                layout.Rows.Add(new Eto.Forms.TableRow(
+                                    new Eto.Forms.TableCell(new Eto.Forms.Label
+                                    {
+                                        Text = descriptor.Description,
+                                        TextColor = Eto.Drawing.Colors.Gray,
+                                        Font = new Eto.Drawing.Font(Eto.Drawing.SystemFont.Default, 10)
+                                    })
+                                ));
+                            }
+
+                            // Load current value if exists
+                            if (settings.ProviderSettings.ContainsKey(provider.Name) &&
+                                settings.ProviderSettings[provider.Name].ContainsKey(descriptor.Name))
+                            {
+                                var value = settings.ProviderSettings[provider.Name][descriptor.Name];
+                                if (control is Eto.Forms.TextBox textBox)
+                                    textBox.Text = value?.ToString() ?? "";
+                                else if (control is Eto.Forms.NumericStepper numericStepper && value != null)
+                                    numericStepper.Value = Convert.ToInt32(value);
+                            }
+                            else if (descriptor.DefaultValue != null)
+                            {
+                                if (control is Eto.Forms.TextBox textBox)
+                                    textBox.Text = descriptor.DefaultValue.ToString();
+                                else if (control is Eto.Forms.NumericStepper numericStepper)
+                                    numericStepper.Value = Convert.ToInt32(descriptor.DefaultValue);
+                            }
+                        }
+
+                        allControls[provider.Name] = controls;
+                    }
+
+                    // Add a spacer row at the end
+                    layout.Rows.Add(Eto.Forms.TableLayout.AutoSized(null));
+
+                    // Create buttons
+                    var buttonLayout = new Eto.Forms.StackLayout
+                    {
+                        Orientation = Eto.Forms.Orientation.Horizontal,
+                        Spacing = 5,
+                        HorizontalContentAlignment = Eto.Forms.HorizontalAlignment.Right
+                    };
+
+                    var saveButton = new Eto.Forms.Button { Text = "Save" };
+                    var cancelButton = new Eto.Forms.Button { Text = "Cancel" };
+
+                    buttonLayout.Items.Add(new Eto.Forms.StackLayoutItem(null, true)); // Spacer
+                    buttonLayout.Items.Add(saveButton);
+                    buttonLayout.Items.Add(cancelButton);
+
+                    // Set up the dialog content
+                    var content = new Eto.Forms.DynamicLayout();
+                    content.Add(scrollable, yscale: true);
+                    content.Add(buttonLayout);
+
+                    dialog.Content = content;
+                    dialog.DefaultButton = saveButton;
+                    dialog.AbortButton = cancelButton;
+
+                    // Handle button clicks
+                    saveButton.Click += (sender, e) =>
+                    {
+                        // Save settings
+                        foreach (var provider in providers)
+                        {
+                            if (!settings.ProviderSettings.ContainsKey(provider.Name))
+                                settings.ProviderSettings[provider.Name] = new Dictionary<string, object>();
+
+                            var controls = allControls[provider.Name];
+                            foreach (var descriptor in provider.GetSettingDescriptors())
+                            {
+                                var control = controls[descriptor.Name];
+                                object value = null;
+
+                                if (control is Eto.Forms.TextBox textBox)
+                                    value = textBox.Text;
+                                else if (control is Eto.Forms.NumericStepper numericStepper)
+                                    value = (int)numericStepper.Value;
+
+                                settings.ProviderSettings[provider.Name][descriptor.Name] = value;
+                            }
+                        }
+
+                        // Save debounce time
+                        settings.DebounceTime = (int)debounceControl.Value;
+                        
+                        // Save default provider
+                        settings.DefaultAIProvider = defaultProviderComboBox.SelectedValue?.ToString() ?? "";
+                        if (string.IsNullOrEmpty(settings.DefaultAIProvider) && defaultProviderComboBox.SelectedIndex >= 0)
+                        {
+                            settings.DefaultAIProvider = defaultProviderComboBox.Items[defaultProviderComboBox.SelectedIndex].Text;
+                        }
+
+                        settings.Save();
+                        dialog.Close();
+                    };
+
+                    cancelButton.Click += (sender, e) => dialog.Close();
+
+                    // Show the dialog
+                    dialog.ShowModal();
                 }
-            }
+            }));
         }
     }
 }
