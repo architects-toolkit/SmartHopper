@@ -29,7 +29,6 @@ namespace SmartHopper.Core.AI.Chat
     {
         private string _cachedChatTemplate;
         private string _cachedMessageTemplate;
-        private string _cachedInitializingTemplate;
         private string _cachedErrorTemplate;
         private string _cachedCssContent;
         private string _cachedJsContent;
@@ -39,7 +38,6 @@ namespace SmartHopper.Core.AI.Chat
         private const string JS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.js.chat-script.js";
         private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.chat-template.html";
         private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.message-template.html";
-        private const string INITIALIZING_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.initializing-template.html";
         private const string ERROR_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.error-template.html";
 
         /// <summary>
@@ -136,24 +134,6 @@ namespace SmartHopper.Core.AI.Chat
             }
 
             return _cachedMessageTemplate;
-        }
-
-        /// <summary>
-        /// Gets the initializing template HTML.
-        /// </summary>
-        /// <returns>The initializing template HTML.</returns>
-        public string GetInitializingTemplate()
-        {
-            Debug.WriteLine("[ChatResourceManager] Getting initializing template");
-            
-            if (string.IsNullOrEmpty(_cachedInitializingTemplate))
-            {
-                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {INITIALIZING_TEMPLATE_RESOURCE}");
-                _cachedInitializingTemplate = ReadEmbeddedResource(INITIALIZING_TEMPLATE_RESOURCE);
-                Debug.WriteLine($"[ChatResourceManager] Initializing template loaded, length: {_cachedInitializingTemplate?.Length ?? 0}");
-            }
-
-            return _cachedInitializingTemplate;
         }
 
         /// <summary>
@@ -299,7 +279,6 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[ChatResourceManager]   - JS: {resources.Contains(JS_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Chat Template: {resources.Contains(CHAT_TEMPLATE_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Message Template: {resources.Contains(MESSAGE_TEMPLATE_RESOURCE)}");
-                Debug.WriteLine($"[ChatResourceManager]   - Initializing Template: {resources.Contains(INITIALIZING_TEMPLATE_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Error Template: {resources.Contains(ERROR_TEMPLATE_RESOURCE)}");
             }
             catch (Exception ex)

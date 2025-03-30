@@ -171,42 +171,12 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Debug.WriteLine("[WebChatDialog] Starting WebView initialization");
                 
-                // First load the initializing template
-                Debug.WriteLine("[WebChatDialog] Loading initializing template");
-                string initHtml = _htmlRenderer.GetInitializingHtml();
-                _webView.LoadHtml(initHtml);
-                
-                // Wait for the initializing page to load
-                var initLoadCompleteTcs = new TaskCompletionSource<bool>();
-                EventHandler<WebViewLoadedEventArgs> initLoadHandler = null;
-                
-                initLoadHandler = (sender, e) => 
-                {
-                    Debug.WriteLine("[WebChatDialog] Initializing page loaded");
-                    _webView.DocumentLoaded -= initLoadHandler;
-                    initLoadCompleteTcs.TrySetResult(true);
-                };
-                
-                _webView.DocumentLoaded += initLoadHandler;
-                
-                // Set a timeout for initialization
-                var initTimeoutTask = Task.Delay(5000);
-                var initCompletedTask = await Task.WhenAny(initLoadCompleteTcs.Task, initTimeoutTask);
-                
-                if (initCompletedTask == initTimeoutTask)
-                {
-                    Debug.WriteLine("[WebChatDialog] Initializing page loading timed out");
-                }
-                
-                // Small delay to ensure WebView is ready
-                await Task.Delay(500);
-                
-                // Now get the actual chat HTML
+                // Get the actual chat HTML directly
                 Debug.WriteLine("[WebChatDialog] Getting HTML from HtmlChatRenderer");
                 string html = _htmlRenderer.GetInitialHtml();
                 Debug.WriteLine($"[WebChatDialog] HTML length: {html?.Length ?? 0}");
                 
-                // Load the actual chat HTML
+                // Load the chat HTML
                 Debug.WriteLine("[WebChatDialog] Loading HTML into WebView");
                 _webView.LoadHtml(html);
                 
@@ -283,10 +253,10 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Debug.WriteLine("[WebChatDialog] Clearing chat and reloading HTML");
                 
-                // Get the HTML content
+                // Get the HTML content directly
                 string html = _htmlRenderer.GetInitialHtml();
                 
-                // Use direct LoadHtml for all platforms
+                // Load HTML into WebView
                 _webView.LoadHtml(html);
                 
                 // Add system message to start the conversation
