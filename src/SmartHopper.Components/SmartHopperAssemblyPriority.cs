@@ -10,6 +10,7 @@
 
 using Grasshopper;
 using Grasshopper.Kernel;
+using SmartHopper.Components.Properties;
 
 namespace SmartHopper.Components
 {
@@ -18,7 +19,7 @@ namespace SmartHopper.Components
         public override GH_LoadingInstruction PriorityLoad()
         {
             // Add SmartHopper category icon and settings
-            //Instances.ComponentServer.AddCategoryIcon("SmartHopper", Resources.smarthopper_category);
+            Instances.ComponentServer.AddCategoryIcon("SmartHopper", Resources.smarthopper);
             Instances.ComponentServer.AddCategoryShortName("SmartHopper", "SH");
             Instances.ComponentServer.AddCategorySymbolName("SmartHopper", 'S');
 

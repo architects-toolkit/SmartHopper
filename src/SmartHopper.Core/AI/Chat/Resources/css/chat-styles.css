@@ -1,0 +1,163 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+/* Main chat styling */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    background-color: #f5f5f5;
+    line-height: 1.5;
+}
+
+#chat-container {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.message {
+    display: flex;
+    margin-bottom: 10px;
+    max-width: 80%;
+}
+
+.message.user {
+    align-self: flex-end;
+}
+
+.message.assistant, .message.system {
+    align-self: flex-start;
+}
+
+.message-content {
+    border-radius: 10px;
+    padding: 8px 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.user .message-content {
+    background-color: #dcf8c6;
+    color: #000;
+}
+
+.assistant .message-content {
+    background-color: #fff;
+    color: #000;
+}
+
+.system .message-content {
+    background-color: #f0f0f0;
+    color: #666;
+    font-style: italic;
+}
+
+.message-sender {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+/* Code formatting */
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9em;
+    background-color: #f0f0f0;
+    padding: 2px 4px;
+    border-radius: 3px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+pre code {
+    background-color: transparent;
+    padding: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Links */
+a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Markdown elements */
+blockquote {
+    border-left: 4px solid #ddd;
+    margin-left: 0;
+    padding-left: 10px;
+    color: #666;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+}
+
+h1 { font-size: 1.8em; }
+h2 { font-size: 1.6em; }
+h3 { font-size: 1.4em; }
+h4 { font-size: 1.2em; }
+h5 { font-size: 1.1em; }
+h6 { font-size: 1em; }
+
+/* Other elements */
+p { margin: 0.5em 0; }
+ul, ol { padding-left: 2em; margin: 0.5em 0; }
+li { margin: 0.25em 0; }
+hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 1em 0;
+}
