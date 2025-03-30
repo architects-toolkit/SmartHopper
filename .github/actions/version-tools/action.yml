@@ -136,9 +136,9 @@ runs:
           BADGES_CHANGED=false
           
           # Extract current version from README badge
-          if grep -q "\[\!\[Version\]\]" README.md; then
+          if grep -q "\[\!\[Version\]" README.md; then
             # Extract the current version from the badge URL
-            CURRENT_VERSION_BADGE=$(grep "\[\!\[Version\]\]" README.md)
+            CURRENT_VERSION_BADGE=$(grep "\[\!\[Version\]" README.md)
             echo "Current version badge in README: $CURRENT_VERSION_BADGE"
             
             # Extract just the version number from the current badge
@@ -149,7 +149,7 @@ runs:
             if [[ "$CURRENT_VERSION_IN_BADGE" != "$VERSION" ]]; then
               echo "Version mismatch: README has '$CURRENT_VERSION_IN_BADGE', Solution.props has '$VERSION'"
               # Use sed to replace the version badge
-              sed -i "s|\[\!\[Version\]\](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
+              sed -i "s|\[\!\[Version\]](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
               echo "Updated version badge"
               BADGES_CHANGED=true
             else
@@ -160,9 +160,9 @@ runs:
           fi
           
           # Check if status badge exists and update it
-          if grep -q "\[\!\[Status\]\]" README.md; then
+          if grep -q "\[\!\[Status\]" README.md; then
             # Get current status badge
-            CURRENT_STATUS_BADGE=$(grep "\[\!\[Status\]\]" README.md)
+            CURRENT_STATUS_BADGE=$(grep "\[\!\[Status\]" README.md)
             echo "Current status badge in README: $CURRENT_STATUS_BADGE"
             
             # Extract the current status from the badge URL
@@ -173,7 +173,7 @@ runs:
             if [[ "$CURRENT_STATUS_IN_BADGE" != "$STATUS" ]]; then
               echo "Status mismatch: README has '$CURRENT_STATUS_IN_BADGE', should be '$STATUS'"
               # Use sed to replace the status badge
-              sed -i "s|\[\!\[Status\]\](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
+              sed -i "s|\[\!\[Status\]](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
               echo "Updated status badge"
               BADGES_CHANGED=true
             else
