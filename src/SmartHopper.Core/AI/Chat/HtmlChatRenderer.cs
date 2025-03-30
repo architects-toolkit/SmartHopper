@@ -16,6 +16,7 @@
 using System;
 using System.Net;
 using System.Diagnostics;
+using System.Text;
 using Markdig;
 
 namespace SmartHopper.Core.AI.Chat
@@ -65,13 +66,46 @@ namespace SmartHopper.Core.AI.Chat
             {
                 string html = _resourceManager.GetCompleteHtml();
                 Debug.WriteLine($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
+                
+                // For debugging, output the first 200 characters of the HTML
+                if (html != null && html.Length > 0)
+                {
+                    string preview = html.Length > 200 ? html.Substring(0, 200) + "..." : html;
+                    Debug.WriteLine($"[HtmlChatRenderer] HTML preview: {preview}");
+                }
+                
                 return html;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[HtmlChatRenderer] Error getting complete HTML: {ex.Message}");
-                Debug.WriteLine("[HtmlChatRenderer] Using fallback HTML instead");
-                return ex.Message;
+                Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
+                
+                // Use the error template from resources
+                return _resourceManager.GetErrorTemplate(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Gets the initializing HTML for the WebView.
+        /// </summary>
+        /// <returns>The initializing HTML content.</returns>
+        public string GetInitializingHtml()
+        {
+            Debug.WriteLine("[HtmlChatRenderer] Getting initializing HTML");
+            
+            try
+            {
+                string html = _resourceManager.GetInitializingTemplate();
+                Debug.WriteLine($"[HtmlChatRenderer] Initializing HTML retrieved, length: {html?.Length ?? 0}");
+                return html;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[HtmlChatRenderer] Error getting initializing HTML: {ex.Message}");
+                
+                // Create a simple initializing HTML as fallback
+                return "<html><body><h1>Initializing...</h1></body></html>";
             }
         }
 
@@ -111,11 +145,21 @@ namespace SmartHopper.Core.AI.Chat
                 string htmlContent = Markdown.ToHtml(content, _markdownPipeline);
                 Debug.WriteLine($"[HtmlChatRenderer] Markdown converted, HTML length: {htmlContent?.Length ?? 0}");
                 
-                // Use the resource manager to create the message HTML
-                string messageHtml = _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent);
-                Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
-                
-                return messageHtml;
+                try
+                {
+                    // Use the resource manager to create the message HTML
+                    string messageHtml = _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent);
+                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
+                    
+                    return messageHtml;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[HtmlChatRenderer] Error creating message HTML with resource manager: {ex.Message}");
+                    
+                    // Create a simple message HTML as fallback
+                    return "error";
+                }
             }
             catch (Exception ex)
             {
@@ -123,7 +167,7 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
                 
                 // Create a simple message HTML as fallback
-                return $"<div class='message {role}'><div><div class='message-sender'>{role}</div><div class='message-content'>{WebUtility.HtmlEncode(content)}</div></div></div>";
+                return "error";
             }
         }
     }

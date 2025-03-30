@@ -30,6 +30,8 @@ namespace SmartHopper.Core.AI.Chat
     {
         private string _cachedChatTemplate;
         private string _cachedMessageTemplate;
+        private string _cachedInitializingTemplate;
+        private string _cachedErrorTemplate;
         private string _cachedCssContent;
         private string _cachedJsContent;
 
@@ -38,6 +40,8 @@ namespace SmartHopper.Core.AI.Chat
         private const string JS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.js.chat-script.js";
         private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.chat-template.html";
         private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.message-template.html";
+        private const string INITIALIZING_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.initializing-template.html";
+        private const string ERROR_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.error-template.html";
 
         /// <summary>
         /// Initializes a new instance of the ChatResourceManager class.
@@ -63,6 +67,12 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CHAT_TEMPLATE_RESOURCE}");
                 _cachedChatTemplate = ReadEmbeddedResource(CHAT_TEMPLATE_RESOURCE);
                 Debug.WriteLine($"[ChatResourceManager] Chat template loaded, length: {_cachedChatTemplate?.Length ?? 0}");
+                
+                // Output the template content for debugging
+                if (_cachedChatTemplate != null)
+                {
+                    Debug.WriteLine($"[ChatResourceManager] Chat template content: {_cachedChatTemplate}");
+                }
             }
 
             // Get the message template to inject
@@ -95,9 +105,56 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {MESSAGE_TEMPLATE_RESOURCE}");
                 _cachedMessageTemplate = ReadEmbeddedResource(MESSAGE_TEMPLATE_RESOURCE);
                 Debug.WriteLine($"[ChatResourceManager] Message template loaded, length: {_cachedMessageTemplate?.Length ?? 0}");
+                
+                // Output the template content for debugging
+                if (_cachedMessageTemplate != null)
+                {
+                    Debug.WriteLine($"[ChatResourceManager] Message template content: {_cachedMessageTemplate}");
+                }
             }
 
             return _cachedMessageTemplate;
+        }
+
+        /// <summary>
+        /// Gets the initializing template HTML.
+        /// </summary>
+        /// <returns>The initializing template HTML.</returns>
+        public string GetInitializingTemplate()
+        {
+            Debug.WriteLine("[ChatResourceManager] Getting initializing template");
+            
+            if (string.IsNullOrEmpty(_cachedInitializingTemplate))
+            {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {INITIALIZING_TEMPLATE_RESOURCE}");
+                _cachedInitializingTemplate = ReadEmbeddedResource(INITIALIZING_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Initializing template loaded, length: {_cachedInitializingTemplate?.Length ?? 0}");
+            }
+
+            return _cachedInitializingTemplate;
+        }
+
+        /// <summary>
+        /// Gets the error template HTML.
+        /// </summary>
+        /// <param name="errorMessage">The error message to display.</param>
+        /// <returns>The error template HTML with the error message injected.</returns>
+        public string GetErrorTemplate(string errorMessage)
+        {
+            Debug.WriteLine("[ChatResourceManager] Getting error template");
+            
+            if (string.IsNullOrEmpty(_cachedErrorTemplate))
+            {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {ERROR_TEMPLATE_RESOURCE}");
+                _cachedErrorTemplate = ReadEmbeddedResource(ERROR_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Error template loaded, length: {_cachedErrorTemplate?.Length ?? 0}");
+            }
+
+            // Replace error message placeholder
+            string result = _cachedErrorTemplate.Replace("{{errorMessage}}", WebUtility.HtmlEncode(errorMessage));
+            Debug.WriteLine("[ChatResourceManager] Error template prepared with error message injected");
+            
+            return result;
         }
 
         /// <summary>
@@ -162,6 +219,18 @@ namespace SmartHopper.Core.AI.Chat
                 {
                     string preview = completeHtml.Length > 100 ? completeHtml.Substring(0, 100) + "..." : completeHtml;
                     Debug.WriteLine($"[ChatResourceManager] HTML preview: {preview}");
+                    
+                    // Write the complete HTML to a debug file for inspection
+                    try
+                    {
+                        string debugPath = Path.Combine(Path.GetTempPath(), "SmartHopper_WebChat_Debug.html");
+                        File.WriteAllText(debugPath, completeHtml);
+                        Debug.WriteLine($"[ChatResourceManager] Wrote complete HTML to debug file: {debugPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ChatResourceManager] Failed to write debug file: {ex.Message}");
+                    }
                 }
                 
                 return completeHtml;
@@ -193,6 +262,14 @@ namespace SmartHopper.Core.AI.Chat
                 .Replace("{{content}}", content);
                 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
+            
+            // For debugging, write the first 100 characters
+            if (result != null && result.Length > 0)
+            {
+                string preview = result.Length > 100 ? result.Substring(0, 100) + "..." : result;
+                Debug.WriteLine($"[ChatResourceManager] Message HTML preview: {preview}");
+            }
+            
             return result;
         }
 
@@ -214,7 +291,6 @@ namespace SmartHopper.Core.AI.Chat
                     if (stream == null)
                     {
                         Debug.WriteLine($"[ChatResourceManager] ERROR: Embedded resource not found: {resourceName}");
-                        
                         throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
                     }
                     
@@ -258,6 +334,8 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[ChatResourceManager]   - JS: {resources.Contains(JS_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Chat Template: {resources.Contains(CHAT_TEMPLATE_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Message Template: {resources.Contains(MESSAGE_TEMPLATE_RESOURCE)}");
+                Debug.WriteLine($"[ChatResourceManager]   - Initializing Template: {resources.Contains(INITIALIZING_TEMPLATE_RESOURCE)}");
+                Debug.WriteLine($"[ChatResourceManager]   - Error Template: {resources.Contains(ERROR_TEMPLATE_RESOURCE)}");
             }
             catch (Exception ex)
             {

@@ -171,62 +171,82 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Debug.WriteLine("[WebChatDialog] Starting WebView initialization");
                 
-                // Get the HTML content first
+                // First load the initializing template
+                Debug.WriteLine("[WebChatDialog] Loading initializing template");
+                string initHtml = _htmlRenderer.GetInitializingHtml();
+                _webView.LoadHtml(initHtml);
+                
+                // Wait for the initializing page to load
+                var initLoadCompleteTcs = new TaskCompletionSource<bool>();
+                EventHandler<WebViewLoadedEventArgs> initLoadHandler = null;
+                
+                initLoadHandler = (sender, e) => 
+                {
+                    Debug.WriteLine("[WebChatDialog] Initializing page loaded");
+                    _webView.DocumentLoaded -= initLoadHandler;
+                    initLoadCompleteTcs.TrySetResult(true);
+                };
+                
+                _webView.DocumentLoaded += initLoadHandler;
+                
+                // Set a timeout for initialization
+                var initTimeoutTask = Task.Delay(5000);
+                var initCompletedTask = await Task.WhenAny(initLoadCompleteTcs.Task, initTimeoutTask);
+                
+                if (initCompletedTask == initTimeoutTask)
+                {
+                    Debug.WriteLine("[WebChatDialog] Initializing page loading timed out");
+                }
+                
+                // Small delay to ensure WebView is ready
+                await Task.Delay(500);
+                
+                // Now get the actual chat HTML
                 Debug.WriteLine("[WebChatDialog] Getting HTML from HtmlChatRenderer");
                 string html = _htmlRenderer.GetInitialHtml();
                 Debug.WriteLine($"[WebChatDialog] HTML length: {html?.Length ?? 0}");
                 
-                // For Windows, we need to ensure CoreWebView2 is initialized
-                if (Eto.Platform.Detect.IsWpf)
-                {
-                    Debug.WriteLine("[WebChatDialog] Initializing WebView for WPF");
-                    
-                    // First load a simple HTML to initialize the WebView
-                    string initHtml = "<html><body><h1>Initializing...</h1></body></html>";
-                    _webView.LoadHtml(initHtml);
-                    
-                    // Wait for the WebView to load
-                    var loadCompleteTcs = new TaskCompletionSource<bool>();
-                    EventHandler<WebViewLoadedEventArgs> loadHandler = null;
-                    
-                    loadHandler = (sender, e) => 
-                    {
-                        Debug.WriteLine("[WebChatDialog] Initial HTML loaded");
-                        _webView.DocumentLoaded -= loadHandler;
-                        loadCompleteTcs.TrySetResult(true);
-                    };
-                    
-                    _webView.DocumentLoaded += loadHandler;
-                    
-                    // Set a timeout for initialization
-                    var timeoutTask = Task.Delay(5000);
-                    var completedTask = await Task.WhenAny(loadCompleteTcs.Task, timeoutTask);
-                    
-                    if (completedTask == timeoutTask)
-                    {
-                        Debug.WriteLine("[WebChatDialog] WebView initialization timed out");
-                    }
-                    
-                    // Small delay to ensure WebView is ready
-                    await Task.Delay(500);
-                }
-                
-                // Now load the actual chat HTML
+                // Load the actual chat HTML
                 Debug.WriteLine("[WebChatDialog] Loading HTML into WebView");
+                _webView.LoadHtml(html);
                 
-                // Try a different approach for loading HTML
-                if (Eto.Platform.Detect.IsWpf)
+                // Wait for the document to load
+                var chatLoadCompleteTcs = new TaskCompletionSource<bool>();
+                EventHandler<WebViewLoadedEventArgs> chatLoadHandler = null;
+                
+                chatLoadHandler = (sender, e) => 
                 {
-                    // For WPF, use a data URI to load the HTML
-                    Debug.WriteLine("[WebChatDialog] Using data URI approach for WPF");
-                    string base64Html = Convert.ToBase64String(Encoding.UTF8.GetBytes(html));
-                    string dataUri = $"data:text/html;base64,{base64Html}";
-                    _webView.Url = new Uri(dataUri);
+                    Debug.WriteLine("[WebChatDialog] Chat HTML loaded");
+                    _webView.DocumentLoaded -= chatLoadHandler;
+                    chatLoadCompleteTcs.TrySetResult(true);
+                };
+                
+                _webView.DocumentLoaded += chatLoadHandler;
+                
+                // Set a timeout for loading the chat HTML
+                var chatTimeoutTask = Task.Delay(5000);
+                var chatCompletedTask = await Task.WhenAny(chatLoadCompleteTcs.Task, chatTimeoutTask);
+                
+                if (chatCompletedTask == chatTimeoutTask)
+                {
+                    Debug.WriteLine("[WebChatDialog] Chat HTML loading timed out");
                 }
-                else
+                
+                // Test if JavaScript is working by executing a simple script
+                try
                 {
-                    // For other platforms, use LoadHtml
-                    _webView.LoadHtml(html);
+                    Debug.WriteLine("[WebChatDialog] Testing JavaScript execution");
+                    string result = _webView.ExecuteScript("document.body.innerHTML");
+                    Debug.WriteLine($"[WebChatDialog] JavaScript test result: {(string.IsNullOrEmpty(result) ? "empty" : "success")}");
+                    
+                    if (!string.IsNullOrEmpty(result))
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Body content: {result.Substring(0, Math.Min(result.Length, 100))}...");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] JavaScript test failed: {ex.Message}");
                 }
                 
                 _webViewInitialized = true;
@@ -283,19 +303,8 @@ namespace SmartHopper.Core.AI.Chat
                 // Get the HTML content
                 string html = _htmlRenderer.GetInitialHtml();
                 
-                // Use the same approach as in initialization
-                if (Eto.Platform.Detect.IsWpf)
-                {
-                    // For WPF, use a data URI to load the HTML
-                    string base64Html = Convert.ToBase64String(Encoding.UTF8.GetBytes(html));
-                    string dataUri = $"data:text/html;base64,{base64Html}";
-                    _webView.Url = new Uri(dataUri);
-                }
-                else
-                {
-                    // For other platforms, use LoadHtml
-                    _webView.LoadHtml(html);
-                }
+                // Use direct LoadHtml for all platforms
+                _webView.LoadHtml(html);
                 
                 // Add system message to start the conversation
                 AddSystemMessage("I'm an AI assistant. How can I help you today?");
@@ -358,13 +367,19 @@ namespace SmartHopper.Core.AI.Chat
                 // Escape special characters in the message HTML
                 string escapedHtml = messageHtml
                     .Replace("\\", "\\\\")
-                    .Replace("`", "\\`")
-                    .Replace("$", "\\$");
+                    .Replace("\"", "\\\"")
+                    .Replace("\n", "\\n")
+                    .Replace("\r", "\\r")
+                    .Replace("\t", "\\t");
                 
-                _webView.ExecuteScript($"addMessage(`{escapedHtml}`)");
+                // Try a different approach for executing JavaScript
+                string script = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
+                string result = _webView.ExecuteScript(script);
+                
+                Debug.WriteLine($"[WebChatDialog] JavaScript execution result: {result}");
                 
                 // Scroll to bottom
-                _webView.ExecuteScript("scrollToBottom()");
+                _webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
                 Debug.WriteLine("[WebChatDialog] Message added successfully");
             }
             catch (Exception ex)
