@@ -13,8 +13,9 @@
  * This class provides methods for converting chat messages to HTML format.
  */
 
+using System;
 using System.Net;
-using System.Text;
+using System.Diagnostics;
 using Markdig;
 
 namespace SmartHopper.Core.AI.Chat
@@ -32,6 +33,8 @@ namespace SmartHopper.Core.AI.Chat
         /// </summary>
         public HtmlChatRenderer()
         {
+            Debug.WriteLine("[HtmlChatRenderer] Initializing HtmlChatRenderer");
+            
             // Configure Markdig pipeline with needed extensions
             _markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
@@ -47,6 +50,7 @@ namespace SmartHopper.Core.AI.Chat
                 
             // Initialize the resource manager
             _resourceManager = new ChatResourceManager();
+            Debug.WriteLine("[HtmlChatRenderer] Resource manager initialized");
         }
 
         /// <summary>
@@ -55,7 +59,20 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The initial HTML content.</returns>
         public string GetInitialHtml()
         {
-            return _resourceManager.GetCompleteHtml();
+            Debug.WriteLine("[HtmlChatRenderer] Getting initial HTML");
+            
+            try
+            {
+                string html = _resourceManager.GetCompleteHtml();
+                Debug.WriteLine($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
+                return html;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[HtmlChatRenderer] Error getting complete HTML: {ex.Message}");
+                Debug.WriteLine("[HtmlChatRenderer] Using fallback HTML instead");
+                return ex.Message;
+            }
         }
 
         /// <summary>
@@ -66,30 +83,48 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>HTML representation of the message.</returns>
         public string GenerateMessageHtml(string role, string content)
         {
-            string displayRole;
+            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for role: {role}");
             
-            // Determine display role based on message role
-            switch (role)
+            try
             {
-                case "user":
-                    displayRole = "You";
-                    break;
-                case "assistant":
-                    displayRole = "AI";
-                    break;
-                case "system":
-                    displayRole = "System";
-                    break;
-                default:
-                    displayRole = role;
-                    break;
+                string displayRole;
+                
+                // Determine display role based on message role
+                switch (role)
+                {
+                    case "user":
+                        displayRole = "You";
+                        break;
+                    case "assistant":
+                        displayRole = "AI";
+                        break;
+                    case "system":
+                        displayRole = "System";
+                        break;
+                    default:
+                        displayRole = role;
+                        break;
+                }
+                
+                // Convert markdown to HTML
+                Debug.WriteLine("[HtmlChatRenderer] Converting markdown to HTML");
+                string htmlContent = Markdown.ToHtml(content, _markdownPipeline);
+                Debug.WriteLine($"[HtmlChatRenderer] Markdown converted, HTML length: {htmlContent?.Length ?? 0}");
+                
+                // Use the resource manager to create the message HTML
+                string messageHtml = _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent);
+                Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
+                
+                return messageHtml;
             }
-            
-            // Convert markdown to HTML
-            string htmlContent = Markdown.ToHtml(content, _markdownPipeline);
-            
-            // Use the resource manager to create the message HTML
-            return _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[HtmlChatRenderer] Error generating message HTML: {ex.Message}");
+                Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
+                
+                // Create a simple message HTML as fallback
+                return $"<div class='message {role}'><div><div class='message-sender'>{role}</div><div class='message-content'>{WebUtility.HtmlEncode(content)}</div></div></div>";
+            }
         }
     }
 }
