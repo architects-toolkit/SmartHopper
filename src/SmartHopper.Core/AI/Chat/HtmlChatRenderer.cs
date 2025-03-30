@@ -87,29 +87,6 @@ namespace SmartHopper.Core.AI.Chat
         }
 
         /// <summary>
-        /// Gets the initializing HTML for the WebView.
-        /// </summary>
-        /// <returns>The initializing HTML content.</returns>
-        public string GetInitializingHtml()
-        {
-            Debug.WriteLine("[HtmlChatRenderer] Getting initializing HTML");
-            
-            try
-            {
-                string html = _resourceManager.GetInitializingTemplate();
-                Debug.WriteLine($"[HtmlChatRenderer] Initializing HTML retrieved, length: {html?.Length ?? 0}");
-                return html;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[HtmlChatRenderer] Error getting initializing HTML: {ex.Message}");
-                
-                // Create a simple initializing HTML as fallback
-                return "<html><body><h1>Initializing...</h1></body></html>";
-            }
-        }
-
-        /// <summary>
         /// Generates HTML for a chat message.
         /// </summary>
         /// <param name="role">The role of the message sender (user, assistant, system).</param>
