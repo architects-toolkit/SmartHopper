@@ -1,6 +1,6 @@
-1. This is a C# project.
+1. This is a C# project, using .NET 7 and .NET 4.8 for both Windows and Mac.
 2. The aim of the project is to create some Grasshopper components.
-3. The project is structured in 5 solutions:
+3. The project is structured in 6 solutions:
    - SmartHopper.Core: Contains the core functionality
    - SmartHopper.Core.Grasshopper: Contains the core functionality to interact with Grasshopper (type converters, utils, and tools)
    - SmartHopper.Components: Contains the Grasshopper components. Most of the components depend on the Component Base defined in SmartHopper.Core/ComponentBase. Each component implements a tool for a specific function defined in SmartHopper.Core.Grasshopper/Tools. Tools will be callable from a component, or from the AIChatComponent, which is a chat interface with AI.
