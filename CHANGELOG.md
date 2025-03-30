@@ -9,52 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the new AIChat component with interactive chat interface.
-- Added ChatDialog class using Eto.Forms for a cross-platform chat UI experience.
+- Added the new AIChat component with interactive chat interface and proper icon.
+- Added chat interfaces:
+  - Eto.Forms-based chat interface with ChatDialog class and custom FormattedMessageControl for borderless message display with markdown support.
+  - WebView-based chat interface with AIWebChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
 - Added ChatUtils class with helper methods for AI chat interactions.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
-- Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
-- Added default provider selection in the settings dialog to set the global default AI provider.
+- Added AI provider selection improvements:
+  - "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
+  - Default provider selection in the settings dialog to set the global default AI provider.
 - Added custom icon for the SmartHopper tab in Grasshopper.
-- Added Markdown formatting support in ChatDialog for rich text display in chat messages.
-- Added Markdown support for HTML tags like underline in Markdown text.
-- Added custom FormattedMessageControl for borderless message display with markdown support.
-- Added a dedicated Markdown class in the Converters namespace for centralized markdown processing
-- Enhanced markdown formatting support in chat messages (headings, code blocks, blockquotes, and inline formatting)
-- Added AIWebChatComponent with WebView-based chat interface for HTML rendering of messages.
-- Added WebChatDialog class using Eto.Forms WebView for rendering HTML chat interface.
-- Added HtmlChatRenderer utility class for converting markdown messages to HTML.
-- Added ChatResourceManager to manage HTML, CSS, and JavaScript resources for the WebChat interface.
+- Added comprehensive Markdown formatting support:
+  - Headings, code blocks, blockquotes, and inline formatting.
+  - HTML tags like underline in Markdown text.
+  - Dedicated Markdown class in the Converters namespace for centralized markdown processing.
+- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 
 ### Changed
 
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
-- Improved ChatDialog UI with a modern chat-like interface featuring message bubbles, better layout, and visual styling.
-- Enhanced message bubbles to properly wrap text and resize dynamically with the window size.
-- Improved ChatDialog UI by limiting message width and enabling proper text wrapping to prevent horizontal scrolling.
-- Added responsive message sizing in ChatDialog that adapts to the dialog width (80% max width with 350px minimum).
-- Added message selection and copying capabilities to ChatDialog with a context menu.
-- Improved ChatDialog UI by automatically adjusting message height based on content and removing visible scrollbars.
-- Refactored markdown formatting code from ChatDialog to FormatConverter class for better code organization.
-- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
-- Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
-- Updated component icon display to show the actual provider icon when "Default" is selected.
-- Placed proper icon for the AI chat component.
-- Decreased font size of the About dialog.
-- Defined a minimum size for the About dialog.
-- Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
-- Modified release-build.yml workflow to create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders
-- Migrated all markdown formatting logic from FormattedMessageControl and ChatDialog to the new Markdown class
-- All chat messages are now treated as markdown by default for consistent formatting
-- Improved the chat interface with better message formatting and scrolling behavior.
-- Enhanced the About dialog with better layout and styling.
+- Improved ChatDialog UI with numerous enhancements:
+  - Modern chat-like interface featuring message bubbles and visual styling.
+  - Better layout with proper text wrapping to prevent horizontal scrolling.
+  - Responsive message sizing that adapts to the dialog width (80% max width with 350px minimum).
+  - Message selection and copying capabilities with a context menu.
+  - Automatic message height adjustment based on content and removal of visible scrollbars.
+  - Improved scrolling behavior.
+- Enhanced About dialog:
+  - Decreased font size.
+  - Defined a minimum size.
+  - Better layout and styling.
+- Improved code organization:
+  - Refactored markdown formatting code from ChatDialog to FormatConverter class.
+  - Migrated all markdown formatting logic to the dedicated Markdown class.
+  - All chat messages are now treated as markdown by default for consistent formatting.
+  - Simplified FormattedMessageControl by removing the IsMarkdown property.
+- Enhanced AI provider handling:
+  - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
+  - Updated component icon display to show the actual provider icon when "Default" is selected.
+- Improved WebChat implementation:
+  - Refactored WebChat resource management to use embedded resources instead of file system for improved security.
+  - Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
+  - Improved error handling and debugging in ChatResourceManager and WebChatDialog.
+  - Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
+- Enhanced release-build.yml workflow:
+  - Automatically build and attach artifacts to published releases.
+  - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
 - Improved error handling in the AIStatefulAsyncComponentBase.
-- Simplified FormattedMessageControl by removing the IsMarkdown property since all messages use markdown formatting
-- Refactored WebChat resource management to use embedded resources instead of file system for improved security.
-- Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
-- Improved error handling and debugging in ChatResourceManager and WebChatDialog.
-- Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
-- Improved security by embedding WebChat resources in the assembly instead of copying them to the output directory.
 
 ### Removed
 
@@ -63,23 +64,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
-- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property
-- Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
-- Fixed Markdown formatting in lists to properly display bold and italic text.
-- Fixed combined formatting (bold+italic) in Markdown text.
-- Improved Markdown rendering with native Eto.Forms text wrapping for better line breaks and text layout
-- Fixed heading positioning and spacing in Markdown rendered text
-- Simplified text segment layout calculation for better performance and maintainability
-- Fixed build errors in MarkdownToEto and FormattedMessageControl classes to ensure compatibility with the latest Markdig and Eto.Forms libraries
-- Fixed Markdown rendering issue in ChatDialog where Markdig objects were displayed as "Markdig.Syntax.Inlines.ContainerInline" instead of properly formatted text.
-- Fixed excessive padding between markdown elements in the FormattedMessageControl
-- Added support for bold, italic, and bold+italic formatting in markdown rendering
-- Fixed inconsistent spacing between unordered list items in markdown lists
-- Fixed bold and italic formatting not properly rendering in Markdown text
-- Fixed links not being clickable in Markdown formatted text
-- Fixed formatting issues in list items not supporting rich text
-- Fixed text wrapping in chat messages that wasn't automatically applied until window resize
+- Fixed AI provider handling:
+  - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
+  - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
+- Fixed Markdown rendering issues:
+  - Fixed Markdown formatting in lists to properly display bold and italic text.
+  - Fixed combined formatting (bold+italic) in Markdown text.
+  - Fixed heading positioning and spacing in Markdown rendered text.
+  - Fixed build errors in MarkdownToEto and FormattedMessageControl classes to ensure compatibility with the latest Markdig and Eto.Forms libraries.
+  - Fixed Markdown rendering issue where Markdig objects were displayed as "Markdig.Syntax.Inlines.ContainerInline" instead of properly formatted text.
+  - Fixed excessive padding between markdown elements in the FormattedMessageControl.
+  - Fixed inconsistent spacing between unordered list items in markdown lists.
+  - Fixed links not being clickable in Markdown formatted text.
+  - Fixed formatting issues in list items not supporting rich text.
+- Improved Markdown rendering with native Eto.Forms text wrapping for better line breaks and text layout.
+- Simplified text segment layout calculation for better performance and maintainability.
+- Fixed text wrapping in chat messages that wasn't automatically applied until window resize.
+- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property.
 
 ## [0.1.2-alpha] - 2025-03-17
 
