@@ -10,10 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added the new AIChat component with interactive chat interface and proper icon.
-- Added chat interfaces:
-  - Eto.Forms-based chat interface with ChatDialog class and custom FormattedMessageControl for borderless message display with markdown support.
-  - WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
-- Added ChatUtils class with helper methods for AI chat interactions.
+- Added WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
 - Added AI provider selection improvements:
   - "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
@@ -40,14 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Defined a minimum size.
   - Better layout and styling.
 - Improved code organization:
-  - Refactored markdown formatting code from ChatDialog to FormatConverter class.
-  - Migrated all markdown formatting logic to the dedicated Markdown class.
   - All chat messages are now treated as markdown by default for consistent formatting.
-  - Simplified FormattedMessageControl by removing the IsMarkdown property.
-- Enhanced AI provider handling:
   - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
   - Updated component icon display to show the actual provider icon when "Default" is selected.
-- Improved WebChat implementation:
+- Improved Web-based AIChat implementation:
   - Refactored WebChat resource management to use embedded resources instead of file system for improved security.
   - Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
   - Improved error handling and debugging in ChatResourceManager and WebChatDialog.
@@ -60,26 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed dependency on HtmlAgilityPack
-- Removed the IsMarkdown property in FormattedMessageControl
 
 ### Fixed
 
 - Fixed AI provider handling:
   - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
   - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
-- Fixed Markdown rendering issues:
-  - Fixed Markdown formatting in lists to properly display bold and italic text.
-  - Fixed combined formatting (bold+italic) in Markdown text.
-  - Fixed heading positioning and spacing in Markdown rendered text.
-  - Fixed build errors in MarkdownToEto and FormattedMessageControl classes to ensure compatibility with the latest Markdig and Eto.Forms libraries.
-  - Fixed Markdown rendering issue where Markdig objects were displayed as "Markdig.Syntax.Inlines.ContainerInline" instead of properly formatted text.
-  - Fixed excessive padding between markdown elements in the FormattedMessageControl.
-  - Fixed inconsistent spacing between unordered list items in markdown lists.
-  - Fixed links not being clickable in Markdown formatted text.
-  - Fixed formatting issues in list items not supporting rich text.
-- Improved Markdown rendering with native Eto.Forms text wrapping for better line breaks and text layout.
-- Simplified text segment layout calculation for better performance and maintainability.
-- Fixed text wrapping in chat messages that wasn't automatically applied until window resize.
 - Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property.
 
 ## [0.1.2-alpha] - 2025-03-17
