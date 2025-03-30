@@ -9,7 +9,7 @@
  */
 
 /*
- * Utility functions for the AI Web Chat component.
+ * Utility functions for the AI Chat component.
  * This class provides helper methods for managing web-based chat sessions.
  */
 
@@ -25,7 +25,7 @@ using SmartHopper.Core.Utils;
 namespace SmartHopper.Core.AI.Chat
 {
     /// <summary>
-    /// Utility functions for the AI Web Chat component.
+    /// Utility functions for the AI Chat component.
     /// </summary>
     public static class WebChatUtils
     {
@@ -81,7 +81,7 @@ namespace SmartHopper.Core.AI.Chat
                         };
                         
                         // Configure the dialog window
-                        dialog.Title = $"SmartHopper AI Web Chat - {modelName} ({providerName})";
+                        dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
                         
                         // Show the dialog
                         Debug.WriteLine("[WebChatUtils] Showing dialog");

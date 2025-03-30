@@ -29,7 +29,7 @@
     <None Remove="Settings\**" />
   </ItemGroup>
 
-  <!-- Embed the AI Web Chat resource files in the assembly -->
+  <!-- Embed the AI Chat resource files in the assembly -->
   <ItemGroup>
     <EmbeddedResource Include="AI\Chat\Resources\**\*.*" />
   </ItemGroup>

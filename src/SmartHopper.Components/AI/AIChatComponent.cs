@@ -9,7 +9,7 @@
  */
 
 /*
- * AI Web Chat Component for Grasshopper.
+ * AI Chat Component for Grasshopper.
  * This component provides a WebView-based chat interface for interacting with AI providers.
  */
 
@@ -27,15 +27,15 @@ namespace SmartHopper.Components.AI
     /// <summary>
     /// Component that provides an interactive AI chat interface using WebView for HTML rendering.
     /// </summary>
-    public class AIWebChatComponent : AIStatefulAsyncComponentBase
+    public class AIChatComponent : AIStatefulAsyncComponentBase
     {
         /// <summary>
-        /// Initializes a new instance of the AIWebChatComponent class.
+        /// Initializes a new instance of the AIChatComponent class.
         /// </summary>
-        public AIWebChatComponent()
+        public AIChatComponent()
             : base(
-                "AI Web Chat",
-                "AiWebChat",
+                "AI Chat",
+                "AiChat",
                 "Interactive AI-powered conversational interface with HTML rendering",
                 "SmartHopper",
                 "AI")
@@ -69,7 +69,7 @@ namespace SmartHopper.Components.AI
         /// <returns>An asynchronous worker.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIWebChatWorker(this, progressReporter);
+            return new AiChatWorker(this, progressReporter);
         }
 
         /// <summary>
@@ -88,20 +88,20 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
         /// <summary>
-        /// Worker class for the AI Web Chat component.
+        /// Worker class for the AI Chat component.
         /// </summary>
-        private class AIWebChatWorker : AsyncWorkerBase
+        private class AiChatWorker : AsyncWorkerBase
         {
-            private readonly AIWebChatComponent _component;
+            private readonly AIChatComponent _component;
             private readonly Action<string> _progressReporter;
             private AIResponse _lastResponse;
 
             /// <summary>
-            /// Initializes a new instance of the AIWebChatWorker class.
+            /// Initializes a new instance of the AiChatWorker class.
             /// </summary>
             /// <param name="component">The parent component.</param>
             /// <param name="progressReporter">Action to report progress.</param>
-            public AIWebChatWorker(AIWebChatComponent component, Action<string> progressReporter)
+            public AiChatWorker(AIChatComponent component, Action<string> progressReporter)
                 : base(component, (level, message) => component.AddRuntimeMessage(level, message))
             {
                 _component = component;
@@ -125,12 +125,12 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AIWebChatWorker] Starting web chat worker");
+                    Debug.WriteLine("[AiChatWorker] Starting web chat worker");
                     _progressReporter?.Invoke("Starting web chat interface...");
 
                     // Get the actual provider name to use
                     string actualProvider = _component.GetActualProviderName();
-                    Debug.WriteLine($"[AIWebChatWorker] Using Provider: {actualProvider} (Selected: {_component._aiProvider})");
+                    Debug.WriteLine($"[AiChatWorker] Using Provider: {actualProvider} (Selected: {_component._aiProvider})");
 
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
@@ -145,12 +145,12 @@ namespace SmartHopper.Components.AI
                     // Get the last response
                     _lastResponse = chatWorker.GetLastResponse();
 
-                    Debug.WriteLine("[AIWebChatWorker] Web chat worker completed");
+                    Debug.WriteLine("[AiChatWorker] Web chat worker completed");
                     _progressReporter?.Invoke("Web chat completed");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIWebChatWorker] Error: {ex.Message}");
+                    Debug.WriteLine($"[AiChatWorker] Error: {ex.Message}");
                     _progressReporter?.Invoke($"Error: {ex.Message}");
                     throw;
                 }
