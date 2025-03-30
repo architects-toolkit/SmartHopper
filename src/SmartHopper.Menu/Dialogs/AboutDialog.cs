@@ -12,6 +12,8 @@ using Eto.Forms;
 using Eto.Drawing;
 using System;
 using System.Diagnostics;
+using System.IO;
+using SmartHopper.Config.Properties;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -32,6 +34,7 @@ namespace SmartHopper.Menu.Dialogs
             Title = "About SmartHopper";
             Resizable = true;
             Size = new Size(800, 550);
+            MinimumSize = new Size(600, 500);
             Padding = new Padding(20);
 
             var mainLayout = new TableLayout
@@ -51,17 +54,24 @@ namespace SmartHopper.Menu.Dialogs
 
         private Control CreateLogoPanel()
         {
-            // TODO: Replace with actual logo when available
-            var placeholder = new Panel
+            // Create an ImageView with the SmartHopper logo from the resources
+            var imageView = new ImageView();
+            
+            // Convert the byte array to an Eto.Drawing.Image
+            using (var ms = new MemoryStream(providersResources.smarthopper_256))
             {
-                Size = new Size(200, 200),
-                BackgroundColor = Colors.Transparent
-            };
+                imageView.Image = new Bitmap(ms);
+            }
+            
+            // Set size to match the previous placeholder
+            imageView.Size = new Size(200, 200);
 
             return new StackLayout
             {
                 Spacing = 0,
-                Items = { new StackLayoutItem(placeholder, true) }
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Top,
+                Items = { new StackLayoutItem(imageView, false) }
             };
         }
 
@@ -70,57 +80,67 @@ namespace SmartHopper.Menu.Dialogs
             var titleLabel = new Label
             {
                 Text = "SmartHopper",
-                Font = new Font(SystemFont.Bold, 24),
+                Font = new Font(SystemFont.Bold, 22),
                 TextColor = SystemColors.ControlText
             };
 
             var subtitleLabel = new Label
             {
                 Text = "An AI-powered assistant for Grasshopper3D",
-                Font = new Font(SystemFont.Default, 14),
-                TextColor = SystemColors.ControlText
+                Font = new Font(SystemFont.Default, 12),
+                TextColor = SystemColors.ControlText,
+                Wrap = WrapMode.Word
             };
 
             var versionLabel = new Label
             {
                 Text = $"Version {version}",
-                Font = new Font(SystemFont.Default, 12),
-                TextColor = SystemColors.DisabledText
+                Font = new Font(SystemFont.Default, 10),
+                TextColor = SystemColors.DisabledText,
+                Wrap = WrapMode.Word
             };
 
             var copyrightLabel = new Label
             {
                 Text = "Copyright (c) 2024 Marc Roca Musach",
-                Font = new Font(SystemFont.Default, 12)
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word
             };
 
             var licenseLabel = new Label
             {
                 Text = "Licensed under GNU Lesser General Public License v3.0",
-                Font = new Font(SystemFont.Default, 12)
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word
             };
 
             var supportLabel = new Label
             {
                 Text = "Supported by:",
-                Font = new Font(SystemFont.Default, 12),
+                Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
 
             var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
-            var communityLabel = new Label { Text = "and the SmartHopper Community", Font = new Font(SystemFont.Default, 12) };
+            
+            var communityLabel = new Label
+            { 
+                Text = "and the SmartHopper Community",
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word
+            };
 
             var descriptionLabel = new Label
             {
                 Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\nIt currently supports MistralAI and OpenAI.",
-                Font = new Font(SystemFont.Default, 12),
+                Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
 
             var warningLabel = new Label
             {
                 Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS.",
-                Font = new Font(SystemFont.Default, 12),
+                Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
                 TextColor = Colors.DarkRed
             };
@@ -162,7 +182,7 @@ namespace SmartHopper.Menu.Dialogs
                         Spacing = 5,
                         Items = 
                         { 
-                            new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 12) },
+                            new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
                             githubLinkLabel 
                         }
                     },
@@ -184,7 +204,7 @@ namespace SmartHopper.Menu.Dialogs
             var link = new LinkButton
             {
                 Text = text,
-                Font = new Font(SystemFont.Default, 12),
+                Font = new Font(SystemFont.Default, 10),
                 TextColor = Colors.Blue
             };
 

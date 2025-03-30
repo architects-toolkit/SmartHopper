@@ -68,8 +68,16 @@ namespace SmartHopper.Core.ComponentBase
                 if (string.IsNullOrEmpty(_owner._aiProvider) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
                     return;
 
+                // Get the actual provider name (resolving Default to the actual provider)
+                string actualProviderName = _owner._aiProvider;
+                if (_owner._aiProvider == AIStatefulAsyncComponentBase.DEFAULT_PROVIDER)
+                {
+                    var settings = SmartHopperSettings.Load();
+                    actualProviderName = settings.GetDefaultAIProvider();
+                }
+
                 // Get the provider icon
-                var providerIcon = SmartHopperSettings.GetProviderIcon(_owner._aiProvider);
+                var providerIcon = SmartHopperSettings.GetProviderIcon(actualProviderName);
                 if (providerIcon == null)
                     return;
 

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>SmartHopper AI Chat</title>
+    <style type="text/css">
+        {{cssChat}}
+    </style>
+</head>
+<body>
+    <div id='chat-container'></div>
+    
+    <script type="text/javascript">
+        {{jsChat}}
+    </script>
+    <script>
+        // Message template is injected here by the server
+        const MESSAGE_TEMPLATE = '{{messageTemplate}}';
+        
+        // Ensure the document is ready before executing any functions
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Document loaded and ready');
+            
+            // Add a test message to verify functionality
+            if (typeof addMessage === 'function') {
+                console.log('addMessage function found');
+            } else {
+                console.log('addMessage function NOT found');
+            }
+        });
+    </script>
+</body>
+</html>

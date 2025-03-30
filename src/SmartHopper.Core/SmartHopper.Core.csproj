@@ -29,6 +29,11 @@
     <None Remove="Settings\**" />
   </ItemGroup>
 
+  <!-- Embed the AI Chat resource files in the assembly -->
+  <ItemGroup>
+    <EmbeddedResource Include="AI\Chat\Resources\**\*.*" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Grasshopper" Version="8.13.24317.13001" ExcludeAssets="runtime">
@@ -37,15 +42,14 @@
     <PackageReference Include="RhinoCommon" Version="8.13.24317.13001">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <PackageReference Include="Markdig" Version="0.35.0" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.59" />
-    <PackageReference Include="RestSharp" Version="112.1.0" />
+    <PackageReference Include="System.Resources.Extensions" Version="7.0.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="Markdig" Version="0.40.0" />
   </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
+  </ItemGroup>
 
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">

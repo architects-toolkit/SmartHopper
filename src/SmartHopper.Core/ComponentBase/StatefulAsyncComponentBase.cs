@@ -42,6 +42,13 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class StatefulAsyncComponentBase : AsyncComponentBase
     {
+        /// <summary>
+        /// Controls whether the component should only run when inputs change.
+        /// If true (default), the component will only run when inputs have changed and Run is true.
+        /// If false, the component will run whenever the Run parameter is set to true,
+        /// regardless of whether inputs have changed.
+        /// </summary>
+        public bool RunOnlyOnInputChanges { get; set; } = true;
 
         #region CONSTRUCTOR
 
@@ -226,7 +233,18 @@ namespace SmartHopper.Core.ComponentBase
                     else if (InputsChanged("Run?", true) && _run)
                     {
                         Debug.WriteLine($"[{GetType().Name}] Only Run parameter changed to true, restarting debounce timer with target state Waiting");
-                        TransitionTo(ComponentState.Waiting, DA);
+                        
+                        if (!RunOnlyOnInputChanges)
+                        {
+                            // Always transition to Processing state regardless of input changes
+                            Debug.WriteLine($"[{GetType().Name}] Component set to always run when Run is true, transitioning to Processing state");
+                            TransitionTo(ComponentState.Processing, DA);
+                        }
+                        else
+                        {
+                            // Default behavior - transition to Waiting state
+                            TransitionTo(ComponentState.Waiting, DA);
+                        }
                     }
                     // If any other input changed, and run is false
                     else if (changedInputs.Any() && !_run)
@@ -695,7 +713,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="writer">The writer to use for serialization</param>
         /// <returns>True if the write operation succeeds, false if it fails or an exception occurs</returns>
-        public sealed override bool Write(GH_IWriter writer)
+        public override bool Write(GH_IWriter writer)
         {
             if (!base.Write(writer))
                 return false;
@@ -764,7 +782,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="reader">The reader to use for deserialization</param>
         /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs</returns>
-        public sealed override bool Read(GH_IReader reader)
+        public override bool Read(GH_IReader reader)
         {
             if (!base.Read(reader))
                 return false;
