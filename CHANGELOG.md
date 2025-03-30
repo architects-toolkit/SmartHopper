@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a dedicated Markdown class in the Converters namespace for centralized markdown processing
 - Enhanced markdown formatting support in chat messages (headings, code blocks, blockquotes, and inline formatting)
 - Added AIWebChatComponent with WebView-based chat interface for HTML rendering of messages.
-- Added WebChatDialog class using Eto.Forms WebView for rendering chat messages in HTML format.
+- Added WebChatDialog class using Eto.Forms WebView for rendering HTML chat interface.
 - Added HtmlChatRenderer utility class for converting markdown messages to HTML.
 - Added ChatResourceManager to manage HTML, CSS, and JavaScript resources for the WebChat interface.
 
@@ -50,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced the About dialog with better layout and styling.
 - Improved error handling in the AIStatefulAsyncComponentBase.
 - Simplified FormattedMessageControl by removing the IsMarkdown property since all messages use markdown formatting
+- Refactored WebChat resource management to use embedded resources instead of file system for improved security.
+- Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
+- Improved error handling and debugging in ChatResourceManager and WebChatDialog.
 - Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
 - Improved security by embedding WebChat resources in the assembly instead of copying them to the output directory.
 

@@ -17,6 +17,8 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Diagnostics;
+using System.Linq;
 using System.Web;
 
 namespace SmartHopper.Core.AI.Chat
@@ -42,7 +44,10 @@ namespace SmartHopper.Core.AI.Chat
         /// </summary>
         public ChatResourceManager()
         {
-            // No initialization needed
+            Debug.WriteLine("[ChatResourceManager] Initializing ChatResourceManager");
+            
+            // List all embedded resources for debugging
+            ListAllEmbeddedResources();
         }
 
         /// <summary>
@@ -51,9 +56,13 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The complete chat template HTML.</returns>
         public string GetChatTemplate()
         {
+            Debug.WriteLine("[ChatResourceManager] Getting chat template");
+            
             if (string.IsNullOrEmpty(_cachedChatTemplate))
             {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CHAT_TEMPLATE_RESOURCE}");
                 _cachedChatTemplate = ReadEmbeddedResource(CHAT_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Chat template loaded, length: {_cachedChatTemplate?.Length ?? 0}");
             }
 
             // Get the message template to inject
@@ -61,6 +70,7 @@ namespace SmartHopper.Core.AI.Chat
             
             // Escape single quotes in the message template to avoid breaking the JavaScript
             messageTemplate = messageTemplate.Replace("'", "\\'");
+            Debug.WriteLine("[ChatResourceManager] Message template prepared for injection");
 
             // Replace placeholders with actual paths and content
             string result = _cachedChatTemplate
@@ -68,6 +78,7 @@ namespace SmartHopper.Core.AI.Chat
                 .Replace("{{jsPath}}", "embedded-js") // Not used, but kept for compatibility
                 .Replace("{{messageTemplate}}", messageTemplate);
 
+            Debug.WriteLine("[ChatResourceManager] Chat template prepared with placeholders replaced");
             return result;
         }
 
@@ -77,9 +88,13 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The message template HTML.</returns>
         public string GetMessageTemplate()
         {
+            Debug.WriteLine("[ChatResourceManager] Getting message template");
+            
             if (string.IsNullOrEmpty(_cachedMessageTemplate))
             {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {MESSAGE_TEMPLATE_RESOURCE}");
                 _cachedMessageTemplate = ReadEmbeddedResource(MESSAGE_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Message template loaded, length: {_cachedMessageTemplate?.Length ?? 0}");
             }
 
             return _cachedMessageTemplate;
@@ -91,9 +106,13 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The CSS content.</returns>
         public string GetCssContent()
         {
+            Debug.WriteLine("[ChatResourceManager] Getting CSS content");
+            
             if (string.IsNullOrEmpty(_cachedCssContent))
             {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CSS_RESOURCE}");
                 _cachedCssContent = ReadEmbeddedResource(CSS_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] CSS content loaded, length: {_cachedCssContent?.Length ?? 0}");
             }
 
             return _cachedCssContent;
@@ -105,9 +124,13 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The JavaScript content.</returns>
         public string GetJsContent()
         {
+            Debug.WriteLine("[ChatResourceManager] Getting JavaScript content");
+            
             if (string.IsNullOrEmpty(_cachedJsContent))
             {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {JS_RESOURCE}");
                 _cachedJsContent = ReadEmbeddedResource(JS_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] JavaScript content loaded, length: {_cachedJsContent?.Length ?? 0}");
             }
 
             return _cachedJsContent;
@@ -119,16 +142,36 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The complete HTML document.</returns>
         public string GetCompleteHtml()
         {
-            string cssContent = GetCssContent();
-            string jsContent = GetJsContent();
-            string templateHtml = GetChatTemplate();
+            Debug.WriteLine("[ChatResourceManager] Creating complete HTML with embedded resources");
+            
+            try
+            {
+                string cssContent = GetCssContent();
+                string jsContent = GetJsContent();
+                string templateHtml = GetChatTemplate();
 
-            // Replace CSS and JS path references with inline content
-            string completeHtml = templateHtml
-                .Replace("<link rel=\"stylesheet\" href=\"{{cssPath}}\">", $"<style>\n{cssContent}\n</style>")
-                .Replace("<script src=\"{{jsPath}}\"></script>", $"<script>\n{jsContent}\n</script>");
+                // Replace CSS and JS path references with inline content
+                string completeHtml = templateHtml
+                    .Replace("<link rel=\"stylesheet\" href=\"{{cssPath}}\">", $"<style>\n{cssContent}\n</style>")
+                    .Replace("<script src=\"{{jsPath}}\"></script>", $"<script>\n{jsContent}\n</script>");
 
-            return completeHtml;
+                Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
+                
+                // For debugging, write the first 100 characters
+                if (completeHtml != null && completeHtml.Length > 0)
+                {
+                    string preview = completeHtml.Length > 100 ? completeHtml.Substring(0, 100) + "..." : completeHtml;
+                    Debug.WriteLine($"[ChatResourceManager] HTML preview: {preview}");
+                }
+                
+                return completeHtml;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChatResourceManager] Error creating complete HTML: {ex.Message}");
+                Debug.WriteLine($"[ChatResourceManager] Error stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -140,12 +183,17 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The HTML for the message.</returns>
         public string CreateMessageHtml(string role, string displayName, string content)
         {
+            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
+            
             string template = GetMessageTemplate();
 
-            return template
+            string result = template
                 .Replace("{{role}}", role)
                 .Replace("{{displayName}}", displayName)
                 .Replace("{{content}}", content);
+                
+            Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
+            return result;
         }
 
         /// <summary>
@@ -155,19 +203,65 @@ namespace SmartHopper.Core.AI.Chat
         /// <returns>The content of the resource as a string.</returns>
         private string ReadEmbeddedResource(string resourceName)
         {
+            Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {resourceName}");
+            
             Assembly assembly = Assembly.GetExecutingAssembly();
             
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            try
             {
-                if (stream == null)
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
                 {
-                    throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
+                    if (stream == null)
+                    {
+                        Debug.WriteLine($"[ChatResourceManager] ERROR: Embedded resource not found: {resourceName}");
+                        
+                        throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
+                    }
+                    
+                    Debug.WriteLine($"[ChatResourceManager] Resource stream opened, length: {stream.Length}");
+                    
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        string content = reader.ReadToEnd();
+                        Debug.WriteLine($"[ChatResourceManager] Resource read successfully, content length: {content?.Length ?? 0}");
+                        return content;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChatResourceManager] Error reading embedded resource: {ex.Message}");
+                Debug.WriteLine($"[ChatResourceManager] Error stack trace: {ex.StackTrace}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Lists all embedded resources in the assembly for debugging purposes.
+        /// </summary>
+        private void ListAllEmbeddedResources()
+        {
+            try
+            {
+                Assembly assembly = Assembly.GetExecutingAssembly();
+                string[] resources = assembly.GetManifestResourceNames();
+                
+                Debug.WriteLine($"[ChatResourceManager] Found {resources.Length} embedded resources:");
+                foreach (string resource in resources)
+                {
+                    Debug.WriteLine($"[ChatResourceManager]   - {resource}");
                 }
                 
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    return reader.ReadToEnd();
-                }
+                // Check if our specific resources exist
+                Debug.WriteLine("[ChatResourceManager] Checking for required resources:");
+                Debug.WriteLine($"[ChatResourceManager]   - CSS: {resources.Contains(CSS_RESOURCE)}");
+                Debug.WriteLine($"[ChatResourceManager]   - JS: {resources.Contains(JS_RESOURCE)}");
+                Debug.WriteLine($"[ChatResourceManager]   - Chat Template: {resources.Contains(CHAT_TEMPLATE_RESOURCE)}");
+                Debug.WriteLine($"[ChatResourceManager]   - Message Template: {resources.Contains(MESSAGE_TEMPLATE_RESOURCE)}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChatResourceManager] Error listing embedded resources: {ex.Message}");
             }
         }
     }
