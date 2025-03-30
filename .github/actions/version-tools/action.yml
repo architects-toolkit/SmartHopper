@@ -104,8 +104,8 @@ runs:
         
         # Determine color and status based on version
         if [[ $VERSION == *"-dev"* ]]; then
-          COLOR="blue"
-          STATUS="Development"
+          COLOR="red"
+          STATUS="Unstable Development"
         elif [[ $VERSION == *"-alpha"* ]]; then
           COLOR="orange"
           STATUS="Alpha"
@@ -113,7 +113,7 @@ runs:
           COLOR="yellow"
           STATUS="Beta"
         elif [[ $VERSION == *"-rc"* ]]; then
-          COLOR="yellowgreen"
+          COLOR="blue"
           STATUS="Release Candidate"
         else
           COLOR="brightgreen"
@@ -135,52 +135,42 @@ runs:
         if [[ -f "README.md" ]]; then
           BADGES_CHANGED=false
           
-          # Extract current version from README badge
-          if grep -q "\[\!\[Version\]\]" README.md; then
-            # Extract the current version from the badge URL
-            CURRENT_VERSION_BADGE=$(grep "\[\!\[Version\]\]" README.md)
-            echo "Current version badge in README: $CURRENT_VERSION_BADGE"
+          # Get the current version from Solution.props
+          echo "Current version from Solution.props: $VERSION"
+          
+          # Create new badge URLs
+          VERSION_BADGE_URL="https://img.shields.io/badge/version-$ENCODED_VERSION-$COLOR"
+          STATUS_BADGE_URL="https://img.shields.io/badge/status-$STATUS-$COLOR"
+          
+          # Create badge markdown
+          VERSION_BADGE="[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+          STATUS_BADGE="[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
+          
+          echo "New version badge: $VERSION_BADGE"
+          echo "New status badge: $STATUS_BADGE"
+          
+          # Check if README contains version badge
+          if grep -q "\[\!\[Version\]" README.md; then
+            echo "Found version badge in README"
             
-            # Extract just the version number from the current badge
-            CURRENT_VERSION_IN_BADGE=$(echo "$CURRENT_VERSION_BADGE" | grep -oP 'version-\K[^-]*(?=-|-)' | sed 's/%2E/./g' | sed 's/--/-/g')
-            echo "Extracted version from README badge: $CURRENT_VERSION_IN_BADGE"
-            
-            # Compare actual versions, not just badge strings
-            if [[ "$CURRENT_VERSION_IN_BADGE" != "$VERSION" ]]; then
-              echo "Version mismatch: README has '$CURRENT_VERSION_IN_BADGE', Solution.props has '$VERSION'"
-              # Use sed to replace the version badge
-              sed -i "s|\[\!\[Version\]\](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
-              echo "Updated version badge"
-              BADGES_CHANGED=true
-            else
-              echo "Version badge already up to date (both have version $VERSION)"
-            fi
+            # Always update the badges with the current version from Solution.props
+            sed -i "s|\[\!\[Version\](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
+            echo "Updated version badge"
+            BADGES_CHANGED=true
           else
-            echo "No version badge found in README"
+            echo "No version badge found in README to replace"
           fi
           
-          # Check if status badge exists and update it
-          if grep -q "\[\!\[Status\]\]" README.md; then
-            # Get current status badge
-            CURRENT_STATUS_BADGE=$(grep "\[\!\[Status\]\]" README.md)
-            echo "Current status badge in README: $CURRENT_STATUS_BADGE"
+          # Check if README contains status badge
+          if grep -q "\[\!\[Status\]" README.md; then
+            echo "Found status badge in README"
             
-            # Extract the current status from the badge URL
-            CURRENT_STATUS_IN_BADGE=$(echo "$CURRENT_STATUS_BADGE" | grep -oP 'status-\K[^-]*(?=-)')
-            echo "Extracted status from README badge: $CURRENT_STATUS_IN_BADGE"
-            
-            # Compare status values
-            if [[ "$CURRENT_STATUS_IN_BADGE" != "$STATUS" ]]; then
-              echo "Status mismatch: README has '$CURRENT_STATUS_IN_BADGE', should be '$STATUS'"
-              # Use sed to replace the status badge
-              sed -i "s|\[\!\[Status\]\](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
-              echo "Updated status badge"
-              BADGES_CHANGED=true
-            else
-              echo "Status badge already up to date (both have status $STATUS)"
-            fi
+            # Always update the status badge
+            sed -i "s|\[\!\[Status\](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
+            echo "Updated status badge"
+            BADGES_CHANGED=true
           else
-            echo "No status badge found in README"
+            echo "No status badge found in README to replace"
           fi
           
           # Check if badges were changed
