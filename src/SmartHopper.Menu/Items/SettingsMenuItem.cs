@@ -10,9 +10,12 @@
 
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
+using System.Drawing;
 using Rhino;
 
 namespace SmartHopper.Menu.Items
@@ -21,10 +24,17 @@ namespace SmartHopper.Menu.Items
     {
         private static readonly Dictionary<Type, Func<SettingDescriptor, Eto.Forms.Control>> ControlFactories = new Dictionary<Type, Func<SettingDescriptor, Eto.Forms.Control>>
         {
-            [typeof(string)] = descriptor => new Eto.Forms.TextBox
+            [typeof(string)] = descriptor => 
             {
-                // Use ReadOnly for passwords
-                ReadOnly = descriptor.IsSecret
+                // Use PasswordBox for secret fields, TextBox for regular text
+                if (descriptor.IsSecret)
+                {
+                    return new Eto.Forms.PasswordBox();
+                }
+                else
+                {
+                    return new Eto.Forms.TextBox();
+                }
             },
             [typeof(int)] = descriptor => new Eto.Forms.NumericStepper
             {
@@ -50,7 +60,15 @@ namespace SmartHopper.Menu.Items
                 {
                     dialog.Title = "SmartHopper Settings";
                     dialog.Size = new Eto.Drawing.Size(500, 400);
+                    dialog.MinimumSize = new Eto.Drawing.Size(400, 300);
+                    dialog.Resizable = true;
                     dialog.Padding = new Eto.Drawing.Padding(10);
+                    
+                    // Center the dialog on screen
+                    dialog.Location = new Eto.Drawing.Point(
+                        (int)((Eto.Forms.Screen.PrimaryScreen.Bounds.Width - dialog.Size.Width) / 2),
+                        (int)((Eto.Forms.Screen.PrimaryScreen.Bounds.Height - dialog.Size.Height) / 2)
+                    );
 
                     var providers = SmartHopperSettings.DiscoverProviders().ToArray();
                     var settings = SmartHopperSettings.Load();
@@ -69,6 +87,8 @@ namespace SmartHopper.Menu.Items
 
                     // Dictionary to store all controls for later retrieval
                     var allControls = new Dictionary<string, Dictionary<string, Eto.Forms.Control>>();
+                    // Dictionary to track original API key values to avoid overwriting unchanged values
+                    var originalApiKeys = new Dictionary<string, Dictionary<string, string>>();
 
                     // Add general settings section
                     layout.Rows.Add(new Eto.Forms.TableRow(
@@ -201,6 +221,8 @@ namespace SmartHopper.Menu.Items
                         layout.Rows.Add(new Eto.Forms.TableRow(new Eto.Forms.TableCell(headerLayout)));
 
                         var controls = new Dictionary<string, Eto.Forms.Control>();
+                        originalApiKeys[provider.Name] = new Dictionary<string, string>();
+                        
                         foreach (var descriptor in descriptors)
                         {
                             // Create a row for each setting
@@ -239,17 +261,49 @@ namespace SmartHopper.Menu.Items
                                 settings.ProviderSettings[provider.Name].ContainsKey(descriptor.Name))
                             {
                                 var value = settings.ProviderSettings[provider.Name][descriptor.Name];
+                                
                                 if (control is Eto.Forms.TextBox textBox)
+                                {
                                     textBox.Text = value?.ToString() ?? "";
+                                    
+                                    // Store original value for API keys
+                                    if (descriptor.IsSecret)
+                                    {
+                                        originalApiKeys[provider.Name][descriptor.Name] = textBox.Text;
+                                    }
+                                }
+                                else if (control is Eto.Forms.PasswordBox passwordBox)
+                                {
+                                    passwordBox.Text = value?.ToString() ?? "";
+                                    
+                                    // Store original value for API keys
+                                    originalApiKeys[provider.Name][descriptor.Name] = passwordBox.Text;
+                                }
                                 else if (control is Eto.Forms.NumericStepper numericStepper && value != null)
+                                {
                                     numericStepper.Value = Convert.ToInt32(value);
+                                }
                             }
                             else if (descriptor.DefaultValue != null)
                             {
                                 if (control is Eto.Forms.TextBox textBox)
+                                {
                                     textBox.Text = descriptor.DefaultValue.ToString();
+                                }
+                                else if (control is Eto.Forms.PasswordBox passwordBox)
+                                {
+                                    passwordBox.Text = descriptor.DefaultValue.ToString();
+                                    
+                                    // Store original value for API keys
+                                    if (descriptor.IsSecret)
+                                    {
+                                        originalApiKeys[provider.Name][descriptor.Name] = passwordBox.Text;
+                                    }
+                                }
                                 else if (control is Eto.Forms.NumericStepper numericStepper)
+                                {
                                     numericStepper.Value = Convert.ToInt32(descriptor.DefaultValue);
+                                }
                             }
                         }
 
@@ -298,12 +352,50 @@ namespace SmartHopper.Menu.Items
                                 var control = controls[descriptor.Name];
                                 object value = null;
 
-                                if (control is Eto.Forms.TextBox textBox)
-                                    value = textBox.Text;
-                                else if (control is Eto.Forms.NumericStepper numericStepper)
-                                    value = (int)numericStepper.Value;
+                                // Only update API keys if they've changed
+                                if (descriptor.IsSecret)
+                                {
+                                    string newValue = null;
+                                    
+                                    if (control is Eto.Forms.TextBox textBox)
+                                        newValue = textBox.Text;
+                                    else if (control is Eto.Forms.PasswordBox passwordBox)
+                                        newValue = passwordBox.Text;
+                                    
+                                    // Check if API key has changed
+                                    if (string.IsNullOrEmpty(newValue))
+                                    {
+                                        // If empty, don't update (keep existing value)
+                                        continue;
+                                    }
+                                    else if (originalApiKeys[provider.Name].ContainsKey(descriptor.Name) && 
+                                             newValue == originalApiKeys[provider.Name][descriptor.Name])
+                                    {
+                                        // If unchanged, don't update
+                                        continue;
+                                    }
+                                    else
+                                    {
+                                        // Value has changed, update it
+                                        value = newValue;
+                                    }
+                                }
+                                else
+                                {
+                                    // For non-secret fields, always update
+                                    if (control is Eto.Forms.TextBox textBox)
+                                        value = textBox.Text;
+                                    else if (control is Eto.Forms.PasswordBox passwordBox)
+                                        value = passwordBox.Text;
+                                    else if (control is Eto.Forms.NumericStepper numericStepper)
+                                        value = (int)numericStepper.Value;
+                                }
 
-                                settings.ProviderSettings[provider.Name][descriptor.Name] = value;
+                                // Only update if we have a value to set
+                                if (value != null)
+                                {
+                                    settings.ProviderSettings[provider.Name][descriptor.Name] = value;
+                                }
                             }
                         }
 
