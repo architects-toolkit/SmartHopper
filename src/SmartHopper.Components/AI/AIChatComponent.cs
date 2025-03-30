@@ -75,7 +75,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the component's exposure level in the Grasshopper UI.
         /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Gets the component's icon.
