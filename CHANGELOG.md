@@ -9,34 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the new AIChat component with interactive chat interface.
-- Added ChatDialog class using Eto.Forms for a modern chat UI experience.
-- Added ChatUtils class with helper methods for AI chat interactions.
+- Added the new AIChat component with interactive chat interface and proper icon.
+- Added WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
-- Added "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
-- Added default provider selection in the settings dialog to set the global default AI provider.
+- Added AI provider selection improvements:
+  - "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
+  - Default provider selection in the settings dialog to set the global default AI provider.
 - Added custom icon for the SmartHopper tab in Grasshopper.
+- Added comprehensive Markdown formatting support:
+  - Headings, code blocks, blockquotes, and inline formatting.
+  - HTML tags like underline in Markdown text.
+  - Dedicated Markdown class in the Converters namespace for centralized markdown processing.
+- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
 
 ### Changed
 
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
-- Improved ChatDialog UI with a modern chat-like interface featuring message bubbles, better layout, and visual styling.
-- Enhanced message bubbles to properly wrap text and resize dynamically with the window size.
-- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
-- Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
-- Updated component icon display to show the actual provider icon when "Default" is selected.
-- Placed proper icon for the AI chat component.
-- Decreased font size of the About dialog.
-- Defined a minimum size for the About dialog.
-- Enhanced release-build.yml workflow to automatically build and attach artifacts to published releases
-- Modified release-build.yml workflow to create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders
+- Improved ChatDialog UI with numerous enhancements:
+  - Modern chat-like interface featuring message bubbles and visual styling.
+  - Better layout with proper text wrapping to prevent horizontal scrolling.
+  - Responsive message sizing that adapts to the dialog width (80% max width with 350px minimum).
+  - Message selection and copying capabilities with a context menu.
+  - Automatic message height adjustment based on content and removal of visible scrollbars.
+  - Improved scrolling behavior.
+- Enhanced About dialog:
+  - Decreased font size.
+  - Defined a minimum size.
+  - Better layout and styling.
+- Improved code organization:
+  - All chat messages are now treated as markdown by default for consistent formatting.
+  - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
+  - Updated component icon display to show the actual provider icon when "Default" is selected.
+- Improved Web-based AIChat implementation:
+  - Refactored WebChat resource management to use embedded resources instead of file system for improved security.
+  - Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
+  - Improved error handling and debugging in ChatResourceManager and WebChatDialog.
+  - Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
+- Enhanced release-build.yml workflow:
+  - Automatically build and attach artifacts to published releases.
+  - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
+- Improved error handling in the AIStatefulAsyncComponentBase.
+
+### Removed
+
+- Removed dependency on HtmlAgilityPack
 
 ### Fixed
 
-- Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
-- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property
+- Fixed AI provider handling:
+  - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
+  - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
+- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property.
 
 ## [0.1.2-alpha] - 2025-03-17
+
+### Changed
+
+- Updated pull-request-validation.yml workflow to use version-tools for version validation
+- Improved PR title validation with more detailed error messages and support for additional conventional commit types
+- Added "security" as a valid commit type in PR title validation
+- Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
+
+### Removed
+
+- Removed Test GitHub Actions workflow
 
 ### Fixed
 
@@ -47,13 +83,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed security-patch-release.yml workflow to create a release draft only when no PR is created
 - Added new security-release-after-merge.yml workflow to create a release draft when a security patch PR is merged
 - Fixed GitHub release creation by removing invalid target_commitish parameter
-
-### Changed
-
-- Updated pull-request-validation.yml workflow to use version-tools for version validation
-- Improved PR title validation with more detailed error messages and support for additional conventional commit types
-- Added "security" as a valid commit type in PR title validation
-- Modified update-dev-version-date.yml workflow to create a PR instead of committing changes directly to the branch
 
 ### Security
 
@@ -68,10 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new security-patch-release.yml workflow for creating security patch releases outside the milestone process
 - Implemented GitHub Actions security best practices by pinning actions to full commit SHAs instead of version tags
 - Updated security-patch-release.yml workflow to create a PR instead of pushing directly to main, resolving repository rule violations
-
-### Removed
-
-- Removed Test GitHub Actions workflow
 
 ## [0.1.1-alpha] - 2025-03-03
 
