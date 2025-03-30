@@ -69,7 +69,7 @@ namespace SmartHopper.Components.AI
         /// <returns>An asynchronous worker.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AiChatWorker(this, progressReporter);
+            return new AIChatWorker(this, progressReporter);
         }
 
         /// <summary>
@@ -90,18 +90,18 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Worker class for the AI Chat component.
         /// </summary>
-        private class AiChatWorker : AsyncWorkerBase
+        private class AIChatWorker : AsyncWorkerBase
         {
             private readonly AIChatComponent _component;
             private readonly Action<string> _progressReporter;
             private AIResponse _lastResponse;
 
             /// <summary>
-            /// Initializes a new instance of the AiChatWorker class.
+            /// Initializes a new instance of the AIChatWorker class.
             /// </summary>
             /// <param name="component">The parent component.</param>
             /// <param name="progressReporter">Action to report progress.</param>
-            public AiChatWorker(AIChatComponent component, Action<string> progressReporter)
+            public AIChatWorker(AIChatComponent component, Action<string> progressReporter)
                 : base(component, (level, message) => component.AddRuntimeMessage(level, message))
             {
                 _component = component;
@@ -125,12 +125,12 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AiChatWorker] Starting web chat worker");
+                    Debug.WriteLine("[AIChatWorker] Starting web chat worker");
                     _progressReporter?.Invoke("Starting web chat interface...");
 
                     // Get the actual provider name to use
                     string actualProvider = _component.GetActualProviderName();
-                    Debug.WriteLine($"[AiChatWorker] Using Provider: {actualProvider} (Selected: {_component._aiProvider})");
+                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {_component._aiProvider})");
 
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
@@ -145,12 +145,12 @@ namespace SmartHopper.Components.AI
                     // Get the last response
                     _lastResponse = chatWorker.GetLastResponse();
 
-                    Debug.WriteLine("[AiChatWorker] Web chat worker completed");
+                    Debug.WriteLine("[AIChatWorker] Web chat worker completed");
                     _progressReporter?.Invoke("Web chat completed");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AiChatWorker] Error: {ex.Message}");
+                    Debug.WriteLine($"[AIChatWorker] Error: {ex.Message}");
                     _progressReporter?.Invoke($"Error: {ex.Message}");
                     throw;
                 }
