@@ -21,6 +21,8 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Utils;
+using Rhino;
+using Rhino.UI;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -83,7 +85,7 @@ namespace SmartHopper.Core.AI.Chat
                         // Configure the dialog window
                         dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
                         
-                        // Show the dialog
+                        // Show the dialog as a non-modal window
                         Debug.WriteLine("[WebChatUtils] Showing dialog");
                         dialog.Show();
                         
