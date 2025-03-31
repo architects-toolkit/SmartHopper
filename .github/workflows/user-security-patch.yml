@@ -390,16 +390,16 @@ jobs:
               
               console.log(`PR created: ${pr.data.html_url}`);
               
-              // Add security label if it exists
+              // Add priority label
               try {
                 await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: pr.data.number,
-                  labels: ['security']
+                  labels: ['priority: critical']
                 });
               } catch (error) {
-                console.log('Could not add security label, it may not exist');
+                console.log('Could not add priority label, it may not exist');
               }
               
               return {

@@ -1,7 +1,8 @@
-name: Bug Report
+name: 🐞 Bug Report
 description: Create a report about something that is not working as expected
 title: "[descriptive title here]"
-labels: ["status: needs review", "type: bug"]
+labels: ["status: needs triage"]
+type: Bug
 assignees: []
 body:
   - type: markdown
