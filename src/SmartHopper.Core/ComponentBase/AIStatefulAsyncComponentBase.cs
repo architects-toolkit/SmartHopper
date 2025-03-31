@@ -25,6 +25,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Config;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Providers;
@@ -167,7 +168,7 @@ namespace SmartHopper.Core.ComponentBase
             providersMenu.DropDownItems.Add(defaultItem);
 
             // Get all available providers
-            var providers = SmartHopperSettings.DiscoverProviders();
+            var providers = ProviderManager.Instance.GetProviders();
             foreach (var provider in providers)
             {
                 var item = new ToolStripMenuItem(provider.Name)
@@ -483,7 +484,7 @@ namespace SmartHopper.Core.ComponentBase
                     Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Read stored AI provider: {storedProvider}");
                     
                     // Check if the provider exists in the available providers
-                    var providers = SmartHopperSettings.DiscoverProviders();
+                    var providers = ProviderManager.Instance.GetProviders();
                     if (providers.Any(p => p.Name == storedProvider))
                     {
                         _aiProvider = storedProvider;
@@ -493,7 +494,8 @@ namespace SmartHopper.Core.ComponentBase
                     else
                     {
                         // If the provider doesn't exist, use the first available provider
-                        _aiProvider = providers.Any() ? providers.First().Name : MistralAI._name;
+                        var availableProviders = ProviderManager.Instance.GetProviders();
+                        _aiProvider = availableProviders.Any() ? availableProviders.First().Name : "Default";
                         _previousSelectedProvider = _aiProvider;
                         Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Provider not found, using default: {_aiProvider}");
                     }
@@ -519,8 +521,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (_aiProvider == DEFAULT_PROVIDER)
             {
-                var settings = SmartHopperSettings.Load();
-                return settings.GetDefaultAIProvider();
+                // Use the ProviderManager to get the default provider
+                return ProviderManager.Instance.GetDefaultAIProvider();
             }
             
             return _aiProvider;
