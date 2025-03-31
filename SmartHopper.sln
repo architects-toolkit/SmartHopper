@@ -16,6 +16,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Menu", "src\Sma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Components.Test", "src\SmartHopper.Components.Test\SmartHopper.Components.Test.csproj", "{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.MistralAI", "src\SmartHopper.Providers.MistralAI\SmartHopper.Providers.MistralAI.csproj", "{F2063A0F-FDF2-4AD2-8C92-1E374B991752}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.OpenAI", "src\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj", "{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +49,15 @@ Global
 		{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2063A0F-FDF2-4AD2-8C92-1E374B991752}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2063A0F-FDF2-4AD2-8C92-1E374B991752}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2063A0F-FDF2-4AD2-8C92-1E374B991752}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2063A0F-FDF2-4AD2-8C92-1E374B991752}.Release|Any CPU.Build.0 = Release|Any CPU
+		{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -56,5 +69,7 @@ Global
 		{A932CFFA-0C82-4A1F-92F2-003CDE1C94AC} = {05A44F09-190D-434E-A91B-0ECA631110FE}
 		{B932CFFA-0C82-4A1F-92F2-003CDE1C94AD} = {05A44F09-190D-434E-A91B-0ECA631110FE}
 		{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE} = {05A44F09-190D-434E-A91B-0ECA631110FE}
+		{F2063A0F-FDF2-4AD2-8C92-1E374B991752} = {05A44F09-190D-434E-A91B-0ECA631110FE}
+		{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC} = {05A44F09-190D-434E-A91B-0ECA631110FE}
 	EndGlobalSection
 EndGlobal
