@@ -140,14 +140,21 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Debug.WriteLine("[WebChatDialog] Initializing WebView");
                 
-                // Prepare HTML on background thread
-                string html = await Task.Run(() => _htmlRenderer.GetInitialHtml());
-                
-                // Then load it on UI thread
-                Application.Instance.AsyncInvoke(() => {
-                    _webView.LoadHtml(html);
-                    InitializeWebViewAsync();
-                });
+                try
+                {
+                    // Prepare HTML on background thread
+                    string html = await Task.Run(() => _htmlRenderer.GetInitialHtml());
+                    
+                    // Then load it on UI thread
+                    Application.Instance.AsyncInvoke(() => {
+                        _webView.LoadHtml(html);
+                        InitializeWebViewAsync();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Error initializing WebView: {ex.Message}");
+                }
             };
             
             // Add system message once WebView is initialized
