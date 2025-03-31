@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
+- Improved version badge workflow to also update badges when color doesn't match the requirements based on version type.
 - Improved ChatDialog UI with numerous enhancements:
   - Modern chat-like interface featuring message bubbles and visual styling.
   - Better layout with proper text wrapping to prevent horizontal scrolling.
@@ -49,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatically build and attach artifacts to published releases.
   - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
 - Improved error handling in the AIStatefulAsyncComponentBase.
+- Updated settings menu to use Eto.Forms and Eto.Drawing.
 
 ### Removed
 
