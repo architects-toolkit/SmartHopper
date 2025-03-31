@@ -1,0 +1,72 @@
+name: 🏷️ Update Issue Labels on Close
+
+# Description: This workflow updates some issue labels when they are closed.
+# 1. Converts some status to close labels:
+#   - 'status: needs more details' to 'close: lack of details'
+#   - 'status: help wanted' to 'close: help not found'
+# 2. Removes status labels
+#
+# Trigger: Automatically when an issue is closed
+#
+# Permissions:
+# - issues:write - Required to modify issue labels
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  update-issue-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update issue labels
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const currentLabels = issue.labels.map(label => label.name);
+            
+            // Define label mappings (status label -> close label)
+            const labelMappings = {
+              'status: needs more details': 'close: lack of details',
+              'status: help wanted': 'close: help not found'
+            };
+            
+            // Labels to add
+            const labelsToAdd = [];
+            
+            // Process status labels
+            for (const [statusLabel, closeLabel] of Object.entries(labelMappings)) {
+              if (currentLabels.includes(statusLabel) && !currentLabels.includes(closeLabel)) {
+                labelsToAdd.push(closeLabel);
+              }
+            }
+            
+            // Add close labels if needed
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+              console.log(`Added labels: ${labelsToAdd.join(', ')}`);
+            }
+            
+            // Remove all status labels
+            const statusLabels = currentLabels.filter(label => label.toLowerCase().startsWith('status:'));
+            
+            if (statusLabels.length > 0) {
+              for (const label of statusLabels) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name: label
+                });
+              }
+              console.log(`Removed status labels: ${statusLabels.join(', ')}`);
+            }
