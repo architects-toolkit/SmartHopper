@@ -33,9 +33,7 @@ jobs:
 
       - name: Validate Version in Solution.props
         id: version-check
-        uses: ./.github/actions/version-tools
-        with:
-          task: get-version
+        uses: ./.github/actions/versioning/get-version
 
       - name: Verify Version Format
         run: |

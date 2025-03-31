@@ -37,10 +37,10 @@
   color: "DDA0DD"
   description: "Requires more details to proceed"
 - name: "status: needs triage"
-  color: "FFD700"
+  color: "9E4B18"
   description: "Ready for triage"
 - name: "status: help wanted"
-  color: "1E90FF"
+  color: "E9C6C2"
   description: "Help wanted"
 
 # Component Labels

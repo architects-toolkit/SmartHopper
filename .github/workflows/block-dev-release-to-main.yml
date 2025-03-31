@@ -29,10 +29,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Get version from Solution.props
+        id: get-version
+        uses: ./.github/actions/versioning/get-version
+
       - name: Check for Dev Release
         id: check-dev
         run: |
-          VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+          VERSION="${{ steps.get-version.outputs.version }}"
           echo "Version found: $VERSION"
           
           if [[ $VERSION == *"-dev"* ]]; then

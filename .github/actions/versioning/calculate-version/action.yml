@@ -1,0 +1,193 @@
+name: 'Calculate Version'
+description: 'Calculate new version numbers based on semantic versioning rules'
+inputs:
+  version:
+    description: 'Input version in format X.X.X or X.X.X-suffix.YYMMDD'
+    required: true
+  increment:
+    description: 'Type of increment to perform on version numbers'
+    required: true
+    type: choice
+    options:
+      - none       # No increment, only apply other changes
+      - patch      # Increment patch version
+      - minor      # Increment minor version
+      - major      # Increment major version
+      - date       # Explicitly update the date part of a pre-release version
+      - auto-date  # Auto-detect if this is a dated version and update it if needed
+  change-pre-release:
+    description: 'Change or add pre-release suffix'
+    required: false
+    type: choice
+    options:
+      - none   # No change to pre-release suffix
+      - dev    # Change to development pre-release
+      - alpha  # Change to alpha pre-release
+      - beta   # Change to beta pre-release
+      - rc     # Change to release candidate
+      - remove # Remove pre-release suffix entirely
+    default: 'none'
+  pre-release-date:
+    description: 'Date to use for pre-release in format YYMMDD (defaults to today)'
+    required: false
+
+outputs:
+  new-version:
+    description: 'Calculated new version'
+    value: ${{ steps.calculate.outputs.new-version }}
+  is-prerelease:
+    description: 'Whether the calculated version is a pre-release'
+    value: ${{ steps.calculate.outputs.is-prerelease }}
+  was-date-updated:
+    description: 'Whether the date was updated in a development version'
+    value: ${{ steps.calculate.outputs.was-date-updated }}
+  major:
+    description: 'Major version component of new version'
+    value: ${{ steps.calculate.outputs.major }}
+  minor:
+    description: 'Minor version component of new version'
+    value: ${{ steps.calculate.outputs.minor }}
+  patch:
+    description: 'Patch version component of new version'
+    value: ${{ steps.calculate.outputs.patch }}
+  suffix:
+    description: 'Suffix component of new version (if any)'
+    value: ${{ steps.calculate.outputs.suffix }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Calculate new version
+      id: calculate
+      shell: bash
+      run: |
+        # Parse input version
+        INPUT_VERSION="${{ inputs.version }}"
+        INCREMENT="${{ inputs.increment }}"
+        CHANGE_PRE_RELEASE="${{ inputs.change-pre-release }}"
+        
+        echo "Input version: $INPUT_VERSION"
+        echo "Increment type: $INCREMENT"
+        echo "Change pre-release: $CHANGE_PRE_RELEASE"
+        
+        # Parse version components using regex
+        if [[ $INPUT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          SUFFIX="${BASH_REMATCH[4]}"
+          
+          echo "Parsed version components:"
+          echo "- Major: $MAJOR"
+          echo "- Minor: $MINOR"
+          echo "- Patch: $PATCH"
+          echo "- Suffix: $SUFFIX"
+          
+          # Handle version increment
+          if [[ "$INCREMENT" == "major" ]]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            echo "Incremented major version: $MAJOR.$MINOR.$PATCH"
+          elif [[ "$INCREMENT" == "minor" ]]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            echo "Incremented minor version: $MAJOR.$MINOR.$PATCH"
+          elif [[ "$INCREMENT" == "patch" ]]; then
+            PATCH=$((PATCH + 1))
+            echo "Incremented patch version: $MAJOR.$MINOR.$PATCH"
+          elif [[ "$INCREMENT" == "date" || "$INCREMENT" == "auto-date" ]]; then
+            # Check if this is a dated version (has suffix with date)
+            if [[ "$SUFFIX" =~ ^-([a-zA-Z]+)\.([0-9]{6})$ ]]; then
+              PRE_TYPE="${BASH_REMATCH[1]}"
+              DATE="${BASH_REMATCH[2]}"
+              
+              # For auto-date, only update if it's a dev version
+              if [[ "$INCREMENT" == "auto-date" && "$PRE_TYPE" != "dev" ]]; then
+                echo "Auto-date only updates dev versions, but this is a $PRE_TYPE version"
+                echo "new-version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+                echo "is-prerelease=true" >> $GITHUB_OUTPUT
+                echo "was-date-updated=false" >> $GITHUB_OUTPUT
+                echo "major=$MAJOR" >> $GITHUB_OUTPUT
+                echo "minor=$MINOR" >> $GITHUB_OUTPUT
+                echo "patch=$PATCH" >> $GITHUB_OUTPUT
+                echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+              
+              # Get today's date in YYMMDD format
+              if [[ -z "${{ inputs.pre-release-date }}" ]]; then
+                TODAY=$(date +%y%m%d)
+              else
+                TODAY="${{ inputs.pre-release-date }}"
+              fi
+              
+              # Only update if the date is different
+              if [[ "$DATE" != "$TODAY" ]]; then
+                SUFFIX="-$PRE_TYPE.$TODAY"
+                echo "Updated date in suffix: $SUFFIX"
+                echo "was-date-updated=true" >> $GITHUB_OUTPUT
+              else
+                echo "Date is already current: $DATE"
+                echo "was-date-updated=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "Not a dated version, no date to update"
+              echo "was-date-updated=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No version increment (increment=none)"
+            echo "was-date-updated=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Handle pre-release suffix changes
+          if [[ "$CHANGE_PRE_RELEASE" != "none" ]]; then
+            if [[ "$CHANGE_PRE_RELEASE" == "remove" ]]; then
+              # Remove suffix entirely
+              SUFFIX=""
+              echo "Removed pre-release suffix"
+            else
+              # Get today's date in YYMMDD format for dated versions
+              if [[ -z "${{ inputs.pre-release-date }}" ]]; then
+                TODAY=$(date +%y%m%d)
+              else
+                TODAY="${{ inputs.pre-release-date }}"
+              fi
+              
+              # Set the new suffix
+              SUFFIX="-$CHANGE_PRE_RELEASE.$TODAY"
+              echo "Changed pre-release suffix to: $SUFFIX"
+            fi
+          fi
+          
+          # Construct the new version
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH$SUFFIX"
+          echo "New version: $NEW_VERSION"
+          
+          # Check if this is a pre-release version
+          if [[ -z "$SUFFIX" ]]; then
+            echo "is-prerelease=false" >> $GITHUB_OUTPUT
+          else
+            echo "is-prerelease=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # Parse the new version components for output
+          if [[ $NEW_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+            NEW_MAJOR="${BASH_REMATCH[1]}"
+            NEW_MINOR="${BASH_REMATCH[2]}"
+            NEW_PATCH="${BASH_REMATCH[3]}"
+            NEW_SUFFIX="${BASH_REMATCH[4]}"
+            
+            echo "major=$NEW_MAJOR" >> $GITHUB_OUTPUT
+            echo "minor=$NEW_MINOR" >> $GITHUB_OUTPUT
+            echo "patch=$NEW_PATCH" >> $GITHUB_OUTPUT
+            echo "suffix=$NEW_SUFFIX" >> $GITHUB_OUTPUT
+          fi
+          
+          # Output the new version
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+        else
+          echo "Error: Input version format doesn't follow semantic versioning: $INPUT_VERSION"
+          exit 1
+        fi

@@ -68,9 +68,8 @@ jobs:
 
     - name: Update version badge
       id: update-badge
-      uses: ./.github/actions/version-tools
+      uses: ./.github/actions/documentation/update-badges
       with:
-        task: update-badge
         branch: ${{ github.ref_name }}
 
     - name: Check if badges need updating
