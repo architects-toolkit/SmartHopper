@@ -71,13 +71,11 @@ jobs:
 
       - name: Get current version from Solution.props
         id: current-version
-        uses: ./.github/actions/version-tools
-        with:
-          task: get-version
+        uses: ./.github/actions/versioning/get-version
 
       - name: Calculate new version
         id: calculate-version
-        uses: ./.github/actions/version-tools/version-calculator
+        uses: ./.github/actions/versioning/calculate-version
         with:
           version: ${{ steps.latest-release.outputs.result || steps.current-version.outputs.version }}
           increment: patch
@@ -155,25 +153,22 @@ jobs:
         shell: bash
 
       - name: Update Solution.props with new version
-        uses: ./.github/actions/version-tools
+        uses: ./.github/actions/versioning/update-version
         with:
-          task: update-version
           new-version: ${{ steps.calculate-version.outputs.new-version }}
 
       - name: Update badges
-        uses: ./.github/actions/version-tools
-        with:
-          task: update-badge
+        uses: ./.github/actions/documentation/update-badges
 
       - name: Add security fix to CHANGELOG.md
-        uses: ./.github/actions/version-tools/changelog-updater
+        uses: ./.github/actions/documentation/update-changelog
         with:
           action: add-line
           section: Security
           description: ${{ github.event.inputs.description }}
 
       - name: Update CHANGELOG.md with version changes
-        uses: ./.github/actions/version-tools/changelog-updater
+        uses: ./.github/actions/documentation/update-changelog
         with:
           action: create-release
           version: ${{ steps.calculate-version.outputs.new-version }}
