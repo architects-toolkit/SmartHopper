@@ -62,9 +62,8 @@ jobs:
             await core.setOutput('changelog', releaseNotes.data.body);
 
       - name: Update Solution.props with milestone version
-        uses: ./.github/actions/version-tools
+        uses: ./.github/actions/versioning/update-version
         with:
-          task: update-version
           new-version: ${{ github.event.milestone.title }}
 
       - name: Check Prerelease Status

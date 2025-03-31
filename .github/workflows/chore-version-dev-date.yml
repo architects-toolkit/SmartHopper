@@ -1,4 +1,4 @@
-name: 📅 Update Development Version Date
+name: 🔄 Update Development Version Date
 
 # Description: This workflow automatically updates the date component in development versions
 # when changes are pushed to development branches. It creates a PR with the updated date
@@ -74,13 +74,11 @@ jobs:
 
       - name: Get current version
         id: current-version
-        uses: ./.github/actions/version-tools
-        with:
-          task: get-version
+        uses: ./.github/actions/versioning/get-version
 
       - name: Auto-update version date if needed
         id: calculate-version
-        uses: ./.github/actions/version-tools/version-calculator
+        uses: ./.github/actions/versioning/calculate-version
         with:
           version: ${{ steps.current-version.outputs.version }}
           increment: auto-date
@@ -90,23 +88,20 @@ jobs:
       - name: Update Solution.props with new version date
         id: update-version
         if: steps.calculate-version.outputs.was-date-updated == 'true'
-        uses: ./.github/actions/version-tools
+        uses: ./.github/actions/versioning/update-version
         with:
-          task: update-version
           new-version: ${{ steps.calculate-version.outputs.new-version }}
 
       # Update badges to match the new version
       - name: Update badges
         id: update-badges
         if: steps.calculate-version.outputs.was-date-updated == 'true'
-        uses: ./.github/actions/version-tools
-        with:
-          task: update-badge
+        uses: ./.github/actions/documentation/update-badges
 
       # Update the CHANGELOG.md with a note about the date update
       - name: Update CHANGELOG.md
         if: steps.calculate-version.outputs.was-date-updated == 'true'
-        uses: ./.github/actions/version-tools/changelog-updater
+        uses: ./.github/actions/documentation/update-changelog
         with:
           action: create-release
           version: Unreleased
