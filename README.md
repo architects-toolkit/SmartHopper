@@ -7,14 +7,14 @@
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
-SmartHopper is a groundbreaking plugin that enables AI to directly read, interpret, and generate Grasshopper definitions [coming soon]. This plugin bridges the gap between artificial intelligence and parametric design by allowing AI to understand and interact with your Grasshopper files in their native format.
+SmartHopper is a groundbreaking plugin that enables AI to directly read, interpret, and generate Grasshopper definitions *[coming soon]*. This plugin bridges the gap between artificial intelligence and parametric design by allowing AI to understand and interact with your Grasshopper files in their native format.
 
 ## 🎯 Key Features
 
 - 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
 - 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
 - 🤖 **Multiple AI Provider Support**: Choose between **MistralAI** and **OpenAI** APIs based on your preferences and requirements. Provide your own API keys and pay for usage.
-- 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas [coming soon].
+- 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
 
 ## 👥 Who Is This For?
 - **Architects and engineers** looking to enhance their parametric design workflow with AI assistance.
@@ -22,10 +22,10 @@ SmartHopper is a groundbreaking plugin that enables AI to directly read, interpr
 - **Researchers** exploring the intersection of AI and parametric design methodologies.
 
 ## 🛠️ Technical Capabilities
-- 🌱 Seamless integration with Grasshopper's Data Tree structure.
-- ⌚ Asynchronous execution to maintain a responsive design environment.
-- 🔄 Flexible triggering options: run components manually or automatically when inputs change.
-- 🧱 Modular architecture designed for stability and future extensibility.
+- **Seamless integration** with Grasshopper's Data Tree structure.
+- **Asynchronous** execution to maintain a responsive design environment.
+- **Flexible** triggering options: run components manually or automatically when inputs change.
+- **Modular** architecture designed for stability and future extensibility.
 
 ## 💻 Installation
 
@@ -54,6 +54,17 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | ⚪ | - | - | - |
 
 Is there something missing? Do you have a suggestion? Please open a [Feature Request](https://github.com/architects-toolkit/SmartHopper/issues/new/choose) in the Issues tab.
+
+## ➡️ Supported Providers
+
+SmartHopper is currently supported by the following providers:
+
+| Provider | Status | Link to API registration |
+|----------|:------:|-------------------|
+| [MistralAI](https://mistral.ai/) | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) |
+| [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
+| [Anthropic](https://anthropic.com/) | 🔜 Planned | [Anthropic Console](https://console.anthropic.com/) |
+| [DeepSeek](https://deepseek.com/) | 🔜 Planned | [DeepSeek Platform](https://platform.deepseek.com/) |
 
 ## 🔢 Supported Data Types
 
@@ -92,9 +103,9 @@ Additional geometric and complex data types will be added in future releases. St
 
 [![SmartHopper_Select Provider](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651347-eb497ba95d6fc8008fdb3db9b6288dbdaa4b7b4ab7a3f5f99ccd55495545a00f-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447190)
 
-## ⏩ Developing the Chat Interface (conceptual preview)
+## ⏩ Developing the Chat Interface
 
-**Disclaimer:** The chat interface is a conceptual preview of future developments and is not currently implemented.
+**Disclaimer:** The following video was a previous conceptual preview of the chat interface. From version 0.2.0, the chat interface is now available with a different design. Features will be added in future releases.
 
 [![SmartHopper_Chat Concept](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966657705-a1e9c281ab11e341df94bd14ee797d816afe34413b5af057841d6eb6191595fd-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043452514)
 
