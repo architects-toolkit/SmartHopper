@@ -1,0 +1,73 @@
+name: 'Update Version'
+description: 'Update the version in Solution.props'
+inputs:
+  new-version:
+    description: 'New version to set'
+    required: true
+  branch:
+    description: 'Branch name (for context)'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'Current version from Solution.props (before update)'
+    value: ${{ steps.get-version.outputs.version }}
+  major:
+    description: 'Major version component'
+    value: ${{ steps.parse-version.outputs.major }}
+  minor:
+    description: 'Minor version component'
+    value: ${{ steps.parse-version.outputs.minor }}
+  patch:
+    description: 'Patch version component'
+    value: ${{ steps.parse-version.outputs.patch }}
+  suffix:
+    description: 'Version suffix (if any)'
+    value: ${{ steps.parse-version.outputs.suffix }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get version from Solution.props
+      id: get-version
+      shell: bash
+      run: |
+        VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+        echo "Current version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Parse version components
+      id: parse-version
+      shell: bash
+      run: |
+        VERSION="${{ steps.get-version.outputs.version }}"
+        if [[ $VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          SUFFIX="${BASH_REMATCH[4]}"
+          
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+          
+          echo "Parsed version: Major=$MAJOR, Minor=$MINOR, Patch=$PATCH, Suffix=$SUFFIX"
+        else
+          echo "Error: Version format doesn't follow semantic versioning: $VERSION"
+          exit 1
+        fi
+
+    - name: Update version in Solution.props
+      id: update-version
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.new-version }}" ]]; then
+          echo "Error: new-version input is required for update-version task"
+          exit 1
+        fi
+        
+        echo "Updating version from ${{ steps.get-version.outputs.version }} to ${{ inputs.new-version }}"
+        sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ inputs.new-version }}<\/SolutionVersion>/" Solution.props
+        echo "Updated Solution.props with new version: ${{ inputs.new-version }}"
