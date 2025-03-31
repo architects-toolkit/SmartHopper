@@ -32,9 +32,9 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
         /// <returns>An instance of the OpenAI provider settings.</returns>
-        public IAIProviderSettings CreateProviderSettings(IAIProvider provider)
+        public IAIProviderSettings CreateProviderSettings()
         {
-            return new OpenAISettings(provider);
+            return new OpenAISettings(OpenAI.Instance);
         }
     }
 }

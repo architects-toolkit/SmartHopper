@@ -9,6 +9,7 @@
  */
 
 using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using System;
@@ -104,19 +105,20 @@ namespace SmartHopper.Providers.OpenAI
         {
             try
             {
-                var settings = SmartHopper.Config.Configuration.SmartHopperSettings.GetProviderSettings(_name);
-                if (settings == null)
+                var settings = SmartHopperSettings.Load();
+                if (!settings.ProviderSettings.ContainsKey(_name))
                 {
-                    settings = new Dictionary<string, object>();
+                    settings.ProviderSettings[_name] = new Dictionary<string, object>();
                 }
+                var providerSettings = settings.ProviderSettings[_name];
 
-                if (!ValidateSettings(settings))
+                if (!ValidateSettings(providerSettings))
                     throw new InvalidOperationException("Invalid provider settings");
 
-                var modelToUse = GetModel(settings, model);
+                var modelToUse = GetModel(providerSettings, model);
 
-                string apiKey = settings.ContainsKey("ApiKey") ? settings["ApiKey"].ToString() : "";
-                int maxTokens = settings.ContainsKey("MaxTokens") ? Convert.ToInt32(settings["MaxTokens"]) : 150;
+                string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
+                int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
 
                 if (modelToUse == "" || modelToUse == "openai")
                 {
@@ -129,7 +131,7 @@ namespace SmartHopper.Providers.OpenAI
                     Debug.WriteLine("API Key is null or empty");
                     return new AIResponse
                     {
-                        Content = "Error: API Key is missing",
+                        Response = "Error: API Key is missing",
                         FinishReason = "error"
                     };
                 }
@@ -166,12 +168,11 @@ namespace SmartHopper.Providers.OpenAI
 
                     return new AIResponse
                     {
-                        Content = json["choices"][0]["message"]["content"].ToString().Trim(),
+                        Response = json["choices"][0]["message"]["content"].ToString().Trim(),
                         Provider = _name,
                         Model = json["model"]?.Value<string>() ?? "Unknown",
-                        InputTokens = (int)json["usage"]["prompt_tokens"],
-                        OutputTokens = (int)json["usage"]["completion_tokens"],
-                        TotalTokens = (int)json["usage"]["total_tokens"],
+                        InTokens = (int)json["usage"]["prompt_tokens"],
+                        OutTokens = (int)json["usage"]["completion_tokens"],
                         FinishReason = json["choices"][0]["finish_reason"].ToString().Trim(),
                     };
                 }
