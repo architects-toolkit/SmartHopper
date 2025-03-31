@@ -1,12 +1,15 @@
 1. This is a C# project, using .NET 7 and .NET 4.8 for both Windows and Mac.
 2. The aim of the project is to create some Grasshopper components.
-3. The project is structured in 6 solutions:
+3. The project is structured in the following projects:
    - SmartHopper.Core: Contains the core functionality
    - SmartHopper.Core.Grasshopper: Contains the core functionality to interact with Grasshopper (type converters, utils, and tools)
    - SmartHopper.Components: Contains the Grasshopper components. Most of the components depend on the Component Base defined in SmartHopper.Core/ComponentBase. Each component implements a tool for a specific function defined in SmartHopper.Core.Grasshopper/Tools. Tools will be callable from a component, or from the AIChatComponent, which is a chat interface with AI.
    - SmartHopper.Config: Contains the configuration for the plugin and for the AI providers. It also defines the necessary models and interfaces.
    - SmartHopper.Menu: Sets up the menu bar
    - SmartHopper.Components.Test: Is a debugging solution, not available for production.
+   - SmartHopper.Providers.MistralAI: Contains the MistralAI provider
+   - SmartHopper.Providers.OpenAI: Contains the OpenAI provider
+   - SmartHopper.Providers.Template: Contains a Template project for new providers. This project is not registered in the solution.
 4. Use native Grasshopper types, objects and methods where possible.
 5. Use https://developer.rhino3d.com/ as the official documentation.
 6. Use English language only.
