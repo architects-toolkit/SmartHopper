@@ -1,4 +1,4 @@
-name: 📅 Update Development Version Date
+name: 🔄 Update Development Version Date
 
 # Description: This workflow automatically updates the date component in development versions
 # when changes are pushed to development branches. It creates a PR with the updated date

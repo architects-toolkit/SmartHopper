@@ -1,5 +1,5 @@
 
-name: 🚫 Block Dev Release to Main
+name: 📦 Block Dev Release to Main
 
 # Description: This workflow blocks development release versions from being merged into the main branch.
 # It checks for the presence of "-dev" in the version number and prevents the merge if found.

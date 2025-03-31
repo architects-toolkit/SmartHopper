@@ -1,4 +1,4 @@
-name: 🔍 Pull Request Validation
+name: 📦 Pull Request Validation
 
 # Description: This workflow validates pull requests to ensure they meet project standards.
 # It checks for version conflicts, validates formatting, and performs other quality checks
