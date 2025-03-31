@@ -131,56 +131,50 @@ runs:
         echo "New version badge: $VERSION_BADGE"
         echo "New status badge: $STATUS_BADGE"
         
+        BADGES_CHANGED=false
+        
         # Update README.md with new badges
         if [[ -f "README.md" ]]; then
-          BADGES_CHANGED=false
-          
-          # Get the current version from Solution.props
-          echo "Current version from Solution.props: $VERSION"
-          
-          # Create new badge URLs
-          VERSION_BADGE_URL="https://img.shields.io/badge/version-$ENCODED_VERSION-$COLOR"
-          STATUS_BADGE_URL="https://img.shields.io/badge/status-$STATUS-$COLOR"
-          
-          # Create badge markdown
-          VERSION_BADGE="[![Version]($VERSION_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
-          STATUS_BADGE="[![Status]($STATUS_BADGE_URL)](https://github.com/architects-toolkit/SmartHopper/releases)"
-          
-          echo "New version badge: $VERSION_BADGE"
-          echo "New status badge: $STATUS_BADGE"
-          
-          # Check if README contains version badge
+          # Check if README contains version badge and if it needs updating
           if grep -q "\[\!\[Version\]" README.md; then
             echo "Found version badge in README"
             
-            # Always update the badges with the current version from Solution.props
-            sed -i "s|\[\!\[Version\](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
-            echo "Updated version badge"
-            BADGES_CHANGED=true
+            # Extract current badge URL to check if color matches
+            CURRENT_VERSION_BADGE=$(grep -o "\[\!\[Version\](https://img\.shields\.io/badge/version[^)]*)" README.md || echo "")
+            
+            # Check if the badge needs updating (different version or color)
+            if [[ "$CURRENT_VERSION_BADGE" != *"$ENCODED_VERSION"* || "$CURRENT_VERSION_BADGE" != *"-$COLOR"* ]]; then
+              sed -i "s|\[\!\[Version\](https://img\.shields\.io/badge/version[^)]*)|[![Version]($VERSION_BADGE_URL)|g" README.md
+              echo "Updated version badge"
+              BADGES_CHANGED=true
+            else
+              echo "Version badge is already up to date"
+            fi
           else
             echo "No version badge found in README to replace"
           fi
           
-          # Check if README contains status badge
+          # Check if README contains status badge and if it needs updating
           if grep -q "\[\!\[Status\]" README.md; then
             echo "Found status badge in README"
             
-            # Always update the status badge
-            sed -i "s|\[\!\[Status\](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
-            echo "Updated status badge"
-            BADGES_CHANGED=true
+            # Extract current badge URL to check if status or color matches
+            CURRENT_STATUS_BADGE=$(grep -o "\[\!\[Status\](https://img\.shields\.io/badge/status[^)]*)" README.md || echo "")
+            
+            # Check if the badge needs updating (different status or color)
+            if [[ "$CURRENT_STATUS_BADGE" != *"$STATUS"* || "$CURRENT_STATUS_BADGE" != *"-$COLOR"* ]]; then
+              sed -i "s|\[\!\[Status\](https://img\.shields\.io/badge/status[^)]*)|[![Status]($STATUS_BADGE_URL)|g" README.md
+              echo "Updated status badge"
+              BADGES_CHANGED=true
+            else
+              echo "Status badge is already up to date"
+            fi
           else
             echo "No status badge found in README to replace"
           fi
           
-          # Check if badges were changed
-          if [ "$BADGES_CHANGED" = true ]; then
-            echo "README.md badges were updated"
-            echo "badges-changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes to README.md badges"
-            echo "badges-changed=false" >> $GITHUB_OUTPUT
-          fi
+          # Output whether badges were changed
+          echo "badges-changed=$BADGES_CHANGED" >> $GITHUB_OUTPUT
         else
           echo "README.md not found, skipping badge update"
           echo "badges-changed=false" >> $GITHUB_OUTPUT
