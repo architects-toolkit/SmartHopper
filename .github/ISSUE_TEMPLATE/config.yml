@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Ideas
+    url: https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas
+    about: Please suggest new features or improvements in our Discussions under the Ideas category
