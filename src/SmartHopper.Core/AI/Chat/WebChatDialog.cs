@@ -14,7 +14,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using System.Text;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
@@ -58,6 +57,9 @@ namespace SmartHopper.Core.AI.Chat
             Title = "SmartHopper AI Chat";
             MinimumSize = new Size(600, 700);
             Size = new Size(700, 800);
+            Resizable = true;
+            ShowInTaskbar = true;
+            Owner = null; // Ensure we don't block the parent window
                         
             _getResponse = getResponse ?? throw new ArgumentNullException(nameof(getResponse));
             _chatHistory = new List<KeyValuePair<string, string>>();
@@ -134,10 +136,18 @@ namespace SmartHopper.Core.AI.Chat
             Debug.WriteLine("[WebChatDialog] WebChatDialog initialized, starting WebView initialization");
             
             // Initialize WebView after the dialog is shown
-            this.Shown += (sender, e) => 
+            this.Shown += async (sender, e) => 
             {
-                Debug.WriteLine("[WebChatDialog] Dialog shown, initializing WebView");
-                InitializeWebViewAsync();
+                Debug.WriteLine("[WebChatDialog] Initializing WebView");
+                
+                // Prepare HTML on background thread
+                string html = await Task.Run(() => _htmlRenderer.GetInitialHtml());
+                
+                // Then load it on UI thread
+                Application.Instance.AsyncInvoke(() => {
+                    _webView.LoadHtml(html);
+                    InitializeWebViewAsync();
+                });
             };
             
             // Add system message once WebView is initialized
