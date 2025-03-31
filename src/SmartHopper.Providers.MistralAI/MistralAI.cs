@@ -1,6 +1,6 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024 Marc Roca Musach
+ * Copyright (C) 2025 Marc Roca Musach
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,7 +21,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SmartHopper.Config.Providers
+namespace SmartHopper.Providers.MistralAI
 {
     public sealed class MistralAI : IAIProvider
     {
@@ -38,13 +38,18 @@ namespace SmartHopper.Config.Providers
         public string DefaultModel => _defaultModel;
 
         /// <summary>
+        /// Gets whether this provider is enabled and should be available for use.
+        /// </summary>
+        public bool IsEnabled => true;
+
+        /// <summary>
         /// Gets the provider's icon
         /// </summary>
         public Image Icon
         {
             get
             {
-                var iconBytes = Properties.providersResources.mistralai_icon;
+                var iconBytes = Properties.Resources.mistralai_icon;
                 using (var ms = new System.IO.MemoryStream(iconBytes))
                 {
                     return new Bitmap(ms);
@@ -203,6 +208,7 @@ namespace SmartHopper.Config.Providers
                 }
                 catch (Exception ex)
                 {
+                    Debug.WriteLine($"Error in MistralAI request: {ex.Message}");
                     return new AIResponse
                     {
                         Response = $"Error: {ex.Message}",
