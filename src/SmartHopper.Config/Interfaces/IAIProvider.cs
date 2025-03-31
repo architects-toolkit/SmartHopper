@@ -27,6 +27,12 @@ namespace SmartHopper.Config.Interfaces
         /// </summary>
         Image Icon { get; }
 
+        /// <summary>
+        /// Gets or sets whether this provider is enabled and should be available for use.
+        /// This can be used to disable template or experimental providers.
+        /// </summary>
+        bool IsEnabled { get; }
+
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
 
         bool ValidateSettings(Dictionary<string, object> settings);

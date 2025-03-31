@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added modular provider architecture:
+  - Created new provider project structure (SmartHopper.Providers.MistralAI) with dedicated resources.
+  - Created new provider project structure (SmartHopper.Providers.OpenAI) with dedicated resources.
+  - Added IAIProviderFactory interface for dynamic provider discovery.
+  - Implemented ProviderManager for runtime loading and management of providers.
+  - Added IsEnabled property to IAIProvider interface to allow disabling template or experimental providers.
+  - Created SmartHopper.Providers.Template project as a guide for implementing new providers.
 - Added the new AIChat component with interactive chat interface and proper icon.
 - Added WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
@@ -24,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refactored AI provider architecture:
+  - Migrated MistralAI provider to a separate project (SmartHopper.Providers.MistralAI).
+  - Migrated OpenAI provider to a separate project (SmartHopper.Providers.OpenAI).
+  - Updated SmartHopperSettings to use ProviderManager for provider discovery.
+  - Modified AIStatefulAsyncComponentBase to use the new provider handling approach.
+  - Changed provider discovery to load assemblies from the main application directory instead of a separate "Providers" subdirectory.
+  - Enhanced ProviderManager to only register providers that have IsEnabled set to true.
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
 - Improved version badge workflow to also update badges when color doesn't match the requirements based on version type.
 - Improved ChatDialog UI with numerous enhancements:
@@ -54,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed MistralAI provider from SmartHopper.Config project as part of the modular architecture implementation.
+- Removed OpenAI provider from SmartHopper.Config project as part of the modular architecture implementation.
 - Removed dependency on HtmlAgilityPack
 
 ### Fixed
