@@ -104,8 +104,8 @@ runs:
         
         # Determine color and status based on version
         if [[ $VERSION == *"-dev"* ]]; then
-          COLOR="red"
-          STATUS="Unstable Development"
+          COLOR="brown"
+          STATUS="Unstable%20Development"
         elif [[ $VERSION == *"-alpha"* ]]; then
           COLOR="orange"
           STATUS="Alpha"
@@ -113,10 +113,10 @@ runs:
           COLOR="yellow"
           STATUS="Beta"
         elif [[ $VERSION == *"-rc"* ]]; then
-          COLOR="blue"
-          STATUS="Release Candidate"
+          COLOR="lightblue"
+          STATUS="Release%20Candidate"
         else
-          COLOR="brightgreen"
+          COLOR="lightgreen"
           STATUS="Stable"
         fi
         
