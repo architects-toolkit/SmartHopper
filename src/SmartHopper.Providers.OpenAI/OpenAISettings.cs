@@ -9,6 +9,7 @@
  */
 
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -147,8 +148,11 @@ namespace SmartHopper.Providers.OpenAI
         {
             try
             {
-                var settings = SmartHopper.Config.Configuration.SmartHopperSettings.GetProviderSettings(provider.Name);
-                LoadSettings(settings);
+                var settings = SmartHopperSettings.Load();
+                if (settings.ProviderSettings.ContainsKey(provider.Name))
+                {
+                    LoadSettings(settings.ProviderSettings[provider.Name]);
+                }
             }
             catch (Exception ex)
             {
