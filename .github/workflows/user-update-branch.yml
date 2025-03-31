@@ -156,15 +156,22 @@ jobs:
         shell: bash
 
       - name: Push changes if no conflicts
+        id: push-changes
         if: steps.attempt-merge.outputs.merge_status == 'success'
         run: |
-          # Push changes directly to target branch
-          git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}:${{ github.event.inputs.target_branch }}
-          echo "Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
+          # Try to push changes directly to target branch
+          if git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}:${{ github.event.inputs.target_branch }}; then
+            echo "push_status=success" >> $GITHUB_OUTPUT
+            echo "Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
+          else
+            echo "push_status=failed" >> $GITHUB_OUTPUT
+            echo "Direct push failed. Branch may be protected. Will create a PR instead."
+          fi
         shell: bash
+        continue-on-error: true
 
-      - name: Create PR if conflicts
-        if: steps.attempt-merge.outputs.merge_status == 'conflict'
+      - name: Create PR if conflicts or protected branch
+        if: steps.attempt-merge.outputs.merge_status == 'conflict' || steps.push-changes.outputs.push_status == 'failed'
         id: create-pr
         uses: actions/github-script@v7.0.1
         with:
@@ -176,17 +183,29 @@ jobs:
             
             const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}`;
             
-            const prBody = `## Branch Update
+            let prBody = `## Branch Update
 
-            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`.
+            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`.`;
+            
+            if ('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') {
+              prBody += `
 
             ### ⚠️ Merge Conflicts
 
-            This PR contains merge conflicts that need to be resolved manually.
+            This PR contains merge conflicts that need to be resolved manually.`;
+            } else {
+              prBody += `
+
+            ### ℹ️ Protected Branch
+
+            This PR was created because \`${{ github.event.inputs.target_branch }}\` is a protected branch that requires changes through pull requests.`;
+            }
+            
+            prBody += `
 
             ### Instructions
 
-            1. Resolve the conflicts in this PR
+            1. ${('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') ? 'Resolve the conflicts in this PR' : 'Review the changes'}
             2. Approve and merge the changes
             
             This PR was automatically created by the Branch Update workflow.`;
@@ -215,8 +234,11 @@ jobs:
 
       - name: Output results
         run: |
-          if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" ]]; then
+          if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" && "${{ steps.push-changes.outputs.push_status }}" == "success" ]]; then
             echo "✅ Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
+          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" && "${{ steps.push-changes.outputs.push_status }}" == "failed" ]]; then
+            echo "ℹ️ Branch is protected. Created PR #$(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_number) for review."
+            echo "PR URL: $(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_url)"
           elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "no_changes" ]]; then
             echo "ℹ️ No changes to merge. Branches are already in sync."
           elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "conflict" ]]; then
