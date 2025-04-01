@@ -1,0 +1,145 @@
+name: 'Update Changelog with Closed Issues'
+description: 'Update CHANGELOG.md with closed-solved issues that are not already mentioned'
+
+inputs:
+  token:
+    description: 'GitHub token to access the repository API'
+    required: true
+  days-lookback:
+    description: 'Number of days to look back for closed issues'
+    required: false
+    default: '30'
+  changelog-path:
+    description: 'Path to CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+
+outputs:
+  updated:
+    description: 'Whether the changelog was updated'
+    value: ${{ steps.process-issues.outputs.updated }}
+  issues-added:
+    description: 'Number of issues added to the changelog'
+    value: ${{ steps.process-issues.outputs.issues-added }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Find closed-solved issues
+      id: find-issues
+      shell: bash
+      run: |
+        # Set variables
+        DAYS_LOOKBACK="${{ inputs.days-lookback }}"
+        GITHUB_TOKEN="${{ inputs.token }}"
+        REPO="${{ github.repository }}"
+        CHANGELOG_PATH="${{ inputs.changelog-path }}"
+        
+        if [[ ! -f "$CHANGELOG_PATH" ]]; then
+          echo "Error: CHANGELOG.md file not found at $CHANGELOG_PATH"
+          exit 1
+        fi
+        
+        echo "Looking for closed-solved issues in the last $DAYS_LOOKBACK days..."
+        
+        # Calculate the date from N days ago in ISO format
+        DATE_FROM=$(date -d "$DAYS_LOOKBACK days ago" -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -v-${DAYS_LOOKBACK}d -u +"%Y-%m-%dT%H:%M:%SZ")
+        
+        # Get closed issues from the last N days using GitHub API
+        CLOSED_ISSUES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/$REPO/issues?state=closed&since=$DATE_FROM&per_page=100")
+        
+        # Create a temporary file to store issues to add
+        ISSUES_TO_ADD=$(mktemp)
+        
+        # Process each closed issue
+        echo "$CLOSED_ISSUES" | jq -c '.[]' | while read -r issue; do
+          # Extract issue details
+          ISSUE_NUMBER=$(echo "$issue" | jq -r '.number')
+          ISSUE_TITLE=$(echo "$issue" | jq -r '.title')
+          STATE_REASON=$(echo "$issue" | jq -r '.state_reason')
+          
+          # Check if the issue was closed as completed
+          if [ "$STATE_REASON" != "completed" ]; then
+            echo "Issue #$ISSUE_NUMBER was not closed as completed (reason: $STATE_REASON), skipping"
+            continue
+          fi
+          
+          # Check if the issue is already mentioned in the changelog
+          if grep -q "#$ISSUE_NUMBER" "$CHANGELOG_PATH"; then
+            echo "Issue #$ISSUE_NUMBER is already in the changelog, skipping"
+            continue
+          fi
+          
+          echo "Found issue #$ISSUE_NUMBER to add: $ISSUE_TITLE"
+          
+          # Format the issue data and add to our list
+          echo "$ISSUE_NUMBER|$ISSUE_TITLE" >> "$ISSUES_TO_ADD"
+        done
+        
+        # Count how many issues we found
+        ISSUES_COUNT=$(wc -l < "$ISSUES_TO_ADD")
+        echo "issues-count=$ISSUES_COUNT" >> $GITHUB_OUTPUT
+        echo "issues-file=$ISSUES_TO_ADD" >> $GITHUB_OUTPUT
+        
+        if [ "$ISSUES_COUNT" -gt 0 ]; then
+          echo "Found $ISSUES_COUNT issues to add to the changelog"
+          echo "has-issues=true" >> $GITHUB_OUTPUT
+        else
+          echo "No new issues to add to the changelog"
+          echo "has-issues=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Add issues to changelog
+      id: add-issues
+      if: steps.find-issues.outputs.has-issues == 'true'
+      uses: ./.github/actions/documentation/update-changelog
+      with:
+        action: add-line
+        section: Fixed
+        changelog-path: ${{ inputs.changelog-path }}
+        description: "Placeholder that will be replaced"
+
+    - name: Process each issue
+      id: process-issues
+      if: steps.find-issues.outputs.has-issues == 'true'
+      shell: bash
+      run: |
+        ISSUES_FILE="${{ steps.find-issues.outputs.issues-file }}"
+        ISSUES_COUNT="${{ steps.find-issues.outputs.issues-count }}"
+        REPO="${{ github.repository }}"
+        CHANGELOG_PATH="${{ inputs.changelog-path }}"
+        ISSUES_ADDED=0
+        
+        # Read each issue and add it to the changelog
+        while IFS="|" read -r ISSUE_NUMBER ISSUE_TITLE; do
+          echo "Adding issue #$ISSUE_NUMBER to changelog: $ISSUE_TITLE"
+          
+          # Format the line to add
+          LINE="- Fixes \"$ISSUE_TITLE\" ([#$ISSUE_NUMBER](https://github.com/$REPO/issues/$ISSUE_NUMBER))."
+          
+          # Check if the Fixed section exists in Unreleased
+          if grep -q "## \[Unreleased\]" "$CHANGELOG_PATH" && grep -q "### Fixed" "$CHANGELOG_PATH"; then
+            # Add the line to the Fixed section
+            sed -i "/### Fixed/a\\$LINE" "$CHANGELOG_PATH"
+            ISSUES_ADDED=$((ISSUES_ADDED + 1))
+          elif grep -q "## \[Unreleased\]" "$CHANGELOG_PATH"; then
+            # Create the Fixed section and add the line
+            sed -i "/## \[Unreleased\]/a\\### Fixed\n$LINE" "$CHANGELOG_PATH"
+            ISSUES_ADDED=$((ISSUES_ADDED + 1))
+          else
+            echo "Error: Unreleased section not found in CHANGELOG.md"
+            exit 1
+          fi
+        done
+        
+        # Set outputs
+        if [ "$ISSUES_ADDED" -gt 0 ]; then
+          echo "updated=true" >> $GITHUB_OUTPUT
+          echo "issues-added=$ISSUES_ADDED" >> $GITHUB_OUTPUT
+          echo "Added $ISSUES_ADDED issues to the changelog"
+        else
+          echo "updated=false" >> $GITHUB_OUTPUT
+          echo "issues-added=0" >> $GITHUB_OUTPUT
+          echo "No new issues to add to the changelog"
+        fi
