@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - HTML tags like underline in Markdown text.
   - Dedicated Markdown class in the Converters namespace for centralized markdown processing.
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
+- New update-changelog-issues action and github-pr-update-changelog-issues to automatically mention missing closed issues in the changelog.
 
 ### Changed
 
@@ -65,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
 - Improved error handling in the AIStatefulAsyncComponentBase.
 - Updated settings menu to use Eto.Forms and Eto.Drawing.
+- Renamed the AI Context component to AI File Context.
 
 ### Removed
 
