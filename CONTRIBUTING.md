@@ -36,6 +36,17 @@ Are you skilled in coding and want to contribute to SmartHopper? You can help fi
    - Create a new branch referencing the issue you want to fix or feature you want to add
    - Submit a Pull Request following the [Pull Request Guidelines](#pull-request-guidelines) explained below
 
+### 4. **Release Checklist**
+
+Before submitting a release, please ensure you have completed the checks in the [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+## Discussion Forum
+
+We have a discussion forum available for you to engage with the community:
+- General discussions: [SmartHopper Discussions](https://github.com/architects-toolkit/SmartHopper/discussions/categories/general)
+- Feature requests: [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas)
+- Support questions: [Q&A](https://github.com/architects-toolkit/SmartHopper/discussions/categories/q-a)
+
 ## Pull Request Guidelines
 
 1. Focus each PR on a single feature or bug fix
@@ -123,5 +134,3 @@ Describe the testing you've done to validate your changes.
 - [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.1.0/) format
 - [ ] PR description follows [Pull Request Description Template](https://github.com/architects-toolkit/SmartHopper/blob/main/CONTRIBUTING.md#pull-request-description-template)
 ```
-
-
