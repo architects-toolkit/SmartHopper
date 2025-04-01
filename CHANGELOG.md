@@ -1,14 +1,87 @@
 # Changelog
 
-## [Unreleased]
-
-
-
 All notable changes to SmartHopper will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added modular provider architecture:
+  - Created new provider project structure (SmartHopper.Providers.MistralAI) with dedicated resources.
+  - Created new provider project structure (SmartHopper.Providers.OpenAI) with dedicated resources.
+  - Added IAIProviderFactory interface for dynamic provider discovery.
+  - Implemented ProviderManager for runtime loading and management of providers.
+  - Added IsEnabled property to IAIProvider interface to allow disabling template or experimental providers.
+  - Created SmartHopper.Providers.Template project as a guide for implementing new providers.
+- Added the new AIChat component with interactive chat interface and proper icon.
+- Added WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
+- Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
+- Added AI provider selection improvements:
+  - "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
+  - Default provider selection in the settings dialog to set the global default AI provider.
+- Added custom icon for the SmartHopper tab in Grasshopper.
+- Added comprehensive Markdown formatting support:
+  - Headings, code blocks, blockquotes, and inline formatting.
+  - HTML tags like underline in Markdown text.
+  - Dedicated Markdown class in the Converters namespace for centralized markdown processing.
+- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
+- New update-changelog-issues action and github-pr-update-changelog-issues to automatically mention missing closed issues in the changelog.
+
+### Changed
+
+- Refactored AI provider architecture:
+  - Migrated MistralAI provider to a separate project (SmartHopper.Providers.MistralAI).
+  - Migrated OpenAI provider to a separate project (SmartHopper.Providers.OpenAI).
+  - Updated SmartHopperSettings to use ProviderManager for provider discovery.
+  - Modified AIStatefulAsyncComponentBase to use the new provider handling approach.
+  - Changed provider discovery to load assemblies from the main application directory instead of a separate "Providers" subdirectory.
+  - Enhanced ProviderManager to only register providers that have IsEnabled set to true.
+- Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
+- Improved version badge workflow to also update badges when color doesn't match the requirements based on version type.
+- Improved ChatDialog UI with numerous enhancements:
+  - Modern chat-like interface featuring message bubbles and visual styling.
+  - Better layout with proper text wrapping to prevent horizontal scrolling.
+  - Responsive message sizing that adapts to the dialog width (80% max width with 350px minimum).
+  - Message selection and copying capabilities with a context menu.
+  - Automatic message height adjustment based on content and removal of visible scrollbars.
+  - Improved scrolling behavior.
+- Enhanced About dialog:
+  - Decreased font size.
+  - Defined a minimum size.
+  - Better layout and styling.
+- Improved code organization:
+  - All chat messages are now treated as markdown by default for consistent formatting.
+  - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
+  - Updated component icon display to show the actual provider icon when "Default" is selected.
+- Improved Web-based AIChat implementation:
+  - Refactored WebChat resource management to use embedded resources instead of file system for improved security.
+  - Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
+  - Improved error handling and debugging in ChatResourceManager and WebChatDialog.
+  - Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
+- Enhanced release-build.yml workflow:
+  - Automatically build and attach artifacts to published releases.
+  - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
+- Improved error handling in the AIStatefulAsyncComponentBase.
+- Updated settings menu to use Eto.Forms and Eto.Drawing.
+- Renamed the AI Context component to AI File Context.
+
+### Removed
+
+- Removed MistralAI provider from SmartHopper.Config project as part of the modular architecture implementation.
+- Removed OpenAI provider from SmartHopper.Config project as part of the modular architecture implementation.
+- Removed dependency on HtmlAgilityPack
+
+### Fixed
+
+- Fixed AI provider handling:
+  - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
+  - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
+- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property.
+
+## [0.1.2-alpha] - 2025-03-17
 
 ### Changed
 
