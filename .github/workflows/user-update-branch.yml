@@ -135,7 +135,7 @@ jobs:
             echo "Merge successful, no conflicts detected."
             
             # Check if there are any changes
-            if git diff --cached --quiet; then
+            if git diff --cached --quiet && git diff --quiet origin/${{ github.event.inputs.target_branch }} origin/${{ github.event.inputs.origin_branch }}; then
               echo "merge_status=no_changes" >> $GITHUB_OUTPUT
               echo "No changes to merge. Branches are already in sync."
             else
