@@ -1,0 +1,64 @@
+name: 📝 Update Changelog with Closed Issues
+
+# Description: This workflow updates the CHANGELOG.md with closed-solved issues that are not already mentioned.
+# It identifies issues marked as solved in the last month and adds them to the Unreleased/Fixed section.
+#
+# Triggers:
+# - Automatically when a pull request is created or updated targeting main or dev branches
+# - Manually via workflow_dispatch on any branch
+#
+# Permissions:
+# - contents:write - Required to commit changes to the repository
+# - pull-requests:write - Required to update pull requests
+# - issues:read - Required to read issue information
+
+on:
+  pull_request:
+    branches: 
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  update-changelog:
+    name: 📝 Update Changelog with Closed Issues
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+          
+      - name: Update Changelog with Closed Issues
+        id: update-changelog-issues
+        uses: ./.github/actions/documentation/update-changelog-issues
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days-lookback: 30
+          
+      - name: Commit changes if needed
+        if: steps.update-changelog-issues.outputs.updated == 'true' && github.event_name == 'pull_request'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog with ${{ steps.update-changelog-issues.outputs.issues-added }} closed issues"
+          git push
+          
+          echo "Added ${{ steps.update-changelog-issues.outputs.issues-added }} closed issues to the changelog"
+          
+      - name: Commit changes if workflow_dispatch
+        if: steps.update-changelog-issues.outputs.updated == 'true' && github.event_name == 'workflow_dispatch'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog with ${{ steps.update-changelog-issues.outputs.issues-added }} closed issues"
+          git push
+          
+          echo "Added ${{ steps.update-changelog-issues.outputs.issues-added }} closed issues to the changelog"
