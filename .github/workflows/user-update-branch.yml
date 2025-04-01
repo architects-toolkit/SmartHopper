@@ -130,17 +130,14 @@ jobs:
         id: attempt-merge
         run: |
           # Try to merge origin into temp branch
-          if git merge origin/${{ github.event.inputs.origin_branch }} --no-commit; then
+          if git merge origin/${{ github.event.inputs.origin_branch }} --no-ff; then
             echo "merge_status=success" >> $GITHUB_OUTPUT
             echo "Merge successful, no conflicts detected."
             
-            # Check if there are any changes
-            if git diff --cached --quiet && git diff --quiet origin/${{ github.event.inputs.target_branch }} origin/${{ github.event.inputs.origin_branch }}; then
+            # Check if there are any changes between branches
+            if git diff --quiet origin/${{ github.event.inputs.target_branch }} origin/${{ github.event.inputs.origin_branch }}; then
               echo "merge_status=no_changes" >> $GITHUB_OUTPUT
               echo "No changes to merge. Branches are already in sync."
-            else
-              # Commit the merge
-              git commit -m "chore(branch): merge ${{ github.event.inputs.origin_branch }} into ${{ github.event.inputs.target_branch }}"
             fi
           else
             echo "merge_status=conflict" >> $GITHUB_OUTPUT
