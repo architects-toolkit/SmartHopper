@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E2%2E0--dev%2E250331-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E2%2E0--dev%2E250401-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange)](https://mistral.ai/)
@@ -45,7 +45,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
-| AI File Context (AiContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | - | - |
 | AI Chat Input (AiChatInput)<br><sub>Send some data from your Grasshopper to the AI Chat</sub> | ⚪ | - | - | - |
 | AI Chat Output (AiChatOutput)<br><sub>Receive some data from the AI Chat to your Grasshopper</sub> | ⚪ | - | - | - |

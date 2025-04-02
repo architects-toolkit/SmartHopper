@@ -169,7 +169,7 @@ namespace SmartHopper.Components.List
                     var evaluationResult = await ListTools.EvaluateListAsync(
                         currentList.Value,
                         question,
-                        messages => parent.GetResponse(messages));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
 
                     if (!evaluationResult.Success)
                     {
