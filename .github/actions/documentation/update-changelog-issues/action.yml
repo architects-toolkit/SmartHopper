@@ -130,21 +130,14 @@ runs:
           exit 1
         fi
         
-        # Find the end of the Fixed section (next section or end of Unreleased)
-        END_SECTION=$(sed -n "$((LINE_NUM+1)),/^##/p" "$CHANGELOG_PATH" | grep -n "^###" | head -n1 | cut -d: -f1)
-        if [ -n "$END_SECTION" ]; then
-          # Next section exists, insert before it
-          INSERT_LINE=$((LINE_NUM + END_SECTION - 1))
+        # Find the next section after Fixed (either ### or ##)
+        NEXT_SECTION=$(tail -n +$((LINE_NUM+1)) "$CHANGELOG_PATH" | grep -n "^##" | head -n1 | cut -d: -f1)
+        if [ -n "$NEXT_SECTION" ]; then
+          # Next section exists, calculate the line to insert before
+          INSERT_LINE=$((LINE_NUM + NEXT_SECTION - 1))
         else
-          # Find the next major section (## [...]) after Unreleased
-          NEXT_MAJOR=$(grep -n "^## \[" "$CHANGELOG_PATH" | grep -A1 "## \[Unreleased\]" | tail -n1 | cut -d: -f1)
-          if [ -n "$NEXT_MAJOR" ]; then
-            # Insert before the next major section
-            INSERT_LINE=$((NEXT_MAJOR - 1))
-          else
-            # No next section, append to the end of the file
-            INSERT_LINE=$(wc -l < "$CHANGELOG_PATH")
-          fi
+          # No next section found, append to the end of the file
+          INSERT_LINE=$(wc -l < "$CHANGELOG_PATH")
         fi
         
         # Read each issue and add it to the changelog
