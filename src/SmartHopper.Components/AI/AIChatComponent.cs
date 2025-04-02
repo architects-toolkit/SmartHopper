@@ -19,6 +19,7 @@ using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Config.Models;
+using SmartHopper.Core.AI;
 using SmartHopper.Core.AI.Chat;
 using SmartHopper.Core.ComponentBase;
 
@@ -29,6 +30,9 @@ namespace SmartHopper.Components.AI
     /// </summary>
     public class AIChatComponent : AIStatefulAsyncComponentBase
     {
+        private TimeContextProvider _timeProvider;
+        private EnvironmentContextProvider _environmentProvider;
+
         /// <summary>
         /// Initializes a new instance of the AIChatComponent class.
         /// </summary>
@@ -42,6 +46,26 @@ namespace SmartHopper.Components.AI
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             RunOnlyOnInputChanges = false;
+            
+            // Create and register time and environment context providers
+            _timeProvider = new TimeContextProvider();
+            _environmentProvider = new EnvironmentContextProvider();
+            
+            AIContextManager.RegisterProvider(_timeProvider);
+            AIContextManager.RegisterProvider(_environmentProvider);
+        }
+        
+        /// <summary>
+        /// Called when the component is removed from the canvas
+        /// </summary>
+        /// <param name="document">The Grasshopper document</param>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            // Unregister the context providers
+            AIContextManager.UnregisterProvider(_timeProvider);
+            AIContextManager.UnregisterProvider(_environmentProvider);
+            
+            base.RemovedFromDocument(document);
         }
 
         /// <summary>
