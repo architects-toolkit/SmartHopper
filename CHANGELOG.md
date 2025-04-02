@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic time and environment context in AIChatComponent
   - Filtering capabilities for context by provider ID and specific context keys
   - Context filtering with comma-separated lists for multiple criteria
+  - Exclusion filtering with minus prefix (e.g., "-time" excludes the time provider while including all others)
 
 ### Removed
 

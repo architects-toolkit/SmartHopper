@@ -32,16 +32,19 @@ namespace SmartHopper.Core.AI
         public Dictionary<string, string> GetContext()
         {
             var now = DateTime.Now;
+            var timeZone = TimeZoneInfo.Local;
+            var utcOffset = timeZone.BaseUtcOffset;
+
             return new Dictionary<string, string>
             {
                 { "current-datetime", now.ToString("yyyy-MM-dd HH:mm:ss") },
-                { "current-timezone", TimeZoneInfo.Local.DisplayName }
+                { "current-timezone", $"UTC{(utcOffset.Hours >= 0 ? "+" : "")}{utcOffset.Hours:D2}:{utcOffset.Minutes:D2}" }
             };
         }
     }
 
     /// <summary>
-    /// Context provider that supplies environment information (OS, Rhino version, GH version) to AI queries
+    /// Context provider that supplies environment information (OS, Rhino version) to AI queries
     /// </summary>
     public class EnvironmentContextProvider : IAIContextProvider
     {
@@ -57,38 +60,13 @@ namespace SmartHopper.Core.AI
         public Dictionary<string, string> GetContext()
         {
             var rhinoVersion = RhinoApp.Version.ToString();
-            var ghVersion = GetGrasshopperVersion();
             
             return new Dictionary<string, string>
             {
                 { "operating-system", Environment.OSVersion.ToString() },
                 { "rhino-version", rhinoVersion },
-                { "grasshopper-version", ghVersion },
                 { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" }
             };
-        }
-
-        /// <summary>
-        /// Gets the Grasshopper version
-        /// </summary>
-        /// <returns>The Grasshopper version as a string</returns>
-        private string GetGrasshopperVersion()
-        {
-            try
-            {
-                // Try to get the Grasshopper assembly version
-                var ghAssembly = Assembly.Load("Grasshopper");
-                if (ghAssembly != null)
-                {
-                    return ghAssembly.GetName().Version.ToString();
-                }
-            }
-            catch (Exception)
-            {
-                // Ignore errors and return unknown
-            }
-            
-            return "Unknown";
         }
     }
 }
