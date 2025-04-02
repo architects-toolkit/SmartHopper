@@ -87,37 +87,75 @@ namespace SmartHopper.Core.AI
         /// <summary>
         /// Gets the combined context from all registered providers, with optional filtering
         /// </summary>
-        /// <param name="providerFilter">Optional provider ID filter. If specified, only context from providers with matching IDs will be included. Multiple providers can be specified as a comma-separated list.</param>
-        /// <param name="contextFilter">Optional context key filter. If specified, only context with matching keys will be included. Multiple context keys can be specified as a comma-separated list.</param>
+        /// <param name="providerFilter">Optional provider ID filter. If specified, only context from providers with matching IDs will be included. 
+        /// Multiple providers can be specified as a comma-separated list. Prefix a provider ID with '-' to exclude it (e.g., "-time" excludes the time provider).</param>
+        /// <param name="contextFilter">Optional context key filter. If specified, only context with matching keys will be included. Multiple context keys can be specified as a comma-separated list.
+        /// Prefix a context key with '-' to exclude it (e.g., "-time_current-datetime" excludes that specific context key).</param>
         /// <returns>A dictionary of context key-value pairs</returns>
         public static Dictionary<string, string> GetCurrentContext(string providerFilter = null, string contextFilter = null)
         {
             var result = new Dictionary<string, string>();
             
             // Parse provider filters
-            HashSet<string> providerFilters = null;
+            HashSet<string> includeProviderFilters = null;
+            HashSet<string> excludeProviderFilters = null;
+            
             if (!string.IsNullOrEmpty(providerFilter))
             {
-                providerFilters = new HashSet<string>(
-                    providerFilter.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                var filterParts = providerFilter.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(p => p.Trim())
-                );
+                    .ToList();
+                
+                // Separate include and exclude filters
+                var includeFilters = filterParts.Where(p => !p.StartsWith("-")).ToList();
+                var excludeFilters = filterParts.Where(p => p.StartsWith("-"))
+                    .Select(p => p.Substring(1)) // Remove the '-' prefix
+                    .Where(p => !string.IsNullOrEmpty(p))
+                    .ToList();
+                
+                if (includeFilters.Count > 0)
+                {
+                    includeProviderFilters = new HashSet<string>(includeFilters);
+                }
+                
+                if (excludeFilters.Count > 0)
+                {
+                    excludeProviderFilters = new HashSet<string>(excludeFilters);
+                }
             }
             
             // Parse context filters
-            HashSet<string> contextFilters = null;
+            HashSet<string> includeContextFilters = null;
+            HashSet<string> excludeContextFilters = null;
+            
             if (!string.IsNullOrEmpty(contextFilter))
             {
-                contextFilters = new HashSet<string>(
-                    contextFilter.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                var filterParts = contextFilter.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(c => c.Trim())
-                );
+                    .ToList();
+                
+                // Separate include and exclude filters
+                var includeFilters = filterParts.Where(c => !c.StartsWith("-")).ToList();
+                var excludeFilters = filterParts.Where(c => c.StartsWith("-"))
+                    .Select(c => c.Substring(1)) // Remove the '-' prefix
+                    .Where(c => !string.IsNullOrEmpty(c))
+                    .ToList();
+                
+                if (includeFilters.Count > 0)
+                {
+                    includeContextFilters = new HashSet<string>(includeFilters);
+                }
+                
+                if (excludeFilters.Count > 0)
+                {
+                    excludeContextFilters = new HashSet<string>(excludeFilters);
+                }
             }
             
             // Get providers based on filter
-            var providers = providerFilters == null 
-                ? _contextProviders 
-                : _contextProviders.Where(p => providerFilters.Contains(p.ProviderId)).ToList();
+            var providers = _contextProviders
+                .Where(p => ShouldIncludeProvider(p.ProviderId, includeProviderFilters, excludeProviderFilters))
+                .ToList();
             
             // Collect context from all matching providers
             foreach (var provider in providers)
@@ -137,7 +175,7 @@ namespace SmartHopper.Core.AI
                             }
                             
                             // Apply context key filter if specified
-                            if (ShouldIncludeContext(key, contextFilters))
+                            if (ShouldIncludeContext(key, includeContextFilters, excludeContextFilters))
                             {
                                 result[key] = item.Value;
                             }
@@ -155,27 +193,72 @@ namespace SmartHopper.Core.AI
         }
         
         /// <summary>
+        /// Determines if a provider should be included based on the filter criteria
+        /// </summary>
+        /// <param name="providerId">The provider ID to check</param>
+        /// <param name="includeFilters">The set of include filters</param>
+        /// <param name="excludeFilters">The set of exclude filters</param>
+        /// <returns>True if the provider should be included, false otherwise</returns>
+        private static bool ShouldIncludeProvider(string providerId, HashSet<string> includeFilters, HashSet<string> excludeFilters)
+        {
+            // If provider ID is in exclude filters, exclude it
+            if (excludeFilters != null && excludeFilters.Contains(providerId))
+            {
+                return false;
+            }
+            
+            // If include filters are specified and provider ID is not in them, exclude it
+            if (includeFilters != null && includeFilters.Count > 0 && !includeFilters.Contains(providerId))
+            {
+                return false;
+            }
+            
+            // In all other cases, include the provider
+            return true;
+        }
+        
+        /// <summary>
         /// Determines if a context key should be included based on the filter criteria
         /// </summary>
         /// <param name="key">The context key to check</param>
-        /// <param name="contextFilters">The set of context filters</param>
+        /// <param name="includeFilters">The set of include filters</param>
+        /// <param name="excludeFilters">The set of exclude filters</param>
         /// <returns>True if the key should be included, false otherwise</returns>
-        private static bool ShouldIncludeContext(string key, HashSet<string> contextFilters)
+        private static bool ShouldIncludeContext(string key, HashSet<string> includeFilters, HashSet<string> excludeFilters)
         {
-            // If no filters, include all
-            if (contextFilters == null || contextFilters.Count == 0)
+            // If key is in exclude filters, exclude it
+            if (excludeFilters != null)
+            {
+                // Check exact match
+                if (excludeFilters.Contains(key))
+                {
+                    return false;
+                }
+                
+                // For filters without underscores, check if they match the suffix after the underscore
+                foreach (var filter in excludeFilters)
+                {
+                    if (!filter.Contains("_") && key.EndsWith($"_{filter}"))
+                    {
+                        return false;
+                    }
+                }
+            }
+            
+            // If no include filters, include all (that weren't excluded)
+            if (includeFilters == null || includeFilters.Count == 0)
             {
                 return true;
             }
             
-            // Check if the key exactly matches any filter
-            if (contextFilters.Contains(key))
+            // Check if the key exactly matches any include filter
+            if (includeFilters.Contains(key))
             {
                 return true;
             }
             
             // For filters without underscores, check if they match the suffix after the underscore
-            foreach (var filter in contextFilters)
+            foreach (var filter in includeFilters)
             {
                 if (!filter.Contains("_") && key.EndsWith($"_{filter}"))
                 {
