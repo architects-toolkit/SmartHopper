@@ -168,7 +168,7 @@ namespace SmartHopper.Components.List
                     var filterResult = await ListTools.FilterListAsync(
                         listTreeOriginal,
                         criterion,
-                        messages => parent.GetResponse(messages));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
 
                     if (!filterResult.Success)
                     {
