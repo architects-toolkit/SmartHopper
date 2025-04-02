@@ -131,7 +131,7 @@ runs:
             echo "Error: Unreleased section not found in CHANGELOG.md"
             exit 1
           fi
-        done
+        done < "$ISSUES_FILE"
         
         # Set outputs
         if [ "$ISSUES_ADDED" -gt 0 ]; then
