@@ -24,6 +24,11 @@ namespace SmartHopper.Components.AI
         private string _context;
 
         /// <summary>
+        /// Gets the provider identifier
+        /// </summary>
+        public string ProviderId => "file";
+
+        /// <summary>
         /// Constructor for the AI File Context component
         /// </summary>
         public AIFileContextComponent()
@@ -31,8 +36,8 @@ namespace SmartHopper.Components.AI
                 "Defines the current file context for AI-powered components",
                 "SmartHopper", "AI")
         {
-            // Register this component as the context provider
-            AIContextManager.SetContextProvider(this);
+            // Register this component as a context provider
+            AIContextManager.RegisterProvider(this);
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)

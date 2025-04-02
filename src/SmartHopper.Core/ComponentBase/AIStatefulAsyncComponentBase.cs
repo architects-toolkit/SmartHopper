@@ -245,9 +245,13 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets a response from the AI provider using the provided messages and cancellation token.
         /// </summary>
         /// <param name="messages">The messages to send to the AI provider.</param>
-        /// <param name="token">The cancellation token to cancel the operation.</param>
+        /// <param name="contextProviderFilter">Optional filter for context providers (comma-separated list).</param>
+        /// <param name="contextKeyFilter">Optional filter for context keys (comma-separated list).</param>
         /// <returns>The AI response from the provider.</returns>
-        protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages)
+        protected async Task<AIResponse> GetResponse(
+            List<KeyValuePair<string, string>> messages, 
+            string contextProviderFilter = null, 
+            string contextKeyFilter = null)
         {
             try
             {
@@ -266,7 +270,9 @@ namespace SmartHopper.Core.ComponentBase
                     actualProvider,
                     model: GetModel(),
                     messages,
-                    endpoint: GetEndpoint());
+                    endpoint: GetEndpoint(),
+                    contextProviderFilter: contextProviderFilter,
+                    contextKeyFilter: contextKeyFilter);
 
                 StoreResponseMetrics(response);
 
