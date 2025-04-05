@@ -89,7 +89,7 @@ namespace SmartHopper.Core.Utils
 
                     if (contextMessages.Any())
                     {
-                        var contextMessage = "Consider the following information:\n\n" + 
+                        var contextMessage = "This is the context for the current conversation:\n\n" + 
                                              string.Join("\n", contextMessages);
                         var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
                         { 
