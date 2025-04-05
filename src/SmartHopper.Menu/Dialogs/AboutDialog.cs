@@ -156,6 +156,35 @@ namespace SmartHopper.Menu.Dialogs
                 TextColor = Colors.DarkGray
             };
 
+            var openSourceThanksLabel = new Label
+            {
+                Text = "Special Thanks to all the Open Source Projects that inspired or were used in this project:",
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                TextColor = Colors.DarkBlue
+            };
+
+            var speckleLink = new LinkLabel
+            {
+                Text = "- Speckle Systems: GrasshopperAsyncComponent (Apache License 2.0)",
+                URL = "https://github.com/specklesystems/GrasshopperAsyncComponent",
+                Font = new Font(SystemFont.Default, 10)
+            };
+
+            var ghptLink = new LinkLabel
+            {
+                Text = "- enmerk4r: GHPT (MIT License)",
+                URL = "https://github.com/enmerk4r/GHPT",
+                Font = new Font(SystemFont.Default, 10)
+            };
+
+            var materialIconsLink = new LinkLabel
+            {
+                Text = "- Google: Material Design Icons (Apache 2.0 License)",
+                URL = "https://github.com/google/material-design-icons",
+                Font = new Font(SystemFont.Default, 10)
+            };
+
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
             var okButton = new Button
@@ -188,6 +217,11 @@ namespace SmartHopper.Menu.Dialogs
                     warningLabel,
                     null, // spacing
                     aiDisclaimerLabel,
+                    null, // spacing
+                    openSourceThanksLabel,
+                    speckleLink,
+                    ghptLink,
+                    materialIconsLink,
                     null, // spacing
                     new StackLayout
                     {
