@@ -98,21 +98,13 @@ jobs:
         if: steps.calculate-version.outputs.was-date-updated == 'true'
         uses: ./.github/actions/documentation/update-badges
 
-      # Update the CHANGELOG.md with a note about the date update
-      - name: Update CHANGELOG.md
-        if: steps.calculate-version.outputs.was-date-updated == 'true'
-        uses: ./.github/actions/documentation/update-changelog
-        with:
-          action: create-release
-          version: Unreleased
-
       - name: Create and push branch
         if: steps.calculate-version.outputs.was-date-updated == 'true'
         id: create-branch
         run: |
           echo "Creating new branch: ${{ steps.set-branches.outputs.date_branch }}"
           git checkout -b ${{ steps.set-branches.outputs.date_branch }}
-          git add Solution.props README.md CHANGELOG.md
+          git add Solution.props README.md
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then

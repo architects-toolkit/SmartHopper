@@ -160,7 +160,7 @@ namespace SmartHopper.Components.Text
 
                     // Evaluate text using AI with the component's GetResponse
                     var result = await TextTools.EvaluateTextAsync(textTree[i], questionTree[i], 
-                        messages => parent.GetResponse(messages));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
 
                     if (!result.Success)
                     {

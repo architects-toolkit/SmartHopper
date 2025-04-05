@@ -90,16 +90,6 @@ runs:
           echo "has-issues=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Add issues to changelog
-      id: add-issues
-      if: steps.find-issues.outputs.has-issues == 'true'
-      uses: ./.github/actions/documentation/update-changelog
-      with:
-        action: add-line
-        section: Fixed
-        changelog-path: ${{ inputs.changelog-path }}
-        description: "Placeholder that will be replaced"
-
     - name: Process each issue
       id: process-issues
       if: steps.find-issues.outputs.has-issues == 'true'
@@ -111,6 +101,45 @@ runs:
         CHANGELOG_PATH="${{ inputs.changelog-path }}"
         ISSUES_ADDED=0
         
+        # Check if the Unreleased section exists
+        if ! grep -q "## \[Unreleased\]" "$CHANGELOG_PATH"; then
+          echo "Error: Unreleased section not found in CHANGELOG.md"
+          exit 1
+        fi
+        
+        # Check if the Fixed section exists under Unreleased
+        UNRELEASED_CONTENT=$(sed -n '/## \[Unreleased\]/,/## \[/p' "$CHANGELOG_PATH")
+        if ! echo "$UNRELEASED_CONTENT" | grep -q "### Fixed"; then
+          # Create the Fixed section at the end of the Unreleased section
+          # Find the line number of the next section after Unreleased or the end of file
+          NEXT_SECTION=$(grep -n "^## \[" "$CHANGELOG_PATH" | grep -A1 "## \[Unreleased\]" | tail -n1 | cut -d: -f1)
+          if [ -z "$NEXT_SECTION" ]; then
+            # No next section, add Fixed section at the end of the file
+            echo -e "\n### Fixed" >> "$CHANGELOG_PATH"
+          else
+            # Insert Fixed section before the next section
+            NEXT_SECTION=$((NEXT_SECTION - 1))
+            sed -i "${NEXT_SECTION}i\\\n### Fixed" "$CHANGELOG_PATH"
+          fi
+        fi
+        
+        # Find the end of the Fixed section under Unreleased to append issues
+        LINE_NUM=$(grep -n "### Fixed" "$CHANGELOG_PATH" | head -n1 | cut -d: -f1)
+        if [ -z "$LINE_NUM" ]; then
+          echo "Error: Could not find Fixed section in CHANGELOG.md"
+          exit 1
+        fi
+        
+        # Find the next section after Fixed (either ### or ##)
+        NEXT_SECTION=$(tail -n +$((LINE_NUM+1)) "$CHANGELOG_PATH" | grep -n "^##" | head -n1 | cut -d: -f1)
+        if [ -n "$NEXT_SECTION" ]; then
+          # Next section exists, calculate the line to insert before
+          INSERT_LINE=$((LINE_NUM + NEXT_SECTION - 1))
+        else
+          # No next section found, append to the end of the file
+          INSERT_LINE=$(wc -l < "$CHANGELOG_PATH")
+        fi
+        
         # Read each issue and add it to the changelog
         while IFS="|" read -r ISSUE_NUMBER ISSUE_TITLE; do
           echo "Adding issue #$ISSUE_NUMBER to changelog: $ISSUE_TITLE"
@@ -118,20 +147,13 @@ runs:
           # Format the line to add
           LINE="- Fixes \"$ISSUE_TITLE\" ([#$ISSUE_NUMBER](https://github.com/$REPO/issues/$ISSUE_NUMBER))."
           
-          # Check if the Fixed section exists in Unreleased
-          if grep -q "## \[Unreleased\]" "$CHANGELOG_PATH" && grep -q "### Fixed" "$CHANGELOG_PATH"; then
-            # Add the line to the Fixed section
-            sed -i "/### Fixed/a\\$LINE" "$CHANGELOG_PATH"
-            ISSUES_ADDED=$((ISSUES_ADDED + 1))
-          elif grep -q "## \[Unreleased\]" "$CHANGELOG_PATH"; then
-            # Create the Fixed section and add the line
-            sed -i "/## \[Unreleased\]/a\\### Fixed\n$LINE" "$CHANGELOG_PATH"
-            ISSUES_ADDED=$((ISSUES_ADDED + 1))
-          else
-            echo "Error: Unreleased section not found in CHANGELOG.md"
-            exit 1
-          fi
-        done
+          # Add the line to the Fixed section at the determined position
+          sed -i "${INSERT_LINE}i\\$LINE" "$CHANGELOG_PATH"
+          
+          # Update the insert line for the next issue
+          INSERT_LINE=$((INSERT_LINE + 1))
+          ISSUES_ADDED=$((ISSUES_ADDED + 1))
+        done < "$ISSUES_FILE"
         
         # Set outputs
         if [ "$ISSUES_ADDED" -gt 0 ]; then
