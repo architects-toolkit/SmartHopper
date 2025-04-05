@@ -67,6 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling in the AIStatefulAsyncComponentBase.
 - Updated settings menu to use Eto.Forms and Eto.Drawing.
 - Renamed the AI Context component to AI File Context.
+- Added enhanced context management system:
+  - Support for multiple simultaneous context providers
+  - Automatic time and environment context in AIChatComponent
+  - Filtering capabilities for context by provider ID and specific context keys
+  - Context filtering with comma-separated lists for multiple criteria
+  - Exclusion filtering with minus prefix (e.g., "-time" excludes the time provider while including all others)
 
 ### Removed
 
@@ -80,6 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
   - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
 - Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property.
+- Fixes "Bug: Settings menu hides sometimes" ([#94](https://github.com/architects-toolkit/SmartHopper/issues/94)).
+- Fixes "Bug: AI Chat component freezes all Rhino!" ([#85](https://github.com/architects-toolkit/SmartHopper/issues/85)).
+- Fixes "Bug: Settings Menu is incompatible with Mac" ([#12](https://github.com/architects-toolkit/SmartHopper/issues/12)).
 
 ## [0.1.2-alpha] - 2025-03-17
 
