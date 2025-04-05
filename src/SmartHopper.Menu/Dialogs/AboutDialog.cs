@@ -164,26 +164,20 @@ namespace SmartHopper.Menu.Dialogs
                 TextColor = Colors.DarkBlue
             };
 
-            var speckleLink = new LinkLabel
-            {
-                Text = "- Speckle Systems: GrasshopperAsyncComponent (Apache License 2.0)",
-                URL = "https://github.com/specklesystems/GrasshopperAsyncComponent",
-                Font = new Font(SystemFont.Default, 10)
-            };
+            var speckleLink = CreateLinkButton(
+                "- Speckle Systems: GrasshopperAsyncComponent (Apache License 2.0)", 
+                "https://github.com/specklesystems/GrasshopperAsyncComponent"
+            );
 
-            var ghptLink = new LinkLabel
-            {
-                Text = "- enmerk4r: GHPT (MIT License)",
-                URL = "https://github.com/enmerk4r/GHPT",
-                Font = new Font(SystemFont.Default, 10)
-            };
+            var ghptLink = CreateLinkButton(
+                "- enmerk4r: GHPT (MIT License)", 
+                "https://github.com/enmerk4r/GHPT"
+            );
 
-            var materialIconsLink = new LinkLabel
-            {
-                Text = "- Google: Material Design Icons (Apache 2.0 License)",
-                URL = "https://github.com/google/material-design-icons",
-                Font = new Font(SystemFont.Default, 10)
-            };
+            var materialIconsLink = CreateLinkButton(
+                "- Google: Material Design Icons (Apache 2.0 License)", 
+                "https://github.com/google/material-design-icons"
+            );
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
