@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+
+## [0.2.0-alpha] - 2025-04-06
+
 ### Added
 
+- Added modular provider architecture:
+  - Created new provider project structure (SmartHopper.Providers.MistralAI) with dedicated resources.
+  - Created new provider project structure (SmartHopper.Providers.OpenAI) with dedicated resources.
+  - Added IAIProviderFactory interface for dynamic provider discovery.
+  - Implemented ProviderManager for runtime loading and management of providers.
+  - Added IsEnabled property to IAIProvider interface to allow disabling template or experimental providers.
+  - Created SmartHopper.Providers.Template project as a guide for implementing new providers.
 - Added the new AIChat component with interactive chat interface and proper icon.
 - Added WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
 - Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
@@ -21,9 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - HTML tags like underline in Markdown text.
   - Dedicated Markdown class in the Converters namespace for centralized markdown processing.
 - Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
+- New update-changelog-issues action and github-pr-update-changelog-issues to automatically mention missing closed issues in the changelog.
 
 ### Changed
 
+- Refactored AI provider architecture:
+  - Migrated MistralAI provider to a separate project (SmartHopper.Providers.MistralAI).
+  - Migrated OpenAI provider to a separate project (SmartHopper.Providers.OpenAI).
+  - Updated SmartHopperSettings to use ProviderManager for provider discovery.
+  - Modified AIStatefulAsyncComponentBase to use the new provider handling approach.
+  - Changed provider discovery to load assemblies from the main application directory instead of a separate "Providers" subdirectory.
+  - Enhanced ProviderManager to only register providers that have IsEnabled set to true.
+  - Added warning log when duplicate AI providers are encountered during registration instead of silently ignoring them.
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
 - Improved version badge workflow to also update badges when color doesn't match the requirements based on version type.
 - Improved ChatDialog UI with numerous enhancements:
@@ -33,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Message selection and copying capabilities with a context menu.
   - Automatic message height adjustment based on content and removal of visible scrollbars.
   - Improved scrolling behavior.
+  - Allow only one chat dialog to be open per AI Chat Component. When running the component again, if there is a linked chat dialog, it will be focused instead of opening a new one.
 - Enhanced About dialog:
   - Decreased font size.
   - Defined a minimum size.
@@ -51,9 +72,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
 - Improved error handling in the AIStatefulAsyncComponentBase.
 - Updated settings menu to use Eto.Forms and Eto.Drawing.
+- Renamed the AI Context component to AI File Context.
+- Enhanced context management system:
+  - Support for multiple simultaneous context providers
+  - Automatic time and environment context in AIChatComponent
+  - Filtering capabilities for context by provider ID and specific context keys
+  - Context filtering with comma-separated lists for multiple criteria
+  - Exclusion filtering with minus prefix (e.g., "-time" excludes the time provider while including all others)
+- Modified AboutDialog to inform users about the nature and limitations of AI-generated content
 
 ### Removed
 
+- Removed MistralAI provider from SmartHopper.Config project as part of the modular architecture implementation.
+- Removed OpenAI provider from SmartHopper.Config project as part of the modular architecture implementation.
 - Removed dependency on HtmlAgilityPack
 
 ### Fixed
@@ -65,6 +96,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixes "Bug: Settings menu hides sometimes" ([#94](https://github.com/architects-toolkit/SmartHopper/issues/94)).
 - Fixes "Bug: AI Chat component freezes all Rhino!" ([#85](https://github.com/architects-toolkit/SmartHopper/issues/85)).
 - Fixes "Bug: Settings Menu is incompatible with Mac" ([#12](https://github.com/architects-toolkit/SmartHopper/issues/12)).
+- Fixes "AI disclaimer in chat and about" ([#114](https://github.com/architects-toolkit/SmartHopper/issues/114)).
+- Fixed a bug opening the chat dialog that eventually froze the application.
+- Fixed a bug where the chat dialog was not on top when clicking on it from the windows taskbar. 
 
 ## [0.1.2-alpha] - 2025-03-17
 

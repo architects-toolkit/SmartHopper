@@ -18,5 +18,6 @@
    - Components should be named with the pattern [Category][Action][Type]Component (e.g., AITextGenerateComponent).
    - Consider using AIStatefulAsyncComponentBase since it already implements most of the required structure to manage AI methods, states and async operations.
 8. When asked for a PR/commit title or description, follow the rules in @.github/PULL_REQUEST_TEMPLATE.md
+9. Make only targeted edits to existing code.
 
 When the user asks you to add, change, deprecate, remove, fix, or security edit the code, if changes are relevant, mention them in the @CHANGELOG.md file under the "Unreleased" section. Do not modify other parts of the file. Subsections should be limited to and ordered as follows: Added, Changed, Deprecated, Removed, Fixed, Security
