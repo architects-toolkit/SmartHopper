@@ -173,15 +173,28 @@ jobs:
             $targetPlatformPath = Join-Path $outputDir $platform
             New-Item -ItemType Directory -Force -Path $targetPlatformPath
             
+            # List files in the source directory to verify what's available
+            Write-Host "Files available in source directory ($platformPath):"
+            Get-ChildItem -Path $platformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
+            
             # Copy only .gha and .dll files directly in the platform folder (not recursive)
+            $filesCopied = 0
             Get-ChildItem -Path $platformPath -File -Include "*.gha","*.dll" -Exclude "*Rhino*","*Grasshopper*" | 
               ForEach-Object {
                 $targetFile = Join-Path $targetPlatformPath $_.Name
                 Write-Host "Copying $($_.FullName) to $targetFile"
                 Copy-Item $_.FullName -Destination $targetFile -Force
+                $filesCopied++
               }
+            
+            Write-Host "Copied $filesCopied files to $targetPlatformPath"
+            
+            # Verify files were copied
+            $copiedFiles = Get-ChildItem -Path $targetPlatformPath -File
+            Write-Host "Files in target directory ($targetPlatformPath): $($copiedFiles.Count)"
+            $copiedFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
           } else {
-            Write-Host "Platform folder $platformPath not found, skipping"
+            Write-Host "##[warning] Platform folder $platformPath not found, skipping"
           }
         }
         
@@ -198,33 +211,60 @@ jobs:
                         Measure-Object).Count
         
         Write-Host "Found $csprojCount SmartHopper .csproj files in the solution"
+        Write-Host "Expected projects: "
+        Get-ChildItem -Path "." -Recurse -Filter "*.csproj" | 
+          Where-Object { $_.Name -like "SmartHopper.*" -and $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" } |
+          ForEach-Object { Write-Host "  - $($_.Name)" }
         
         # Define the target platforms
         $platforms = @("net48", "net7.0-windows", "net7.0")
         $missingFiles = $false
         
         foreach ($platform in $platforms) {
-          $platformPath = Join-Path "artifacts" $platform
+          # Check both the build directory and the artifacts directory
+          $buildDir = "bin\${{ steps.determine_version.outputs.VERSION }}\Release"
+          $buildPlatformPath = Join-Path $buildDir $platform
+          $artifactsPlatformPath = Join-Path "artifacts" $platform
           
-          if (Test-Path $platformPath) {
-            # Count SmartHopper DLL and GHA files in the platform folder
-            $smartHopperFileCount = (Get-ChildItem -Path $platformPath -File | 
+          Write-Host "Checking platform: $platform"
+          
+          # Check build directory first
+          if (Test-Path $buildPlatformPath) {
+            $buildDirFiles = Get-ChildItem -Path $buildPlatformPath -File -Include "*.gha","*.dll" -Exclude "*Rhino*","*Grasshopper*"
+            $smartHopperBuildFiles = $buildDirFiles | Where-Object { 
+              ($_.Name -like "SmartHopper.*.dll" -or $_.Name -like "SmartHopper.*.gha") -and 
+              $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" 
+            }
+            
+            Write-Host "Found $($smartHopperBuildFiles.Count) SmartHopper DLL/GHA files in build directory ($buildPlatformPath)"
+            $smartHopperBuildFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
+            
+            if ($smartHopperBuildFiles.Count -lt $csprojCount) {
+              Write-Host "##[warning] Fewer SmartHopper files in build directory than expected. This may indicate build issues."
+            }
+          } else {
+            Write-Host "##[warning] Build platform folder ${buildPlatformPath} not found"
+          }
+          
+          # Now check artifacts directory
+          if (Test-Path $artifactsPlatformPath) {
+            $smartHopperFileCount = (Get-ChildItem -Path $artifactsPlatformPath -File | 
                                     Where-Object { ($_.Name -like "SmartHopper.*.dll" -or $_.Name -like "SmartHopper.*.gha") -and 
                                                   $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" } | 
                                     Measure-Object).Count
             
-            Write-Host "Found $smartHopperFileCount SmartHopper DLL/GHA files in $platform folder"
+            Write-Host "Found $smartHopperFileCount SmartHopper DLL/GHA files in artifacts directory ($artifactsPlatformPath)"
             
             # Verify that we have the expected number of files
             if ($smartHopperFileCount -lt $csprojCount) {
               Write-Host "##[error] Missing SmartHopper files in $platform folder! Expected at least $csprojCount files but found only $smartHopperFileCount."
               Write-Host "##[error] This could indicate that some projects failed to build or weren't copied correctly."
-              Write-Host "Files found in ${platformPath}:"
-              Get-ChildItem -Path $platformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
+              Write-Host "Files found in ${artifactsPlatformPath}:"
+              Get-ChildItem -Path $artifactsPlatformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
               $missingFiles = $true
             }
           } else {
-            Write-Host "##[warning] Platform folder ${platformPath} not found, skipping validation"
+            Write-Host "##[warning] Artifacts platform folder ${artifactsPlatformPath} not found, skipping validation"
           }
         }
         
