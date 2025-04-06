@@ -7,8 +7,6 @@ name: 🚀 Build Project
 # Triggers:
 # - Manually via workflow_dispatch
 # - Automatically when a release is published (excluding drafts)
-# - (Commented out) Automatically on push to main branch
-# - (Commented out) Automatically on pull requests to main branch
 #
 # Permissions:
 # - contents:read - Required to read repository content for building
@@ -16,6 +14,15 @@ name: 🚀 Build Project
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (using the latest release tag if empty)'
+        required: false
+        default: ''
+      upload_to_release:
+        description: 'Upload artifacts to the corresponding release'
+        type: boolean
+        default: false
   release:
     types: [published]
   # push:
@@ -31,6 +38,53 @@ jobs:
     runs-on: windows-latest
     
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
+      with:
+        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
+        fetch-depth: 0  # Fetch all history for all tags and branches
+    
+    - name: Get latest release tag
+      id: get_latest_release
+      shell: pwsh
+      run: |
+        # Get the latest tag
+        $latestTag = git describe --tags --abbrev=0 2>$null
+        if (-not $latestTag) {
+          $latestTag = "0.1.2-alpha" # Fallback if no tags exist
+        }
+        Write-Host "Latest tag: $latestTag"
+        "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
+    
+    - name: Determine version to build
+      id: determine_version
+      shell: pwsh
+      run: |
+        $inputVersion = "${{ github.event.inputs.version }}"
+        $releaseTag = "${{ github.event.release.tag_name }}"
+        $latestTag = "${{ steps.get_latest_release.outputs.LATEST_TAG }}"
+        
+        # Determine which version to use
+        if ($releaseTag) {
+          # If triggered by a release event
+          $version = $releaseTag
+          $isRelease = "true"
+        } elseif ($inputVersion) {
+          # If manually triggered with a specific version
+          $version = $inputVersion
+          $isRelease = "${{ github.event.inputs.upload_to_release }}"
+        } else {
+          # Default to latest tag if no version specified
+          $version = $latestTag
+          $isRelease = "${{ github.event.inputs.upload_to_release }}"
+        }
+        
+        Write-Host "Building version: $version"
+        Write-Host "Is release build: $isRelease"
+        
+        "VERSION=$version" >> $env:GITHUB_OUTPUT
+        "IS_RELEASE=$isRelease" >> $env:GITHUB_OUTPUT
+    
     - name: Check if release is draft
       if: github.event_name == 'release'
       id: check_draft
@@ -45,11 +99,6 @@ jobs:
       run: |
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
-      
-    - name: Checkout repository
-      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
-      with:
-        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
     
     - name: Setup .NET
       uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v4
@@ -95,8 +144,20 @@ jobs:
         $outputDir = "artifacts"
         New-Item -ItemType Directory -Force -Path $outputDir
         
+        # Get the version to build
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        Write-Host "Building for version: $version"
+        
         # Copy all build artifacts to the output directory
-        $buildDir = "bin\${{ github.event.release.tag_name || '0.1.2-alpha' }}\Release"
+        $buildDir = "bin\$version\Release"
+        
+        # Verify build directory exists
+        if (!(Test-Path $buildDir)) {
+          Write-Host "Error: Build directory '$buildDir' does not exist."
+          Write-Host "Available directories in bin:"
+          Get-ChildItem -Path "bin" -Directory | ForEach-Object { Write-Host $_.FullName }
+          exit 1
+        }
         
         # Copy all .gha files and their dependencies
         Get-ChildItem -Path $buildDir -Recurse -Include "*.gha","*.dll" -Exclude "*Rhino*","*Grasshopper*" | 
@@ -118,11 +179,11 @@ jobs:
         Get-ChildItem -Path $outputDir -Recurse | Select-Object FullName
 
     - name: Create ZIP Archives
-      if: github.event_name == 'release'
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
       id: create_zips
       shell: pwsh
       run: |
-        $version = "${{ github.event.release.tag_name }}"
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
         $platforms = @{
           "net48" = "SmartHopper-$version-Rhino7-Windows.zip"
           "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"
@@ -136,12 +197,12 @@ jobs:
           $platformPath = Join-Path "artifacts" $platform
           
           if (Test-Path $platformPath) {
-            Write-Host "Creating zip for $platform: $zipName"
+            Write-Host "Creating zip for ${platform}: ${zipName}"
             # Create zip directly from the platform folder contents (not the folder itself)
             Compress-Archive -Path "$platformPath\*" -DestinationPath $zipName
             $zipPaths += $zipName
           } else {
-            Write-Host "Platform folder $platformPath not found, skipping"
+            Write-Host "Platform folder ${platformPath} not found, skipping"
           }
         }
         
@@ -154,36 +215,53 @@ jobs:
       with:
         name: plugin-package
         path: artifacts/
+    
+    - name: Get Release Upload URL
+      if: steps.determine_version.outputs.IS_RELEASE == 'true' && github.event_name != 'release'
+      id: get_release_url
+      shell: pwsh
+      run: |
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        $token = "${{ secrets.GITHUB_TOKEN }}"
+        $headers = @{
+          "Authorization" = "Bearer $token"
+          "Accept" = "application/vnd.github+json"
+          "X-GitHub-Api-Version" = "2022-11-28"
+        }
         
-    # - name: Upload Windows Rhino7 Release Asset
-    #   if: github.event_name == 'release'
-    #   uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   with:
-    #     upload_url: ${{ github.event.release.upload_url }}
-    #     asset_path: SmartHopper-${{ github.event.release.tag_name }}-Rhino7-Windows.zip
-    #     asset_name: SmartHopper-${{ github.event.release.tag_name }}-Rhino7-Windows.zip
-    #     asset_content_type: application/zip
+        # Get the release by tag
+        $releaseUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$version"
+        Write-Host "Fetching release info from: $releaseUrl"
+        
+        try {
+          $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -Method Get
+          $uploadUrl = $release.upload_url
+          Write-Host "Found release upload URL: $uploadUrl"
+          "UPLOAD_URL=$uploadUrl" >> $env:GITHUB_OUTPUT
+        } catch {
+          Write-Host "Error fetching release: $_"
+          Write-Host "Release with tag $version might not exist or you don't have permission to access it."
+          exit 1
+        }
         
     - name: Upload Windows Rhino8 Release Asset
-      if: github.event_name == 'release'
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
       uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: SmartHopper-${{ github.event.release.tag_name }}-Rhino8-Windows.zip
-        asset_name: SmartHopper-${{ github.event.release.tag_name }}-Rhino8-Windows.zip
+        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
+        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
+        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
         asset_content_type: application/zip
         
     - name: Upload Mac Rhino8 Release Asset
-      if: github.event_name == 'release'
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
       uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: SmartHopper-${{ github.event.release.tag_name }}-Rhino8-Mac.zip
-        asset_name: SmartHopper-${{ github.event.release.tag_name }}-Rhino8-Mac.zip
+        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
+        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
+        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
         asset_content_type: application/zip
