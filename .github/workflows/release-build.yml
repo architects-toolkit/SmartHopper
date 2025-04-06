@@ -179,7 +179,9 @@ jobs:
             
             # Copy only .gha and .dll files directly in the platform folder (not recursive)
             $filesCopied = 0
-            Get-ChildItem -Path $platformPath -File -Include "*.gha","*.dll" -Exclude "*Rhino*","*Grasshopper*" | 
+            Get-ChildItem -Path $platformPath -File | 
+              Where-Object { ($_.Extension -eq ".dll" -or $_.Extension -eq ".gha") -and 
+                           (-not ($_.Name -like "*Rhino*" -or $_.Name -like "*Grasshopper*")) } |
               ForEach-Object {
                 $targetFile = Join-Path $targetPlatformPath $_.Name
                 Write-Host "Copying $($_.FullName) to $targetFile"
