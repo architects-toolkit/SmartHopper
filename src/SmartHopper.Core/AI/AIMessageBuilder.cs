@@ -10,7 +10,6 @@
 
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Providers;
 using System;
 using System.Collections.Generic;
 

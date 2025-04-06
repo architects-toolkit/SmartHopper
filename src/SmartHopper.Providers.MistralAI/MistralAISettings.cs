@@ -14,7 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 
-namespace SmartHopper.Config.Providers
+namespace SmartHopper.Providers.MistralAI
 {
     public class MistralAISettings : IAIProviderSettings
     {
@@ -107,7 +107,8 @@ namespace SmartHopper.Config.Providers
 
         public bool ValidateSettings()
         {
-            return provider.ValidateSettings(GetSettings());
+            var settings = GetSettings();
+            return provider.ValidateSettings(settings);
         }
     }
 }

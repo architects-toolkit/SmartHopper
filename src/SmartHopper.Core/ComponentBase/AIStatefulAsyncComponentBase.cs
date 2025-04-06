@@ -25,9 +25,8 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Configuration;
+using SmartHopper.Config;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Providers;
 using SmartHopper.Core.Utils;
 
 namespace SmartHopper.Core.ComponentBase
@@ -167,7 +166,7 @@ namespace SmartHopper.Core.ComponentBase
             providersMenu.DropDownItems.Add(defaultItem);
 
             // Get all available providers
-            var providers = SmartHopperSettings.DiscoverProviders();
+            var providers = ProviderManager.Instance.GetProviders();
             foreach (var provider in providers)
             {
                 var item = new ToolStripMenuItem(provider.Name)
@@ -246,9 +245,13 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets a response from the AI provider using the provided messages and cancellation token.
         /// </summary>
         /// <param name="messages">The messages to send to the AI provider.</param>
-        /// <param name="token">The cancellation token to cancel the operation.</param>
+        /// <param name="contextProviderFilter">Optional filter for context providers (comma-separated list).</param>
+        /// <param name="contextKeyFilter">Optional filter for context keys (comma-separated list).</param>
         /// <returns>The AI response from the provider.</returns>
-        protected async Task<AIResponse> GetResponse(List<KeyValuePair<string, string>> messages)
+        protected async Task<AIResponse> GetResponse(
+            List<KeyValuePair<string, string>> messages, 
+            string contextProviderFilter = null, 
+            string contextKeyFilter = null)
         {
             try
             {
@@ -267,7 +270,9 @@ namespace SmartHopper.Core.ComponentBase
                     actualProvider,
                     model: GetModel(),
                     messages,
-                    endpoint: GetEndpoint());
+                    endpoint: GetEndpoint(),
+                    contextProviderFilter: contextProviderFilter,
+                    contextKeyFilter: contextKeyFilter);
 
                 StoreResponseMetrics(response);
 
@@ -483,7 +488,7 @@ namespace SmartHopper.Core.ComponentBase
                     Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Read stored AI provider: {storedProvider}");
                     
                     // Check if the provider exists in the available providers
-                    var providers = SmartHopperSettings.DiscoverProviders();
+                    var providers = ProviderManager.Instance.GetProviders();
                     if (providers.Any(p => p.Name == storedProvider))
                     {
                         _aiProvider = storedProvider;
@@ -493,7 +498,8 @@ namespace SmartHopper.Core.ComponentBase
                     else
                     {
                         // If the provider doesn't exist, use the first available provider
-                        _aiProvider = providers.Any() ? providers.First().Name : MistralAI._name;
+                        var availableProviders = ProviderManager.Instance.GetProviders();
+                        _aiProvider = availableProviders.Any() ? availableProviders.First().Name : "Default";
                         _previousSelectedProvider = _aiProvider;
                         Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Provider not found, using default: {_aiProvider}");
                     }
@@ -519,8 +525,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (_aiProvider == DEFAULT_PROVIDER)
             {
-                var settings = SmartHopperSettings.Load();
-                return settings.GetDefaultAIProvider();
+                // Use the ProviderManager to get the default provider
+                return ProviderManager.Instance.GetDefaultAIProvider();
             }
             
             return _aiProvider;

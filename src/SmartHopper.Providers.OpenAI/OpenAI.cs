@@ -1,6 +1,6 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024 Marc Roca Musach
+ * Copyright (C) 2025 Marc Roca Musach
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -15,13 +15,16 @@ using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using System.Drawing;
 
-namespace SmartHopper.Config.Providers
+namespace SmartHopper.Providers.OpenAI
 {
+    /// <summary>
+    /// OpenAI provider implementation for SmartHopper.
+    /// </summary>
     public sealed class OpenAI : IAIProvider
     {
         public const string _name = "OpenAI";
@@ -37,13 +40,18 @@ namespace SmartHopper.Config.Providers
         public string DefaultModel => _defaultModel;
 
         /// <summary>
+        /// Gets whether this provider is enabled and should be available for use.
+        /// </summary>
+        public bool IsEnabled => true;
+
+        /// <summary>
         /// Gets the provider's icon
         /// </summary>
         public Image Icon
         {
             get
             {
-                var iconBytes = Properties.providersResources.openai_icon;
+                var iconBytes = Properties.Resources.openai_icon;
                 using (var ms = new System.IO.MemoryStream(iconBytes))
                 {
                     return new Bitmap(ms);
@@ -95,66 +103,64 @@ namespace SmartHopper.Config.Providers
 
         public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
         {
-            var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(_name))
+            try
             {
-                settings.ProviderSettings[_name] = new Dictionary<string, object>();
-            }
-            var providerSettings = settings.ProviderSettings[_name];
-            if (!ValidateSettings(providerSettings))
-                throw new InvalidOperationException("Invalid provider settings");
-
-            var modelToUse = GetModel(providerSettings, model);
-
-            string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
-            int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
-
-            if (modelToUse == "" || modelToUse == "openai")
-            {
-                modelToUse = _defaultModel;
-                Debug.WriteLine($"Using default model: {modelToUse}");
-            }
-
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                Debug.WriteLine("API Key is null or empty");
-                return new AIResponse
+                var settings = SmartHopperSettings.Load();
+                if (!settings.ProviderSettings.ContainsKey(_name))
                 {
-                    Response = "Error: API Key is missing",
-                    FinishReason = "error"
-                };
-            }
+                    settings.ProviderSettings[_name] = new Dictionary<string, object>();
+                }
+                var providerSettings = settings.ProviderSettings[_name];
 
-            using (var client = new HttpClient())
-            {
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                if (!ValidateSettings(providerSettings))
+                    throw new InvalidOperationException("Invalid provider settings");
 
-                var requestBody = new JObject
+                var modelToUse = GetModel(providerSettings, model);
+
+                string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
+                int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
+
+                if (modelToUse == "" || modelToUse == "openai")
                 {
-                    ["model"] = modelToUse,
-                    ["messages"] = messages,
-                    ["temperature"] = 0.7,
-                    ["max_completion_tokens"] = maxTokens,
-                    ["modalities"] = new JArray { "text" }
-                };
-
-                if (!string.IsNullOrEmpty(jsonSchema))
-                {
-                    var responseFormat = new JObject
-                    {
-                        ["type"] = "json_schema",
-                        ["json_schema"] = JObject.Parse(jsonSchema)
-                    };
-                    requestBody["response_format"] = responseFormat;
+                    modelToUse = _defaultModel;
+                    Debug.WriteLine($"Using default model: {modelToUse}");
                 }
 
-                var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-
-                Debug.WriteLine(requestBody.ToString());
-                Debug.WriteLine(content.ToString());
-
-                try
+                if (string.IsNullOrEmpty(apiKey))
                 {
+                    Debug.WriteLine("API Key is null or empty");
+                    return new AIResponse
+                    {
+                        Response = "Error: API Key is missing",
+                        FinishReason = "error"
+                    };
+                }
+
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                    var requestBody = new JObject
+                    {
+                        ["model"] = modelToUse,
+                        ["messages"] = messages,
+                        ["temperature"] = 0.7,
+                        ["max_tokens"] = maxTokens
+                    };
+
+                    if (!string.IsNullOrEmpty(jsonSchema))
+                    {
+                        var responseFormat = new JObject
+                        {
+                            ["type"] = "json_object"
+                        };
+                        requestBody["response_format"] = responseFormat;
+                    }
+
+                    var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+
+                    Debug.WriteLine($"Sending request to OpenAI with model: {modelToUse}");
+
                     var response = await client.PostAsync(ApiURL, content);
                     response.EnsureSuccessStatusCode();
                     var responseBody = await response.Content.ReadAsStringAsync();
@@ -170,22 +176,26 @@ namespace SmartHopper.Config.Providers
                         FinishReason = json["choices"][0]["finish_reason"].ToString().Trim(),
                     };
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error in OpenAI request: {ex.Message}");
-                    return new AIResponse
-                    {
-                        Response = $"Error: {ex.Message}",
-                        FinishReason = "error"
-                    };
-                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in OpenAI request: {ex.Message}");
+                throw new Exception($"Error getting response from OpenAI: {ex.Message}", ex);
             }
         }
 
-        public string GetModel(Dictionary<string, object> providerSettings, string model)
+        public string GetModel(Dictionary<string, object> settings, string requestedModel = "")
         {
-            return !string.IsNullOrEmpty(model) ? model :
-                   (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : _defaultModel);
+            // Use the requested model if provided
+            if (!string.IsNullOrWhiteSpace(requestedModel))
+                return requestedModel;
+
+            // Use the model from settings if available
+            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
+                return settings["Model"].ToString();
+
+            // Fall back to the default model
+            return _defaultModel;
         }
     }
 }

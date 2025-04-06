@@ -159,7 +159,7 @@ namespace SmartHopper.Components.Text
 
                     // Use the new generic tool to generate text
                     var result = await TextTools.GenerateTextAsync(promptTree[i], instructionsTree[i], 
-                        messages => parent.GetResponse(messages));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
 
                     if (!result.Success)
                     {
