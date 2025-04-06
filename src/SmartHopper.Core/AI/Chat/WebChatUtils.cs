@@ -76,9 +76,8 @@ namespace SmartHopper.Core.AI.Chat
                         {
                             Debug.WriteLine("[WebChatUtils] Reusing existing dialog for component");
                             
-                            // Ensure the dialog is visible and active
-                            existingDialog.BringToFront();
-                            existingDialog.Focus();
+                            // Use the cross-platform EnsureVisibility method to make the dialog visible
+                            existingDialog.EnsureVisibility();
                             
                             // Complete the task with null to indicate no new response
                             tcs.TrySetResult(null);
