@@ -32,13 +32,20 @@ namespace SmartHopper.Core.AI.Chat
     public static class WebChatUtils
     {
         /// <summary>
+        /// Dictionary to track open chat dialogs by component instance ID.
+        /// </summary>
+        private static readonly Dictionary<Guid, WebChatDialog> _openDialogs = new Dictionary<Guid, WebChatDialog>();
+
+        /// <summary>
         /// Shows a web-based chat dialog for the specified AI provider and model.
+        /// If a dialog is already open for the specified component, it will be focused instead of creating a new one.
         /// </summary>
         /// <param name="providerName">The name of the AI provider to use</param>
         /// <param name="modelName">The model to use for AI processing</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider</param>
+        /// <param name="componentId">The unique ID of the component instance</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string endpoint = null)
+        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string endpoint = null, Guid componentId = default)
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse lastResponse = null;
@@ -64,13 +71,40 @@ namespace SmartHopper.Core.AI.Chat
                             new Application(platform).Attach();
                         }
 
+                        // Check if a dialog is already open for this component
+                        if (componentId != default && _openDialogs.TryGetValue(componentId, out WebChatDialog existingDialog))
+                        {
+                            Debug.WriteLine("[WebChatUtils] Reusing existing dialog for component");
+                            
+                            // Ensure the dialog is visible and active
+                            existingDialog.BringToFront();
+                            existingDialog.Focus();
+                            
+                            // Complete the task with null to indicate no new response
+                            tcs.TrySetResult(null);
+                            return;
+                        }
+
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
                         var dialog = new WebChatDialog(getResponse);
+                        
+                        // If component ID is provided, store the dialog
+                        if (componentId != default)
+                        {
+                            _openDialogs[componentId] = dialog;
+                        }
                         
                         // Handle dialog closing
                         dialog.Closed += (sender, e) => 
                         {
                             Debug.WriteLine("[WebChatUtils] Dialog closed");
+                            
+                            // Remove from open dialogs dictionary
+                            if (componentId != default)
+                            {
+                                _openDialogs.Remove(componentId);
+                            }
+                            
                             // Complete the task with the last response
                             tcs.TrySetResult(lastResponse);
                         };
@@ -119,6 +153,7 @@ namespace SmartHopper.Core.AI.Chat
             private readonly string _providerName;
             private readonly string _modelName;
             private readonly string _endpoint;
+            private readonly Guid _componentId;
             private AIResponse _lastResponse;
 
             /// <summary>
@@ -128,16 +163,19 @@ namespace SmartHopper.Core.AI.Chat
             /// <param name="modelName">The model to use for AI processing</param>
             /// <param name="endpoint">Optional custom endpoint for the AI provider</param>
             /// <param name="progressReporter">Action to report progress</param>
+            /// <param name="componentId">The unique ID of the component instance</param>
             public WebChatWorker(
                 string providerName,
                 string modelName,
                 string endpoint,
-                Action<string> progressReporter)
+                Action<string> progressReporter,
+                Guid componentId = default)
             {
                 _providerName = providerName;
                 _modelName = modelName;
                 _endpoint = endpoint;
                 _progressReporter = progressReporter;
+                _componentId = componentId;
             }
 
             /// <summary>
@@ -151,7 +189,7 @@ namespace SmartHopper.Core.AI.Chat
                 
                 try
                 {
-                    _lastResponse = await ShowWebChatDialog(_providerName, _modelName, _endpoint);
+                    _lastResponse = await ShowWebChatDialog(_providerName, _modelName, _endpoint, _componentId);
                     _progressReporter?.Invoke("Web chat dialog closed");
                 }
                 catch (Exception ex)
@@ -178,14 +216,16 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="modelName">The model to use for AI processing</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider</param>
         /// <param name="progressReporter">Action to report progress</param>
+        /// <param name="componentId">The unique ID of the component instance</param>
         /// <returns>A new web chat worker</returns>
         public static WebChatWorker CreateWebChatWorker(
             string providerName, 
             string modelName, 
             string endpoint,
-            Action<string> progressReporter)
+            Action<string> progressReporter,
+            Guid componentId = default)
         {
-            return new WebChatWorker(providerName, modelName, endpoint, progressReporter);
+            return new WebChatWorker(providerName, modelName, endpoint, progressReporter, componentId);
         }
     }
 }
