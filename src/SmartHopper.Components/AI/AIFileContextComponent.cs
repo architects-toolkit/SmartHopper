@@ -19,20 +19,25 @@ namespace SmartHopper.Components.AI
     /// <summary>
     /// Component that provides context for AI queries
     /// </summary>
-    public class AIContextComponent : GH_Component, IAIContextProvider
+    public class AIFileContextComponent : GH_Component, IAIContextProvider
     {
         private string _context;
 
         /// <summary>
-        /// Constructor for the AI Context component
+        /// Gets the provider identifier
         /// </summary>
-        public AIContextComponent()
-            : base("AI Context", "AICtx",
+        public string ProviderId => "file";
+
+        /// <summary>
+        /// Constructor for the AI File Context component
+        /// </summary>
+        public AIFileContextComponent()
+            : base("AI File Context", "AIFileCtx",
                 "Defines the current file context for AI-powered components",
                 "SmartHopper", "AI")
         {
-            // Register this component as the context provider
-            AIContextManager.SetContextProvider(this);
+            // Register this component as a context provider
+            AIContextManager.RegisterProvider(this);
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)

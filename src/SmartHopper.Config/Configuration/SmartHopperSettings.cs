@@ -163,22 +163,29 @@ namespace SmartHopper.Config.Configuration
 
         private IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
+            var provider = ProviderManager.Instance.GetProvider(providerName);
+            if (provider != null)
+            {
+                return provider.GetSettingDescriptors();
+            }
+
+            // Fallback to old method for backward compatibility
             var assembly = Assembly.GetExecutingAssembly();
             var providerType = assembly.GetTypes()
                 .FirstOrDefault(t => typeof(IAIProvider).IsAssignableFrom(t) &&
                                    !t.IsInterface &&
                                    !t.IsAbstract &&
-                                   t.GetField("ProviderName", BindingFlags.Public | BindingFlags.Static)?.GetValue(null)?.ToString() == providerName);
+                                   t.GetProperty("Name")?.GetValue(null)?.ToString() == providerName);
 
             if (providerType != null)
             {
                 var instanceProperty = providerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
                 if (instanceProperty != null)
                 {
-                    var provider = instanceProperty.GetValue(null) as IAIProvider;
-                    if (provider != null)
+                    var oldProvider = instanceProperty.GetValue(null) as IAIProvider;
+                    if (oldProvider != null)
                     {
-                        return provider.GetSettingDescriptors();
+                        return oldProvider.GetSettingDescriptors();
                     }
                 }
             }
@@ -230,22 +237,8 @@ namespace SmartHopper.Config.Configuration
 
         public static IEnumerable<IAIProvider> DiscoverProviders()
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            var providerTypes = assembly.GetTypes()
-                .Where(t => typeof(IAIProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
-
-            foreach (var type in providerTypes)
-            {
-                var instanceProperty = type.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                if (instanceProperty != null)
-                {
-                    var provider = instanceProperty.GetValue(null) as IAIProvider;
-                    if (provider != null)
-                    {
-                        yield return provider;
-                    }
-                }
-            }
+            // Use the ProviderManager to discover providers
+            return ProviderManager.Instance.GetProviders();
         }
 
         /// <summary>
@@ -254,17 +247,7 @@ namespace SmartHopper.Config.Configuration
         /// <returns>The default AI provider name</returns>
         public string GetDefaultAIProvider()
         {
-            var providers = DiscoverProviders().ToList();
-            
-            // If the DefaultAIProvider is set and exists in the available providers, use it
-            if (!string.IsNullOrEmpty(DefaultAIProvider) && 
-                providers.Any(p => p.Name == DefaultAIProvider))
-            {
-                return DefaultAIProvider;
-            }
-            
-            // Otherwise, return the first available provider or empty string if none
-            return providers.Any() ? providers.First().Name : string.Empty;
+            return ProviderManager.Instance.GetDefaultAIProvider();
         }
 
         /// <summary>
@@ -274,13 +257,7 @@ namespace SmartHopper.Config.Configuration
         /// <returns>The provider's icon or null if not found</returns>
         public static Image GetProviderIcon(string providerName)
         {
-            if (string.IsNullOrEmpty(providerName))
-                return null;
-
-            var provider = SmartHopperSettings.DiscoverProviders()
-                .FirstOrDefault(p => p.Name == providerName);
-
-            return provider?.Icon;
+            return ProviderManager.Instance.GetProviderIcon(providerName);
         }
     }
 }

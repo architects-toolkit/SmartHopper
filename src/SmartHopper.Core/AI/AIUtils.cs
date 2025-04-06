@@ -11,13 +11,11 @@
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Providers;
 using SmartHopper.Core.AI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace SmartHopper.Core.Utils
@@ -66,23 +64,23 @@ namespace SmartHopper.Core.Utils
         //    };
         //}
 
-        public static async Task<AIResponse> GetResponse(string providerName, string model, List<KeyValuePair<string, string>> messages, string jsonSchema = "", string endpoint = "")
+        public static async Task<AIResponse> GetResponse(string providerName, string model, List<KeyValuePair<string, string>> messages, string jsonSchema = "", string endpoint = "", string contextProviderFilter = null, string contextKeyFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, contextProviderFilter, contextKeyFilter);
         }
 
-        public static async Task<AIResponse> GetResponse(string providerName, string model, List<TextChatModel> messages, string jsonSchema = "", string endpoint = "")
+        public static async Task<AIResponse> GetResponse(string providerName, string model, List<TextChatModel> messages, string jsonSchema = "", string endpoint = "", string contextProviderFilter = null, string contextKeyFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, contextProviderFilter, contextKeyFilter);
         }
 
-        private static async Task<AIResponse> GetResponse(string providerName, string model, JArray messages, string jsonSchema = "", string endpoint = "")
+        private static async Task<AIResponse> GetResponse(string providerName, string model, JArray messages, string jsonSchema = "", string endpoint = "", string contextProviderFilter = null, string contextKeyFilter = null)
         {
             // Add message context
             try
             {
-                // Add context from the context provider to the messages
-                var contextData = AIContextManager.GetCurrentContext();
+                // Add context from all registered context providers, applying filters if specified
+                var contextData = AIContextManager.GetCurrentContext(contextProviderFilter, contextKeyFilter);
                 if (contextData.Count > 0)
                 {
                     var contextMessages = contextData
@@ -91,7 +89,7 @@ namespace SmartHopper.Core.Utils
 
                     if (contextMessages.Any())
                     {
-                        var contextMessage = "Use the following context when generating an answer:\n\n" + 
+                        var contextMessage = "Conversation context:\n\n" + 
                                              string.Join("\n", contextMessages);
                         var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
                         { 
