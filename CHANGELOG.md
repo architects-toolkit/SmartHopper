@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+
+## [0.2.0-alpha] - 2025-04-06
+
 ### Added
 
 - Added modular provider architecture:
