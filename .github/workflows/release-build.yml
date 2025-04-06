@@ -136,12 +136,12 @@ jobs:
           $platformPath = Join-Path "artifacts" $platform
           
           if (Test-Path $platformPath) {
-            Write-Host "Creating zip for $platform: $zipName"
+            Write-Host "Creating zip for ${platform}: ${zipName}"
             # Create zip directly from the platform folder contents (not the folder itself)
             Compress-Archive -Path "$platformPath\*" -DestinationPath $zipName
             $zipPaths += $zipName
           } else {
-            Write-Host "Platform folder $platformPath not found, skipping"
+            Write-Host "Platform folder ${platformPath} not found, skipping"
           }
         }
         
