@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Message selection and copying capabilities with a context menu.
   - Automatic message height adjustment based on content and removal of visible scrollbars.
   - Improved scrolling behavior.
+  - Allow only one chat dialog to be open per AI Chat Component. When running the component again, if there is a linked chat dialog, it will be focused instead of opening a new one.
 - Enhanced About dialog:
   - Decreased font size.
   - Defined a minimum size.
@@ -91,6 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixes "Bug: AI Chat component freezes all Rhino!" ([#85](https://github.com/architects-toolkit/SmartHopper/issues/85)).
 - Fixes "Bug: Settings Menu is incompatible with Mac" ([#12](https://github.com/architects-toolkit/SmartHopper/issues/12)).
 - Fixes "AI disclaimer in chat and about" ([#114](https://github.com/architects-toolkit/SmartHopper/issues/114)).
+- Fixed a bug opening the chat dialog that eventually froze the application.
+- Fixed a bug where the chat dialog was not on top when clicking on it from the windows taskbar. 
 
 ## [0.1.2-alpha] - 2025-03-17
 

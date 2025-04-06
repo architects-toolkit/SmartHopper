@@ -161,7 +161,8 @@ namespace SmartHopper.Components.AI
                         actualProvider,
                         _component.GetModel(),
                         _component.GetEndpoint(),
-                        _progressReporter);
+                        _progressReporter,
+                        _component.InstanceGuid); // Pass the component's instance GUID
 
                     // Process the chat
                     await chatWorker.ProcessChatAsync(token);
