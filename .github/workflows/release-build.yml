@@ -219,7 +219,7 @@ jobs:
             if ($smartHopperFileCount -lt $csprojCount) {
               Write-Host "##[error] Missing SmartHopper files in $platform folder! Expected at least $csprojCount files but found only $smartHopperFileCount."
               Write-Host "##[error] This could indicate that some projects failed to build or weren't copied correctly."
-              Write-Host "Files found in $platformPath:"
+              Write-Host "Files found in ${platformPath}:"
               Get-ChildItem -Path $platformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
               $missingFiles = $true
             }
