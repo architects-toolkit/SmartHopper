@@ -54,7 +54,7 @@ jobs:
           $latestTag = "0.1.2-alpha" # Fallback if no tags exist
         }
         Write-Host "Latest tag: $latestTag"
-        "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
+        echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
     
     - name: Determine version to build
       id: determine_version
@@ -82,8 +82,8 @@ jobs:
         Write-Host "Building version: $version"
         Write-Host "Is release build: $isRelease"
         
-        "VERSION=$version" >> $env:GITHUB_OUTPUT
-        "IS_RELEASE=$isRelease" >> $env:GITHUB_OUTPUT
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "IS_RELEASE=$isRelease" >> $env:GITHUB_OUTPUT
     
     - name: Check if release is draft
       if: github.event_name == 'release'
@@ -91,7 +91,7 @@ jobs:
       shell: pwsh
       run: |
         $isDraft = "${{ github.event.release.draft }}"
-        "IS_DRAFT=$isDraft" >> $env:GITHUB_OUTPUT
+        echo "IS_DRAFT=$isDraft" >> $env:GITHUB_OUTPUT
       
     - name: Exit if release is draft
       if: github.event_name == 'release' && steps.check_draft.outputs.IS_DRAFT == 'true'
@@ -231,8 +231,10 @@ jobs:
           
           # Check build directory first
           if (Test-Path $buildPlatformPath) {
-            $buildDirFiles = Get-ChildItem -Path $buildPlatformPath -File -Include "*.gha","*.dll"
-            $smartHopperBuildFiles = $buildDirFiles | Where-Object { 
+            # The -Include parameter doesn't work as expected without wildcards in the path
+            # Use a different approach to get the files
+            $allBuildDirFiles = Get-ChildItem -Path $buildPlatformPath -File
+            $smartHopperBuildFiles = $allBuildDirFiles | Where-Object { 
               ($_.Name -like "SmartHopper.*.dll" -or $_.Name -like "SmartHopper.*.gha") -and 
               $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" 
             }
@@ -336,7 +338,7 @@ jobs:
           $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -Method Get
           $uploadUrl = $release.upload_url
           Write-Host "Found release upload URL: $uploadUrl"
-          "UPLOAD_URL=$uploadUrl" >> $env:GITHUB_OUTPUT
+          echo "UPLOAD_URL=$uploadUrl" >> $env:GITHUB_OUTPUT
         } catch {
           Write-Host "Error fetching release: $_"
           Write-Host "Release with tag $version might not exist or you don't have permission to access it."
