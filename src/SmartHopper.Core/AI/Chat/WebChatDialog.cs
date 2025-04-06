@@ -177,6 +177,40 @@ namespace SmartHopper.Core.AI.Chat
                     Debug.WriteLine($"[WebChatDialog] Error waiting for WebView initialization: {ex.Message}");
                 }
             });
+
+            // Handle window focus events
+            this.GotFocus += (sender, e) => {
+                Debug.WriteLine("[WebChatDialog] Window got focus");
+                EnsureVisibility();
+            };
+            
+            // Also ensure visibility when the window is shown
+            this.Shown += (sender, e) => {
+                Debug.WriteLine("[WebChatDialog] Window shown");
+                EnsureVisibility();
+            };
+        }
+
+        /// <summary>
+        /// Ensures the dialog is visible and in the foreground using cross-platform methods.
+        /// </summary>
+        public void EnsureVisibility()
+        {
+            Application.Instance.AsyncInvoke(() => {
+                Debug.WriteLine("[WebChatDialog] Ensuring window visibility");
+                
+                // Restore window if minimized
+                if (WindowState == WindowState.Minimized)
+                {
+                    WindowState = WindowState.Normal;
+                }
+                
+                // Use Eto's built-in methods to bring window to front
+                BringToFront();
+                Focus();
+                
+                Debug.WriteLine("[WebChatDialog] Window visibility ensured");
+            });
         }
         
         /// <summary>
