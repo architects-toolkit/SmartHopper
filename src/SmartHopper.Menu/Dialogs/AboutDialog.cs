@@ -208,55 +208,58 @@ namespace SmartHopper.Menu.Dialogs
                 Command = new Command((sender, e) => Close())
             };
 
-            return new StackLayout
+            return new Scrollable
             {
-                Spacing = 10,
-                Items =
+                Content = new StackLayout
                 {
-                    titleLabel,
-                    subtitleLabel,
-                    null, // spacing
-                    versionLabel,
-                    copyrightLabel,
-                    licenseLabel,
-                    null, // spacing
-                    new StackLayout
+                    Spacing = 10,
+                    Items =
                     {
-                        Orientation = Orientation.Horizontal,
-                        Spacing = 5,
-                        Items = { supportLabel, supportLinkLabel, communityLabel }
-                    },
-                    null, // spacing
-                    descriptionLabel,
-                    null, // spacing
-                    warningLabel,
-                    null, // spacing
-                    aiDisclaimerLabel,
-                    null, // spacing
-                    openSourceThanksLabel,
-                    speckleLink,
-                    ghptLink,
-                    materialIconsLink,
-                    null, // spacing
-                    new StackLayout
-                    {
-                        Orientation = Orientation.Horizontal,
-                        Spacing = 5,
-                        Items = 
-                        { 
-                            new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
-                            githubLinkLabel 
-                        }
-                    },
-                    null, // spacing
-                    new StackLayoutItem(null, true), // Push everything up
-                    new StackLayoutItem(
+                        titleLabel,
+                        subtitleLabel,
+                        null, // spacing
+                        versionLabel,
+                        copyrightLabel,
+                        licenseLabel,
+                        null, // spacing
                         new StackLayout
                         {
                             Orientation = Orientation.Horizontal,
-                            Items = { new StackLayoutItem(null, true), okButton }
-                        }
-                    )
+                            Spacing = 5,
+                            Items = { supportLabel, supportLinkLabel, communityLabel }
+                        },
+                        null, // spacing
+                        descriptionLabel,
+                        null, // spacing
+                        warningLabel,
+                        null, // spacing
+                        openSourceThanksLabel,
+                        speckleLink,
+                        ghptLink,
+                        materialIconsLink,
+                        null, // spacing
+                        new StackLayout
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 5,
+                            Items = 
+                            { 
+                                new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
+                                githubLinkLabel 
+                            }
+                        },
+                        null, // spacing
+                        new StackLayoutItem(null, true), // Push everything up
+                        aiDisclaimerLabel,
+                        null, // spacing
+                        new StackLayoutItem(
+                            new StackLayout
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Items = { new StackLayoutItem(null, true), okButton }
+                            }
+                        )
+                    }
                 }
             };
         }
