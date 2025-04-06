@@ -135,49 +135,22 @@ namespace SmartHopper.Core.AI.Chat
             
             Debug.WriteLine("[WebChatDialog] WebChatDialog initialized, starting WebView initialization");
             
-            // Initialize WebView after the dialog is shown
-            this.Shown += async (sender, e) => 
+            // Initialize WebView after the dialog is shown, but don't block the UI thread
+            this.Shown += (sender, e) => 
             {
-                Debug.WriteLine("[WebChatDialog] Initializing WebView");
+                Debug.WriteLine("[WebChatDialog] Dialog shown, starting WebView initialization");
                 
-                try
-                {
-                    // Prepare HTML on background thread
-                    string html = await Task.Run(() => _htmlRenderer.GetInitialHtml());
-                    
-                    // Then load it on UI thread
-                    Application.Instance.AsyncInvoke(() => {
-                        _webView.LoadHtml(html);
-                        InitializeWebViewAsync();
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[WebChatDialog] Error initializing WebView: {ex.Message}");
-                }
+                // Start initialization in a background thread to avoid UI blocking
+                Task.Run(() => InitializeWebViewAsync())
+                    .ContinueWith(t => 
+                    {
+                        if (t.IsFaulted)
+                        {
+                            Debug.WriteLine($"[WebChatDialog] WebView initialization failed: {t.Exception?.InnerException?.Message}");
+                        }
+                    }, TaskScheduler.Default);
             };
             
-            // Add system message once WebView is initialized
-            Task.Run(async () => 
-            {
-                try
-                {
-                    Debug.WriteLine("[WebChatDialog] Waiting for WebView initialization");
-                    await _webViewInitializedTcs.Task;
-                    Debug.WriteLine("[WebChatDialog] WebView initialization completed, adding system message");
-                    
-                    Application.Instance.AsyncInvoke(() => 
-                    {
-                        AddSystemMessage("I'm an AI assistant. How can I help you today?");
-                        _statusLabel.Text = "Ready";
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[WebChatDialog] Error waiting for WebView initialization: {ex.Message}");
-                }
-            });
-
             // Handle window focus events
             this.GotFocus += (sender, e) => {
                 Debug.WriteLine("[WebChatDialog] Window got focus");
@@ -216,58 +189,110 @@ namespace SmartHopper.Core.AI.Chat
         /// <summary>
         /// Initializes the WebView control asynchronously.
         /// </summary>
-        private async void InitializeWebViewAsync()
+        private async Task InitializeWebViewAsync()
         {
             try
             {
-                Debug.WriteLine("[WebChatDialog] Starting WebView initialization");
+                Debug.WriteLine("[WebChatDialog] Starting WebView initialization from background thread");
                 
-                // Get the actual chat HTML directly
-                Debug.WriteLine("[WebChatDialog] Getting HTML from HtmlChatRenderer");
+                // Get the HTML content on the background thread
                 string html = _htmlRenderer.GetInitialHtml();
-                Debug.WriteLine($"[WebChatDialog] HTML length: {html?.Length ?? 0}");
+                Debug.WriteLine($"[WebChatDialog] HTML prepared, length: {html?.Length ?? 0}");
                 
-                // Load the chat HTML
-                Debug.WriteLine("[WebChatDialog] Loading HTML into WebView");
-                _webView.LoadHtml(html);
+                // Create a task completion source for tracking document loading
+                var loadCompletionSource = new TaskCompletionSource<bool>();
                 
-                // Wait for the document to load
-                var chatLoadCompleteTcs = new TaskCompletionSource<bool>();
-                EventHandler<WebViewLoadedEventArgs> chatLoadHandler = null;
-                
-                chatLoadHandler = (sender, e) => 
+                // Switch to UI thread to load HTML and set up event handlers
+                await Application.Instance.InvokeAsync(() => 
                 {
-                    Debug.WriteLine("[WebChatDialog] Chat HTML loaded");
-                    _webView.DocumentLoaded -= chatLoadHandler;
-                    chatLoadCompleteTcs.TrySetResult(true);
-                };
+                    try
+                    {
+                        Debug.WriteLine("[WebChatDialog] Loading HTML into WebView on UI thread");
+                        
+                        // Set up document loaded event handler before loading HTML
+                        EventHandler<WebViewLoadedEventArgs> loadHandler = null;
+                        loadHandler = (s, e) => 
+                        {
+                            Debug.WriteLine("[WebChatDialog] WebView document loaded event fired");
+                            _webView.DocumentLoaded -= loadHandler;
+                            loadCompletionSource.TrySetResult(true);
+                        };
+                        
+                        _webView.DocumentLoaded += loadHandler;
+                        
+                        // Load the HTML content
+                        _webView.LoadHtml(html);
+                        
+                        Debug.WriteLine("[WebChatDialog] HTML loaded into WebView, waiting for load completion");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Error in UI thread during WebView initialization: {ex.Message}");
+                        loadCompletionSource.TrySetException(ex);
+                    }
+                }).ConfigureAwait(false);
                 
-                _webView.DocumentLoaded += chatLoadHandler;
+                // Set up a timeout task that won't block the UI thread
+                var timeoutTask = Task.Delay(5000);
                 
-                // Set a timeout for loading the chat HTML
-                var chatTimeoutTask = Task.Delay(5000);
-                var chatCompletedTask = await Task.WhenAny(chatLoadCompleteTcs.Task, chatTimeoutTask);
+                // Wait for either the document to load or the timeout to occur
+                // Using ConfigureAwait(false) to avoid deadlocks
+                var completedTask = await Task.WhenAny(loadCompletionSource.Task, timeoutTask).ConfigureAwait(false);
                 
-                if (chatCompletedTask == chatTimeoutTask)
+                if (completedTask == timeoutTask)
                 {
-                    Debug.WriteLine("[WebChatDialog] Chat HTML loading timed out");
+                    Debug.WriteLine("[WebChatDialog] WebView document loading timed out");
+                }
+                else
+                {
+                    Debug.WriteLine("[WebChatDialog] WebView document loaded successfully");
                 }
                 
+                // Mark initialization as complete
                 _webViewInitialized = true;
                 _webViewInitializedTcs.TrySetResult(true);
+                
+                // Add the welcome message on a background thread
+                await Task.Run(async () => 
+                {
+                    try
+                    {
+                        await Application.Instance.InvokeAsync(() => 
+                        {
+                            InitializeNewConversation();
+                        }).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Error adding welcome message: {ex.Message}");
+                    }
+                }).ConfigureAwait(false);
+                
                 Debug.WriteLine("[WebChatDialog] WebView initialization completed successfully");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error initializing WebView: {ex.Message}");
                 Debug.WriteLine($"[WebChatDialog] Error stack trace: {ex.StackTrace}");
+                
                 if (ex.InnerException != null)
                 {
                     Debug.WriteLine($"[WebChatDialog] Inner exception: {ex.InnerException.Message}");
                     Debug.WriteLine($"[WebChatDialog] Inner exception stack trace: {ex.InnerException.StackTrace}");
                 }
-                _statusLabel.Text = $"Error initializing WebView: {ex.Message}";
-                _webViewInitializedTcs.TrySetException(ex);
+                
+                // Ensure we don't leave initialization hanging
+                if (!_webViewInitialized)
+                {
+                    _webViewInitialized = true;
+                    _webViewInitializedTcs.TrySetException(ex);
+                }
+                
+                // Update the status label on the UI thread
+                await Application.Instance.InvokeAsync(() => 
+                {
+                    _statusLabel.Text = $"Error initializing WebView: {ex.Message}";
+                }).ConfigureAwait(false);
             }
         }
 
@@ -311,7 +336,7 @@ namespace SmartHopper.Core.AI.Chat
                 _webView.LoadHtml(html);
                 
                 // Add system message to start the conversation
-                AddSystemMessage("I'm an AI assistant. How can I help you today?");
+                InitializeNewConversation();
             }
             catch (Exception ex)
             {
@@ -473,6 +498,15 @@ namespace SmartHopper.Core.AI.Chat
                 _sendButton.Enabled = true;
                 _progressBar.Visible = false;
             }
+        }
+
+        /// <summary>
+        /// Initializes a new conversation with a welcome message.
+        /// </summary>
+        private void InitializeNewConversation()
+        {
+            AddSystemMessage("I'm an AI assistant. How can I help you today?");
+            _statusLabel.Text = "Ready";
         }
     }
 }
