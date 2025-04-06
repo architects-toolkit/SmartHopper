@@ -164,20 +164,41 @@ namespace SmartHopper.Menu.Dialogs
                 TextColor = Colors.DarkBlue
             };
 
-            var speckleLink = CreateLinkButton(
-                "- Speckle Systems: GrasshopperAsyncComponent (Apache License 2.0)", 
-                "https://github.com/specklesystems/GrasshopperAsyncComponent"
-            );
+            var speckleLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items = 
+                {
+                    new Label { Text = "- Speckle Systems: ", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
+                    new Label { Text = " (Apache License 2.0)", Font = new Font(SystemFont.Default, 10) }
+                }
+            };
 
-            var ghptLink = CreateLinkButton(
-                "- enmerk4r: GHPT (MIT License)", 
-                "https://github.com/enmerk4r/GHPT"
-            );
+            var ghptLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items = 
+                {
+                    new Label { Text = "- enmerk4r: ", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
+                    new Label { Text = " (MIT License)", Font = new Font(SystemFont.Default, 10) }
+                }
+            };
 
-            var materialIconsLink = CreateLinkButton(
-                "- Google: Material Design Icons (Apache 2.0 License)", 
-                "https://github.com/google/material-design-icons"
-            );
+            var materialIconsLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items = 
+                {
+                    new Label { Text = "- Google: ", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
+                    new Label { Text = " (Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
+                }
+            };
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
