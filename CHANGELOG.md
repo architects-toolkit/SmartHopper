@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+
+## [0.2.0-alpha] - 2025-04-06
+
 ### Added
 
 - Added modular provider architecture:
@@ -39,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Modified AIStatefulAsyncComponentBase to use the new provider handling approach.
   - Changed provider discovery to load assemblies from the main application directory instead of a separate "Providers" subdirectory.
   - Enhanced ProviderManager to only register providers that have IsEnabled set to true.
+  - Added warning log when duplicate AI providers are encountered during registration instead of silently ignoring them.
 - Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
 - Improved version badge workflow to also update badges when color doesn't match the requirements based on version type.
 - Improved ChatDialog UI with numerous enhancements:

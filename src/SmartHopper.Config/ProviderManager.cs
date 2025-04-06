@@ -17,6 +17,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Rhino;
 
 namespace SmartHopper.Config
 {
@@ -194,6 +195,8 @@ namespace SmartHopper.Config
             else
             {
                 Debug.WriteLine($"Provider {providerName} is already registered.");
+                // Log a more visible warning when a duplicate provider is encountered
+                Rhino.RhinoApp.WriteLine($"WARNING: Duplicate AI provider '{providerName}' detected. Only the first registered provider will be used.");
             }
         }
 
