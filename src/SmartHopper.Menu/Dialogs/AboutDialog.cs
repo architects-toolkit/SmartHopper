@@ -102,7 +102,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var copyrightLabel = new Label
             {
-                Text = "Copyright (c) 2024 Marc Roca Musach",
+                Text = "Copyright (c) 2024-2025 Marc Roca Musach",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
@@ -132,14 +132,14 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\nIt currently supports MistralAI and OpenAI.",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI and OpenAI.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
 
             var warningLabel = new Label
             {
-                Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS.",
+                Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS. FILES SAVED WITH THIS VERSION MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
                 TextColor = Colors.DarkRed
@@ -158,10 +158,9 @@ namespace SmartHopper.Menu.Dialogs
 
             var openSourceThanksLabel = new Label
             {
-                Text = "Special Thanks to all the Open Source Projects that inspired or were used in this project:",
+                Text = "Special thanks to all the Open Source Projects that inspired or were used as a base for this project:",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                TextColor = Colors.DarkBlue
+                Wrap = WrapMode.Word
             };
 
             var speckleLink = new StackLayout
@@ -170,9 +169,9 @@ namespace SmartHopper.Menu.Dialogs
                 Spacing = 5,
                 Items = 
                 {
-                    new Label { Text = "- Speckle Systems: ", Font = new Font(SystemFont.Default, 10) },
+                    new Label { Text = "- Speckle Systems for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
-                    new Label { Text = " (Apache License 2.0)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
                 }
             };
 
@@ -182,9 +181,9 @@ namespace SmartHopper.Menu.Dialogs
                 Spacing = 5,
                 Items = 
                 {
-                    new Label { Text = "- enmerk4r: ", Font = new Font(SystemFont.Default, 10) },
+                    new Label { Text = "- enmerk4r for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
-                    new Label { Text = " (MIT License)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
                 }
             };
 
@@ -194,9 +193,9 @@ namespace SmartHopper.Menu.Dialogs
                 Spacing = 5,
                 Items = 
                 {
-                    new Label { Text = "- Google: ", Font = new Font(SystemFont.Default, 10) },
+                    new Label { Text = "- Google for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
-                    new Label { Text = " (Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
                 }
             };
 
@@ -208,15 +207,23 @@ namespace SmartHopper.Menu.Dialogs
                 Command = new Command((sender, e) => Close())
             };
 
-            return new Scrollable
+            // Create a layout for the scrollable content and OK button
+            var mainContentLayout = new Scrollable
             {
+                Border = BorderType.None,
+                ExpandContentHeight = false,
+                ExpandContentWidth = true,
                 Content = new StackLayout
                 {
                     Spacing = 10,
+                    Width = 200,
+                    Height = -1,
                     Items =
                     {
                         titleLabel,
                         subtitleLabel,
+                        null, // spacing
+                        descriptionLabel,
                         null, // spacing
                         versionLabel,
                         copyrightLabel,
@@ -229,15 +236,8 @@ namespace SmartHopper.Menu.Dialogs
                             Items = { supportLabel, supportLinkLabel, communityLabel }
                         },
                         null, // spacing
-                        descriptionLabel,
-                        null, // spacing
                         warningLabel,
-                        null, // spacing
-                        openSourceThanksLabel,
-                        speckleLink,
-                        ghptLink,
-                        materialIconsLink,
-                        null, // spacing
+                        null,
                         new StackLayout
                         {
                             Orientation = Orientation.Horizontal,
@@ -249,19 +249,21 @@ namespace SmartHopper.Menu.Dialogs
                             }
                         },
                         null, // spacing
+                        openSourceThanksLabel,
+                        speckleLink,
+                        ghptLink,
+                        materialIconsLink,
+                        null, // spacing   
+                        null, // spacing
                         new StackLayoutItem(null, true), // Push everything up
                         aiDisclaimerLabel,
                         null, // spacing
-                        new StackLayoutItem(
-                            new StackLayout
-                            {
-                                Orientation = Orientation.Horizontal,
-                                Items = { new StackLayoutItem(null, true), okButton }
-                            }
-                        )
+                        okButton
                     }
                 }
             };
+
+            return mainContentLayout;
         }
 
         private static LinkButton CreateLinkButton(string text, string url)
