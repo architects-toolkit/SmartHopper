@@ -104,7 +104,7 @@ namespace SmartHopper.Components.Text
                         _inputTree,
                         async branches => 
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} trees");
                             return await ProcessData(branches, _parent);
                         },
                         onlyMatchingPaths: false,

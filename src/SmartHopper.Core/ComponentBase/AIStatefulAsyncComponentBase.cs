@@ -341,8 +341,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Sets the metrics output parameters (input tokens, output tokens, finish reason)
         /// </summary>
         /// <param name="DA">The data access object</param>
-        /// <param name="initialBranches">The number of branches in the input data structure</param>
-        protected void SetMetricsOutput(IGH_DataAccess DA, int initialBranches = 0)
+        protected void SetMetricsOutput(IGH_DataAccess DA)
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
@@ -372,11 +371,9 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output", totalOutTokens),
                 new JProperty("finish_reason", finishReason),
                 new JProperty("completion_time", totalCompletionTime),
-                new JProperty("branches_input", initialBranches),
+                new JProperty("branches_input", 0),
                 new JProperty("branches_processed", _responseMetrics.Count)
             );
-
-            // DA.SetData("Metrics", metricsJson);
 
             // Convert metricsJson to GH_String
             var metricsJsonString = metricsJson.ToString();
