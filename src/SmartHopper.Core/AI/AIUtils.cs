@@ -16,43 +16,60 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace SmartHopper.Core.Utils
+namespace SmartHopper.Core.AI
 {
     public static class AIUtils
     {
-        //public static string ExtractToolName(string assistantMessage)
-        //{
-        //    if (string.IsNullOrEmpty(assistantMessage))
-        //        return null;
+        /// <summary>
+        /// Extracts tool name from an assistant message containing a function call
+        /// </summary>
+        /// <param name="assistantMessage">The full assistant message</param>
+        /// <returns>The extracted tool name or null if none found</returns>
+        public static string ExtractToolName(string assistantMessage)
+        {
+            if (string.IsNullOrEmpty(assistantMessage))
+                return null;
 
-        //    var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
-        //    return match.Success ? match.Groups[1].Value : null;
-        //}
+            var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
+            return match.Success ? match.Groups[1].Value : null;
+        }
 
-        //public static string ExtractToolArgs(string assistantMessage)
-        //{
-        //    if (string.IsNullOrEmpty(assistantMessage))
-        //        return null;
+        /// <summary>
+        /// Extracts tool arguments from an assistant message containing a function call
+        /// </summary>
+        /// <param name="assistantMessage">The full assistant message</param>
+        /// <returns>The extracted arguments as a JSON string or null if none found</returns>
+        public static string ExtractToolArgs(string assistantMessage)
+        {
+            if (string.IsNullOrEmpty(assistantMessage))
+                return null;
 
-        //    var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
-        //    return match.Success ? match.Groups[1].Value : null;
-        //}
+            var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
+            return match.Success ? match.Groups[1].Value : null;
+        }
 
-        //public static bool TryParseJson(string strInput, out JToken jToken)
-        //{
-        //    try
-        //    {
-        //        jToken = JToken.Parse(strInput);
-        //        return true;
-        //    }
-        //    catch (Exception)
-        //    {
-        //        jToken = null;
-        //        return false;
-        //    }
-        //}
+        /// <summary>
+        /// Tries to parse a JSON string into a JToken
+        /// </summary>
+        /// <param name="strInput">The JSON string to parse</param>
+        /// <param name="jToken">The output JToken if successful</param>
+        /// <returns>True if parsing was successful, false otherwise</returns>
+        public static bool TryParseJson(string strInput, out JToken jToken)
+        {
+            try
+            {
+                jToken = JToken.Parse(strInput);
+                return true;
+            }
+            catch (Exception)
+            {
+                jToken = null;
+                return false;
+            }
+        }
 
         //public static Dictionary<string, string> GetRoleReplacement()
         //{

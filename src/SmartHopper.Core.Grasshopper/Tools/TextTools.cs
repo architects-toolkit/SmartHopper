@@ -10,12 +10,15 @@
 
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Core.Utils;
+using SmartHopper.Core.AI;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Tools;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Interfaces;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -24,6 +27,153 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// </summary>
     public static class TextTools
     {
+        #region AI Tool Provider Implementation
+
+        /// <summary>
+        /// Get all tools provided by this class
+        /// </summary>
+        /// <returns>Collection of AI tools</returns>
+        public static IEnumerable<AITool> GetTools()
+        {
+            // Define the evaluate text tool
+            yield return new AITool(
+                name: "evaluateText",
+                description: "Evaluates a text against a true/false question",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""text"": {
+                            ""type"": ""string"",
+                            ""description"": ""The text to evaluate""
+                        },
+                        ""question"": {
+                            ""type"": ""string"",
+                            ""description"": ""The true/false question to evaluate""
+                        }
+                    },
+                    ""required"": [""text"", ""question""]
+                }",
+                execute: EvaluateTextToolWrapper
+            );
+            
+            // Define the generate text tool
+            yield return new AITool(
+                name: "generateText",
+                description: "Generates text based on a prompt and optional instructions",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""prompt"": {
+                            ""type"": ""string"",
+                            ""description"": ""The prompt to generate text from""
+                        },
+                        ""instructions"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional instructions for the AI (system prompt)""
+                        }
+                    },
+                    ""required"": [""prompt""]
+                }",
+                execute: GenerateTextToolWrapper
+            );
+        }
+        
+        /// <summary>
+        /// Tool wrapper for the EvaluateText function
+        /// </summary>
+        /// <param name="parameters">Parameters passed from the AI</param>
+        /// <returns>Result object</returns>
+        private static async Task<object> EvaluateTextToolWrapper(JObject parameters)
+        {
+            try
+            {
+                Debug.WriteLine("[TextTools] Running EvaluateTextToolWrapper");
+                
+                // Extract parameters
+                string text = parameters["text"]?.ToString();
+                string question = parameters["question"]?.ToString();
+                
+                if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
+                {
+                    return new { 
+                        success = false, 
+                        error = "Missing required parameters"
+                    };
+                }
+                
+                // Execute the tool
+                var result = await EvaluateTextAsync(
+                    new GH_String(text),
+                    new GH_String(question),
+                    messages => AIUtils.GetResponse("default", "", messages)
+                );
+                
+                // Return standardized result
+                return new {
+                    success = result.Success,
+                    result = result.Success ? result.Result.Value : false,
+                    error = result.Success ? null : result.ErrorMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[TextTools] Error in EvaluateTextToolWrapper: {ex.Message}");
+                return new { 
+                    success = false, 
+                    error = $"Error: {ex.Message}"
+                };
+            }
+        }
+        
+        /// <summary>
+        /// Tool wrapper for the GenerateText function
+        /// </summary>
+        /// <param name="parameters">Parameters passed from the AI</param>
+        /// <returns>Result object</returns>
+        private static async Task<object> GenerateTextToolWrapper(JObject parameters)
+        {
+            try
+            {
+                Debug.WriteLine("[TextTools] Running GenerateTextToolWrapper");
+                
+                // Extract parameters
+                string prompt = parameters["prompt"]?.ToString();
+                string instructions = parameters["instructions"]?.ToString() ?? "";
+                
+                if (string.IsNullOrEmpty(prompt))
+                {
+                    return new { 
+                        success = false, 
+                        error = "Missing required parameter: prompt"
+                    };
+                }
+                
+                // Execute the tool
+                var result = await GenerateTextAsync(
+                    new GH_String(prompt),
+                    new GH_String(instructions),
+                    messages => AIUtils.GetResponse("default", "", messages)
+                );
+                
+                // Return standardized result
+                return new {
+                    success = result.Success,
+                    text = result.Success ? result.Result.Value : null,
+                    error = result.Success ? null : result.ErrorMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[TextTools] Error in GenerateTextToolWrapper: {ex.Message}");
+                return new { 
+                    success = false, 
+                    error = $"Error: {ex.Message}"
+                };
+            }
+        }
+        
+        #endregion
+
         #region Text Evaluation
 
         /// <summary>
