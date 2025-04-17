@@ -38,8 +38,8 @@ namespace SmartHopper.Components.Misc
             pManager.AddIntegerParameter("Output Tokens", "O", "Number of output tokens", GH_ParamAccess.item);
             pManager.AddTextParameter("Finish Reason", "F", "Reason for finishing", GH_ParamAccess.item);
             pManager.AddNumberParameter("Completion Time", "T", "Time taken for completion, in seconds", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Input Branches", "BI", "Number of input branches", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Processed Branches", "BP", "Number of processed branches. This value can differ from input branches when the component detects that there are identical branch combinations.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Input Items", "II", "Number of input items to process", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Processed Items", "PI", "Number of final processed items. This value can differ from input items when the component detects that there are identical item combinations.", GH_ParamAccess.item);
 
         }
 
