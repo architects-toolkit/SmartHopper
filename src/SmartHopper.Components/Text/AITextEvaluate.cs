@@ -158,8 +158,10 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textTree.Count}");
 
-                    // Evaluate text using AI with the component's GetResponse
-                    var result = await TextTools.EvaluateTextAsync(textTree[i], questionTree[i], 
+                    // Evaluate text using the generic tool
+                    var result = await TextTools.EvaluateTextAsync(
+                        textTree[i],
+                        questionTree[i], 
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
 
                     if (!result.Success)

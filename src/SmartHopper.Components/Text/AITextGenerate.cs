@@ -157,8 +157,10 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
 
-                    // Use the new generic tool to generate text
-                    var result = await TextTools.GenerateTextAsync(promptTree[i], instructionsTree[i], 
+                    // Use the generic tool to generate text
+                    var result = await TextTools.GenerateTextAsync(
+                        promptTree[i],
+                        instructionsTree[i], 
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
 
                     if (!result.Success)
