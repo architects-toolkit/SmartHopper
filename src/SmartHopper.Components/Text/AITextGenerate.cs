@@ -102,10 +102,10 @@ namespace SmartHopper.Components.Text
 
                     _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_String>(
                         _inputTree,
-                        async branches => 
+                        async (branches, reuseCount) => 
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} trees");
-                            return await ProcessData(branches, _parent);
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
+                            return await ProcessData(branches, _parent, reuseCount);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -119,7 +119,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent, int reuseCount = 1)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -130,7 +130,7 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
@@ -159,7 +159,10 @@ namespace SmartHopper.Components.Text
 
                     // Use the new generic tool to generate text
                     var result = await TextTools.GenerateTextAsync(promptTree[i], instructionsTree[i], 
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
+                        messages => parent.GetResponse(messages, 
+                            contextProviderFilter: "-environment,-time",
+                            contextKeyFilter: "-environment,-time",
+                            reuseCount: reuseCount));
 
                     if (!result.Success)
                     {

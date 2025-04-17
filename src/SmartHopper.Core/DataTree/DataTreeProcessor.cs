@@ -359,7 +359,7 @@ namespace SmartHopper.Core.DataTree
 
         public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
-            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
+            Func<Dictionary<string, List<T>>, int, Task<Dictionary<string, List<U>>>> function,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false,
             CancellationToken token = default)
@@ -412,12 +412,16 @@ namespace SmartHopper.Core.DataTree
                 
                 try 
                 {
-                    // Apply the function to the current branch and await its completion
-                    var branchResult = await function(branches);
-                    
                     // Get the paths to apply the result to (could be multiple if they have identical branch data)
                     var pathsToApply = pathsToApplyMap[path];
-
+                    
+                    // Calculate the reuse count as the number of paths this result will be applied to
+                    int reuseCount = pathsToApply.Count;
+                    Debug.WriteLine($"[DataTreeProcessor] Result for path {path} will be reused {reuseCount} times");
+                    
+                    // Apply the function to the current branch and await its completion, passing the reuse count
+                    var branchResult = await function(branches, reuseCount);
+                    
                     // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
                     foreach (var applyPath in pathsToApply)
                     {
