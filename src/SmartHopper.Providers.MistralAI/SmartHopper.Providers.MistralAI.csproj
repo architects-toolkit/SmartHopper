@@ -13,7 +13,7 @@
   <PropertyGroup>
     <Version>$(SolutionVersion)</Version>
     <Title>SmartHopper MistralAI Provider</Title>
-    <Company>Architect's Toolkit (RKTK.tools) + SmartHopper Community</Company>
+    <Company>Architect's Toolkit (RKTK.tools)</Company>
     <Description>MistralAI provider for SmartHopper</Description>
     <Authors>Marc Roca Musach + SmartHopper Community</Authors>
     <Copyright>Copyright (c) 2025 Marc Roca Musach</Copyright>
