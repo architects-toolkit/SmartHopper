@@ -247,11 +247,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="messages">The messages to send to the AI provider.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers (comma-separated list).</param>
         /// <param name="contextKeyFilter">Optional filter for context keys (comma-separated list).</param>
+        /// <param name="reuseCount">Optional. The number of times this response will be reused across different branches. Default is 1.</param>
         /// <returns>The AI response from the provider.</returns>
         protected async Task<AIResponse> GetResponse(
             List<KeyValuePair<string, string>> messages, 
             string contextProviderFilter = null, 
-            string contextKeyFilter = null)
+            string contextKeyFilter = null,
+            int reuseCount = 1)
         {
             try
             {
@@ -274,7 +276,8 @@ namespace SmartHopper.Core.ComponentBase
                     contextProviderFilter: contextProviderFilter,
                     contextKeyFilter: contextKeyFilter);
 
-                StoreResponseMetrics(response);
+                // Store response metrics with the provided reuse count
+                StoreResponseMetrics(response, reuseCount);
 
                 return response;
             }
@@ -327,13 +330,17 @@ namespace SmartHopper.Core.ComponentBase
         /// Stores the given AI response metrics in the component's internal metrics list.
         /// </summary>
         /// <param name="response">The AI response to store metrics from.</param>
-        public void StoreResponseMetrics(AIResponse response)
+        /// <param name="reuseCount">Optional. The number of times this response is reused across different branches. Default is 1.</param>
+        public void StoreResponseMetrics(AIResponse response, int reuseCount = 1)
         {
             if (response != null)
             {
+                // Set the reuse count on the response
+                response.ReuseCount = reuseCount;
+                
                 _responseMetrics.Add(response);
 
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list");
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list with reuse count: {reuseCount}");
             }
         }
 
@@ -371,8 +378,8 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output", totalOutTokens),
                 new JProperty("finish_reason", finishReason),
                 new JProperty("completion_time", totalCompletionTime),
-                new JProperty("branches_input", 0),
-                new JProperty("branches_processed", _responseMetrics.Count)
+                new JProperty("data_count", _responseMetrics.Sum(r => r.ReuseCount)),
+                new JProperty("iterations_count", _responseMetrics.Count)
             );
 
             // Convert metricsJson to GH_String
