@@ -25,15 +25,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// <summary>
     /// Contains tools for text analysis and manipulation using AI
     /// </summary>
-    public static class TextTools
+    public class TextTools : IAIToolProvider
     {
-        #region AI Tool Provider Implementation
+        #region IAIToolProvider Implementation
 
         /// <summary>
         /// Get all tools provided by this class
         /// </summary>
         /// <returns>Collection of AI tools</returns>
-        public static IEnumerable<AITool> GetTools()
+        public IEnumerable<AITool> GetTools()
         {
             // Define the evaluate text tool
             yield return new AITool(
@@ -42,16 +42,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""text"": {
-                            ""type"": ""string"",
-                            ""description"": ""The text to evaluate""
-                        },
-                        ""question"": {
-                            ""type"": ""string"",
-                            ""description"": ""The true/false question to evaluate""
-                        }
+                        ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
+                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
+                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
+                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
                     },
-                    ""required"": [""text"", ""question""]
+                    ""required"": [""text"", ""question"" ]
                 }",
                 execute: EvaluateTextToolWrapper
             );
@@ -70,7 +66,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Optional instructions for the AI (system prompt)""
-                        }
+                        },
+                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
+                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
                     },
                     ""required"": [""prompt""]
                 }",
@@ -83,13 +81,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI</param>
         /// <returns>Result object</returns>
-        private static async Task<object> EvaluateTextToolWrapper(JObject parameters)
+        private async Task<object> EvaluateTextToolWrapper(JObject parameters)
         {
             try
             {
                 Debug.WriteLine("[TextTools] Running EvaluateTextToolWrapper");
                 
                 // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? "";
+                string modelName = parameters["model"]?.ToString() ?? "";
                 string text = parameters["text"]?.ToString();
                 string question = parameters["question"]?.ToString();
                 
@@ -105,7 +105,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await EvaluateTextAsync(
                     new GH_String(text),
                     new GH_String(question),
-                    messages => AIUtils.GetResponse("default", "", messages)
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)
                 );
                 
                 // Return standardized result
@@ -130,13 +130,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI</param>
         /// <returns>Result object</returns>
-        private static async Task<object> GenerateTextToolWrapper(JObject parameters)
+        private async Task<object> GenerateTextToolWrapper(JObject parameters)
         {
             try
             {
                 Debug.WriteLine("[TextTools] Running GenerateTextToolWrapper");
                 
                 // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? "";
+                string modelName = parameters["model"]?.ToString() ?? "";
                 string prompt = parameters["prompt"]?.ToString();
                 string instructions = parameters["instructions"]?.ToString() ?? "";
                 
@@ -152,7 +154,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await GenerateTextAsync(
                     new GH_String(prompt),
                     new GH_String(instructions),
-                    messages => AIUtils.GetResponse("default", "", messages)
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)
                 );
                 
                 // Return standardized result
@@ -183,7 +185,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="question">The true/false question to evaluate</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, parsed result, and any error information</returns>
-        public static async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
+        public async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -249,7 +251,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="provider">The AI provider to use</param>
         /// <param name="model">The model to use, or empty for default</param>
         /// <returns>Evaluation result containing the AI response, parsed result, and any error information</returns>
-        public static Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
+        public Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
             string provider,
@@ -270,7 +272,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="instructions">Optional instructions for the AI</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>The generated text as a GH_String</returns>
-        public static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
+        public async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -324,7 +326,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="provider">The AI provider to use</param>
         /// <param name="model">The model to use, or empty for default</param>
         /// <returns>The generated text as a GH_String</returns>
-        public static Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
+        public Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
             string provider,

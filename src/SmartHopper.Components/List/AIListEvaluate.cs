@@ -166,7 +166,8 @@ namespace SmartHopper.Components.List
                     var currentList = listTreeJson[i];
 
                     // Use the generic ListTools.EvaluateListAsync method
-                    var evaluationResult = await ListTools.EvaluateListAsync(
+                    var tools = new ListTools();
+                    var evaluationResult = await tools.EvaluateListAsync(
                         currentList.Value,
                         question,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));

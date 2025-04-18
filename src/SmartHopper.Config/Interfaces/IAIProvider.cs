@@ -37,7 +37,7 @@ namespace SmartHopper.Config.Interfaces
 
         bool ValidateSettings(Dictionary<string, object> settings);
 
-        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "");
+        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
         
         string GetModel(Dictionary<string, object> settings, string requestedModel = "");
     }

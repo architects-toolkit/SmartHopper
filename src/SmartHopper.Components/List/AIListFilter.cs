@@ -165,7 +165,8 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
                     // Use the generic ListTools.FilterListAsync method with the original list
-                    var filterResult = await ListTools.FilterListAsync(
+                    var tools = new ListTools();
+                    var filterResult = await tools.FilterListAsync(
                         listTreeOriginal,
                         criterion,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));

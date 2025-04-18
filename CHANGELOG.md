@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Enabled the AIChat component to execute tools in Grasshopper.
+
 ### Changed
 
 - Renamed the 'Branches Input' and 'Processed Branches' parameters to 'Data Count' and 'Iterations Count' in DeconstructMetricsComponents. Improved descriptions for both parameters.

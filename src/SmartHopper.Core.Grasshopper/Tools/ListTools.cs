@@ -14,6 +14,7 @@ using SmartHopper.Core.AI;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Tools;
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -26,15 +27,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// <summary>
     /// Contains tools for list analysis and manipulation using AI
     /// </summary>
-    public static class ListTools
+    public class ListTools : IAIToolProvider
     {
-        #region AI Tool Provider Implementation
+        #region IAIToolProvider Implementation
 
         /// <summary>
         /// Get all tools provided by this class
         /// </summary>
         /// <returns>Collection of AI tools</returns>
-        public static IEnumerable<AITool> GetTools()
+        public IEnumerable<AITool> GetTools()
         {
             // Define the evaluate list tool
             yield return new AITool(
@@ -43,14 +44,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""list"": {
-                            ""type"": ""string"",
-                            ""description"": ""JSON string representing the list to evaluate""
-                        },
-                        ""question"": {
-                            ""type"": ""string"",
-                            ""description"": ""The natural language question to answer about the list""
-                        }
+                        ""list"": { ""type"": ""string"", ""description"": ""JSON string representing the list to evaluate"" },
+                        ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" },
+                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
+                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
                     },
                     ""required"": [""list"", ""question""]
                 }",
@@ -64,17 +61,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""list"": {
-                            ""type"": ""array"",
-                            ""items"": {
-                                ""type"": ""string""
-                            },
-                            ""description"": ""Array of strings to filter""
-                        },
-                        ""criteria"": {
-                            ""type"": ""string"",
-                            ""description"": ""Natural language criteria to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'remove duplicates')""
-                        }
+                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to filter"" },
+                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language criteria to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'remove duplicates')"" },
+                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
+                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
                     },
                     ""required"": [""list"", ""criteria""]
                 }",
@@ -87,13 +77,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI</param>
         /// <returns>Result object</returns>
-        private static async Task<object> EvaluateListToolWrapper(JObject parameters)
+        private async Task<object> EvaluateListToolWrapper(JObject parameters)
         {
             try
             {
                 Debug.WriteLine("[ListTools] Running EvaluateListToolWrapper");
                 
                 // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? "";
+                string modelName = parameters["model"]?.ToString() ?? "";
                 string jsonList = parameters["list"]?.ToString();
                 string question = parameters["question"]?.ToString();
                 
@@ -109,7 +101,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await EvaluateListAsync(
                     jsonList,
                     new GH_String(question),
-                    messages => AIUtils.GetResponse("default", "", messages)
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)
                 );
                 
                 // Return standardized result
@@ -134,13 +126,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI</param>
         /// <returns>Result object</returns>
-        private static async Task<object> FilterListToolWrapper(JObject parameters)
+        private async Task<object> FilterListToolWrapper(JObject parameters)
         {
             try
             {
                 Debug.WriteLine("[ListTools] Running FilterListToolWrapper");
                 
                 // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? "";
+                string modelName = parameters["model"]?.ToString() ?? "";
                 JArray listArray = parameters["list"] as JArray;
                 string criteria = parameters["criteria"]?.ToString();
                 
@@ -163,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await FilterListAsync(
                     ghStringList,
                     new GH_String(criteria),
-                    messages => AIUtils.GetResponse("default", "", messages)
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)
                 );
                 
                 // Convert result back to string array for JSON serialization
@@ -205,7 +199,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="criteria">The natural language criteria to apply</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, filtered list, and any error information</returns>
-        public static async Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
+        public async Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
             List<GH_String> list,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -290,7 +284,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="provider">The AI provider to use</param>
         /// <param name="model">The model to use, or empty for default</param>
         /// <returns>Evaluation result containing the AI response, filtered list, and any error information</returns>
-        public static Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
+        public Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
             List<GH_String> list,
             GH_String criteria,
             string provider,
@@ -311,7 +305,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="question">The natural language question to answer</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
-        public static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        public async Task<AIEvaluationResult<bool>> EvaluateListAsync(
             string jsonList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -379,7 +373,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="provider">The AI provider to use</param>
         /// <param name="model">The model to use, or empty for default</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
-        public static Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        public Task<AIEvaluationResult<bool>> EvaluateListAsync(
             string jsonList,
             GH_String question,
             string provider,

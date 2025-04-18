@@ -100,7 +100,7 @@ namespace SmartHopper.Providers.MistralAI
                    !string.IsNullOrEmpty(settings["Model"].ToString());
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
+        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             var settings = SmartHopperSettings.Load();
             if (!settings.ProviderSettings.ContainsKey(_name))
@@ -158,7 +158,7 @@ namespace SmartHopper.Providers.MistralAI
                 };
 
                 // Add tools to request if available
-                var toolsArray = GetFormattedTools();
+                var toolsArray = includeToolDefinitions ? GetFormattedTools() : null;
                 if (toolsArray != null && toolsArray.Count > 0)
                 {
                     requestBody["tools"] = toolsArray;
