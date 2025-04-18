@@ -13,7 +13,7 @@
   <PropertyGroup>
     <Version>$(SolutionVersion)</Version>
     <Title>SmartHopper Configuration</Title>
-    <Company>Architect's Toolkit (RKTK.tools) + SmartHopper Community</Company>
+    <Company>Architect's Toolkit (RKTK.tools)</Company>
     <Description>Menu and settings management for SmartHopper</Description>
     <Authors>Marc Roca Musach + SmartHopper Community</Authors>
     <Copyright>Copyright (c) 2024 Marc Roca Musach</Copyright>
