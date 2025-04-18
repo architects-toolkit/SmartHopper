@@ -378,8 +378,8 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output", totalOutTokens),
                 new JProperty("finish_reason", finishReason),
                 new JProperty("completion_time", totalCompletionTime),
-                new JProperty("branches_input", _responseMetrics.Sum(r => r.ReuseCount)),
-                new JProperty("branches_processed", _responseMetrics.Count)
+                new JProperty("data_count", _responseMetrics.Sum(r => r.ReuseCount)),
+                new JProperty("iterations_count", _responseMetrics.Count)
             );
 
             // Convert metricsJson to GH_String
