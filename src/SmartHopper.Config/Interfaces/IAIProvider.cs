@@ -20,6 +20,7 @@ namespace SmartHopper.Config.Interfaces
     public interface IAIProvider
     {
         string Name { get; }
+
         string DefaultModel { get; }
 
         /// <summary>
