@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Enabled the AIChat component to execute tools in Grasshopper.
+
 ### Changed
 
 - Renamed the 'Branches Input' and 'Processed Branches' parameters to 'Data Count' and 'Iterations Count' in DeconstructMetricsComponents. Improved descriptions for both parameters.
+- Modified FilterListAsync in ListTools to return indices instead of filtered list items, with AIListFilter component now handling the final list construction.
 
 ### Fixed
 
 - Fixed a bug in DataProcessor where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
+- Fixed inconsistent list format handling between AIListEvaluate and AIListFilter components.
 
 ## [0.2.0-alpha] - 2025-04-06
 

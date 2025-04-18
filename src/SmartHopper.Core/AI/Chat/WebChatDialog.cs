@@ -515,7 +515,7 @@ namespace SmartHopper.Core.AI.Chat
                     AddToolCallMessage(toolName, toolArgs);
                     
                     // Process the tool call
-                    await ProcessToolCall(toolName, toolArgs);
+                    await ProcessToolCall(toolName, toolArgs, response.Provider, response.Model);
                 }
                 else
                 {
@@ -541,7 +541,9 @@ namespace SmartHopper.Core.AI.Chat
         /// </summary>
         /// <param name="toolName">Name of the tool to execute</param>
         /// <param name="toolArgs">JSON string of tool arguments</param>
-        private async Task ProcessToolCall(string toolName, string toolArgs)
+        /// <param name="provider">AI provider of the current dialog</param>
+        /// <param name="model">AI model of the current dialog</param>
+        private async Task ProcessToolCall(string toolName, string toolArgs, string provider, string model)
         {
             try
             {
@@ -552,7 +554,7 @@ namespace SmartHopper.Core.AI.Chat
                 _statusLabel.Text = $"Executing tool: {toolName}...";
                 
                 // Execute the tool
-                var result = await AIToolManager.ExecuteTool(toolName, parameters);
+                var result = await AIToolManager.ExecuteTool(toolName, parameters, new JObject { ["provider"] = provider, ["model"] = model });
                 
                 // Add tool result to chat history
                 string resultJson = JsonConvert.SerializeObject(result, Formatting.Indented);
