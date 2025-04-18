@@ -11,6 +11,7 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace SmartHopper.Config.Models
 {
@@ -38,7 +39,7 @@ namespace SmartHopper.Config.Models
         /// Function to execute the tool with given parameters
         /// </summary>
         public Func<JObject, Task<object>> Execute { get; }
-        
+
         /// <summary>
         /// Creates a new AI tool
         /// </summary>

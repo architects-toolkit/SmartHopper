@@ -15,7 +15,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace SmartHopper.Config.Tools
 {
@@ -94,7 +96,7 @@ namespace SmartHopper.Config.Tools
         }
         
         /// <summary>
-        /// Auto-discover tools from assemblies
+        /// Auto-discover tools from the SmartHopper.Core.Grasshopper/Tools directory
         /// </summary>
         public static void DiscoverTools()
         {
@@ -106,51 +108,76 @@ namespace SmartHopper.Config.Tools
             
             try
             {
-                // Find all types that implement IAIToolProvider
-                // First try in SmartHopper.Core.Grasshopper assembly
-                var assemblies = AppDomain.CurrentDomain.GetAssemblies()
-                    .Where(a => a.GetName().Name.StartsWith("SmartHopper"))
+                // For security reasons, restrict tool discovery to only SmartHopper.Core.Grasshopper/Tools
+                // First, ensure the Core.Grasshopper assembly is loaded
+                Assembly coreGrasshopperAssembly = null;
+                try
+                {
+                    coreGrasshopperAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                        .FirstOrDefault(a => a.GetName().Name == "SmartHopper.Core.Grasshopper");
+                    
+                    if (coreGrasshopperAssembly == null)
+                    {
+                        Debug.WriteLine("[AIToolManager] Loading SmartHopper.Core.Grasshopper assembly");
+                        coreGrasshopperAssembly = Assembly.Load("SmartHopper.Core.Grasshopper");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AIToolManager] Error loading Core.Grasshopper assembly: {ex.Message}");
+                    return;
+                }
+                
+                if (coreGrasshopperAssembly == null)
+                {
+                    Debug.WriteLine("[AIToolManager] Could not find or load SmartHopper.Core.Grasshopper assembly");
+                    return;
+                }
+                
+                Debug.WriteLine($"[AIToolManager] Successfully loaded Core.Grasshopper assembly: {coreGrasshopperAssembly.GetName().Version}");
+                
+                // Find all types in the SmartHopper.Core.Grasshopper.Tools namespace
+                var toolsNamespace = "SmartHopper.Core.Grasshopper.Tools";
+                Debug.WriteLine($"[AIToolManager] Searching for tool providers in namespace: {toolsNamespace}");
+                
+                // Get all types in the Tools namespace
+                var toolsTypes = coreGrasshopperAssembly.GetTypes()
+                    .Where(t => t.Namespace == toolsNamespace)
                     .ToList();
                 
-                int toolCount = 0;
+                Debug.WriteLine($"[AIToolManager] Found {toolsTypes.Count} types in Tools namespace");
                 
-                foreach (var assembly in assemblies)
+                // Filter to only those that implement IAIToolProvider
+                var toolProviderTypes = toolsTypes
+                    .Where(t => typeof(IAIToolProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                    .ToList();
+                
+                Debug.WriteLine($"[AIToolManager] Found {toolProviderTypes.Count} tool provider types");
+                
+                int toolCount = 0;
+                foreach (var providerType in toolProviderTypes)
                 {
                     try
                     {
-                        Debug.WriteLine($"[AIToolManager] Checking assembly for tool providers: {assembly.GetName().Name}");
+                        Debug.WriteLine($"[AIToolManager] Creating instance of tool provider: {providerType.FullName}");
+                        var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
+                        var tools = provider.GetTools().ToList();
                         
-                        var toolProviderTypes = assembly.GetTypes()
-                            .Where(t => typeof(IAIToolProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                            .ToList();
+                        Debug.WriteLine($"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
                         
-                        foreach (var providerType in toolProviderTypes)
+                        foreach (var tool in tools)
                         {
-                            try
-                            {
-                                Debug.WriteLine($"[AIToolManager] Found tool provider: {providerType.Name}");
-                                var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
-                                var tools = provider.GetTools();
-                                
-                                foreach (var tool in tools)
-                                {
-                                    RegisterTool(tool);
-                                    toolCount++;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"[AIToolManager] Error registering tools from {providerType.Name}: {ex.Message}");
-                            }
+                            RegisterTool(tool);
+                            toolCount++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AIToolManager] Error processing assembly {assembly.GetName().Name}: {ex.Message}");
+                        Debug.WriteLine($"[AIToolManager] Error registering tools from {providerType.Name}: {ex.Message}");
                     }
                 }
                 
-                Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {assemblies.Count} assemblies");
+                Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {toolProviderTypes.Count} providers");
                 _toolsDiscovered = true;
             }
             catch (Exception ex)
@@ -208,9 +235,36 @@ namespace SmartHopper.Config.Tools
                 docs.Add($"## {tool.Name}\n");
                 docs.Add($"{tool.Description}\n");
                 docs.Add("### Parameters\n");
-                docs.Add("```json");
-                docs.Add(tool.ParametersSchema);
-                docs.Add("```\n");
+                
+                // Parse parameters schema
+                try
+                {
+                    var schema = JObject.Parse(tool.ParametersSchema);
+                    var properties = schema["properties"] as JObject;
+                    var required = schema["required"] as JArray;
+                    
+                    if (properties != null)
+                    {
+                        foreach (var prop in properties)
+                        {
+                            var name = prop.Key;
+                            var details = prop.Value as JObject;
+                            var type = details?["type"]?.ToString() ?? "any";
+                            var description = details?["description"]?.ToString() ?? "";
+                            var isRequired = required?.Contains(name) ?? false;
+                            
+                            docs.Add($"- **{name}** ({type}){(isRequired ? " (required)" : "")}");
+                            if (!string.IsNullOrEmpty(description))
+                                docs.Add($"  - {description}");
+                        }
+                    }
+                }
+                catch
+                {
+                    docs.Add("Error parsing parameters schema.");
+                }
+                
+                docs.Add("\n");
             }
             
             return string.Join("\n", docs);
