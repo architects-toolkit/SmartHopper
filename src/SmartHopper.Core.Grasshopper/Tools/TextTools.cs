@@ -202,7 +202,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     // User message
                     new KeyValuePair<string, string>("user", 
                         $"This is my question: \"{question.Value}\"\n\n" +
-                        $"Answer to the previous question on the following text:\n{text.Value}\n\n")
+                        $"Answer the previous question based on the following input:\n{text.Value}\n\n")
                 };
 
                 // Get response using the provided function
