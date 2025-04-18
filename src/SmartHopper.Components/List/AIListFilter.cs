@@ -21,7 +21,6 @@ using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Tools;
-using Rhino.Commands;
 
 namespace SmartHopper.Components.List
 {
@@ -141,17 +140,14 @@ namespace SmartHopper.Components.List
                 var listTreeOriginal = branches["List"];
                 var criteriaTree = branches["Criteria"];
 
-                // Convert list to JSON format before normalization
-                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
-
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, criteriaTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeOriginal, criteriaTree });
 
                 // Reassign normalized branches
-                listTreeJson = normalizedLists[0];
+                var normalizedListTree = normalizedLists[0];
                 var normalizedCriteriaTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {listTreeJson.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {normalizedListTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -164,10 +160,10 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
-                    // Use the generic ListTools.FilterListAsync method with the original list
+                    // Use the generic ListTools.FilterListAsync method with the List<GH_String> overload
                     var tools = new ListTools();
                     var filterResult = await tools.FilterListAsync(
-                        listTreeOriginal,
+                        new List<GH_String> { normalizedListTree[i] },
                         criterion,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
 

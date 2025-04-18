@@ -12,9 +12,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.AI;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Tools;
 using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -44,10 +42,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""list"": { ""type"": ""string"", ""description"": ""JSON string representing the list to evaluate"" },
-                        ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" },
-                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
-                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
+                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to evaluate (e.g., ['apple', 'banana', 'orange'])"" },
+                        ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" }
                     },
                     ""required"": [""list"", ""question""]
                 }",
@@ -61,10 +57,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to filter"" },
-                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language criteria to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'remove duplicates')"" },
-                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
-                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
+                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to filter (e.g., ['apple', 'banana', 'orange'])"" },
+                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language criteria to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'remove duplicates')"" }
                     },
                     ""required"": [""list"", ""criteria""]
                 }",
@@ -86,10 +80,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 // Extract parameters
                 string providerName = parameters["provider"]?.ToString() ?? "";
                 string modelName = parameters["model"]?.ToString() ?? "";
-                string jsonList = parameters["list"]?.ToString();
+                string rawList = parameters["list"]?.ToString();
                 string question = parameters["question"]?.ToString();
                 
-                if (string.IsNullOrEmpty(jsonList) || string.IsNullOrEmpty(question))
+                if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
                 {
                     return new { 
                         success = false, 
@@ -97,9 +91,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     };
                 }
                 
+                // Normalize list input
+                var items = NormalizeListInput(parameters);
+                
+                // Convert to GH_String list
+                var ghStringList = items.Select(s => new GH_String(s)).ToList();
+                
                 // Execute the tool
                 var result = await EvaluateListAsync(
-                    jsonList,
+                    ghStringList,
                     new GH_String(question),
                     messages => AIUtils.GetResponse(providerName, modelName, messages)
                 );
@@ -135,10 +135,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 // Extract parameters
                 string providerName = parameters["provider"]?.ToString() ?? "";
                 string modelName = parameters["model"]?.ToString() ?? "";
-                JArray listArray = parameters["list"] as JArray;
+                string rawList = parameters["list"]?.ToString();
                 string criteria = parameters["criteria"]?.ToString();
                 
-                if (listArray == null || string.IsNullOrEmpty(criteria))
+                if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
                 {
                     return new { 
                         success = false, 
@@ -146,12 +146,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     };
                 }
                 
-                // Convert JArray to List<GH_String>
-                var ghStringList = new List<GH_String>();
-                foreach (var item in listArray)
-                {
-                    ghStringList.Add(new GH_String(item.ToString()));
-                }
+                // Normalize list JSON
+                var parsed = ParsingTools.ParseStringArrayFromResponse(rawList);
+                
+                // Convert to GH_String list
+                var ghStringList = parsed.Select(s => new GH_String(s)).ToList();
                 
                 // Execute the tool
                 var result = await FilterListAsync(
@@ -188,27 +187,90 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
         }
         
+        /// <summary>
+        /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
+        /// </summary>
+        private List<string> NormalizeListInput(JObject parameters)
+        {
+            var token = parameters["list"];
+            if (token is JArray array)
+                return array.Select(t => t.ToString()).ToList();
+            var raw = token?.ToString();
+            return ParsingTools.ParseStringArrayFromResponse(raw);
+        }
+
         #endregion
 
         #region List Filtering
 
         /// <summary>
-        /// Filters a list based on natural language criteria using AI with a custom GetResponse function
+        /// Filters a list based on natural language criteria using AI with a custom GetResponse function, accepts raw GH_String list
         /// </summary>
-        /// <param name="list">The list of items to filter</param>
+        /// <param name="inputList">The list of GH_String items to filter</param>
         /// <param name="criteria">The natural language criteria to apply</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, filtered list, and any error information</returns>
         public async Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
-            List<GH_String> list,
+            List<GH_String> inputList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
             try
             {
-                // Convert list to JSON format
-                var jsonList = ParsingTools.ConcatenateItemsToJson(list);
+                // Convert list to JSON dictionary for AI prompt
+                var dictJson = ParsingTools.ConcatenateItemsToJson(inputList);
                 
+                // Call the string-based method to handle the core logic
+                return await FilterListAsync(dictJson, criteria, getResponse);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in FilterListAsync (List<GH_String> overload): {ex.Message}");
+                return AIEvaluationResult<List<GH_String>>.CreateError(
+                    $"Error filtering list: {ex.Message}",
+                    GH_RuntimeMessageLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// Filters a list based on natural language criteria using AI with the default AIUtils.GetResponse, accepts raw GH_String list
+        /// </summary>
+        /// <param name="inputList">The list of GH_String items to filter</param>
+        /// <param name="criteria">The natural language criteria to apply</param>
+        /// <param name="provider">The AI provider to use</param>
+        /// <param name="model">The model to use, or empty for default</param>
+        /// <returns>Evaluation result containing the AI response, filtered list, and any error information</returns>
+        public Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
+            List<GH_String> inputList,
+            GH_String criteria,
+            string provider,
+            string model = "")
+        {
+            return FilterListAsync(inputList, criteria,
+                messages => AIUtils.GetResponse(provider, model, messages));
+        }
+
+        /// <summary>
+        /// Filters a list based on natural language criteria using AI with a custom GetResponse function, accepts JSON list string
+        /// </summary>
+        /// <param name="jsonList">The list of items to filter in JSON format</param>
+        /// <param name="criteria">The natural language criteria to apply</param>
+        /// <param name="getResponse">Custom function to get AI response</param>
+        /// <returns>Evaluation result containing the AI response, filtered list, and any error information</returns>
+        public async Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
+            string jsonList,
+            GH_String criteria,
+            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
+        {
+            try
+            {
+                // Parse JSON list into GH_String items
+                var parsedStrings = ParsingTools.ParseStringArrayFromResponse(jsonList);
+                var list = parsedStrings.Select(s => new GH_String(s)).ToList();
+
+                // Convert list to JSON dictionary for AI prompt
+                var dictJson = ParsingTools.ConcatenateItemsToJson(list);
+
                 // Prepare messages for the AI
                 var messages = new List<KeyValuePair<string, string>>
                 {
@@ -228,7 +290,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     // User message
                     new KeyValuePair<string, string>("user", 
                         $"Return the indices of items that match the following prompt: \"{criteria.Value}\"\n\n" +
-                        $"Apply the previous prompt to the following list:\n{jsonList}\n\n")
+                        $"Apply the previous prompt to the following list:\n{dictJson}\n\n")
                 };
 
                 // Get response using the provided function
@@ -243,23 +305,17 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         response);
                 }
 
-                // Parse the indices from the response
+                // Parse indices and build filtered result
                 var indices = ParsingTools.ParseIndicesFromResponse(response.Response);
-                
                 Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
 
-                // Create the filtered list based on the indices
                 var result = new List<GH_String>();
-                foreach (var index in indices)
+                foreach (var idx in indices)
                 {
-                    if (index >= 0 && index < list.Count)
-                    {
-                        result.Add(list[index]);
-                    }
+                    if (idx >= 0 && idx < list.Count)
+                        result.Add(list[idx]);
                     else
-                    {
-                        Debug.WriteLine($"[ListTools] Invalid index {index}. Skipping.");
-                    }
+                        Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
                 }
 
                 // Success case
@@ -277,26 +333,73 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Filters a list based on natural language criteria using AI with the default AIUtils.GetResponse
+        /// Filters a list based on natural language criteria using AI with the default AIUtils.GetResponse, accepts JSON list string
         /// </summary>
-        /// <param name="list">The list of items to filter</param>
+        /// <param name="jsonList">The list of items to filter in JSON format</param>
         /// <param name="criteria">The natural language criteria to apply</param>
         /// <param name="provider">The AI provider to use</param>
         /// <param name="model">The model to use, or empty for default</param>
         /// <returns>Evaluation result containing the AI response, filtered list, and any error information</returns>
         public Task<AIEvaluationResult<List<GH_String>>> FilterListAsync(
-            List<GH_String> list,
+            string jsonList,
             GH_String criteria,
             string provider,
             string model = "")
         {
-            return FilterListAsync(list, criteria,
+            return FilterListAsync(jsonList, criteria,
                 messages => AIUtils.GetResponse(provider, model, messages));
         }
 
         #endregion
 
         #region List Evaluation
+
+        /// <summary>
+        /// Evaluates a list based on a natural language question using AI with a custom GetResponse function, accepts raw GH_String list
+        /// </summary>
+        /// <param name="inputList">The list of GH_String items to evaluate</param>
+        /// <param name="question">The natural language question to answer</param>
+        /// <param name="getResponse">Custom function to get AI response</param>
+        /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
+        public async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+            List<GH_String> inputList,
+            GH_String question,
+            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
+        {
+            try
+            {
+                // Convert list to JSON dictionary for AI prompt
+                var dictJson = ParsingTools.ConcatenateItemsToJson(inputList);
+                
+                // Call the string-based method to handle the core logic
+                return await EvaluateListAsync(dictJson, question, getResponse);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in EvaluateListAsync (List<GH_String> overload): {ex.Message}");
+                return AIEvaluationResult<bool>.CreateError(
+                    $"Error evaluating list: {ex.Message}",
+                    GH_RuntimeMessageLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// Evaluates a list based on a natural language question using AI with the default AIUtils.GetResponse, accepts raw GH_String list
+        /// </summary>
+        /// <param name="inputList">The list of GH_String items to evaluate</param>
+        /// <param name="question">The natural language question to answer</param>
+        /// <param name="provider">The AI provider to use</param>
+        /// <param name="model">The model to use, or empty for default</param>
+        /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
+        public Task<AIEvaluationResult<bool>> EvaluateListAsync(
+            List<GH_String> inputList,
+            GH_String question,
+            string provider,
+            string model = "")
+        {
+            return EvaluateListAsync(inputList, question,
+                messages => AIUtils.GetResponse(provider, model, messages));
+        }
 
         /// <summary>
         /// Evaluates a list based on a natural language question using AI with a custom GetResponse function
