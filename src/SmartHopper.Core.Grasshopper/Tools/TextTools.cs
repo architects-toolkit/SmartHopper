@@ -42,9 +42,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ""type"": ""object"",
                     ""properties"": {
                         ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
-                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
-                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
-                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
+                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" }
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
@@ -65,9 +63,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Optional instructions for the AI (system prompt)""
-                        },
-                        ""provider"": { ""type"": ""string"", ""description"": ""Hidden: AI provider (internal)"" },
-                        ""model"": { ""type"": ""string"", ""description"": ""Hidden: AI model name (internal)"" }
+                        }
                     },
                     ""required"": [""prompt""]
                 }",
