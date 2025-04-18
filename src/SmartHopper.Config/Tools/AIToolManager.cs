@@ -59,8 +59,9 @@ namespace SmartHopper.Config.Tools
         /// </summary>
         /// <param name="toolName">The name of the tool to execute</param>
         /// <param name="parameters">The parameters for the tool</param>
+        /// <param name="extraParameters">Additional parameters to merge into the tool parameters</param>
         /// <returns>The result of the tool execution</returns>
-        public static async Task<object> ExecuteTool(string toolName, JObject parameters)
+        public static async Task<object> ExecuteTool(string toolName, JObject parameters, JObject extraParameters)
         {
             // Ensure tools are discovered
             DiscoverTools();
@@ -75,6 +76,15 @@ namespace SmartHopper.Config.Tools
                     success = false, 
                     error = $"Tool '{toolName}' not found"
                 };
+            }
+            
+            // Merge extra parameters into parameters
+            if (extraParameters != null)
+            {
+                foreach (var prop in extraParameters.Properties())
+                {
+                    parameters[prop.Name] = prop.Value;
+                }
             }
             
             try
