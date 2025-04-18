@@ -26,8 +26,8 @@ using System.Windows.Forms;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
-    /// Component that converts selected Grasshopper components to GhJSON format.
-    /// Allows users to select specific components to process instead of the entire file.
+    /// Component that converts selected or all Grasshopper components to GhJSON format.
+    /// Supports optional filtering by runtime messages: errors, warnings, and remarks.
     /// </summary>
     public class GhGetComponents : GH_Component
     {
@@ -99,14 +99,14 @@ namespace SmartHopper.Components.Grasshopper
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
+            pManager.AddTextParameter("Filter", "F", "Optional filter by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "List of names", GH_ParamAccess.list);
             pManager.AddTextParameter("Guids", "G", "List of guids", GH_ParamAccess.list);
-            pManager
-                .AddTextParameter("JSON", "J", "Details in JSON format", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Details in JSON format", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -147,6 +147,77 @@ namespace SmartHopper.Components.Grasshopper
                 var objects = selectedObjects.Count > 0 
                     ? selectedObjects 
                     : GHCanvasUtils.GetCurrentObjects();
+
+                // Parse include/exclude filters (+/- syntax) and normalize tags
+                var filters = new List<string>();
+                DA.GetDataList(1, filters);
+                if (filters.Any(f => !string.IsNullOrWhiteSpace(f)))
+                {
+                    var includeTags = new HashSet<string>();
+                    var excludeTags = new HashSet<string>();
+                    foreach (var raw in filters)
+                    {
+                        var tok = raw.Trim();
+                        if (string.IsNullOrEmpty(tok)) continue;
+                        bool include = !tok.StartsWith("-");
+                        var tag = tok.TrimStart('+', '-').ToLowerInvariant();
+                        // normalize plural
+                        if (tag.EndsWith("s")) tag = tag.Substring(0, tag.Length - 1);
+                        // map locked/unlocked to enabled/disabled
+                        if (tag == "locked") tag = "disabled";
+                        if (tag == "unlocked") tag = "enabled";
+                        if (include) includeTags.Add(tag);
+                        else excludeTags.Add(tag);
+                    }
+
+                    List<IGH_ActiveObject> resultObjects;
+                    // Start with included set or all
+                    if (includeTags.Any())
+                    {
+                        resultObjects = new List<IGH_ActiveObject>();
+                        // selection filters
+                        if (includeTags.Contains("selected"))
+                            resultObjects.AddRange(objects.Where(o => o.Attributes.Selected));
+                        if (includeTags.Contains("unselected"))
+                            resultObjects.AddRange(objects.Where(o => !o.Attributes.Selected));
+                        // enable/disable filters
+                        resultObjects.AddRange(includeTags.Contains("enabled")
+                            ? objects.OfType<GH_Component>().Where(c => c.Locked).Cast<IGH_ActiveObject>()
+                            : Enumerable.Empty<IGH_ActiveObject>());
+                        resultObjects.AddRange(includeTags.Contains("disabled")
+                            ? objects.OfType<GH_Component>().Where(c => !c.Locked).Cast<IGH_ActiveObject>()
+                            : Enumerable.Empty<IGH_ActiveObject>());
+                        // runtime message filters
+                        if (includeTags.Contains("error"))
+                            resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any()));
+                        if (includeTags.Contains("warning"))
+                            resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any()));
+                        if (includeTags.Contains("remark"))
+                            resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any()));
+                    }
+                    else
+                    {
+                        resultObjects = new List<IGH_ActiveObject>(objects);
+                    }
+
+                    // Exclude specified tags
+                    if (excludeTags.Contains("selected"))
+                        resultObjects.RemoveAll(o => o.Attributes.Selected);
+                    if (excludeTags.Contains("unselected"))
+                        resultObjects.RemoveAll(o => !o.Attributes.Selected);
+                    if (excludeTags.Contains("enabled"))
+                        resultObjects.RemoveAll(o => (o is GH_Component c && c.Locked));
+                    if (excludeTags.Contains("disabled"))
+                        resultObjects.RemoveAll(o => (o is GH_Component c && !c.Locked));
+                    if (excludeTags.Contains("error"))
+                        resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any());
+                    if (excludeTags.Contains("warning"))
+                        resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any());
+                    if (excludeTags.Contains("remark"))
+                        resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any());
+
+                    objects = resultObjects.Distinct().ToList();
+                }
 
                 // Get the details of each object
                 var document = GHDocumentUtils.GetObjectsDetails(objects);
