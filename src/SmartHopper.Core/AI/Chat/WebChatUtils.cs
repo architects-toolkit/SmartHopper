@@ -56,7 +56,7 @@ namespace SmartHopper.Core.AI.Chat
             {
                 // Create a function to get responses from the AI provider
                 Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
-                    messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint);
+                    messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint, includeToolDefinitions: true);
 
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
