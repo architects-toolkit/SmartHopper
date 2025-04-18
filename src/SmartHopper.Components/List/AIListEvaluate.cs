@@ -137,11 +137,16 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listTreeOriginal = branches["List"];
+                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"]);
                 var questionTree = branches["Question"];
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeOriginal, questionTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
+                    new List<List<GH_String>>
+                    {
+                        new List<GH_String>(new GH_String[] { new GH_String(listAsJson.ToString()) }),
+                        questionTree
+                    });
 
                 // Reassign normalized branches
                 var normalizedListTree = normalizedLists[0];
@@ -160,10 +165,10 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
                     
-                    // Use the generic ListTools.EvaluateListAsync method with the List<GH_String> overload
+                    // Use the generic ListTools.EvaluateListAsync method with the string JSON representation
                     var tools = new ListTools();
                     var evaluationResult = await tools.EvaluateListAsync(
-                        new List<GH_String> { normalizedListTree[i] },
+                        normalizedListTree[i].Value,
                         question,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
 
