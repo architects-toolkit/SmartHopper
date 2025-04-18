@@ -29,7 +29,7 @@ namespace SmartHopper.Components.Grasshopper
     /// Component that converts selected Grasshopper components to GhJSON format.
     /// Allows users to select specific components to process instead of the entire file.
     /// </summary>
-    public class GhGetSelectedComponents : GH_Component
+    public class GhGetComponents : GH_Component
     {
         private List<string> lastComponentNames = new List<string>();
         private List<string> lastComponentGuids = new List<string>();
@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Grasshopper
         internal List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
         private bool inSelectionMode = false;
 
-        public GhGetSelectedComponents()
+        public GhGetComponents()
             : base("Get Selected Components", "GhGetSel", 
                   "Convert selected Grasshopper components to GhJSON format", 
                   "SmartHopper", "Grasshopper")
@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Grasshopper
 
         public override void CreateAttributes()
         {
-            m_attributes = new GhGetSelectedComponentsAttributes(this);
+            m_attributes = new GhGetComponentsAttributes(this);
         }
 
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
@@ -177,14 +177,14 @@ namespace SmartHopper.Components.Grasshopper
         }
     }
 
-    public class GhGetSelectedComponentsAttributes : GH_ComponentAttributes
+    public class GhGetComponentsAttributes : GH_ComponentAttributes
     {
-        private new readonly GhGetSelectedComponents Owner;
+        private new readonly GhGetComponents Owner;
         private Rectangle ButtonBounds;
         private bool IsHovering;
         private bool IsClicking;
 
-        public GhGetSelectedComponentsAttributes(GhGetSelectedComponents owner) : base(owner)
+        public GhGetComponentsAttributes(GhGetComponents owner) : base(owner)
         {
             Owner = owner;
             IsHovering = false;
