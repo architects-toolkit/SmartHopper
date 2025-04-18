@@ -140,17 +140,14 @@ namespace SmartHopper.Components.List
                 var listTreeOriginal = branches["List"];
                 var questionTree = branches["Question"];
 
-                // Convert list to JSON format before normalization
-                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
-
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, questionTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeOriginal, questionTree });
 
                 // Reassign normalized branches
-                listTreeJson = normalizedLists[0];
+                var normalizedListTree = normalizedLists[0];
                 questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {listTreeJson.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {normalizedListTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_Boolean>>();
@@ -163,12 +160,10 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
                     
-                    var currentList = listTreeJson[i];
-
-                    // Use the generic ListTools.EvaluateListAsync method
+                    // Use the generic ListTools.EvaluateListAsync method with the List<GH_String> overload
                     var tools = new ListTools();
                     var evaluationResult = await tools.EvaluateListAsync(
-                        currentList.Value,
+                        new List<GH_String> { normalizedListTree[i] },
                         question,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
 
