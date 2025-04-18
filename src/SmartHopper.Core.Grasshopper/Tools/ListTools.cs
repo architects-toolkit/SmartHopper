@@ -10,21 +10,192 @@
 
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Core.Utils;
+using SmartHopper.Core.AI;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Tools;
+using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
     /// <summary>
-    /// Contains tools for list processing and manipulation using AI
+    /// Contains tools for list analysis and manipulation using AI
     /// </summary>
     public static class ListTools
     {
+        #region AI Tool Provider Implementation
+
+        /// <summary>
+        /// Get all tools provided by this class
+        /// </summary>
+        /// <returns>Collection of AI tools</returns>
+        public static IEnumerable<AITool> GetTools()
+        {
+            // Define the evaluate list tool
+            yield return new AITool(
+                name: "evaluateList",
+                description: "Evaluates a list based on a natural language question",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""list"": {
+                            ""type"": ""string"",
+                            ""description"": ""JSON string representing the list to evaluate""
+                        },
+                        ""question"": {
+                            ""type"": ""string"",
+                            ""description"": ""The natural language question to answer about the list""
+                        }
+                    },
+                    ""required"": [""list"", ""question""]
+                }",
+                execute: EvaluateListToolWrapper
+            );
+            
+            // Define the filter list tool
+            yield return new AITool(
+                name: "filterList",
+                description: "Filters a list based on natural language criteria",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""list"": {
+                            ""type"": ""array"",
+                            ""items"": {
+                                ""type"": ""string""
+                            },
+                            ""description"": ""Array of strings to filter""
+                        },
+                        ""criteria"": {
+                            ""type"": ""string"",
+                            ""description"": ""Natural language criteria to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'remove duplicates')""
+                        }
+                    },
+                    ""required"": [""list"", ""criteria""]
+                }",
+                execute: FilterListToolWrapper
+            );
+        }
+        
+        /// <summary>
+        /// Tool wrapper for the EvaluateList function
+        /// </summary>
+        /// <param name="parameters">Parameters passed from the AI</param>
+        /// <returns>Result object</returns>
+        private static async Task<object> EvaluateListToolWrapper(JObject parameters)
+        {
+            try
+            {
+                Debug.WriteLine("[ListTools] Running EvaluateListToolWrapper");
+                
+                // Extract parameters
+                string jsonList = parameters["list"]?.ToString();
+                string question = parameters["question"]?.ToString();
+                
+                if (string.IsNullOrEmpty(jsonList) || string.IsNullOrEmpty(question))
+                {
+                    return new { 
+                        success = false, 
+                        error = "Missing required parameters"
+                    };
+                }
+                
+                // Execute the tool
+                var result = await EvaluateListAsync(
+                    jsonList,
+                    new GH_String(question),
+                    messages => AIUtils.GetResponse("default", "", messages)
+                );
+                
+                // Return standardized result
+                return new {
+                    success = result.Success,
+                    result = result.Success ? result.Result : false,
+                    error = result.Success ? null : result.ErrorMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
+                return new { 
+                    success = false, 
+                    error = $"Error: {ex.Message}"
+                };
+            }
+        }
+        
+        /// <summary>
+        /// Tool wrapper for the FilterList function
+        /// </summary>
+        /// <param name="parameters">Parameters passed from the AI</param>
+        /// <returns>Result object</returns>
+        private static async Task<object> FilterListToolWrapper(JObject parameters)
+        {
+            try
+            {
+                Debug.WriteLine("[ListTools] Running FilterListToolWrapper");
+                
+                // Extract parameters
+                JArray listArray = parameters["list"] as JArray;
+                string criteria = parameters["criteria"]?.ToString();
+                
+                if (listArray == null || string.IsNullOrEmpty(criteria))
+                {
+                    return new { 
+                        success = false, 
+                        error = "Missing required parameters"
+                    };
+                }
+                
+                // Convert JArray to List<GH_String>
+                var ghStringList = new List<GH_String>();
+                foreach (var item in listArray)
+                {
+                    ghStringList.Add(new GH_String(item.ToString()));
+                }
+                
+                // Execute the tool
+                var result = await FilterListAsync(
+                    ghStringList,
+                    new GH_String(criteria),
+                    messages => AIUtils.GetResponse("default", "", messages)
+                );
+                
+                // Convert result back to string array for JSON serialization
+                var filteredStrings = new List<string>();
+                if (result.Success && result.Result != null)
+                {
+                    foreach (var ghString in result.Result)
+                    {
+                        filteredStrings.Add(ghString.Value);
+                    }
+                }
+                
+                // Return standardized result
+                return new {
+                    success = result.Success,
+                    filteredList = result.Success ? filteredStrings : null,
+                    count = result.Success ? filteredStrings.Count : 0,
+                    error = result.Success ? null : result.ErrorMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in FilterListToolWrapper: {ex.Message}");
+                return new { 
+                    success = false, 
+                    error = $"Error: {ex.Message}"
+                };
+            }
+        }
+        
+        #endregion
+
         #region List Filtering
 
         /// <summary>

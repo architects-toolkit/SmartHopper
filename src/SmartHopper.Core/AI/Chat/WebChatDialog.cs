@@ -17,6 +17,9 @@ using System.Diagnostics;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Tools;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -460,30 +463,7 @@ namespace SmartHopper.Core.AI.Chat
 
             try
             {
-                // Create a copy of the chat history for the API call
-                var messages = _chatHistory.ToList();
-                
-                Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
-                // Get response from AI provider using the provided function
-                var response = await _getResponse(messages);
-
-                if (response != null)
-                {
-                    Debug.WriteLine("[WebChatDialog] Response received, adding to chat");
-                    // Add response to chat history
-                    AddAssistantMessage(response.Response);
-                    
-                    // Notify listeners
-                    ResponseReceived?.Invoke(this, response);
-                    
-                    _statusLabel.Text = $"Response received ({response.InTokens} in, {response.OutTokens} out)";
-                }
-                else
-                {
-                    Debug.WriteLine("[WebChatDialog] No response received from AI provider");
-                    AddSystemMessage("Error: Failed to get response from AI provider.");
-                    _statusLabel.Text = "Error: No response received";
-                }
+                await GetAIResponseAndProcessToolCalls();
             }
             catch (Exception ex)
             {
@@ -497,6 +477,144 @@ namespace SmartHopper.Core.AI.Chat
                 _isProcessing = false;
                 _sendButton.Enabled = true;
                 _progressBar.Visible = false;
+            }
+        }
+        
+        /// <summary>
+        /// Gets a response from the AI provider and processes any tool calls in the response.
+        /// </summary>
+        private async Task GetAIResponseAndProcessToolCalls()
+        {
+            try
+            {
+                // Create a copy of the chat history for the API call
+                var messages = _chatHistory.ToList();
+                
+                Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
+                // Get response from AI provider using the provided function
+                var response = await _getResponse(messages);
+
+                if (response == null)
+                {
+                    Debug.WriteLine("[WebChatDialog] No response received from AI provider");
+                    AddSystemMessage("Error: Failed to get response from AI provider.");
+                    _statusLabel.Text = "Error: No response received";
+                    return;
+                }
+                
+                // Check for tool calls in the response
+                string toolName = AIUtils.ExtractToolName(response.Response);
+                string toolArgs = AIUtils.ExtractToolArgs(response.Response);
+                
+                if (!string.IsNullOrEmpty(toolName) && !string.IsNullOrEmpty(toolArgs))
+                {
+                    Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolName}");
+                    
+                    // Don't add the tool call message to chat history as regular text
+                    // Instead, add a formatted tool call message
+                    AddToolCallMessage(toolName, toolArgs);
+                    
+                    // Process the tool call
+                    await ProcessToolCall(toolName, toolArgs);
+                }
+                else
+                {
+                    Debug.WriteLine("[WebChatDialog] Regular response received, adding to chat");
+                    // Add response to chat history as a regular message
+                    AddAssistantMessage(response.Response);
+                    
+                    // Notify listeners
+                    ResponseReceived?.Invoke(this, response);
+                    
+                    _statusLabel.Text = $"Response received ({response.InTokens} in, {response.OutTokens} out)";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error in GetAIResponseAndProcessToolCalls: {ex.Message}");
+                throw; // Rethrow to be handled by SendMessage
+            }
+        }
+        
+        /// <summary>
+        /// Processes a tool call by executing the tool and getting a new response.
+        /// </summary>
+        /// <param name="toolName">Name of the tool to execute</param>
+        /// <param name="toolArgs">JSON string of tool arguments</param>
+        private async Task ProcessToolCall(string toolName, string toolArgs)
+        {
+            try
+            {
+                // Parse tool arguments
+                JObject parameters = JObject.Parse(toolArgs);
+                
+                Debug.WriteLine($"[WebChatDialog] Processing tool call: {toolName}");
+                _statusLabel.Text = $"Executing tool: {toolName}...";
+                
+                // Execute the tool
+                var result = await AIToolManager.ExecuteTool(toolName, parameters);
+                
+                // Add tool result to chat history
+                string resultJson = JsonConvert.SerializeObject(result, Formatting.Indented);
+                AddToolResultMessage(resultJson);
+                
+                // Add tool result to chat history for the AI to see
+                _chatHistory.Add(new KeyValuePair<string, string>("tool_result", resultJson));
+                
+                // Get a new response from the AI with the tool result
+                await GetAIResponseAndProcessToolCalls();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
+                AddSystemMessage($"Error executing tool '{toolName}': {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Adds a tool call message to the chat display
+        /// </summary>
+        /// <param name="toolName">Name of the tool being called</param>
+        /// <param name="toolArgs">JSON string of tool arguments</param>
+        private void AddToolCallMessage(string toolName, string toolArgs)
+        {
+            try
+            {
+                // Format arguments for display
+                JObject parameters = JObject.Parse(toolArgs);
+                string formattedArgs = JsonConvert.SerializeObject(parameters, Formatting.Indented);
+                
+                // Create a formatted message
+                string message = $"🔧 **Tool Call**: `{toolName}`\n```json\n{formattedArgs}\n```";
+                
+                // Add as a system message
+                AddSystemMessage(message);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error formatting tool call: {ex.Message}");
+                AddSystemMessage($"Tool Call: {toolName} (Error formatting arguments: {ex.Message})");
+            }
+        }
+        
+        /// <summary>
+        /// Adds a tool result message to the chat display
+        /// </summary>
+        /// <param name="resultJson">JSON result from the tool execution</param>
+        private void AddToolResultMessage(string resultJson)
+        {
+            try
+            {
+                // Create a formatted message
+                string message = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```";
+                
+                // Add as a system message
+                AddSystemMessage(message);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error formatting tool result: {ex.Message}");
+                AddSystemMessage($"Tool Result: (Error formatting result: {ex.Message})");
             }
         }
 

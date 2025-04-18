@@ -20,7 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Eto.Forms;
 using SmartHopper.Config.Models;
-using SmartHopper.Core.Utils;
+using SmartHopper.Core.AI;
 using Rhino;
 using Rhino.UI;
 

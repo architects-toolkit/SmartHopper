@@ -12,6 +12,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Tools;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -156,6 +157,15 @@ namespace SmartHopper.Providers.MistralAI
                     }
                 };
 
+                // Add tools to request if available
+                var toolsArray = GetFormattedTools();
+                if (toolsArray != null && toolsArray.Count > 0)
+                {
+                    requestBody["tools"] = toolsArray;
+                    requestBody["tool_choice"] = "auto";
+                    Debug.WriteLine($"Added {toolsArray.Count} tools to the request");
+                }
+
                 Debug.WriteLine(requestBody.ToString());
 
                 var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
@@ -185,17 +195,44 @@ namespace SmartHopper.Providers.MistralAI
                     if (json["choices"] != null && json["choices"].Type == JTokenType.Array && json["choices"].Any())
                     {
                         var choice = json["choices"][0];
-                        if (choice["message"] != null && choice["message"]["content"] != null)
+                        if (choice["message"] != null)
                         {
-                            return new AIResponse
+                            var message = choice["message"];
+
+                            // Check for tool calls
+                            if (message["tool_calls"] != null && message["tool_calls"].Type != JTokenType.Null)
                             {
-                                Response = choice["message"]["content"].ToString().Trim(),
-                                Provider = _name,
-                                Model = json["model"]?.Value<string>() ?? "Unknown",
-                                InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
-                                OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
-                                FinishReason = choice["finish_reason"]?.ToString().Trim() ?? "Unknown",
-                            };
+                                var toolCalls = message["tool_calls"];
+                                // Format the tool call response for our system
+                                var toolCall = toolCalls[0];
+                                var toolName = toolCall["function"]["name"].ToString();
+                                var toolArgs = toolCall["function"]["arguments"].ToString();
+
+                                // Create a formatted function call message
+                                string functionCallResponse = $"function_call: {{ \"name\": \"{toolName}\", \"arguments\": {toolArgs} }}";
+
+                                return new AIResponse
+                                {
+                                    Response = functionCallResponse,
+                                    Provider = _name,
+                                    Model = json["model"]?.Value<string>() ?? "Unknown",
+                                    InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
+                                    OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
+                                    FinishReason = "tool_call"
+                                };
+                            }
+                            else if (message["content"] != null)
+                            {
+                                return new AIResponse
+                                {
+                                    Response = message["content"].ToString().Trim(),
+                                    Provider = _name,
+                                    Model = json["model"]?.Value<string>() ?? "Unknown",
+                                    InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
+                                    OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
+                                    FinishReason = choice["finish_reason"]?.ToString().Trim() ?? "Unknown",
+                                };
+                            }
                         }
                     }
 
@@ -222,6 +259,54 @@ namespace SmartHopper.Providers.MistralAI
         {
             return !string.IsNullOrEmpty(model) ? model :
                    (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : _defaultModel);
+        }
+
+        /// <summary>
+        /// Gets the tools formatted for the MistralAI API
+        /// </summary>
+        /// <returns>JArray of formatted tools</returns>
+        private JArray GetFormattedTools()
+        {
+            try
+            {
+                // Ensure tools are discovered
+                AIToolManager.DiscoverTools();
+
+                // Get all available tools
+                var tools = AIToolManager.GetTools();
+                if (tools.Count == 0)
+                {
+                    Debug.WriteLine("No tools available.");
+                    return null;
+                }
+
+                var toolsArray = new JArray();
+
+                foreach (var tool in tools)
+                {
+                    // Format each tool according to MistralAI's requirements
+                    var toolObject = new JObject
+                    {
+                        ["type"] = "function",
+                        ["function"] = new JObject
+                        {
+                            ["name"] = tool.Value.Name,
+                            ["description"] = tool.Value.Description,
+                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema)
+                        }
+                    };
+
+                    toolsArray.Add(toolObject);
+                }
+
+                Debug.WriteLine($"Formatted {toolsArray.Count} tools for MistralAI");
+                return toolsArray;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error formatting tools: {ex.Message}");
+                return null;
+            }
         }
     }
 }
