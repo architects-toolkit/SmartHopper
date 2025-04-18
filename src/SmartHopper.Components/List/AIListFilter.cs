@@ -137,11 +137,16 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listTreeOriginal = branches["List"];
+                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"]);
                 var criteriaTree = branches["Criteria"];
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeOriginal, criteriaTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
+                    new List<List<GH_String>>
+                    {
+                        new List<GH_String>(new GH_String[] { new GH_String(listAsJson.ToString()) }),
+                        criteriaTree
+                    });
 
                 // Reassign normalized branches
                 var normalizedListTree = normalizedLists[0];
@@ -160,10 +165,10 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
-                    // Use the generic ListTools.FilterListAsync method with the List<GH_String> overload
+                    // Use the generic ListTools.FilterListAsync method with the string JSON overload
                     var tools = new ListTools();
                     var filterResult = await tools.FilterListAsync(
-                        new List<GH_String> { normalizedListTree[i] },
+                        normalizedListTree[i].Value,
                         criterion,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
 
@@ -183,8 +188,9 @@ namespace SmartHopper.Components.List
                     }
                     else
                     {
-                        // Add the filtered results
-                        outputs["Result"].AddRange(filterResult.Result);
+                        // Build filtered list using indices helper
+                        var result = ListTools.BuildFilteredListFromIndices(branches["List"], filterResult.Result);
+                        outputs["Result"].AddRange(result);
                     }
 
                     i++;

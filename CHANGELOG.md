@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Renamed the 'Branches Input' and 'Processed Branches' parameters to 'Data Count' and 'Iterations Count' in DeconstructMetricsComponents. Improved descriptions for both parameters.
+- Modified FilterListAsync in ListTools to return indices instead of filtered list items, with AIListFilter component now handling the final list construction.
 
 ### Fixed
 
