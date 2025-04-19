@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -12,7 +12,7 @@ using Grasshopper.Kernel;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace SmartHopper.Core.Grasshopper
+namespace SmartHopper.Core.Grasshopper.Utils
 {
     public class GHErrors
     {
@@ -34,3 +34,4 @@ namespace SmartHopper.Core.Grasshopper
         }
     }
 }
+

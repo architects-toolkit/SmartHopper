@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -18,30 +18,32 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Graph;
-using SmartHopper.Core.Grasshopper;
+using SmartHopper.Core.Grasshopper.Utils;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager
     /// </summary>
     public class GhTools : IAIToolProvider
     {
-        // Synonyms for filter tags
-        // Available filter tokens:
-        //   selected/unselected: component selection on canvas
-        //   enabled/disabled: whether the component can run (enabled = unlocked)
-        //   error/warning/remark: runtime message levels
-        //   previewcapable/notpreviewcapable: supports geometry preview
-        //   previewon/previewoff: current preview toggle
-        // Synonyms:
-        //   locked → disabled
-        //   unlocked → enabled
-        //   remarks/info → remark
-        //   warn/warnings → warning
-        //   errors → error
-        //   visible → previewon
-        //   hidden → previewoff
+        /// <summary>
+        /// Synonyms for filter tags.
+        /// Available filter tokens:
+        ///   selected/unselected: component selection on canvas
+        ///   enabled/disabled: whether the component can run (enabled = unlocked)
+        ///   error/warning/remark: runtime message levels
+        ///   previewcapable/notpreviewcapable: supports geometry preview
+        ///   previewon/previewoff: current preview toggle
+        /// Synonyms:
+        ///   locked → disabled
+        ///   unlocked → enabled
+        ///   remarks/info → remark
+        ///   warn/warnings → warning
+        ///   errors → error
+        ///   visible → previewon
+        ///   hidden → previewoff
+        /// </summary>
         private static readonly Dictionary<string, string> FilterSynonyms = new Dictionary<string, string>
         {
             { "locked", "disabled" },
@@ -55,17 +57,23 @@ namespace SmartHopper.Core.Grasshopper.Tools
             { "hidden", "previewoff" },
         };
 
-        // Synonyms for typeFilter tokens
-        // Available typeFilter tokens:
-        //   params: only parameter objects (IGH_Param)
-        //   components: only component objects (GH_Component)
-        //   input: components with no incoming connections (inputs only)
-        //   output: components with no outgoing connections (outputs only)
-        //   processing: components with both incoming and outgoing connections
-        //   isolated: components with neither incoming nor outgoing connections (isolated)
-        // Synonyms:
-        //   param, parameter → params
-        //   component, comp → components
+        /// <summary>
+        /// Synonyms for typeFilter tokens.
+        /// Available typeFilter tokens:
+        ///   params: only parameter objects (IGH_Param)
+        ///   components: only component objects (GH_Component)
+        ///   input: components with no incoming connections (inputs only)
+        ///   output: components with no outgoing connections (outputs only)
+        ///   processing: components with both incoming and outgoing connections
+        ///   isolated: components with neither incoming nor outgoing connections (isolated)
+        /// Synonyms:
+        ///   param, parameter → params
+        ///   component, comp → components
+        ///   inputs, inputcomponents → input
+        ///   outputs, outputcomponents → output
+        ///   processingcomponents, intermediate, middle, middlecomponents → processing
+        ///   isolatedcomponents → isolated
+        /// </summary>
         private static readonly Dictionary<string, string> TypeSynonyms = new Dictionary<string, string>
         {
             { "param", "params" },
@@ -83,7 +91,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
             { "isolatedcomponents", "isolated" }
         };
 
-        // Helper to parse include/exclude tokens
+        /// <summary>
+        /// Helper to parse include/exclude tokens.
+        /// </summary>
+        /// <param name="rawGroups">List of raw filter groups.</param>
+        /// <param name="synonyms">Dictionary of synonyms for tokens.</param>
+        /// <returns>Tuple of include and exclude sets.</returns>
         private static (HashSet<string> Include, HashSet<string> Exclude) ParseIncludeExclude(IEnumerable<string> rawGroups, Dictionary<string, string> synonyms)
         {
             var include = new HashSet<string>();
@@ -107,6 +120,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
             return (include, exclude);
         }
 
+        /// <summary>
+        /// Returns a list of AI tools provided by this plugin.
+        /// </summary>
+        /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -136,6 +153,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
             );
         }
 
+        /// <summary>
+        /// Executes the Grasshopper get components tool.
+        /// </summary>
+        /// <param name="parameters">Parameters object containing filter settings.</param>
+        /// <returns>Task that returns the result of the operation.</returns>
         private Task<object> ExecuteGhGetToolAsync(JObject parameters)
         {
             // Parse filters
