@@ -166,8 +166,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
                     
                     // Use the generic ListTools.EvaluateListAsync method with the string JSON representation
-                    var tools = new ListTools();
-                    var evaluationResult = await tools.EvaluateListAsync(
+                    var evaluationResult = await ListTools.EvaluateListAsync(
                         normalizedListTree[i].Value,
                         question,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));

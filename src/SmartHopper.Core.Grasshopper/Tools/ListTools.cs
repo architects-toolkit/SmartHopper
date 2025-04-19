@@ -188,7 +188,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="criteria">The natural language criteria to apply</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, list of indices, and any error information</returns>
-        public async Task<AIEvaluationResult<List<int>>> FilterListAsync(
+        public static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
             List<GH_String> inputList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -211,31 +211,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Filters a list based on natural language criteria using AI with the default AIUtils.GetResponse, accepts raw GH_String list
-        /// </summary>
-        /// <param name="inputList">The list of GH_String items to filter</param>
-        /// <param name="criteria">The natural language criteria to apply</param>
-        /// <param name="provider">The AI provider to use</param>
-        /// <param name="model">The model to use, or empty for default</param>
-        /// <returns>Evaluation result containing the AI response, list of indices, and any error information</returns>
-        public Task<AIEvaluationResult<List<int>>> FilterListAsync(
-            List<GH_String> inputList,
-            GH_String criteria,
-            string provider,
-            string model = "")
-        {
-            return FilterListAsync(inputList, criteria,
-                messages => AIUtils.GetResponse(provider, model, messages));
-        }
-
-        /// <summary>
         /// Filters a list based on natural language criteria using AI with a custom GetResponse function, accepts JSON list string
         /// </summary>
         /// <param name="jsonList">The list of items to filter in JSON format</param>
         /// <param name="criteria">The natural language criteria to apply</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, list of indices, and any error information</returns>
-        public async Task<AIEvaluationResult<List<int>>> FilterListAsync(
+        public static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
             string jsonList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -294,43 +276,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
         }
 
-        /// <summary>
-        /// Filters a list based on natural language criteria using AI with the default AIUtils.GetResponse, accepts JSON list string
-        /// </summary>
-        /// <param name="jsonList">The list of items to filter in JSON format</param>
-        /// <param name="criteria">The natural language criteria to apply</param>
-        /// <param name="provider">The AI provider to use</param>
-        /// <param name="model">The model to use, or empty for default</param>
-        /// <returns>Evaluation result containing the AI response, list of indices, and any error information</returns>
-        public Task<AIEvaluationResult<List<int>>> FilterListAsync(
-            string jsonList,
-            GH_String criteria,
-            string provider,
-            string model = "")
-        {
-            return FilterListAsync(jsonList, criteria,
-                messages => AIUtils.GetResponse(provider, model, messages));
-        }
-
-        /// <summary>
-        /// Builds a filtered list of GH_String items based on a list of indices.
-        /// </summary>
-        /// <param name="items">Original list of items.</param>
-        /// <param name="indices">List of indices to select.</param>
-        /// <returns>Filtered list of items.</returns>
-        public static List<GH_String> BuildFilteredListFromIndices(List<GH_String> items, List<int> indices)
-        {
-            var result = new List<GH_String>();
-            foreach (var idx in indices)
-            {
-                if (idx >= 0 && idx < items.Count)
-                    result.Add(items[idx]);
-                else
-                    Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
-            }
-            return result;
-        }
-
         #endregion
 
         #region List Evaluation
@@ -342,7 +287,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="question">The natural language question to answer</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
-        public async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        public static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
             List<GH_String> inputList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -365,31 +310,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Evaluates a list based on a natural language question using AI with the default AIUtils.GetResponse, accepts raw GH_String list
-        /// </summary>
-        /// <param name="inputList">The list of GH_String items to evaluate</param>
-        /// <param name="question">The natural language question to answer</param>
-        /// <param name="provider">The AI provider to use</param>
-        /// <param name="model">The model to use, or empty for default</param>
-        /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
-        public Task<AIEvaluationResult<bool>> EvaluateListAsync(
-            List<GH_String> inputList,
-            GH_String question,
-            string provider,
-            string model = "")
-        {
-            return EvaluateListAsync(inputList, question,
-                messages => AIUtils.GetResponse(provider, model, messages));
-        }
-
-        /// <summary>
         /// Evaluates a list based on a natural language question using AI with a custom GetResponse function
         /// </summary>
         /// <param name="jsonList">The list of items to evaluate in JSON format</param>
         /// <param name="question">The natural language question to answer</param>
         /// <param name="getResponse">Custom function to get AI response</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
-        public async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        public static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
             string jsonList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -449,32 +376,33 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
         }
 
-        /// <summary>
-        /// Evaluates a list based on a natural language question using AI with the default AIUtils.GetResponse
-        /// </summary>
-        /// <param name="jsonList">The list of items to evaluate in JSON format</param>
-        /// <param name="question">The natural language question to answer</param>
-        /// <param name="provider">The AI provider to use</param>
-        /// <param name="model">The model to use, or empty for default</param>
-        /// <returns>Evaluation result containing the AI response, boolean result, and any error information</returns>
-        public Task<AIEvaluationResult<bool>> EvaluateListAsync(
-            string jsonList,
-            GH_String question,
-            string provider,
-            string model = "")
-        {
-            return EvaluateListAsync(jsonList, question,
-                messages => AIUtils.GetResponse(provider, model, messages));
-        }
-
         #endregion
 
         #region Generic List Tools
 
         /// <summary>
+        /// Builds a filtered list of GH_String items based on a list of indices.
+        /// </summary>
+        /// <param name="items">Original list of items.</param>
+        /// <param name="indices">List of indices to select.</param>
+        /// <returns>Filtered list of items.</returns>
+        public static List<GH_String> BuildFilteredListFromIndices(List<GH_String> items, List<int> indices)
+        {
+            var result = new List<GH_String>();
+            foreach (var idx in indices)
+            {
+                if (idx >= 0 && idx < items.Count)
+                    result.Add(items[idx]);
+                else
+                    Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
         /// </summary>
-        private List<string> NormalizeListInput(JObject parameters)
+        private static List<string> NormalizeListInput(JObject parameters)
         {
             var token = parameters["list"];
             if (token is JArray array)
