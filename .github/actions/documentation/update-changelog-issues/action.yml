@@ -145,7 +145,7 @@ runs:
           echo "Adding issue #$ISSUE_NUMBER to changelog: $ISSUE_TITLE"
           
           # Format the line to add
-          LINE="- Fixes \"$ISSUE_TITLE\" ([#$ISSUE_NUMBER](https://github.com/$REPO/issues/$ISSUE_NUMBER))."
+          LINE="- (automatically added) Fixes \"$ISSUE_TITLE\" ([#$ISSUE_NUMBER](https://github.com/$REPO/issues/$ISSUE_NUMBER))."
           
           # Add the line to the Fixed section at the determined position
           sed -i "${INSERT_LINE}i\\$LINE" "$CHANGELOG_PATH"

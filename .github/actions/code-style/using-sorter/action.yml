@@ -1,0 +1,44 @@
+name: "Using Sorter"
+description: "Check or fix C# using directives ordering and remove unused usings"
+inputs:
+  mode:
+    description: "Operation mode: fix or check"
+    required: false
+    default: "check"
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
+    - name: Run using sorter
+      shell: bash
+      run: |
+        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
+        ERR=0
+        dotnet tool install -g dotnet-format || true
+        export PATH="$HOME/.dotnet/tools:$PATH"
+        for file in $FILES; do
+          if [ -f "$file" ]; then
+            if [ "${{ inputs.mode }}" = "check" ]; then
+              dotnet format "$file" --verify-no-changes --fix-analyzers
+            else
+              dotnet format "$file" --fix-analyzers
+            fi
+          fi
+        done
+        # fail if any check error
+        exit $ERR
+    - name: Commit & push changes
+      if: ${{ inputs.mode == 'fix' }}
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add .
+        git diff --quiet || (git commit -m "chore: automatically sort using directives" && git push)

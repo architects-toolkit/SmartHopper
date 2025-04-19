@@ -6,8 +6,8 @@ inputs:
     required: true
     type: choice
     options:
-      - create-release    # Create a new release section from Unreleased content
-      - add-line          # Add a new line to a section in the Unreleased area
+      - create-release # Create a new release section from Unreleased content
+      - add-line # Add a new line to a section in the Unreleased area
   version:
     description: 'Version to add to changelog (required for create-release action)'
     required: false
