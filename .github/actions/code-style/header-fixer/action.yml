@@ -1,0 +1,58 @@
+name: "Header Fixer"
+description: "Check or fix C# file headers to match .editorconfig header template"
+inputs:
+  mode:
+    description: "Operation mode: fix or check"
+    required: false
+    default: "check"
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Process C# file headers
+      if: always()
+      shell: bash
+      run: |
+        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
+        ERR=0
+        for file in $FILES; do
+          if [ -f "$file" ]; then
+            year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
+            [ -z "$year" ] && year=$(date +%Y)
+            EXPECTED_HEADER=$(cat <<EOF
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) $year Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+EOF
+)
+            header=$(head -n $(echo "$EXPECTED_HEADER" | wc -l) "$file")
+            if [ "$header" != "$EXPECTED_HEADER" ]; then
+              if [ "${{ inputs.mode }}" = "fix" ]; then
+                echo "Updating header in $file"
+                tail -n +$(grep -n '^namespace ' "$file" | head -n1 | cut -d: -f1) "$file" > tmp && mv tmp "$file"
+                printf "%s\n\n%s" "$EXPECTED_HEADER" "$(cat \"$file\")" > "$file"
+              else
+                echo "Header mismatch in $file"
+                ERR=1
+              fi
+            fi
+          fi
+        done
+        exit $ERR
+    - name: Commit & push changes
+      if: ${{ inputs.mode == 'fix' }}
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add .
+        git diff --quiet || (git commit -m "chore: automatically fixed file headers" && git push)
