@@ -102,6 +102,7 @@ namespace SmartHopper.Components.Grasshopper
         {
             pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'inputcomponents', 'outputcomponents', 'processingcomponents', 'isolatedcomponents'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
             pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
         }
 
@@ -116,7 +117,10 @@ namespace SmartHopper.Components.Grasshopper
         {
             // get input run
             object runObject = null;
-            if (!DA.GetData(2, ref runObject)) return;
+            if (!DA.GetData(3, ref runObject)) return;
+
+            int connectionDepth = 0;
+            DA.GetData(2, ref connectionDepth);
 
             if (!(runObject is GH_Boolean run))
             {
@@ -152,8 +156,9 @@ namespace SmartHopper.Components.Grasshopper
                 DA.GetDataList(0, typeFilters);
                 var parameters = new JObject
                 {
-                    ["filters"] = JArray.FromObject(filters),
-                    ["typeFilter"] = JArray.FromObject(typeFilters)
+                    ["attrFilters"] = JArray.FromObject(filters),
+                    ["typeFilter"] = JArray.FromObject(typeFilters),
+                    ["connectionDepth"] = connectionDepth,
                 };
                 var toolResult = AIToolManager.ExecuteTool("ghget", parameters, null).GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)

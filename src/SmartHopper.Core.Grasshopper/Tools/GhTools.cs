@@ -17,6 +17,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper;
 
 namespace SmartHopper.Core.Grasshopper.Tools
@@ -67,19 +68,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
         //   component, comp → components
         private static readonly Dictionary<string, string> TypeSynonyms = new Dictionary<string, string>
         {
-            {"param", "params"},
-            {"parameter", "params"},
-            {"component", "components"},
-            {"comp", "components"},
-            {"inputs", "input"},
-            {"inputcomponents", "input"},
-            {"outputs", "output"},
-            {"outputcomponents", "output"},
-            {"processingcomponents", "processing"},
-            {"intermediate", "processing"},
-            {"middle", "processing"},
-            {"middlecomponents", "processing"},
-            {"isolatedcomponents", "isolated"}
+            { "param", "params" },
+            { "parameter", "params" },
+            { "component", "components" },
+            { "comp", "components" },
+            { "inputs", "input" },
+            { "inputcomponents", "input" },
+            { "outputs", "output" },
+            { "outputcomponents", "output" },
+            { "processingcomponents", "processing" },
+            { "intermediate", "processing" },
+            { "middle", "processing" },
+            { "middlecomponents", "processing" },
+            { "isolatedcomponents", "isolated" }
         };
 
         // Helper to parse include/exclude tokens
@@ -123,6 +124,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
                             ""description"": ""Optional array of classification tokens with include/exclude syntax. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  input: components with no incoming connections (inputs only);\n  output: components with no outgoing connections (outputs only);\n  processing: components with both incoming and outgoing connections;\n  isolated: components with neither incoming nor outgoing connections (isolated).\nExamples: ['+params', '-components'] to include parameters and exclude components.\nWhen omitted, no type filtering is applied (all objects returned).""
+                        },
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
                         }
                     }
                 }",
@@ -136,6 +142,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var attrFilters = parameters["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
             var typeFilters = parameters["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
             var objects = GHCanvasUtils.GetCurrentObjects();
+            var connectionDepth = parameters["connectionDepth"]?.ToObject<int>() ?? 0;
             var (includeTypes, excludeTypes) = ParseIncludeExclude(typeFilters, TypeSynonyms);
             var (includeTags, excludeTags) = ParseIncludeExclude(attrFilters, FilterSynonyms);
 
@@ -242,6 +249,20 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && !c.Hidden);
             if (excludeTags.Contains("previewoff"))
                 resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && c.Hidden);
+
+            if (connectionDepth > 0)
+            {
+                var allObjects = GHCanvasUtils.GetCurrentObjects();
+                var fullDoc = GHDocumentUtils.GetObjectsDetails(allObjects);
+                var edges = fullDoc.Connections.Select(c => (c.From.ComponentId, c.To.ComponentId));
+                var initialIds = resultObjects.Select(o => o.InstanceGuid);
+                var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
+                var idMap = allObjects.ToDictionary(o => o.InstanceGuid, o => o);
+                resultObjects = expandedIds
+                    .Select(g => idMap.TryGetValue(g, out var obj) ? obj : null)
+                    .Where(o => o != null)
+                    .ToList();
+            }
 
             var distinct = resultObjects.Distinct().ToList();
             var document = GHDocumentUtils.GetObjectsDetails(distinct);
