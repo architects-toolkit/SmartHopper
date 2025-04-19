@@ -1,0 +1,42 @@
+name: "Trailing Whitespace"
+description: "Check or fix trailing whitespace and normalize line endings"
+inputs:
+  mode:
+    description: "Operation mode: fix or check"
+    required: false
+    default: "check"
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Process trailing whitespace
+      shell: bash
+      run: |
+        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+        ERR=0
+        for file in $FILES; do
+          if [[ -f "$file" ]]; then
+            if [[ "${{ inputs.mode }}" == "fix" ]]; then
+              sed -i 's/[ \t]*$//' "$file"
+              # normalize to unix line endings
+              sed -i 's/\r$//' "$file"
+            else
+              if grep -qE '[ \t]+$' "$file" || file "$file" | grep -q CRLF; then
+                echo "Trailing whitespace or CRLF found in $file"
+                ERR=1
+              fi
+            fi
+          fi
+        done
+        exit $ERR
+    - name: Commit & push changes
+      if: ${{ inputs.mode == 'fix' }}
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add .
+        git diff --quiet || (git commit -m "chore: automatically fixed trailing whitespace" && git push)
