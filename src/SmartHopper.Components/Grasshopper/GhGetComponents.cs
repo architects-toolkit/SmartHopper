@@ -100,9 +100,9 @@ namespace SmartHopper.Components.Grasshopper
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
-            pManager.AddTextParameter("Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
             pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'inputcomponents', 'outputcomponents', 'processingcomponents', 'isolatedcomponents'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -116,7 +116,7 @@ namespace SmartHopper.Components.Grasshopper
         {
             // get input run
             object runObject = null;
-            if (!DA.GetData(0, ref runObject)) return;
+            if (!DA.GetData(2, ref runObject)) return;
 
             if (!(runObject is GH_Boolean run))
             {
@@ -149,7 +149,7 @@ namespace SmartHopper.Components.Grasshopper
                 var filters = new List<string>();
                 DA.GetDataList(1, filters);
                 var typeFilters = new List<string>();
-                DA.GetDataList(2, typeFilters);
+                DA.GetDataList(0, typeFilters);
                 var parameters = new JObject
                 {
                     ["filters"] = JArray.FromObject(filters),

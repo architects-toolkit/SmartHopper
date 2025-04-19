@@ -114,10 +114,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""filters"": {
+                        ""attrFilters"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Array of filter tokens. '+' includes, '-' excludes. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on.""
+                            ""description"": ""Array of attribute filter tokens. '+' includes, '-' excludes. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on.""
                         },
                         ""typeFilter"": {
                             ""type"": ""array"",
@@ -126,18 +126,18 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         }
                     }
                 }",
-                execute: ExecuteGhGetToolAsync
+                execute: this.ExecuteGhGetToolAsync
             );
         }
 
         private Task<object> ExecuteGhGetToolAsync(JObject parameters)
         {
-            // Parse filters and type filters
-            var filters = parameters["filters"]?.ToObject<List<string>>() ?? new List<string>();
+            // Parse filters
+            var attrFilters = parameters["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
             var typeFilters = parameters["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
             var objects = GHCanvasUtils.GetCurrentObjects();
             var (includeTypes, excludeTypes) = ParseIncludeExclude(typeFilters, TypeSynonyms);
-            var (includeTags, excludeTags) = ParseIncludeExclude(filters, FilterSynonyms);
+            var (includeTags, excludeTags) = ParseIncludeExclude(attrFilters, FilterSynonyms);
 
             // Apply typeFilters on base objects
             var typeFiltered = new List<IGH_ActiveObject>(objects);
