@@ -12,23 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enabled the AIChat component to execute tools in Grasshopper.
 - Added optional 'Filter' input to `GhGetComponents` component for filtering by errors, warnings, remarks, selected, unselected, enabled, disabled, previewon, previewoff, previewcapable, notpreviewcapable. Supports include/exclude syntax (+/-) provided as a list of tags, each tag in a separate line, comma-separated or space-separated.
 - Added optional 'Type filter' input to `GhGetComponents` component to filter by component type (params, components, inputComponents, outputComponents and processingComponents).
+- Added `ConnectionGraphUtils` class in `SmartHopper.Core.Graph` namespace with method `ExpandByDepth` to expand a set of component IDs by following connections up to the given depth.
 
 ### Changed
 
 - Renamed the 'Branches Input' and 'Processed Branches' parameters to 'Data Count' and 'Iterations Count' in DeconstructMetricsComponents. Improved descriptions for both parameters.
-- Modified FilterListAsync in ListTools to return indices instead of filtered list items, with AIListFilter component now handling the final list construction.
-- GhGetSelectedComponents (GhGetSel) was renamed to GhGetComponents.
-- Moved GhGet execution logic to external tools managed by ToolManager.
+- Modified FilterListAsync in ListTools to return indices instead of filtered list items, with `AIListFilter` component now handling the final list construction.
+- Renamed `GhGetSelectedComponents` (GhGetSel) to `GhGetComponents`.
+- Moved `GhGet` execution logic to external tools managed by `ToolManager`.
 - Improved `ghget` tool's `typeFilter` input: supports include/exclude syntax (+/-) with multiple tokens (params, components, input, output, processing) and updated schema description with definitions and examples.
 
 ### Removed
 
-- GhGetComponent was removed. Use GhGetSelectedComponents (GhGetSel) instead.
+- `GhGetComponent` was replaced by `GhGetSelectedComponents` (GhGetSel) and renamed back to `GhGetComponents`.
 
 ### Fixed
 
-- Fixed a bug in DataProcessor where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
-- Fixed inconsistent list format handling between AIListEvaluate and AIListFilter components.
+- Fixed a bug in `DataProcessor` where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
+- Fixed inconsistent list format handling between `AIListEvaluate` and `AIListFilter` components.
 
 ## [0.2.0-alpha] - 2025-04-06
 
