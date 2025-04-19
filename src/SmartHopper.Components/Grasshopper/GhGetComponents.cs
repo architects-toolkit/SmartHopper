@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
     /// Component that converts selected or all Grasshopper components to GhJSON format.
-    /// Supports optional filtering by runtime messages: errors, warnings, and remarks.
+    /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff).
     /// </summary>
     public class GhGetComponents : GH_Component
     {
@@ -38,8 +38,8 @@ namespace SmartHopper.Components.Grasshopper
         private bool inSelectionMode = false;
 
         public GhGetComponents()
-            : base("Get Selected Components", "GhGetSel", 
-                  "Convert selected Grasshopper components to GhJSON format", 
+            : base("Get Components", "GhGet", 
+                  "Convert Grasshopper components to GhJSON format, with optional filters", 
                   "SmartHopper", "Grasshopper")
         {
         }
@@ -99,7 +99,7 @@ namespace SmartHopper.Components.Grasshopper
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
-            pManager.AddTextParameter("Filter", "F", "Optional filter by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddTextParameter("Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -155,19 +155,44 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     var includeTags = new HashSet<string>();
                     var excludeTags = new HashSet<string>();
-                    foreach (var raw in filters)
+                    // support inline and comma-separated filters
+                    foreach (var rawGroup in filters)
                     {
-                        var tok = raw.Trim();
-                        if (string.IsNullOrEmpty(tok)) continue;
-                        bool include = !tok.StartsWith("-");
-                        var tag = tok.TrimStart('+', '-').ToLowerInvariant();
-                        // normalize plural
-                        if (tag.EndsWith("s")) tag = tag.Substring(0, tag.Length - 1);
-                        // map locked/unlocked to enabled/disabled
-                        if (tag == "locked") tag = "disabled";
-                        if (tag == "unlocked") tag = "enabled";
-                        if (include) includeTags.Add(tag);
-                        else excludeTags.Add(tag);
+                        if (string.IsNullOrWhiteSpace(rawGroup)) continue;
+                        var parts = rawGroup.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var raw in parts)
+                        {
+                            var tok = raw.Trim();
+                            if (string.IsNullOrEmpty(tok)) continue;
+                            bool include = !tok.StartsWith("-");
+                            var tag = tok.TrimStart('+', '-').ToLowerInvariant();
+                        
+                            // map synonyms
+                            if (tag == "locked") tag = "disabled";
+                            if (tag == "unlocked") tag = "enabled";
+                            if (tag == "remarks") tag = "remark";
+                            if (tag == "info") tag = "remark";
+                            if (tag == "warn") tag = "warning";
+                            if (tag == "warnings") tag = "warning";
+                            if (tag == "errors") tag = "error";
+                            if (tag == "visible")    tag = "previewon";
+                            if (tag == "hidden")  tag = "previewoff";
+                            // NO NEED TO MAP:
+                            // previewcapable
+                            // notpreviewcapable
+                            // previewon
+                            // previewoff
+                            // selected
+                            // unselected
+                            // enabled
+                            // disabled
+                            // remark
+                            // error
+                            // warning
+
+                            if (include) includeTags.Add(tag);
+                            else excludeTags.Add(tag);
+                        }
                     }
 
                     List<IGH_ActiveObject> resultObjects;
@@ -194,6 +219,16 @@ namespace SmartHopper.Components.Grasshopper
                             resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any()));
                         if (includeTags.Contains("remark"))
                             resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any()));
+                        // IsPreviewCapable filters
+                        if (includeTags.Contains("previewcapable"))
+                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable).Cast<IGH_ActiveObject>());
+                        if (includeTags.Contains("notpreviewcapable"))
+                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => !c.IsPreviewCapable).Cast<IGH_ActiveObject>());
+                        // current preview state filters
+                        if (includeTags.Contains("previewon"))
+                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && !c.Hidden).Cast<IGH_ActiveObject>());
+                        if (includeTags.Contains("previewoff"))
+                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && c.Hidden).Cast<IGH_ActiveObject>());
                     }
                     else
                     {
@@ -215,6 +250,16 @@ namespace SmartHopper.Components.Grasshopper
                         resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any());
                     if (excludeTags.Contains("remark"))
                         resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any());
+                    // IsPreviewCapable exclusions
+                    if (excludeTags.Contains("previewcapable"))
+                        resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable);
+                    if (excludeTags.Contains("notpreviewcapable"))
+                        resultObjects.RemoveAll(o => o is GH_Component c && !c.IsPreviewCapable);
+                    // current preview state exclusions
+                    if (excludeTags.Contains("previewon"))
+                        resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && !c.Hidden);
+                    if (excludeTags.Contains("previewoff"))
+                        resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && c.Hidden);
 
                     objects = resultObjects.Distinct().ToList();
                 }

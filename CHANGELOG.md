@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Enabled the AIChat component to execute tools in Grasshopper.
-- Added optional 'Filter' input to `GhGetComponents` component for filtering by errors, warnings, and remarks. Supports include/exclude syntax (+/-).
+- Added optional 'Filter' input to `GhGetComponents` component for filtering by errors, warnings, remarks, selected, unselected, enabled, disabled, previewon, previewoff, previewcapable, notpreviewcapable. Supports include/exclude syntax (+/-) provided as a list of tags, each tag in a separate line, comma-separated or space-separated.
 
 ### Changed
 
