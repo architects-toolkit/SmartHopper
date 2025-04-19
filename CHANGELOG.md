@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `GhGetSelectedComponents` (GhGetSel) to `GhGetComponents`.
 - Moved `GhGet` execution logic to external tools managed by `ToolManager`.
 - Improved `ghget` tool's `typeFilter` input: supports include/exclude syntax (+/-) with multiple tokens (params, components, input, output, processing) and updated schema description with definitions and examples.
+- Reorganized `SmartHopper.Core.Grasshopper` files in subfolders that match the namespace.
 
 ### Removed
 

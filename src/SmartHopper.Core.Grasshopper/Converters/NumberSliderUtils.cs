@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Diagnostics;
 
-namespace SmartHopper.Core.Grasshopper.TypeUtils
+namespace SmartHopper.Core.Grasshopper.Converters
 {
     public static class NumberSliderUtils
     {
@@ -96,3 +96,4 @@ namespace SmartHopper.Core.Grasshopper.TypeUtils
         }
     }
 }
+

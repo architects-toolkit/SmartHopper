@@ -18,7 +18,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Tools;
 using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper;
+using SmartHopper.Core.Grasshopper.Utils;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
