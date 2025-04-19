@@ -15,6 +15,8 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Tools;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper;
 using System;
@@ -143,148 +145,25 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                // Use selected objects if available, otherwise use all objects
-                var objects = selectedObjects.Count > 0 
-                    ? selectedObjects 
-                    : GHCanvasUtils.GetCurrentObjects();
-
-                // Parse include/exclude filters (+/- syntax) and normalize tags
                 var filters = new List<string>();
                 DA.GetDataList(1, filters);
-                if (filters.Any(f => !string.IsNullOrWhiteSpace(f)))
+                var parameters = new JObject { ["filters"] = JArray.FromObject(filters) };
+                var toolResult = AIToolManager.ExecuteTool("ghget", parameters, null).GetAwaiter().GetResult() as JObject;
+                if (toolResult == null)
                 {
-                    var includeTags = new HashSet<string>();
-                    var excludeTags = new HashSet<string>();
-                    // support inline and comma-separated filters
-                    foreach (var rawGroup in filters)
-                    {
-                        if (string.IsNullOrWhiteSpace(rawGroup)) continue;
-                        var parts = rawGroup.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var raw in parts)
-                        {
-                            var tok = raw.Trim();
-                            if (string.IsNullOrEmpty(tok)) continue;
-                            bool include = !tok.StartsWith("-");
-                            var tag = tok.TrimStart('+', '-').ToLowerInvariant();
-                        
-                            // map synonyms
-                            if (tag == "locked") tag = "disabled";
-                            if (tag == "unlocked") tag = "enabled";
-                            if (tag == "remarks") tag = "remark";
-                            if (tag == "info") tag = "remark";
-                            if (tag == "warn") tag = "warning";
-                            if (tag == "warnings") tag = "warning";
-                            if (tag == "errors") tag = "error";
-                            if (tag == "visible")    tag = "previewon";
-                            if (tag == "hidden")  tag = "previewoff";
-                            // NO NEED TO MAP:
-                            // previewcapable
-                            // notpreviewcapable
-                            // previewon
-                            // previewoff
-                            // selected
-                            // unselected
-                            // enabled
-                            // disabled
-                            // remark
-                            // error
-                            // warning
-
-                            if (include) includeTags.Add(tag);
-                            else excludeTags.Add(tag);
-                        }
-                    }
-
-                    List<IGH_ActiveObject> resultObjects;
-                    // Start with included set or all
-                    if (includeTags.Any())
-                    {
-                        resultObjects = new List<IGH_ActiveObject>();
-                        // selection filters
-                        if (includeTags.Contains("selected"))
-                            resultObjects.AddRange(objects.Where(o => o.Attributes.Selected));
-                        if (includeTags.Contains("unselected"))
-                            resultObjects.AddRange(objects.Where(o => !o.Attributes.Selected));
-                        // enable/disable filters
-                        resultObjects.AddRange(includeTags.Contains("enabled")
-                            ? objects.OfType<GH_Component>().Where(c => c.Locked).Cast<IGH_ActiveObject>()
-                            : Enumerable.Empty<IGH_ActiveObject>());
-                        resultObjects.AddRange(includeTags.Contains("disabled")
-                            ? objects.OfType<GH_Component>().Where(c => !c.Locked).Cast<IGH_ActiveObject>()
-                            : Enumerable.Empty<IGH_ActiveObject>());
-                        // runtime message filters
-                        if (includeTags.Contains("error"))
-                            resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any()));
-                        if (includeTags.Contains("warning"))
-                            resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any()));
-                        if (includeTags.Contains("remark"))
-                            resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any()));
-                        // IsPreviewCapable filters
-                        if (includeTags.Contains("previewcapable"))
-                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable).Cast<IGH_ActiveObject>());
-                        if (includeTags.Contains("notpreviewcapable"))
-                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => !c.IsPreviewCapable).Cast<IGH_ActiveObject>());
-                        // current preview state filters
-                        if (includeTags.Contains("previewon"))
-                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && !c.Hidden).Cast<IGH_ActiveObject>());
-                        if (includeTags.Contains("previewoff"))
-                            resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && c.Hidden).Cast<IGH_ActiveObject>());
-                    }
-                    else
-                    {
-                        resultObjects = new List<IGH_ActiveObject>(objects);
-                    }
-
-                    // Exclude specified tags
-                    if (excludeTags.Contains("selected"))
-                        resultObjects.RemoveAll(o => o.Attributes.Selected);
-                    if (excludeTags.Contains("unselected"))
-                        resultObjects.RemoveAll(o => !o.Attributes.Selected);
-                    if (excludeTags.Contains("enabled"))
-                        resultObjects.RemoveAll(o => (o is GH_Component c && c.Locked));
-                    if (excludeTags.Contains("disabled"))
-                        resultObjects.RemoveAll(o => (o is GH_Component c && !c.Locked));
-                    if (excludeTags.Contains("error"))
-                        resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any());
-                    if (excludeTags.Contains("warning"))
-                        resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any());
-                    if (excludeTags.Contains("remark"))
-                        resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any());
-                    // IsPreviewCapable exclusions
-                    if (excludeTags.Contains("previewcapable"))
-                        resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable);
-                    if (excludeTags.Contains("notpreviewcapable"))
-                        resultObjects.RemoveAll(o => o is GH_Component c && !c.IsPreviewCapable);
-                    // current preview state exclusions
-                    if (excludeTags.Contains("previewon"))
-                        resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && !c.Hidden);
-                    if (excludeTags.Contains("previewoff"))
-                        resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && c.Hidden);
-
-                    objects = resultObjects.Distinct().ToList();
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'ghget' did not return a valid result");
+                    return;
                 }
-
-                // Get the details of each object
-                var document = GHDocumentUtils.GetObjectsDetails(objects);
-
-                // Get unique component names
-                var componentNames = document.Components.Select(c => c.Name).Distinct().ToList();
-
-                // Get unique component guids
-                var componentGuids = document.Components.Select(c => c.ComponentGuid.ToString()).Distinct().ToList();
-
-                // Convert to JSON
-                var json = JsonConvert.SerializeObject(document, Formatting.None);
-
-                // Store results
+                var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
+                var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var json = toolResult["json"]?.ToString() ?? string.Empty;
                 lastComponentNames = componentNames;
                 lastComponentGuids = componentGuids;
                 lastJsonOutput = json;
-
-                // Set outputs
                 DA.SetDataList(0, componentNames);
                 DA.SetDataList(1, componentGuids);
                 DA.SetData(2, json);
+                return;
             }
             catch (Exception ex)
             {
