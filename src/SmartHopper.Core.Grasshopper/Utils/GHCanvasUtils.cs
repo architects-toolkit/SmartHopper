@@ -13,6 +13,7 @@ using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -50,9 +51,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
-            GH_Document doc = GetCurrentCanvas();
-
-            IGH_DocumentObject obj = doc.FindObject(guid, true);
+            IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
 
             if (obj is IGH_Component)
             {
@@ -89,4 +88,3 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
     }
 }
-
