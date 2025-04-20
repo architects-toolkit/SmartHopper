@@ -51,20 +51,61 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     Debug.WriteLine("[GHComponentUtils] Component is not preview capable");
                 }
             }
-            //else if (obj is IGH_DocumentObject docObj)
-            //{
-            //    Debug.WriteLine($"[GHComponentUtils] GH_DocumentObject.Hidden={docObj.Hidden}");
-            //    docObj.Hidden = !previewOn;
-            //    Debug.WriteLine($"[GHComponentUtils] New Hidden={docObj.Hidden}");
-            //    if (redraw)
-            //    {
-            //        Instances.RedrawCanvas();
-            //        Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
-            //    }
-            //}
+            else if (obj is IGH_Param param)
+            {
+                Debug.WriteLine($"[GHComponentUtils] IGH_Param.Hidden={param.Hidden}");
+                param.Hidden = !previewOn;
+                Debug.WriteLine($"[GHComponentUtils] New Hidden={param.Hidden}");
+                if (redraw)
+                {
+                    Instances.RedrawCanvas();
+                    Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
+                }
+            }
             else
             {
                 Debug.WriteLine("[GHComponentUtils] Object is not previewable (not a GH_DocumentObject)");
+            }
+        }
+
+        /// <summary>
+        /// Set lock state of a Grasshopper component by GUID.
+        /// </summary>
+        /// <param name="guid">GUID of the component</param>
+        /// <param name="locked">True to lock (disable), false to unlock (enable)</param>
+        /// <param name="redraw">True to redraw canvas immediately</param>
+        public static void SetComponentLock(Guid guid, bool locked, bool redraw = true)
+        {
+            Debug.WriteLine($"[GHComponentUtils] SetComponentLock: guid={guid}, locked={locked}");
+            var obj = GHCanvasUtils.FindInstance(guid);
+            Debug.WriteLine(obj != null
+                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}" 
+                : "[GHComponentUtils] Found null object");
+            if (obj is GH_Component component)
+            {
+                Debug.WriteLine($"[GHComponentUtils] Component.Locked={component.Locked}");
+                component.Locked = locked;
+                Debug.WriteLine($"[GHComponentUtils] New Locked={component.Locked}");
+                if (redraw)
+                {
+                    Instances.RedrawCanvas();
+                    Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
+                }
+            }
+            else if (obj is IGH_Param param)
+            {
+                Debug.WriteLine($"[GHComponentUtils] IGH_Param.Locked={param.Locked}");
+                param.Locked = locked;
+                Debug.WriteLine($"[GHComponentUtils] New Locked={param.Locked}");
+                if (redraw)
+                {
+                    Instances.RedrawCanvas();
+                    Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
+                }
+            }
+            else
+            {
+                Debug.WriteLine("[GHComponentUtils] Object is neither a GH_Component nor a GH_Param");
             }
         }
     }
