@@ -163,7 +163,7 @@ jobs:
             git checkout origin/$ORIGIN -- "$FILTER"
             
             # Check if the checkout resulted in any changes to the working directory
-            if git diff --quiet; then
+            if ! git status --porcelain -- "$FILTER" | grep -q .; then
               echo "No changes to merge for path $FILTER after checkout."
               echo "status=no_changes" >> $GITHUB_OUTPUT
               exit 0
