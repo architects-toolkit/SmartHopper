@@ -20,12 +20,12 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public static (decimal minimum, decimal maximum, decimal value) ConvertFromJson(ComponentProperties properties)
         {
             // Extract values from the nested property structure and convert from JObject
-            var currentValue = ((JObject)properties.Properties["CurrentValue"].Value)["Value"].ToObject<decimal>();
+            var currentValue = ((JObject)properties.Properties["CurrentValue"].Value)["value"].ToObject<decimal>();
 
             Debug.WriteLine($"Raw values from JSON - CurrentValue: {currentValue}");
 
             // Get instance description and parse it
-            var instanceDescription = ((JObject)properties.Properties["InstanceDescription"].Value)["Value"].ToString();
+            var instanceDescription = ((JObject)properties.Properties["InstanceDescription"].Value)["value"].ToString();
             var (_, lowerLimit, upperLimit) = ParseInstanceDescription(instanceDescription);
 
             Debug.WriteLine($"Parsed from description - Lower: {lowerLimit}, Upper: {upperLimit}");
