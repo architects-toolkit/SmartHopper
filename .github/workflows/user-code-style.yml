@@ -8,7 +8,7 @@ on:
       mode:
         description: 'Mode for code style: fix or check'
         required: true
-        default: 'fix'
+        default: 'check'
         type: string
 
 jobs:
