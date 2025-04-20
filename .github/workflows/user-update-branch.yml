@@ -40,11 +40,11 @@ jobs:
       matrix:
         target_branch: ${{ fromJson(github.event.inputs.target_branch) }}
     steps:
-      - name: Checkout origin branch
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.origin_branch }}
+          ref: ${{ matrix.target_branch }}
 
       - name: Validate branches
         id: validate-branches
@@ -70,48 +70,44 @@ jobs:
           echo "Branches validated successfully."
         shell: bash
 
-      - name: Fetch target branch
-        run: git fetch origin ${{ matrix.target_branch }}
+      - name: Fetch origin branch
+        run: git fetch origin ${{ github.event.inputs.origin_branch }}
 
-      - name: Merge target into origin (filtered)
+      - name: Prepare update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ -n "${{ github.event.inputs.filter }}" ]; then
-            # Use merge strategy 'ours' to automatically resolve all conflicts in our favor
-            # This ensures the merge operation won't fail on conflicts
-            git merge origin/${{ matrix.target_branch }} -s ours --no-commit
-            # Now cherry-pick just the files we want from the target branch
-            git checkout origin/${{ matrix.target_branch }} -- "${{ github.event.inputs.filter }}"
+            git checkout origin/${{ github.event.inputs.origin_branch }} -- "${{ github.event.inputs.filter }}"
             git add "${{ github.event.inputs.filter }}"
-            git commit -m "chore(branch): update ${{ github.event.inputs.origin_branch }} with ${{ matrix.target_branch }} changes for path ${{ github.event.inputs.filter }}"
           else
-            # Attempt normal merge for full updates
-            if ! git merge origin/${{ matrix.target_branch }} --no-ff -m "chore(branch): merge ${{ matrix.target_branch }} into ${{ github.event.inputs.origin_branch }}"; then
-              echo "::warning::Merge conflicts detected. Creating PR for manual resolution."
-              # Reset to pre-merge state so we can still create the PR
-              git merge --abort
-            fi
+            git merge origin/${{ github.event.inputs.origin_branch }} --no-ff --no-commit
           fi
 
-      - name: Push commits to origin branch
-        run: git push origin HEAD:${{ github.event.inputs.origin_branch }}
+      - name: Prepare PR variables
+        run: |
+          if [ -n "${{ github.event.inputs.filter }}" ]; then
+            PR_SUFFIX=" for path ${{ github.event.inputs.filter }}"
+          else
+            PR_SUFFIX=""
+          fi
+          PR_TITLE="Update ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}$PR_SUFFIX"
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+          echo "PR_SUFFIX=$PR_SUFFIX" >> $GITHUB_ENV
 
-      - name: Create PR via GitHub API
-        uses: actions/github-script@v7
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const title = `Update ${context.payload.inputs.target_branch[0]} from ${context.payload.inputs.origin_branch}${context.payload.inputs.filter ? ` for path ${context.payload.inputs.filter}` : ''}`;
-            const body = `This PR updates \\`${context.payload.inputs.target_branch[0]}\\` with changes from \\`${context.payload.inputs.origin_branch}\\`${context.payload.inputs.filter ? ` for the path \\`${context.payload.inputs.filter}\\`` : ''}`;
-            await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              head: context.payload.inputs.origin_branch,
-              base: context.payload.inputs.target_branch[0]
-            });
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ matrix.target_branch }}
+          branch: update-branch/${{ matrix.target_branch }}-from-${{ github.event.inputs.origin_branch }}
+          commit-message: "${{ env.PR_TITLE }}"
+          title: "${{ env.PR_TITLE }}"
+          body: |
+            This PR updates `${{ matrix.target_branch }}` with changes from `${{ github.event.inputs.origin_branch }}`${{ env.PR_SUFFIX }}
+          labels: update-branch
+          add-paths: ${{ github.event.inputs.filter || '.' }}
+          delete-branch: true
 
       - name: Output results
         run: |
