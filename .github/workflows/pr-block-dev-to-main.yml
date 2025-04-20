@@ -1,0 +1,48 @@
+
+name: 📦 Block Dev Release to Main
+
+# Description: This workflow blocks development release versions from being merged into the main branch.
+# It checks for the presence of "-dev" in the version number and prevents the merge if found.
+#
+# Trigger: Automatically when a pull request is opened or updated targeting the main branch
+#
+# Permissions:
+# - contents:read - Required to read repository content
+# - pull-requests:read - Required to read pull request information
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Solution.props'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-dev-release:
+    name: 🚫 Block Dev Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get version from Solution.props
+        id: get-version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Check for Dev Release
+        id: check-dev
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+          echo "Version found: $VERSION"
+          
+          if [[ $VERSION == *"-dev"* ]]; then
+            echo "::error::Development release versions (-dev) cannot be merged into main branch"
+            echo "IS_DEV_RELEASE=true" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "IS_DEV_RELEASE=false" >> $GITHUB_ENV
+          fi
