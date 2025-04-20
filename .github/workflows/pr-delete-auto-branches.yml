@@ -1,0 +1,35 @@
+name: pr-delete-auto-branches
+
+# Description: Deletes auto-generated branches when a pull request is closed (merged or not) if the branch name matches predefined patterns.
+# 
+# This workflow triggers on pull_request closed events and deletes the head branch when it matches any of:
+# - update-branch/*
+# - chore/update-dev-version-date-*
+# - docs/update-version-badge-*
+#
+# Triggers:
+# - pull_request.types: closed
+#
+# Permissions:
+# - contents: write - Required to delete branches
+
+on:
+  pull_request:
+    types:
+      - closed
+permissions:
+  contents: write
+jobs:
+  delete-auto-branches:
+    name: Delete auto branches
+    if: |
+      startsWith(github.event.pull_request.head.ref, 'update-branch/') ||
+      startsWith(github.event.pull_request.head.ref, 'chore/update-dev-version-date-') ||
+      startsWith(github.event.pull_request.head.ref, 'docs/update-version-badge-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete branch
+        uses: breningham/delete-branch@v1.0.0
+        with:
+          branch_name: ${{ github.event.pull_request.head.ref }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
