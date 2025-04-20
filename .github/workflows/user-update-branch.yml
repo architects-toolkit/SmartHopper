@@ -77,7 +77,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}`;
+            const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
+            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
             
             console.log(`Checking for existing PRs with title: ${prTitle}`);
             
