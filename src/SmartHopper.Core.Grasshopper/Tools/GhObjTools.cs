@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
@@ -72,6 +73,36 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ExecuteToggleLockAsync
             );
+
+            // New tool to move component pivot position
+            yield return new AITool(
+                name: "ghmoveobj",
+                description: "Move Grasshopper component pivot by GUID, with absolute or relative position.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""guids"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""List of component GUIDs to move.""
+                        },
+                        ""x"": {
+                            ""type"": ""number"",
+                            ""description"": ""X coordinate for pivot (absolute or offset).""
+                        },
+                        ""y"": {
+                            ""type"": ""number"",
+                            ""description"": ""Y coordinate for pivot (absolute or offset).""
+                        },
+                        ""relative"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""True for relative offset; false for absolute.""
+                        }
+                    },
+                    ""required"": [ ""guids"", ""x"", ""y"" ]
+                }",
+                execute: this.ExecuteMoveObjAsync
+            );
         }
         #endregion
 
@@ -130,5 +161,36 @@ namespace SmartHopper.Core.Grasshopper.Tools
             return new { success = true, updated };
         }
         #endregion
+
+        #region MoveInstance
+        private async Task<object> ExecuteMoveObjAsync(JObject parameters)
+        {
+            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var x = parameters["x"]?.ToObject<float>() ?? 0f;
+            var y = parameters["y"]?.ToObject<float>() ?? 0f;
+            var relative = parameters["relative"]?.ToObject<bool>() ?? false;
+            Debug.WriteLine($"[GhObjTools] ExecuteMoveObjAsync: x={x}, y={y}, relative={relative}, count={guids.Count}");
+            var updated = new List<string>();
+            foreach (var s in guids)
+            {
+                Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
+                if (Guid.TryParse(s, out var guid))
+                {
+                    var moved = GHCanvasUtils.MoveInstance(guid, new PointF(x, y), relative);
+                    Debug.WriteLine(moved
+                        ? $"[GhObjTools] Moved GUID: {guid} to ({x},{y}) relative={relative}"
+                        : $"[GhObjTools] Instance not found for GUID: {guid}");
+                    if (moved)
+                        updated.Add(guid.ToString());
+                }
+                else
+                {
+                    Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
+                }
+            }
+            return new { success = true, updated };
+        }
+        #endregion
+
     }
 }
