@@ -36,6 +36,9 @@ permissions:
 jobs:
   update-branch:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target_branch: ${{ fromJson('["' + replace(github.event.inputs.target_branch, ' ', '","') + '"]') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -57,13 +60,13 @@ jobs:
           fi
           
           # Check if target branch exists
-          if ! git ls-remote --heads origin ${{ github.event.inputs.target_branch }} | grep -q ${{ github.event.inputs.target_branch }}; then
-            echo "::error::Target branch '${{ github.event.inputs.target_branch }}' does not exist."
+          if ! git ls-remote --heads origin ${{ matrix.target_branch }} | grep -q ${{ matrix.target_branch }}; then
+            echo "::error::Target branch '${{ matrix.target_branch }}' does not exist."
             exit 1
           fi
           
           # Check if branches are the same
-          if [[ "${{ github.event.inputs.origin_branch }}" == "${{ github.event.inputs.target_branch }}" ]]; then
+          if [[ "${{ github.event.inputs.origin_branch }}" == "${{ matrix.target_branch }}" ]]; then
             echo "::error::Origin and target branches cannot be the same."
             exit 1
           fi
@@ -78,7 +81,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
+            const prTitle = `chore(branch): update ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
             
             console.log(`Checking for existing PRs with title: ${prTitle}`);
             
@@ -86,7 +89,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              base: '${{ github.event.inputs.target_branch }}'
+              base: '${{ matrix.target_branch }}'
             });
             
             const existingPR = prs.data.find(pr => 
@@ -111,7 +114,7 @@ jobs:
       - name: Exit if PR exists
         if: fromJSON(steps.check-existing-pr.outputs.result).exists == true
         run: |
-          echo "::warning::An open PR already exists for updating ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}. See PR #$(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_number) at $(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_url)"
+          echo "::warning::An open PR already exists for updating ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}. See PR #$(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_number) at $(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_url)"
           exit 0
         shell: bash
 
@@ -119,11 +122,11 @@ jobs:
         id: create-temp-branch
         run: |
           # Create a unique branch name
-          TEMP_BRANCH="update-branch/${{ github.event.inputs.target_branch }}-from-${{ github.event.inputs.origin_branch }}"
+          TEMP_BRANCH="update-branch/${{ matrix.target_branch }}-from-${{ github.event.inputs.origin_branch }}"
           echo "temp_branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
           
           # Checkout target branch
-          git checkout ${{ github.event.inputs.target_branch }}
+          git checkout ${{ matrix.target_branch }}
           
           # Create temporary branch from target
           git checkout -b $TEMP_BRANCH
@@ -135,7 +138,7 @@ jobs:
         id: attempt-merge
         run: |
           ORIGIN=${{ github.event.inputs.origin_branch }}
-          TARGET=${{ github.event.inputs.target_branch }}
+          TARGET=${{ matrix.target_branch }}
           FILTER=${{ github.event.inputs.filter }}
           
           # Function to check for file suppressions
@@ -236,23 +239,8 @@ jobs:
           fi
         shell: bash
 
-      - name: Push changes if no conflicts
-        id: push-changes
-        if: steps.attempt-merge.outputs.merge_status == 'success'
-        run: |
-          # Try to push changes directly to target branch
-          if git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}:${{ github.event.inputs.target_branch }}; then
-            echo "push_status=success" >> $GITHUB_OUTPUT
-            echo "Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
-          else
-            echo "push_status=failed" >> $GITHUB_OUTPUT
-            echo "Direct push failed. Branch may be protected. Will create a PR instead."
-          fi
-        shell: bash
-        continue-on-error: true
-
       - name: Create PR if conflicts or protected branch
-        if: steps.attempt-merge.outputs.merge_status == 'conflict' || steps.push-changes.outputs.push_status == 'failed'
+        if: steps.attempt-merge.outputs.merge_status == 'conflict' || steps.attempt-merge.outputs.merge_status == 'success'
         id: create-pr
         uses: actions/github-script@v7.0.1
         with:
@@ -263,11 +251,11 @@ jobs:
             execSync('git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}');
             
             const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
+            const prTitle = `chore(branch): update ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
             
             let prBody = `## Branch Update
 
-            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`${filterSuffix ? ` for the path \`${filterSuffix.substring(10)}\`` : ''}.`;
+            This PR updates \`${{ matrix.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`${filterSuffix ? ` for the path \`${filterSuffix.substring(10)}\`` : ''}.`;
             
             if ('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') {
               prBody += `
@@ -280,7 +268,7 @@ jobs:
 
             ### ℹ️ Protected Branch
 
-            This PR was created because \`${{ github.event.inputs.target_branch }}\` is a protected branch that requires changes through pull requests.`;
+            This PR was created because \`${{ matrix.target_branch }}\` is a protected branch that requires changes through pull requests.`;
             }
             
             prBody += `
@@ -299,7 +287,7 @@ jobs:
                 title: prTitle,
                 body: prBody,
                 head: '${{ steps.create-temp-branch.outputs.temp_branch }}',
-                base: '${{ github.event.inputs.target_branch }}'
+                base: '${{ matrix.target_branch }}'
               });
               
               console.log(`PR created: ${pr.data.html_url}`);
@@ -316,11 +304,8 @@ jobs:
 
       - name: Output results
         run: |
-          if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" && "${{ steps.push-changes.outputs.push_status }}" == "success" ]]; then
-            echo "✅ Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
-          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" && "${{ steps.push-changes.outputs.push_status }}" == "failed" ]]; then
-            echo "ℹ️ Branch is protected. Created PR #$(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_number) for review."
-            echo "PR URL: $(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_url)"
+          if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" ]]; then
+            echo "✅ Successfully updated ${{ matrix.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
           elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "no_changes" ]]; then
             echo "ℹ️ No changes to merge. Branches are already in sync."
           elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "conflict" ]]; then
