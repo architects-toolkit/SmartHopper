@@ -205,21 +205,28 @@ jobs:
           # Build PR body
           prBody="## Branch Update
 
-            This PR updates \`$TARGET\` with changes from \`$ORIGIN\`."
-                      if [ "$STATUS" = "conflict" ]; then
-                        prBody+="
-
-            ### ⚠️ Merge Conflicts
-
-            This PR contains merge conflicts that need to be resolved manually."
-                      else
-                        prBody+="
+            This PR updates \`$TARGET\` with changes from \`$ORIGIN\`"
+          if [ -n "$FILTER" ]; then
+            prBody+=" for path \`$FILTER\`"
+          fi
+          # Build PR title
+          title="chore(branch): update $TARGET from $ORIGIN"
+          if [ -n "$FILTER" ]; then
+            title+=" for path $FILTER"
+          fi
+          prBody+=".
 
             ### ℹ️ Protected Branch
 
             This PR was created because \`$TARGET\` is a protected branch that requires changes through pull requests."
-                      fi
-                      prBody+="
+          if [ "$STATUS" = "conflict" ]; then
+            prBody+="
+
+            ### ⚠️ Merge Conflicts
+
+            This PR contains merge conflicts that need to be resolved manually."
+          fi
+          prBody+="
 
             ### Instructions
 
@@ -230,7 +237,7 @@ jobs:
 
           # Create PR
           prUrl=$(gh pr create \
-            --title "chore(branch): update $TARGET from $ORIGIN" \
+            --title "$title" \
             --body "$prBody" \
             --head $TMP_BRANCH --base $TARGET)
           echo "$prUrl"
