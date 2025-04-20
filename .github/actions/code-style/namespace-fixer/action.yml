@@ -25,9 +25,11 @@ runs:
         ERR=0
         for file in $FILES; do
           if [ -f "$file" ]; then
-            rel=${file#src/}
-            ns=SmartHopper.${rel%.*}
-            ns=${ns//\//.}
+            # derive namespace from file path without file name
+            fp=${file#src/}
+            fp_no_ext=${fp%.*}
+            dir=${fp_no_ext%/*}
+            ns=${dir//\//.}
             actual=$(grep -m1 '^namespace ' "$file" | cut -d ' ' -f2)
             if [ "$actual" != "$ns" ]; then
               if [ "${{ inputs.mode }}" = "fix" ]; then
