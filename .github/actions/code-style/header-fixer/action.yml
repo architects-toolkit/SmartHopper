@@ -1,0 +1,66 @@
+name: "Header Fixer"
+description: "Check or fix C# file headers to match .editorconfig header template"
+inputs:
+  mode:
+    description: "Operation mode: fix or check"
+    required: false
+    default: "check"
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Process C# file headers
+      if: always()
+      shell: bash
+      run: |
+        if [ -n "${{ github.event.pull_request }}" ]; then
+          FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.cs')
+        else
+          # Fallback to all .cs files when not a pull_request event
+          FILES=$(find . -type f -name '*.cs')
+        fi
+        ERR=0
+        for file in $FILES; do
+          if [ -f "$file" ]; then
+            year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
+            [ -z "$year" ] && year=$(date +%Y)
+            
+            # Create header template
+            HEADER="/*\n * SmartHopper - AI-powered Grasshopper Plugin\n * Copyright (C) $year Marc Roca Musach\n *\n * This library is free software; you can redistribute it and/or\n * modify it under the terms of the GNU Lesser General Public\n * License as published by the Free Software Foundation; either\n * version 3 of the License, or (at your option) any later version.\n */"
+            
+            # Get current header
+            HEADER_LINES=$(echo -e "$HEADER" | wc -l)
+            CURRENT_HEADER=$(head -n $HEADER_LINES "$file")
+            
+            if [ "$(echo -e "$HEADER")" != "$CURRENT_HEADER" ]; then
+              if [ "${{ inputs.mode }}" = "fix" ]; then
+                echo "Updating header in $file"
+                # Find namespace line
+                NAMESPACE_LINE=$(grep -n '^namespace ' "$file" | head -1 | cut -d: -f1)
+                if [ -n "$NAMESPACE_LINE" ]; then
+                  # Extract content from namespace line to end
+                  CONTENT=$(tail -n +$NAMESPACE_LINE "$file")
+                  # Write new file with correct header
+                  echo -e "$HEADER\n\n$CONTENT" > "$file"
+                else
+                  echo "Warning: Could not find namespace line in $file"
+                fi
+              else
+                echo "Header mismatch in $file"
+                ERR=1
+              fi
+            fi
+          fi
+        done
+        exit $ERR
+    - name: Commit & push changes
+      if: ${{ inputs.mode == 'fix' }}
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add .
+        git diff --quiet || (git commit -m "chore: automatically fixed file headers" && git push)
