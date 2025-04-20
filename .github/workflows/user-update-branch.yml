@@ -77,7 +77,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}`;
+            const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
+            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
             
             console.log(`Checking for existing PRs with title: ${prTitle}`);
             
@@ -136,29 +137,92 @@ jobs:
           ORIGIN=${{ github.event.inputs.origin_branch }}
           TARGET=${{ github.event.inputs.target_branch }}
           FILTER=${{ github.event.inputs.filter }}
+          
+          # Function to check for file suppressions
+          check_file_suppressions() {
+            local origin_branch=$1
+            local target_branch=$2
+            local filter_path=$3
+            local filter_suffix=""
+            
+            if [[ -n "$filter_path" ]]; then
+              filter_suffix=" for path $filter_path"
+              filter_arg="-- $filter_path"
+            else
+              filter_arg=""
+            fi
+            
+            # Get list of files from both branches
+            git ls-tree -r --name-only origin/$target_branch $filter_arg > target_files.txt
+            git ls-tree -r --name-only origin/$origin_branch $filter_arg > origin_files.txt
+            
+            # Check for file suppressions (files in target but not in origin)
+            if ! diff --new-line-format="" --unchanged-line-format="" target_files.txt origin_files.txt | grep -q .; then
+              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+              echo "No changes to merge$filter_suffix. Branches are already in sync."
+              return 1
+            else
+              # Handle file suppressions
+              echo "Detected file suppressions$filter_suffix"
+              # Get files that exist in target but not in origin
+              diff --new-line-format="%L" --unchanged-line-format="" target_files.txt origin_files.txt > suppressed_files.txt
+              
+              # Remove these files
+              if [ -s suppressed_files.txt ]; then
+                while IFS= read -r file; do
+                  echo "Removing file: $file"
+                  git rm -f "$file" || true
+                done < suppressed_files.txt
+                
+                git commit -m "chore(branch): update $target_branch from $origin_branch$filter_suffix (with file suppressions)"
+                echo "merge_status=success" >> $GITHUB_OUTPUT
+                echo "Changes with file suppressions detected and committed$filter_suffix."
+                return 0
+              else
+                echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+                echo "No changes to merge$filter_suffix. Branches are already in sync."
+                return 1
+              fi
+            fi
+          }
+          
+          # Handle filtered path update with modified and deleted files
           if [[ -n "$FILTER" ]]; then
             echo "Updating specific path: $FILTER"
             git checkout origin/$ORIGIN -- "$FILTER"
-            # Check if there are any changes to stage
-            if git status --porcelain | grep -q "$FILTER"; then
-              git add "$FILTER"
+            # Commit modified files
+            modified=$(git diff origin/$TARGET origin/$ORIGIN --name-only -- "$FILTER")
+            if [[ -n "$modified" ]]; then
+              echo "$modified" | xargs -r git add
               git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
               echo "merge_status=success" >> $GITHUB_OUTPUT
-              echo "Changes detected and committed for path $FILTER."
-            else
-              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-              echo "No changes to merge for path $FILTER."
+              echo "Modified files detected and committed for path $FILTER."
+              exit 0
             fi
+            # Commit deleted files
+            deleted=$(git diff origin/$TARGET origin/$ORIGIN --name-only --diff-filter=D -- "$FILTER")
+            if [[ -n "$deleted" ]]; then
+              echo "$deleted" | while read file; do
+                echo "Removing file: $file"
+                git rm "$file"
+              done
+              git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER (deleted files)"
+              echo "merge_status=success" >> $GITHUB_OUTPUT
+              echo "Deleted files detected and removed for path $FILTER."
+              exit 0
+            fi
+            echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+            echo "No changes to merge for path $FILTER. Branches are already in sync."
             exit 0
           fi
 
           # Try to merge origin into temp branch
-          if git merge origin/${{ github.event.inputs.origin_branch }} --no-ff; then
+          if git merge origin/$ORIGIN --no-ff; then
             echo "merge_status=success" >> $GITHUB_OUTPUT
             echo "Merge successful, no conflicts detected."
             
             # Check if there are any changes between branches
-            if git diff --quiet origin/${{ github.event.inputs.target_branch }} origin/${{ github.event.inputs.origin_branch }}; then
+            if git diff --quiet origin/$TARGET origin/$ORIGIN; then
               echo "merge_status=no_changes" >> $GITHUB_OUTPUT
               echo "No changes to merge. Branches are already in sync."
             fi
@@ -201,11 +265,12 @@ jobs:
             const { execSync } = require('child_process');
             execSync('git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}');
             
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}`;
+            const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
+            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
             
             let prBody = `## Branch Update
 
-            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`.`;
+            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`${filterSuffix ? ` for the path \`${filterSuffix.substring(10)}\`` : ''}.`;
             
             if ('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') {
               prBody += `
