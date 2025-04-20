@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
@@ -72,6 +73,41 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ExecuteToggleLockAsync
             );
+
+            // New tool to move component pivot position
+            yield return new AITool(
+                name: "ghmoveobj",
+                description: "Move Grasshopper component pivot by GUID, with absolute or relative position.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""guids"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""List of component GUIDs to move.""
+                        },
+                        ""position"": {
+                            ""type"": ""object"",
+                            ""properties"": {
+                                ""x"": { ""type"": ""number"", ""description"": ""X coordinate for pivot."" },
+                                ""y"": { ""type"": ""number"", ""description"": ""Y coordinate for pivot."" }
+                            },
+                            ""required"": [ ""x"", ""y"" ],
+                            ""description"": ""Pivot position.""
+                        },
+                        ""relative"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""True for relative offset; false for absolute.""
+                        },
+                        ""live"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""True to redraw canvas after moving.""
+                        }
+                    },
+                    ""required"": [ ""guids"", ""position"" ]
+                }",
+                execute: this.ExecuteMoveObjAsync
+            );
         }
         #endregion
 
@@ -130,5 +166,38 @@ namespace SmartHopper.Core.Grasshopper.Tools
             return new { success = true, updated };
         }
         #endregion
+
+        #region MoveInstance
+        private async Task<object> ExecuteMoveObjAsync(JObject parameters)
+        {
+            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var posObj = parameters["position"];
+            var x = posObj?["x"]?.ToObject<float>() ?? 0f;
+            var y = posObj?["y"]?.ToObject<float>() ?? 0f;
+            var relative = parameters["relative"]?.ToObject<bool>() ?? false;
+            var live = parameters["live"]?.ToObject<bool>() ?? false;
+            Debug.WriteLine($"[GhObjTools] ExecuteMoveObjAsync: relative={relative}, live={live}, count={guids.Count}, position=({x},{y})");
+            var updated = new List<string>();
+            foreach (var s in guids)
+            {
+                Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
+                if (Guid.TryParse(s, out var guid))
+                {
+                    var moved = GHCanvasUtils.MoveInstance(guid, new PointF(x, y), relative, live);
+                    Debug.WriteLine(moved
+                        ? $"[GhObjTools] Moved GUID: {guid} to ({x},{y}) relative={relative}"
+                        : $"[GhObjTools] Instance not found for GUID: {guid}");
+                    if (moved)
+                        updated.Add(guid.ToString());
+                }
+                else
+                {
+                    Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
+                }
+            }
+            return new { success = true, updated };
+        }
+        #endregion
+
     }
 }
