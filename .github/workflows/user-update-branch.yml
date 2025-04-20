@@ -223,7 +223,7 @@ jobs:
             echo "Merge successful, no conflicts detected."
             
             # Check if there are any changes between branches
-            if git diff --quiet origin/$TARGET origin/$ORIGIN; then
+            if git diff --quiet HEAD origin/$ORIGIN; then
               echo "merge_status=no_changes" >> $GITHUB_OUTPUT
               echo "No changes to merge. Branches are already in sync."
             fi
