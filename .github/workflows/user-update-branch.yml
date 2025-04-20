@@ -139,13 +139,15 @@ jobs:
           if [[ -n "$FILTER" ]]; then
             echo "Updating specific path: $FILTER"
             git checkout origin/$ORIGIN -- "$FILTER"
-            if git diff --quiet; then
-              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-              echo "No changes to merge for path $FILTER."
-            else
+            # Check if there are any changes to stage
+            if git status --porcelain | grep -q "$FILTER"; then
               git add "$FILTER"
               git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
               echo "merge_status=success" >> $GITHUB_OUTPUT
+              echo "Changes detected and committed for path $FILTER."
+            else
+              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+              echo "No changes to merge for path $FILTER."
             fi
             exit 0
           fi
