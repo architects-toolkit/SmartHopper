@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -14,7 +14,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using SmartHopper.Config.Models;
 
-namespace SmartHopper.Core.Grasshopper
+namespace SmartHopper.Core.Grasshopper.Models
 {
     public class ComponentProperties
     {
@@ -117,3 +117,4 @@ namespace SmartHopper.Core.Grasshopper
         }
     }
 }
+
