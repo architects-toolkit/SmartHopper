@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       target_branch:
-        description: 'Target branch (to be updated)'
+        description: 'Target branch(es) as JSON array string, e.g. ["dev","prod"]'
         required: true
         type: string
       filter:
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target_branch: ${{ fromJson('["' + replace(github.event.inputs.target_branch, ' ', '","') + '"]') }}
+        target_branch: ${{ fromJson(github.event.inputs.target_branch) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
