@@ -1,0 +1,23 @@
+name: 👤🖌️ Fix Code Style
+permissions:
+  contents: write
+on:
+  workflow_dispatch:
+
+jobs:
+  code-style:
+    name: 🛠️ Fix Code Style
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Code Style
+        uses: ./.github/actions/code-style
+        with:
+          mode: "fix"
+  namespace-check:
+    name: 📂 Namespaces Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Namespace Fixer
+        uses: ./.github/actions/code-style/namespace-fixer
+        with:
+          mode: "check"
