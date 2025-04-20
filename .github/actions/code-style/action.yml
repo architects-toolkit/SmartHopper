@@ -16,11 +16,15 @@ runs:
       with:
         fetch-depth: 0
     - name: Run dotnet-format
-      uses: xt0rted/dotnet-format@v1
-      with:
-        repo-token: ${{ inputs.token }}
-        action: ${{ inputs.mode }}
-        only-changed-files: true
+      shell: bash
+      run: |
+        dotnet tool install -g dotnet-format || true
+        export PATH="$HOME/.dotnet/tools:$PATH"
+        if [ "${{ inputs.mode }}" = "check" ]; then
+          dotnet format --verify-no-changes
+        else
+          dotnet format
+        fi
     - name: Process C# file headers
       uses: ./.github/actions/code-style/header-fixer
       with:
