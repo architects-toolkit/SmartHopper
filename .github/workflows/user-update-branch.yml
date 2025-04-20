@@ -44,11 +44,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          ref: ${{ matrix.target_branch }}
 
       - name: Validate branches
         id: validate-branches
@@ -74,253 +70,50 @@ jobs:
           echo "Branches validated successfully."
         shell: bash
 
-      - name: Check for existing PR
-        id: check-existing-pr
-        uses: actions/github-script@v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
-            const prTitle = `chore(branch): update ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
-            
-            console.log(`Checking for existing PRs with title: ${prTitle}`);
-            
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              base: '${{ matrix.target_branch }}'
-            });
-            
-            const existingPR = prs.data.find(pr => 
-              pr.title === prTitle && 
-              pr.head.ref.includes('update-branch')
-            );
-            
-            if (existingPR) {
-              console.log(`Found existing PR: #${existingPR.number} (${existingPR.html_url})`);
-              return {
-                exists: true,
-                pr_number: existingPR.number,
-                pr_url: existingPR.html_url
-              };
-            } else {
-              console.log('No existing PR found');
-              return {
-                exists: false
-              };
-            }
+      - name: Fetch origin branch
+        run: git fetch origin ${{ github.event.inputs.origin_branch }}
 
-      - name: Exit if PR exists
-        if: fromJSON(steps.check-existing-pr.outputs.result).exists == true
+      - name: Prepare update
         run: |
-          echo "::warning::An open PR already exists for updating ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}. See PR #$(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_number) at $(echo '${{ steps.check-existing-pr.outputs.result }}' | jq -r .pr_url)"
-          exit 0
-        shell: bash
-
-      - name: Create temporary branch
-        id: create-temp-branch
-        run: |
-          # Create a unique branch name
-          TEMP_BRANCH="update-branch/${{ matrix.target_branch }}-from-${{ github.event.inputs.origin_branch }}"
-          echo "temp_branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
-          
-          # Checkout target branch
-          git checkout ${{ matrix.target_branch }}
-          
-          # Create temporary branch from target
-          git checkout -b $TEMP_BRANCH
-          
-          echo "Created temporary branch: $TEMP_BRANCH"
-        shell: bash
-
-      - name: Attempt merge
-        id: attempt-merge
-        continue-on-error: true
-        run: |
-          ORIGIN=${{ github.event.inputs.origin_branch }}
-          TARGET=${{ matrix.target_branch }}
-          FILTER=${{ github.event.inputs.filter }}
-          
-          # Function to check for file suppressions
-          check_file_suppressions() {
-            local origin_branch=$1
-            local target_branch=$2
-            local filter_path=$3
-            local filter_suffix=""
-            
-            if [[ -n "$filter_path" ]]; then
-              filter_suffix=" for path $filter_path"
-              filter_arg="-- $filter_path"
-            else
-              filter_arg=""
-            fi
-            
-            # Get list of files from both branches
-            git ls-tree -r --name-only origin/$target_branch $filter_arg > target_files.txt
-            git ls-tree -r --name-only origin/$origin_branch $filter_arg > origin_files.txt
-            
-            # Check for file suppressions (files in target but not in origin)
-            if ! diff --new-line-format="" --unchanged-line-format="" target_files.txt origin_files.txt | grep -q .; then
-              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-              echo "No changes to merge$filter_suffix. Branches are already in sync."
-              return 1
-            else
-              # Handle file suppressions
-              echo "Detected file suppressions$filter_suffix"
-              # Get files that exist in target but not in origin
-              diff --new-line-format="%L" --unchanged-line-format="" target_files.txt origin_files.txt > suppressed_files.txt
-              
-              # Remove these files
-              if [ -s suppressed_files.txt ]; then
-                while IFS= read -r file; do
-                  echo "Removing file: $file"
-                  git rm -f "$file" || true
-                done < suppressed_files.txt
-                
-                git commit -m "chore(branch): update $target_branch from $origin_branch$filter_suffix (with file suppressions)"
-                echo "merge_status=success" >> $GITHUB_OUTPUT
-                echo "Changes with file suppressions detected and committed$filter_suffix."
-                return 0
-              else
-                echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-                echo "No changes to merge$filter_suffix. Branches are already in sync."
-                return 1
-              fi
-            fi
-          }
-          
-          # Handle filtered path update: delete removed files, then update contents
-          if [[ -n "$FILTER" ]]; then
-            echo "Updating specific path: $FILTER"
-            # Remove files deleted in origin
-            deleted=$(git diff origin/$TARGET origin/$ORIGIN --diff-filter=D --name-only -- "$FILTER")
-            if [[ -n "$deleted" ]]; then
-              echo "$deleted" | while read file; do
-                echo "Removing file: $file"
-                git rm -f "$file"
-              done
-            fi
-            # Checkout new and modified files
-            git checkout origin/$ORIGIN -- "$FILTER"
-            # Stage all changes under filter
-            git add "$FILTER"
-            # Commit if there are staged changes
-            if git diff --cached --quiet; then
-              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-              echo "No changes to merge for path $FILTER. Branches are already in sync."
-            else
-              git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
-              echo "merge_status=success" >> $GITHUB_OUTPUT
-              echo "Detected and committed changes for path $FILTER."
-            fi
-            exit 0
-          fi
-
-          # Try to merge origin into temp branch
-          if git merge origin/$ORIGIN --no-ff; then
-            echo "merge_status=success" >> $GITHUB_OUTPUT
-            echo "Merge successful, no conflicts detected."
-            
-            # Check if there are any changes between branches
-            if git diff --quiet HEAD origin/$ORIGIN; then
-              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-              echo "No changes to merge. Branches are already in sync."
-            else
-              # Push the changes to the target branch
-              git push origin HEAD:$TARGET
-              
-              # Create a merge marker on the origin branch to prevent future PRs showing the same changes
-              git checkout origin/$ORIGIN
-              git merge $TARGET --strategy=ours -m "Mark $ORIGIN as merged into $TARGET"
-              git push origin HEAD:$ORIGIN
-              
-              echo "✅ Successfully updated and synchronized both branches to prevent future PR diffs."
-            fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "${{ github.event.inputs.filter }}" ]; then
+            git checkout origin/${{ github.event.inputs.origin_branch }} -- "${{ github.event.inputs.filter }}"
+            git add "${{ github.event.inputs.filter }}"
           else
-            echo "merge_status=conflict" >> $GITHUB_OUTPUT
-            echo "Merge conflicts detected. Will create a PR for manual resolution."
-            
-            # Abort the merge
-            git merge --abort
-            
-            # Create a new branch with changes from origin
-            git checkout ${{ github.event.inputs.origin_branch }}
-            git checkout -b ${{ steps.create-temp-branch.outputs.temp_branch }}
+            git merge origin/${{ github.event.inputs.origin_branch }} --no-ff --no-commit
           fi
-        shell: bash
 
-      - name: Create PR if conflicts or protected branch
-        if: steps.attempt-merge.outcome == 'failure' || steps.attempt-merge.outputs.merge_status == 'conflict' || steps.attempt-merge.outputs.merge_status == 'success'
-        id: create-pr
-        uses: actions/github-script@v7.0.1
+      - name: Prepare PR variables
+        run: |
+          if [ -n "${{ github.event.inputs.filter }}" ]; then
+            PR_SUFFIX=" for path ${{ github.event.inputs.filter }}"
+          else
+            PR_SUFFIX=""
+          fi
+          PR_TITLE="Update ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}$PR_SUFFIX"
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_ENV
+          echo "PR_SUFFIX=$PR_SUFFIX" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // Push the temporary branch
-            const { execSync } = require('child_process');
-            execSync('git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}');
-            
-            const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
-            const prTitle = `chore(branch): update ${{ matrix.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
-            
-            let prBody = `## Branch Update
-
-            This PR updates \`${{ matrix.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`${filterSuffix ? ` for the path \`${filterSuffix.substring(10)}\`` : ''}.`;
-            
-            if ('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') {
-              prBody += `
-
-            ### ⚠️ Merge Conflicts
-
-            This PR contains merge conflicts that need to be resolved manually.`;
-            } else {
-              prBody += `
-
-            ### ℹ️ Protected Branch
-
-            This PR was created because \`${{ matrix.target_branch }}\` is a protected branch that requires changes through pull requests.`;
-            }
-            
-            prBody += `
-
-            ### Instructions
-
-            1. ${('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') ? 'Resolve the conflicts in this PR' : 'Review the changes'}
-            2. Approve and merge the changes
-            
-            This PR was automatically created by the Branch Update workflow.`;
-            
-            try {
-              const pr = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: prTitle,
-                body: prBody,
-                head: '${{ steps.create-temp-branch.outputs.temp_branch }}',
-                base: '${{ matrix.target_branch }}'
-              });
-              
-              console.log(`PR created: ${pr.data.html_url}`);
-              
-              return {
-                pr_number: pr.data.number,
-                pr_url: pr.data.html_url
-              };
-            } catch (error) {
-              console.log('Error creating PR:');
-              console.log(error);
-              return null;
-            }
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ matrix.target_branch }}
+          branch: update-branch/${{ matrix.target_branch }}-from-${{ github.event.inputs.origin_branch }}
+          commit-message: "${{ env.PR_TITLE }}"
+          title: "${{ env.PR_TITLE }}"
+          body: |
+            This PR updates `${{ matrix.target_branch }}` with changes from `${{ github.event.inputs.origin_branch }}`${{ env.PR_SUFFIX }}
+          labels: update-branch
+          add-paths: ${{ github.event.inputs.filter || '.' }}
+          delete-branch: true
 
       - name: Output results
         run: |
-          if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" ]]; then
-            echo "✅ Successfully updated ${{ matrix.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
-          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "no_changes" ]]; then
+          if git diff --quiet HEAD origin/${{ matrix.target_branch }}; then
             echo "ℹ️ No changes to merge. Branches are already in sync."
-          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "conflict" ]]; then
-            echo "⚠️ Merge conflicts detected. Created PR #$(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_number) for manual resolution."
-            echo "PR URL: $(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_url)"
+          else
+            echo "✅ Successfully updated ${{ matrix.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
           fi
         shell: bash
