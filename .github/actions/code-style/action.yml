@@ -5,6 +5,9 @@ inputs:
     description: "Operation mode: fix or check"
     required: false
     default: "check"
+  token:
+    description: "GitHub token for authentication"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -15,7 +18,7 @@ runs:
     - name: Run dotnet-format
       uses: xt0rted/dotnet-format@v1
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        repo-token: ${{ inputs.token }}
         action: ${{ inputs.mode }}
         only-changed-files: true
     - name: Process C# file headers

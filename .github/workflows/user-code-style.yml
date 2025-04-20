@@ -22,6 +22,7 @@ jobs:
         uses: ./.github/actions/code-style
         with:
           mode: "${{ github.event.inputs.mode }}"
+          token: ${{ github.token }}
   namespace-check:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest

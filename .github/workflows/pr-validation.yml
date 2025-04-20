@@ -50,29 +50,17 @@ jobs:
           echo "- Patch: ${{ steps.version-check.outputs.patch }}"
           echo "- Suffix: ${{ steps.version-check.outputs.suffix }}"
 
-  header-check:
-    name: 🛡️ Header Check
+  code-style-check:
+    name: 🖌️ Code Style Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
-      - name: Validate File Headers
-        uses: ./.github/actions/code-style/header-fixer
-        with:
-          mode: check
 
-  namespace-check:
-    name: 📂 Namespace Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
-      - name: Validate Namespaces
-        uses: ./.github/actions/code-style/namespace-fixer
+      - name: Validate Code Style
+        uses: ./.github/actions/code-style
         with:
           mode: check
+          token: ${{ github.token }}
 
   changelog-check:
     name: 📝 Changelog Check
