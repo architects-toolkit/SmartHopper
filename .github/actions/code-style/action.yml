@@ -1,0 +1,52 @@
+name: "Code Style"
+description: "Run code-style checks/fixes: formatting, headers, etc."
+inputs:
+  mode:
+    description: "Operation mode: fix or check"
+    required: false
+    default: "check"
+  token:
+    description: "GitHub token for authentication"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '7.0.x'
+    - name: Run dotnet-format
+      shell: bash
+      run: |
+        dotnet restore
+        dotnet tool install -g dotnet-format || true
+        export PATH="$HOME/.dotnet/tools:$PATH"
+        if [ "${{ inputs.mode }}" = "check" ]; then
+          dotnet format --verify-no-changes
+        else
+          dotnet format
+        fi
+    - name: Process C# file headers
+      uses: ./.github/actions/code-style/header-fixer
+      with:
+        mode: ${{ inputs.mode }}
+    - name: Process trailing whitespace
+      uses: ./.github/actions/code-style/trailing-whitespace
+      with:
+        mode: ${{ inputs.mode }}
+    - name: Process using directives
+      uses: ./.github/actions/code-style/using-sorter
+      with:
+        mode: ${{ inputs.mode }}
+    - name: Commit & push changes
+      if: ${{ inputs.mode == 'fix' }}
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add .
+        git diff --quiet || (git commit -m "chore: automatically fix code style" && git push)

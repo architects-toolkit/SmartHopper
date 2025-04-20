@@ -1,0 +1,130 @@
+name: 📦 Pull Request Validation
+
+# Description: This workflow validates pull requests to ensure they meet project standards.
+# It checks for version conflicts, validates formatting, and performs other quality checks
+# to maintain code integrity before merging.
+#
+# Triggers:
+# - Automatically when a pull request is created or updated targeting main or dev branches
+#
+# Permissions:
+# - contents:read - Required to read repository content
+# - pull-requests:read - Required to read pull request information
+
+on:
+  pull_request:
+    branches: 
+      - main
+      - dev
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  version-check:
+    name: 📦 Version Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate Version in Solution.props
+        id: version-check
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Verify Version Format
+        run: |
+          VERSION="${{ steps.version-check.outputs.version }}"
+          echo "Checking version: $VERSION"
+          if [[ -z "$VERSION" ]]; then
+            echo "Error: Failed to extract version from Solution.props"
+            exit 1
+          fi
+
+          echo "Version components:"
+          echo "- Major: ${{ steps.version-check.outputs.major }}"
+          echo "- Minor: ${{ steps.version-check.outputs.minor }}"
+          echo "- Patch: ${{ steps.version-check.outputs.patch }}"
+          echo "- Suffix: ${{ steps.version-check.outputs.suffix }}"
+
+  code-style-check:
+    name: 🖌️ Code Style Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Validate Code Style
+        uses: ./.github/actions/code-style
+        with:
+          mode: check
+          token: ${{ github.token }}
+
+  changelog-check:
+    name: 📝 Changelog Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Check CHANGELOG.md is Updated
+        uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46.0.1
+        id: changelog-check
+        with:
+          files: CHANGELOG.md
+
+      - name: Validate Changelog Update
+        if: steps.changelog-check.outputs.any_changed != 'true'
+        env:
+          CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
+        run: |
+          echo "Error: CHANGELOG.md must be updated with pull request changes"
+          exit 1
+
+  title-check:
+    name: 🏷️ PR Title Style Check
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Validate PR Title Style
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "Checking PR title: $PR_TITLE"
+          
+          # Valid types based on conventional commits
+          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security"
+          
+          # Check if PR title follows conventional commits format
+          if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]]; then
+            echo "Error: Pull request title must follow conventional commits format"
+            echo ""
+            echo "Required format: <type>(<optional-scope>): <description>"
+            echo ""
+            echo "Where <type> is one of:"
+            echo "  feat:     A new feature"
+            echo "  fix:      A bug fix"
+            echo "  docs:     Documentation changes"
+            echo "  style:    Code style changes (formatting, etc)"
+            echo "  refactor: Code refactoring"
+            echo "  perf:     Performance improvements"
+            echo "  test:     Adding or modifying tests"
+            echo "  build:    Changes to build process or tools"
+            echo "  ci:       Changes to CI configuration"
+            echo "  chore:    Other changes that don't modify src or test files"
+            echo "  revert:   Revert a previous commit"
+            echo "  security: Security-related changes"
+            echo ""
+            echo "Examples:"
+            echo "  feat: add new grasshopper component"
+            echo "  fix(component): resolve issue with parameter handling"
+            echo "  docs(readme): update installation instructions"
+            echo "  security: update dependencies to address vulnerabilities"
+            exit 1
+          else
+            echo "PR title format is valid! ✅"
+          fi
