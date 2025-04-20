@@ -1,8 +1,15 @@
 name: 👤🖌️ Fix Code Style
+# Description: Runs code style fixes or checks, and namespace checks for C# code.
 permissions:
   contents: write
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode for code style: fix or check'
+        required: true
+        default: 'fix'
+        type: string
 
 jobs:
   code-style:
@@ -12,7 +19,7 @@ jobs:
       - name: Run Code Style
         uses: ./.github/actions/code-style
         with:
-          mode: "fix"
+          mode: "${{ github.event.inputs.mode }}"
   namespace-check:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest
