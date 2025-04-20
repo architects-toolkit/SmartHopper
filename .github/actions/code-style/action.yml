@@ -5,6 +5,9 @@ inputs:
     description: "Operation mode: fix or check"
     required: false
     default: "check"
+  token:
+    description: "GitHub token for authentication"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -12,12 +15,21 @@ runs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    - name: Run dotnet-format
-      uses: xt0rted/dotnet-format@v1
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        action: ${{ inputs.mode }}
-        only-changed-files: true
+        dotnet-version: '7.0.x'
+    - name: Run dotnet-format
+      shell: bash
+      run: |
+        dotnet restore
+        dotnet tool install -g dotnet-format || true
+        export PATH="$HOME/.dotnet/tools:$PATH"
+        if [ "${{ inputs.mode }}" = "check" ]; then
+          dotnet format --verify-no-changes
+        else
+          dotnet format
+        fi
     - name: Process C# file headers
       uses: ./.github/actions/code-style/header-fixer
       with:
