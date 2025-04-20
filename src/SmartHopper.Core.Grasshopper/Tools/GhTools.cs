@@ -364,7 +364,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var distinct = resultObjects.Distinct().ToList();
             var document = GHDocumentUtils.GetObjectsDetails(distinct);
             var names = document.Components.Select(c => c.Name).Distinct().ToList();
-            var guids = document.Components.Select(c => c.ComponentGuid.ToString()).Distinct().ToList();
+            var guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
             var json = JsonConvert.SerializeObject(document, Formatting.None);
 
             // Package result with classifications
