@@ -38,7 +38,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         ///   enabled/disabled: whether the component can run (enabled = unlocked)
         ///   error/warning/remark: runtime message levels
         ///   previewcapable/notpreviewcapable: supports geometry preview
-        ///   previewon/previewoff: current preview toggle
+        ///   previewon/previewoff: current preview toggle.
         /// Synonyms:
         ///   locked → disabled
         ///   unlocked → enabled
@@ -92,7 +92,38 @@ namespace SmartHopper.Core.Grasshopper.Tools
             { "INTERMEDIATE", "PROCESSING" },
             { "MIDDLE", "PROCESSING" },
             { "MIDDLECOMPONENTS", "PROCESSING" },
-            { "ISOLATEDCOMPONENTS", "ISOLATED" }
+            { "ISOLATEDCOMPONENTS", "ISOLATED" },
+        };
+
+        /// <summary>
+        /// Synonyms for categoryFilter tokens.
+        /// Available Grasshopper component categories (e.g. Params, Maths, Vector, Curve, Surface, Mesh, etc.).
+        /// Maps common abbreviations or alternate names to canonical category tokens.
+        /// </summary>
+        private static readonly Dictionary<string, string> CategorySynonyms = new Dictionary<string, string>
+        {
+            { "PARAM", "PARAMS" },
+            { "PARAMETERS", "PARAMS" },
+            { "MATH", "MATHS" },
+            { "VEC", "VECTOR" },
+            { "VECTORS", "VECTOR" },
+            { "CRV", "CURVE" },
+            { "CURVES", "CURVE" },
+            { "SURF", "SURFACE" },
+            { "SURFS", "SURFACE" },
+            { "MESHES", "MESH" },
+            { "INT", "INTERSECT" },
+            { "TRANS", "TRANSFORM" },
+            { "TREE", "SETS" },
+            { "TREES", "SETS" },
+            { "DATA", "SETS" },
+            { "DATASETS", "SETS" },
+            { "DIS", "DISPLAY" },
+            { "DISP", "DISPLAY" },
+            { "VISUALIZATION", "DISPLAY" },
+            { "RH", "RHINO" },
+            { "RHINOCEROS", "RHINO" },
+            { "KANGAROOPHYSICS", "KANGAROO" }
         };
         #endregion
 
@@ -170,7 +201,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""categoryFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Filter components by category. '+' includes, '-' excludes. E.g. ['+Math','-Params'].""
+                            ""description"": ""Filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. More categories will be available if the user has more plugins installed.""
                         }
                     }
                 }",
@@ -337,51 +368,81 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         private Task<object> ExecuteGhRetrieveToolAsync(JObject parameters)
         {
-            Debug.WriteLine($"[GhTools] ExecuteGhRetrieveToolAsync called. categoryFilter: {parameters["categoryFilter"]}");
             var server = Instances.ComponentServer;
             var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-            var (includeCats, excludeCats) = ParseIncludeExclude(categoryFilters, null);
-            var categories = server.GetType().GetProperty("CategoryNames")?.GetValue(server) as IEnumerable<string> ?? Enumerable.Empty<string>();
-            var subCats = server.GetType().GetProperty("SubCategoryNames")?.GetValue(server) as IDictionary<string, IEnumerable<string>>;
-            Debug.WriteLine($"[GhTools] categories count: {categories.Count()}, subCats count: {subCats?.Count ?? 0}");
-            var proxies = new List<IGH_ObjectProxy>();
-            foreach (var category in categories)
+            var (includeCats, excludeCats) = ParseIncludeExclude(categoryFilters, CategorySynonyms);
+
+            // Retrieve all component proxies in one call
+            var proxies = server.ObjectProxies.ToList();
+
+            // Apply include filters
+            if (includeCats.Any())
+                proxies = proxies.Where(p => p.Desc.Category != null && includeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
+
+            // Apply exclude filters
+            if (excludeCats.Any())
+                proxies = proxies.Where(p => p.Desc.Category == null || !excludeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
+
+            var list = proxies.Select(p =>
             {
-                if (subCats != null && subCats.TryGetValue(category, out var subs))
+                var instance = GHObjectFactory.CreateInstance(p);
+                List<object> inputs;
+                List<object> outputs;
+                if (instance is IGH_Component comp)
                 {
-                    foreach (var sub in subs)
+                    inputs = GHParameterUtils.GetAllInputs(comp)
+                        .Select(param => new
+                        {
+                            name = param.Name,
+                            description = param.Description,
+                            dataType = param.GetType().Name,
+                            access = param.Access.ToString()
+                        })
+                        .Cast<object>()
+                        .ToList();
+                    outputs = GHParameterUtils.GetAllOutputs(comp)
+                        .Select(param => new
+                        {
+                            name = param.Name,
+                            description = param.Description,
+                            dataType = param.GetType().Name,
+                            access = param.Access.ToString()
+                        })
+                        .Cast<object>()
+                        .ToList();
+                }
+                else if (instance is IGH_Param param)
+                {
+                    inputs = new List<object>();
+                    outputs = new List<object>
                     {
-                        var method = server.GetType().GetMethod("GetObjectProxies", new[] { typeof(string), typeof(string) });
-                        var arr = method?.Invoke(server, new object[] { category, sub }) as IEnumerable<IGH_ObjectProxy>;
-                        if (arr != null) proxies.AddRange(arr);
-                    }
+                        new
+                        {
+                            name = param.Name,
+                            description = param.Description,
+                            dataType = param.GetType().Name,
+                            access = param.Access.ToString()
+                        }
+                    };
                 }
                 else
                 {
-                    var method = server.GetType().GetMethod("GetObjectProxies", new[] { typeof(string) });
-                    var arr = method?.Invoke(server, new object[] { category }) as IEnumerable<IGH_ObjectProxy>;
-                    if (arr != null) proxies.AddRange(arr);
+                    inputs = new List<object>();
+                    outputs = new List<object>();
                 }
-            }
-            Debug.WriteLine($"[GhTools] Total proxies before filters: {proxies.Count}");
-            // Apply category filters
-            if (includeCats.Any())
-                proxies = proxies.Where(p => p.Desc.Category != null && includeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
-            Debug.WriteLine($"[GhTools] Total proxies after include filter: {proxies.Count}");
-            if (excludeCats.Any())
-                proxies.RemoveAll(p => p.Desc.Category != null && excludeCats.Contains(p.Desc.Category.ToUpperInvariant()));
-            Debug.WriteLine($"[GhTools] Total proxies after exclude filter: {proxies.Count}");
-            var list = proxies.Select(p => new
-            {
-                name = p.Desc.Name,
-                nickname = p.Desc.NickName,
-                category = p.Desc.Category,
-                subCategory = p.Desc.SubCategory,
-                guid = p.Guid.ToString(),
-                description = p.Desc.Description,
-                keywords = p.Desc.Keywords
+                return new
+                {
+                    name = p.Desc.Name,
+                    nickname = p.Desc.NickName,
+                    category = p.Desc.Category,
+                    subCategory = p.Desc.SubCategory,
+                    guid = p.Guid.ToString(),
+                    description = p.Desc.Description,
+                    keywords = p.Desc.Keywords,
+                    inputs,
+                    outputs
+                };
             }).ToList();
-            Debug.WriteLine($"[GhTools] Final list count: {list.Count}");
             var names = list.Select(x => x.name).Distinct().ToList();
             var guids = list.Select(x => x.guid).Distinct().ToList();
             var json = JsonConvert.SerializeObject(list, Formatting.None);
@@ -392,7 +453,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 ["guids"] = JArray.FromObject(guids),
                 ["json"] = json
             };
-            Debug.WriteLine($"[GhTools] Returning result: count={result["count"]}");
             return Task.FromResult<object>(result);
         }
         #endregion
