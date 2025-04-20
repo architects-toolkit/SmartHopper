@@ -21,7 +21,6 @@ using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Tools;
-using Rhino.Commands;
 
 namespace SmartHopper.Components.List
 {
@@ -106,10 +105,10 @@ namespace SmartHopper.Components.List
 
                     _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_String>(
                         _inputTree,
-                        async branches => 
+                        async (branches, reuseCount) => 
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, _parent);
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
+                            return await ProcessData(branches, _parent, reuseCount);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -123,7 +122,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent, int reuseCount = 1)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -134,24 +133,26 @@ namespace SmartHopper.Components.List
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listTreeOriginal = branches["List"];
+                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"]);
                 var criteriaTree = branches["Criteria"];
 
-                // Convert list to JSON format before normalization
-                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
-
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, criteriaTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
+                    new List<List<GH_String>>
+                    {
+                        new List<GH_String>(new GH_String[] { new GH_String(listAsJson.ToString()) }),
+                        criteriaTree
+                    });
 
                 // Reassign normalized branches
-                listTreeJson = normalizedLists[0];
+                var normalizedListTree = normalizedLists[0];
                 var normalizedCriteriaTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {listTreeJson.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {normalizedListTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -164,11 +165,11 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
-                    // Use the generic ListTools.FilterListAsync method with the original list
+                    // Use the generic ListTools.FilterListAsync method with the string JSON overload
                     var filterResult = await ListTools.FilterListAsync(
-                        listTreeOriginal,
+                        normalizedListTree[i].Value,
                         criterion,
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
 
                     if (!filterResult.Success)
                     {
@@ -186,8 +187,9 @@ namespace SmartHopper.Components.List
                     }
                     else
                     {
-                        // Add the filtered results
-                        outputs["Result"].AddRange(filterResult.Result);
+                        // Build filtered list using indices helper
+                        var result = ListTools.BuildFilteredListFromIndices(branches["List"], filterResult.Result);
+                        outputs["Result"].AddRange(result);
                     }
 
                     i++;

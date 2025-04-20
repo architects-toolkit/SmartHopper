@@ -13,7 +13,6 @@ using Grasshopper.Kernel.Special;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.JSON;
 using SmartHopper.Core.Graph;
