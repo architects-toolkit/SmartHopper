@@ -364,9 +364,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // Apply category filters
             if (includeCats.Any())
-                proxies = proxies.Where(p => includeCats.Contains(p.Category)).ToList();
+                proxies = proxies.Where(p => p.Category != null && includeCats.Contains(p.Category.ToLowerInvariant())).ToList();
             if (excludeCats.Any())
-                proxies.RemoveAll(p => excludeCats.Contains(p.Category));
+                proxies.RemoveAll(p => p.Category != null && excludeCats.Contains(p.Category.ToLowerInvariant()));
 
             var list = proxies.Select(p => new
             {
