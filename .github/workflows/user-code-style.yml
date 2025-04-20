@@ -1,5 +1,15 @@
 name: 👤🖌️ Fix Code Style
+
 # Description: Runs code style fixes or checks, and namespace checks for C# code.
+#
+# Fields:
+# - mode: 'fix' or 'check'
+#
+# Triggers:
+# - Manually via workflow_dispatch with mode input
+#
+# Permissions:
+# - contents:write - Required to create branches and commit changes
 permissions:
   contents: write
 on:
