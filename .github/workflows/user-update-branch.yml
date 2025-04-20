@@ -1,4 +1,4 @@
-name: Update Branch
+name: 👤🔄 Update Branch
 
 # Description: This workflow updates a target branch with changes from an origin branch.
 # If the merge has no conflicts, it will automatically merge the changes.
