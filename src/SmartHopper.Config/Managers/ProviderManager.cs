@@ -17,9 +17,14 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Rhino;
+using System.Security.Cryptography;
+using System.Text;
+using Newtonsoft.Json;
+#if NETCOREAPP
+using System.Runtime.Loader;
+#endif
 
-namespace SmartHopper.Config
+namespace SmartHopper.Config.Managers
 {
     /// <summary>
     /// Manages the discovery and loading of AI providers.
@@ -101,11 +106,48 @@ namespace SmartHopper.Config
                 string assemblyLocation = Assembly.GetExecutingAssembly().Location;
                 string baseDirectory = Path.GetDirectoryName(assemblyLocation);
 
-                // Find all provider DLL files in the same directory as the main application
+                // Find all external provider DLLs
                 string[] providerFiles = Directory.GetFiles(baseDirectory, "SmartHopper.Providers.*.dll");
-                
+                var settings = SmartHopperSettings.Load();
                 foreach (string providerFile in providerFiles)
                 {
+                    var asmName = Path.GetFileNameWithoutExtension(providerFile);
+                    if (!settings.AllowedProviders.Contains(asmName))
+                    {
+                        Debug.WriteLine($"Provider '{asmName}' not allowed, skipping.");
+                        continue;
+                    }
+                    #if NETCOREAPP
+                    // Verify manifest exists and is valid
+                    var manifestPath = Path.ChangeExtension(providerFile, ".json");
+                    if (!File.Exists(manifestPath))
+                    {
+                        Debug.WriteLine($"Missing manifest for '{asmName}', skipping.");
+                        continue;
+                    }
+                    ProviderManifest manifest;
+                    try { manifest = JsonConvert.DeserializeObject<ProviderManifest>(File.ReadAllText(manifestPath)); }
+                    catch { Debug.WriteLine($"Invalid manifest JSON for '{asmName}', skipping."); continue; }
+                    try
+                    {
+                        using var sha = SHA256.Create();
+                        var dllBytes = File.ReadAllBytes(providerFile);
+                        var computedHash = BitConverter.ToString(sha.ComputeHash(dllBytes)).Replace("-", "");
+                        if (!string.Equals(computedHash, manifest.Hash, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Debug.WriteLine($"Hash mismatch for '{asmName}', skipping.");
+                            continue;
+                        }
+                        VerifySignature(manifest);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Manifest validation failed for '{asmName}': {ex.Message}");
+                        continue;
+                    }
+                    #else
+                    // Manifest verification skipped on .NET Framework
+                    #endif
                     try
                     {
                         LoadProviderAssembly(providerFile);
@@ -130,9 +172,13 @@ namespace SmartHopper.Config
         {
             try
             {
-                // Load the assembly
-                Assembly assembly = Assembly.LoadFrom(assemblyPath);
-                
+                #if NETCOREAPP
+                // Use isolated load context on .NET Core for sandboxing
+                var alc = new AssemblyLoadContext(Path.GetFileNameWithoutExtension(assemblyPath), isCollectible: true);
+                var assembly = alc.LoadFromAssemblyPath(assemblyPath);
+                #else
+                var assembly = Assembly.LoadFrom(assemblyPath);
+                #endif
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
                     .Where(t => typeof(IAIProviderFactory).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
@@ -174,6 +220,14 @@ namespace SmartHopper.Config
         /// <param name="assembly">The assembly containing the provider.</param>
         private void RegisterProvider(IAIProvider provider, IAIProviderSettings settings, Assembly assembly)
         {
+            // Security check: only accept providers from assemblies signed with our key
+            var pkt = assembly.GetName().GetPublicKeyToken();
+            var trustedPkt = Assembly.GetExecutingAssembly().GetName().GetPublicKeyToken();
+            if (pkt == null || trustedPkt == null || !pkt.SequenceEqual(trustedPkt))
+            {
+                Debug.WriteLine($"Untrusted provider assembly '{assembly.FullName}', skipping registration.");
+                return;
+            }
             if (provider == null || settings == null)
                 return;
 
@@ -272,5 +326,46 @@ namespace SmartHopper.Config
             // Otherwise, return the first available provider or empty string if none
             return providers.Any() ? providers.First().Name : string.Empty;
         }
+
+        // Manifest schema for external providers
+        private class ProviderManifest
+        {
+            public string Name { get; set; }
+            public string Version { get; set; }
+            public string Hash { get; set; }
+            public string Signature { get; set; }
+        }
+
+        #if NETCOREAPP
+        // Create RSA using the embedded public key for manifest verification at runtime
+        private static RSA CreatePublicKey()
+        {
+            var keyBytes = Convert.FromBase64String(EmbeddedProviderManifestPublicKeyBase64);
+            var rsa = RSA.Create();
+            rsa.ImportSubjectPublicKeyInfo(keyBytes, out _);
+            return rsa;
+        }
+        // Manifest public key (injected at build time)
+        private const string EmbeddedProviderManifestPublicKeyBase64 = "__PROVIDER_PUBLIC_KEY_BASE64__";
+        // Verify the manifest signature over the hash
+        private static void VerifySignature(ProviderManifest manifest)
+        {
+            var data = Encoding.UTF8.GetBytes(manifest.Hash);
+            var signature = Convert.FromBase64String(manifest.Signature);
+            using var rsa = CreatePublicKey();
+            if (!rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
+                throw new CryptographicException("Invalid provider manifest signature");
+        }
+        #else
+        private static RSA CreatePublicKey()
+        {
+            throw new NotSupportedException("Manifest signature verification is not supported on .NET Framework.");
+        }
+
+        private static void VerifySignature(ProviderManifest manifest)
+        {
+            // no-op on .NET Framework
+        }
+        #endif
     }
 }

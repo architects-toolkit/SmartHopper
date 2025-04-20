@@ -100,18 +100,54 @@ jobs:
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v4
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 7.0.x
-    
-    - name: Setup .NET Framework
+        dotnet-version: '7.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore SmartHopper.sln
+
+    - name: Build solution
+      run: dotnet build SmartHopper.sln --configuration Release --no-restore
+
+    - name: Decode code signing certificate
+      shell: pwsh
+      env:
+        PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+      run: |
+        $certBytes = [Convert]::FromBase64String($env:PFX_BASE64)
+        [IO.File]::WriteAllBytes('signingCert.pfx', $certBytes)
+
+    - name: Extract manifest public key
+      shell: pwsh
+      env:
+        PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+      run: |
+        # Load code-signing cert and export public key
+        $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2('signingCert.pfx', $env:PFX_PASSWORD)
+        $rsa = $cert.GetRSAPublicKey()
+        $pubKeyBytes = $rsa.ExportSubjectPublicKeyInfo()
+        $pubKeyBase64 = [Convert]::ToBase64String($pubKeyBytes)
+        echo "PROVIDER_PUBLIC_KEY_BASE64=$pubKeyBase64" >> $GITHUB_ENV
+
+    - name: Inject manifest public key
       shell: pwsh
       run: |
-        # .NET Framework 4.8 is pre-installed on Windows 2022 runner
-        # Just verify it's available
-        Get-ChildItem "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\"
-    
+        Write-Host "Injecting provider manifest public key..."
+        (Get-Content src/SmartHopper.Config/ProviderManager.cs) -replace '__PROVIDER_PUBLIC_KEY_BASE64__', $env:PROVIDER_PUBLIC_KEY_BASE64 | Set-Content src/SmartHopper.Config/ProviderManager.cs
+
+    - name: Authenticode‑sign SmartHopper providers
+      shell: pwsh
+      env:
+        PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+      run: |
+        Get-ChildItem -Path ./src -Filter 'SmartHopper.Providers.*.dll' -Recurse |
+          ForEach-Object {
+            Write-Host "Signing $($_.FullName)…"
+            signtool sign /fd SHA256 /f signingCert.pfx /p $env:PFX_PASSWORD $_.FullName
+          }
+
     - name: Configure NuGet Sources
       shell: pwsh
       run: |
@@ -132,12 +168,6 @@ jobs:
         Write-Host "Final NuGet sources:"
         dotnet nuget list source
         
-    - name: Restore dependencies
-      run: dotnet restore
-      
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
-
     - name: Create Output Directory
       shell: pwsh
       run: |

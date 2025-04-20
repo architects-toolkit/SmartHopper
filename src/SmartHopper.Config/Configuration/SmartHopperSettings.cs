@@ -11,6 +11,7 @@
 using Newtonsoft.Json;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -38,11 +39,15 @@ namespace SmartHopper.Config.Configuration
         /// </summary>
         public string DefaultAIProvider { get; set; }
 
+        // List of external providers the user has approved
+        public List<string> AllowedProviders { get; set; }
+
         public SmartHopperSettings()
         {
             ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             DebounceTime = 1000;
             DefaultAIProvider = string.Empty;
+            AllowedProviders = new List<string>();
         }
 
         // Use a constant key and IV for encryption (these could be moved to secure configuration)
@@ -223,7 +228,8 @@ namespace SmartHopper.Config.Configuration
                 {
                     ProviderSettings = EncryptSensitiveSettings(ProviderSettings),
                     DebounceTime = DebounceTime,
-                    DefaultAIProvider = DefaultAIProvider
+                    DefaultAIProvider = DefaultAIProvider,
+                    AllowedProviders = AllowedProviders
                 };
 
                 var json = JsonConvert.SerializeObject(settingsToSave, Formatting.Indented);
