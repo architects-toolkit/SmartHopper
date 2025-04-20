@@ -26,12 +26,14 @@ namespace SmartHopper.Components.Grasshopper
     {
         private List<string> lastNames = new List<string>();
         private List<string> lastGuids = new List<string>();
-        private string lastJson = "";
+        private string lastJson = string.Empty;
 
         public GhRetrieveComponents()
-            : base("Retrieve Components", "GhRetrieveComponents",
-                   "Retrieve all available Grasshopper components in your environment as JSON with optional category filter.",
-                   "SmartHopper", "Grasshopper")
+            : base(
+                  "Retrieve Components", "GhRetrieveComponents",
+                  "Retrieve all available Grasshopper components in your environment as JSON with optional category filter.",
+                  "SmartHopper", "Grasshopper"
+                  )
         {
         }
 
@@ -43,7 +45,7 @@ namespace SmartHopper.Components.Grasshopper
         {
             pManager.AddTextParameter("Category Filter", "C",
                 "Optional list of categories with include/exclude syntax. E.g. ['+Math', '-Params'].",
-                GH_ParamAccess.list);
+                GH_ParamAccess.list, "");
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item, false);
         }
 
