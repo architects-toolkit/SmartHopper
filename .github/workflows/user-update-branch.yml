@@ -186,24 +186,33 @@ jobs:
             fi
           }
           
-          # Handle filtered path update
+          # Handle filtered path update with modified and deleted files
           if [[ -n "$FILTER" ]]; then
             echo "Updating specific path: $FILTER"
             git checkout origin/$ORIGIN -- "$FILTER"
-            
-            # Check if there are any changes to stage (modified files)
-            if git status --porcelain | grep -q "$FILTER"; then
-              git add "$FILTER"
+            # Commit modified files
+            modified=$(git diff origin/$TARGET origin/$ORIGIN --name-only -- "$FILTER")
+            if [[ -n "$modified" ]]; then
+              echo "$modified" | xargs -r git add
               git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
               echo "merge_status=success" >> $GITHUB_OUTPUT
-              echo "Changes detected and committed for path $FILTER."
-            else
-              # Check for file suppressions
-              check_file_suppressions "$ORIGIN" "$TARGET" "$FILTER"
+              echo "Modified files detected and committed for path $FILTER."
+              exit 0
             fi
-            
-            # Clean up temporary files
-            rm -f origin_files.txt target_files.txt suppressed_files.txt || true
+            # Commit deleted files
+            deleted=$(git diff origin/$TARGET origin/$ORIGIN --name-only --diff-filter=D -- "$FILTER")
+            if [[ -n "$deleted" ]]; then
+              echo "$deleted" | while read file; do
+                echo "Removing file: $file"
+                git rm "$file"
+              done
+              git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER (deleted files)"
+              echo "merge_status=success" >> $GITHUB_OUTPUT
+              echo "Deleted files detected and removed for path $FILTER."
+              exit 0
+            fi
+            echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+            echo "No changes to merge for path $FILTER. Branches are already in sync."
             exit 0
           fi
 
@@ -256,11 +265,12 @@ jobs:
             const { execSync } = require('child_process');
             execSync('git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}');
             
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}`;
+            const filterSuffix = '${{ github.event.inputs.filter }}' ? ` for path ${{ github.event.inputs.filter }}` : '';
+            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}${filterSuffix}`;
             
             let prBody = `## Branch Update
 
-            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`.`;
+            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`${filterSuffix ? ` for the path \`${filterSuffix.substring(10)}\`` : ''}.`;
             
             if ('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') {
               prBody += `
