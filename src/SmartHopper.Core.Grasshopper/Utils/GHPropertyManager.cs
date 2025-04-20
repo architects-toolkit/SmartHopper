@@ -56,9 +56,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
             try
             {
                 // Handle ComponentProperty wrapper
-                if (value is JObject jObj && jObj.ContainsKey("Value"))
+                if (value is JObject jObj && jObj.ContainsKey("value"))
                 {
-                    value = jObj["Value"];
+                    value = jObj["value"];
                 }
 
                 string[] parts = propertyPath.Split('.');
@@ -233,7 +233,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         if (item.Value is JObject itemData)
                         {
-                            values.Add(itemData["Value"]);
+                            values.Add(itemData["value"]);
                         }
                     }
                 }
