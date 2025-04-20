@@ -186,25 +186,30 @@ jobs:
             fi
           }
           
-          # Handle filtered path update with modified and deleted files
+          # Handle filtered path update: delete removed files, then update contents
           if [[ -n "$FILTER" ]]; then
             echo "Updating specific path: $FILTER"
+            # Remove files deleted in origin
+            deleted=$(git diff origin/$TARGET origin/$ORIGIN --diff-filter=D --name-only -- "$FILTER")
+            if [[ -n "$deleted" ]]; then
+              echo "$deleted" | while read file; do
+                echo "Removing file: $file"
+                git rm -f "$file"
+              done
+            fi
+            # Checkout new and modified files
             git checkout origin/$ORIGIN -- "$FILTER"
-            # Commit modified files
-            modified=$(git diff origin/$TARGET origin/$ORIGIN --name-only -- "$FILTER")
-            if [[ -n "$modified" ]]; then
-              echo "$modified" | xargs -r git add
+            # Stage all changes under filter
+            git add "$FILTER"
+            # Commit if there are staged changes
+            if git diff --cached --quiet; then
+              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+              echo "No changes to merge for path $FILTER. Branches are already in sync."
+            else
               git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
               echo "merge_status=success" >> $GITHUB_OUTPUT
-              echo "Modified files detected and committed for path $FILTER."
-              exit 0
+              echo "Detected and committed changes for path $FILTER."
             fi
-            # Handle file suppressions (deleted files)
-            if check_file_suppressions "$ORIGIN" "$TARGET" "$FILTER"; then
-              exit 0
-            fi
-            echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-            echo "No changes to merge for path $FILTER. Branches are already in sync."
             exit 0
           fi
 
