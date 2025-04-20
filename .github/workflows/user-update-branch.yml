@@ -199,16 +199,8 @@ jobs:
               echo "Modified files detected and committed for path $FILTER."
               exit 0
             fi
-            # Commit deleted files
-            deleted=$(git diff origin/$TARGET origin/$ORIGIN --name-only --diff-filter=D -- "$FILTER")
-            if [[ -n "$deleted" ]]; then
-              echo "$deleted" | while read file; do
-                echo "Removing file: $file"
-                git rm "$file"
-              done
-              git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER (deleted files)"
-              echo "merge_status=success" >> $GITHUB_OUTPUT
-              echo "Deleted files detected and removed for path $FILTER."
+            # Handle file suppressions (deleted files)
+            if check_file_suppressions "$ORIGIN" "$TARGET" "$FILTER"; then
               exit 0
             fi
             echo "merge_status=no_changes" >> $GITHUB_OUTPUT
