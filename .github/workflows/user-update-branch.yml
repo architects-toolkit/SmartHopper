@@ -114,7 +114,7 @@ jobs:
         id: create-temp-branch
         run: |
           # Create a unique branch name
-          TEMP_BRANCH="update-branch/${{ github.event.inputs.target_branch }}-from-${{ github.event.inputs.origin_branch }}-$(date +%s)"
+          TEMP_BRANCH="update-branch/${{ github.event.inputs.target_branch }}-from-${{ github.event.inputs.origin_branch }}"
           echo "temp_branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
           
           # Checkout target branch
