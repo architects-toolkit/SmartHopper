@@ -24,6 +24,10 @@ on:
         description: 'Target branch (to be updated)'
         required: true
         type: string
+      filter:
+        description: 'Specific folder to update (e.g., .github or src/SmartHopper.Components). Leave blank to update all code.'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -116,130 +120,104 @@ jobs:
           # Create a unique branch name
           TEMP_BRANCH="update-branch/${{ github.event.inputs.target_branch }}-from-${{ github.event.inputs.origin_branch }}-$(date +%s)"
           echo "temp_branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
-          
           # Checkout target branch
           git checkout ${{ github.event.inputs.target_branch }}
-          
           # Create temporary branch from target
           git checkout -b $TEMP_BRANCH
-          
           echo "Created temporary branch: $TEMP_BRANCH"
         shell: bash
 
-      - name: Attempt merge
-        id: attempt-merge
+      - name: Perform update
+        id: perform-update
         run: |
-          # Try to merge origin into temp branch
-          if git merge origin/${{ github.event.inputs.origin_branch }} --no-ff; then
-            echo "merge_status=success" >> $GITHUB_OUTPUT
-            echo "Merge successful, no conflicts detected."
-            
-            # Check if there are any changes between branches
-            if git diff --quiet origin/${{ github.event.inputs.target_branch }} origin/${{ github.event.inputs.origin_branch }}; then
-              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
-              echo "No changes to merge. Branches are already in sync."
+          ORIGIN=${{ github.event.inputs.origin_branch }}
+          TARGET=${{ github.event.inputs.target_branch }}
+          FILTER=${{ github.event.inputs.filter }}
+          if [ -z "$FILTER" ]; then
+            echo "Merging origin/$ORIGIN into $TARGET..."
+            if git merge origin/$ORIGIN --no-ff; then
+              echo "Merge successful, no conflicts detected."
+              echo "Checking for any changes..."
+              if git diff --quiet origin/$TARGET origin/$ORIGIN; then
+                echo "No changes to merge. Branches are already in sync."
+                echo "::set-output name=status::no_changes::true"
+                exit 0
+              fi
+              echo "::set-output name=status::success::true"
+            else
+              echo "Merge conflicts detected. Will create a PR for manual resolution."
+              git merge --abort
+              echo "::set-output name=status::conflict::true"
+              exit 0
             fi
           else
-            echo "merge_status=conflict" >> $GITHUB_OUTPUT
-            echo "Merge conflicts detected. Will create a PR for manual resolution."
-            
-            # Abort the merge
-            git merge --abort
-            
-            # Create a new branch with changes from origin
-            git checkout ${{ github.event.inputs.origin_branch }}
-            git checkout -b ${{ steps.create-temp-branch.outputs.temp_branch }}
+            echo "Updating specific path: $FILTER"
+            git checkout origin/$ORIGIN -- "$FILTER"
+            if git diff --quiet; then
+              echo "No changes to merge for path $FILTER."
+              echo "::set-output name=status::no_changes::true"
+              exit 0
+            fi
+            echo "Committing changes for path $FILTER"
+            git add "$FILTER"
+            git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
+            echo "::set-output name=status::success::true"
           fi
         shell: bash
 
-      - name: Push changes if no conflicts
-        id: push-changes
-        if: steps.attempt-merge.outputs.merge_status == 'success'
+      - name: Publish updates
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Try to push changes directly to target branch
-          if git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}:${{ github.event.inputs.target_branch }}; then
-            echo "push_status=success" >> $GITHUB_OUTPUT
-            echo "Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
-          else
-            echo "push_status=failed" >> $GITHUB_OUTPUT
-            echo "Direct push failed. Branch may be protected. Will create a PR instead."
+          TMP_BRANCH=${{ steps.create-temp-branch.outputs.temp_branch }}
+          TARGET=${{ github.event.inputs.target_branch }}
+          ORIGIN=${{ github.event.inputs.origin_branch }}
+          FILTER=${{ github.event.inputs.filter }}
+          STATUS=${{ steps.perform-update.outputs.status }}
+          if [ "$STATUS" = "no_changes" ]; then
+            echo "ℹ️ No changes to merge. Nothing to do."
+            exit 0
           fi
-        shell: bash
-        continue-on-error: true
+          if [ "$STATUS" = "success" ]; then
+            if git push origin $TMP_BRANCH:$TARGET; then
+              echo "✅ Successfully updated $TARGET with changes from $ORIGIN."
+              exit 0
+            else
+              echo "ℹ️ Direct push failed. Branch may be protected. Creating a PR..."
+            fi
+          elif [ "$STATUS" = "conflict" ]; then
+            echo "⚠️ Merge conflicts detected. Creating a PR for manual resolution..."
+          fi
+          # Build PR body
+          prBody="## Branch Update
 
-      - name: Create PR if conflicts or protected branch
-        if: steps.attempt-merge.outputs.merge_status == 'conflict' || steps.push-changes.outputs.push_status == 'failed'
-        id: create-pr
-        uses: actions/github-script@v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // Push the temporary branch
-            const { execSync } = require('child_process');
-            execSync('git push origin ${{ steps.create-temp-branch.outputs.temp_branch }}');
-            
-            const prTitle = `chore(branch): update ${{ github.event.inputs.target_branch }} from ${{ github.event.inputs.origin_branch }}`;
-            
-            let prBody = `## Branch Update
+          This PR updates \\`$TARGET\\` with changes from \\`$ORIGIN\\`."
+            if [ "$STATUS" = "conflict" ]; then
+              prBody+="
 
-            This PR updates \`${{ github.event.inputs.target_branch }}\` with changes from \`${{ github.event.inputs.origin_branch }}\`.`;
-            
-            if ('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') {
-              prBody += `
+                ### ⚠️ Merge Conflicts
 
-            ### ⚠️ Merge Conflicts
+                This PR contains merge conflicts that need to be resolved manually."
+            else
+              prBody+="
 
-            This PR contains merge conflicts that need to be resolved manually.`;
-            } else {
-              prBody += `
+                ### ℹ️ Protected Branch
 
-            ### ℹ️ Protected Branch
-
-            This PR was created because \`${{ github.event.inputs.target_branch }}\` is a protected branch that requires changes through pull requests.`;
-            }
-            
-            prBody += `
+                This PR was created because \\`$TARGET\\` is a protected branch that requires changes through pull requests."
+            fi
+          prBody+="
 
             ### Instructions
 
-            1. ${('${{ steps.attempt-merge.outputs.merge_status }}' === 'conflict') ? 'Resolve the conflicts in this PR' : 'Review the changes'}
+            1. $( [ "$STATUS" = "conflict" ] && echo 'Resolve the conflicts in this PR' || echo 'Review the changes' )
             2. Approve and merge the changes
-            
-            This PR was automatically created by the Branch Update workflow.`;
-            
-            try {
-              const pr = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: prTitle,
-                body: prBody,
-                head: '${{ steps.create-temp-branch.outputs.temp_branch }}',
-                base: '${{ github.event.inputs.target_branch }}'
-              });
-              
-              console.log(`PR created: ${pr.data.html_url}`);
-              
-              return {
-                pr_number: pr.data.number,
-                pr_url: pr.data.html_url
-              };
-            } catch (error) {
-              console.log('Error creating PR:');
-              console.log(error);
-              return null;
-            }
 
-      - name: Output results
-        run: |
-          if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" && "${{ steps.push-changes.outputs.push_status }}" == "success" ]]; then
-            echo "✅ Successfully updated ${{ github.event.inputs.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
-          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" && "${{ steps.push-changes.outputs.push_status }}" == "failed" ]]; then
-            echo "ℹ️ Branch is protected. Created PR #$(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_number) for review."
-            echo "PR URL: $(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_url)"
-          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "no_changes" ]]; then
-            echo "ℹ️ No changes to merge. Branches are already in sync."
-          elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "conflict" ]]; then
-            echo "⚠️ Merge conflicts detected. Created PR #$(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_number) for manual resolution."
-            echo "PR URL: $(echo '${{ steps.create-pr.outputs.result }}' | jq -r .pr_url)"
-          fi
+            This PR was automatically created by the Branch Update workflow."
+
+          # Create PR
+          prUrl=$(gh pr create \
+            --title "chore(branch): update $TARGET from $ORIGIN" \
+            --body "$prBody" \
+            --head $TMP_BRANCH --base $TARGET)
+          echo "$prUrl"
         shell: bash

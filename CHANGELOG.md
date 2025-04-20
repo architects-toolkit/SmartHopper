@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+### Fixed
+- Fixes "Bug: Unmatching paths in list components return duplicated values" ([#32](https://github.com/architects-toolkit/SmartHopper/issues/32)).
+
 ## [0.2.0-alpha] - 2025-04-06
 
 ### Added
