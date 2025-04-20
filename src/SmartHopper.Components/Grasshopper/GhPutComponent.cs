@@ -159,7 +159,7 @@ namespace SmartHopper.Components.Grasshopper
                                 var currentValueProp = component.Properties["CurrentValue"];
                                 if (currentValueProp != null && currentValueProp.Value != null)
                                 {
-                                    var currentValue = ((JObject)currentValueProp.Value)["Value"].ToString();
+                                    var currentValue = ((JObject)currentValueProp.Value)["value"].ToString();
                                     Debug.WriteLine($"Setting slider value to: {currentValue}");
                                     slider.SetInitCode(currentValue);
                                 }
