@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
@@ -20,12 +21,12 @@ using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
-using System.Reflection;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
+
     /// <summary>
-    /// Tool provider for Grasshopper component retrieval via AI Tool Manager
+    /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
     /// </summary>
     public class GhTools : IAIToolProvider
     {
@@ -49,15 +50,15 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         private static readonly Dictionary<string, string> FilterSynonyms = new Dictionary<string, string>
         {
-            { "locked", "disabled" },
-            { "unlocked", "enabled" },
-            { "remarks", "remark" },
-            { "info", "remark" },
-            { "warn", "warning" },
-            { "warnings", "warning" },
-            { "errors", "error" },
-            { "visible", "previewon" },
-            { "hidden", "previewoff" },
+            { "LOCKED", "DISABLED" },
+            { "UNLOCKED", "ENABLED" },
+            { "REMARKS", "REMARK" },
+            { "INFO", "REMARK" },
+            { "WARN", "WARNING" },
+            { "WARNINGS", "WARNING" },
+            { "ERRORS", "ERROR" },
+            { "VISIBLE", "PREVIEWON" },
+            { "HIDDEN", "PREVIEWOFF" },
         };
 
         /// <summary>
@@ -79,19 +80,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         private static readonly Dictionary<string, string> TypeSynonyms = new Dictionary<string, string>
         {
-            { "param", "params" },
-            { "parameter", "params" },
-            { "component", "components" },
-            { "comp", "components" },
-            { "inputs", "input" },
-            { "inputcomponents", "input" },
-            { "outputs", "output" },
-            { "outputcomponents", "output" },
-            { "processingcomponents", "processing" },
-            { "intermediate", "processing" },
-            { "middle", "processing" },
-            { "middlecomponents", "processing" },
-            { "isolatedcomponents", "isolated" }
+            { "PARAM", "PARAMS" },
+            { "PARAMETER", "PARAMS" },
+            { "COMPONENT", "COMPONENTS" },
+            { "COMP", "COMPONENTS" },
+            { "INPUTS", "INPUT" },
+            { "INPUTCOMPONENTS", "INPUT" },
+            { "OUTPUTS", "OUTPUT" },
+            { "OUTPUTCOMPONENTS", "OUTPUT" },
+            { "PROCESSINGCOMPONENTS", "PROCESSING" },
+            { "INTERMEDIATE", "PROCESSING" },
+            { "MIDDLE", "PROCESSING" },
+            { "MIDDLECOMPONENTS", "PROCESSING" },
+            { "ISOLATEDCOMPONENTS", "ISOLATED" }
         };
         #endregion
 
@@ -115,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     var tok = part.Trim();
                     if (string.IsNullOrEmpty(tok)) continue;
                     bool inc = !tok.StartsWith("-");
-                    var tag = tok.TrimStart('+', '-').ToLowerInvariant();
+                    var tag = tok.TrimStart('+', '-').ToUpperInvariant();
                     if (synonyms != null && synonyms.TryGetValue(tag, out var mapped))
                         tag = mapped;
                     if (inc) include.Add(tag);
@@ -199,9 +200,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
             if (includeTypes.Any())
             {
                 var tf = new List<IGH_ActiveObject>();
-                if (includeTypes.Contains("params")) tf.AddRange(objects.OfType<IGH_Param>());
-                if (includeTypes.Contains("components")) tf.AddRange(objects.OfType<GH_Component>());
-                if (includeTypes.Overlaps(new[] { "input", "output", "processing", "isolated" }))
+                if (includeTypes.Contains("PARAMS")) tf.AddRange(objects.OfType<IGH_Param>());
+                if (includeTypes.Contains("COMPONENTS")) tf.AddRange(objects.OfType<GH_Component>());
+                if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                 {
                     var tempDoc = GHDocumentUtils.GetObjectsDetails(objects);
                     var incd = new Dictionary<Guid, int>();
@@ -211,19 +212,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         outd[conn.From.ComponentId] = (outd.TryGetValue(conn.From.ComponentId, out var ov) ? ov : 0) + 1;
                         incd[conn.To.ComponentId] = (incd.TryGetValue(conn.To.ComponentId, out var iv) ? iv : 0) + 1;
                     }
-                    if (includeTypes.Contains("input")) tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
-                    if (includeTypes.Contains("output")) tf.AddRange(objects.Where(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid)));
-                    if (includeTypes.Contains("processing")) tf.AddRange(objects.Where(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
-                    if (includeTypes.Contains("isolated")) tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid)));
+                    if (includeTypes.Contains("INPUT")) tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
+                    if (includeTypes.Contains("OUTPUT")) tf.AddRange(objects.Where(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid)));
+                    if (includeTypes.Contains("PROCESSING")) tf.AddRange(objects.Where(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
+                    if (includeTypes.Contains("ISOLATED")) tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid)));
                 }
                 typeFiltered = tf.Distinct().ToList();
             }
             if (excludeTypes.Any())
             {
                 if (!includeTypes.Any()) typeFiltered = new List<IGH_ActiveObject>(objects);
-                if (excludeTypes.Contains("params")) typeFiltered.RemoveAll(o => o is IGH_Param);
-                if (excludeTypes.Contains("components")) typeFiltered.RemoveAll(o => o is GH_Component);
-                if (excludeTypes.Overlaps(new[] { "input", "output", "processing", "isolated" }))
+                if (excludeTypes.Contains("PARAMS")) typeFiltered.RemoveAll(o => o is IGH_Param);
+                if (excludeTypes.Contains("COMPONENTS")) typeFiltered.RemoveAll(o => o is GH_Component);
+                if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                 {
                     var tempDoc = GHDocumentUtils.GetObjectsDetails(typeFiltered);
                     var incd = new Dictionary<Guid, int>();
@@ -233,10 +234,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         outd[conn.From.ComponentId] = (outd.TryGetValue(conn.From.ComponentId, out var ov) ? ov : 0) + 1;
                         incd[conn.To.ComponentId] = (incd.TryGetValue(conn.To.ComponentId, out var iv) ? iv : 0) + 1;
                     }
-                    if (excludeTypes.Contains("input")) typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
-                    if (excludeTypes.Contains("output")) typeFiltered.RemoveAll(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid));
-                    if (excludeTypes.Contains("processing")) typeFiltered.RemoveAll(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
-                    if (excludeTypes.Contains("isolated")) typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid));
+                    if (excludeTypes.Contains("INPUT")) typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
+                    if (excludeTypes.Contains("OUTPUT")) typeFiltered.RemoveAll(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid));
+                    if (excludeTypes.Contains("PROCESSING")) typeFiltered.RemoveAll(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
+                    if (excludeTypes.Contains("ISOLATED")) typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid));
                 }
             }
             objects = typeFiltered;
@@ -246,27 +247,27 @@ namespace SmartHopper.Core.Grasshopper.Tools
             if (includeTags.Any())
             {
                 resultObjects = new List<IGH_ActiveObject>();
-                if (includeTags.Contains("selected"))
+                if (includeTags.Contains("SELECTED"))
                     resultObjects.AddRange(objects.Where(o => o.Attributes.Selected));
-                if (includeTags.Contains("unselected"))
+                if (includeTags.Contains("UNSELECTED"))
                     resultObjects.AddRange(objects.Where(o => !o.Attributes.Selected));
-                if (includeTags.Contains("enabled"))
+                if (includeTags.Contains("ENABLED"))
                     resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => !c.Locked).Cast<IGH_ActiveObject>());
-                if (includeTags.Contains("disabled"))
+                if (includeTags.Contains("DISABLED"))
                     resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.Locked).Cast<IGH_ActiveObject>());
-                if (includeTags.Contains("error"))
+                if (includeTags.Contains("ERROR"))
                     resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any()));
-                if (includeTags.Contains("warning"))
+                if (includeTags.Contains("WARNING"))
                     resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any()));
-                if (includeTags.Contains("remark"))
+                if (includeTags.Contains("REMARK"))
                     resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any()));
-                if (includeTags.Contains("previewcapable"))
+                if (includeTags.Contains("PREVIEWCAPABLE"))
                     resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable).Cast<IGH_ActiveObject>());
-                if (includeTags.Contains("notpreviewcapable"))
+                if (includeTags.Contains("NOTPREVIEWCAPABLE"))
                     resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => !c.IsPreviewCapable).Cast<IGH_ActiveObject>());
-                if (includeTags.Contains("previewon"))
+                if (includeTags.Contains("PREVIEWON"))
                     resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && !c.Hidden).Cast<IGH_ActiveObject>());
-                if (includeTags.Contains("previewoff"))
+                if (includeTags.Contains("PREVIEWOFF"))
                     resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && c.Hidden).Cast<IGH_ActiveObject>());
             }
             else
@@ -275,27 +276,27 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
 
             // Apply excludes
-            if (excludeTags.Contains("selected"))
+            if (excludeTags.Contains("SELECTED"))
                 resultObjects.RemoveAll(o => o.Attributes.Selected);
-            if (excludeTags.Contains("unselected"))
+            if (excludeTags.Contains("UNSELECTED"))
                 resultObjects.RemoveAll(o => !o.Attributes.Selected);
-            if (excludeTags.Contains("enabled"))
+            if (excludeTags.Contains("ENABLED"))
                 resultObjects.RemoveAll(o => o is GH_Component c && !c.Locked);
-            if (excludeTags.Contains("disabled"))
+            if (excludeTags.Contains("DISABLED"))
                 resultObjects.RemoveAll(o => o is GH_Component c && c.Locked);
-            if (excludeTags.Contains("error"))
+            if (excludeTags.Contains("ERROR"))
                 resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any());
-            if (excludeTags.Contains("warning"))
+            if (excludeTags.Contains("WARNING"))
                 resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any());
-            if (excludeTags.Contains("remark"))
+            if (excludeTags.Contains("REMARK"))
                 resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any());
-            if (excludeTags.Contains("previewcapable"))
+            if (excludeTags.Contains("PREVIEWCAPABLE"))
                 resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable);
-            if (excludeTags.Contains("notpreviewcapable"))
+            if (excludeTags.Contains("NOTPREVIEWCAPABLE"))
                 resultObjects.RemoveAll(o => o is GH_Component c && !c.IsPreviewCapable);
-            if (excludeTags.Contains("previewon"))
+            if (excludeTags.Contains("PREVIEWON"))
                 resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && !c.Hidden);
-            if (excludeTags.Contains("previewoff"))
+            if (excludeTags.Contains("PREVIEWOFF"))
                 resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && c.Hidden);
 
             if (connectionDepth > 0)
@@ -336,12 +337,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         private Task<object> ExecuteGhRetrieveToolAsync(JObject parameters)
         {
+            Debug.WriteLine($"[GhTools] ExecuteGhRetrieveToolAsync called. categoryFilter: {parameters["categoryFilter"]}");
             var server = Instances.ComponentServer;
             var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
             var (includeCats, excludeCats) = ParseIncludeExclude(categoryFilters, null);
             var categories = server.GetType().GetProperty("CategoryNames")?.GetValue(server) as IEnumerable<string> ?? Enumerable.Empty<string>();
             var subCats = server.GetType().GetProperty("SubCategoryNames")?.GetValue(server) as IDictionary<string, IEnumerable<string>>;
-
+            Debug.WriteLine($"[GhTools] categories count: {categories.Count()}, subCats count: {subCats?.Count ?? 0}");
             var proxies = new List<IGH_ObjectProxy>();
             foreach (var category in categories)
             {
@@ -361,28 +363,28 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     if (arr != null) proxies.AddRange(arr);
                 }
             }
-
+            Debug.WriteLine($"[GhTools] Total proxies before filters: {proxies.Count}");
             // Apply category filters
             if (includeCats.Any())
-                proxies = proxies.Where(p => p.Category != null && includeCats.Contains(p.Category.ToLowerInvariant())).ToList();
+                proxies = proxies.Where(p => p.Desc.Category != null && includeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
+            Debug.WriteLine($"[GhTools] Total proxies after include filter: {proxies.Count}");
             if (excludeCats.Any())
-                proxies.RemoveAll(p => p.Category != null && excludeCats.Contains(p.Category.ToLowerInvariant()));
-
+                proxies.RemoveAll(p => p.Desc.Category != null && excludeCats.Contains(p.Desc.Category.ToUpperInvariant()));
+            Debug.WriteLine($"[GhTools] Total proxies after exclude filter: {proxies.Count}");
             var list = proxies.Select(p => new
             {
-                name = p.Name,
-                nickname = p.NickName,
-                category = p.Category,
-                subCategory = p.SubCategory,
-                guid = p.ComponentGuid.ToString(),
+                name = p.Desc.Name,
+                nickname = p.Desc.NickName,
+                category = p.Desc.Category,
+                subCategory = p.Desc.SubCategory,
+                guid = p.Guid.ToString(),
                 description = p.Desc.Description,
                 keywords = p.Desc.Keywords
             }).ToList();
-
+            Debug.WriteLine($"[GhTools] Final list count: {list.Count}");
             var names = list.Select(x => x.name).Distinct().ToList();
             var guids = list.Select(x => x.guid).Distinct().ToList();
             var json = JsonConvert.SerializeObject(list, Formatting.None);
-
             var result = new JObject
             {
                 ["count"] = list.Count,
@@ -390,6 +392,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 ["guids"] = JArray.FromObject(guids),
                 ["json"] = json
             };
+            Debug.WriteLine($"[GhTools] Returning result: count={result["count"]}");
             return Task.FromResult<object>(result);
         }
         #endregion
