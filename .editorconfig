@@ -20,7 +20,7 @@ insert_final_newline = false
 # Organize usings
 dotnet_separate_import_directive_groups = false
 dotnet_sort_system_directives_first = false
-file_header_template = unset
+file_header_template = "/*\n * SmartHopper - AI-powered Grasshopper Plugin\n * Copyright (C) {year} Marc Roca Musach\n *\n * This library is free software; you can redistribute it and/or\n * modify it under the terms of the GNU Lesser General Public\n * License as published by the Free Software Foundation; either\n * version 3 of the License, or (at your option) any later version.\n */"
 
 # this. and Me. preferences
 dotnet_style_qualification_for_event = false

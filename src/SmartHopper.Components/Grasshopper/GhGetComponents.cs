@@ -15,8 +15,10 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Tools;
 using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper;
+using SmartHopper.Core.Grasshopper.Utils;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -26,10 +28,10 @@ using System.Windows.Forms;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
-    /// Component that converts selected Grasshopper components to GhJSON format.
-    /// Allows users to select specific components to process instead of the entire file.
+    /// Component that converts selected or all Grasshopper components to GhJSON format.
+    /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff), and classification by object type via Type filter (params, components, input, output, processing, isolated).
     /// </summary>
-    public class GhGetSelectedComponents : GH_Component
+    public class GhGetComponents : GH_Component
     {
         private List<string> lastComponentNames = new List<string>();
         private List<string> lastComponentGuids = new List<string>();
@@ -37,16 +39,16 @@ namespace SmartHopper.Components.Grasshopper
         internal List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
         private bool inSelectionMode = false;
 
-        public GhGetSelectedComponents()
-            : base("Get Selected Components", "GhGetSel", 
-                  "Convert selected Grasshopper components to GhJSON format", 
+        public GhGetComponents()
+            : base("Get Components", "GhGet", 
+                  "Convert Grasshopper components to GhJSON format, with optional filters", 
                   "SmartHopper", "Grasshopper")
         {
         }
 
         public override void CreateAttributes()
         {
-            m_attributes = new GhGetSelectedComponentsAttributes(this);
+            m_attributes = new GhGetComponentsAttributes(this);
         }
 
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
@@ -98,6 +100,9 @@ namespace SmartHopper.Components.Grasshopper
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
+            pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'inputcomponents', 'outputcomponents', 'processingcomponents', 'isolatedcomponents'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
         }
 
@@ -105,15 +110,17 @@ namespace SmartHopper.Components.Grasshopper
         {
             pManager.AddTextParameter("Names", "N", "List of names", GH_ParamAccess.list);
             pManager.AddTextParameter("Guids", "G", "List of guids", GH_ParamAccess.list);
-            pManager
-                .AddTextParameter("JSON", "J", "Details in JSON format", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Details in JSON format", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // get input run
             object runObject = null;
-            if (!DA.GetData(0, ref runObject)) return;
+            if (!DA.GetData(3, ref runObject)) return;
+
+            int connectionDepth = 0;
+            DA.GetData(2, ref connectionDepth);
 
             if (!(runObject is GH_Boolean run))
             {
@@ -143,32 +150,32 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                // Use selected objects if available, otherwise use all objects
-                var objects = selectedObjects.Count > 0 
-                    ? selectedObjects 
-                    : GHCanvasUtils.GetCurrentObjects();
-
-                // Get the details of each object
-                var document = GHDocumentUtils.GetObjectsDetails(objects);
-
-                // Get unique component names
-                var componentNames = document.Components.Select(c => c.Name).Distinct().ToList();
-
-                // Get unique component guids
-                var componentGuids = document.Components.Select(c => c.ComponentGuid.ToString()).Distinct().ToList();
-
-                // Convert to JSON
-                var json = JsonConvert.SerializeObject(document, Formatting.None);
-
-                // Store results
+                var filters = new List<string>();
+                DA.GetDataList(1, filters);
+                var typeFilters = new List<string>();
+                DA.GetDataList(0, typeFilters);
+                var parameters = new JObject
+                {
+                    ["attrFilters"] = JArray.FromObject(filters),
+                    ["typeFilter"] = JArray.FromObject(typeFilters),
+                    ["connectionDepth"] = connectionDepth,
+                };
+                var toolResult = AIToolManager.ExecuteTool("ghget", parameters, null).GetAwaiter().GetResult() as JObject;
+                if (toolResult == null)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'ghget' did not return a valid result");
+                    return;
+                }
+                var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
+                var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var json = toolResult["json"]?.ToString() ?? string.Empty;
                 lastComponentNames = componentNames;
                 lastComponentGuids = componentGuids;
                 lastJsonOutput = json;
-
-                // Set outputs
                 DA.SetDataList(0, componentNames);
                 DA.SetDataList(1, componentGuids);
                 DA.SetData(2, json);
+                return;
             }
             catch (Exception ex)
             {
@@ -177,14 +184,14 @@ namespace SmartHopper.Components.Grasshopper
         }
     }
 
-    public class GhGetSelectedComponentsAttributes : GH_ComponentAttributes
+    public class GhGetComponentsAttributes : GH_ComponentAttributes
     {
-        private new readonly GhGetSelectedComponents Owner;
+        private new readonly GhGetComponents Owner;
         private Rectangle ButtonBounds;
         private bool IsHovering;
         private bool IsClicking;
 
-        public GhGetSelectedComponentsAttributes(GhGetSelectedComponents owner) : base(owner)
+        public GhGetComponentsAttributes(GhGetComponents owner) : base(owner)
         {
             Owner = owner;
             IsHovering = false;

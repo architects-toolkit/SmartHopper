@@ -105,10 +105,10 @@ namespace SmartHopper.Components.List
 
                     _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_Boolean>(
                         _inputTree,
-                        async branches => 
+                        async (branches, reuseCount) => 
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, _parent);
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
+                            return await ProcessData(branches, _parent, reuseCount);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -122,7 +122,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListEvaluate parent)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListEvaluate parent, int reuseCount = 1)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -133,24 +133,26 @@ namespace SmartHopper.Components.List
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listTreeOriginal = branches["List"];
+                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"]);
                 var questionTree = branches["Question"];
 
-                // Convert list to JSON format before normalization
-                var listTreeJson = ParsingTools.ConcatenateItemsToJsonList(listTreeOriginal);
-
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { listTreeJson, questionTree });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
+                    new List<List<GH_String>>
+                    {
+                        new List<GH_String>(new GH_String[] { new GH_String(listAsJson.ToString()) }),
+                        questionTree
+                    });
 
                 // Reassign normalized branches
-                listTreeJson = normalizedLists[0];
+                var normalizedListTree = normalizedLists[0];
                 questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {listTreeJson.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {normalizedListTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_Boolean>>();
@@ -163,13 +165,11 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
                     
-                    var currentList = listTreeJson[i];
-
-                    // Use the generic ListTools.EvaluateListAsync method
+                    // Use the generic ListTools.EvaluateListAsync method with the string JSON representation
                     var evaluationResult = await ListTools.EvaluateListAsync(
-                        currentList.Value,
+                        normalizedListTree[i].Value,
                         question,
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time"));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
 
                     if (!evaluationResult.Success)
                     {
