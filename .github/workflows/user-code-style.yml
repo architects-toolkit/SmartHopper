@@ -16,6 +16,8 @@ jobs:
     name: 🛠️ Fix Code Style
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
       - name: Run Code Style
         uses: ./.github/actions/code-style
         with:
@@ -24,6 +26,8 @@ jobs:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
       - name: Run Namespace Fixer
         uses: ./.github/actions/code-style/namespace-fixer
         with:
