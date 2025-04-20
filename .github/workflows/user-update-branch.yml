@@ -140,14 +140,14 @@ jobs:
               echo "Checking for any changes..."
               if git diff --quiet origin/$TARGET origin/$ORIGIN; then
                 echo "No changes to merge. Branches are already in sync."
-                echo "::set-output name=status::no_changes::true"
+                echo "status=no_changes" >> $GITHUB_OUTPUT
                 exit 0
               fi
-              echo "::set-output name=status::success::true"
+              echo "status=success" >> $GITHUB_OUTPUT
             else
               echo "Merge conflicts detected. Will create a PR for manual resolution."
               git merge --abort
-              echo "::set-output name=status::conflict::true"
+              echo "status=conflict" >> $GITHUB_OUTPUT
               exit 0
             fi
           else
@@ -155,13 +155,13 @@ jobs:
             git checkout origin/$ORIGIN -- "$FILTER"
             if git diff --quiet; then
               echo "No changes to merge for path $FILTER."
-              echo "::set-output name=status::no_changes::true"
+              echo "status=no_changes" >> $GITHUB_OUTPUT
               exit 0
             fi
             echo "Committing changes for path $FILTER"
             git add "$FILTER"
             git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
-            echo "::set-output name=status::success::true"
+            echo "status=success" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
@@ -170,10 +170,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TMP_BRANCH=${{ steps.create-temp-branch.outputs.temp_branch }}
-          TARGET=${{ github.event.inputs.target_branch }}
-          ORIGIN=${{ github.event.inputs.origin_branch }}
-          FILTER=${{ github.event.inputs.filter }}
-          STATUS=${{ steps.perform-update.outputs.status }}
+          TARGET="${{ github.event.inputs.target_branch }}"
+          ORIGIN="${{ github.event.inputs.origin_branch }}"
+          FILTER="${{ github.event.inputs.filter }}"
+          STATUS="${{ steps.perform-update.outputs.status }}"
           if [ "$STATUS" = "no_changes" ]; then
             echo "ℹ️ No changes to merge. Nothing to do."
             exit 0
@@ -191,21 +191,21 @@ jobs:
           # Build PR body
           prBody="## Branch Update
 
-          This PR updates \\`$TARGET\\` with changes from \\`$ORIGIN\\`."
-            if [ "$STATUS" = "conflict" ]; then
-              prBody+="
+            This PR updates \`$TARGET\` with changes from \`$ORIGIN\`."
+                      if [ "$STATUS" = "conflict" ]; then
+                        prBody+="
 
-                ### ⚠️ Merge Conflicts
+            ### ⚠️ Merge Conflicts
 
-                This PR contains merge conflicts that need to be resolved manually."
-            else
-              prBody+="
+            This PR contains merge conflicts that need to be resolved manually."
+                      else
+                        prBody+="
 
-                ### ℹ️ Protected Branch
+            ### ℹ️ Protected Branch
 
-                This PR was created because \\`$TARGET\\` is a protected branch that requires changes through pull requests."
-            fi
-          prBody+="
+            This PR was created because \`$TARGET\` is a protected branch that requires changes through pull requests."
+                      fi
+                      prBody+="
 
             ### Instructions
 
