@@ -226,6 +226,16 @@ jobs:
             if git diff --quiet HEAD origin/$ORIGIN; then
               echo "merge_status=no_changes" >> $GITHUB_OUTPUT
               echo "No changes to merge. Branches are already in sync."
+            else
+              # Push the changes to the target branch
+              git push origin HEAD:$TARGET
+              
+              # Create a merge marker on the origin branch to prevent future PRs showing the same changes
+              git checkout origin/$ORIGIN
+              git merge $TARGET --strategy=ours -m "Mark $ORIGIN as merged into $TARGET"
+              git push origin HEAD:$ORIGIN
+              
+              echo "✅ Successfully updated and synchronized both branches to prevent future PR diffs."
             fi
           else
             echo "merge_status=conflict" >> $GITHUB_OUTPUT
