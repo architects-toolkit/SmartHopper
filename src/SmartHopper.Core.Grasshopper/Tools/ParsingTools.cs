@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -11,6 +11,8 @@
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -32,9 +34,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return null;
 
             var cleanResponse = response.Trim().ToUpper();
-            if (cleanResponse == "TRUE")
+            if (cleanResponse.Contains("TRUE"))
                 return true;
-            if (cleanResponse == "FALSE")
+            if (cleanResponse.Contains("FALSE"))
                 return false;
 
             return null;
@@ -96,6 +98,53 @@ namespace SmartHopper.Core.Grasshopper.Tools
             return result;
         }
 
+        #endregion
+
+        #region List Parsing
+
+        /// <summary>
+        /// Parses a string (JSON array or comma-separated) into a list of string values.
+        /// Handles missing quotes and formatting errors.
+        /// </summary>
+        public static List<string> ParseStringArrayFromResponse(string response)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(response))
+                return result;
+
+            var trimmed = response.Trim();
+            // Attempt JSON parsing
+            try
+            {
+                var jarray = JArray.Parse(trimmed);
+                foreach (var token in jarray)
+                    result.Add(token.ToString());
+                return result;
+            }
+            catch { }
+
+            // Fallback to comma-separated parsing
+            var clean = trimmed.TrimStart('[').TrimEnd(']');
+            var parts = clean.Split(',');
+            foreach (var part in parts)
+            {
+                var val = part.Trim().Trim('"', '\'');
+                if (!string.IsNullOrEmpty(val))
+                    result.Add(val);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Converts a list of strings into a compact JSON array string.
+        /// </summary>
+        public static string NormalizeJsonArrayString(List<string> values)
+        {
+            var jarray = new JArray();
+            foreach (var val in values)
+                jarray.Add(val);
+            return jarray.ToString(Formatting.None);
+        }
         #endregion
     }
 }

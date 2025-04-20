@@ -2,8 +2,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{05A44F09-190D-434E-A91B-0ECA631110FE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core", "src\SmartHopper.Core\SmartHopper.Core.csproj", "{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Grasshopper", "src\SmartHopper.Core.Grasshopper\SmartHopper.Core.Grasshopper.csproj", "{D5C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E5}"

@@ -16,65 +16,103 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace SmartHopper.Core.Utils
+namespace SmartHopper.Core.AI
 {
     public static class AIUtils
     {
-        //public static string ExtractToolName(string assistantMessage)
-        //{
-        //    if (string.IsNullOrEmpty(assistantMessage))
-        //        return null;
-
-        //    var match = Regex.Match(assistantMessage, @"function_call.*?name.*?['""](.+?)['""]", RegexOptions.Singleline);
-        //    return match.Success ? match.Groups[1].Value : null;
-        //}
-
-        //public static string ExtractToolArgs(string assistantMessage)
-        //{
-        //    if (string.IsNullOrEmpty(assistantMessage))
-        //        return null;
-
-        //    var match = Regex.Match(assistantMessage, @"arguments.*?({.+?})", RegexOptions.Singleline);
-        //    return match.Success ? match.Groups[1].Value : null;
-        //}
-
-        //public static bool TryParseJson(string strInput, out JToken jToken)
-        //{
-        //    try
-        //    {
-        //        jToken = JToken.Parse(strInput);
-        //        return true;
-        //    }
-        //    catch (Exception)
-        //    {
-        //        jToken = null;
-        //        return false;
-        //    }
-        //}
-
-        //public static Dictionary<string, string> GetRoleReplacement()
-        //{
-        //    return new Dictionary<string, string>()
-        //    {
-        //        { OpenAI._name, "assistant" },
-        //        { MistralAI._name, "assistant" },
-        //        { "User", "user" }
-        //    };
-        //}
-
-        public static async Task<AIResponse> GetResponse(string providerName, string model, List<KeyValuePair<string, string>> messages, string jsonSchema = "", string endpoint = "", string contextProviderFilter = null, string contextKeyFilter = null)
+        /// <summary>
+        /// Extracts tool name from an assistant message containing a function call
+        /// </summary>
+        /// <param name="assistantMessage">The full assistant message</param>
+        /// <returns>The extracted tool name or null if none found</returns>
+        public static string ExtractToolName(string assistantMessage)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, contextProviderFilter, contextKeyFilter);
+            if (string.IsNullOrEmpty(assistantMessage))
+                return null;
+
+            var m = Regex.Match(assistantMessage,
+                @"function_call.*?""name""\s*:\s*""([^""]+)""",
+                RegexOptions.Singleline);
+            return m.Success ? m.Groups[1].Value : null;
         }
 
-        public static async Task<AIResponse> GetResponse(string providerName, string model, List<TextChatModel> messages, string jsonSchema = "", string endpoint = "", string contextProviderFilter = null, string contextKeyFilter = null)
+        /// <summary>
+        /// Extracts tool arguments from an assistant message containing a function call
+        /// </summary>
+        /// <param name="assistantMessage">The full assistant message</param>
+        /// <returns>The extracted arguments as a JSON string or null if none found</returns>
+        public static string ExtractToolArgs(string assistantMessage)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, contextProviderFilter, contextKeyFilter);
+            if (string.IsNullOrEmpty(assistantMessage))
+                return null;
+
+            var m = Regex.Match(assistantMessage,
+                @"function_call.*?""arguments""\s*:\s*({.*?})",
+                RegexOptions.Singleline);
+            return m.Success ? m.Groups[1].Value : null;
         }
 
-        private static async Task<AIResponse> GetResponse(string providerName, string model, JArray messages, string jsonSchema = "", string endpoint = "", string contextProviderFilter = null, string contextKeyFilter = null)
+        /// <summary>
+        /// Tries to parse a JSON string into a JToken
+        /// </summary>
+        /// <param name="strInput">The JSON string to parse</param>
+        /// <param name="jToken">The output JToken if successful</param>
+        /// <returns>True if parsing was successful, false otherwise</returns>
+        public static bool TryParseJson(string strInput, out JToken jToken)
+        {
+            try
+            {
+                jToken = JToken.Parse(strInput);
+                return true;
+            }
+            catch (Exception)
+            {
+                jToken = null;
+                return false;
+            }
+        }
+
+        public static async Task<AIResponse> GetResponse(
+            string providerName,
+            string model,
+            List<KeyValuePair<string, string>> messages,
+            string jsonSchema = "",
+            string endpoint = "",
+            bool includeToolDefinitions = false,
+            string contextProviderFilter = null,
+            string contextKeyFilter = null
+        )
+        {
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter);
+        }
+
+        public static async Task<AIResponse> GetResponse(
+            string providerName,
+            string model,
+            List<TextChatModel> messages,
+            string jsonSchema = "",
+            string endpoint = "",
+            bool includeToolDefinitions = false,
+            string contextProviderFilter = null,
+            string contextKeyFilter = null
+        )
+        {
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter);
+        }
+
+        private static async Task<AIResponse> GetResponse(
+            string providerName,
+            string model,
+            JArray messages,
+            string jsonSchema = "",
+            string endpoint = "",
+            bool includeToolDefinitions = false,
+            string contextProviderFilter = null,
+            string contextKeyFilter = null
+        )
         {
             // Add message context
             try
@@ -146,7 +184,7 @@ namespace SmartHopper.Core.Utils
                     };
                 }
 
-                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint);
+                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
                 return response;

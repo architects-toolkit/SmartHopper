@@ -21,5 +21,11 @@ namespace SmartHopper.Config.Models
         public string ToolArguments { get; set; }
         public string Provider { get; set; }
         public string Model { get; set; }
+        
+        /// <summary>
+        /// Tracks how many times this response is reused across different data tree branches.
+        /// Default is 1 (used once).
+        /// </summary>
+        public int ReuseCount { get; set; } = 1;
     }
 }
