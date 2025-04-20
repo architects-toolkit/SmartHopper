@@ -78,12 +78,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ -n "${{ github.event.inputs.filter }}" ]; then
-            git merge origin/${{ matrix.target_branch }} --no-ff --no-commit
-            git reset origin/${{ matrix.target_branch }} -- ':!"${{ github.event.inputs.filter }}"'
+            # Use merge strategy 'ours' to automatically resolve all conflicts in our favor
+            # This ensures the merge operation won't fail on conflicts
+            git merge origin/${{ matrix.target_branch }} -s ours --no-commit
+            # Now cherry-pick just the files we want from the target branch
+            git checkout origin/${{ matrix.target_branch }} -- "${{ github.event.inputs.filter }}"
             git add "${{ github.event.inputs.filter }}"
-            git commit -m "chore(branch): merge ${{ matrix.target_branch }} into ${{ github.event.inputs.origin_branch }} for path ${{ github.event.inputs.filter }}"
+            git commit -m "chore(branch): update ${{ github.event.inputs.origin_branch }} with ${{ matrix.target_branch }} changes for path ${{ github.event.inputs.filter }}"
           else
-            git merge origin/${{ matrix.target_branch }} --no-ff -m "chore(branch): merge ${{ matrix.target_branch }} into ${{ github.event.inputs.origin_branch }}"
+            # Attempt normal merge for full updates
+            if ! git merge origin/${{ matrix.target_branch }} --no-ff -m "chore(branch): merge ${{ matrix.target_branch }} into ${{ github.event.inputs.origin_branch }}"; then
+              echo "::warning::Merge conflicts detected. Creating PR for manual resolution."
+              # Reset to pre-merge state so we can still create the PR
+              git merge --abort
+            fi
           fi
 
       - name: Push commits to origin branch
