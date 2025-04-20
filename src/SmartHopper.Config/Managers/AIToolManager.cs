@@ -19,7 +19,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using System.IO;
 
-namespace SmartHopper.Config.Tools
+namespace SmartHopper.Config.Managers
 {
     /// <summary>
     /// Central manager for AI tools that can be called from chat interfaces.
@@ -37,7 +37,7 @@ namespace SmartHopper.Config.Tools
         /// Register a single tool
         /// </summary>
         /// <param name="tool">The tool to register</param>
-        public static void RegisterTool(AITool tool)
+        internal static void RegisterTool(AITool tool)
         {
             Debug.WriteLine($"[AIToolManager] Registering tool: {tool.Name}");
             _tools[tool.Name] = tool;

@@ -10,7 +10,7 @@
 
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
 using SmartHopper.Components.Properties;
 using System;
 using System.Collections.Generic;

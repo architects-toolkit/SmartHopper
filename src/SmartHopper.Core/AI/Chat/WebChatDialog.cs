@@ -17,7 +17,7 @@ using System.Diagnostics;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 

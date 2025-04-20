@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

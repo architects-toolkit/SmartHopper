@@ -16,7 +16,7 @@ using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Utils;
 using System;

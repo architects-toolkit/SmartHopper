@@ -28,6 +28,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Core.ComponentBase
 {
