@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `ConnectionGraphUtils` class in `SmartHopper.Core.Graph` namespace with method `ExpandByDepth` to expand a set of component IDs by following connections up to the given depth.
 - Added `GhRetrieveComponents` component and `ghretrievecomponents` AI tool for listing Grasshopper component types with descriptions, keywords, category filters, and list of inputs and outputs.
 - Added `ghcategories` AI tool in `GhTools` to list Grasshopper component categories and subcategories with optional soft string filter.
+- Added new `ghtogglepreview` AI tool in `GhVisTools` for toggling Grasshopper component preview by GUID.
 
 ### Changed
 
@@ -33,9 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed a bug in `DataProcessor` where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
 - Fixed inconsistent list format handling between `AIListEvaluate` and `AIListFilter` components.
-
-### Fixed
-- Fixes "Bug: Unmatching paths in list components return duplicated values" ([#32](https://github.com/architects-toolkit/SmartHopper/issues/32)).
 
 ## [0.2.0-alpha] - 2025-04-06
 
