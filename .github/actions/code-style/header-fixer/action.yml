@@ -23,16 +23,16 @@ runs:
             year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
             [ -z "$year" ] && year=$(date +%Y)
             EXPECTED_HEADER=$(cat <<EOF
-            /*
-            * SmartHopper - AI-powered Grasshopper Plugin
-            * Copyright (C) $year Marc Roca Musach
-            *
-            * This library is free software; you can redistribute it and/or
-            * modify it under the terms of the GNU Lesser General Public
-            * License as published by the Free Software Foundation; either
-            * version 3 of the License, or (at your option) any later version.
-            */
-            EOF
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) $year Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+EOF
             )
             header=$(head -n $(echo "$EXPECTED_HEADER" | wc -l) "$file")
             if [ "$header" != "$EXPECTED_HEADER" ]; then
