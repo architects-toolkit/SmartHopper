@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -11,7 +11,7 @@
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
-using SmartHopper.Core.Grasshopper.TypeUtils;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.JSON;
 using System;
 using System.Collections.Generic;
@@ -19,7 +19,7 @@ using System.Drawing;
 using System.Linq;
 using System.Reflection;
 
-namespace SmartHopper.Core.Grasshopper
+namespace SmartHopper.Core.Grasshopper.Utils
 {
     public class GHDocumentUtils
     {
@@ -223,3 +223,4 @@ namespace SmartHopper.Core.Grasshopper
         }
     }
 }
+

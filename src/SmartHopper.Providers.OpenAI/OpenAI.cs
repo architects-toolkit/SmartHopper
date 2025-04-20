@@ -12,6 +12,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Tools;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -101,7 +102,7 @@ namespace SmartHopper.Providers.OpenAI
                    !string.IsNullOrEmpty(settings["Model"].ToString());
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
+        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             try
             {
@@ -147,6 +148,15 @@ namespace SmartHopper.Providers.OpenAI
                         ["temperature"] = 0.7,
                         ["max_tokens"] = maxTokens
                     };
+
+                    // Add functions to request if available
+                    var toolsArray = includeToolDefinitions ? GetFormattedTools() : null;
+                    if (toolsArray != null && toolsArray.Count > 0)
+                    {
+                        requestBody["tools"] = toolsArray;
+                        requestBody["tool_choice"] = "auto";
+                        Debug.WriteLine($"Added {toolsArray.Count} tools to the request");
+                    }
 
                     if (!string.IsNullOrEmpty(jsonSchema))
                     {
@@ -196,6 +206,54 @@ namespace SmartHopper.Providers.OpenAI
 
             // Fall back to the default model
             return _defaultModel;
+        }
+
+        /// <summary>
+        /// Gets the tools formatted for the OpenAI API
+        /// </summary>
+        /// <returns>JArray of formatted tools</returns>
+        private JArray GetFormattedTools()
+        {
+            try
+            {
+                // Ensure tools are discovered
+                AIToolManager.DiscoverTools();
+
+                // Get all available tools
+                var tools = AIToolManager.GetTools();
+                if (tools.Count == 0)
+                {
+                    Debug.WriteLine("No tools available.");
+                    return null;
+                }
+
+                var toolsArray = new JArray();
+
+                foreach (var tool in tools)
+                {
+                    // Format each tool according to OpenAI's requirements
+                    var toolObject = new JObject
+                    {
+                        ["type"] = "function",
+                        ["function"] = new JObject
+                        {
+                            ["name"] = tool.Value.Name,
+                            ["description"] = tool.Value.Description,
+                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema)
+                        }
+                    };
+
+                    toolsArray.Add(toolObject);
+                }
+
+                Debug.WriteLine($"Formatted {toolsArray.Count} tools for OpenAI");
+                return toolsArray;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error formatting tools: {ex.Message}");
+                return null;
+            }
         }
     }
 }
