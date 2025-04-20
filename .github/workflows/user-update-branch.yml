@@ -24,6 +24,10 @@ on:
         description: 'Target branch (to be updated)'
         required: true
         type: string
+      filter:
+        description: 'Specific folder to update (e.g., .github or src/SmartHopper.Components). Leave blank to update all code.'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -114,7 +118,7 @@ jobs:
         id: create-temp-branch
         run: |
           # Create a unique branch name
-          TEMP_BRANCH="update-branch/${{ github.event.inputs.target_branch }}-from-${{ github.event.inputs.origin_branch }}-$(date +%s)"
+          TEMP_BRANCH="update-branch/${{ github.event.inputs.target_branch }}-from-${{ github.event.inputs.origin_branch }}"
           echo "temp_branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
           
           # Checkout target branch
@@ -129,6 +133,25 @@ jobs:
       - name: Attempt merge
         id: attempt-merge
         run: |
+          ORIGIN=${{ github.event.inputs.origin_branch }}
+          TARGET=${{ github.event.inputs.target_branch }}
+          FILTER=${{ github.event.inputs.filter }}
+          if [[ -n "$FILTER" ]]; then
+            echo "Updating specific path: $FILTER"
+            git checkout origin/$ORIGIN -- "$FILTER"
+            # Check if there are any changes to stage
+            if git status --porcelain | grep -q "$FILTER"; then
+              git add "$FILTER"
+              git commit -m "chore(branch): update $TARGET from $ORIGIN for path $FILTER"
+              echo "merge_status=success" >> $GITHUB_OUTPUT
+              echo "Changes detected and committed for path $FILTER."
+            else
+              echo "merge_status=no_changes" >> $GITHUB_OUTPUT
+              echo "No changes to merge for path $FILTER."
+            fi
+            exit 0
+          fi
+
           # Try to merge origin into temp branch
           if git merge origin/${{ github.event.inputs.origin_branch }} --no-ff; then
             echo "merge_status=success" >> $GITHUB_OUTPUT
