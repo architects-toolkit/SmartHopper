@@ -199,6 +199,9 @@ jobs:
           elif [ "$STATUS" = "conflict" ]; then
             echo "⚠️ Merge conflicts detected. Creating a PR for manual resolution..."
           fi
+          # Push temporary branch to remote for PR creation
+          echo "Pushing temporary branch $TMP_BRANCH to remote..."
+          git push --set-upstream origin $TMP_BRANCH
           # Build PR body
           prBody="## Branch Update
 
