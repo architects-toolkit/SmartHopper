@@ -51,11 +51,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     Debug.WriteLine("[GHComponentUtils] Component is not preview capable");
                 }
             }
-            else if (obj is IGH_Param param)
+            else if (obj is IGH_PreviewObject preview)
             {
-                Debug.WriteLine($"[GHComponentUtils] IGH_Param.Hidden={param.Hidden}");
-                param.Hidden = !previewOn;
-                Debug.WriteLine($"[GHComponentUtils] New Hidden={param.Hidden}");
+                Debug.WriteLine($"[GHComponentUtils] IGH_PreviewObject.Hidden={preview.Hidden}");
+                preview.Hidden = !previewOn;
+                Debug.WriteLine($"[GHComponentUtils] New Hidden={preview.Hidden}");
                 if (redraw)
                 {
                     Instances.RedrawCanvas();
