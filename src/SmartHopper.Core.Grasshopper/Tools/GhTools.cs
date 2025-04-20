@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -19,6 +20,7 @@ using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
+using System.Reflection;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -27,6 +29,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// </summary>
     public class GhTools : IAIToolProvider
     {
+        #region Synonyms
         /// <summary>
         /// Synonyms for filter tags.
         /// Available filter tokens:
@@ -90,7 +93,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
             { "middlecomponents", "processing" },
             { "isolatedcomponents", "isolated" }
         };
+        #endregion
 
+        #region HelperMethods
         /// <summary>
         /// Helper to parse include/exclude tokens.
         /// </summary>
@@ -119,7 +124,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
             return (include, exclude);
         }
+        #endregion
 
+        #region ToolRegistration
         /// <summary>
         /// Returns a list of AI tools provided by this plugin.
         /// </summary>
@@ -151,8 +158,27 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ExecuteGhGetToolAsync
             );
-        }
 
+            // New tool to list installed component types
+            yield return new AITool(
+                name: "ghretrievecomponents",
+                description: "Retrieve all installed Grasshopper components in the user's environment as JSON with names, GUIDs, categories, subcategories, descriptions, and keywords.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""categoryFilter"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""Filter components by category. '+' includes, '-' excludes. E.g. ['+Math','-Params'].""
+                        }
+                    }
+                }",
+                execute: this.ExecuteGhRetrieveToolAsync
+            );
+        }
+        #endregion
+
+        #region GhGet
         /// <summary>
         /// Executes the Grasshopper get components tool.
         /// </summary>
@@ -302,5 +328,70 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             return Task.FromResult<object>(result);
         }
+        #endregion
+
+        #region GhRetrieve
+        /// <summary>
+        /// Executes the Grasshopper list component types tool.
+        /// </summary>
+        private Task<object> ExecuteGhRetrieveToolAsync(JObject parameters)
+        {
+            var server = Instances.ComponentServer;
+            var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
+            var (includeCats, excludeCats) = ParseIncludeExclude(categoryFilters, null);
+            var categories = server.GetType().GetProperty("CategoryNames")?.GetValue(server) as IEnumerable<string> ?? Enumerable.Empty<string>();
+            var subCats = server.GetType().GetProperty("SubCategoryNames")?.GetValue(server) as IDictionary<string, IEnumerable<string>>;
+
+            var proxies = new List<IGH_ObjectProxy>();
+            foreach (var category in categories)
+            {
+                if (subCats != null && subCats.TryGetValue(category, out var subs))
+                {
+                    foreach (var sub in subs)
+                    {
+                        var method = server.GetType().GetMethod("GetObjectProxies", new[] { typeof(string), typeof(string) });
+                        var arr = method?.Invoke(server, new object[] { category, sub }) as IEnumerable<IGH_ObjectProxy>;
+                        if (arr != null) proxies.AddRange(arr);
+                    }
+                }
+                else
+                {
+                    var method = server.GetType().GetMethod("GetObjectProxies", new[] { typeof(string) });
+                    var arr = method?.Invoke(server, new object[] { category }) as IEnumerable<IGH_ObjectProxy>;
+                    if (arr != null) proxies.AddRange(arr);
+                }
+            }
+
+            // Apply category filters
+            if (includeCats.Any())
+                proxies = proxies.Where(p => includeCats.Contains(p.Category)).ToList();
+            if (excludeCats.Any())
+                proxies.RemoveAll(p => excludeCats.Contains(p.Category));
+
+            var list = proxies.Select(p => new
+            {
+                name = p.Name,
+                nickname = p.NickName,
+                category = p.Category,
+                subCategory = p.SubCategory,
+                guid = p.ComponentGuid.ToString(),
+                description = p.Desc.Description,
+                keywords = p.Desc.Keywords
+            }).ToList();
+
+            var names = list.Select(x => x.name).Distinct().ToList();
+            var guids = list.Select(x => x.guid).Distinct().ToList();
+            var json = JsonConvert.SerializeObject(list, Formatting.None);
+
+            var result = new JObject
+            {
+                ["count"] = list.Count,
+                ["names"] = JArray.FromObject(names),
+                ["guids"] = JArray.FromObject(guids),
+                ["json"] = json
+            };
+            return Task.FromResult<object>(result);
+        }
+        #endregion
     }
 }
