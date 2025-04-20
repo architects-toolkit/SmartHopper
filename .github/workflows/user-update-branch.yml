@@ -227,15 +227,15 @@ jobs:
               echo "merge_status=no_changes" >> $GITHUB_OUTPUT
               echo "No changes to merge. Branches are already in sync."
             else
-              # Push the changes to the target branch
-              git push origin HEAD:$TARGET
-              
-              # Create a merge marker on the origin branch to prevent future PRs showing the same changes
-              git checkout origin/$ORIGIN
-              git merge $TARGET --strategy=ours -m "Mark $ORIGIN as merged into $TARGET"
-              git push origin HEAD:$ORIGIN
-              
-              echo "✅ Successfully updated and synchronized both branches to prevent future PR diffs."
+              # First push to target if we can
+              if git push origin HEAD:refs/heads/$TARGET; then
+                echo "Successfully pushed changes to $TARGET"
+                
+                # Now create a GitHub API comment tracking the merge to avoid future redundant PRs
+                echo "gh_comment_needed=true" >> $GITHUB_OUTPUT
+              else
+                echo "Direct push failed. Will create PR instead."
+              fi
             fi
           else
             echo "merge_status=conflict" >> $GITHUB_OUTPUT
@@ -317,6 +317,16 @@ jobs:
         run: |
           if [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "success" ]]; then
             echo "✅ Successfully updated ${{ matrix.target_branch }} with changes from ${{ github.event.inputs.origin_branch }}."
+            
+            # Create a merge notification
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git config --global user.name "GitHub Actions"
+            
+            # Create an empty commit with a special message on the origin branch
+            git checkout ${{ github.event.inputs.origin_branch }}
+            git pull origin ${{ github.event.inputs.origin_branch }}
+            git commit --allow-empty -m "MERGE-MARKER: ${{ github.event.inputs.origin_branch }} merged into ${{ matrix.target_branch }} on $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            git push origin ${{ github.event.inputs.origin_branch }}
           elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "no_changes" ]]; then
             echo "ℹ️ No changes to merge. Branches are already in sync."
           elif [[ "${{ steps.attempt-merge.outputs.merge_status }}" == "conflict" ]]; then
