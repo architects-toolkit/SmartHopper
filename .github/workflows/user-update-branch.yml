@@ -136,6 +136,7 @@ jobs:
 
       - name: Attempt merge
         id: attempt-merge
+        continue-on-error: true
         run: |
           ORIGIN=${{ github.event.inputs.origin_branch }}
           TARGET=${{ matrix.target_branch }}
@@ -240,7 +241,7 @@ jobs:
         shell: bash
 
       - name: Create PR if conflicts or protected branch
-        if: steps.attempt-merge.outputs.merge_status == 'conflict' || steps.attempt-merge.outputs.merge_status == 'success'
+        if: steps.attempt-merge.outcome == 'failure' || steps.attempt-merge.outputs.merge_status == 'conflict' || steps.attempt-merge.outputs.merge_status == 'success'
         id: create-pr
         uses: actions/github-script@v7.0.1
         with:
