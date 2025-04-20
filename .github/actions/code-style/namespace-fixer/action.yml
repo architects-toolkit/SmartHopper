@@ -16,7 +16,12 @@ runs:
       if: always()
       shell: bash
       run: |
-        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
+        if [ -n "${{ github.event.pull_request }}" ]; then
+          FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.cs')
+        else
+          # Fallback to all .cs files when not a pull_request event
+          FILES=$(find . -type f -name '*.cs')
+        fi
         ERR=0
         for file in $FILES; do
           if [ -f "$file" ]; then
