@@ -21,6 +21,7 @@ using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
+using System.Text.RegularExpressions;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -73,8 +74,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// Synonyms:
         ///   param, parameter → params
         ///   component, comp → components
-        ///   inputs, inputcomponents → input
-        ///   outputs, outputcomponents → output
+        ///   input, inputs → input
+        ///   output, outputs → output
         ///   processingcomponents, intermediate, middle, middlecomponents → processing
         ///   isolatedcomponents → isolated
         /// </summary>
@@ -201,11 +202,27 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""categoryFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. More categories will be available if the user has more plugins installed.""
+                            ""description"": ""Filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'ghcategories' to get the full list of available categories)""
                         }
                     }
                 }",
                 execute: this.ExecuteGhRetrieveToolAsync
+            );
+
+            // New tool to list Grasshopper categories and subcategories
+            yield return new AITool(
+                name: "ghcategories",
+                description: "List Grasshopper component categories and subcategories with optional soft string filter.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""filter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Soft filter: return categories or subcategories containing the search tokens (split by space, ignores , ; - _).""
+                        }
+                    }
+                }",
+                execute: this.ExecuteGhCategoriesToolAsync
             );
         }
         #endregion
@@ -454,6 +471,67 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 ["json"] = json
             };
             return Task.FromResult<object>(result);
+        }
+        #endregion
+
+        #region GhCategories
+        /// <summary>
+        /// Executes the Grasshopper categories listing tool with optional soft string filter.
+        /// </summary>
+        private Task<object> ExecuteGhCategoriesToolAsync(JObject parameters)
+        {
+            var server = Instances.ComponentServer;
+            var filterString = parameters["filter"]?.ToObject<string>() ?? string.Empty;
+            var tokens = Regex.Replace(filterString, @"[,;\-_]", " ")
+                .Split(new[]{' '}, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.ToLowerInvariant())
+                .ToList();
+
+            var proxies = server.ObjectProxies;
+            var dict = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in proxies)
+            {
+                var cat = p.Desc.Category ?? string.Empty;
+                var sub = p.Desc.SubCategory ?? string.Empty;
+                if (!dict.TryGetValue(cat, out var subs))
+                {
+                    subs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    dict[cat] = subs;
+                }
+                if (!string.IsNullOrEmpty(sub))
+                    subs.Add(sub);
+            }
+
+            var result = new List<object>();
+            foreach (var kv in dict)
+            {
+                var cat = kv.Key;
+                var subs = kv.Value;
+                if (!tokens.Any())
+                {
+                    result.Add(new { category = cat, subCategories = subs.ToList() });
+                }
+                else
+                {
+                    bool catMatch = tokens.Any(tok => cat.ToLowerInvariant().Contains(tok));
+                    var matchingSubs = subs.Where(s => tokens.Any(tok => s.ToLowerInvariant().Contains(tok))).ToList();
+                    if (catMatch)
+                    {
+                        result.Add(new { category = cat, subCategories = subs.ToList() });
+                    }
+                    else if (matchingSubs.Any())
+                    {
+                        result.Add(new { category = cat, subCategories = matchingSubs });
+                    }
+                }
+            }
+
+            var jResult = new JObject
+            {
+                ["count"] = result.Count,
+                ["categories"] = JArray.FromObject(result)
+            };
+            return Task.FromResult<object>(jResult);
         }
         #endregion
     }
