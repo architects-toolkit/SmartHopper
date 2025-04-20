@@ -20,7 +20,7 @@ using SmartHopper.Config.Models;
 using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
 
-namespace SmartHopper.Core.Grasshopper.
+namespace SmartHopper.Core.Grasshopper.Tools
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager

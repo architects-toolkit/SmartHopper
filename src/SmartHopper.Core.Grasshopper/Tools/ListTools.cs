@@ -13,6 +13,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.AI;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Core.Grasshopper.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
