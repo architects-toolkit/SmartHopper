@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Drawing;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -162,7 +163,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         {
                             return StringConverter.StringToColor(stringValue);
                         }
-                        return System.Drawing.ColorTranslator.FromHtml(value.ToString());
+                        return ColorTranslator.FromHtml(value.ToString());
 
                     case "Font":
                         return StringConverter.StringToFont(value.ToString());

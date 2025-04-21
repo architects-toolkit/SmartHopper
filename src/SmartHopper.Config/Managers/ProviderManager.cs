@@ -13,13 +13,18 @@ using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
 using Rhino;
+using Eto.Forms;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography.Pkcs;
+using System.Drawing;
 
-namespace SmartHopper.Config
+namespace SmartHopper.Config.Managers
 {
     /// <summary>
     /// Manages the discovery and loading of AI providers.
@@ -37,7 +42,7 @@ namespace SmartHopper.Config
         {
             // Register built-in providers
             RegisterBuiltInProviders();
-            
+
             // Discover and load external providers
             DiscoverProviders();
         }
@@ -101,11 +106,19 @@ namespace SmartHopper.Config
                 string assemblyLocation = Assembly.GetExecutingAssembly().Location;
                 string baseDirectory = Path.GetDirectoryName(assemblyLocation);
 
-                // Find all provider DLL files in the same directory as the main application
+                // Find all external provider DLLs
                 string[] providerFiles = Directory.GetFiles(baseDirectory, "SmartHopper.Providers.*.dll");
-                
+                var settings = SmartHopperSettings.Load();
                 foreach (string providerFile in providerFiles)
                 {
+                    var asmName = Path.GetFileNameWithoutExtension(providerFile);
+                    // Skip providers the user has previously rejected
+                    if (settings.DisallowedProviders.Contains(asmName))
+                    {
+                        Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
+                        continue;
+                    }
+
                     try
                     {
                         LoadProviderAssembly(providerFile);
@@ -130,9 +143,37 @@ namespace SmartHopper.Config
         {
             try
             {
-                // Load the assembly
-                Assembly assembly = Assembly.LoadFrom(assemblyPath);
-                
+                // Authenticode signature validation
+                VerifySignature(assemblyPath);
+                var settings = SmartHopperSettings.Load();
+                var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+                // Skip providers the user has previously rejected
+                if (settings.DisallowedProviders.Contains(asmName))
+                {
+                    Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
+                    return;
+                }
+                // Prompt user for new providers not yet approved
+                if (!settings.AllowedProviders.Contains(asmName))
+                {
+                    var tcs = new TaskCompletionSource<bool>();
+                    RhinoApp.InvokeOnUiThread(new Action(() =>
+                    {
+                        var result = MessageBox.Show($"Detected new AI provider '{asmName}'. Enable it?", MessageBoxButtons.YesNo);
+                        tcs.SetResult(result == DialogResult.Yes);
+                    }));
+                    if (tcs.Task.Result)
+                        settings.AllowedProviders.Add(asmName);
+                    else
+                    {
+                        settings.DisallowedProviders.Add(asmName);
+                        settings.Save();
+                        Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
+                        return;
+                    }
+                    settings.Save();
+                }
+                var assembly = Assembly.LoadFrom(assemblyPath);
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
                     .Where(t => typeof(IAIProviderFactory).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
@@ -147,10 +188,10 @@ namespace SmartHopper.Config
                         
                         // Create provider and settings instances
                         var provider = factory.CreateProvider();
-                        var settings = factory.CreateProviderSettings();
+                        var providerSettings = factory.CreateProviderSettings();
                         
                         // Register the provider
-                        RegisterProvider(provider, settings, assembly);
+                        RegisterProvider(provider, providerSettings, assembly);
                         
                         Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
                     }
@@ -174,6 +215,14 @@ namespace SmartHopper.Config
         /// <param name="assembly">The assembly containing the provider.</param>
         private void RegisterProvider(IAIProvider provider, IAIProviderSettings settings, Assembly assembly)
         {
+            // Security check: only accept providers from assemblies signed with our key
+            var pkt = assembly.GetName().GetPublicKeyToken();
+            var trustedPkt = Assembly.GetExecutingAssembly().GetName().GetPublicKeyToken();
+            if (pkt == null || trustedPkt == null || !pkt.SequenceEqual(trustedPkt))
+            {
+                Debug.WriteLine($"Untrusted provider assembly '{assembly.FullName}', skipping registration.");
+                return;
+            }
             if (provider == null || settings == null)
                 return;
 
@@ -271,6 +320,24 @@ namespace SmartHopper.Config
             
             // Otherwise, return the first available provider or empty string if none
             return providers.Any() ? providers.First().Name : string.Empty;
+        }
+
+        // Implement Authenticode verification using SignedCms
+        private static void VerifySignature(string assemblyPath)
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var peReader = new PEReader(stream);
+            var certDir = peReader.PEHeaders.PEHeader.CertificateTableDirectory;
+            if (certDir.Size == 0)
+                throw new CryptographicException($"No Authenticode signature found on {assemblyPath}");
+            stream.Position = certDir.RelativeVirtualAddress;
+            var rawData = new byte[certDir.Size];
+            stream.Read(rawData, 0, rawData.Length);
+            var pkcs7Data = new byte[certDir.Size - 8];
+            Array.Copy(rawData, 8, pkcs7Data, 0, pkcs7Data.Length);
+            var cms = new SignedCms();
+            cms.Decode(pkcs7Data);
+            cms.CheckSignature(true);
         }
     }
 }

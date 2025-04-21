@@ -14,15 +14,13 @@ using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
 using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper.Utils;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace SmartHopper.Components.Grasshopper
@@ -53,7 +51,7 @@ namespace SmartHopper.Components.Grasshopper
 
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
 
-        protected override System.Drawing.Bitmap Icon => Resources.ghget;
+        protected override Bitmap Icon => Resources.ghget;
 
         public void EnableSelectionMode()
         {

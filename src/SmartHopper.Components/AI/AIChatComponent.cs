@@ -22,6 +22,7 @@ using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Core.AI.Chat;
 using SmartHopper.Core.ComponentBase;
+using System.Drawing;
 
 namespace SmartHopper.Components.AI
 {
@@ -46,15 +47,15 @@ namespace SmartHopper.Components.AI
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             RunOnlyOnInputChanges = false;
-            
+
             // Create and register time and environment context providers
             _timeProvider = new TimeContextProvider();
             _environmentProvider = new EnvironmentContextProvider();
-            
+
             AIContextManager.RegisterProvider(_timeProvider);
             AIContextManager.RegisterProvider(_environmentProvider);
         }
-        
+
         /// <summary>
         /// Called when the component is removed from the canvas
         /// </summary>
@@ -64,7 +65,7 @@ namespace SmartHopper.Components.AI
             // Unregister the context providers
             AIContextManager.UnregisterProvider(_timeProvider);
             AIContextManager.UnregisterProvider(_environmentProvider);
-            
+
             base.RemovedFromDocument(document);
         }
 
@@ -104,7 +105,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.aichat;
+        protected override Bitmap Icon => Properties.Resources.aichat;
 
         /// <summary>
         /// Gets the unique ID for this component type.

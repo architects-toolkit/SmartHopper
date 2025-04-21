@@ -9,9 +9,11 @@
 //------------------------------------------------------------------------------
 
 namespace SmartHopper.Components.Properties {
+    
     using System;
-    
-    
+    using System.Drawing;
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -61,112 +63,112 @@ namespace SmartHopper.Components.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap ghget {
+        internal static Bitmap ghget {
             get {
                 object obj = ResourceManager.GetObject("ghget", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap ghput {
+        internal static Bitmap ghput {
             get {
                 object obj = ResourceManager.GetObject("ghput", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap listalter {
+        internal static Bitmap listalter {
             get {
                 object obj = ResourceManager.GetObject("listalter", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap listevaluate {
+        internal static Bitmap listevaluate {
             get {
                 object obj = ResourceManager.GetObject("listevaluate", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap listfilter {
+        internal static Bitmap listfilter {
             get {
                 object obj = ResourceManager.GetObject("listfilter", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap textevaluate {
+        internal static Bitmap textevaluate {
             get {
                 object obj = ResourceManager.GetObject("textevaluate", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap textalter {
+        internal static Bitmap textalter {
             get {
                 object obj = ResourceManager.GetObject("textalter", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
 
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap listgenerate {
+        internal static Bitmap listgenerate {
             get {
                 object obj = ResourceManager.GetObject("listgenerate", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap textgenerate {
+        internal static Bitmap textgenerate {
             get {
                 object obj = ResourceManager.GetObject("textgenerate", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap aichat {
+        internal static Bitmap aichat {
             get {
                 object obj = ResourceManager.GetObject("aichat", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
 
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap smarthopper {
+        internal static Bitmap smarthopper {
             get {
                 object obj = ResourceManager.GetObject("smarthopper", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                return ((Bitmap)(obj));
             }
         }
     }

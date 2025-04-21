@@ -19,7 +19,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using System.IO;
 
-namespace SmartHopper.Config.Tools
+namespace SmartHopper.Config.Managers
 {
     /// <summary>
     /// Central manager for AI tools that can be called from chat interfaces.

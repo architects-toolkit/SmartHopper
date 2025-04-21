@@ -15,4 +15,9 @@
     <!-- StyleCop for code style checks; warnings only -->
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="all" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(SolutionDir)signing.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
 </Project>

@@ -20,15 +20,15 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
-using Grasshopper.Documentation;
 using System.Linq;
+using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
 {
     public class AITextEvaluate : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("D3EB06A8-C219-46E3-854E-15EC798AD63A");
-        protected override System.Drawing.Bitmap Icon => Resources.textevaluate;
+        protected override CommonDrawing::Bitmap Icon => Resources.textevaluate;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public AITextEvaluate()

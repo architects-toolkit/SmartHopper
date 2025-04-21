@@ -22,13 +22,14 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
+using System.Drawing;
 
 namespace SmartHopper.Components.Test.Misc
 {
     public class TestAIStatefulTreePrimeCalculatorComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("C349BCD4-81C8-40CC-B449-DDE7C9180CAA");
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestAIStatefulTreePrimeCalculatorComponent()
