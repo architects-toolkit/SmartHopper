@@ -20,9 +20,12 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
-#if NETCOREAPP
-using System.Runtime.Loader;
-#endif
+using System.Threading.Tasks;
+using Rhino;
+using Eto.Forms;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography.Pkcs;
 
 namespace SmartHopper.Config.Managers
 {
@@ -117,37 +120,8 @@ namespace SmartHopper.Config.Managers
                         Debug.WriteLine($"Provider '{asmName}' not allowed, skipping.");
                         continue;
                     }
-                    #if NETCOREAPP
-                    // Verify manifest exists and is valid
-                    var manifestPath = Path.ChangeExtension(providerFile, ".json");
-                    if (!File.Exists(manifestPath))
-                    {
-                        Debug.WriteLine($"Missing manifest for '{asmName}', skipping.");
-                        continue;
-                    }
-                    ProviderManifest manifest;
-                    try { manifest = JsonConvert.DeserializeObject<ProviderManifest>(File.ReadAllText(manifestPath)); }
-                    catch { Debug.WriteLine($"Invalid manifest JSON for '{asmName}', skipping."); continue; }
-                    try
-                    {
-                        using var sha = SHA256.Create();
-                        var dllBytes = File.ReadAllBytes(providerFile);
-                        var computedHash = BitConverter.ToString(sha.ComputeHash(dllBytes)).Replace("-", "");
-                        if (!string.Equals(computedHash, manifest.Hash, StringComparison.OrdinalIgnoreCase))
-                        {
-                            Debug.WriteLine($"Hash mismatch for '{asmName}', skipping.");
-                            continue;
-                        }
-                        VerifySignature(manifest);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Manifest validation failed for '{asmName}': {ex.Message}");
-                        continue;
-                    }
-                    #else
-                    // Manifest verification skipped on .NET Framework
-                    #endif
+                    
+                    // Removed manifest verification in favor of authenticode-signed providers
                     try
                     {
                         LoadProviderAssembly(providerFile);
@@ -172,13 +146,30 @@ namespace SmartHopper.Config.Managers
         {
             try
             {
-                #if NETCOREAPP
-                // Use isolated load context on .NET Core for sandboxing
-                var alc = new AssemblyLoadContext(Path.GetFileNameWithoutExtension(assemblyPath), isCollectible: true);
-                var assembly = alc.LoadFromAssemblyPath(assemblyPath);
-                #else
+                // Authenticode signature validation
+                VerifySignature(assemblyPath);
+                var settings = SmartHopperSettings.Load();
+                var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+                if (!settings.AllowedProviders.Contains(asmName))
+                {
+                    Debug.WriteLine($"Provider '{asmName}' not allowed, skipping.");
+                    return;
+                }
+                
+                // Prompt user to trust newly discovered external AI providers
+                var tcs = new TaskCompletionSource<bool>();
+                RhinoApp.InvokeOnUiThread(new Action(() => {
+                    var result = MessageBox.Show($"Detected new AI provider '{asmName}'. Enable it?", MessageBoxButtons.YesNo);
+                    tcs.SetResult(result == DialogResult.Yes);
+                }));
+                if (!tcs.Task.Result)
+                {
+                    Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
+                    return;
+                }
+                settings.AllowedProviders.Add(asmName);
+                settings.Save();
                 var assembly = Assembly.LoadFrom(assemblyPath);
-                #endif
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
                     .Where(t => typeof(IAIProviderFactory).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
@@ -327,45 +318,22 @@ namespace SmartHopper.Config.Managers
             return providers.Any() ? providers.First().Name : string.Empty;
         }
 
-        // Manifest schema for external providers
-        private class ProviderManifest
+        // Implement Authenticode verification using SignedCms
+        private static void VerifySignature(string assemblyPath)
         {
-            public string Name { get; set; }
-            public string Version { get; set; }
-            public string Hash { get; set; }
-            public string Signature { get; set; }
+            using var stream = File.OpenRead(assemblyPath);
+            using var peReader = new PEReader(stream);
+            var certDir = peReader.PEHeaders.PEHeader.CertificateTableDirectory;
+            if (certDir.Size == 0)
+                throw new CryptographicException($"No Authenticode signature found on {assemblyPath}");
+            stream.Position = certDir.RelativeVirtualAddress;
+            var rawData = new byte[certDir.Size];
+            stream.Read(rawData, 0, rawData.Length);
+            var pkcs7Data = new byte[certDir.Size - 8];
+            Array.Copy(rawData, 8, pkcs7Data, 0, pkcs7Data.Length);
+            var cms = new SignedCms();
+            cms.Decode(pkcs7Data);
+            cms.CheckSignature(true);
         }
-
-        #if NETCOREAPP
-        // Create RSA using the embedded public key for manifest verification at runtime
-        private static RSA CreatePublicKey()
-        {
-            var keyBytes = Convert.FromBase64String(EmbeddedProviderManifestPublicKeyBase64);
-            var rsa = RSA.Create();
-            rsa.ImportSubjectPublicKeyInfo(keyBytes, out _);
-            return rsa;
-        }
-        // Manifest public key (injected at build time)
-        private const string EmbeddedProviderManifestPublicKeyBase64 = "__PROVIDER_PUBLIC_KEY_BASE64__";
-        // Verify the manifest signature over the hash
-        private static void VerifySignature(ProviderManifest manifest)
-        {
-            var data = Encoding.UTF8.GetBytes(manifest.Hash);
-            var signature = Convert.FromBase64String(manifest.Signature);
-            using var rsa = CreatePublicKey();
-            if (!rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
-                throw new CryptographicException("Invalid provider manifest signature");
-        }
-        #else
-        private static RSA CreatePublicKey()
-        {
-            throw new NotSupportedException("Manifest signature verification is not supported on .NET Framework.");
-        }
-
-        private static void VerifySignature(ProviderManifest manifest)
-        {
-            // no-op on .NET Framework
-        }
-        #endif
     }
 }
