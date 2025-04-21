@@ -44,7 +44,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             GH_Document doc = GetCurrentCanvas();
 
+#if WINDOWS
             obj.Attributes.Pivot = position;
+#else
+            obj.Attributes.Pivot = new System.Drawing.PointF(position.X, position.Y);
+#endif
 
             doc.AddObject(obj, false);
 
@@ -94,7 +98,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
                 : position;
+#if WINDOWS
             obj.Attributes.Pivot = target;
+#else
+            obj.Attributes.Pivot = new System.Drawing.PointF(target.X, target.Y);
+#endif
             if (redraw)
             {
                 obj.Attributes.ExpireLayout();
@@ -107,7 +115,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static RectangleF BoundingBox()
         {
             GH_Document doc = GetCurrentCanvas();
+#if WINDOWS
             return doc.BoundingBox(false);
+#else
+            System.Drawing.RectangleF r = doc.BoundingBox(false);
+            return new RectangleF(r.X, r.Y, r.Width, r.Height);
+#endif
         }
 
         // Determine start point for empty space
