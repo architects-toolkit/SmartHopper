@@ -134,7 +134,7 @@ Describe the testing you've done to validate your changes.
 - [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.1.0/) format
 - [ ] PR description follows [Pull Request Description Template](https://github.com/architects-toolkit/SmartHopper/blob/main/CONTRIBUTING.md#pull-request-description-template)
 
-## Visual Studio 2022 Setup
+# Visual Studio 2022 Setup
 
 Follow these steps to configure Visual Studio 2022 for SmartHopper development:
 
@@ -151,13 +151,24 @@ Follow these steps to configure Visual Studio 2022 for SmartHopper development:
 
 ### Initializing Code Signing (required before the first build)
 
-To build and run the plugin locally, you will need to generate a local code signing certificate for development:
+When developing locally, you must generate and apply both strong-name and Authenticode signatures:
 
 1. Open **Developer PowerShell for Visual Studio 2022** as Administrator.
-2. Navigate to the root of the cloned repository.
-3. Run the signing script:
+2. cd to the repository root.
+3. Generate a strong-name key:
    ```powershell
-   .\init-signing.ps1 -Generate
+   .\Sign-StrongNames.ps1 -Generate
    ```
-4. Follow the prompts to generate or import development certificates.
-5. After the script completes successfully, go to Visual Studio 2022 and build the solution (press **F6** or select **Build > Build Solution**).
+4. Create a self-signed PFX for Authenticode via the Authenticode script:
+   ```powershell
+   .\Sign-Authenticode.ps1 -Generate -Password '<password>'
+   ```
+5. Build the solution from Visual Studio or via the command line:
+   ```powershell
+   dotnet build SmartHopper.sln -c Release
+   ```
+6. Authenticode-sign provider DLLs (e.g. for Grasshopper testing):
+   ```powershell
+   .\Sign-Authenticode.ps1 -Base64 '<Base64Pfx>' -Password '<password>' -Sign bin\Debug\net7.0-windows
+   ```
+7. Open the `bin\Debug\net7.0-windows` folder in Grasshopper to load the signed plugin.

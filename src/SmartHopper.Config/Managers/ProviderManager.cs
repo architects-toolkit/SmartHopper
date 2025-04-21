@@ -144,7 +144,15 @@ namespace SmartHopper.Config.Managers
             try
             {
                 // Authenticode signature validation
-                VerifySignature(assemblyPath);
+                try
+                {
+                    VerifySignature(assemblyPath);
+                }
+                catch (CryptographicException ex)
+                {
+                    Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
+                    return;
+                }
                 var settings = SmartHopperSettings.Load();
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
                 // Skip providers the user has previously rejected
@@ -215,12 +223,12 @@ namespace SmartHopper.Config.Managers
         /// <param name="assembly">The assembly containing the provider.</param>
         private void RegisterProvider(IAIProvider provider, IAIProviderSettings settings, Assembly assembly)
         {
-            // Security check: only accept providers from assemblies signed with our key
+            // Strong-name verification: only accept assemblies with our public-key token
             var pkt = assembly.GetName().GetPublicKeyToken();
             var trustedPkt = Assembly.GetExecutingAssembly().GetName().GetPublicKeyToken();
             if (pkt == null || trustedPkt == null || !pkt.SequenceEqual(trustedPkt))
             {
-                Debug.WriteLine($"Untrusted provider assembly '{assembly.FullName}', skipping registration.");
+                Debug.WriteLine($"Strong-name public key token mismatch for provider assembly '{assembly.FullName}', skipping registration.");
                 return;
             }
             if (provider == null || settings == null)
