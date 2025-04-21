@@ -9,6 +9,11 @@
  */
 
 using SmartHopper.Menu.Dialogs;
+#if WINDOWS
+using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Menu.Items
 {
@@ -18,15 +23,25 @@ namespace SmartHopper.Menu.Items
         /// Creates a new Settings menu item that shows the SettingsDialog when clicked
         /// </summary>
         /// <returns>A ToolStripMenuItem configured to show the settings dialog</returns>
-        public static System.Windows.Forms.ToolStripMenuItem Create()
+
+#if WINDOWS
+        public static ToolStripMenuItem Create()
         {
-            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
-            item.Click += (sender, e) =>
-            {
+        var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
+        item.Click += (sender, e) =>
+        {
                 var dialog = new SettingsDialog();
                 dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow);
-            };
+        };
+        return item;
+        }
+#else
+        public static MenuItem Create()
+        {
+            var item = new MenuItem { Text = "Settings" };
+            item.Click += (sender, e) => new SettingsDialog().ShowModal(Rhino.UI.RhinoEtoApp.MainWindow);
             return item;
         }
+#endif
     }
 }

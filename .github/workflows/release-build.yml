@@ -141,7 +141,7 @@ jobs:
         }
         
         # Define the target platforms
-        $platforms = @("net48", "net7.0-windows", "net7.0")
+        $platforms = @("net7.0-windows", "net7.0")
         
         # Copy only .gha and .dll files directly from each platform folder (not recursive)
         foreach ($platform in $platforms) {
@@ -199,7 +199,7 @@ jobs:
           ForEach-Object { Write-Host "  - $($_.Name)" }
         
         # Define the target platforms
-        $platforms = @("net48", "net7.0-windows", "net7.0")
+        $platforms = @("net7.0-windows", "net7.0")
         $missingFiles = $false
         
         foreach ($platform in $platforms) {
@@ -266,9 +266,8 @@ jobs:
       run: |
         $version = "${{ steps.determine_version.outputs.VERSION }}"
         $platforms = @{
-          "net48" = "SmartHopper-$version-Rhino7-Windows.zip"
           "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"
-          "net7.0" = "SmartHopper-$version-Rhino8-Mac.zip"
+          "net7.0" = "SmartHopper-$version-Rhino8-Mac-not-tested.zip"
         }
         
         $zipPaths = @()
@@ -344,6 +343,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
+        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
+        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
         asset_content_type: application/zip

@@ -16,7 +16,11 @@ using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if WINDOWS
 using System.Drawing;
+#else
+using Eto.Drawing;
+#endif
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;

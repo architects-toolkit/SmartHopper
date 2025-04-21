@@ -15,7 +15,11 @@ using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.JSON;
 using System;
 using System.Collections.Generic;
+#if WINDOWS
 using System.Drawing;
+#else
+using Eto.Drawing;
+#endif
 using System.Linq;
 using System.Reflection;
 

@@ -19,8 +19,12 @@ using SmartHopper.Core.Graph;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
+#if WINDOWS
+using System.Drawing;
+#else
+using Eto.Drawing;
+#endif
 
 namespace SmartHopper.Components.Grasshopper
 {

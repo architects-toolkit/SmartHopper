@@ -20,7 +20,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Grasshopper.Kernel.Data;
@@ -29,6 +28,11 @@ using SmartHopper.Config;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Config.Managers;
+#if WINDOWS
+using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Core.ComponentBase
 {

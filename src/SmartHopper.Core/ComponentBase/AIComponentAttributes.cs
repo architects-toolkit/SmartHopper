@@ -8,7 +8,11 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+#if WINDOWS
 using System.Drawing;
+#else
+using Eto.Drawing;
+#endif
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;

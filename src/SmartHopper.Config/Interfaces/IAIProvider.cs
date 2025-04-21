@@ -8,12 +8,17 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+#if WINDOWS
+using System.Windows.Forms;
+using System.Drawing;
+#else
+using Eto.Forms;
+using Eto.Drawing;
+#endif
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Drawing;
 
 namespace SmartHopper.Config.Interfaces
 {
