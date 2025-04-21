@@ -24,6 +24,7 @@ namespace SmartHopper.Menu.Items
     /// </summary>
     internal static class AboutMenuItem
     {
+#if WINDOWS
         /// <summary>
         /// Creates a new About menu item that shows the AboutDialog when clicked
         /// </summary>
@@ -40,5 +41,6 @@ namespace SmartHopper.Menu.Items
             };
             return item;
         }
+#endif
     }
 }

@@ -12,6 +12,7 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Menu.Items;
 using System;
+
 #if WINDOWS
 using System.Windows.Forms;
 #else
@@ -20,6 +21,7 @@ using Eto.Forms;
 
 namespace SmartHopper.Menu
 {
+#if WINDOWS
     public class SmartHopperMenu : GH_AssemblyPriority
     {
         private Timer _timer;
@@ -89,4 +91,7 @@ namespace SmartHopper.Menu
             return menu;
         }
     }
+#else
+
+#endif
 }
