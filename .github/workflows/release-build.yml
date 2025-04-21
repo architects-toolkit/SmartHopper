@@ -105,13 +105,12 @@ jobs:
       with:
         dotnet-version: '7.0.x'
 
-    - name: Decode strong-name key
+    - name: Decode strong-name key via script
       shell: pwsh
-      env:
-        SNK_BASE64: ${{ secrets.SIGNING_SNK_BASE64 }}
       run: |
-        $snkBytes = [Convert]::FromBase64String($env:SNK_BASE64)
-        [IO.File]::WriteAllBytes('signing.snk', $snkBytes)
+        # Initialize Developer PowerShell environment for VS tools
+        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
 
     - name: Restore dependencies
       run: dotnet restore SmartHopper.sln
@@ -264,6 +263,11 @@ jobs:
       id: create_zips
       shell: pwsh
       run: |
+        # Initialize Developer PowerShell environment for VS tools
+        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        Write-Host "Signing provider DLLs with Authenticode…"
+        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}" -Sign 'artifacts'
+
         $version = "${{ steps.determine_version.outputs.VERSION }}"
         $platforms = @{
           "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"

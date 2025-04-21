@@ -56,3 +56,4 @@ design/icons/source/*
 
 # Code signing
 *.snk
+*.pfx
