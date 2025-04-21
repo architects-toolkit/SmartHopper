@@ -223,4 +223,3 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
     }
 }
-

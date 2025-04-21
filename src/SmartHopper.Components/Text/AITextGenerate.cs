@@ -21,13 +21,14 @@ using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Tools;
+using System.Drawing;
 
 namespace SmartHopper.Components.Text
 {
     public class AITextGenerate : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
-        protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
+        protected override Bitmap Icon => Resources.textgenerate;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public AITextGenerate()

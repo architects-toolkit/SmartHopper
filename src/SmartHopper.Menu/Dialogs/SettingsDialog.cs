@@ -39,7 +39,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 MinValue = 1,
                 MaxValue = 4096,
-                Value = Convert.ToInt32(descriptor.DefaultValue)
+                Value = Convert.ToInt32(descriptor.DefaultValue),
             }
         };
 

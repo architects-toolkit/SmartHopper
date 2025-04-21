@@ -11,13 +11,14 @@
 using Newtonsoft.Json;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Drawing;
 
 namespace SmartHopper.Config.Configuration
 {
@@ -38,11 +39,19 @@ namespace SmartHopper.Config.Configuration
         /// </summary>
         public string DefaultAIProvider { get; set; }
 
+        // List of external providers the user has approved
+        public List<string> AllowedProviders { get; set; }
+
+        // List of external providers the user has rejected
+        public List<string> DisallowedProviders { get; set; }
+
         public SmartHopperSettings()
         {
             ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             DebounceTime = 1000;
             DefaultAIProvider = string.Empty;
+            AllowedProviders = new List<string>();
+            DisallowedProviders = new List<string>();
         }
 
         // Use a constant key and IV for encryption (these could be moved to secure configuration)
@@ -203,6 +212,9 @@ namespace SmartHopper.Config.Configuration
                 var json = File.ReadAllText(SettingsPath);
                 var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json) ?? new SmartHopperSettings();
                 settings.ProviderSettings = settings.DecryptSensitiveSettings(settings.ProviderSettings);
+                // Ensure lists are initialized for compatibility
+                settings.AllowedProviders ??= new List<string>();
+                settings.DisallowedProviders ??= new List<string>();
                 return settings;
             }
             catch (Exception)
@@ -223,7 +235,9 @@ namespace SmartHopper.Config.Configuration
                 {
                     ProviderSettings = EncryptSensitiveSettings(ProviderSettings),
                     DebounceTime = DebounceTime,
-                    DefaultAIProvider = DefaultAIProvider
+                    DefaultAIProvider = DefaultAIProvider,
+                    AllowedProviders = AllowedProviders,
+                    DisallowedProviders = DisallowedProviders
                 };
 
                 var json = JsonConvert.SerializeObject(settingsToSave, Formatting.Indented);

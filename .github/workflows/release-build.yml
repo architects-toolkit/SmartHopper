@@ -100,43 +100,24 @@ jobs:
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v4
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 7.0.x
-    
-    - name: Setup .NET Framework
+        dotnet-version: '7.0.x'
+
+    - name: Decode strong-name key
       shell: pwsh
+      env:
+        SNK_BASE64: ${{ secrets.SIGNING_SNK_BASE64 }}
       run: |
-        # .NET Framework 4.8 is pre-installed on Windows 2022 runner
-        # Just verify it's available
-        Get-ChildItem "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\"
-    
-    - name: Configure NuGet Sources
-      shell: pwsh
-      run: |
-        # List current sources
-        Write-Host "Current NuGet sources:"
-        dotnet nuget list source
-        
-        # Add Rhino source if not already present
-        $sources = dotnet nuget list source
-        if ($sources -notmatch "https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages") {
-            Write-Host "Adding Rhino NuGet source..."
-            dotnet nuget add source "https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages" -n rhinoSource
-        } else {
-            Write-Host "Rhino NuGet source already exists."
-        }
-        
-        # Verify final configuration
-        Write-Host "Final NuGet sources:"
-        dotnet nuget list source
-        
+        $snkBytes = [Convert]::FromBase64String($env:SNK_BASE64)
+        [IO.File]::WriteAllBytes('signing.snk', $snkBytes)
+
     - name: Restore dependencies
-      run: dotnet restore
-      
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet restore SmartHopper.sln
+
+    - name: Build solution
+      run: dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=signing.snk
 
     - name: Create Output Directory
       shell: pwsh
@@ -160,7 +141,7 @@ jobs:
         }
         
         # Define the target platforms
-        $platforms = @("net48", "net7.0-windows", "net7.0")
+        $platforms = @("net7.0-windows", "net7.0")
         
         # Copy only .gha and .dll files directly from each platform folder (not recursive)
         foreach ($platform in $platforms) {
@@ -218,7 +199,7 @@ jobs:
           ForEach-Object { Write-Host "  - $($_.Name)" }
         
         # Define the target platforms
-        $platforms = @("net48", "net7.0-windows", "net7.0")
+        $platforms = @("net7.0-windows", "net7.0")
         $missingFiles = $false
         
         foreach ($platform in $platforms) {
@@ -285,9 +266,8 @@ jobs:
       run: |
         $version = "${{ steps.determine_version.outputs.VERSION }}"
         $platforms = @{
-          "net48" = "SmartHopper-$version-Rhino7-Windows.zip"
           "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"
-          "net7.0" = "SmartHopper-$version-Rhino8-Mac.zip"
+          "net7.0" = "SmartHopper-$version-Rhino8-Mac-not-tested.zip"
         }
         
         $zipPaths = @()
@@ -363,6 +343,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
+        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
+        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
         asset_content_type: application/zip

@@ -8,12 +8,12 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System.Windows.Forms;
+using System.Drawing;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Drawing;
 
 namespace SmartHopper.Config.Interfaces
 {
@@ -39,7 +39,7 @@ namespace SmartHopper.Config.Interfaces
         bool ValidateSettings(Dictionary<string, object> settings);
 
         Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
-        
+
         string GetModel(Dictionary<string, object> settings, string requestedModel = "");
     }
 

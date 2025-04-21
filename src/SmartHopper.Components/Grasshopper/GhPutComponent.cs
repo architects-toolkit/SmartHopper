@@ -19,8 +19,8 @@ using SmartHopper.Core.Graph;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
+using System.Drawing;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -35,7 +35,7 @@ namespace SmartHopper.Components.Grasshopper
 
         public override Guid ComponentGuid => new Guid("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
 
-        protected override System.Drawing.Bitmap Icon => Resources.ghput;
+        protected override Bitmap Icon => Resources.ghput;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -129,7 +129,7 @@ namespace SmartHopper.Components.Grasshopper
                         {
                             if (positions.TryGetValue(component.InstanceGuid.ToString(), out var position))
                             {
-                                component.Pivot = new System.Drawing.Point((int)position.X * 150, (int)position.Y * 150);
+                                component.Pivot = new Point((int)position.X * 150, (int)position.Y * 150);
                             }
                         }
                     }

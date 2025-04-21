@@ -1,4 +1,4 @@
-1. This is a C# project, using .NET 7 and .NET 4.8 for both Windows and Mac.
+1. This is a C# project, using .NET 7-windows and .NET 7 for both Windows and Mac.
 2. The aim of the project is to create some Grasshopper components.
 3. The project is structured in the following projects:
    - SmartHopper.Core: Contains the core functionality
@@ -17,7 +17,19 @@
    - All components should inherit from ComponentBase or a derived class.
    - Components should be named with the pattern [Category][Action][Type]Component (e.g., AITextGenerateComponent).
    - Consider using AIStatefulAsyncComponentBase since it already implements most of the required structure to manage AI methods, states and async operations.
-8. When asked for a PR/commit title or description, follow the rules in @.github/PULL_REQUEST_TEMPLATE.md
-9. Make only targeted edits to existing code.
+8. AI Tool definition:
+   - AI tools are classes implementing IAIToolProvider in SmartHopper.Core.Grasshopper/Tools. Each provider returns one or more AITool instances via GetTools().
+   - A tool’s metadata (Name, Description, Parameters schema) is declared in its AITool object.
+   - To add a new tool:
+     - Create a new YourTools.cs in src/SmartHopper.Core.Grasshopper/Tools.
+     - Implement IAIToolProvider.GetTools() to yield your AITools.
+     - The AIToolManager auto‑discovers these providers at runtime by scanning the SmartHopper.Core.Grasshopper.Tools namespace and registering all IAIToolProvider implementations.
+9. Provider definition:
+   - Providers are AI backend implementations following the IAIProviderFactory / IAIProvider / IAIProviderSettings pattern.
+   - Each provider lives in its own project under src/SmartHopper.Providers.* (e.g., SmartHopper.Providers.MistralAI).
+   - Use the SmartHopper.Providers.Template project as a starting point: implement IAIProviderFactory to return your IAIProvider and its IAIProviderSettings.
+   - At startup, ProviderManager loads any SmartHopper.Providers.*.dll in the plugin folder, finds all IAIProviderFactory types, and calls CreateProvider() / CreateProviderSettings().
+10. When asked for a PR/commit title or description, follow the rules in @.github/PULL_REQUEST_TEMPLATE.md
+11. Make only targeted edits to existing code.
 
 When the user asks you to add, change, deprecate, remove, fix, or security edit the code, if changes are relevant, mention them in the @CHANGELOG.md file under the "Unreleased" section. Do not modify other parts of the file. Subsections should be limited to and ordered as follows: Added, Changed, Deprecated, Removed, Fixed, Security

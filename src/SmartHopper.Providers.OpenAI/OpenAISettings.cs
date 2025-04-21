@@ -56,7 +56,7 @@ namespace SmartHopper.Providers.OpenAI
                 ColumnStyles =
                 {
                     new ColumnStyle(SizeType.Percent, 30),
-                    new ColumnStyle(SizeType.Percent, 70)
+                    new ColumnStyle(SizeType.Percent, 70),
                 }
             };
 
