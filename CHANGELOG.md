@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new `ghtogglelock` AI tool in `GhObjTools` for toggling Grasshopper component lock state by GUID.
 - Added new `ghmoveobj` AI tool in `GhObjTools` for moving Grasshopper component pivot by GUID with absolute or relative position.
 - Added `MoveInstance` method in `GHCanvasUtils` to move existing instances by GUID with absolute or relative pivot positions.
+- Improved security in Providers by accepting only signed assemblies.
 
 ### Changed
 

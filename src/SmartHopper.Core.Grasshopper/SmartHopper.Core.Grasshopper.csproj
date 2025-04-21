@@ -47,10 +47,9 @@
   </PropertyGroup>
   
   <!-- Reference WinForms for .NET 7.0 on macOS -->
-  <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
-    <!-- Rhino 8.11 and later you can use this -->
+  <!-- <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
-  </ItemGroup>
+  </ItemGroup> -->
 
   <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
     <EditorConfigFiles Remove="..\.editorconfig" />

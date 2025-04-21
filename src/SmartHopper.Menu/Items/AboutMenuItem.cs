@@ -10,6 +10,7 @@
 
 using System.Reflection;
 using SmartHopper.Menu.Dialogs;
+
 #if WINDOWS
 using System.Windows.Forms;
 #else

@@ -19,12 +19,6 @@
     <Copyright>Copyright (c) 2024 Marc Roca Musach</Copyright>
   </PropertyGroup>
 
-  <ItemGroup>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>SmartHopper.Menu</_Parameter1>
-    </AssemblyAttribute>
-  </ItemGroup>
-
   <PropertyGroup>
     <OutputPath>$(SolutionDir)bin/$(SolutionVersion)/$(Configuration)</OutputPath>
   </PropertyGroup>
@@ -39,6 +33,7 @@
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
