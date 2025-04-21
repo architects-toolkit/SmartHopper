@@ -71,31 +71,6 @@ namespace SmartHopper.Menu.Dialogs
             // Load settings and discover providers
             _settings = SmartHopperSettings.Load();
             
-            // Prompt user to trust newly discovered external AI providers
-            // Determine plugin folder even if Assembly.Location is unavailable
-            string assemblyLocation = Assembly.GetExecutingAssembly().Location;
-            if (string.IsNullOrEmpty(assemblyLocation))
-                assemblyLocation = typeof(SettingsDialog).Assembly.Location;
-            string baseDir = Path.GetDirectoryName(assemblyLocation) ?? AppContext.BaseDirectory;
-            string[] providerFiles = Directory.Exists(baseDir)
-                ? Directory.GetFiles(baseDir, "SmartHopper.Providers.*.dll")
-                : Array.Empty<string>();
-            foreach (var file in providerFiles)
-            {
-                var asmName = AssemblyName.GetAssemblyName(file).Name;
-                if (!_settings.AllowedProviders.Contains(asmName))
-                {
-                    var result = MessageBox.Show(this,
-                        $"Detected new AI provider '{asmName}'. Enable it?",
-                        MessageBoxButtons.YesNo);
-                    if (result == DialogResult.Yes)
-                    {
-                        _settings.AllowedProviders.Add(asmName);
-                        _settings.Save();
-                    }
-                }
-            }
-
             // Use a temporary variable to store providers
             IAIProvider[] providers = null;
             
