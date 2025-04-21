@@ -18,6 +18,7 @@ using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
 using Rhino;
+using Newtonsoft.Json;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -342,9 +343,12 @@ namespace SmartHopper.Menu.Dialogs
                     updatedSettings[provider.Name][descriptor.Name] = newValue;
                 }
             }
-            
+
+            // Persist provider-specific settings
+            var providerPatch = JsonConvert.SerializeObject(new { ProviderSettings = updatedSettings });
+            SmartHopperSettings.Update(providerPatch);
+
             // Update settings
-            _settings.ProviderSettings = updatedSettings;
             _settings.DebounceTime = (int)_debounceControl.Value;
             
             // Save default provider
