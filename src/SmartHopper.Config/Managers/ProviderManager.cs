@@ -188,10 +188,10 @@ namespace SmartHopper.Config.Managers
                         
                         // Create provider and settings instances
                         var provider = factory.CreateProvider();
-                        var settings = factory.CreateProviderSettings();
+                        var providerSettings = factory.CreateProviderSettings();
                         
                         // Register the provider
-                        RegisterProvider(provider, settings, assembly);
+                        RegisterProvider(provider, providerSettings, assembly);
                         
                         Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
                     }

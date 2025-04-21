@@ -37,7 +37,7 @@ namespace SmartHopper.Config.Managers
         /// Register a single tool
         /// </summary>
         /// <param name="tool">The tool to register</param>
-        internal static void RegisterTool(AITool tool)
+        public static void RegisterTool(AITool tool)
         {
             Debug.WriteLine($"[AIToolManager] Registering tool: {tool.Name}");
             _tools[tool.Name] = tool;

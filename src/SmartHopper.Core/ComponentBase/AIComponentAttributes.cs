@@ -56,6 +56,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+#if WINDOWS
         /// <summary>
         /// Renders the component with an additional provider strip
         /// </summary>
@@ -112,5 +113,6 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
         }
+#endif
     }
 }

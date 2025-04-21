@@ -24,10 +24,10 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Config.Managers;
+
 #if WINDOWS
 using System.Windows.Forms;
 #else
@@ -131,6 +131,7 @@ namespace SmartHopper.Core.ComponentBase
 
         #region PROVIDER
 
+#if WINDOWS
         /// <summary>
         /// Appends additional menu items to the component's context menu.
         /// </summary>
@@ -201,6 +202,9 @@ namespace SmartHopper.Core.ComponentBase
                 providersMenu.DropDownItems.Add(item);
             }
         }
+#else
+
+#endif
 
         /// <summary>
         /// Sets the model to use for AI processing.
@@ -242,7 +246,7 @@ namespace SmartHopper.Core.ComponentBase
             return changedInputs;
         }
 
-        #endregion
+#endregion
 
         #region AI
 

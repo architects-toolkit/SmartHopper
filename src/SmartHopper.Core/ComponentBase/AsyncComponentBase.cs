@@ -274,6 +274,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+#if WINDOWS
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
@@ -283,6 +284,7 @@ namespace SmartHopper.Core.ComponentBase
                 RequestTaskCancellation();
             });
         }
+#endif
 
         protected virtual void OnWorkerCompleted()
         {
