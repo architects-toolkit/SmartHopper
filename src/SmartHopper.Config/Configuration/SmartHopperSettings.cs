@@ -8,18 +8,18 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Drawing;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Config.Configuration
 {
@@ -33,7 +33,7 @@ namespace SmartHopper.Config.Configuration
         public Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
 
         public int DebounceTime { get; set; }
-        
+
         /// <summary>
         /// The default AI provider to use when not explicitly specified in components.
         /// If not set or the provider doesn't exist, the first available provider will be used.
@@ -117,7 +117,7 @@ namespace SmartHopper.Config.Configuration
             }
         }
 
-        private Dictionary<string, Dictionary<string, object>> EncryptSensitiveSettings(Dictionary<string, Dictionary<string, object>> settings)
+        private static Dictionary<string, Dictionary<string, object>> EncryptSensitiveSettings(Dictionary<string, Dictionary<string, object>> settings)
         {
             var encryptedSettings = new Dictionary<string, Dictionary<string, object>>();
 
@@ -169,7 +169,7 @@ namespace SmartHopper.Config.Configuration
             return decryptedSettings;
         }
 
-        private IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
+        private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
             var provider = ProviderManager.Instance.GetProvider(providerName);
             if (provider != null)
@@ -230,6 +230,13 @@ namespace SmartHopper.Config.Configuration
             try
             {
                 var patch = JObject.Parse(jsonPatch);
+                // Encrypt any sensitive provider settings in patch
+                if (patch.TryGetValue("ProviderSettings", out var psToken))
+                {
+                    var rawSettings = psToken.ToObject<Dictionary<string, Dictionary<string, object>>>();
+                    var encrypted = EncryptSensitiveSettings(rawSettings);
+                    patch["ProviderSettings"] = JObject.FromObject(encrypted);
+                }
                 var existing = File.Exists(SettingsPath)
                     ? JObject.Parse(File.ReadAllText(SettingsPath))
                     : new JObject();
@@ -251,12 +258,15 @@ namespace SmartHopper.Config.Configuration
         /// </summary>
         public void Save()
         {
-            // Build JSON patch for saving general settings
+            // Encrypt and include provider-specific settings
+            var encryptedPS = EncryptSensitiveSettings(ProviderSettings);
+            // Build JSON patch for saving all current settings
             var patch = new JObject
             {
-                ["DebounceTime"] = DebounceTime,
-                ["DefaultAIProvider"] = DefaultAIProvider,
-                ["TrustedProviders"] = JObject.FromObject(TrustedProviders)
+                ["ProviderSettings"]    = JObject.FromObject(encryptedPS),
+                ["DebounceTime"]        = DebounceTime,
+                ["DefaultAIProvider"]   = DefaultAIProvider,
+                ["TrustedProviders"]    = JObject.FromObject(TrustedProviders)
             };
             Update(patch.ToString());
         }
