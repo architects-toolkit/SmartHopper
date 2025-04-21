@@ -18,7 +18,11 @@ using SmartHopper.Core.ComponentBase;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+#if WINDOWS
 using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Components.Misc
 {

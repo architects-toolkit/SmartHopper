@@ -12,7 +12,11 @@ using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
+#if WINDOWS
 using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Providers.MistralAI
 {

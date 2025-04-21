@@ -12,7 +12,11 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Menu.Items;
 using System;
+#if WINDOWS
 using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Menu
 {

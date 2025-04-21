@@ -3,7 +3,7 @@
   <Import Project="$(SolutionDir)Solution.props" />
   
   <PropertyGroup>
-    <TargetFrameworks>net7.0-windows;net7.0;net48</TargetFrameworks>
+    <TargetFrameworks>net7.0-windows;net7.0</TargetFrameworks>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <NoWarn>NU1701;NETSDK1086;SA1124;SA1200</NoWarn>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

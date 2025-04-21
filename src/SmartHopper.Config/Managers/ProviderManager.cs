@@ -13,7 +13,6 @@ using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -26,6 +25,11 @@ using Eto.Forms;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.Pkcs;
+#if WINDOWS
+using System.Drawing;
+#else
+using Eto.Drawing;
+#endif
 
 namespace SmartHopper.Config.Managers
 {

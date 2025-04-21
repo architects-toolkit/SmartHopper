@@ -21,9 +21,14 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Utils;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
+#if WINDOWS
+using System.Drawing;
 using System.Windows.Forms;
+#else
+using Eto.Drawing;
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Components.Grasshopper
 {

@@ -8,9 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System.Windows.Forms;
 using System.Reflection;
 using SmartHopper.Menu.Dialogs;
+#if WINDOWS
+using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Menu.Items
 {

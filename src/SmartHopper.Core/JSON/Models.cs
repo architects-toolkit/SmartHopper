@@ -12,7 +12,11 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+#if WINDOWS
 using System.Drawing;
+#else
+using Eto.Drawing;
+#endif
 using System.Linq;
 
 namespace SmartHopper.Core.JSON

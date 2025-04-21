@@ -13,7 +13,11 @@ using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if WINDOWS
 using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Providers.OpenAI
 {

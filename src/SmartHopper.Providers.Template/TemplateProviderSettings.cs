@@ -12,7 +12,11 @@ using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if WINDOWS
 using System.Windows.Forms;
+#else
+using Eto.Forms;
+#endif
 
 namespace SmartHopper.Providers.Template
 {
@@ -44,6 +48,7 @@ namespace SmartHopper.Providers.Template
         /// <returns>A control for configuring the provider settings.</returns>
         public Control CreateSettingsControl()
         {
+#if WINDOWS
             // Create a table layout panel for the settings
             var panel = new TableLayoutPanel
             {
@@ -90,6 +95,44 @@ namespace SmartHopper.Providers.Template
             LoadSettings();
             
             return panel;
+#else
+            // On Mac use Eto.Forms table
+            var layout = new TableLayout
+            {
+                Rows =
+                {
+                    new TableRow
+                    {
+                        Cells =
+                        {
+                            new TableCell { Control = new Label { Text = "API Key:" } },
+                            new TableCell { Control = apiKeyTextBox = new TextBox { PasswordChar = '*', Size = new Size(200, 20) } }
+                        }
+                    },
+                    new TableRow
+                    {
+                        Cells =
+                        {
+                            new TableCell { Control = new Label { Text = "Model:" } },
+                            new TableCell { Control = modelTextBox = new TextBox { Size = new Size(200, 20) } }
+                        }
+                    },
+                    new TableRow
+                    {
+                        Cells =
+                        {
+                            new TableCell { Control = new Label { Text = "Max Tokens:" } },
+                            new TableCell { Control = maxTokensNumeric = new NumericStepper { MinValue = 1, MaxValue = 4096, Value = 150 } }
+                        }
+                    }
+                }
+            };
+
+            // Load any existing settings
+            LoadSettings();
+            
+            return new Scrollable { Content = layout };
+#endif
         }
 
         /// <summary>
