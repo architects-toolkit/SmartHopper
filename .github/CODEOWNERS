@@ -26,3 +26,4 @@
 /NuGet.Config       @marc-romu
 /Solution.props     @marc-romu
 /Directory.Build.props @marc-romu
+/Directory.Build.targets @marc-romu

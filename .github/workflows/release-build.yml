@@ -36,7 +36,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    
+    env:
+      SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+      SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
@@ -263,11 +265,6 @@ jobs:
       id: create_zips
       shell: pwsh
       run: |
-        # Initialize Developer PowerShell environment for VS tools
-        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
-        Write-Host "Signing provider DLLs with Authenticode…"
-        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}" -Sign 'artifacts'
-
         $version = "${{ steps.determine_version.outputs.VERSION }}"
         $platforms = @{
           "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"

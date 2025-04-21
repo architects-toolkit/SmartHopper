@@ -9,6 +9,7 @@
  */
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Managers;
@@ -39,19 +40,17 @@ namespace SmartHopper.Config.Configuration
         /// </summary>
         public string DefaultAIProvider { get; set; }
 
-        // List of external providers the user has approved
-        public List<string> AllowedProviders { get; set; }
-
-        // List of external providers the user has rejected
-        public List<string> DisallowedProviders { get; set; }
+        /// <summary>
+        /// Maps provider names to trust status: true=allowed, false=disallowed.
+        /// </summary>
+        public Dictionary<string, bool> TrustedProviders { get; set; }
 
         public SmartHopperSettings()
         {
             ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             DebounceTime = 1000;
             DefaultAIProvider = string.Empty;
-            AllowedProviders = new List<string>();
-            DisallowedProviders = new List<string>();
+            TrustedProviders = new Dictionary<string, bool>();
         }
 
         // Use a constant key and IV for encryption (these could be moved to secure configuration)
@@ -212,9 +211,8 @@ namespace SmartHopper.Config.Configuration
                 var json = File.ReadAllText(SettingsPath);
                 var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json) ?? new SmartHopperSettings();
                 settings.ProviderSettings = settings.DecryptSensitiveSettings(settings.ProviderSettings);
-                // Ensure lists are initialized for compatibility
-                settings.AllowedProviders ??= new List<string>();
-                settings.DisallowedProviders ??= new List<string>();
+                // Ensure TrustedProviders is initialized
+                settings.TrustedProviders ??= new Dictionary<string, bool>();
                 return settings;
             }
             catch (Exception)
@@ -223,32 +221,50 @@ namespace SmartHopper.Config.Configuration
             }
         }
 
-        public void Save()
+        /// <summary>
+        /// Updates the settings file by merging the provided JSON patch.
+        /// </summary>
+        /// <param name="jsonPatch">JSON string with key/value pairs to update.</param>
+        public static void Update(string jsonPatch)
         {
             try
             {
-                var directory = Path.GetDirectoryName(SettingsPath);
-                if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
-
-                var settingsToSave = new SmartHopperSettings
+                var patch = JObject.Parse(jsonPatch);
+                var existing = File.Exists(SettingsPath)
+                    ? JObject.Parse(File.ReadAllText(SettingsPath))
+                    : new JObject();
+                existing.Merge(patch, new JsonMergeSettings
                 {
-                    ProviderSettings = EncryptSensitiveSettings(ProviderSettings),
-                    DebounceTime = DebounceTime,
-                    DefaultAIProvider = DefaultAIProvider,
-                    AllowedProviders = AllowedProviders,
-                    DisallowedProviders = DisallowedProviders
-                };
-
-                var json = JsonConvert.SerializeObject(settingsToSave, Formatting.Indented);
-                File.WriteAllText(SettingsPath, json);
+                    MergeArrayHandling = MergeArrayHandling.Union,
+                    MergeNullValueHandling = MergeNullValueHandling.Ignore
+                });
+                File.WriteAllText(SettingsPath, existing.ToString(Formatting.Indented));
             }
             catch (Exception)
             {
-                // Handle or log error as needed
+                // handle or log error
             }
         }
 
+        /// <summary>
+        /// Saves current settings to disk, merging only updated provider settings and preserving existing ones.
+        /// </summary>
+        public void Save()
+        {
+            // Build JSON patch for saving general settings
+            var patch = new JObject
+            {
+                ["DebounceTime"] = DebounceTime,
+                ["DefaultAIProvider"] = DefaultAIProvider,
+                ["TrustedProviders"] = JObject.FromObject(TrustedProviders)
+            };
+            Update(patch.ToString());
+        }
+
+        /// <summary>
+        /// Discovers available AI providers.
+        /// </summary>
+        /// <returns>Collection of discovered providers</returns>
         public static IEnumerable<IAIProvider> DiscoverProviders()
         {
             // Use the ProviderManager to discover providers

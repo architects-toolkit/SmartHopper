@@ -23,6 +23,7 @@ using Eto.Forms;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.Pkcs;
 using System.Drawing;
+using Newtonsoft.Json;
 
 namespace SmartHopper.Config.Managers
 {
@@ -113,7 +114,7 @@ namespace SmartHopper.Config.Managers
                 {
                     var asmName = Path.GetFileNameWithoutExtension(providerFile);
                     // Skip providers the user has previously rejected
-                    if (settings.DisallowedProviders.Contains(asmName))
+                    if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
                         Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
                         continue;
@@ -156,13 +157,13 @@ namespace SmartHopper.Config.Managers
                 var settings = SmartHopperSettings.Load();
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
                 // Skip providers the user has previously rejected
-                if (settings.DisallowedProviders.Contains(asmName))
+                if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                 {
                     Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
                     return;
                 }
-                // Prompt user for new providers not yet approved
-                if (!settings.AllowedProviders.Contains(asmName))
+                // Prompt user for providers with no trust entry
+                if (!settings.TrustedProviders.ContainsKey(asmName))
                 {
                     var tcs = new TaskCompletionSource<bool>();
                     RhinoApp.InvokeOnUiThread(new Action(() =>
@@ -171,15 +172,17 @@ namespace SmartHopper.Config.Managers
                         tcs.SetResult(result == DialogResult.Yes);
                     }));
                     if (tcs.Task.Result)
-                        settings.AllowedProviders.Add(asmName);
+                    {
+                        settings.TrustedProviders[asmName] = true;
+                        SmartHopperSettings.Update(JsonConvert.SerializeObject(new { TrustedProviders = new Dictionary<string, bool> { [asmName] = true } }));
+                    }
                     else
                     {
-                        settings.DisallowedProviders.Add(asmName);
-                        settings.Save();
+                        settings.TrustedProviders[asmName] = false;
+                        SmartHopperSettings.Update(JsonConvert.SerializeObject(new { TrustedProviders = new Dictionary<string, bool> { [asmName] = false } }));
                         Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
                         return;
                     }
-                    settings.Save();
                 }
                 var assembly = Assembly.LoadFrom(assemblyPath);
                 // Find all types that implement IAIProviderFactory
