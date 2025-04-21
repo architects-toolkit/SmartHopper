@@ -151,7 +151,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 // Get component position and selection state
                 if (obj.Attributes != null)
                 {
+#if WINDOWS
                     componentProps.Pivot = obj.Attributes.Pivot;
+#else
+                    var p = obj.Attributes.Pivot;
+                    componentProps.Pivot = new Eto.Drawing.PointF(p.X, p.Y);
+#endif
                     componentProps.Selected = obj.Attributes.Selected;
                 }
 
@@ -227,4 +232,3 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
     }
 }
-
