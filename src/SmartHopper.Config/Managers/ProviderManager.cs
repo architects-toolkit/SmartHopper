@@ -17,19 +17,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Text;
-using Newtonsoft.Json;
 using System.Threading.Tasks;
 using Rhino;
 using Eto.Forms;
-using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.Pkcs;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 
 namespace SmartHopper.Config.Managers
 {
@@ -49,7 +42,7 @@ namespace SmartHopper.Config.Managers
         {
             // Register built-in providers
             RegisterBuiltInProviders();
-            
+
             // Discover and load external providers
             DiscoverProviders();
         }
@@ -124,7 +117,7 @@ namespace SmartHopper.Config.Managers
                         Debug.WriteLine($"Provider '{asmName}' not allowed, skipping.");
                         continue;
                     }
-                    
+
                     // Removed manifest verification in favor of authenticode-signed providers
                     try
                     {

@@ -31,11 +31,7 @@ using System.Linq;
 using System.Diagnostics;
 using System.Threading;
 using Timer = System.Threading.Timer;
-#if WINDOWS
 using System.Windows.Forms;
-#else
-using Eto.Forms;
-#endif
 using System.Threading.Tasks;
 
 namespace SmartHopper.Core.ComponentBase

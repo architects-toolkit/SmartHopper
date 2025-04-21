@@ -18,11 +18,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 
 namespace SmartHopper.Config.Configuration
 {

@@ -10,11 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 using Grasshopper.Kernel;
 using SmartHopper.Config.Models;
 

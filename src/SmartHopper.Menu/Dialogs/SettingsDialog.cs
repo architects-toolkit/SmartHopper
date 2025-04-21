@@ -14,7 +14,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
@@ -40,7 +39,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 MinValue = 1,
                 MaxValue = 4096,
-                Value = Convert.ToInt32(descriptor.DefaultValue)
+                Value = Convert.ToInt32(descriptor.DefaultValue),
             }
         };
 

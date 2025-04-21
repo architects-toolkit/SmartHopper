@@ -25,11 +25,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-#if WINDOWS
 using System.Windows.Forms;
-#else
-using Eto.Forms;
-#endif
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -274,7 +270,6 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-#if WINDOWS
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
@@ -284,7 +279,6 @@ namespace SmartHopper.Core.ComponentBase
                 RequestTaskCancellation();
             });
         }
-#endif
 
         protected virtual void OnWorkerCompleted()
         {

@@ -21,13 +21,14 @@ using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Tools;
+using System.Drawing;
 
 namespace SmartHopper.Components.List
 {
     public class AIListFilter : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
-        protected override System.Drawing.Bitmap Icon => Resources.listfilter;
+        protected override Bitmap Icon => Resources.listfilter;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public AIListFilter()
