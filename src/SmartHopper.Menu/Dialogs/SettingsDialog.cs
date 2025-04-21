@@ -344,9 +344,7 @@ namespace SmartHopper.Menu.Dialogs
                 }
             }
 
-            // Persist provider-specific settings
-            var providerPatch = JsonConvert.SerializeObject(new { ProviderSettings = updatedSettings });
-            SmartHopperSettings.Update(providerPatch);
+            _settings.ProviderSettings = updatedSettings;
 
             // Update settings
             _settings.DebounceTime = (int)_debounceControl.Value;

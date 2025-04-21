@@ -174,12 +174,12 @@ namespace SmartHopper.Config.Managers
                     if (tcs.Task.Result)
                     {
                         settings.TrustedProviders[asmName] = true;
-                        SmartHopperSettings.Update(JsonConvert.SerializeObject(new { TrustedProviders = new Dictionary<string, bool> { [asmName] = true } }));
+                        settings.Save();
                     }
                     else
                     {
                         settings.TrustedProviders[asmName] = false;
-                        SmartHopperSettings.Update(JsonConvert.SerializeObject(new { TrustedProviders = new Dictionary<string, bool> { [asmName] = false } }));
+                        settings.Save();
                         Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
                         return;
                     }
