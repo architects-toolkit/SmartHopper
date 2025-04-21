@@ -112,13 +112,13 @@ namespace SmartHopper.Config.Managers
                 foreach (string providerFile in providerFiles)
                 {
                     var asmName = Path.GetFileNameWithoutExtension(providerFile);
-                    if (!settings.AllowedProviders.Contains(asmName))
+                    // Skip providers the user has previously rejected
+                    if (settings.DisallowedProviders.Contains(asmName))
                     {
-                        Debug.WriteLine($"Provider '{asmName}' not allowed, skipping.");
+                        Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
                         continue;
                     }
 
-                    // Removed manifest verification in favor of authenticode-signed providers
                     try
                     {
                         LoadProviderAssembly(providerFile);
@@ -147,25 +147,32 @@ namespace SmartHopper.Config.Managers
                 VerifySignature(assemblyPath);
                 var settings = SmartHopperSettings.Load();
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+                // Skip providers the user has previously rejected
+                if (settings.DisallowedProviders.Contains(asmName))
+                {
+                    Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
+                    return;
+                }
+                // Prompt user for new providers not yet approved
                 if (!settings.AllowedProviders.Contains(asmName))
                 {
-                    Debug.WriteLine($"Provider '{asmName}' not allowed, skipping.");
-                    return;
+                    var tcs = new TaskCompletionSource<bool>();
+                    RhinoApp.InvokeOnUiThread(new Action(() =>
+                    {
+                        var result = MessageBox.Show($"Detected new AI provider '{asmName}'. Enable it?", MessageBoxButtons.YesNo);
+                        tcs.SetResult(result == DialogResult.Yes);
+                    }));
+                    if (tcs.Task.Result)
+                        settings.AllowedProviders.Add(asmName);
+                    else
+                    {
+                        settings.DisallowedProviders.Add(asmName);
+                        settings.Save();
+                        Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
+                        return;
+                    }
+                    settings.Save();
                 }
-                
-                // Prompt user to trust newly discovered external AI providers
-                var tcs = new TaskCompletionSource<bool>();
-                RhinoApp.InvokeOnUiThread(new Action(() => {
-                    var result = MessageBox.Show($"Detected new AI provider '{asmName}'. Enable it?", MessageBoxButtons.YesNo);
-                    tcs.SetResult(result == DialogResult.Yes);
-                }));
-                if (!tcs.Task.Result)
-                {
-                    Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
-                    return;
-                }
-                settings.AllowedProviders.Add(asmName);
-                settings.Save();
                 var assembly = Assembly.LoadFrom(assemblyPath);
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
