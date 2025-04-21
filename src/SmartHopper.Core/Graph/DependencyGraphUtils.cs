@@ -12,11 +12,7 @@ using SmartHopper.Core.JSON;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 using System.Linq;
 
 namespace SmartHopper.Core.Graph

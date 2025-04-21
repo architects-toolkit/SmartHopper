@@ -10,11 +10,7 @@
 
 using Grasshopper.Kernel;
 using System;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {

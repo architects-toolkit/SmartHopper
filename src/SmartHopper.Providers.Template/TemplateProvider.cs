@@ -14,11 +14,7 @@ using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 using System.IO;
 using System.Threading.Tasks;
 

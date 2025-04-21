@@ -28,11 +28,7 @@ using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Config.Managers;
 
-#if WINDOWS
 using System.Windows.Forms;
-#else
-using Eto.Forms;
-#endif
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -131,7 +127,6 @@ namespace SmartHopper.Core.ComponentBase
 
         #region PROVIDER
 
-#if WINDOWS
         /// <summary>
         /// Appends additional menu items to the component's context menu.
         /// </summary>
@@ -202,9 +197,6 @@ namespace SmartHopper.Core.ComponentBase
                 providersMenu.DropDownItems.Add(item);
             }
         }
-#else
-
-#endif
 
         /// <summary>
         /// Sets the model to use for AI processing.

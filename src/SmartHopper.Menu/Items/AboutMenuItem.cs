@@ -11,11 +11,7 @@
 using System.Reflection;
 using SmartHopper.Menu.Dialogs;
 
-#if WINDOWS
 using System.Windows.Forms;
-#else
-using Eto.Forms;
-#endif
 
 namespace SmartHopper.Menu.Items
 {
@@ -24,7 +20,6 @@ namespace SmartHopper.Menu.Items
     /// </summary>
     internal static class AboutMenuItem
     {
-#if WINDOWS
         /// <summary>
         /// Creates a new About menu item that shows the AboutDialog when clicked
         /// </summary>
@@ -41,6 +36,5 @@ namespace SmartHopper.Menu.Items
             };
             return item;
         }
-#endif
     }
 }

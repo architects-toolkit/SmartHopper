@@ -14,11 +14,7 @@ using SmartHopper.Config.Managers;
 using SmartHopper.Components.Properties;
 using System;
 using System.Collections.Generic;
-#if WINDOWS
 using System.Drawing;
-#else
-using Eto.Drawing;
-#endif
 
 namespace SmartHopper.Components.Grasshopper
 {

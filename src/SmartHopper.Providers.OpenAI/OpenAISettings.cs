@@ -13,11 +13,7 @@ using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-#if WINDOWS
 using System.Windows.Forms;
-#else
-using Eto.Forms;
-#endif
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -60,7 +56,7 @@ namespace SmartHopper.Providers.OpenAI
                 ColumnStyles =
                 {
                     new ColumnStyle(SizeType.Percent, 30),
-                    new ColumnStyle(SizeType.Percent, 70)
+                    new ColumnStyle(SizeType.Percent, 70),
                 }
             };
 
