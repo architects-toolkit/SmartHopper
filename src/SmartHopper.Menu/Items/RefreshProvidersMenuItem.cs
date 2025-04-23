@@ -1,5 +1,5 @@
 using System.Windows.Forms;
-using SmartHopper.Config.Managers;
+using SmartHopper.Config.Initialization;
 
 namespace SmartHopper.Menu.Items
 {
@@ -13,9 +13,11 @@ namespace SmartHopper.Menu.Items
             var item = new ToolStripMenuItem("Refresh Providers");
             item.Click += (sender, e) =>
             {
-                ProviderManager.Instance.RefreshProviders();
+                // Use the new initializer to safely refresh everything
+                SmartHopperInitializer.Reinitialize();
+                
                 MessageBox.Show(
-                    "AI provider discovery has been triggered.",
+                    "AI provider discovery and settings refresh has been triggered.",
                     "SmartHopper",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);

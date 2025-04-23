@@ -69,18 +69,15 @@ namespace SmartHopper.Menu.Dialogs
                 (int)((Screen.PrimaryScreen.Bounds.Height - Size.Height) / 2)
             );
 
-            // Load settings and discover providers
-            _settings = SmartHopperSettings.Load();
-
-            // Use a temporary variable to store providers
+            // Load settings and synchronously discover providers on Rhino’s UI thread
+            _settings = SmartHopperSettings.Instance;
             IAIProvider[] providers = null;
-
-            // Use RhinoApp.InvokeOnUiThread to ensure providers are discovered on the UI thread
-            RhinoApp.InvokeOnUiThread(new Action(() => {
-                providers = SmartHopperSettings.DiscoverProviders().ToArray();
-            }));
-
-            _providers = providers ?? Array.Empty<IAIProvider>();
+            RhinoApp.InvokeOnUiThread(() =>
+            {
+                ProviderManager.Instance.RefreshProviders();
+                providers = ProviderManager.Instance.GetProviders().ToArray();
+            });
+            _providers = providers;
 
             // Create the main layout
             var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
@@ -205,7 +202,7 @@ namespace SmartHopper.Menu.Dialogs
                 layout.Rows.Add(new TableRow(new TableCell(headerLayout)));
 
                 // Cache settings for this provider
-                var providerSettings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
+                var providerSettings = _settings.GetProviderSettings(provider.Name);
 
                 // Add settings for this provider
                 foreach (var descriptor in descriptors)
@@ -242,7 +239,9 @@ namespace SmartHopper.Menu.Dialogs
                     string currentValue = null;
                     if (descriptor.IsSecret)
                     {
-                        bool defined = providerSettings.TryGetValue(descriptor.Name, out var raw) && raw is string s && !string.IsNullOrEmpty(s);
+                        bool defined = false;
+                        if (providerSettings.TryGetValue(descriptor.Name, out var raw) && raw is string secret && !string.IsNullOrEmpty(secret))
+                            defined = true;
                         currentValue = defined ? "<secret-defined>" : string.Empty;
                     }
                     else if (providerSettings.ContainsKey(descriptor.Name))

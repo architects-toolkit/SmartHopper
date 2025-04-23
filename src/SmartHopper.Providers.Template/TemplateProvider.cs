@@ -136,15 +136,71 @@ namespace SmartHopper.Providers.Template
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            // Check if required settings are present and valid
+            // Only validate settings that are actually provided
             if (settings == null)
                 return false;
 
-            // Validate API key (required)
-            if (!settings.ContainsKey("ApiKey") || string.IsNullOrWhiteSpace(settings["ApiKey"]?.ToString()))
-                return false;
+            // Check API key format if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
+            {
+                string apiKey = apiKeyObj.ToString();
+                // Simple format validation - don't require presence, just valid format if provided
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    // Invalid format: empty key
+                    return false;
+                }
+                // API key format is valid
+            }
 
-            // Validate other settings as needed
+            // Check endpoint format if present
+            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
+            {
+                string endpoint = endpointObj.ToString();
+                if (string.IsNullOrWhiteSpace(endpoint))
+                {
+                    // Invalid format: empty endpoint
+                    return false;
+                }
+                
+                // Optional: Add URL format validation if needed
+                try
+                {
+                    // Simple URL validation
+                    if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
+                    {
+                        // Invalid format: not a URL
+                        return false;
+                    }
+                }
+                catch
+                {
+                    // Invalid format
+                    return false;
+                }
+            }
+            
+            // Check max tokens if present - must be a positive number
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
+                {
+                    if (maxTokens <= 0)
+                    {
+                        // Invalid format: negative or zero
+                        return false;
+                    }
+                    // MaxTokens format is valid
+                }
+                else
+                {
+                    // Invalid format: not an integer
+                    return false;
+                }
+            }
+            
+            // All provided settings have valid format
             return true;
         }
 
@@ -161,6 +217,16 @@ namespace SmartHopper.Providers.Template
         {
             try
             {
+                // Access settings using the secure GetSetting<T> method
+                string apiKey = GetSetting<string>("ApiKey");
+                int maxTokens = GetSetting<int>("MaxTokens");
+                
+                // Verify we have an API key
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    throw new Exception("API Key is not configured for Template provider.");
+                }
+                
                 // This is a template implementation
                 // In a real provider, you would:
                 // 1. Format the messages according to the provider's API requirements
@@ -200,11 +266,12 @@ namespace SmartHopper.Providers.Template
                 return requestedModel;
 
             // Use the model from settings if available
-            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
-                return settings["Model"].ToString();
+            string modelFromSettings = GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                return modelFromSettings;
 
             // Fall back to the default model
-            return _defaultModel;
+            return DefaultModel;
         }
     }
 }

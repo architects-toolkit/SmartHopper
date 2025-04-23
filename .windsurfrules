@@ -29,6 +29,7 @@
 6. Documentation & changelog:
    - Log API changes in `CHANGELOG.md` under **Unreleased**, in one of the following sections: Added, Changed, Deprecated, Removed, Fixed, Security
    - Use PR template per `.github/PULL_REQUEST_TEMPLATE.md`
+   - Add docstrings to all public members
 7. General guidelines:
    - Use native Grasshopper types & methods when possible
    - Use https://developer.rhino3d.com/ as the official documentation

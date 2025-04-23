@@ -9,52 +9,19 @@
  */
 
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Configuration;
+using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace SmartHopper.Core.AI
 {
     public static class AIUtils
     {
-        /// <summary>
-        /// Extracts tool name from an assistant message containing a function call
-        /// </summary>
-        /// <param name="assistantMessage">The full assistant message</param>
-        /// <returns>The extracted tool name or null if none found</returns>
-        public static string ExtractToolName(string assistantMessage)
-        {
-            if (string.IsNullOrEmpty(assistantMessage))
-                return null;
-
-            var m = Regex.Match(assistantMessage,
-                @"function_call.*?""name""\s*:\s*""([^""]+)""",
-                RegexOptions.Singleline);
-            return m.Success ? m.Groups[1].Value : null;
-        }
-
-        /// <summary>
-        /// Extracts tool arguments from an assistant message containing a function call
-        /// </summary>
-        /// <param name="assistantMessage">The full assistant message</param>
-        /// <returns>The extracted arguments as a JSON string or null if none found</returns>
-        public static string ExtractToolArgs(string assistantMessage)
-        {
-            if (string.IsNullOrEmpty(assistantMessage))
-                return null;
-
-            var m = Regex.Match(assistantMessage,
-                @"function_call.*?""arguments""\s*:\s*({.*?})",
-                RegexOptions.Singleline);
-            return m.Success ? m.Groups[1].Value : null;
-        }
-
         /// <summary>
         /// Tries to parse a JSON string into a JToken
         /// </summary>
@@ -133,7 +100,7 @@ namespace SmartHopper.Core.AI
                         { 
                             new KeyValuePair<string, string>("system", contextMessage)
                         });
-                        
+
                         // Insert context at the beginning of messages
                         var newMessages = new JArray();
                         newMessages.Merge(contextArray);
@@ -152,7 +119,7 @@ namespace SmartHopper.Core.AI
                 var stopwatch = new System.Diagnostics.Stopwatch();
                 stopwatch.Start();
 
-                var providers = SmartHopperSettings.DiscoverProviders().ToList();
+                var providers = ProviderManager.Instance.GetProviders().ToList();
                 var selectedProvider = providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
 
                 if (selectedProvider == null)

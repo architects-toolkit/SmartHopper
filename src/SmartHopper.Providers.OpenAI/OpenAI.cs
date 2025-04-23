@@ -61,12 +61,6 @@ namespace SmartHopper.Providers.OpenAI
             }
         }
 
-        /// <inheritdoc />
-        public void InitializeSettings(Dictionary<string, object> settings)
-        {
-            _injectedSettings = settings ?? new Dictionary<string, object>();
-        }
-
         public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             return new[]
@@ -78,7 +72,7 @@ namespace SmartHopper.Providers.OpenAI
                     DefaultValue = "",
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your OpenAI API key"
+                    Description = "Your OpenAI API key",
                 },
                 new SettingDescriptor
                 {
@@ -103,115 +97,199 @@ namespace SmartHopper.Providers.OpenAI
 
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            // The API key might be stored as a boolean flag indicating it exists
-            bool hasApiKey = settings.ContainsKey("ApiKey") && 
-                             (settings["ApiKey"] is bool apiKeyDefined ? apiKeyDefined : 
-                              !string.IsNullOrEmpty(settings["ApiKey"]?.ToString()));
-                              
-            bool hasModel = settings.ContainsKey("Model") && !string.IsNullOrEmpty(settings["Model"]?.ToString());
+            Debug.WriteLine($"[OpenAI] ValidateSettings called. Settings null? {settings == null}");
+            if (settings == null)
+                return false;
+                
+            // Only validate settings that are actually provided
+            // This allows partial setting updates rather than requiring all settings
             
-            return hasApiKey && hasModel;
+            // Check API key format if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
+            {
+                string apiKey = apiKeyObj.ToString();
+                // Simple format validation - don't require presence, just valid format if provided
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    Debug.WriteLine("[OpenAI] API key format validation failed: empty key provided");
+                    return false;
+                }
+                Debug.WriteLine($"[OpenAI] API key format validation passed (length: {apiKey.Length})");
+            }
+            
+            // Check model format if present
+            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
+            {
+                string model = modelObj.ToString();
+                if (string.IsNullOrWhiteSpace(model))
+                {
+                    Debug.WriteLine("[OpenAI] Model format validation failed: empty model name provided");
+                    return false;
+                }
+                Debug.WriteLine($"[OpenAI] Model validation passed: {model}");
+            }
+            
+            // Check max tokens if present - must be a positive number
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
+                {
+                    if (maxTokens <= 0)
+                    {
+                        Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
+                        return false;
+                    }
+                    Debug.WriteLine($"[OpenAI] MaxTokens validation passed: {maxTokens}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be an integer, got {maxTokensObj}");
+                    return false;
+                }
+            }
+            
+            // All provided settings are valid
+            return true;
         }
 
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
-            try
+            // Get settings from the secure settings store
+            string apiKey = GetSetting<string>("ApiKey");
+            int maxTokens = GetSetting<int>("MaxTokens");
+            string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
+            
+            // Validate API key
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                var providerSettings = _injectedSettings;
-
-                if (!ValidateSettings(providerSettings))
-                    throw new InvalidOperationException("Invalid provider settings");
-
-                var modelToUse = GetModel(providerSettings, model);
-
-                string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
-                int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
-
-                if (modelToUse == "" || modelToUse == "openai")
-                {
-                    modelToUse = _defaultModel;
-                    Debug.WriteLine($"Using default model: {modelToUse}");
-                }
-
-                if (string.IsNullOrEmpty(apiKey))
-                {
-                    Debug.WriteLine("API Key is null or empty");
-                    return new AIResponse
-                    {
-                        Response = "Error: API Key is missing",
-                        FinishReason = "error"
-                    };
-                }
-
-                using (var client = new HttpClient())
-                {
-                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
-                    var requestBody = new JObject
-                    {
-                        ["model"] = modelToUse,
-                        ["messages"] = messages,
-                        ["temperature"] = 0.7,
-                        ["max_tokens"] = maxTokens
-                    };
-
-                    // Add functions to request if available
-                    var toolsArray = includeToolDefinitions ? GetFormattedTools() : null;
-                    if (toolsArray != null && toolsArray.Count > 0)
-                    {
-                        requestBody["tools"] = toolsArray;
-                        requestBody["tool_choice"] = "auto";
-                        Debug.WriteLine($"Added {toolsArray.Count} tools to the request");
-                    }
-
-                    if (!string.IsNullOrEmpty(jsonSchema))
-                    {
-                        var responseFormat = new JObject
-                        {
-                            ["type"] = "json_object"
-                        };
-                        requestBody["response_format"] = responseFormat;
-                    }
-
-                    var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-
-                    Debug.WriteLine($"Sending request to OpenAI with model: {modelToUse}");
-
-                    var response = await client.PostAsync(ApiURL, content);
-                    response.EnsureSuccessStatusCode();
-                    var responseBody = await response.Content.ReadAsStringAsync();
-                    var json = JObject.Parse(responseBody);
-
-                    return new AIResponse
-                    {
-                        Response = json["choices"][0]["message"]["content"].ToString().Trim(),
-                        Provider = _name,
-                        Model = json["model"]?.Value<string>() ?? "Unknown",
-                        InTokens = (int)json["usage"]["prompt_tokens"],
-                        OutTokens = (int)json["usage"]["completion_tokens"],
-                        FinishReason = json["choices"][0]["finish_reason"].ToString().Trim(),
-                    };
-                }
+                throw new Exception("OpenAI API key is not configured or is invalid.");
             }
-            catch (Exception ex)
+            
+            // Use default model if none specified
+            if (string.IsNullOrWhiteSpace(modelName))
             {
-                Debug.WriteLine($"Error in OpenAI request: {ex.Message}");
-                throw new Exception($"Error getting response from OpenAI: {ex.Message}", ex);
+                modelName = _defaultModel;
+            }
+
+            Debug.WriteLine($"[OpenAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
+
+            using (var httpClient = new HttpClient())
+            {
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                // Build request body
+                var requestBody = new JObject
+                {
+                    ["model"] = modelName,
+                    ["messages"] = messages,
+                    ["max_tokens"] = maxTokens
+                };
+
+                // Add response format if JSON schema is provided
+                if (!string.IsNullOrEmpty(jsonSchema))
+                {
+                    requestBody["response_format"] = new JObject
+                    {
+                        ["type"] = "json_object"
+                    };
+                }
+
+                // Add tools if requested
+                if (includeToolDefinitions)
+                {
+                    var tools = GetFormattedTools();
+                    if (tools != null && tools.Count > 0)
+                    {
+                        requestBody["tools"] = tools;
+                        requestBody["tool_choice"] = "auto";
+                    }
+                }
+
+                var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+                Debug.WriteLine($"[OpenAI] Request: {requestBody}");
+
+                try
+                {
+                    var apiUrl = string.IsNullOrEmpty(endpoint) ? ApiURL : endpoint;
+                    var response = await httpClient.PostAsync(apiUrl, requestContent);
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"[OpenAI] Response status: {response.StatusCode}");
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Debug.WriteLine($"[OpenAI] Error response: {responseContent}");
+                        throw new Exception($"Error from OpenAI API: {response.StatusCode} - {responseContent}");
+                    }
+
+                    var responseJson = JObject.Parse(responseContent);
+                    Debug.WriteLine($"[OpenAI] Response parsed successfully");
+
+                    // Extract response content
+                    var choices = responseJson["choices"] as JArray;
+                    var firstChoice = choices != null && choices.Count > 0 ? choices[0] as JObject : null;
+                    var message = firstChoice?["message"] as JObject;
+                    var usage = responseJson["usage"] as JObject;
+
+                    if (message == null)
+                    {
+                        Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
+                        throw new Exception("Invalid response from OpenAI API: No message found");
+                    }
+
+                    var aiResponse = new AIResponse
+                    {
+                        Response = message["content"]?.ToString() ?? "",
+                        Model = modelName,
+                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
+                        InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                        OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                    };
+
+                    // Handle tool calls if any
+                    if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                    {
+                        aiResponse.ToolCalls = new List<AIToolCall>();
+                        foreach (JObject toolCall in toolCalls)
+                        {
+                            var function = toolCall["function"] as JObject;
+                            if (function != null)
+                            {
+                                aiResponse.ToolCalls.Add(new AIToolCall
+                                {
+                                    Id = toolCall["id"]?.ToString(),
+                                    Name = function["name"]?.ToString(),
+                                    Arguments = function["arguments"]?.ToString()
+                                });
+                            }
+                        }
+                    }
+
+                    Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
+                    return aiResponse;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
+                    throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
+                }
             }
         }
 
-        public string GetModel(Dictionary<string, object> settings, string requestedModel = "")
+        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
                 return requestedModel;
 
             // Use the model from settings if available
-            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
-                return settings["Model"].ToString();
+            string modelFromSettings = GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                return modelFromSettings;
 
             // Fall back to the default model
-            return _defaultModel;
+            return DefaultModel;
         }
 
         /// <summary>

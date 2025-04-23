@@ -68,7 +68,6 @@ namespace SmartHopper.Providers.MistralAI
             };
             panel.Controls.Add(maxTokensNumeric, 1, 2);
 
-            LoadSettings();
             return panel;
         }
 
@@ -107,22 +106,6 @@ namespace SmartHopper.Providers.MistralAI
                     maxTokensNumeric.Value = maxTokens;
                 else if (settings.ContainsKey("MaxTokens") && int.TryParse(settings["MaxTokens"].ToString(), out int parsedMaxTokens))
                     maxTokensNumeric.Value = parsedMaxTokens;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading MistralAI provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Loads settings from the SmartHopper configuration.
-        /// </summary>
-        private void LoadSettings()
-        {
-            try
-            {
-                var providerSettings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
-                LoadSettings(providerSettings);
             }
             catch (Exception ex)
             {

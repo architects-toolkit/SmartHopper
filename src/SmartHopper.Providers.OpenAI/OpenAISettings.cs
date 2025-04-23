@@ -10,6 +10,7 @@
 
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
+using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -151,7 +152,7 @@ namespace SmartHopper.Providers.OpenAI
         {
             try
             {
-                var providerSettings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
+                var providerSettings = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
                 LoadSettings(providerSettings);
             }
             catch (Exception ex)
