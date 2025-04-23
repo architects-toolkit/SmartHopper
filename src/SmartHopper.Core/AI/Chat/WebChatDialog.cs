@@ -503,19 +503,19 @@ namespace SmartHopper.Core.AI.Chat
                 }
                 
                 // Check for tool calls in the response
-                string toolName = AIUtils.ExtractToolName(response.Response);
-                string toolArgs = AIUtils.ExtractToolArgs(response.Response);
-                
-                if (!string.IsNullOrEmpty(toolName) && !string.IsNullOrEmpty(toolArgs))
+                if (response.ToolCalls != null && response.ToolCalls.Count > 0)
                 {
-                    Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolName}");
-                    
-                    // Don't add the tool call message to chat history as regular text
-                    // Instead, add a formatted tool call message
-                    AddToolCallMessage(toolName, toolArgs);
-                    
-                    // Process the tool call
-                    await ProcessToolCall(toolName, toolArgs, response.Provider, response.Model);
+                    foreach (var toolCall in response.ToolCalls)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolCall.Name}");
+                        
+                        // Don't add the tool call message to chat history as regular text
+                        // Instead, add a formatted tool call message
+                        AddToolCallMessage(toolCall.Name, toolCall.Arguments);
+                        
+                        // Process the tool call
+                        await ProcessToolCall(toolCall.Name, toolCall.Arguments, response.Provider, response.Model);
+                    }
                 }
                 else
                 {

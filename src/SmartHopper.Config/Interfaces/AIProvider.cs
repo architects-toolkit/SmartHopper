@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading.Tasks;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Managers;
@@ -28,6 +29,13 @@ namespace SmartHopper.Config.Interfaces
 
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
 
+        /// <summary>
+        /// Validates that the provided settings have the correct format.
+        /// Note: This should only validate the settings that are present in the dictionary,
+        /// not require all settings to be present. This allows for partial settings updates.
+        /// </summary>
+        /// <param name="settings">The settings dictionary to validate.</param>
+        /// <returns>True if all provided settings are valid, false otherwise.</returns>
         bool ValidateSettings(Dictionary<string, object> settings);
 
         Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
@@ -45,7 +53,7 @@ namespace SmartHopper.Config.Interfaces
     /// </summary>
     public abstract class AIProvider : IAIProvider
     {
-        protected Dictionary<string, object> _injectedSettings;
+        private Dictionary<string, object> _injectedSettings;
 
         public abstract string Name { get; }
         public abstract string DefaultModel { get; }
@@ -57,17 +65,74 @@ namespace SmartHopper.Config.Interfaces
         public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
 
         /// <summary>
-        /// Store decrypted settings for use by derived providers.
+        /// Initializes the provider with the specified settings.
         /// </summary>
+        /// <param name="settings">The decrypted settings to use.</param>
         public void InitializeSettings(Dictionary<string, object> settings)
         {
             _injectedSettings = settings ?? new Dictionary<string, object>();
         }
 
         /// <summary>
-        /// Accessor for injected settings.
+        /// Gets a setting value, with type conversion and fallback to default.
         /// </summary>
-        protected Dictionary<string, object> Settings => _injectedSettings;
+        /// <typeparam name="T">The expected type of the setting.</typeparam>
+        /// <param name="key">The setting key.</param>
+        /// <returns>The setting value, or default if not found.</returns>
+        protected T GetSetting<T>(string key)
+        {
+            if (_injectedSettings == null)
+            {
+                Debug.WriteLine($"Warning: Settings not initialized for {Name}");
+                return default;
+            }
+
+            if (!_injectedSettings.TryGetValue(key, out var value) || value == null)
+            {
+                // Try to get the default value from the descriptor
+                var descriptor = GetSettingDescriptors().FirstOrDefault(d => d.Name == key);
+                if (descriptor?.DefaultValue != null && descriptor.DefaultValue is T defaultValue)
+                {
+                    return defaultValue;
+                }
+                return default;
+            }
+
+            // Handle type conversion
+            try
+            {
+                if (value is T typedValue)
+                {
+                    return typedValue;
+                }
+                else if (typeof(T) == typeof(int) && int.TryParse(value.ToString(), out var intValue))
+                {
+                    return (T)(object)intValue;
+                }
+                else if (typeof(T) == typeof(bool) && bool.TryParse(value.ToString(), out var boolValue))
+                {
+                    return (T)(object)boolValue;
+                }
+                else if (typeof(T) == typeof(string))
+                {
+                    return (T)(object)value.ToString();
+                }
+                else if (typeof(T) == typeof(double) && double.TryParse(value.ToString(), out var doubleValue))
+                {
+                    return (T)(object)doubleValue;
+                }
+                else
+                {
+                    Debug.WriteLine($"Warning: Failed to convert {key} to {typeof(T).Name} for provider {Name}");
+                    return default;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting setting {key} for provider {Name}: {ex.Message}");
+                return default;
+            }
+        }
 
         /// <summary>
         /// Default model resolution logic.

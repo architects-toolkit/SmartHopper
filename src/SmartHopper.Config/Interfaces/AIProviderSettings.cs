@@ -120,8 +120,7 @@ namespace SmartHopper.Config.Interfaces
         {
             try
             {
-                var providerSettings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
-                LoadSettings(providerSettings);
+                ProviderManager.Instance.RefreshProviders();
             }
             catch (Exception ex)
             {
