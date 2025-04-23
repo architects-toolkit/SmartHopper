@@ -8,24 +8,25 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Configuration;
+using SmartHopper.Config.Managers;
 using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public class MistralAISettings : IAIProviderSettings
+    public class MistralAISettings : AIProviderSettings
     {
         private TextBox apiKeyTextBox;
         private TextBox modelTextBox;
         private NumericUpDown maxTokensNumeric;
         private readonly MistralAI provider;
 
-        public MistralAISettings(MistralAI provider)
+        public MistralAISettings(MistralAI provider) : base(provider)
         {
-            this.provider = provider;
+            this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
         public Control CreateSettingsControl()
@@ -43,7 +44,7 @@ namespace SmartHopper.Providers.MistralAI
             panel.Controls.Add(new Label { Text = "API Key:", Dock = DockStyle.Fill }, 0, 0);
             apiKeyTextBox = new TextBox
             {
-                UseSystemPasswordChar = true,
+                UseSystemPasswordChar = true, // Hide the API key for security
                 Dock = DockStyle.Fill
             };
             panel.Controls.Add(apiKeyTextBox, 1, 0);
@@ -83,32 +84,73 @@ namespace SmartHopper.Providers.MistralAI
 
         public void LoadSettings(Dictionary<string, object> settings)
         {
-            if (settings.ContainsKey("ApiKey"))
-                apiKeyTextBox.Text = settings["ApiKey"].ToString();
+            if (settings == null)
+                return;
 
-            if (settings.ContainsKey("Model"))
-                modelTextBox.Text = settings["Model"].ToString();
-            else
-                modelTextBox.Text = provider.DefaultModel;
+            try
+            {
+                // Load API Key
+                if (settings.ContainsKey("ApiKey"))
+                {
+                    bool defined = settings["ApiKey"] is bool ok && ok;
+                    apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
+                }
 
-            if (settings.ContainsKey("MaxTokens"))
-                maxTokensNumeric.Value = Convert.ToInt32(settings["MaxTokens"]);
+                // Load Model
+                if (settings.ContainsKey("Model"))
+                    modelTextBox.Text = settings["Model"].ToString();
+                else
+                    modelTextBox.Text = provider.DefaultModel;
+
+                // Load Max Tokens
+                if (settings.ContainsKey("MaxTokens") && settings["MaxTokens"] is int maxTokens)
+                    maxTokensNumeric.Value = maxTokens;
+                else if (settings.ContainsKey("MaxTokens") && int.TryParse(settings["MaxTokens"].ToString(), out int parsedMaxTokens))
+                    maxTokensNumeric.Value = parsedMaxTokens;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading MistralAI provider settings: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Loads settings from the SmartHopper configuration.
+        /// </summary>
         private void LoadSettings()
         {
-            var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(provider.Name))
+            try
             {
-                settings.ProviderSettings[provider.Name] = new Dictionary<string, object>();
+                var providerSettings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
+                LoadSettings(providerSettings);
             }
-            LoadSettings(settings.ProviderSettings[provider.Name]);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading MistralAI provider settings: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Validates the current settings.
+        /// </summary>
+        /// <returns>True if the settings are valid, otherwise false.</returns>
         public bool ValidateSettings()
         {
-            var settings = GetSettings();
-            return provider.ValidateSettings(settings);
+            // Check if the API key is provided
+            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
+            {
+                MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            // Check if the model is provided
+            if (string.IsNullOrWhiteSpace(modelTextBox.Text))
+            {
+                MessageBox.Show("Model is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            return true;
         }
     }
 }

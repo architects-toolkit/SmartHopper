@@ -9,7 +9,6 @@
  */
 
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Managers;
@@ -24,9 +23,9 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAI : IAIProvider
+    public sealed class MistralAI : AIProvider
     {
-        public const string _name = "MistralAI";
+        private const string _name = "MistralAI";
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
         private const string _defaultModel = "mistral-small-latest";
 
@@ -35,18 +34,18 @@ namespace SmartHopper.Providers.MistralAI
 
         private MistralAI() { }
 
-        public string Name => _name;
-        public string DefaultModel => _defaultModel;
+        public override string Name => _name;
+        public override string DefaultModel => _defaultModel;
 
         /// <summary>
         /// Gets whether this provider is enabled and should be available for use.
         /// </summary>
-        public bool IsEnabled => true;
+        public override bool IsEnabled => true;
 
         /// <summary>
         /// Gets the provider's icon
         /// </summary>
-        public Image Icon
+        public override Image Icon
         {
             get
             {
@@ -58,7 +57,7 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
-        public IEnumerable<SettingDescriptor> GetSettingDescriptors()
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             return new[]
             {
@@ -92,22 +91,45 @@ namespace SmartHopper.Providers.MistralAI
             };
         }
 
-        public bool ValidateSettings(Dictionary<string, object> settings)
+        public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            return settings.ContainsKey("ApiKey") &&
-                   !string.IsNullOrEmpty(settings["ApiKey"].ToString()) &&
-                   settings.ContainsKey("Model") &&
-                   !string.IsNullOrEmpty(settings["Model"].ToString());
+            Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
+            if (settings == null)
+                return false;
+                
+            // The API key might be stored as a boolean flag indicating it exists
+            bool hasApiKey = settings.ContainsKey("ApiKey") && 
+                             (settings["ApiKey"] is bool apiKeyDefined ? apiKeyDefined : 
+                              !string.IsNullOrEmpty(settings["ApiKey"]?.ToString()));
+            bool hasModel = settings.ContainsKey("Model") && !string.IsNullOrEmpty(settings["Model"]?.ToString());
+            
+            Debug.WriteLine($"[MistralAI] ValidateSettings: HasApiKey? {hasApiKey}, HasModel? {hasModel}");
+            Debug.WriteLine($"[MistralAI] ApiKey type: {(settings.ContainsKey("ApiKey") ? settings["ApiKey"]?.GetType().Name : "Not found")}");
+            Debug.WriteLine($"[MistralAI] Model type: {(settings.ContainsKey("Model") ? settings["Model"]?.GetType().Name : "Not found")}");
+            
+            return hasApiKey && hasModel;
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        /// <inheritdoc />
+        public void InitializeSettings(Dictionary<string, object> settings)
         {
-            var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(_name))
+            _injectedSettings = settings ?? new Dictionary<string, object>();
+        }
+
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        {
+            var providerSettings = _injectedSettings;
+            // Debug settings content
+            Debug.WriteLine($"[MistralAI] GetResponse: Injected settings count: {providerSettings?.Count ?? 0}");
+            if (providerSettings != null)
             {
-                settings.ProviderSettings[_name] = new Dictionary<string, object>();
+                foreach (var key in providerSettings.Keys)
+                {
+                    var valueDisplay = key == "ApiKey" ? "****" : providerSettings[key]?.ToString();
+                    Debug.WriteLine($"[MistralAI] Setting {key}: {valueDisplay}");
+                }
             }
-            var providerSettings = settings.ProviderSettings[_name];
+            
             if (!ValidateSettings(providerSettings))
                 throw new InvalidOperationException("Invalid provider settings");
 

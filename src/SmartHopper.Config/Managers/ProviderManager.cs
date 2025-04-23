@@ -23,7 +23,6 @@ using Eto.Forms;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.Pkcs;
 using System.Drawing;
-using Newtonsoft.Json;
 
 namespace SmartHopper.Config.Managers
 {
@@ -33,6 +32,7 @@ namespace SmartHopper.Config.Managers
     public class ProviderManager
     {
         private static readonly Lazy<ProviderManager> _instance = new Lazy<ProviderManager>(() => new ProviderManager());
+
         public static ProviderManager Instance => _instance.Value;
 
         private readonly Dictionary<string, IAIProvider> _providers = new Dictionary<string, IAIProvider>();
@@ -137,6 +137,14 @@ namespace SmartHopper.Config.Managers
         }
 
         /// <summary>
+        /// Manually triggers discovery of external AI providers.
+        /// </summary>
+        public void RefreshProviders()
+        {
+            DiscoverProviders();
+        }
+
+        /// <summary>
         /// Loads a provider assembly and registers any providers it contains.
         /// </summary>
         /// <param name="assemblyPath">The path to the provider assembly.</param>
@@ -152,6 +160,14 @@ namespace SmartHopper.Config.Managers
                 catch (CryptographicException ex)
                 {
                     Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
+                    RhinoApp.InvokeOnUiThread(new Action(() =>
+                    {
+                        MessageBox.Show(
+                            $"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.",
+                            "SmartHopper",
+                            MessageBoxButtons.OK,
+                            MessageBoxType.Error);
+                    }));
                     return;
                 }
                 var settings = SmartHopperSettings.Load();
@@ -196,14 +212,14 @@ namespace SmartHopper.Config.Managers
                     {
                         // Create an instance of the factory
                         var factory = (IAIProviderFactory)Activator.CreateInstance(factoryType);
-                        
+
                         // Create provider and settings instances
                         var provider = factory.CreateProvider();
                         var providerSettings = factory.CreateProviderSettings();
-                        
+
                         // Register the provider
                         RegisterProvider(provider, providerSettings, assembly);
-                        
+
                         Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
                     }
                     catch (Exception ex)
@@ -232,6 +248,14 @@ namespace SmartHopper.Config.Managers
             if (pkt == null || trustedPkt == null || !pkt.SequenceEqual(trustedPkt))
             {
                 Debug.WriteLine($"Strong-name public key token mismatch for provider assembly '{assembly.FullName}', skipping registration.");
+                RhinoApp.InvokeOnUiThread(new Action(() =>
+                {
+                    MessageBox.Show(
+                        $"Strong-name public key token mismatch for provider '{provider.Name}'. Please replace the DLL with one downloaded from official SmartHopper sources.",
+                        "SmartHopper",
+                        MessageBoxButtons.OK,
+                        MessageBoxType.Error);
+                }));
                 return;
             }
             if (provider == null || settings == null)
@@ -245,6 +269,10 @@ namespace SmartHopper.Config.Managers
             }
 
             string providerName = provider.Name;
+            // Load and inject decrypted settings into provider
+            var rawSettings = SmartHopperSettings.LoadProviderSettings(providerName);
+            provider.InitializeSettings(rawSettings);
+
             if (!_providers.ContainsKey(providerName))
             {
                 _providers[providerName] = provider;
@@ -321,16 +349,62 @@ namespace SmartHopper.Config.Managers
         {
             var settings = SmartHopperSettings.Load();
             var providers = GetProviders().ToList();
-            
+
             // If the DefaultAIProvider is set and exists in the available providers, use it
             if (!string.IsNullOrEmpty(settings.DefaultAIProvider) && 
                 providers.Any(p => p.Name == settings.DefaultAIProvider))
             {
                 return settings.DefaultAIProvider;
             }
-            
+
             // Otherwise, return the first available provider or empty string if none
-            return providers.Any() ? providers.First().Name : string.Empty;
+            return providers.FirstOrDefault()?.Name ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Loads provider settings for the UI, returning only a defined-flag for secret fields.
+        /// </summary>
+        public Dictionary<string, object> LoadProviderSettings(string providerName)
+        {
+            // Get raw decrypted settings
+            var raw = SmartHopperSettings.LoadProviderSettings(providerName);
+            var safe = new Dictionary<string, object>();
+            // Find provider to read descriptors
+            var provider = GetProviders().FirstOrDefault(p => p.Name == providerName);
+            if (provider != null)
+            {
+                foreach (var desc in provider.GetSettingDescriptors())
+                {
+                    if (desc.IsSecret)
+                    {
+                        bool defined = raw.ContainsKey(desc.Name) && !string.IsNullOrEmpty(raw[desc.Name]?.ToString());
+                        safe[desc.Name] = defined;
+                    }
+                    else if (raw.ContainsKey(desc.Name))
+                    {
+                        safe[desc.Name] = raw[desc.Name];
+                    }
+                    else if (desc.DefaultValue != null)
+                    {
+                        safe[desc.Name] = desc.DefaultValue;
+                    }
+                }
+            }
+            return safe;
+        }
+
+        /// <summary>
+        /// Updates and encrypts settings for a specific provider by merging only changed values.
+        /// </summary>
+        public void UpdateProviderSettings(string providerName, Dictionary<string, object> newValues)
+        {
+            // Load raw settings, merge with new values, then save
+            var raw = SmartHopperSettings.LoadProviderSettings(providerName);
+            foreach (var kv in newValues)
+            {
+                raw[kv.Key] = kv.Value;
+            }
+            SmartHopperSettings.UpdateProviderSettings(providerName, raw);
         }
 
         // Implement Authenticode verification using SignedCms
@@ -340,7 +414,10 @@ namespace SmartHopper.Config.Managers
             using var peReader = new PEReader(stream);
             var certDir = peReader.PEHeaders.PEHeader.CertificateTableDirectory;
             if (certDir.Size == 0)
+            {
                 throw new CryptographicException($"No Authenticode signature found on {assemblyPath}");
+            }
+
             stream.Position = certDir.RelativeVirtualAddress;
             var rawData = new byte[certDir.Size];
             stream.Read(rawData, 0, rawData.Length);

@@ -79,6 +79,7 @@ namespace SmartHopper.Menu
             menu.DropDownItems.AddRange(new ToolStripItem[]
             {
                 SettingsMenuItem.Create(),
+                RefreshProvidersMenuItem.Create(),
                 new ToolStripSeparator(),
                 AboutMenuItem.Create()
             });

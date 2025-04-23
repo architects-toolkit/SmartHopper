@@ -9,7 +9,6 @@
  */
 
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Managers;
@@ -26,29 +25,31 @@ namespace SmartHopper.Providers.OpenAI
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public sealed class OpenAI : IAIProvider
+    public sealed class OpenAI : AIProvider
     {
-        public const string _name = "OpenAI";
+        private const string _name = "OpenAI";
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
         private const string _defaultModel = "gpt-4o-mini";
 
         private static readonly Lazy<OpenAI> _instance = new Lazy<OpenAI>(() => new OpenAI());
+
         public static OpenAI Instance => _instance.Value;
 
         private OpenAI() { }
 
-        public string Name => _name;
-        public string DefaultModel => _defaultModel;
+        public override string Name => _name;
+
+        public override string DefaultModel => _defaultModel;
 
         /// <summary>
         /// Gets whether this provider is enabled and should be available for use.
         /// </summary>
-        public bool IsEnabled => true;
+        public override bool IsEnabled => true;
 
         /// <summary>
         /// Gets the provider's icon
         /// </summary>
-        public Image Icon
+        public override Image Icon
         {
             get
             {
@@ -60,7 +61,13 @@ namespace SmartHopper.Providers.OpenAI
             }
         }
 
-        public IEnumerable<SettingDescriptor> GetSettingDescriptors()
+        /// <inheritdoc />
+        public void InitializeSettings(Dictionary<string, object> settings)
+        {
+            _injectedSettings = settings ?? new Dictionary<string, object>();
+        }
+
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             return new[]
             {
@@ -94,24 +101,23 @@ namespace SmartHopper.Providers.OpenAI
             };
         }
 
-        public bool ValidateSettings(Dictionary<string, object> settings)
+        public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            return settings.ContainsKey("ApiKey") &&
-                   !string.IsNullOrEmpty(settings["ApiKey"].ToString()) &&
-                   settings.ContainsKey("Model") &&
-                   !string.IsNullOrEmpty(settings["Model"].ToString());
+            // The API key might be stored as a boolean flag indicating it exists
+            bool hasApiKey = settings.ContainsKey("ApiKey") && 
+                             (settings["ApiKey"] is bool apiKeyDefined ? apiKeyDefined : 
+                              !string.IsNullOrEmpty(settings["ApiKey"]?.ToString()));
+                              
+            bool hasModel = settings.ContainsKey("Model") && !string.IsNullOrEmpty(settings["Model"]?.ToString());
+            
+            return hasApiKey && hasModel;
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             try
             {
-                var settings = SmartHopperSettings.Load();
-                if (!settings.ProviderSettings.ContainsKey(_name))
-                {
-                    settings.ProviderSettings[_name] = new Dictionary<string, object>();
-                }
-                var providerSettings = settings.ProviderSettings[_name];
+                var providerSettings = _injectedSettings;
 
                 if (!ValidateSettings(providerSettings))
                     throw new InvalidOperationException("Invalid provider settings");

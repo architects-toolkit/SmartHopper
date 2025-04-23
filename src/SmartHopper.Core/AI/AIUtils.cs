@@ -152,24 +152,6 @@ namespace SmartHopper.Core.AI
                 var stopwatch = new System.Diagnostics.Stopwatch();
                 stopwatch.Start();
 
-                var settings = SmartHopperSettings.Load();
-                if (!settings.ProviderSettings.ContainsKey(providerName))
-                {
-                    stopwatch.Stop();
-                    return new AIResponse
-                    {
-                        Response = $"Error: Provider '{providerName}' not found in settings",
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds
-                    };
-                }
-
-                var provider = settings.ProviderSettings[providerName];
-                if (!provider.ContainsKey("MaxTokens"))
-                {
-                    provider["MaxTokens"] = 150; // Default value if not set
-                }
-
                 var providers = SmartHopperSettings.DiscoverProviders().ToList();
                 var selectedProvider = providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
 
