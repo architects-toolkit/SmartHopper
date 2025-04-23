@@ -1,35 +1,37 @@
-1. This is a C# project, using .NET 7-windows and .NET 7 for both Windows and Mac.
-2. The aim of the project is to create some Grasshopper components.
-3. The project is structured in the following projects:
-   - SmartHopper.Core: Contains the core functionality
-   - SmartHopper.Core.Grasshopper: Contains the core functionality to interact with Grasshopper (type converters, utils, and tools)
-   - SmartHopper.Components: Contains the Grasshopper components. Most of the components depend on the Component Base defined in SmartHopper.Core/ComponentBase. Each component implements a tool for a specific function defined in SmartHopper.Core.Grasshopper/Tools. Tools will be callable from a component, or from the AIChatComponent, which is a chat interface with AI.
-   - SmartHopper.Config: Contains the configuration for the plugin and for the AI providers. It also defines the necessary models and interfaces.
-   - SmartHopper.Menu: Sets up the menu bar
-   - SmartHopper.Components.Test: Is a debugging solution, not available for production.
-   - SmartHopper.Providers.MistralAI: Contains the MistralAI provider
-   - SmartHopper.Providers.OpenAI: Contains the OpenAI provider
-   - SmartHopper.Providers.Template: Contains a Template project for new providers. This project is not registered in the solution.
-4. Use native Grasshopper types, objects and methods where possible.
-5. Use https://developer.rhino3d.com/ as the official documentation.
-6. Use English language only.
-7. Component Structure:
-   - All components should inherit from ComponentBase or a derived class.
-   - Components should be named with the pattern [Category][Action][Type]Component (e.g., AITextGenerateComponent).
-   - Consider using AIStatefulAsyncComponentBase since it already implements most of the required structure to manage AI methods, states and async operations.
-8. AI Tool definition:
-   - AI tools are classes implementing IAIToolProvider in SmartHopper.Core.Grasshopper/Tools. Each provider returns one or more AITool instances via GetTools().
-   - A tool’s metadata (Name, Description, Parameters schema) is declared in its AITool object.
-   - To add a new tool:
-     - Create a new YourTools.cs in src/SmartHopper.Core.Grasshopper/Tools.
-     - Implement IAIToolProvider.GetTools() to yield your AITools.
-     - The AIToolManager auto‑discovers these providers at runtime by scanning the SmartHopper.Core.Grasshopper.Tools namespace and registering all IAIToolProvider implementations.
-9. Provider definition:
-   - Providers are AI backend implementations following the IAIProviderFactory / IAIProvider / IAIProviderSettings pattern.
-   - Each provider lives in its own project under src/SmartHopper.Providers.* (e.g., SmartHopper.Providers.MistralAI).
-   - Use the SmartHopper.Providers.Template project as a starting point: implement IAIProviderFactory to return your IAIProvider and its IAIProviderSettings.
-   - At startup, ProviderManager loads any SmartHopper.Providers.*.dll in the plugin folder, finds all IAIProviderFactory types, and calls CreateProvider() / CreateProviderSettings().
-10. When asked for a PR/commit title or description, follow the rules in @.github/PULL_REQUEST_TEMPLATE.md
-11. Make only targeted edits to existing code.
+# Project-Specific Rules
 
-When the user asks you to add, change, deprecate, remove, fix, or security edit the code, if changes are relevant, mention them in the @CHANGELOG.md file under the "Unreleased" section. Do not modify other parts of the file. Subsections should be limited to and ordered as follows: Added, Changed, Deprecated, Removed, Fixed, Security
+1. Target platforms & frameworks:
+   - Rhino 8 (Grasshopper 1)
+   - Windows: .NET 7-windows
+   - macOS: .NET 7
+2. Solution structure:
+   - SmartHopper.Core: Contains the core functionality
+   - SmartHopper.Core.Grasshopper: Type converters, utilities & tool definitions
+   - SmartHopper.Components: Grasshopper components (inherit ComponentBase/AIStatefulAsyncComponentBase)
+   - SmartHopper.Config: Configuration models & ProviderManager
+   - SmartHopper.Menu: Menu bar setup
+   - SmartHopper.Components.Test: xUnit tests (not for production)
+   - SmartHopper.Providers.*: AI provider projects
+3. Component conventions:
+   - Inherit from ComponentBase or derived class (for example AIStatefulAsyncComponentBase for AI components)
+   - File name: `[Category][Action][Type]Component.cs`
+   - Override `RegisterInputParams()`, `RegisterOutputParams()`
+   - Provide unique `Guid`, `ComponentName`, `Nickname`, `Description`
+4. AI Tool conventions:
+   - Implement `IAIToolProvider` in `SmartHopper.Core.Grasshopper.Tools`
+   - File name: `*Tools.cs`
+   - Define AITool metadata (Name, Description, schema)
+   - Auto‑discover via `AIToolManager`
+5. AI Provider conventions:
+   - Use `SmartHopper.Providers.Template` as a starting point
+   - Implement `IAIProviderFactory` & `IAIProviderSettings`
+   - Document settings in JSON schema or Rhino config
+6. Documentation & changelog:
+   - Log API changes in `CHANGELOG.md` under **Unreleased**, in one of the following sections: Added, Changed, Deprecated, Removed, Fixed, Security
+   - Use PR template per `.github/PULL_REQUEST_TEMPLATE.md`
+   - Add docstrings to all public members
+7. General guidelines:
+   - Use native Grasshopper types & methods when possible
+   - Use https://developer.rhino3d.com/ as the official documentation
+   - Use English language only
+   - Only change code lines directly needed to implement the request; avoid unrelated refactors

@@ -10,6 +10,7 @@ Alpha releases are early development versions intended for internal testing and 
 - [ ] Basic functionality works as expected
 - [ ] Plugin loads in Grasshopper without crashing
 - [ ] Core components function at a basic level
+- [ ] Added clean-up instructions to remove old stored settings
 - [ ] CHANGELOG.md is updated with new features and known issues
 - [ ] README.md is updated with basic installation instructions
 - [ ] All dependencies are properly included in the package

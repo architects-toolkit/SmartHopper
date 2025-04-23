@@ -13,6 +13,7 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Config.Configuration;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -72,12 +73,11 @@ namespace SmartHopper.Core.ComponentBase
                 string actualProviderName = _owner._aiProvider;
                 if (_owner._aiProvider == AIStatefulAsyncComponentBase.DEFAULT_PROVIDER)
                 {
-                    var settings = SmartHopperSettings.Load();
-                    actualProviderName = settings.GetDefaultAIProvider();
+                    actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
 
                 // Get the provider icon
-                var providerIcon = SmartHopperSettings.GetProviderIcon(actualProviderName);
+                var providerIcon = ProviderManager.Instance.GetProvider(actualProviderName)?.Icon;
                 if (providerIcon == null)
                     return;
 
