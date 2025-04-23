@@ -36,7 +36,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    
+    env:
+      SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+      SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
@@ -105,13 +107,12 @@ jobs:
       with:
         dotnet-version: '7.0.x'
 
-    - name: Decode strong-name key
+    - name: Decode strong-name key via script
       shell: pwsh
-      env:
-        SNK_BASE64: ${{ secrets.SIGNING_SNK_BASE64 }}
       run: |
-        $snkBytes = [Convert]::FromBase64String($env:SNK_BASE64)
-        [IO.File]::WriteAllBytes('signing.snk', $snkBytes)
+        # Initialize Developer PowerShell environment for VS tools
+        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
 
     - name: Restore dependencies
       run: dotnet restore SmartHopper.sln

@@ -9,6 +9,7 @@
  */
 
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,7 +22,7 @@ namespace SmartHopper.Providers.Template
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
-    public class TemplateProviderSettings : IAIProviderSettings
+    public class TemplateProviderSettings : AIProviderSettings
     {
         private readonly IAIProvider provider;
         private TextBox apiKeyTextBox;
@@ -32,7 +33,7 @@ namespace SmartHopper.Providers.Template
         /// Initializes a new instance of the <see cref="TemplateProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public TemplateProviderSettings(IAIProvider provider)
+        public TemplateProviderSettings(IAIProvider provider) : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
@@ -114,12 +115,14 @@ namespace SmartHopper.Providers.Template
         {
             if (settings == null)
                 return;
-
             try
             {
-                // Load API Key
+                // Load API Key (show placeholder only)
                 if (settings.ContainsKey("ApiKey"))
-                    apiKeyTextBox.Text = settings["ApiKey"].ToString();
+                {
+                    bool defined = settings["ApiKey"] is bool ok && ok;
+                    apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
+                }
 
                 // Load Model
                 if (settings.ContainsKey("Model"))
@@ -146,7 +149,7 @@ namespace SmartHopper.Providers.Template
         {
             try
             {
-                var settings = SmartHopper.Config.Configuration.SmartHopperSettings.GetProviderSettings(provider.Name);
+                var settings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
                 LoadSettings(settings);
             }
             catch (Exception ex)
@@ -162,7 +165,7 @@ namespace SmartHopper.Providers.Template
         public bool ValidateSettings()
         {
             // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text))
+            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
             {
                 MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;

@@ -20,23 +20,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new `ghmoveobj` AI tool in `GhObjTools` for moving Grasshopper component pivot by GUID with absolute or relative position.
 - Added `MoveInstance` method in `GHCanvasUtils` to move existing instances by GUID with absolute or relative pivot positions.
 - Improved security in Providers by accepting only signed assemblies.
+- Added `AIToolCall.cs`, a new model for AI tool call requests.
+- Added `SmartHopperInitializer.cs`, a static class for safe startup and provider initialization.
 
 ### Changed
 
 - Renamed the 'Branches Input' and 'Processed Branches' parameters to 'Data Count' and 'Iterations Count' in DeconstructMetricsComponents. Improved descriptions for both parameters.
-- Modified FilterListAsync in ListTools to return indices instead of filtered list items, with `AIListFilter` component now handling the final list construction.
+- Modified `FilterListAsync` in `ListTools` to return indices instead of filtered list items, with `AIListFilter` component now handling the final list construction.
 - Renamed `GhGetSelectedComponents` (GhGetSel) to `GhGetComponents`.
 - Moved `GhGet` execution logic to external tools managed by `ToolManager`.
 - Improved `ghget` tool's `typeFilter` input: supports include/exclude syntax (+/-) with multiple tokens (params, components, input, output, processing) and updated schema description with definitions and examples.
 - Reorganized `SmartHopper.Core.Grasshopper` files in subfolders that match the namespace.
+- Isolated settings so providers access them only via `ProviderManager`, not directly via `SmartHopperSettings`.
 
 ### Removed
 
 - `GhGetComponent` was replaced by `GhGetSelectedComponents` (GhGetSel) and renamed back to `GhGetComponents`.
 - Removed support for net48. From now on, Rhino 8 or later is required.
+- Removed `ToolFunction` and `ToolArgument` in `AIResponse`, in favor of the more flexible `AIToolCall`.
 
 ### Fixed
 
+- Fixed double‐encryption of sensitive settings in `SettingsDialog.SaveSettings()` causing unreadable API keys
+- Fixed mismatch between in-memory and on-disk `TrustedProviders` when prompting in `ProviderManager.LoadProviderAssembly()`
 - Fixed a bug in `DataProcessor` where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
 - Fixed inconsistent list format handling between `AIListEvaluate` and `AIListFilter` components.
 
