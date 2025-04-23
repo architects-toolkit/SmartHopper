@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -30,7 +31,7 @@ namespace SmartHopper.Config.Configuration
             "Grasshopper",
             "SmartHopper.json");
 
-        public Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
+        internal Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
 
         public int DebounceTime { get; set; }
 
@@ -53,7 +54,7 @@ namespace SmartHopper.Config.Configuration
             TrustedProviders = new Dictionary<string, bool>();
         }
 
-        // Use a constant key and IV for encryption (these could be moved to secure configuration)
+        // Use a constant key and IV for encryption (TODO: these could be moved to secure configuration)
         private static readonly byte[] _key = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
         private static readonly byte[] _iv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
 
@@ -151,17 +152,25 @@ namespace SmartHopper.Config.Configuration
             {
                 decryptedSettings[provider.Key] = new Dictionary<string, object>();
                 var descriptors = GetProviderDescriptors(provider.Key);
+                Debug.WriteLine($"[SmartHopperSettings] Decrypting settings for provider {provider.Key}. Found {provider.Value.Count} settings");
 
                 foreach (var setting in provider.Value)
                 {
                     var descriptor = descriptors.FirstOrDefault(d => d.Name == setting.Key);
+                    string settingType = setting.Value?.GetType().Name ?? "null";
+                    Debug.WriteLine($"[SmartHopperSettings] Processing setting {setting.Key}, type: {settingType}, IsSecret: {descriptor?.IsSecret}");
+                    
                     if (descriptor?.IsSecret == true && setting.Value != null)
                     {
-                        decryptedSettings[provider.Key][setting.Key] = UnprotectString(setting.Value.ToString());
+                        string decrypted = UnprotectString(setting.Value.ToString());
+                        // For API keys, we need to ensure we keep the decrypted value, not just a boolean indicator
+                        decryptedSettings[provider.Key][setting.Key] = decrypted;
+                        Debug.WriteLine($"[SmartHopperSettings] Decrypted secret setting {setting.Key}");
                     }
                     else
                     {
                         decryptedSettings[provider.Key][setting.Key] = setting.Value;
+                        Debug.WriteLine($"[SmartHopperSettings] Copied non-secret setting {setting.Key}: {setting.Value}");
                     }
                 }
             }
@@ -204,19 +213,27 @@ namespace SmartHopper.Config.Configuration
         public static SmartHopperSettings Load()
         {
             if (!File.Exists(SettingsPath))
+            {
+                Debug.WriteLine($"[SmartHopperSettings] Settings file not found at {SettingsPath}, using default settings.");
                 return new SmartHopperSettings();
+            }
 
+            Debug.WriteLine($"[SmartHopperSettings] Loading settings from {SettingsPath}");
             try
             {
                 var json = File.ReadAllText(SettingsPath);
+                Debug.WriteLine($"[SmartHopperSettings] Read settings JSON: {json}");
+
                 var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json) ?? new SmartHopperSettings();
                 settings.ProviderSettings = settings.DecryptSensitiveSettings(settings.ProviderSettings);
                 // Ensure TrustedProviders is initialized
                 settings.TrustedProviders ??= new Dictionary<string, bool>();
+                Debug.WriteLine($"[SmartHopperSettings] Settings loaded: DebounceTime={settings.DebounceTime}, DefaultAIProvider='{settings.DefaultAIProvider}', ProviderSettings count={settings.ProviderSettings.Count}, TrustedProviders count={settings.TrustedProviders.Count}");
                 return settings;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[SmartHopperSettings] Error loading settings from {SettingsPath}: {ex.Message}");
                 return new SmartHopperSettings();
             }
         }
@@ -229,6 +246,7 @@ namespace SmartHopper.Config.Configuration
         {
             try
             {
+                Debug.WriteLine($"[SmartHopperSettings] Updating settings with patch: {jsonPatch}");
                 var patch = JObject.Parse(jsonPatch);
                 // Encrypt any sensitive provider settings in patch
                 if (patch.TryGetValue("ProviderSettings", out var psToken))
@@ -240,35 +258,97 @@ namespace SmartHopper.Config.Configuration
                 var existing = File.Exists(SettingsPath)
                     ? JObject.Parse(File.ReadAllText(SettingsPath))
                     : new JObject();
+                Debug.WriteLine($"[SmartHopperSettings] Existing settings JSON: {existing.ToString()}");
                 existing.Merge(patch, new JsonMergeSettings
                 {
                     MergeArrayHandling = MergeArrayHandling.Union,
                     MergeNullValueHandling = MergeNullValueHandling.Ignore
                 });
                 File.WriteAllText(SettingsPath, existing.ToString(Formatting.Indented));
+                Debug.WriteLine($"[SmartHopperSettings] Settings saved to {SettingsPath}");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // handle or log error
+                Debug.WriteLine($"[SmartHopperSettings] Error updating settings file: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Saves current settings to disk, merging only updated provider settings and preserving existing ones.
+        /// Saves current settings to disk, merging only updated global settings and preserving existing ones.
         /// </summary>
         public void Save()
         {
-            // Encrypt and include provider-specific settings
-            var encryptedPS = EncryptSensitiveSettings(ProviderSettings);
-            // Build JSON patch for saving all current settings
+            Debug.WriteLine($"[SmartHopperSettings] Saving settings: DebounceTime={DebounceTime}, DefaultAIProvider='{DefaultAIProvider}', TrustedProviders count={TrustedProviders.Count}");
+            // Build JSON patch for saving global settings only
             var patch = new JObject
             {
-                ["ProviderSettings"]    = JObject.FromObject(encryptedPS),
                 ["DebounceTime"]        = DebounceTime,
                 ["DefaultAIProvider"]   = DefaultAIProvider,
                 ["TrustedProviders"]    = JObject.FromObject(TrustedProviders)
             };
             Update(patch.ToString());
+        }
+
+        /// <summary>
+        /// Updates the provider settings for a specific provider.
+        /// </summary>
+        /// <param name="providerName">Name of the provider.</param>
+        /// <param name="settings">Plain settings dictionary.</param>
+        internal static void UpdateProviderSettings(string providerName, Dictionary<string, object> settings)
+        {
+            Debug.WriteLine($"[SmartHopperSettings] Updating provider settings for '{providerName}' with {settings?.Count ?? 0} values");
+            // Use Update to merge and encrypt this provider's settings
+            var raw = new Dictionary<string, Dictionary<string, object>> { [providerName] = settings };
+            var patch = new JObject { ["ProviderSettings"] = JObject.FromObject(raw) };
+            Update(patch.ToString());
+        }
+
+        /// <summary>
+        /// Loads settings for a specific provider.
+        /// </summary>
+        /// <param name="providerName">Name of the provider.</param>
+        /// <returns>Plain settings dictionary.</returns>
+        internal static Dictionary<string, object> LoadProviderSettings(string providerName)
+        {
+            Debug.WriteLine($"[SmartHopperSettings] Loading settings for provider '{providerName}' only");
+            if (!File.Exists(SettingsPath))
+            {
+                Debug.WriteLine($"[SmartHopperSettings] Settings file not found at {SettingsPath}, returning defaults.");
+                return new Dictionary<string, object>();
+            }
+
+            try
+            {
+                var json = File.ReadAllText(SettingsPath);
+                var jObj = JObject.Parse(json);
+                var providerToken = jObj["ProviderSettings"]?[providerName];
+                if (providerToken == null)
+                {
+                    Debug.WriteLine($"[SmartHopperSettings] No settings found for provider '{providerName}'.");
+                    return new Dictionary<string, object>();
+                }
+
+                var rawDict = providerToken.ToObject<Dictionary<string, object>>();
+                var descriptors = ProviderManager.Instance.GetProvider(providerName)?.GetSettingDescriptors() ?? Enumerable.Empty<SettingDescriptor>();
+                var decrypted = new Dictionary<string, object>();
+
+                foreach (var kv in rawDict)
+                {
+                    var desc = descriptors.FirstOrDefault(d => d.Name == kv.Key);
+                    if (desc?.IsSecret == true && kv.Value != null)
+                        decrypted[kv.Key] = UnprotectString(kv.Value.ToString());
+                    else
+                        decrypted[kv.Key] = kv.Value;
+                }
+
+                Debug.WriteLine($"[SmartHopperSettings] Loaded settings for '{providerName}': {string.Join(", ", decrypted.Select(kv => kv.Key + "=" + kv.Value))}");
+                return decrypted;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SmartHopperSettings] Error loading settings for '{providerName}': {ex.Message}");
+                return new Dictionary<string, object>();
+            }
         }
 
         /// <summary>
