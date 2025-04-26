@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
+using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Providers.Template
 {
@@ -167,7 +168,7 @@ namespace SmartHopper.Providers.Template
             // Check if the API key is provided
             if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
             {
-                MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
 

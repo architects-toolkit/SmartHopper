@@ -8,11 +8,11 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Managers;
 using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using SmartHopper.Config.Dialogs;
 using System.Diagnostics;
 
 namespace SmartHopper.Providers.MistralAI
@@ -122,14 +122,14 @@ namespace SmartHopper.Providers.MistralAI
             // Check if the API key is provided
             if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
             {
-                MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
 
             // Check if the model is provided
             if (string.IsNullOrWhiteSpace(modelTextBox.Text))
             {
-                MessageBox.Show("Model is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("Model is required.", "Validation Error");
                 return false;
             }
 

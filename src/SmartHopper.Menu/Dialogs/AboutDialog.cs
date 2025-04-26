@@ -14,6 +14,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using SmartHopper.Config.Properties;
+using SmartHopper.Config.Dialogs;
+
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -291,7 +293,7 @@ namespace SmartHopper.Menu.Dialogs
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to open URL: {ex.Message}", "Error", MessageBoxType.Error);
+                StyledMessageDialog.ShowError($"Failed to open URL: {ex.Message}", "Error");
             }
         }
     }
