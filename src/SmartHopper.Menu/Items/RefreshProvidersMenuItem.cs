@@ -1,5 +1,6 @@
 using System.Windows.Forms;
 using SmartHopper.Config.Initialization;
+using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Menu.Items
 {
@@ -16,11 +17,7 @@ namespace SmartHopper.Menu.Items
                 // Use the new initializer to safely refresh everything
                 SmartHopperInitializer.Reinitialize();
                 
-                MessageBox.Show(
-                    "AI provider discovery and settings refresh has been triggered.",
-                    "SmartHopper",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                StyledMessageDialog.ShowInfo("AI provider discovery and settings refresh has been triggered.", "SmartHopper");
             };
             return item;
         }

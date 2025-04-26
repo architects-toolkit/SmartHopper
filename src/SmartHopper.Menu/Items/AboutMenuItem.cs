@@ -10,7 +10,6 @@
 
 using System.Reflection;
 using SmartHopper.Menu.Dialogs;
-
 using System.Windows.Forms;
 
 namespace SmartHopper.Menu.Items

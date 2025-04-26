@@ -19,8 +19,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.Mistr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.OpenAI", "src\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj", "{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Config.Tests", "src\SmartHopper.Config.Tests\SmartHopper.Config.Tests.csproj", "{469B4BA9-C2CB-4270-8896-0F04DAF67887}"
 EndProject
 Global
