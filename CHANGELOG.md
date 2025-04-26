@@ -20,9 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new `ghmoveobj` AI tool in `GhObjTools` for moving Grasshopper component pivot by GUID with absolute or relative position.
 - Added `MoveInstance` method in `GHCanvasUtils` to move existing instances by GUID with absolute or relative pivot positions.
 - Improved security in Providers by accepting only signed assemblies.
-- Added multiple CI Tests, for example,to ensure unsigned provider assemblies are rejected by `ProviderManager.VerifySignature`, to ensure only signed assemblies are loaded by `ProviderManager.LoadProviderAssembly`, and to ensure only enabled providers are registered by `ProviderManager.RegisterProviders`.
+- Added multiple CI Tests, for example, to ensure unsigned provider assemblies are rejected by `ProviderManager.VerifySignature`, to ensure only signed assemblies are loaded by `ProviderManager.LoadProviderAssembly`, and to ensure only enabled providers are registered by `ProviderManager.RegisterProviders`.
 - Added `AIToolCall.cs`, a new model for AI tool call requests.
 - Added `SmartHopperInitializer.cs`, a static class for safe startup and provider initialization.
+- Added `StyledMessageDialog` class in `SmartHopper.Config.Dialogs` for consistent message dialog styling with the SmartHopper logo.
 
 ### Changed
 
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved `ghget` tool's `typeFilter` input: supports include/exclude syntax (+/-) with multiple tokens (params, components, input, output, processing) and updated schema description with definitions and examples.
 - Reorganized `SmartHopper.Core.Grasshopper` files in subfolders that match the namespace.
 - Isolated settings so providers access them only via `ProviderManager`, not directly via `SmartHopperSettings`.
+- SmartHopper icon is now used for all dialogs within SmartHopper (about, settings, messages and ai chat)
 
 ### Removed
 
@@ -47,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug in `DataProcessor` where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
 - Fixed inconsistent list format handling between `AIListEvaluate` and `AIListFilter` components.
 - Fixed `MistralAI` provider not loading `AI Tools`.
+- Fixed `GhGetComponent` select functionality that was accidentally omitted in the new `GhTools`.
 
 ## [0.2.0-alpha] - 2025-04-06
 
