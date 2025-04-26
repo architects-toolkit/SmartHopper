@@ -19,6 +19,7 @@ using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Properties;
 using Rhino.UI;
+using System.Reflection;
 
 namespace SmartHopper.Config.Dialogs
 {
@@ -28,6 +29,9 @@ namespace SmartHopper.Config.Dialogs
     public class StyledMessageDialog : Dialog
     {
         private bool _result;
+
+        private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
+        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
 
         /// <summary>
         /// Gets the SmartHopper logo image from embedded resources.
@@ -46,9 +50,17 @@ namespace SmartHopper.Config.Dialogs
         private StyledMessageDialog(string title, string message, DialogType dialogType, bool isConfirmation)
         {
             Title = title;
-            Resizable = false;
+            Resizable = true;
             Padding = new Padding(20);
-            MinimumSize = new Size(400, 200);
+            Size = new Size(400, 300);
+            MinimumSize = new Size(400, 300);
+
+            // Set window icon from embedded resource
+            using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
+            {
+                if (stream != null)
+                    Icon = new Eto.Drawing.Icon(stream);
+            }
 
             // Create smaller logo
             var logoView = new ImageView
@@ -89,31 +101,25 @@ namespace SmartHopper.Config.Dialogs
                     prefixText = ""; prefixColor = Colors.Black;
                     break;
             }
-            var prefixLabel = new Label
-            {
-                Text = prefixText,
-                Wrap = WrapMode.Word,
-                Font = new Font(SystemFont.Default, 12),
-                TextColor = prefixColor
-            };
+            titleLabel.Text = prefixText + titleLabel.Text;
+            titleLabel.TextColor = prefixColor;
+
             var bodyLabel = new Label
             {
                 Text = message,
                 Wrap = WrapMode.Word,
                 Font = new Font(SystemFont.Default, 12),
                 TextColor = Colors.Black,
-                TextAlignment = TextAlignment.Left
+                TextAlignment = TextAlignment.Left,
             };
-            // Message container with two columns: prefix and body
+
+            // Message container with only the body
             var messageContainer = new TableLayout
             {
                 Spacing = new Size(5, 5),
                 Rows =
                 {
-                    new TableRow(
-                        new TableCell(prefixLabel, false),
-                        new TableCell(bodyLabel, true)
-                    )
+                    new TableRow(new TableCell(bodyLabel, true))
                 }
             };
 
