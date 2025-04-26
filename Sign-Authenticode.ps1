@@ -125,7 +125,10 @@ if ($Generate) {
 
     # Attempt file-based signing first
     Write-Host "Attempting file-based signing..."
-    Get-ChildItem -Path $Sign -Recurse -Filter "SmartHopper.Providers.*.dll" | ForEach-Object {
+    # Sign provider DLLs and the Config assembly
+    Get-ChildItem -Path $Sign -Recurse -Filter "*.dll" |
+      Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Config.dll" } |
+      ForEach-Object {
         $dll = $_.FullName
         Write-Host "Signing $dll with PFX file..."
         & $signtool.Source sign /fd SHA256 /a /f "$pfxPath" /p "$Password" $dll

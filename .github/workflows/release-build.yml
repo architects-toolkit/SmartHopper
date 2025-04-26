@@ -120,6 +120,19 @@ jobs:
     - name: Build solution
       run: dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=signing.snk
 
+    - name: Decode Authenticode PFX from secrets
+      shell: pwsh
+      run: |
+        Write-Host "Decoding Authenticode PFX from secrets..."
+        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGN_PFX_BASE64 }}" -Password "${{ secrets.SIGN_PFX_PASSWORD }}"
+
+    - name: Authenticode-sign provider assemblies
+      shell: pwsh
+      run: |
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        Write-Host "Auth-signing SmartHopper provider DLLs in bin\\$version\\Release"
+        pwsh ./Sign-Authenticode.ps1 -Sign "bin\\$version\\Release" -Password "${{ secrets.SIGN_PFX_PASSWORD }}"
+
     - name: Create Output Directory
       shell: pwsh
       run: |
