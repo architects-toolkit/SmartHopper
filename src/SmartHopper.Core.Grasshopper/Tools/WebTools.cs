@@ -237,12 +237,24 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var content = await response.Content.ReadAsStringAsync();
             var json = JObject.Parse(content);
             var posts = json["posts"] as JArray ?? new JArray();
-            var result = new JArray(posts.Select(p => new JObject
+            var topics = json["topics"] as JArray ?? new JArray();
+            // Build a map of topic ID to title
+            var topicTitles = topics
+                .Where(t => t["id"] != null)
+                .ToDictionary(t => (int)t["id"], t => (string)(t["title"] ?? t["fancy_title"] ?? ""));
+            var result = new JArray(posts.Select(p =>
             {
-                ["id"] = p["id"],
-                ["username"] = p["username"],
-                ["topic_id"] = p["topic_id"],
-                ["cooked"] = p["cooked"]
+                int postId = p.Value<int>("id");
+                int topicId = p.Value<int>("topic_id");
+                return new JObject
+                {
+                    ["id"] = postId,
+                    ["username"] = p.Value<string>("username"),
+                    ["topic_id"] = topicId,
+                    ["title"] = topicTitles.GetValueOrDefault(topicId, string.Empty),
+                    ["date"] = p.Value<string>("created_at"),
+                    ["cooked"] = p.Value<string>("cooked")
+                };
             }));
             return result;
         }
