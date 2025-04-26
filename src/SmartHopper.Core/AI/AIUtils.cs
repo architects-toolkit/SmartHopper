@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace SmartHopper.Core.AI
 {
@@ -133,6 +134,8 @@ namespace SmartHopper.Core.AI
                     };
                 }
 
+                Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} {(includeToolDefinitions ? "with" : "without")} tools");
+
                 var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
@@ -144,7 +147,7 @@ namespace SmartHopper.Core.AI
                 {
                     Response = $"Error: API request failed - {ex.Message}",
                     FinishReason = "error",
-                    CompletionTime = 0
+                    CompletionTime = 0,
                 };
             }
             catch (Exception ex)
@@ -153,7 +156,7 @@ namespace SmartHopper.Core.AI
                 {
                     Response = $"Error: {ex.Message}",
                     FinishReason = "error",
-                    CompletionTime = 0
+                    CompletionTime = 0,
                 };
             }
         }
