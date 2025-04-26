@@ -1,0 +1,28 @@
+name: .NET CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SmartHopper.sln
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release SmartHopper.sln
+
+      - name: Run all tests
+        run: dotnet test --no-build --configuration Release --results-directory TestResults
