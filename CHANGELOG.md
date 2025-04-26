@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `SmartHopperInitializer.cs`, a static class for safe startup and provider initialization.
 - Added `StyledMessageDialog` class in `SmartHopper.Config.Dialogs` for consistent message dialog styling with the SmartHopper logo.
 - Added `WebTools` to retrieve webpages from the Internet and provide them to the AI provider.
+- Added `Search Rhino Forum` webtool to query posts in Rhino Forum.
 
 ### Changed
 
