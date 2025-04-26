@@ -18,6 +18,8 @@
   Authenticode-signs all SmartHopper.Providers.*.dll under the given path, using the decoded PFX.
 .PARAMETER Help
   Displays this help message.
+.PARAMETER PfxPath
+  Override default signing PFX path (default 'signing.pfx').
 #>
 param(
     [switch]$Generate,
@@ -26,10 +28,12 @@ param(
     [string]$Password,
     [switch]$Export,
     [switch]$Help,
-    [string]$Sign
+    [string]$Sign,
+    [string]$PfxPath
 )
 
-$pfxPath = 'signing.pfx'
+# default PFX path; override via -PfxPath
+$pfxPath = if ($PfxPath) { $PfxPath } else { 'signing.pfx' }
 
 function Show-Help {
     Write-Host "Usage: .\Sign-Authenticode.ps1 [options]"
@@ -42,6 +46,7 @@ function Show-Help {
     Write-Host "  -Export                 Exports signing.pfx as Base64 text to stdout. Requires -Password."  
     Write-Host "  -Sign <path>            Authenticode-signs all SmartHopper.Providers.*.dll under <path>. Requires Base64 or Generate."  
     Write-Host "  -Help                   Displays this help message."  
+    Write-Host "  -PfxPath <path>         Override default signing PFX path (default 'signing.pfx')."  
 }
 
 if ($Help -or (-not $Generate -and -not $Base64 -and -not $File -and -not $Export -and -not $Sign)) {
