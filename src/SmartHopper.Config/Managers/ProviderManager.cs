@@ -18,6 +18,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Security;
 using System.Threading.Tasks;
 using Rhino;
 using Eto.Forms;
@@ -453,14 +454,40 @@ namespace SmartHopper.Config.Managers
         // Implement Authenticode verification using X509Certificate
         private void VerifySignature(string filePath)
         {
+            // Authenticode: ensure the certificate matches the host assembly's certificate
             try
             {
-                X509Certificate cert = X509Certificate.CreateFromSignedFile(filePath);
-                // Signature OK
+                var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
+                var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
+                    Assembly.GetExecutingAssembly().Location));
+                if (!string.Equals(cert.Thumbprint, baseCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                    throw new CryptographicException($"Authenticode certificate mismatch for {Path.GetFileName(filePath)}.");
             }
-            catch (CryptographicException ex)
+            catch (CryptographicException)
             {
-                throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}.", ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}: {ex.Message}", ex);
+            }
+
+            // Strong-name: ensure public key token matches the host assembly's token
+            try
+            {
+                var asmName = AssemblyName.GetAssemblyName(filePath);
+                var token = asmName.GetPublicKeyToken();
+                var baseToken = Assembly.GetExecutingAssembly().GetName().GetPublicKeyToken();
+                if (!Enumerable.SequenceEqual(token, baseToken))
+                    throw new SecurityException($"Strong-name public key token mismatch for {Path.GetFileName(filePath)}.");
+            }
+            catch (SecurityException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new SecurityException($"Strong-name signature verification failed for {Path.GetFileName(filePath)}: {ex.Message}", ex);
             }
         }
     }
