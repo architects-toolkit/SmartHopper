@@ -22,6 +22,7 @@ using System.Security;
 using System.Threading.Tasks;
 using Rhino;
 using Eto.Forms;
+using SmartHopper.Config.Dialogs;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.Pkcs;
 using System.Drawing;
@@ -170,11 +171,7 @@ namespace SmartHopper.Config.Managers
                     Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
                     RhinoApp.InvokeOnUiThread(new Action(() =>
                     {
-                        MessageBox.Show(
-                            $"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.",
-                            "SmartHopper",
-                            MessageBoxButtons.OK,
-                            MessageBoxType.Error);
+                        StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
                     }));
                     return;
                 }
@@ -194,8 +191,7 @@ namespace SmartHopper.Config.Managers
                     var tcs = new TaskCompletionSource<bool>();
                     RhinoApp.InvokeOnUiThread(new Action(() =>
                     {
-                        var result = MessageBox.Show($"Detected new AI provider '{asmName}'. Enable it?", MessageBoxButtons.YesNo);
-                        tcs.SetResult(result == DialogResult.Yes);
+                        tcs.SetResult(StyledMessageDialog.ShowConfirmation($"Detected new AI provider '{asmName}'. Enable it?"));
                     }));
                     if (tcs.Task.Result)
                     {

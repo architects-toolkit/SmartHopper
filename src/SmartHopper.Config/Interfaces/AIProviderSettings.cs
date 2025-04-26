@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
+using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Config.Interfaces
 {
@@ -133,7 +132,7 @@ namespace SmartHopper.Config.Interfaces
             var text = apiKeyTextBox.Text;
             if (string.IsNullOrWhiteSpace(text) || (text == "<secret-defined>" && string.IsNullOrEmpty(decryptedApiKey)))
             {
-                MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
             return true;

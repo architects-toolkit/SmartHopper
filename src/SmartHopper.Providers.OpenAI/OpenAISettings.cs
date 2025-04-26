@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
+using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -170,14 +171,14 @@ namespace SmartHopper.Providers.OpenAI
             // Check if the API key is provided
             if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
             {
-                MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
 
             // Check if the model is provided
             if (string.IsNullOrWhiteSpace(modelTextBox.Text))
             {
-                MessageBox.Show("Model is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("Model is required.", "Validation Error");
                 return false;
             }
 
