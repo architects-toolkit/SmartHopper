@@ -175,12 +175,17 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""attrFilters"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Array of attribute filter tokens. '+' includes, '-' excludes. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on.""
+                            ""description"": ""Optional array of attribute filter tokens. '+' includes, '-' excludes. Defaults to all components. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on; no filter → all components.""
                         },
                         ""typeFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optional array of classification tokens with include/exclude syntax. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  input: components with no incoming connections (inputs only);\n  output: components with no outgoing connections (outputs only);\n  processing: components with both incoming and outgoing connections;\n  isolated: components with neither incoming nor outgoing connections (isolated).\nExamples: ['+params', '-components'] to include parameters and exclude components.\nWhen omitted, no type filtering is applied (all objects returned).""
+                            ""description"": ""Optional array of type tokens with include/exclude syntax. Defaults to all types. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  input: components with no incoming connections;\n  output: components with no outgoing connections;\n  processing: components with both incoming and outgoing connections;\n  isolated: components with neither incoming nor outgoing connections.\nExamples: ['+params', '-components'] to include parameters and exclude components.""
+                        },
+                        ""guidFilter"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""Optional list of component GUIDs for initial filtering. When provided, only components with these GUIDs are processed. If not provided, all components are processed.""
                         },
                         ""connectionDepth"": {
                             ""type"": ""integer"",
@@ -202,7 +207,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""categoryFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'ghcategories' to get the full list of available categories)""
+                            ""description"": ""Optionally filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'ghcategories' to get the full list of available categories)""
                         }
                     }
                 }",
@@ -239,6 +244,14 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var attrFilters = parameters["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
             var typeFilters = parameters["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
             var objects = GHCanvasUtils.GetCurrentObjects();
+
+            // Filter by manual UI selection if provided
+            var selectedGuids = parameters["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
+            if (selectedGuids.Any())
+            {
+                var set = new HashSet<string>(selectedGuids);
+                objects = objects.Where(o => set.Contains(o.InstanceGuid.ToString())).ToList();
+            }
             var connectionDepth = parameters["connectionDepth"]?.ToObject<int>() ?? 0;
             var (includeTypes, excludeTypes) = ParseIncludeExclude(typeFilters, TypeSynonyms);
             var (includeTags, excludeTags) = ParseIncludeExclude(attrFilters, FilterSynonyms);
