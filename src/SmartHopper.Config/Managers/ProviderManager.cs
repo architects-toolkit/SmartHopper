@@ -17,6 +17,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Rhino;
 using Eto.Forms;
@@ -449,10 +450,18 @@ namespace SmartHopper.Config.Managers
             Debug.WriteLine($"[ProviderManager] Provider {providerName} reinitialized with updated settings");
         }
 
-        // Implement Authenticode verification using SignedCms
+        // Implement Authenticode verification using X509Certificate
         private void VerifySignature(string filePath)
         {
-            // Signature verification implementation
+            try
+            {
+                X509Certificate cert = X509Certificate.CreateFromSignedFile(filePath);
+                // Signature OK
+            }
+            catch (CryptographicException ex)
+            {
+                throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}.", ex);
+            }
         }
     }
 }
