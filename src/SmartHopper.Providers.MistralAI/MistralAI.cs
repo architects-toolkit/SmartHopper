@@ -213,7 +213,7 @@ namespace SmartHopper.Providers.MistralAI
                 };
 
                 // Add tools if requested
-                if (includeToolDefinitions && !string.IsNullOrEmpty(jsonSchema))
+                if (includeToolDefinitions)
                 {
                     var tools = GetFormattedTools();
                     if (tools != null && tools.Count > 0)

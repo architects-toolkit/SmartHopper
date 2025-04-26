@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="$(SolutionDir)Solution.props" />
+  <Import Project="$(SolutionDir)Solution.props" Condition="Exists('$(SolutionDir)Solution.props')" />
   
   <PropertyGroup>
     <TargetFrameworks>net7.0-windows;net7.0</TargetFrameworks>

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new `ghmoveobj` AI tool in `GhObjTools` for moving Grasshopper component pivot by GUID with absolute or relative position.
 - Added `MoveInstance` method in `GHCanvasUtils` to move existing instances by GUID with absolute or relative pivot positions.
 - Improved security in Providers by accepting only signed assemblies.
+- Added multiple CI Tests, for example,to ensure unsigned provider assemblies are rejected by `ProviderManager.VerifySignature`, to ensure only signed assemblies are loaded by `ProviderManager.LoadProviderAssembly`, and to ensure only enabled providers are registered by `ProviderManager.RegisterProviders`.
 - Added `AIToolCall.cs`, a new model for AI tool call requests.
 - Added `SmartHopperInitializer.cs`, a static class for safe startup and provider initialization.
 
@@ -45,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed mismatch between in-memory and on-disk `TrustedProviders` when prompting in `ProviderManager.LoadProviderAssembly()`
 - Fixed a bug in `DataProcessor` where results were being duplicated when multiple branches were grouped together to unsuccessfully prevent unnecessary API calls [#32](https://github.com/architects-toolkit/SmartHopper/issues/32)
 - Fixed inconsistent list format handling between `AIListEvaluate` and `AIListFilter` components.
+- Fixed `MistralAI` provider not loading `AI Tools`.
 
 ## [0.2.0-alpha] - 2025-04-06
 
