@@ -64,7 +64,18 @@ namespace SmartHopper.Core.AI.Chat
             ShowInTaskbar = true;
             Owner = null; // Ensure we don't block the parent window
                         
-            _getResponse = getResponse ?? throw new ArgumentNullException(nameof(getResponse));
+            // Wrap the incoming getResponse delegate with logging for entry and exit
+            if (getResponse == null) throw new ArgumentNullException(nameof(getResponse));
+            Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {getResponse.Method.DeclaringType.FullName}.{getResponse.Method.Name}");
+            var originalGetResponse = getResponse;
+            _getResponse = async messages =>
+            {
+                Debug.WriteLine($"[WebChatDialog] Calling getResponse delegate ({originalGetResponse.Method.DeclaringType.FullName}.{originalGetResponse.Method.Name}) with {messages.Count} messages");
+                var resp = await originalGetResponse(messages);
+                Debug.WriteLine($"[WebChatDialog] getResponse completed: ToolCalls count = {resp?.ToolCalls?.Count ?? 0}");
+                return resp;
+            };
+            
             _chatHistory = new List<KeyValuePair<string, string>>();
             _htmlRenderer = new HtmlChatRenderer();
 
