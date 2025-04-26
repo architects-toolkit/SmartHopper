@@ -14,10 +14,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
+using SmartHopper.Config.Properties;
 using Rhino;
 using Newtonsoft.Json;
 
@@ -28,6 +30,9 @@ namespace SmartHopper.Menu.Dialogs
     /// </summary>
     internal class SettingsDialog : Dialog
     {
+        private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
+        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
         {
             [typeof(string)] = descriptor => 
@@ -57,6 +62,12 @@ namespace SmartHopper.Menu.Dialogs
         /// </summary>
         public SettingsDialog()
         {
+            // Set window icon from embedded resource
+            using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
+            {
+                if (stream != null)
+                    Icon = new Icon(stream);
+            }
             Title = "SmartHopper Settings";
             Size = new Size(500, 400);
             MinimumSize = new Size(400, 300);

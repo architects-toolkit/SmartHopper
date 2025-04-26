@@ -72,4 +72,7 @@
       <LastGenOutput>providersResources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\smarthopper.ico" />
+  </ItemGroup>
 </Project>

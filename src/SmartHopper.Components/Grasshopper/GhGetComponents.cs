@@ -157,6 +157,7 @@ namespace SmartHopper.Components.Grasshopper
                     ["attrFilters"] = JArray.FromObject(filters),
                     ["typeFilter"] = JArray.FromObject(typeFilters),
                     ["connectionDepth"] = connectionDepth,
+                    ["guidFilter"] = JArray.FromObject(selectedObjects.Select(o => o.InstanceGuid.ToString())),
                 };
                 var toolResult = AIToolManager.ExecuteTool("ghget", parameters, null).GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)

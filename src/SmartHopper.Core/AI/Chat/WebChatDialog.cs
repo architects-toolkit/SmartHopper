@@ -8,18 +8,26 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+/*
+ * WebChatDialog.cs
+ * Provides a dialog-based chat interface using WebView for rendering HTML content.
+ */
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.IO;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Managers;
+using SmartHopper.Config.Properties;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -49,6 +57,9 @@ namespace SmartHopper.Core.AI.Chat
         /// </summary>
         public event EventHandler<AIResponse> ResponseReceived;
 
+        private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
+        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+
         /// <summary>
         /// Creates a new web chat dialog.
         /// </summary>
@@ -56,14 +67,23 @@ namespace SmartHopper.Core.AI.Chat
         public WebChatDialog(Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
-            
+
             Title = "SmartHopper AI Chat";
             MinimumSize = new Size(600, 700);
             Size = new Size(700, 800);
             Resizable = true;
             ShowInTaskbar = true;
             Owner = null; // Ensure we don't block the parent window
-                        
+
+            // Set window icon from embedded resource
+            using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
+            {
+                if (stream != null)
+                {
+                    Icon = new Eto.Drawing.Icon(stream);
+                }
+            }
+
             // Wrap the incoming getResponse delegate with logging for entry and exit
             if (getResponse == null) throw new ArgumentNullException(nameof(getResponse));
             Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {getResponse.Method.DeclaringType.FullName}.{getResponse.Method.Name}");
