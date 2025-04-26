@@ -70,6 +70,21 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ExecuteSearchRhinoForumAsync
             );
+            yield return new AITool(
+                name: "get_rhino_forum_post",
+                description: "Retrieve full JSON of a Rhino Discourse forum post by ID.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""id"": {
+                            ""type"": ""integer"",
+                            ""description"": ""ID of the forum post to fetch.""
+                        }
+                    },
+                    ""required"": [""id""]
+                }",
+                execute: this.ExecuteGetRhinoForumPostAsync
+            );
         }
         #endregion
 
@@ -230,6 +245,24 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 ["cooked"] = p["cooked"]
             }));
             return result;
+        }
+        #endregion
+
+        #region getRhinoForumPost
+        /// <summary>
+        /// Retrieves full JSON of a Rhino Discourse forum post by ID.
+        /// </summary>
+        /// <param name="parameters">A JObject containing the ID parameter.</param>
+        private async Task<object> ExecuteGetRhinoForumPostAsync(JObject parameters)
+        {
+            int id = parameters.Value<int>("id");
+            var httpClient = new HttpClient();
+            var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
+            var response = await httpClient.GetAsync(postUri);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            var json = JObject.Parse(content);
+            return json;
         }
         #endregion
 
