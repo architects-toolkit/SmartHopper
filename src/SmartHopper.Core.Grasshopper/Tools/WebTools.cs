@@ -36,6 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
+        #region ToolRegistration
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -54,8 +55,25 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ExecuteFetchWebPageTextAsync
             );
+            yield return new AITool(
+                name: "search_rhino_forum",
+                description: "Search Rhino Discourse forum posts by query and return matching posts.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""query"": {
+                            ""type"": ""string"",
+                            ""description"": ""Search query for Rhino Discourse forum.""
+                        }
+                    },
+                    ""required"": [""query""]
+                }",
+                execute: this.ExecuteSearchRhinoForumAsync
+            );
         }
+        #endregion
 
+        #region fetchWebpageText
         /// <summary>
         /// Fetches the text content of a webpage given its URL, if allowed by robots.txt.
         /// </summary>
@@ -191,14 +209,38 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             return text;
         }
+        #endregion
 
-        /// <summary>
-        /// Simple robots.txt parser supporting User-agent: * and Disallow directives.
-        /// </summary>
+        #region searchRhinoForum
+        private async Task<object> ExecuteSearchRhinoForumAsync(JObject parameters)
+        {
+            string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
+            var httpClient = new HttpClient();
+            var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
+            var response = await httpClient.GetAsync(searchUri);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            var json = JObject.Parse(content);
+            var posts = json["posts"] as JArray ?? new JArray();
+            var result = new JArray(posts.Select(p => new JObject
+            {
+                ["id"] = p["id"],
+                ["username"] = p["username"],
+                ["topic_id"] = p["topic_id"],
+                ["cooked"] = p["cooked"]
+            }));
+            return result;
+        }
+        #endregion
+
+        #region Helpers
         private class RobotsTxtParser
         {
             private readonly List<string> disallowed = new List<string>();
 
+            /// <summary>
+        /// Simple robots.txt parser supporting User-agent: * and Disallow directives.
+        /// </summary>
             public RobotsTxtParser(string content)
             {
                 bool appliesToAll = false;
@@ -241,5 +283,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return true;
             }
         }
+        #endregion
     }
 }
