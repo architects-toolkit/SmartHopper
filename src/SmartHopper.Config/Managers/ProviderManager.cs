@@ -45,7 +45,7 @@ namespace SmartHopper.Config.Managers
         private ProviderManager()
         {
             // Register built-in providers
-            RegisterBuiltInProviders();
+            // RegisterBuiltInProviders();
             // External discovery is now triggered explicitly via RefreshProviders
             
             // NOTE: Do NOT automatically call RefreshProviders() here to avoid circular dependencies
@@ -55,50 +55,54 @@ namespace SmartHopper.Config.Managers
         /// <summary>
         /// Registers the built-in providers that are part of the core SmartHopper.Config assembly.
         /// </summary>
-        private void RegisterBuiltInProviders()
-        {
-            // This method would register any providers that are still part of the core assembly
-            var assembly = Assembly.GetExecutingAssembly();
-            var providerTypes = assembly.GetTypes()
-                .Where(t => typeof(IAIProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
+        // private void RegisterBuiltInProviders()
+        // {
+        //     // This method would register any providers that are still part of the core assembly
+        //     var assembly = Assembly.GetExecutingAssembly();
+        //     Type[] types;
+        //     try
+        //     {
+        //         types = assembly.GetTypes();
+        //     }
+        //     catch (ReflectionTypeLoadException ex)
+        //     {
+        //         types = ex.Types.Where(t => t != null).ToArray();
+        //     }
+        //     var providerTypes = types.Where(t => typeof(IAIProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
 
-            foreach (var type in providerTypes)
-            {
-                try
-                {
-                    var instanceProperty = type.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                    if (instanceProperty != null)
-                    {
-                        var provider = instanceProperty.GetValue(null) as IAIProvider;
-                        if (provider != null)
-                        {
-                            // For built-in providers, we need to create settings manually
-                            // This is a temporary solution until all providers are moved to separate assemblies
-                            var settingsTypeName = $"{provider.Name}Settings";
-                            var settingsType = assembly.GetTypes()
-                                .FirstOrDefault(t => typeof(IAIProviderSettings).IsAssignableFrom(t) && 
-                                                   !t.IsInterface && 
-                                                   !t.IsAbstract && 
-                                                   t.Name == settingsTypeName);
+        //     foreach (var type in providerTypes)
+        //     {
+        //         try
+        //         {
+        //             var instanceProperty = type.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+        //             if (instanceProperty != null)
+        //             {
+        //                 var provider = instanceProperty.GetValue(null) as IAIProvider;
+        //                 if (provider != null)
+        //                 {
+        //                     // For built-in providers, we need to create settings manually
+        //                     // This is a temporary solution until all providers are moved to separate assemblies
+        //                     var settingsTypeName = $"{provider.Name}Settings";
+        //                     var settingsType = types.FirstOrDefault(t => typeof(IAIProviderSettings).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract && t.Name == settingsTypeName);
 
-                            if (settingsType != null)
-                            {
-                                var settings = Activator.CreateInstance(settingsType, provider) as IAIProviderSettings;
-                                if (settings != null)
-                                {
-                                    RegisterProvider(provider, settings, assembly);
-                                    Debug.WriteLine($"Registered built-in provider: {provider.Name}");
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error registering built-in provider {type.Name}: {ex.Message}");
-                }
-            }
-        }
+        //                     if (settingsType != null)
+        //                     {
+        //                         var settings = Activator.CreateInstance(settingsType, provider) as IAIProviderSettings;
+        //                         if (settings != null)
+        //                         {
+        //                             RegisterProvider(provider, settings, assembly);
+        //                             Debug.WriteLine($"Registered built-in provider: {provider.Name}");
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             Debug.WriteLine($"Error registering built-in provider {type.Name}: {ex.Message}");
+        //         }
+        //     }
+        // }
 
         /// <summary>
         /// Discovers and loads provider assemblies from the same directory as the main application.
