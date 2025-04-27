@@ -53,3 +53,7 @@ _ReSharper*/
 # Not licensed images
 design/icons/template/*
 design/icons/source/*
+
+# Code signing
+*.snk
+*.pfx

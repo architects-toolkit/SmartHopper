@@ -13,13 +13,17 @@
 /CHANGELOG.md       @marc-romu
 /LICENSE            @marc-romu
 /CONTRIBUTING.md    @marc-romu
+/RELEASE_CHECKLIST.md @marc-romu
 
 # Critical repository files
 /.gitignore         @marc-romu
 /.gitattributes     @marc-romu
 /.windsurfrules     @marc-romu
+*.ps1               @marc-romu
 
 # Critical solution files
 /*.sln              @marc-romu
 /NuGet.Config       @marc-romu
 /Solution.props     @marc-romu
+/Directory.Build.props @marc-romu
+/Directory.Build.targets @marc-romu

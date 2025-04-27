@@ -1,0 +1,9 @@
+<Project>
+  <!-- Purpose: Runs Sign-Authenticode.ps1 to Authenticode-sign built assemblies when PFX Base64 and password are provided -->
+  <Target Name="AuthenticodeSign" AfterTargets="Build" Condition=" '$(SIGN_PFX_BASE64)' != '' And '$(SIGN_PFX_PASSWORD)' != '' ">
+    <!-- Informational message -->
+    <Message Importance="high" Text="Authenticode-signing assemblies in $(OutputPath)" />
+    <!-- Invoke the signing script using Base64 PFX and password from environment/props -->
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SolutionDir)Sign-Authenticode.ps1&quot; -Base64 &quot;$(SIGN_PFX_BASE64)&quot; -Password &quot;$(SIGN_PFX_PASSWORD)&quot; -Sign &quot;$(OutputPath)&quot;" />
+  </Target>
+</Project>

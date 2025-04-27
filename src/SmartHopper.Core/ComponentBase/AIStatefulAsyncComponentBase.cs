@@ -20,14 +20,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
+using SmartHopper.Config.Managers;
+
+using System.Windows.Forms;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -237,7 +238,7 @@ namespace SmartHopper.Core.ComponentBase
             return changedInputs;
         }
 
-        #endregion
+#endregion
 
         #region AI
 

@@ -8,18 +8,26 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+/*
+ * WebChatDialog.cs
+ * Provides a dialog-based chat interface using WebView for rendering HTML content.
+ */
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.IO;
 using Eto.Forms;
 using Eto.Drawing;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Properties;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -49,6 +57,9 @@ namespace SmartHopper.Core.AI.Chat
         /// </summary>
         public event EventHandler<AIResponse> ResponseReceived;
 
+        private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
+        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+
         /// <summary>
         /// Creates a new web chat dialog.
         /// </summary>
@@ -56,15 +67,35 @@ namespace SmartHopper.Core.AI.Chat
         public WebChatDialog(Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
-            
+
             Title = "SmartHopper AI Chat";
             MinimumSize = new Size(600, 700);
             Size = new Size(700, 800);
             Resizable = true;
             ShowInTaskbar = true;
             Owner = null; // Ensure we don't block the parent window
-                        
-            _getResponse = getResponse ?? throw new ArgumentNullException(nameof(getResponse));
+
+            // Set window icon from embedded resource
+            using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
+            {
+                if (stream != null)
+                {
+                    Icon = new Eto.Drawing.Icon(stream);
+                }
+            }
+
+            // Wrap the incoming getResponse delegate with logging for entry and exit
+            if (getResponse == null) throw new ArgumentNullException(nameof(getResponse));
+            Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {getResponse.Method.DeclaringType.FullName}.{getResponse.Method.Name}");
+            var originalGetResponse = getResponse;
+            _getResponse = async messages =>
+            {
+                Debug.WriteLine($"[WebChatDialog] Calling getResponse delegate ({originalGetResponse.Method.DeclaringType.FullName}.{originalGetResponse.Method.Name}) with {messages.Count} messages");
+                var resp = await originalGetResponse(messages);
+                Debug.WriteLine($"[WebChatDialog] getResponse completed: ToolCalls count = {resp?.ToolCalls?.Count ?? 0}");
+                return resp;
+            };
+            
             _chatHistory = new List<KeyValuePair<string, string>>();
             _htmlRenderer = new HtmlChatRenderer();
 
@@ -503,19 +534,19 @@ namespace SmartHopper.Core.AI.Chat
                 }
                 
                 // Check for tool calls in the response
-                string toolName = AIUtils.ExtractToolName(response.Response);
-                string toolArgs = AIUtils.ExtractToolArgs(response.Response);
-                
-                if (!string.IsNullOrEmpty(toolName) && !string.IsNullOrEmpty(toolArgs))
+                if (response.ToolCalls != null && response.ToolCalls.Count > 0)
                 {
-                    Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolName}");
-                    
-                    // Don't add the tool call message to chat history as regular text
-                    // Instead, add a formatted tool call message
-                    AddToolCallMessage(toolName, toolArgs);
-                    
-                    // Process the tool call
-                    await ProcessToolCall(toolName, toolArgs, response.Provider, response.Model);
+                    foreach (var toolCall in response.ToolCalls)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolCall.Name}");
+                        
+                        // Don't add the tool call message to chat history as regular text
+                        // Instead, add a formatted tool call message
+                        AddToolCallMessage(toolCall.Name, toolCall.Arguments);
+                        
+                        // Process the tool call
+                        await ProcessToolCall(toolCall.Name, toolCall.Arguments, response.Provider, response.Model);
+                    }
                 }
                 else
                 {

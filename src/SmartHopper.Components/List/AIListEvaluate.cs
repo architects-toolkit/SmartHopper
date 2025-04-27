@@ -1,33 +1,36 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
-using SmartHopper.Core.DataTree;
-using SmartHopper.Core.ComponentBase;
-using SmartHopper.Components.Properties;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using System.Collections.Generic;
-using System.Linq;
+using SmartHopper.Components.Properties;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
 
 namespace SmartHopper.Components.List
 {
     public class AIListEvaluate : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("A8BAD48D-8723-42AD-B13C-A875F940B69C");
-        protected override System.Drawing.Bitmap Icon => Resources.listevaluate;
+        public override Guid ComponentGuid => new("A8BAD48D-8723-42AD-B13C-A875F940B69C");
+
+        protected override Bitmap Icon => Resources.listevaluate;
+
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public AIListEvaluate()
@@ -55,30 +58,30 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListEvaluateWorker(this, AddRuntimeMessage);
+            return new AIListEvaluateWorker(this, this.AddRuntimeMessage);
         }
 
         private class AIListEvaluateWorker : AsyncWorkerBase
         {
-            private Dictionary<string, GH_Structure<GH_String>> _inputTree;
-            private Dictionary<string, GH_Structure<GH_Boolean>> _result;
-            private readonly AIListEvaluate _parent;
+            private Dictionary<string, GH_Structure<GH_String>> inputTree;
+            private Dictionary<string, GH_Structure<GH_Boolean>> result;
+            private readonly AIListEvaluate parent;
 
             public AIListEvaluateWorker(
             AIListEvaluate parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
-                _result = new Dictionary<string, GH_Structure<GH_Boolean>>
+                this.parent = parent;
+                this.result = new Dictionary<string, GH_Structure<GH_Boolean>>
                 {
-                    { "Result", new GH_Structure<GH_Boolean>() }
+                    { "Result", new GH_Structure<GH_Boolean>() },
                 };
             }
 
             public override void GatherInput(IGH_DataAccess DA)
             {
-                _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
+                this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
                 // Get the input trees
                 var listTree = new GH_Structure<IGH_Goo>();
@@ -91,8 +94,8 @@ namespace SmartHopper.Components.List
                 var stringListTree = ConvertToGHString(listTree);
 
                 // Store the converted trees
-                _inputTree["List"] = stringListTree;
-                _inputTree["Question"] = questionTree;
+                this.inputTree["List"] = stringListTree;
+                this.inputTree["Question"] = questionTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -100,21 +103,21 @@ namespace SmartHopper.Components.List
                 try
                 {
                     Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", _inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", _inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_Boolean>(
-                        _inputTree,
-                        async (branches, reuseCount) => 
+                    this.result = await DataTreeProcessor.RunFunctionAsync(
+                        this.inputTree,
+                        async (branches, reuseCount) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, _parent, reuseCount);
+                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
-                        token);
-                        
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", _result.Keys)}");
+                        token).ConfigureAwait(false);
+
+                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
@@ -144,8 +147,8 @@ namespace SmartHopper.Components.List
                 var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
                     new List<List<GH_String>>
                     {
-                        new List<GH_String>(new GH_String[] { new GH_String(listAsJson.ToString()) }),
-                        questionTree
+                        new (new GH_String[] { new (listAsJson.ToString()) }),
+                        questionTree,
                     });
 
                 // Reassign normalized branches
@@ -164,12 +167,12 @@ namespace SmartHopper.Components.List
                 foreach (var question in questionTree)
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
-                    
+
                     // Use the generic ListTools.EvaluateListAsync method with the string JSON representation
                     var evaluationResult = await ListTools.EvaluateListAsync(
                         normalizedListTree[i].Value,
                         question,
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
 
                     if (!evaluationResult.Success)
                     {
@@ -182,7 +185,7 @@ namespace SmartHopper.Components.List
                         {
                             parent.SetPersistentRuntimeMessage("ai_error", evaluationResult.ErrorLevel, evaluationResult.ErrorMessage, false);
                         }
-                        
+
                         outputs["Result"].Add(null);
                     }
                     else
@@ -199,16 +202,16 @@ namespace SmartHopper.Components.List
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", _result.Keys)}");
-                
-                if (!_result.ContainsKey("Result"))
+                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
+
+                if (!this.result.TryGetValue("Result", out GH_Structure<GH_Boolean>? value))
                 {
                     Debug.WriteLine("[Worker] Warning: Result key not found in output dictionary");
                     message = "Error: No result available";
                     return;
                 }
 
-                _parent.SetPersistentOutput("Result", _result["Result"], DA);
+                this.parent.SetPersistentOutput("Result", value, DA);
                 message = "Done :)";
             }
         }

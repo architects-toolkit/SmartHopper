@@ -133,4 +133,42 @@ Describe the testing you've done to validate your changes.
 - [ ] CHANGELOG.md has been updated
 - [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.1.0/) format
 - [ ] PR description follows [Pull Request Description Template](https://github.com/architects-toolkit/SmartHopper/blob/main/CONTRIBUTING.md#pull-request-description-template)
-```
+
+# Visual Studio 2022 Setup
+
+Follow these steps to configure Visual Studio 2022 for SmartHopper development:
+
+1. Ensure you have **Visual Studio 2022** installed with the following workloads:
+   - .NET desktop development
+   - **(Optional)** .NET cross-platform development
+2. Clone the repository:
+   ```powershell
+   git clone https://github.com/SmartHopper/SmartHopper-public.git
+   ```
+3. Open `SmartHopper.sln` in Visual Studio 2022.
+4. In **Solution Explorer**, right-click the solution and select **Restore NuGet Packages**.
+5. Verify that all projects target **.NET 7** and that Rhino/Grasshopper SDK references resolve.
+
+### Initializing Code Signing (required before the first build)
+
+When developing locally, you must generate and apply both strong-name and Authenticode signatures:
+
+1. Open **Developer PowerShell for Visual Studio 2022** as Administrator.
+2. cd to the repository root.
+3. Generate a strong-name key:
+   ```powershell
+   .\Sign-StrongNames.ps1 -Generate
+   ```
+4. Create a self-signed PFX for Authenticode via the Authenticode script:
+   ```powershell
+   .\Sign-Authenticode.ps1 -Generate -Password '<password>'
+   ```
+5. Build the solution from Visual Studio or via the command line:
+   ```powershell
+   dotnet build SmartHopper.sln -c Release
+   ```
+6. Authenticode-sign provider DLLs (e.g. for Grasshopper testing):
+   ```powershell
+   .\Sign-Authenticode.ps1 -Base64 '<Base64Pfx>' -Password '<password>' -Sign bin\Debug\net7.0-windows
+   ```
+7. Open the `bin\Debug\net7.0-windows` folder in Grasshopper to load the signed plugin.

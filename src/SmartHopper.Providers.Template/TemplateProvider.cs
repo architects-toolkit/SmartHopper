@@ -30,7 +30,7 @@ namespace SmartHopper.Providers.Template
     /// 4. Create a factory class that implements IAIProviderFactory
     /// 5. Set IsEnabled to true when your provider is ready for use
     /// </summary>
-    public class TemplateProvider : IAIProvider
+    public class TemplateProvider : AIProvider
     {
         // Static instance for singleton pattern
         private static readonly Lazy<TemplateProvider> _instance = new Lazy<TemplateProvider>(() => new TemplateProvider());
@@ -61,23 +61,23 @@ namespace SmartHopper.Providers.Template
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
-        public string Name => _name;
+        public override string Name => _name;
 
         /// <summary>
         /// Gets the default model for this provider.
         /// </summary>
-        public string DefaultModel => _defaultModel;
+        public override string DefaultModel => _defaultModel;
 
         /// <summary>
         /// Gets whether this provider is enabled and should be available for use.
         /// Set this to false for template or experimental providers that shouldn't be used in production.
         /// </summary>
-        public bool IsEnabled => false; // Set to true when your provider is ready for use
+        public override bool IsEnabled => false; // Set to true when your provider is ready for use
 
         /// <summary>
         /// Gets the provider's icon.
         /// </summary>
-        public Image Icon
+        public override Image Icon
         {
             get
             {
@@ -94,7 +94,7 @@ namespace SmartHopper.Providers.Template
         /// These describe the settings that can be configured in the UI.
         /// </summary>
         /// <returns>A collection of setting descriptors.</returns>
-        public IEnumerable<SettingDescriptor> GetSettingDescriptors()
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             // Define the settings that your provider requires
             return new[]
@@ -134,17 +134,73 @@ namespace SmartHopper.Providers.Template
         /// </summary>
         /// <param name="settings">The settings to validate.</param>
         /// <returns>True if the settings are valid, otherwise false.</returns>
-        public bool ValidateSettings(Dictionary<string, object> settings)
+        public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            // Check if required settings are present and valid
+            // Only validate settings that are actually provided
             if (settings == null)
                 return false;
 
-            // Validate API key (required)
-            if (!settings.ContainsKey("ApiKey") || string.IsNullOrWhiteSpace(settings["ApiKey"]?.ToString()))
-                return false;
+            // Check API key format if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
+            {
+                string apiKey = apiKeyObj.ToString();
+                // Simple format validation - don't require presence, just valid format if provided
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    // Invalid format: empty key
+                    return false;
+                }
+                // API key format is valid
+            }
 
-            // Validate other settings as needed
+            // Check endpoint format if present
+            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
+            {
+                string endpoint = endpointObj.ToString();
+                if (string.IsNullOrWhiteSpace(endpoint))
+                {
+                    // Invalid format: empty endpoint
+                    return false;
+                }
+                
+                // Optional: Add URL format validation if needed
+                try
+                {
+                    // Simple URL validation
+                    if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
+                    {
+                        // Invalid format: not a URL
+                        return false;
+                    }
+                }
+                catch
+                {
+                    // Invalid format
+                    return false;
+                }
+            }
+            
+            // Check max tokens if present - must be a positive number
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
+                {
+                    if (maxTokens <= 0)
+                    {
+                        // Invalid format: negative or zero
+                        return false;
+                    }
+                    // MaxTokens format is valid
+                }
+                else
+                {
+                    // Invalid format: not an integer
+                    return false;
+                }
+            }
+            
+            // All provided settings have valid format
             return true;
         }
 
@@ -155,11 +211,22 @@ namespace SmartHopper.Providers.Template
         /// <param name="model">The model to use, or empty for default.</param>
         /// <param name="jsonSchema">Optional JSON schema for response formatting.</param>
         /// <param name="endpoint">Optional custom endpoint URL.</param>
+        /// <param name="includeToolDefinitions">Optional flag to include tool definitions in the response.</param>
         /// <returns>The AI response.</returns>
-        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "")
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             try
             {
+                // Access settings using the secure GetSetting<T> method
+                string apiKey = GetSetting<string>("ApiKey");
+                int maxTokens = GetSetting<int>("MaxTokens");
+                
+                // Verify we have an API key
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    throw new Exception("API Key is not configured for Template provider.");
+                }
+                
                 // This is a template implementation
                 // In a real provider, you would:
                 // 1. Format the messages according to the provider's API requirements
@@ -192,18 +259,19 @@ namespace SmartHopper.Providers.Template
         /// <param name="settings">The provider settings.</param>
         /// <param name="requestedModel">The requested model, or empty for default.</param>
         /// <returns>The model to use.</returns>
-        public string GetModel(Dictionary<string, object> settings, string requestedModel = "")
+        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
                 return requestedModel;
 
             // Use the model from settings if available
-            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
-                return settings["Model"].ToString();
+            string modelFromSettings = GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                return modelFromSettings;
 
             // Fall back to the default model
-            return _defaultModel;
+            return DefaultModel;
         }
     }
 }

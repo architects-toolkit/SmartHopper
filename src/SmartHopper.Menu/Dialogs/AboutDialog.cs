@@ -13,7 +13,9 @@ using Eto.Drawing;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using SmartHopper.Config.Properties;
+using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -24,6 +26,8 @@ namespace SmartHopper.Menu.Dialogs
     {
         private const string GitHubUrl = "https://github.com/architects-toolkit/SmartHopper";
         private const string RktkUrl = "https://rktk.tools";
+        private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
+        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
 
         /// <summary>
         /// Initializes a new instance of the AboutDialog
@@ -32,6 +36,14 @@ namespace SmartHopper.Menu.Dialogs
         public AboutDialog(string version)
         {
             Title = "About SmartHopper";
+            // Set window icon from embedded resource
+            using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
+            {
+                if (stream != null)
+                {
+                    Icon = new Icon(stream);
+                }
+            }
             Resizable = true;
             Size = new Size(800, 550);
             MinimumSize = new Size(600, 500);
@@ -291,7 +303,7 @@ namespace SmartHopper.Menu.Dialogs
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to open URL: {ex.Message}", "Error", MessageBoxType.Error);
+                StyledMessageDialog.ShowError($"Failed to open URL: {ex.Message}", "Error");
             }
         }
     }

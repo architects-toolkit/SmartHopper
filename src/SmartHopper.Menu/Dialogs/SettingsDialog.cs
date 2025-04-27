@@ -14,10 +14,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Properties;
 using Rhino;
+using Newtonsoft.Json;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -26,6 +30,9 @@ namespace SmartHopper.Menu.Dialogs
     /// </summary>
     internal class SettingsDialog : Dialog
     {
+        private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
+        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
         {
             [typeof(string)] = descriptor => 
@@ -39,7 +46,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 MinValue = 1,
                 MaxValue = 4096,
-                Value = Convert.ToInt32(descriptor.DefaultValue)
+                Value = Convert.ToInt32(descriptor.DefaultValue),
             }
         };
 
@@ -55,6 +62,12 @@ namespace SmartHopper.Menu.Dialogs
         /// </summary>
         public SettingsDialog()
         {
+            // Set window icon from embedded resource
+            using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
+            {
+                if (stream != null)
+                    Icon = new Icon(stream);
+            }
             Title = "SmartHopper Settings";
             Size = new Size(500, 400);
             MinimumSize = new Size(400, 300);
@@ -67,18 +80,15 @@ namespace SmartHopper.Menu.Dialogs
                 (int)((Screen.PrimaryScreen.Bounds.Height - Size.Height) / 2)
             );
 
-            // Load settings and discover providers
-            _settings = SmartHopperSettings.Load();
-            
-            // Use a temporary variable to store providers
+            // Load settings and synchronously discover providers on Rhino’s UI thread
+            _settings = SmartHopperSettings.Instance;
             IAIProvider[] providers = null;
-            
-            // Use RhinoApp.InvokeOnUiThread to ensure providers are discovered on the UI thread
-            RhinoApp.InvokeOnUiThread(new Action(() => {
-                providers = SmartHopperSettings.DiscoverProviders().ToArray();
-            }));
-            
-            _providers = providers ?? Array.Empty<IAIProvider>();
+            RhinoApp.InvokeOnUiThread(() =>
+            {
+                ProviderManager.Instance.RefreshProviders();
+                providers = ProviderManager.Instance.GetProviders().ToArray();
+            });
+            _providers = providers;
 
             // Create the main layout
             var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
@@ -97,13 +107,13 @@ namespace SmartHopper.Menu.Dialogs
             // Add default provider selection
             var defaultProviderRow = new TableLayout { Spacing = new Size(5, 5) };
             _defaultProviderComboBox = new DropDown();
-            
+
             // Add all providers to the dropdown and select current default
             foreach (var provider in _providers)
             {
                 _defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
             }
-            
+
             if (!string.IsNullOrEmpty(_settings.DefaultAIProvider))
             {
                 for (int i = 0; i < _defaultProviderComboBox.Items.Count; i++)
@@ -202,13 +212,16 @@ namespace SmartHopper.Menu.Dialogs
 
                 layout.Rows.Add(new TableRow(new TableCell(headerLayout)));
 
+                // Cache settings for this provider
+                var providerSettings = _settings.GetProviderSettings(provider.Name);
+
                 // Add settings for this provider
                 foreach (var descriptor in descriptors)
                 {
                     // Create control for this setting
                     var control = _controlFactories[descriptor.Type](descriptor);
                     controls[descriptor.Name] = control;
-                    
+
                     // Add label and control
                     var settingRow = new TableLayout { Spacing = new Size(5, 5) };
                     settingRow.Rows.Add(new TableRow(
@@ -233,12 +246,18 @@ namespace SmartHopper.Menu.Dialogs
                         ));
                     }
 
-                    // Load current value
+                    // Load current value (show placeholder for secrets)
                     string currentValue = null;
-                    if (_settings.ProviderSettings.ContainsKey(provider.Name) &&
-                        _settings.ProviderSettings[provider.Name].ContainsKey(descriptor.Name))
+                    if (descriptor.IsSecret)
                     {
-                        currentValue = _settings.ProviderSettings[provider.Name][descriptor.Name]?.ToString();
+                        bool defined = false;
+                        if (providerSettings.TryGetValue(descriptor.Name, out var raw) && raw is string secret && !string.IsNullOrEmpty(secret))
+                            defined = true;
+                        currentValue = defined ? "<secret-defined>" : string.Empty;
+                    }
+                    else if (providerSettings.ContainsKey(descriptor.Name))
+                    {
+                        currentValue = providerSettings[descriptor.Name]?.ToString();
                     }
                     else if (descriptor.DefaultValue != null)
                     {
@@ -254,7 +273,7 @@ namespace SmartHopper.Menu.Dialogs
                             passwordBox.Text = currentValue;
                         else if (control is NumericStepper numericStepper)
                             numericStepper.Value = Convert.ToInt32(currentValue);
-                        
+
                         // Store original value for comparison
                         _originalValues[provider.Name][descriptor.Name] = currentValue;
                     }
@@ -300,11 +319,11 @@ namespace SmartHopper.Menu.Dialogs
         /// </summary>
         private void SaveSettings()
         {
-            // Create a copy of the current settings to preserve encrypted values
+            // Prepare containers for updated values (merge happens in ProviderManager)
             var updatedSettings = new Dictionary<string, Dictionary<string, object>>();
-            foreach (var providerSetting in _settings.ProviderSettings)
+            foreach (var provider in _providers)
             {
-                updatedSettings[providerSetting.Key] = new Dictionary<string, object>(providerSetting.Value);
+                updatedSettings[provider.Name] = new Dictionary<string, object>();
             }
             
             // Update with new values from the UI
@@ -342,16 +361,21 @@ namespace SmartHopper.Menu.Dialogs
                     updatedSettings[provider.Name][descriptor.Name] = newValue;
                 }
             }
-            
+
+            // Persist each provider's partial updates via ProviderManager
+            foreach (var kvp in updatedSettings)
+            {
+                ProviderManager.Instance.UpdateProviderSettings(kvp.Key, kvp.Value);
+            }
+
             // Update settings
-            _settings.ProviderSettings = updatedSettings;
             _settings.DebounceTime = (int)_debounceControl.Value;
             
             // Save default provider
             if (_defaultProviderComboBox.SelectedIndex >= 0)
                 _settings.DefaultAIProvider = _defaultProviderComboBox.Items[_defaultProviderComboBox.SelectedIndex].Text;
             
-            // Save settings (this will handle encryption)
+            // Persist global settings
             _settings.Save();
             Close();
         }
