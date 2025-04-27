@@ -14,7 +14,7 @@ SmartHopper is a groundbreaking plugin that enables AI to directly interact with
 
 - 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
 - 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
-- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/) and [**OpenAI**](https://openai.com/) APIs. You need to [provide your own API keys](#️-supported-providers).
+- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/) and [**OpenAI**](https://openai.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
 - 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
 
 ## 👥 Who Is This For?
