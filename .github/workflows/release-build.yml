@@ -47,13 +47,16 @@ jobs:
       id: get_latest_release
       shell: pwsh
       run: |
-        # Get the latest tag
-        $latestTag = git describe --tags --abbrev=0 2>$null
-        if (-not $latestTag) {
+        # Get all tags and sort them by version number
+        $tags = git tag -l --sort=-v:refname
+        if (-not $tags) {
           # Fail if no tags exist
           Write-Host "##[error] No tags found in the repository."
           exit 1
         }
+        
+        # Get the latest tag (first in sorted list)
+        $latestTag = $tags[0]
         Write-Host "Latest tag: $latestTag"
         echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
     
@@ -143,8 +146,24 @@ jobs:
       shell: pwsh
       run: |
         $version = "${{ steps.determine_version.outputs.VERSION }}"
-        Write-Host "Auth-signing SmartHopper provider DLLs in bin\\$version\\Release"
-        pwsh ./Sign-Authenticode.ps1 -Sign "bin\\$version\\Release" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        $buildPath = "bin/$version/Release"
+        
+        # Verify the build directory exists
+        if (-not (Test-Path $buildPath)) {
+          Write-Host "##[warning] Build directory '$buildPath' not found. Checking for alternate paths..."
+          # Try to find any build output directory
+          $possibleDirs = Get-ChildItem -Path "bin" -Directory -Recurse | Where-Object { $_.Name -eq "Release" }
+          if ($possibleDirs) {
+            $buildPath = $possibleDirs[0].FullName
+            Write-Host "Found alternate build path: $buildPath"
+          } else {
+            Write-Host "##[error] No build output directory found. Skipping signing."
+            exit 1
+          }
+        }
+        
+        Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
+        pwsh ./Sign-Authenticode.ps1 -Sign "$buildPath" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
 
     - name: Create Output Directory
       shell: pwsh
