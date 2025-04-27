@@ -8,13 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Components.Properties;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using Grasshopper.Kernel;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Components.Properties;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Components.Grasshopper
 {
