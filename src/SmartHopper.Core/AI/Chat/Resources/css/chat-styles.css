@@ -257,7 +257,7 @@ hr {
 }
 
 .metrics-tooltip {
-    position: absolute;
+    position: fixed;
     padding: 0.3em 0.6em;
     background: rgba(0, 0, 0, 0.75);
     color: #fff;
