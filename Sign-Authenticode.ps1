@@ -33,7 +33,7 @@ param(
 )
 
 # default PFX path; override via -PfxPath
-$pfxPath = if ($PfxPath) { $PfxPath } else { 'signing.pfx' }
+$pfxPath = if ($PfxPath) { $PfxPath } else { Join-Path -Path $PSScriptRoot -ChildPath 'signing.pfx' }
 
 function Show-Help {
     Write-Host "Usage: .\Sign-Authenticode.ps1 [options]"
