@@ -9,10 +9,9 @@
  */
 
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
-using SmartHopper.Config.Tools;
+using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,9 +23,9 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAI : IAIProvider
+    public sealed class MistralAI : AIProvider
     {
-        public const string _name = "MistralAI";
+        private const string _name = "MistralAI";
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
         private const string _defaultModel = "mistral-small-latest";
 
@@ -35,18 +34,18 @@ namespace SmartHopper.Providers.MistralAI
 
         private MistralAI() { }
 
-        public string Name => _name;
-        public string DefaultModel => _defaultModel;
+        public override string Name => _name;
+        public override string DefaultModel => _defaultModel;
 
         /// <summary>
         /// Gets whether this provider is enabled and should be available for use.
         /// </summary>
-        public bool IsEnabled => true;
+        public override bool IsEnabled => true;
 
         /// <summary>
         /// Gets the provider's icon
         /// </summary>
-        public Image Icon
+        public override Image Icon
         {
             get
             {
@@ -58,7 +57,7 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
-        public IEnumerable<SettingDescriptor> GetSettingDescriptors()
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             return new[]
             {
@@ -92,173 +91,220 @@ namespace SmartHopper.Providers.MistralAI
             };
         }
 
-        public bool ValidateSettings(Dictionary<string, object> settings)
+        public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            return settings.ContainsKey("ApiKey") &&
-                   !string.IsNullOrEmpty(settings["ApiKey"].ToString()) &&
-                   settings.ContainsKey("Model") &&
-                   !string.IsNullOrEmpty(settings["Model"].ToString());
+            Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
+            if (settings == null)
+                return false;
+                
+            // Only validate settings that are actually provided
+            // This allows partial setting updates rather than requiring all settings
+            
+            // Check API key format if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
+            {
+                string apiKey = apiKeyObj.ToString();
+                // Simple format validation - don't require presence, just valid format if provided
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    Debug.WriteLine("[MistralAI] API key format validation failed: empty key provided");
+                    return false;
+                }
+                Debug.WriteLine($"[MistralAI] API key format validation passed (length: {apiKey.Length})");
+            }
+            
+            // Check model format if present
+            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
+            {
+                string model = modelObj.ToString();
+                if (string.IsNullOrWhiteSpace(model))
+                {
+                    Debug.WriteLine("[MistralAI] Model format validation failed: empty model name provided");
+                    return false;
+                }
+                Debug.WriteLine($"[MistralAI] Model validation passed: {model}");
+            }
+            
+            // Check max tokens if present - must be a positive number
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
+                {
+                    if (maxTokens <= 0)
+                    {
+                        Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
+                        return false;
+                    }
+                    Debug.WriteLine($"[MistralAI] MaxTokens validation passed: {maxTokens}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be an integer, got {maxTokensObj}");
+                    return false;
+                }
+            }
+            
+            // All provided settings are valid
+            return true;
         }
 
-        public async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
-            var settings = SmartHopperSettings.Load();
-            if (!settings.ProviderSettings.ContainsKey(_name))
+            // Get settings from the secure settings store
+            string apiKey = GetSetting<string>("ApiKey");
+            int maxTokens = GetSetting<int>("MaxTokens");
+            string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
+            
+            // Validate API key
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                settings.ProviderSettings[_name] = new Dictionary<string, object>();
+                throw new Exception("MistralAI API key is not configured or is invalid.");
             }
-            var providerSettings = settings.ProviderSettings[_name];
-            if (!ValidateSettings(providerSettings))
-                throw new InvalidOperationException("Invalid provider settings");
-
-            var modelToUse = GetModel(providerSettings, model);
-
-            string apiKey = providerSettings.ContainsKey("ApiKey") ? providerSettings["ApiKey"].ToString() : "";
-            int maxTokens = providerSettings.ContainsKey("MaxTokens") ? Convert.ToInt32(providerSettings["MaxTokens"]) : 150;
-
-            if (modelToUse == "" || modelToUse == "mistralai")
+            
+            // Use default model if none specified
+            if (string.IsNullOrWhiteSpace(modelName))
             {
-                modelToUse = _defaultModel;
-                Debug.WriteLine($"Using default model: {modelToUse}");
+                modelName = _defaultModel;
             }
 
-            if (string.IsNullOrEmpty(apiKey))
+            Debug.WriteLine($"[MistralAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
+
+            using (var httpClient = new HttpClient())
             {
-                Debug.WriteLine("API Key is null or empty");
-                return new AIResponse
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                // Format messages for Mistral API
+                var convertedMessages = new JArray();
+                foreach (var msg in messages)
                 {
-                    Response = "Error: API Key is missing",
-                    FinishReason = "error"
-                };
-            }
+                    string role = msg["role"]?.ToString().ToLower() ?? "user";
+                    string content = msg["content"]?.ToString() ?? "";
 
-            using (var client = new HttpClient())
-            {
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
-                string responseType = "text";
-
-                if (!string.IsNullOrEmpty(jsonSchema))
-                {
-                    string jsonPrompt = $"STRICTLY RETURN THE ANSWER IN THE FOLLOWING JSON SCHEMA:\n{jsonSchema}";
-                    messages.Add(new JObject { ["role"] = "system", ["content"] = jsonSchema });
-                    responseType = "json_object";
-                };
-
-                var requestBody = new JObject
-                {
-                    ["model"] = modelToUse,
-                    ["messages"] = messages,
-                    ["temperature"] = 0.3,
-                    ["max_tokens"] = maxTokens,
-                    ["response_format"] = new JObject
+                    // Map OpenAI role names to Mistral role names if needed
+                    if (role == "system")
                     {
-                        ["type"] = responseType
+                        // Mistral uses system role
                     }
-                };
+                    else if (role == "assistant")
+                    {
+                        // Mistral uses assistant role
+                    }
+                    else
+                    {
+                        role = "user"; // Default to user
+                    }
 
-                // Add tools to request if available
-                var toolsArray = includeToolDefinitions ? GetFormattedTools() : null;
-                if (toolsArray != null && toolsArray.Count > 0)
-                {
-                    requestBody["tools"] = toolsArray;
-                    requestBody["tool_choice"] = "auto";
-                    Debug.WriteLine($"Added {toolsArray.Count} tools to the request");
+                    var messageObj = new JObject
+                    {
+                        ["role"] = role,
+                        ["content"] = content
+                    };
+                    convertedMessages.Add(messageObj);
                 }
 
-                Debug.WriteLine(requestBody.ToString());
+                // Build request body
+                var requestBody = new JObject
+                {
+                    ["model"] = modelName,
+                    ["messages"] = convertedMessages,
+                    ["max_tokens"] = maxTokens
+                };
 
-                var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+                // Add tools if requested
+                if (includeToolDefinitions)
+                {
+                    var tools = GetFormattedTools();
+                    if (tools != null && tools.Count > 0)
+                    {
+                        requestBody["tools"] = tools;
+                        requestBody["tool_choice"] = "auto";
+                    }
+                }
+
+                var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+                Debug.WriteLine($"[MistralAI] Request: {requestBody}");
 
                 try
                 {
-                    var response = await client.PostAsync(ApiURL, content);
-                    response.EnsureSuccessStatusCode();
-                    var responseBody = await response.Content.ReadAsStringAsync();
-
-                    Debug.WriteLine($"Raw API Response: {responseBody}");
+                    var response = await httpClient.PostAsync(ApiURL, requestContent);
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"[MistralAI] Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        Debug.WriteLine($"API returned non-success status code: {response.StatusCode}");
-                        return new AIResponse
-                        {
-                            Response = $"API Error: {responseBody}",
-                            FinishReason = "error"
-                        };
+                        Debug.WriteLine($"[MistralAI] Error response: {responseContent}");
+                        throw new Exception($"Error from MistralAI API: {response.StatusCode} - {responseContent}");
                     }
 
-                    var json = JObject.Parse(responseBody);
+                    var responseJson = JObject.Parse(responseContent);
+                    Debug.WriteLine($"[MistralAI] Response parsed successfully");
 
-                    Debug.WriteLine(json.ToString());
+                    // Extract response content
+                    var choices = responseJson["choices"] as JArray;
+                    var firstChoice = choices?.FirstOrDefault() as JObject;
+                    var message = firstChoice?["message"] as JObject;
+                    var usage = responseJson["usage"] as JObject;
 
-                    if (json["choices"] != null && json["choices"].Type == JTokenType.Array && json["choices"].Any())
+                    if (message == null)
                     {
-                        var choice = json["choices"][0];
-                        if (choice["message"] != null)
+                        Debug.WriteLine($"[MistralAI] No message in response: {responseJson}");
+                        throw new Exception("Invalid response from MistralAI API: No message found");
+                    }
+
+                    var aiResponse = new AIResponse
+                    {
+                        Response = message["content"]?.ToString() ?? "",
+                        Model = modelName,
+                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
+                        InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                        OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                    };
+
+                    // Handle tool calls if any
+                    if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                    {
+                        aiResponse.ToolCalls = new List<AIToolCall>();
+                        foreach (JObject toolCall in toolCalls)
                         {
-                            var message = choice["message"];
-
-                            // Check for tool calls
-                            if (message["tool_calls"] != null && message["tool_calls"].Type != JTokenType.Null)
+                            var function = toolCall["function"] as JObject;
+                            if (function != null)
                             {
-                                var toolCalls = message["tool_calls"];
-                                // Format the tool call response for our system
-                                var toolCall = toolCalls[0];
-                                var toolName = toolCall["function"]["name"].ToString();
-                                var toolArgs = toolCall["function"]["arguments"].ToString();
-
-                                // Create a formatted function call message
-                                string functionCallResponse = $"function_call: {{ \"name\": \"{toolName}\", \"arguments\": {toolArgs} }}";
-
-                                return new AIResponse
+                                aiResponse.ToolCalls.Add(new AIToolCall
                                 {
-                                    Response = functionCallResponse,
-                                    Provider = _name,
-                                    Model = json["model"]?.Value<string>() ?? "Unknown",
-                                    InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
-                                    OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
-                                    FinishReason = "tool_call"
-                                };
-                            }
-                            else if (message["content"] != null)
-                            {
-                                return new AIResponse
-                                {
-                                    Response = message["content"].ToString().Trim(),
-                                    Provider = _name,
-                                    Model = json["model"]?.Value<string>() ?? "Unknown",
-                                    InTokens = json["usage"]?["prompt_tokens"]?.Value<int>() ?? 0,
-                                    OutTokens = json["usage"]?["completion_tokens"]?.Value<int>() ?? 0,
-                                    FinishReason = choice["finish_reason"]?.ToString().Trim() ?? "Unknown",
-                                };
+                                    Id = toolCall["id"]?.ToString(),
+                                    Name = function["name"]?.ToString(),
+                                    Arguments = function["arguments"]?.ToString()
+                                });
                             }
                         }
                     }
 
-                    // If we get here, the response wasn't in the expected format
-                    return new AIResponse
-                    {
-                        Response = "Error: Unexpected API response format",
-                        FinishReason = "error"
-                    };
+                    Debug.WriteLine($"[MistralAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
+                    return aiResponse;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error in MistralAI request: {ex.Message}");
-                    return new AIResponse
-                    {
-                        Response = $"Error: {ex.Message}",
-                        FinishReason = "error"
-                    };
+                    Debug.WriteLine($"[MistralAI] Exception: {ex.Message}");
+                    throw new Exception($"Error communicating with MistralAI API: {ex.Message}", ex);
                 }
             }
         }
 
-        public string GetModel(Dictionary<string, object> providerSettings, string model)
+        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
         {
-            return !string.IsNullOrEmpty(model) ? model :
-                   (providerSettings.ContainsKey("Model") ? providerSettings["Model"].ToString() : _defaultModel);
+            // Use the requested model if provided
+            if (!string.IsNullOrWhiteSpace(requestedModel))
+                return requestedModel;
+
+            // Use the model from settings if available
+            string modelFromSettings = GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                return modelFromSettings;
+
+            // Fall back to the default model
+            return DefaultModel;
         }
 
         /// <summary>

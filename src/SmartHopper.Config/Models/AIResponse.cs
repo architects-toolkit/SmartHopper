@@ -8,6 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System.Collections.Generic;
+
 namespace SmartHopper.Config.Models
 {
     public class AIResponse
@@ -17,8 +19,10 @@ namespace SmartHopper.Config.Models
         public int InTokens { get; set; }
         public int OutTokens { get; set; }
         public double CompletionTime { get; set; }
-        public string ToolFunction { get; set; }
-        public string ToolArguments { get; set; }
+        /// <summary>
+        /// Gets or sets the list of tool calls made by the AI model.
+        /// </summary>
+        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
         public string Provider { get; set; }
         public string Model { get; set; }
         

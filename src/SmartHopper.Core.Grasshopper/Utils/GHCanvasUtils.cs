@@ -13,6 +13,7 @@ using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -34,7 +35,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
 
         // Add an object to the canvas
-        public static void AddObjectToCanvas(IGH_DocumentObject obj, PointF position = default, bool live = false)
+        public static void AddObjectToCanvas(IGH_DocumentObject obj, PointF position = default, bool redraw = true)
         {
             GH_Document doc = GetCurrentCanvas();
 
@@ -42,17 +43,16 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
             doc.AddObject(obj, false);
 
-            if (live)
+            if (redraw)
             {
+                obj.Attributes.ExpireLayout();
                 Instances.RedrawCanvas();
             }
         }
 
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
-            GH_Document doc = GetCurrentCanvas();
-
-            IGH_DocumentObject obj = doc.FindObject(guid, true);
+            IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
 
             if (obj is IGH_Component)
             {
@@ -73,6 +73,31 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
         }
 
+        /// <summary>
+        /// Moves an existing instance by setting its Pivot position by GUID.
+        /// </summary>
+        /// <param name="guid">The GUID of the instance to move.</param>
+        /// <param name="position">The new pivot position, absolute or relative.</param>
+        /// <param name="relative">True to interpret position as a relative offset; false for absolute.</param>
+        /// <param name="redraw">True to redraw canvas after moving.</param>
+        /// <returns>True if the instance was found and moved; otherwise false.</returns>
+        public static bool MoveInstance(Guid guid, PointF position, bool relative = false, bool redraw = true)
+        {
+            var obj = FindInstance(guid);
+            if (obj == null) return false;
+            var current = obj.Attributes.Pivot;
+            var target = relative
+                ? new PointF(current.X + position.X, current.Y + position.Y)
+                : position;
+            obj.Attributes.Pivot = target;
+            if (redraw)
+            {
+                obj.Attributes.ExpireLayout();
+                Instances.RedrawCanvas();
+            }
+            return true;
+        }
+
         // Identify occupied areas
         public static RectangleF BoundingBox()
         {
@@ -89,4 +114,3 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
     }
 }
-

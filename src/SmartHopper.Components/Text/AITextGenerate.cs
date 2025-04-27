@@ -1,33 +1,36 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
-using SmartHopper.Core.DataTree;
-using SmartHopper.Core.ComponentBase;
-using SmartHopper.Components.Properties;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using System.Collections.Generic;
-using System.Linq;
+using SmartHopper.Components.Properties;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
 
 namespace SmartHopper.Components.Text
 {
     public class AITextGenerate : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
-        protected override System.Drawing.Bitmap Icon => Resources.textgenerate;
+        public override Guid ComponentGuid => new("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
+
+        protected override Bitmap Icon => Resources.textgenerate;
+
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public AITextGenerate()
@@ -55,30 +58,30 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextGenerateWorker(this, AddRuntimeMessage);
+            return new AITextGenerateWorker(this, this.AddRuntimeMessage);
         }
 
         private class AITextGenerateWorker : AsyncWorkerBase
         {
-            private Dictionary<string, GH_Structure<GH_String>> _inputTree;
-            private Dictionary<string, GH_Structure<GH_String>> _result;
-            private readonly AITextGenerate _parent;
+            private Dictionary<string, GH_Structure<GH_String>> inputTree;
+            private Dictionary<string, GH_Structure<GH_String>> result;
+            private readonly AITextGenerate parent;
 
             public AITextGenerateWorker(
             AITextGenerate parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
-                _result = new Dictionary<string, GH_Structure<GH_String>>
+                this.parent = parent;
+                this.result = new Dictionary<string, GH_Structure<GH_String>>
                 {
-                    { "Result", new GH_Structure<GH_String>() }
+                    { "Result", new GH_Structure<GH_String>() },
                 };
             }
 
             public override void GatherInput(IGH_DataAccess DA)
             {
-                _inputTree = new Dictionary<string, GH_Structure<GH_String>>();
+                this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
                 // Get the input trees
                 var promptTree = new GH_Structure<GH_String>();
@@ -88,8 +91,8 @@ namespace SmartHopper.Components.Text
                 DA.GetDataTree("Instructions", out instructionsTree);
 
                 // The first defined tree is the one that overrides paths in case they don't match between trees
-                _inputTree["Prompt"] = promptTree;
-                _inputTree["Instructions"] = instructionsTree;
+                this.inputTree["Prompt"] = promptTree;
+                this.inputTree["Instructions"] = instructionsTree;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -97,21 +100,21 @@ namespace SmartHopper.Components.Text
                 try
                 {
                     Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", _inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", _inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    _result = await DataTreeProcessor.RunFunctionAsync<GH_String, GH_String>(
-                        _inputTree,
-                        async (branches, reuseCount) => 
+                    this.result = await DataTreeProcessor.RunFunctionAsync(
+                        this.inputTree,
+                        async (branches, reuseCount) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, _parent, reuseCount);
+                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
-                        token);
-                        
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", _result.Keys)}");
+                        token).ConfigureAwait(false);
+
+                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
@@ -160,8 +163,8 @@ namespace SmartHopper.Components.Text
                     // Use the generic tool to generate text
                     var result = await TextTools.GenerateTextAsync(
                         promptTree[i],
-                        instructionsTree[i], 
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount));
+                        instructionsTree[i],
+                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
 
                     if (!result.Success)
                     {
@@ -173,6 +176,7 @@ namespace SmartHopper.Components.Text
                         {
                             parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
                         }
+
                         outputs["Result"].Add(new GH_String(string.Empty));
                         i++;
                         continue;
@@ -187,16 +191,16 @@ namespace SmartHopper.Components.Text
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", _result.Keys)}");
-                
-                if (!_result.ContainsKey("Result"))
+                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
+
+                if (!this.result.TryGetValue("Result", out GH_Structure<GH_String>? value))
                 {
                     Debug.WriteLine("[Worker] Warning: Result key not found in output dictionary");
                     message = "Error: No result available";
                     return;
                 }
 
-                _parent.SetPersistentOutput("Result", _result["Result"], DA);
+                this.parent.SetPersistentOutput("Result", value, DA);
                 message = "Done :)";
             }
         }

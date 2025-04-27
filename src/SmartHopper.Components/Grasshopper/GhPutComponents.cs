@@ -1,41 +1,41 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
-using Grasshopper.Kernel.Special;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.JSON;
-using SmartHopper.Core.Graph;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Special;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Components.Properties;
+using SmartHopper.Core.Graph;
+using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.JSON;
 
 namespace SmartHopper.Components.Grasshopper
 {
-    public class GhPutComponent : GH_Component
+    public class GhPutComponents : GH_Component
     {
-        private List<string> lastComponentNames = new List<string>();
+        private List<string> lastComponentNames = new();
 
-        public GhPutComponent()
+        public GhPutComponents()
             : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper definition in this file", "SmartHopper", "Grasshopper")
         {
         }
 
-        public override Guid ComponentGuid => new Guid("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
+        public override Guid ComponentGuid => new("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
 
-        protected override System.Drawing.Bitmap Icon => Resources.ghput;
+        protected override Bitmap Icon => Resources.ghput;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -53,29 +53,36 @@ namespace SmartHopper.Components.Grasshopper
             // Get run parameter
             bool run = false;
 
-            if (!DA.GetData(1, ref run)) return;
+            if (!DA.GetData(1, ref run))
+            {
+                return;
+            }
 
             if (!run)
             {
-                if (lastComponentNames.Count > 0)
+                if (this.lastComponentNames.Count > 0)
                 {
-                    DA.SetDataList(0, lastComponentNames);
+                    DA.SetDataList(0, this.lastComponentNames);
                 }
                 else
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to place components");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to place components");
                 }
+
                 return;
             }
 
             // Clear previous results when starting a new run
-            lastComponentNames.Clear();
+            this.lastComponentNames.Clear();
 
             try
             {
                 // Get the JSON
-                string json = null;
-                if (!DA.GetData(0, ref json)) return;
+                string? json = null;
+                if (!DA.GetData(0, ref json))
+                {
+                    return;
+                }
 
                 // Parse and validate JSON
                 Core.JSON.GrasshopperDocument document;
@@ -84,13 +91,13 @@ namespace SmartHopper.Components.Grasshopper
                     document = JsonConvert.DeserializeObject<Core.JSON.GrasshopperDocument>(json);
                     if (document?.Components == null || !document.Components.Any())
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "JSON must contain a non-empty components array");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "JSON must contain a non-empty components array");
                         return;
                     }
                 }
                 catch (Exception ex)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Invalid JSON format: " + ex.Message);
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Invalid JSON format: " + ex.Message);
                     return;
                 }
 
@@ -102,7 +109,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 // Check if any components are missing pivot positions
                 bool needsPositioning = document.Components.Any(c => c.Pivot.IsEmpty);
-                Dictionary<string, PointF> generatedPositions = null;
+                Dictionary<string, PointF>? generatedPositions = null;
 
                 if (needsPositioning)
                 {
@@ -117,26 +124,26 @@ namespace SmartHopper.Components.Grasshopper
                                 .Where(conn => conn.To.ComponentId == c.InstanceGuid)
                                 .Select(conn => new JsonInput
                                 {
-                                    Sources = new List<Guid> { conn.From.ComponentId }
-                                }).ToList()
+                                    Sources = new List<Guid> { conn.From.ComponentId },
+                                }).ToList(),
                         }).ToList();
 
                         // Generate positions for components using DependencyGraphUtils
                         var positions = DependencyGraphUtils.Program.CreateComponentGrid(jsonStructures);
-                        
+
                         // Update component positions in the document
                         foreach (var component in document.Components)
                         {
                             if (positions.TryGetValue(component.InstanceGuid.ToString(), out var position))
                             {
-                                component.Pivot = new System.Drawing.Point((int)position.X * 150, (int)position.Y * 150);
+                                component.Pivot = new Point((int)position.X * 150, (int)position.Y * 150);
                             }
                         }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error generating component positions: {ex.Message}");
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate optimal component positions");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate optimal component positions");
                     }
                 }
 
@@ -159,7 +166,7 @@ namespace SmartHopper.Components.Grasshopper
                                 var currentValueProp = component.Properties["CurrentValue"];
                                 if (currentValueProp != null && currentValueProp.Value != null)
                                 {
-                                    var currentValue = ((JObject)currentValueProp.Value)["Value"].ToString();
+                                    var currentValue = ((JObject)currentValueProp.Value)["value"].ToString();
                                     Debug.WriteLine($"Setting slider value to: {currentValue}");
                                     slider.SetInitCode(currentValue);
                                 }
@@ -168,9 +175,10 @@ namespace SmartHopper.Components.Grasshopper
                             {
                                 Debug.WriteLine($"Error setting number slider value: {ex.Message}");
                                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error setting number slider value: {ex.Message}");
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error setting number slider value: {ex.Message}");
                             }
                         }
+
                         // Set properties for non-slider components
                         else if (component.Properties != null)
                         {
@@ -192,8 +200,7 @@ namespace SmartHopper.Components.Grasshopper
                         {
                             position = new PointF(
                                 component.Pivot.X + startPoint.X,
-                                component.Pivot.Y + startPoint.Y
-                            );
+                                component.Pivot.Y + startPoint.Y);
                         }
 
                         // Add to canvas
@@ -205,7 +212,7 @@ namespace SmartHopper.Components.Grasshopper
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error creating component {component.Name}: {ex.Message}");
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Error creating component {component.Name}");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Error creating component {component.Name}");
                     }
                 }
 
@@ -214,7 +221,10 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     try
                     {
-                        if (!connection.IsValid()) continue;
+                        if (!connection.IsValid())
+                        {
+                            continue;
+                        }
 
                         // Get source and target objects
                         if (!guidMapping.TryGetValue(connection.From.ComponentId, out Guid sourceGuid) ||
@@ -226,10 +236,13 @@ namespace SmartHopper.Components.Grasshopper
                         IGH_DocumentObject sourceObj = GHCanvasUtils.FindInstance(sourceGuid);
                         IGH_DocumentObject targetObj = GHCanvasUtils.FindInstance(targetGuid);
 
-                        if (sourceObj == null || targetObj == null) continue;
+                        if (sourceObj == null || targetObj == null)
+                        {
+                            continue;
+                        }
 
                         // Get source parameter
-                        IGH_Param sourceParam = null;
+                        IGH_Param? sourceParam = null;
                         if (sourceObj is IGH_Component sourceComp)
                         {
                             sourceParam = GHParameterUtils.GetOutputByName(sourceComp, connection.From.ParamName);
@@ -264,13 +277,13 @@ namespace SmartHopper.Components.Grasshopper
 
                 // Output component names
                 var componentNames = document.Components.Select(c => c.Name).Distinct().ToList();
-                lastComponentNames = componentNames;
+                this.lastComponentNames = componentNames;
                 DA.SetDataList(0, componentNames);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error: {ex.Message}");
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {ex.Message}");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {ex.Message}");
             }
         }
     }

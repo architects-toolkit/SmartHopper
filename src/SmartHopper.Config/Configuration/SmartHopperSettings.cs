@@ -1,28 +1,22 @@
 /*
- * <summary>
  * SmartHopper - AI-powered Grasshopper Plugin
- * </summary>
- * <copyright file="SmartHopperSettings.cs" company="Marc Roca Musach">
- * Copyright (C) 2024 Marc Roca Musach
- * </copyright>
- * <license>
+ * Copyright (C) 2025 Marc Roca Musach
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
- * </license>
  */
 
-using Newtonsoft.Json;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
+using Newtonsoft.Json;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Config.Configuration
 {
@@ -33,28 +27,241 @@ namespace SmartHopper.Config.Configuration
             "Grasshopper",
             "SmartHopper.json");
 
-        public Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
+        // Use a constant key and IV for encryption (TODO: in a production environment, these should be secured properly)
+        private static readonly byte[] _key = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
+        private static readonly byte[] _iv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
 
+        [JsonProperty]
+        internal Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
+        
+        [JsonProperty]
         public int DebounceTime { get; set; }
         
-        /// <summary>
-        /// The default AI provider to use when not explicitly specified in components.
-        /// If not set or the provider doesn't exist, the first available provider will be used.
-        /// </summary>
+        [JsonProperty]
         public string DefaultAIProvider { get; set; }
+        
+        [JsonProperty]
+        public Dictionary<string, bool> TrustedProviders { get; set; }
+
+        private static SmartHopperSettings _instance;
+        public static SmartHopperSettings Instance => _instance ??= Load();
 
         public SmartHopperSettings()
         {
             ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             DebounceTime = 1000;
             DefaultAIProvider = string.Empty;
+            TrustedProviders = new Dictionary<string, bool>();
         }
 
-        // Use a constant key and IV for encryption (these could be moved to secure configuration)
-        private static readonly byte[] _key = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
-        private static readonly byte[] _iv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
-
-        private static string ProtectString(string plainText)
+        /// <summary>
+        /// Gets a setting for the specified provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <param name="settingName">The name of the setting.</param>
+        /// <returns>The setting value, or null if not found.</returns>
+        internal object GetSetting(string providerName, string settingName)
+        {
+            if (ProviderSettings.TryGetValue(providerName, out var settings) && 
+                settings.TryGetValue(settingName, out var value))
+            {
+                var descriptors = GetProviderDescriptors(providerName);
+                var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+                
+                if (descriptor?.IsSecret == true && value != null)
+                {
+                    Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
+                    return Decrypt(value.ToString());
+                }
+                Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
+                return value;
+            }
+            
+            // If setting doesn't exist, try to get default value from descriptor
+            var allDescriptors = GetProviderDescriptors(providerName);
+            var missingDescriptor = allDescriptors.FirstOrDefault(d => d.Name == settingName);
+            
+            if (missingDescriptor?.DefaultValue != null)
+            {
+                Debug.WriteLine($"[Settings] Using default for {providerName}.{settingName} = {missingDescriptor.DefaultValue}");
+                return missingDescriptor.DefaultValue;
+            }
+            
+            Debug.WriteLine($"[Settings] No value or default found for {providerName}.{settingName}");
+            return null;
+        }
+        
+        /// <summary>
+        /// Sets a setting for the specified provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <param name="settingName">The name of the setting.</param>
+        /// <param name="value">The setting value.</param>
+        internal void SetSetting(string providerName, string settingName, object value)
+        {
+            if (!ProviderSettings.ContainsKey(providerName))
+            {
+                ProviderSettings[providerName] = new Dictionary<string, object>();
+            }
+            
+            var descriptors = GetProviderDescriptors(providerName);
+            var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+            
+            if (descriptor?.IsSecret == true && value != null)
+            {
+                Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
+                ProviderSettings[providerName][settingName] = Encrypt(value.ToString());
+            }
+            else
+            {
+                Debug.WriteLine($"[Settings] Storing value for {providerName}.{settingName} = {value}");
+                ProviderSettings[providerName][settingName] = value;
+            }
+        }
+        
+        /// <summary>
+        /// Removes a setting for the specified provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <param name="settingName">The name of the setting.</param>
+        internal void RemoveSetting(string providerName, string settingName)
+        {
+            if (ProviderSettings.TryGetValue(providerName, out var settings))
+            {
+                settings.Remove(settingName);
+            }
+        }
+        
+        /// <summary>
+        /// Retrieves all decrypted settings for the specified provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <returns>Dictionary of setting names and their values.</returns>
+        public Dictionary<string, object> GetProviderSettings(string providerName)
+        {
+            var settingsDict = new Dictionary<string, object>();
+            var descriptors = GetProviderDescriptors(providerName);
+            foreach (var descriptor in descriptors)
+            {
+                var value = GetSetting(providerName, descriptor.Name);
+                if (value != null)
+                    settingsDict[descriptor.Name] = value;
+            }
+            return settingsDict;
+        }
+        
+        /// <summary>
+        /// Checks the integrity of the settings.
+        /// </summary>
+        /// <returns>True if all settings are valid, false otherwise.</returns>
+        internal bool IntegrityCheck()
+        {
+            bool isValid = true;
+            var invalidSettings = new List<(string Provider, string Setting)>();
+            
+            foreach (var provider in ProviderSettings.Keys.ToList())
+            {
+                var descriptors = GetProviderDescriptors(provider);
+                if (descriptors == null) continue;
+                
+                // Check for unknown settings
+                var knownSettingNames = descriptors.Select(d => d.Name).ToList();
+                var unknownSettings = ProviderSettings[provider].Keys
+                    .Where(key => !knownSettingNames.Contains(key))
+                    .ToList();
+                    
+                foreach (var unknown in unknownSettings)
+                {
+                    Debug.WriteLine($"Unknown setting found for provider {provider}: {unknown}");
+                    invalidSettings.Add((provider, unknown));
+                    isValid = false;
+                }
+            }
+            
+            // Log all invalid settings
+            if (invalidSettings.Count > 0)
+            {
+                Debug.WriteLine($"Found {invalidSettings.Count} invalid settings:");
+                foreach (var (provider, setting) in invalidSettings)
+                {
+                    Debug.WriteLine($"  - {provider}.{setting}");
+                }
+            }
+            
+            return isValid;
+        }
+        
+        /// <summary>
+        /// Refreshes all providers with their current settings.
+        /// </summary>
+        internal void RefreshProvidersLocalStorage()
+        {
+            try
+            {
+                Debug.WriteLine("Refreshing providers with settings from local storage");
+                
+                // Check that the ProviderManager instance exists first
+                if (ProviderManager.Instance == null)
+                {
+                    Debug.WriteLine("Cannot refresh providers: ProviderManager.Instance is null");
+                    return;
+                }
+                
+                // Get providers safely, avoiding potential circular initialization
+                var providers = ProviderManager.Instance.GetProviders();
+                if (providers == null)
+                {
+                    Debug.WriteLine("No providers available to refresh");
+                    return;
+                }
+                
+                // Refresh provider settings
+                foreach (var provider in providers)
+                {
+                    try
+                    {
+                        var providerSettings = new Dictionary<string, object>();
+                        
+                        // Get descriptors for this provider
+                        var descriptors = provider.GetSettingDescriptors();
+                        
+                        // For each descriptor, get the setting value
+                        foreach (var descriptor in descriptors)
+                        {
+                            var value = GetSetting(provider.Name, descriptor.Name);
+                            if (value != null)
+                            {
+                                providerSettings[descriptor.Name] = value;
+                                string sourceInfo = ProviderSettings.TryGetValue(provider.Name, out var settings) && 
+                                                    settings.ContainsKey(descriptor.Name) ? 
+                                                    "(from storage)" : "(from default)";
+                                
+                                Debug.WriteLine($"Setting {provider.Name}.{descriptor.Name} = {(descriptor.IsSecret ? "<secret>" : value)} {sourceInfo}");
+                            }
+                        }
+                        
+                        // Initialize the provider with the settings
+                        Debug.WriteLine($"Initializing provider {provider.Name} with {providerSettings.Count} settings");
+                        provider.InitializeSettings(providerSettings);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error refreshing provider {provider.Name}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing provider settings: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Encrypts a string using AES encryption.
+        /// </summary>
+        /// <param name="plainText">The plain text to encrypt.</param>
+        /// <returns>The encrypted string.</returns>
+        private static string Encrypt(string plainText)
         {
             if (string.IsNullOrEmpty(plainText)) return plainText;
 
@@ -78,14 +285,20 @@ namespace SmartHopper.Config.Configuration
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"Error encrypting string: {ex.Message}");
                 // If encryption fails, return the original string
                 return plainText;
             }
         }
-
-        private static string UnprotectString(string encryptedText)
+        
+        /// <summary>
+        /// Decrypts a string using AES encryption.
+        /// </summary>
+        /// <param name="encryptedText">The encrypted text.</param>
+        /// <returns>The decrypted string.</returns>
+        private static string Decrypt(string encryptedText)
         {
             if (string.IsNullOrEmpty(encryptedText)) return encryptedText;
 
@@ -107,162 +320,102 @@ namespace SmartHopper.Config.Configuration
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"Error decrypting string: {ex.Message}");
                 // If decryption fails, return the original string
                 return encryptedText;
             }
         }
-
-        private Dictionary<string, Dictionary<string, object>> EncryptSensitiveSettings(Dictionary<string, Dictionary<string, object>> settings)
-        {
-            var encryptedSettings = new Dictionary<string, Dictionary<string, object>>();
-
-            foreach (var provider in settings)
-            {
-                encryptedSettings[provider.Key] = new Dictionary<string, object>();
-                var descriptors = GetProviderDescriptors(provider.Key);
-
-                foreach (var setting in provider.Value)
-                {
-                    var descriptor = descriptors.FirstOrDefault(d => d.Name == setting.Key);
-                    if (descriptor?.IsSecret == true && setting.Value != null)
-                    {
-                        encryptedSettings[provider.Key][setting.Key] = ProtectString(setting.Value.ToString());
-                    }
-                    else
-                    {
-                        encryptedSettings[provider.Key][setting.Key] = setting.Value;
-                    }
-                }
-            }
-
-            return encryptedSettings;
-        }
-
-        private Dictionary<string, Dictionary<string, object>> DecryptSensitiveSettings(Dictionary<string, Dictionary<string, object>> settings)
-        {
-            var decryptedSettings = new Dictionary<string, Dictionary<string, object>>();
-
-            foreach (var provider in settings)
-            {
-                decryptedSettings[provider.Key] = new Dictionary<string, object>();
-                var descriptors = GetProviderDescriptors(provider.Key);
-
-                foreach (var setting in provider.Value)
-                {
-                    var descriptor = descriptors.FirstOrDefault(d => d.Name == setting.Key);
-                    if (descriptor?.IsSecret == true && setting.Value != null)
-                    {
-                        decryptedSettings[provider.Key][setting.Key] = UnprotectString(setting.Value.ToString());
-                    }
-                    else
-                    {
-                        decryptedSettings[provider.Key][setting.Key] = setting.Value;
-                    }
-                }
-            }
-
-            return decryptedSettings;
-        }
-
-        private IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
+        
+        private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
             var provider = ProviderManager.Instance.GetProvider(providerName);
-            if (provider != null)
+            return provider?.GetSettingDescriptors() ?? Enumerable.Empty<SettingDescriptor>();
+        }
+        
+        /// <summary>
+        /// Loads the settings from disk.
+        /// </summary>
+        /// <returns>The loaded settings.</returns>
+        public static SmartHopperSettings Load()
+        {
+            try
             {
-                return provider.GetSettingDescriptors();
-            }
-
-            // Fallback to old method for backward compatibility
-            var assembly = Assembly.GetExecutingAssembly();
-            var providerType = assembly.GetTypes()
-                .FirstOrDefault(t => typeof(IAIProvider).IsAssignableFrom(t) &&
-                                   !t.IsInterface &&
-                                   !t.IsAbstract &&
-                                   t.GetProperty("Name")?.GetValue(null)?.ToString() == providerName);
-
-            if (providerType != null)
-            {
-                var instanceProperty = providerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                if (instanceProperty != null)
+                if (File.Exists(SettingsPath))
                 {
-                    var oldProvider = instanceProperty.GetValue(null) as IAIProvider;
-                    if (oldProvider != null)
+                    var json = File.ReadAllText(SettingsPath);
+                    var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json);
+                    
+                    if (settings != null)
                     {
-                        return oldProvider.GetSettingDescriptors();
+                        // Force integrity check and ensure all settings are valid
+                        settings.IntegrityCheck();
+                        
+                        // Don't automatically refresh providers here to avoid circular dependency
+                        // This should happen explicitly after both SmartHopperSettings and ProviderManager 
+                        // are fully initialized
+                        return settings;
                     }
                 }
             }
-
-            return Enumerable.Empty<SettingDescriptor>();
-        }
-
-        public static SmartHopperSettings Load()
-        {
-            if (!File.Exists(SettingsPath))
-                return new SmartHopperSettings();
-
-            try
+            catch (Exception ex)
             {
-                var json = File.ReadAllText(SettingsPath);
-                var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json) ?? new SmartHopperSettings();
-                settings.ProviderSettings = settings.DecryptSensitiveSettings(settings.ProviderSettings);
-                return settings;
+                Debug.WriteLine($"Error loading settings: {ex.Message}");
             }
-            catch (Exception)
-            {
-                return new SmartHopperSettings();
-            }
+            
+            return new SmartHopperSettings();
         }
-
+        
+        /// <summary>
+        /// Saves the settings to disk.
+        /// </summary>
         public void Save()
         {
             try
             {
+                // Ensure directory exists
                 var directory = Path.GetDirectoryName(SettingsPath);
                 if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
-
-                var settingsToSave = new SmartHopperSettings
                 {
-                    ProviderSettings = EncryptSensitiveSettings(ProviderSettings),
-                    DebounceTime = DebounceTime,
-                    DefaultAIProvider = DefaultAIProvider
-                };
-
-                var json = JsonConvert.SerializeObject(settingsToSave, Formatting.Indented);
+                    Directory.CreateDirectory(directory);
+                }
+                
+                // Log what we're about to save
+                Debug.WriteLine($"[Settings] Saving settings to {SettingsPath}");
+                Debug.WriteLine($"[Settings] DefaultAIProvider: {DefaultAIProvider}");
+                Debug.WriteLine($"[Settings] DebounceTime: {DebounceTime}");
+                
+                if (ProviderSettings != null)
+                {
+                    foreach (var providerKvp in ProviderSettings)
+                    {
+                        Debug.WriteLine($"[Settings] Provider '{providerKvp.Key}' has {providerKvp.Value?.Count ?? 0} settings");
+                        if (providerKvp.Value != null)
+                        {
+                            foreach (var settingKvp in providerKvp.Value)
+                            {
+                                // Don't log the actual values of secrets
+                                var isSecret = GetProviderDescriptors(providerKvp.Key)
+                                    .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
+                                
+                                Debug.WriteLine($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
+                            }
+                        }
+                    }
+                }
+                
+                var json = JsonConvert.SerializeObject(this, Formatting.Indented);
                 File.WriteAllText(SettingsPath, json);
+                Debug.WriteLine($"[Settings] Settings saved successfully ({json.Length} bytes)");
+                
+                // After saving, refresh all providers
+                RefreshProvidersLocalStorage();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handle or log error as needed
+                Debug.WriteLine($"Error saving settings: {ex.Message}");
             }
-        }
-
-        public static IEnumerable<IAIProvider> DiscoverProviders()
-        {
-            // Use the ProviderManager to discover providers
-            return ProviderManager.Instance.GetProviders();
-        }
-
-        /// <summary>
-        /// Gets the default AI provider from settings, or the first available provider if not set.
-        /// </summary>
-        /// <returns>The default AI provider name</returns>
-        public string GetDefaultAIProvider()
-        {
-            return ProviderManager.Instance.GetDefaultAIProvider();
-        }
-
-        /// <summary>
-        /// Gets the icon for the specified AI provider
-        /// </summary>
-        /// <param name="providerName">Name of the provider</param>
-        /// <returns>The provider's icon or null if not found</returns>
-        public static Image GetProviderIcon(string providerName)
-        {
-            return ProviderManager.Instance.GetProviderIcon(providerName);
         }
     }
 }

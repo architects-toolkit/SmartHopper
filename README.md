@@ -1,27 +1,30 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E2%2E1--dev%2E250420-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E3%2E0--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
-[![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange)](https://mistral.ai/)
+[![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
-SmartHopper is a groundbreaking plugin that enables AI to directly read, interpret, and generate Grasshopper definitions *[coming soon]*. This plugin bridges the gap between artificial intelligence and parametric design by allowing AI to understand and interact with your Grasshopper files in their native format.
+SmartHopper is a groundbreaking plugin that enables AI to directly interact with your Grasshopper canvas! Ask for help, search on the McNeel forum, reorganize components, toggle preview on or off, and much more, just by chatting with your customizable AI assistant. Additionally, this plugins includes multiple components that correspond to individual AI tools, so that you can integrate text- or list-based operations directly into your definition.
 
 ## 🎯 Key Features
 
 - 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
 - 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
-- 🤖 **Multiple AI Provider Support**: Choose between **MistralAI** and **OpenAI** APIs based on your preferences and requirements. Provide your own API keys and pay for usage.
+- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/) and [**OpenAI**](https://openai.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
 - 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
 
 ## 👥 Who Is This For?
+
 - **Architects and engineers** looking to enhance their parametric design workflow with AI assistance.
 - **Computational designers** seeking to automate repetitive tasks and generate creative solutions.
 - **Researchers** exploring the intersection of AI and parametric design methodologies.
 
 ## 🛠️ Technical Capabilities
+
 - **Seamless integration** with Grasshopper's Data Tree structure.
 - **Asynchronous** execution to maintain a responsive design environment.
 - **Flexible** triggering options: run components manually or automatically when inputs change.
@@ -48,15 +51,16 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | - | - |
 | AI Chat Input (AiChatInput)<br><sub>Send some data from your Grasshopper to the AI Chat</sub> | ⚪ | - | - | - |
 | AI Chat Output (AiChatOutput)<br><sub>Receive some data from the AI Chat to your Grasshopper</sub> | ⚪ | - | - | - |
+| Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | ⚪ | - | - | - |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | ⚪ | - | - | - |
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | ⚪ | - | - | - |
 
-Is there something missing? Do you have a suggestion? Please open a [Feature Request](https://github.com/architects-toolkit/SmartHopper/issues/new/choose) in the Issues tab.
+Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
-## ➡️ Supported Providers
+## ➡️ Available Providers
 
-SmartHopper is currently supported by the following providers:
+SmartHopper is currently supporting the following AI providers:
 
 | Provider | Status | Link to API registration |
 |----------|:------:|-------------------|
@@ -67,7 +71,7 @@ SmartHopper is currently supported by the following providers:
 
 ## 🔢 Supported Data Types
 
-SmartHopper is designed to work with various Grasshopper-native data types. Below is a table showing the currently supported types and those planned for future implementation:
+SmartHopper is designed to work with various Grasshopper-native data types. Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
 
 | Data Type | Status |
 |-----------|:------:|
@@ -80,10 +84,9 @@ SmartHopper is designed to work with various Grasshopper-native data types. Belo
 | Line | 🔜 Planned |
 | Circle | 🔜 Planned |
 
-Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
-
 ## 📚 Usage Examples
 
+**Disclaimer:** All videos correspond to previous versions. Since version 0.2.0, the plugin made a huge step forward and the interface has been completely redesigned. It looks much better now, and its functionality has been enhanced.
 ### 1 Generate a Title for the Current Document
 
 [![SmartHopper_Generate Title](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651352-6cfca3b39c99d01e9bbdb1590ac7f1325d35b8dfa16e0b5ced2aad704eef2bbe-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447175)
@@ -121,9 +124,3 @@ See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a
 ## ⚖️ License
 
 This project is licensed under the GNU Lesser General Public License v3 (LGPL) - see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-Made with ❤️ by designers, for designers
-</div>

@@ -9,11 +9,13 @@
  */
 
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
 using SmartHopper.Config.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
+using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -22,9 +24,9 @@ namespace SmartHopper.Providers.OpenAI
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
-    public class OpenAISettings : IAIProviderSettings
+    public class OpenAISettings : AIProviderSettings
     {
-        private readonly IAIProvider provider;
+        private readonly OpenAI provider;
         private TextBox apiKeyTextBox;
         private TextBox modelTextBox;
         private NumericUpDown maxTokensNumeric;
@@ -33,7 +35,7 @@ namespace SmartHopper.Providers.OpenAI
         /// Initializes a new instance of the <see cref="OpenAISettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public OpenAISettings(IAIProvider provider)
+        public OpenAISettings(OpenAI provider) : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
@@ -56,7 +58,7 @@ namespace SmartHopper.Providers.OpenAI
                 ColumnStyles =
                 {
                     new ColumnStyle(SizeType.Percent, 30),
-                    new ColumnStyle(SizeType.Percent, 70)
+                    new ColumnStyle(SizeType.Percent, 70),
                 }
             };
 
@@ -121,7 +123,10 @@ namespace SmartHopper.Providers.OpenAI
             {
                 // Load API Key
                 if (settings.ContainsKey("ApiKey"))
-                    apiKeyTextBox.Text = settings["ApiKey"].ToString();
+                {
+                    bool defined = settings["ApiKey"] is bool ok && ok;
+                    apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
+                }
 
                 // Load Model
                 if (settings.ContainsKey("Model"))
@@ -148,11 +153,8 @@ namespace SmartHopper.Providers.OpenAI
         {
             try
             {
-                var settings = SmartHopperSettings.Load();
-                if (settings.ProviderSettings.ContainsKey(provider.Name))
-                {
-                    LoadSettings(settings.ProviderSettings[provider.Name]);
-                }
+                var providerSettings = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
+                LoadSettings(providerSettings);
             }
             catch (Exception ex)
             {
@@ -167,16 +169,16 @@ namespace SmartHopper.Providers.OpenAI
         public bool ValidateSettings()
         {
             // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text))
+            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
             {
-                MessageBox.Show("API Key is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
 
             // Check if the model is provided
             if (string.IsNullOrWhiteSpace(modelTextBox.Text))
             {
-                MessageBox.Show("Model is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StyledMessageDialog.ShowError("Model is required.", "Validation Error");
                 return false;
             }
 

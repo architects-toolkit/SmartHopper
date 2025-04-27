@@ -9,10 +9,18 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    
+    <!-- treat StyleCop.Analyzers rules as warnings for code cleanup -->
+    <CodeAnalysisRuleSeverity>warning</CodeAnalysisRuleSeverity>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- StyleCop for code style checks; warnings only -->
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="all" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(SolutionDir)signing.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
 </Project>

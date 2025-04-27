@@ -18,14 +18,14 @@ using SmartHopper.Core.ComponentBase;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+using System.Drawing;
 
 namespace SmartHopper.Components.Misc
 {
     public class TestAsyncPrimeCalculatorComponent : AsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("B2C612B0-2C57-47CE-B9FE-E10621F18934");
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestAsyncPrimeCalculatorComponent()

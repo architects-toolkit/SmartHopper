@@ -18,8 +18,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.IO;
+using System.Dynamic;
 
-namespace SmartHopper.Config.Tools
+namespace SmartHopper.Config.Managers
 {
     /// <summary>
     /// Central manager for AI tools that can be called from chat interfaces.
@@ -72,10 +73,10 @@ namespace SmartHopper.Config.Tools
             if (!_tools.ContainsKey(toolName))
             {
                 Debug.WriteLine($"[AIToolManager] Tool not found: {toolName}");
-                return new { 
-                    success = false, 
-                    error = $"Tool '{toolName}' not found"
-                };
+                dynamic errorObj = new ExpandoObject();
+                errorObj.success = false;
+                errorObj.error = $"Tool '{toolName}' not found";
+                return errorObj;
             }
             
             // Merge extra parameters into parameters
@@ -98,10 +99,10 @@ namespace SmartHopper.Config.Tools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIToolManager] Error executing tool {toolName}: {ex.Message}");
-                return new {
-                    success = false,
-                    error = $"Error executing tool '{toolName}': {ex.Message}"
-                };
+                dynamic errorObj = new ExpandoObject();
+                errorObj.success = false;
+                errorObj.error = $"Error executing tool '{toolName}': {ex.Message}";
+                return errorObj;
             }
         }
         

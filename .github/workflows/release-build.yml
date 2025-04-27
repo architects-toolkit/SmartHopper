@@ -36,7 +36,6 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    
     steps:
     - name: Checkout repository
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
@@ -100,43 +99,36 @@ jobs:
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v4
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 7.0.x
-    
-    - name: Setup .NET Framework
+        dotnet-version: '7.0.x'
+
+    - name: Decode strong-name key via script
       shell: pwsh
       run: |
-        # .NET Framework 4.8 is pre-installed on Windows 2022 runner
-        # Just verify it's available
-        Get-ChildItem "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\"
-    
-    - name: Configure NuGet Sources
-      shell: pwsh
-      run: |
-        # List current sources
-        Write-Host "Current NuGet sources:"
-        dotnet nuget list source
-        
-        # Add Rhino source if not already present
-        $sources = dotnet nuget list source
-        if ($sources -notmatch "https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages") {
-            Write-Host "Adding Rhino NuGet source..."
-            dotnet nuget add source "https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages" -n rhinoSource
-        } else {
-            Write-Host "Rhino NuGet source already exists."
-        }
-        
-        # Verify final configuration
-        Write-Host "Final NuGet sources:"
-        dotnet nuget list source
-        
+        # Initialize Developer PowerShell environment for VS tools
+        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+
     - name: Restore dependencies
-      run: dotnet restore
-      
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet restore SmartHopper.sln
+
+    - name: Build solution
+      run: dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=signing.snk
+
+    - name: Decode Authenticode PFX from secrets
+      shell: pwsh
+      run: |
+        Write-Host "Decoding Authenticode PFX from secrets..."
+        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+
+    - name: Authenticode-sign provider assemblies
+      shell: pwsh
+      run: |
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        Write-Host "Auth-signing SmartHopper provider DLLs in bin\\$version\\Release"
+        pwsh ./Sign-Authenticode.ps1 -Sign "bin\\$version\\Release" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
 
     - name: Create Output Directory
       shell: pwsh
@@ -160,7 +152,7 @@ jobs:
         }
         
         # Define the target platforms
-        $platforms = @("net48", "net7.0-windows", "net7.0")
+        $platforms = @("net7.0-windows", "net7.0")
         
         # Copy only .gha and .dll files directly from each platform folder (not recursive)
         foreach ($platform in $platforms) {
@@ -218,7 +210,7 @@ jobs:
           ForEach-Object { Write-Host "  - $($_.Name)" }
         
         # Define the target platforms
-        $platforms = @("net48", "net7.0-windows", "net7.0")
+        $platforms = @("net7.0-windows", "net7.0")
         $missingFiles = $false
         
         foreach ($platform in $platforms) {
@@ -285,9 +277,8 @@ jobs:
       run: |
         $version = "${{ steps.determine_version.outputs.VERSION }}"
         $platforms = @{
-          "net48" = "SmartHopper-$version-Rhino7-Windows.zip"
           "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"
-          "net7.0" = "SmartHopper-$version-Rhino8-Mac.zip"
+          "net7.0" = "SmartHopper-$version-Rhino8-Mac-not-tested.zip"
         }
         
         $zipPaths = @()
@@ -363,6 +354,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac.zip
+        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
+        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
         asset_content_type: application/zip

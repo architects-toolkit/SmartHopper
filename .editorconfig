@@ -13,20 +13,19 @@ tab_width = 4
 
 # New line preferences
 end_of_line = crlf
-insert_final_newline = false
+insert_final_newline = true
 
 #### .NET Coding Conventions ####
 
 # Organize usings
 dotnet_separate_import_directive_groups = false
-dotnet_sort_system_directives_first = false
-file_header_template = "/*\n * SmartHopper - AI-powered Grasshopper Plugin\n * Copyright (C) {year} Marc Roca Musach\n *\n * This library is free software; you can redistribute it and/or\n * modify it under the terms of the GNU Lesser General Public\n * License as published by the Free Software Foundation; either\n * version 3 of the License, or (at your option) any later version.\n */"
+dotnet_sort_system_directives_first = true
 
 # this. and Me. preferences
-dotnet_style_qualification_for_event = false
-dotnet_style_qualification_for_field = false
-dotnet_style_qualification_for_method = false
-dotnet_style_qualification_for_property = false
+dotnet_style_qualification_for_event = true
+dotnet_style_qualification_for_field = true
+dotnet_style_qualification_for_method = true
+dotnet_style_qualification_for_property = true
 
 # Language keywords vs BCL types preferences
 dotnet_style_predefined_type_for_locals_parameters_members = true
