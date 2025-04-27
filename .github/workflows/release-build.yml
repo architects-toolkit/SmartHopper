@@ -40,7 +40,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
       with:
-        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
         fetch-depth: 0  # Fetch all history for all tags and branches
     
     - name: Get latest release tag
@@ -88,6 +87,21 @@ jobs:
         
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         echo "IS_RELEASE=$isRelease" >> $env:GITHUB_OUTPUT
+        
+        # Checkout the tag that matches the version
+        git checkout $version
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "##[error] Failed to checkout tag $version - does it exist?"
+          Write-Host "Available tags:"
+          git tag -l
+          exit 1
+        }
+        
+        # Verify current commit matches tag
+        $tagCommit = git rev-parse $version
+        $headCommit = git rev-parse HEAD
+        Write-Host "Tag $version commit: $tagCommit"
+        Write-Host "Current HEAD commit: $headCommit"
     
     - name: Check if release is draft
       if: github.event_name == 'release'
@@ -113,7 +127,25 @@ jobs:
       shell: pwsh
       run: |
         # Initialize Developer PowerShell environment for VS tools
-        & 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (-not (Test-Path $vsDevCmd)) {
+          Write-Host "##[warning] Visual Studio Developer Command Prompt not found at $vsDevCmd. Trying to find it..."
+          $vsDevCmd = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "VsDevCmd.bat" | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vsDevCmd) {
+            Write-Host "##[error] Could not find Visual Studio Developer Command Prompt"
+            exit 1
+          }
+        }
+        Write-Host "Using Visual Studio Developer environment: $vsDevCmd"
+        
+        # Import VS Dev environment
+        & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+          if ($_ -match '^([^=]+)=(.*)$') {
+            [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+          }
+        }
+        
+        # Now run the SNK script in the VS Dev environment
         pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
         
         # Verify the SNK file was created
@@ -125,26 +157,63 @@ jobs:
         # Show the absolute path for reference
         $absolutePath = Resolve-Path -Path "signing.snk"
         Write-Host "SNK absolute path: $absolutePath"
-
+    
     - name: Restore dependencies
       run: dotnet restore SmartHopper.sln
 
     - name: Build solution
       shell: pwsh
       run: |
+        # Initialize Developer PowerShell environment for VS tools
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          Write-Host "Setting up Visual Studio Developer environment..."
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        } else {
+          Write-Host "##[warning] Visual Studio Developer Command Prompt not found. Proceeding with regular environment."
+        }
+        
         $snkPath = Resolve-Path -Path "signing.snk" | Select-Object -ExpandProperty Path
         Write-Host "Building with SNK at: $snkPath"
         dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true "/p:AssemblyOriginatorKeyFile=$snkPath"
-
+    
     - name: Decode Authenticode PFX from secrets
       shell: pwsh
       run: |
+        # Setup VS Developer environment
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        }
+        
         Write-Host "Decoding Authenticode PFX from secrets..."
         pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
 
     - name: Authenticode-sign provider assemblies
       shell: pwsh
       run: |
+        # Setup VS Developer environment
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        }
+        
+        # Make signtool available by adding Windows SDK paths to PATH
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\x64"
+        
         $version = "${{ steps.determine_version.outputs.VERSION }}"
         $buildPath = "bin/$version/Release"
         
@@ -158,8 +227,8 @@ jobs:
             Write-Host "Found alternate build path: $buildPath"
           } else {
             Write-Host "##[error] No build output directory found. Skipping signing."
-            exit 1
-          }
+          exit 1
+        }
         }
         
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
