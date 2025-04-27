@@ -139,9 +139,17 @@ if ($Generate) {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "File-based signing failed (exit code $LASTEXITCODE), falling back to store-based signing..."
             $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $Password -AsPlainText -Force)
+            if (-not $imported) {
+                Write-Error "Failed to import PFX certificate. Please verify the PFX password and that the runner has permission to import certificates."
+                exit 1
+            }
             $thumb = $imported.Thumbprint
             Write-Host "Signing $($dll.FullName) with certificate thumbprint $thumb..."
             & $signtool.Source sign /fd SHA256 /sha1 $thumb $dll.FullName
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Fallback signing failed for $($dll.FullName)."
+                exit 1
+            }
         }
     }
 }
