@@ -1,16 +1,16 @@
 ﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using System;
 
 namespace SmartHopper.Components.Misc
 {
@@ -23,7 +23,7 @@ namespace SmartHopper.Components.Misc
         {
         }
 
-        public override Guid ComponentGuid => new Guid("250D14BA-D96A-4DC0-8703-87468CE2A18D");
+        public override Guid ComponentGuid => new("250D14BA-D96A-4DC0-8703-87468CE2A18D");
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -40,13 +40,15 @@ namespace SmartHopper.Components.Misc
             pManager.AddNumberParameter("Completion Time", "T", "Time taken for completion, in seconds", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Data Count", "DC", "The number of data items that were processed by the component. This may not match the total number of items in your input lists. If the component is configured to process data in batches, this value indicates how many batches (or groups) of results the component needs to process.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Iterations Count", "IC", "The number of times the component ran its calculation. If the component was set to recognize and group identical combinations of input items, it only processed each unique combination once and applied the results to all matching outputs. As a result, the iteration count may be less than the total data count.", GH_ParamAccess.item);
-
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            string jsonMetrics = null;
-            if (!DA.GetData(0, ref jsonMetrics)) return;
+            string? jsonMetrics = null;
+            if (!DA.GetData(0, ref jsonMetrics))
+            {
+                return;
+            }
 
             try
             {
@@ -61,7 +63,6 @@ namespace SmartHopper.Components.Misc
                 int inputDataCount = metricsObject["data_count"]?.Value<int>() ?? 0;
                 int iterationsCount = metricsObject["iterations_count"]?.Value<int>() ?? 0;
 
-
                 // Checks to see if the values were actually present
                 bool hasAIProvider = metricsObject["ai_provider"] != null;
                 bool hasAIModel = metricsObject["ai_model"] != null;
@@ -72,22 +73,40 @@ namespace SmartHopper.Components.Misc
 
                 // Set the data, potentially with warnings if values were missing
                 DA.SetData(0, aiProvider);
-                if (!hasAIProvider) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI provider not found in JSON");
-                
+                if (!hasAIProvider)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI provider not found in JSON");
+                }
+
                 DA.SetData(1, aiModel);
-                if (!hasAIModel) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI model not found in JSON");
+                if (!hasAIModel)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI model not found in JSON");
+                }
 
                 DA.SetData(2, inputTokens);
-                if (!hasInputTokens) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Input tokens not found in JSON");
+                if (!hasInputTokens)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Input tokens not found in JSON");
+                }
 
                 DA.SetData(3, outputTokens);
-                if (!hasOutputTokens) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Output tokens not found in JSON");
+                if (!hasOutputTokens)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Output tokens not found in JSON");
+                }
 
                 DA.SetData(4, finishReason);
-                if (!hasFinishReason) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Finish reason not found in JSON");
+                if (!hasFinishReason)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Finish reason not found in JSON");
+                }
 
                 DA.SetData(5, completionTime);
-                if (!hasCompletionTime) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Completion time not found in JSON");
+                if (!hasCompletionTime)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Completion time not found in JSON");
+                }
 
                 DA.SetData(6, inputDataCount);
 
@@ -95,7 +114,7 @@ namespace SmartHopper.Components.Misc
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to parse JSON metrics: {ex.Message}");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to parse JSON metrics: {ex.Message}");
             }
         }
     }

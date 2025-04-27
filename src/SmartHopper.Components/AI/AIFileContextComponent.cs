@@ -1,13 +1,12 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
-
 
 using System;
 using System.Collections.Generic;
@@ -17,19 +16,20 @@ using SmartHopper.Core.AI;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
-    /// Component that provides context for AI queries
+    /// Component that provides context for AI queries.
     /// </summary>
     public class AIFileContextComponent : GH_Component, IAIContextProvider
     {
-        private string _context;
+        private string context;
 
         /// <summary>
-        /// Gets the provider identifier
+        /// Gets the provider identifier.
         /// </summary>
         public string ProviderId => "file";
 
         /// <summary>
-        /// Constructor for the AI File Context component
+        /// Initializes a new instance of the <see cref="AIFileContextComponent"/> class.
+        /// Constructor for the AI File Context component.
         /// </summary>
         public AIFileContextComponent()
             : base("AI File Context", "AIFileCtx",
@@ -52,16 +52,19 @@ namespace SmartHopper.Components.AI
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            _context = "";
+            this.context = string.Empty;
 
-            if (!DA.GetData(0, ref _context)) return;
+            if (!DA.GetData(0, ref this.context))
+            {
+                return;
+            }
         }
 
         public Dictionary<string, string> GetContext()
         {
-            return new Dictionary<string, string> { { "file-context", _context } };
+            return new Dictionary<string, string> { { "file-context", this.context } };
         }
 
-        public override Guid ComponentGuid => new Guid("A7F5D347-9F4E-4A75-B6A9-115C06B6115D");
+        public override Guid ComponentGuid => new ("A7F5D347-9F4E-4A75-B6A9-115C06B6115D");
     }
 }

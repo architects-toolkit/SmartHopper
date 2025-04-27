@@ -8,6 +8,11 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Windows.Forms;
 using Grasshopper;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
@@ -15,13 +20,8 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
 using SmartHopper.Components.Properties;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Drawing;
-using System.Windows.Forms;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -38,8 +38,8 @@ namespace SmartHopper.Components.Grasshopper
         private bool inSelectionMode = false;
 
         public GhGetComponents()
-            : base("Get Components", "GhGet", 
-                  "Convert Grasshopper components to GhJSON format, with optional filters", 
+            : base("Get Components", "GhGet",
+                  "Convert Grasshopper components to GhJSON format, with optional filters",
                   "SmartHopper", "Grasshopper")
         {
         }
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Grasshopper
             // Clear previous selection
             selectedObjects.Clear();
             inSelectionMode = true;
-            
+
             // Get the Grasshopper canvas
             var canvas = Instances.ActiveCanvas;
             if (canvas == null) return;
@@ -66,7 +66,7 @@ namespace SmartHopper.Components.Grasshopper
             // Enable selection mode
             canvas.ContextMenuStrip?.Hide();
             Canvas_SelectionChanged();
-            
+
             // Force component update
             ExpireSolution(true);
         }
@@ -82,10 +82,10 @@ namespace SmartHopper.Components.Grasshopper
             selectedObjects = canvas.Document.SelectedObjects()
                 .OfType<IGH_ActiveObject>()
                 .ToList();
-            
+
             // Update message with selection count
             Message = $"{selectedObjects.Count} selected";
-            
+
             // Force component update
             ExpireSolution(true);
         }
@@ -230,7 +230,7 @@ namespace SmartHopper.Components.Grasshopper
                 var font = GH_FontServer.Standard;
                 var text = "Select";
                 var textSize = graphics.MeasureString(text, font);
-                
+
                 // Use PointF for text position
                 var tx = button.X + (button.Width - textSize.Width) / 2;
                 var ty = button.Y + (button.Height - textSize.Height) / 2;
@@ -248,11 +248,11 @@ namespace SmartHopper.Components.Grasshopper
                             {
                                 // Get current bounds of the component
                                 var bounds = docObj.Attributes.Bounds;
-                                
+
                                 // Add a small padding around the component
                                 var padding = 4f;
                                 var highlightBounds = RectangleF.Inflate(bounds, padding, padding);
-                                graphics.DrawRectangle(pen, highlightBounds.X, highlightBounds.Y, 
+                                graphics.DrawRectangle(pen, highlightBounds.X, highlightBounds.Y,
                                                     highlightBounds.Width, highlightBounds.Height);
                             }
                         }
@@ -280,12 +280,12 @@ namespace SmartHopper.Components.Grasshopper
         {
             bool wasHovering = IsHovering;
             IsHovering = ButtonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
-            
+
             if (wasHovering != IsHovering)
             {
                 Owner.ExpireSolution(true);
             }
-            
+
             return base.RespondToMouseMove(sender, e);
         }
 
