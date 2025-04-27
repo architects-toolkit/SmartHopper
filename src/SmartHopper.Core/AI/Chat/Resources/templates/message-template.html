@@ -1,6 +1,12 @@
 <div class='message {{role}}'>
     <div>
-        <div class='message-sender'>{{displayName}}</div>
-        <div class='message-content'>{{content}}</div>
+        <div class='message-header'>
+            <span class='message-sender'>{{displayName}}</span>
+            <span class='message-timestamp'>{{timestamp}}</span>
+        </div>
+        <div class='message-content'>
+            {{content}}
+            <span class='toggle-arrow'></span>
+        </div>
     </div>
 </div>

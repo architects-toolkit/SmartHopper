@@ -201,8 +201,9 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="role">The role of the message sender (user, assistant, system).</param>
         /// <param name="displayName">The display name of the sender.</param>
         /// <param name="content">The HTML content of the message.</param>
+        /// <param name="timestamp">The formatted timestamp of the message.</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string role, string displayName, string content)
+        public string CreateMessageHtml(string role, string displayName, string content, string timestamp)
         {
             Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
             
@@ -211,7 +212,8 @@ namespace SmartHopper.Core.AI.Chat
             string result = template
                 .Replace("{{role}}", role)
                 .Replace("{{displayName}}", displayName)
-                .Replace("{{content}}", content);
+                .Replace("{{content}}", content)
+                .Replace("{{timestamp}}", timestamp);
                 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
             

@@ -378,12 +378,6 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
-        private void AddSystemMessage(string message)
-        {
-            _chatHistory.Add(new KeyValuePair<string, string>("system", message));
-            AddMessageToWebView("system", message);
-        }
-
         private void AddUserMessage(string message)
         {
             _chatHistory.Add(new KeyValuePair<string, string>("user", message));
@@ -394,6 +388,20 @@ namespace SmartHopper.Core.AI.Chat
         {
             _chatHistory.Add(new KeyValuePair<string, string>("assistant", message));
             AddMessageToWebView("assistant", message);
+        }
+
+        /// <summary>
+        /// Adds a system message with an optional subtype (e.g., "error").
+        /// </summary>
+        /// <param name="message">The message text.</param>
+        /// <param name="type">Optional subtype for styling (e.g., "error").</param>
+        private void AddSystemMessage(string message, string type = null)
+        {
+            _chatHistory.Add(new KeyValuePair<string, string>("system", message)); // In chat history, use only "system" as role
+
+            // In the web view, use the combined role with optional type
+            var role = "system" + (string.IsNullOrEmpty(type) ? "" : " " + type);
+            AddMessageToWebView(role, message);
         }
 
         private void AddMessageToWebView(string role, string content)
@@ -499,7 +507,7 @@ namespace SmartHopper.Core.AI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error getting response: {ex.Message}");
-                AddSystemMessage($"Error: {ex.Message}");
+                AddSystemMessage($"Error: {ex.Message}", "error");
                 _statusLabel.Text = "Error occurred";
             }
             finally
@@ -528,8 +536,17 @@ namespace SmartHopper.Core.AI.Chat
                 if (response == null)
                 {
                     Debug.WriteLine("[WebChatDialog] No response received from AI provider");
-                    AddSystemMessage("Error: Failed to get response from AI provider.");
+                    AddSystemMessage("Error: Failed to get response from AI provider.", "error");
                     _statusLabel.Text = "Error: No response received";
+                    return;
+                }
+                
+                // If AI finished with error reason, display error message with red background
+                if (!string.IsNullOrEmpty(response.FinishReason) && response.FinishReason.Equals("error", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine("[WebChatDialog] Response finishReason is error; showing error message");
+                    AddSystemMessage(response.Response, "error");
+                    _statusLabel.Text = "Error in response";
                     return;
                 }
                 
@@ -600,7 +617,7 @@ namespace SmartHopper.Core.AI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
-                AddSystemMessage($"Error executing tool '{toolName}': {ex.Message}");
+                AddSystemMessage($"Error executing tool '{toolName}': {ex.Message}", "error");
             }
         }
         
@@ -613,20 +630,18 @@ namespace SmartHopper.Core.AI.Chat
         {
             try
             {
-                // Format arguments for display
+                // Create a formatted message
                 JObject parameters = JObject.Parse(toolArgs);
                 string formattedArgs = JsonConvert.SerializeObject(parameters, Formatting.Indented);
-                
-                // Create a formatted message
                 string message = $"🔧 **Tool Call**: `{toolName}`\n```json\n{formattedArgs}\n```";
                 
-                // Add as a system message
-                AddSystemMessage(message);
+                // Add as a collapsed tool message
+                AddSystemMessage(message, "tool");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error formatting tool call: {ex.Message}");
-                AddSystemMessage($"Tool Call: {toolName} (Error formatting arguments: {ex.Message})");
+                AddSystemMessage($"Tool Call: {toolName} (Error formatting arguments: {ex.Message})", "error");
             }
         }
         
@@ -641,13 +656,13 @@ namespace SmartHopper.Core.AI.Chat
                 // Create a formatted message
                 string message = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```";
                 
-                // Add as a system message
-                AddSystemMessage(message);
+                // Add as a collapsed tool message
+                AddSystemMessage(message, "tool");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error formatting tool result: {ex.Message}");
-                AddSystemMessage($"Tool Result: (Error formatting result: {ex.Message})");
+                AddSystemMessage($"Tool Result: (Error formatting result: {ex.Message})", "error");
             }
         }
 

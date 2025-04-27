@@ -30,6 +30,12 @@ function addMessage(messageHtml) {
     
     // Scroll to the bottom of the chat
     scrollToBottom();
+    
+    // Enable collapsible for tool messages
+    const lastMsg = chatContainer.lastElementChild;
+    if (lastMsg && lastMsg.classList.contains('system') && lastMsg.classList.contains('tool')) {
+        lastMsg.addEventListener('click', () => lastMsg.classList.toggle('expanded'));
+    }
 }
 
 /**
@@ -64,14 +70,16 @@ function scrollToBottom() {
  * @param {string} role - The role of the message sender (user, assistant, system)
  * @param {string} displayName - The display name of the sender
  * @param {string} content - The HTML content of the message
+ * @param {string} timestamp - The formatted date-time of the message
  * @returns {string} The HTML for the message
  */
-function createMessageFromTemplate(role, displayName, content) {
+function createMessageFromTemplate(role, displayName, content, timestamp) {
     if (typeof MESSAGE_TEMPLATE !== 'undefined') {
         return MESSAGE_TEMPLATE
             .replace('{{role}}', role)
             .replace('{{displayName}}', displayName)
-            .replace('{{content}}', content);
+            .replace('{{content}}', content)
+            .replace('{{timestamp}}', timestamp);
     }
     
     return "error";   
