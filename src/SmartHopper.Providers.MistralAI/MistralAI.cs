@@ -1,17 +1,13 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,30 +16,38 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Providers.MistralAI
 {
     public sealed class MistralAI : AIProvider
     {
-        private const string _name = "MistralAI";
+        private const string NameValue = "MistralAI";
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
-        private const string _defaultModel = "mistral-small-latest";
+        private const string DefaultModelValue = "mistral-small-latest";
 
-        private static readonly Lazy<MistralAI> _instance = new Lazy<MistralAI>(() => new MistralAI());
-        public static MistralAI Instance => _instance.Value;
+        private static readonly Lazy<MistralAI> InstanceValue = new (() => new MistralAI());
 
-        private MistralAI() { }
+        public static MistralAI Instance => InstanceValue.Value;
 
-        public override string Name => _name;
-        public override string DefaultModel => _defaultModel;
+        private MistralAI()
+        {
+        }
+
+        public override string Name => NameValue;
+
+        public override string DefaultModel => DefaultModelValue;
 
         /// <summary>
-        /// Gets whether this provider is enabled and should be available for use.
+        /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
         /// </summary>
         public override bool IsEnabled => true;
 
         /// <summary>
-        /// Gets the provider's icon
+        /// Gets the provider's icon.
         /// </summary>
         public override Image Icon
         {
@@ -65,19 +69,19 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Name = "ApiKey",
                     Type = typeof(string),
-                    DefaultValue = "",
+                    DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your MistralAI API key"
+                    Description = "Your MistralAI API key",
                 },
                 new SettingDescriptor
                 {
                     Name = "Model",
                     Type = typeof(string),
-                    DefaultValue = _defaultModel,
+                    DefaultValue = DefaultModelValue,
                     IsSecret = false,
                     DisplayName = "Model",
-                    Description = "The model to use for completions"
+                    Description = "The model to use for completions",
                 },
                 new SettingDescriptor
                 {
@@ -86,8 +90,8 @@ namespace SmartHopper.Providers.MistralAI
                     DefaultValue = 150,
                     IsSecret = false,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate"
-                }
+                    Description = "Maximum number of tokens to generate",
+                },
             };
         }
 
@@ -95,24 +99,28 @@ namespace SmartHopper.Providers.MistralAI
         {
             Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
             if (settings == null)
+            {
                 return false;
-                
+            }
+
             // Only validate settings that are actually provided
             // This allows partial setting updates rather than requiring all settings
-            
+
             // Check API key format if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 string apiKey = apiKeyObj.ToString();
+
                 // Simple format validation - don't require presence, just valid format if provided
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
                     Debug.WriteLine("[MistralAI] API key format validation failed: empty key provided");
                     return false;
                 }
+
                 Debug.WriteLine($"[MistralAI] API key format validation passed (length: {apiKey.Length})");
             }
-            
+
             // Check model format if present
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
@@ -122,9 +130,10 @@ namespace SmartHopper.Providers.MistralAI
                     Debug.WriteLine("[MistralAI] Model format validation failed: empty model name provided");
                     return false;
                 }
+
                 Debug.WriteLine($"[MistralAI] Model validation passed: {model}");
             }
-            
+
             // Check max tokens if present - must be a positive number
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
@@ -136,6 +145,7 @@ namespace SmartHopper.Providers.MistralAI
                         Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
                         return false;
                     }
+
                     Debug.WriteLine($"[MistralAI] MaxTokens validation passed: {maxTokens}");
                 }
                 else
@@ -144,7 +154,7 @@ namespace SmartHopper.Providers.MistralAI
                     return false;
                 }
             }
-            
+
             // All provided settings are valid
             return true;
         }
@@ -152,20 +162,20 @@ namespace SmartHopper.Providers.MistralAI
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             // Get settings from the secure settings store
-            string apiKey = GetSetting<string>("ApiKey");
-            int maxTokens = GetSetting<int>("MaxTokens");
-            string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
-            
+            string apiKey = this.GetSetting<string>("ApiKey");
+            int maxTokens = this.GetSetting<int>("MaxTokens");
+            string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
+
             // Validate API key
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new Exception("MistralAI API key is not configured or is invalid.");
             }
-            
+
             // Use default model if none specified
             if (string.IsNullOrWhiteSpace(modelName))
             {
-                modelName = _defaultModel;
+                modelName = DefaultModelValue;
             }
 
             Debug.WriteLine($"[MistralAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
@@ -180,12 +190,12 @@ namespace SmartHopper.Providers.MistralAI
                 foreach (var msg in messages)
                 {
                     // Provider-specific: propagate assistant tool_call messages unmodified
-                    string role = msg["role"]?.ToString().ToLower() ?? "user";
-                    string content = msg["content"]?.ToString() ?? "";
+                    string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
+                    string content = msg["content"]?.ToString() ?? string.Empty;
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content
+                        ["content"] = content,
                     };
 
                     // Map role names
@@ -207,9 +217,14 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         // Propagate tool_call ID and name from incoming message
                         if (msg["name"] != null)
+                        {
                             messageObj["name"] = msg["name"];
+                        }
+
                         if (msg["tool_call_id"] != null)
+                        {
                             messageObj["tool_call_id"] = msg["tool_call_id"];
+                        }
                     }
                     else if (role == "tool_call")
                     {
@@ -226,7 +241,7 @@ namespace SmartHopper.Providers.MistralAI
                     }
 
                     messageObj["role"] = role;
-                    
+
                     convertedMessages.Add(messageObj);
                 }
 
@@ -235,7 +250,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
-                    ["max_tokens"] = maxTokens
+                    ["max_tokens"] = maxTokens,
                 };
 
                 // Add tools if requested
@@ -254,8 +269,8 @@ namespace SmartHopper.Providers.MistralAI
 
                 try
                 {
-                    var response = await httpClient.PostAsync(ApiURL, requestContent);
-                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var response = await httpClient.PostAsync(ApiURL, requestContent).ConfigureAwait(false);
+                    var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     Debug.WriteLine($"[MistralAI] Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
@@ -281,7 +296,7 @@ namespace SmartHopper.Providers.MistralAI
 
                     var aiResponse = new AIResponse
                     {
-                        Response = message["content"]?.ToString() ?? "",
+                        Response = message["content"]?.ToString() ?? string.Empty,
                         Provider = "MistralAI",
                         Model = modelName,
                         FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
@@ -302,7 +317,7 @@ namespace SmartHopper.Providers.MistralAI
                                 {
                                     Id = toolCall["id"]?.ToString(),
                                     Name = function["name"]?.ToString(),
-                                    Arguments = function["arguments"]?.ToString()
+                                    Arguments = function["arguments"]?.ToString(),
                                 });
                             }
                         }
@@ -323,22 +338,26 @@ namespace SmartHopper.Providers.MistralAI
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
                 return requestedModel;
+            }
 
             // Use the model from settings if available
-            string modelFromSettings = GetSetting<string>("Model");
+            string modelFromSettings = this.GetSetting<string>("Model");
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
                 return modelFromSettings;
+            }
 
             // Fall back to the default model
-            return DefaultModel;
+            return this.DefaultModel;
         }
 
         /// <summary>
-        /// Gets the tools formatted for the MistralAI API
+        /// Gets the tools formatted for the MistralAI API.
         /// </summary>
-        /// <returns>JArray of formatted tools</returns>
-        private JArray GetFormattedTools()
+        /// <returns>JArray of formatted tools.</returns>
+        private static new JArray? GetFormattedTools()
         {
             try
             {
@@ -365,8 +384,8 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             ["name"] = tool.Value.Name,
                             ["description"] = tool.Value.Description,
-                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema)
-                        }
+                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
+                        },
                     };
 
                     toolsArray.Add(toolObject);

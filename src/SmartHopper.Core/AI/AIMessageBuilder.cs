@@ -81,7 +81,7 @@ namespace SmartHopper.Core.AI
                         var item = new JObject
                         {
                             ["role"] = "assistant",
-                            ["content"] = element != null ? JToken.FromObject(element) : JValue.CreateNull(),
+                            ["content"] = element.Body ?? string.Empty,
                         };
                         var toolCallsArray = new JArray();
                         int idx = 0;
