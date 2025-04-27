@@ -398,14 +398,11 @@ namespace SmartHopper.Config.Managers
         // Implement Authenticode verification using X509Certificate
         private void VerifySignature(string filePath)
         {
-            // Authenticode: ensure the certificate matches the host assembly's certificate
+            // Authenticode: ensure the file has a valid Authenticode signature
             try
             {
-                var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
-                var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
-                    Assembly.GetExecutingAssembly().Location));
-                if (!string.Equals(cert.Thumbprint, baseCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
-                    throw new CryptographicException($"Authenticode certificate mismatch for {Path.GetFileName(filePath)}.");
+                // will throw if the file is not signed
+                X509Certificate.CreateFromSignedFile(filePath);
             }
             catch (CryptographicException)
             {

@@ -12,6 +12,9 @@
     </PackageReference>
     <PackageReference Include="Moq" Version="4.18.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- Roslyn for runtime DLL emission -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis" Version="4.10.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
