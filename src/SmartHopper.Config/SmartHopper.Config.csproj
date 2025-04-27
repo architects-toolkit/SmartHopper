@@ -34,6 +34,7 @@
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+    <PackageReference Include="Eto.Forms" Version="2.8.0" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
