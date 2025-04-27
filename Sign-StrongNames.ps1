@@ -19,7 +19,7 @@ param(
     [switch]$Help
 )
 
-$snkPath = 'signing.snk'
+$snkPath = Join-Path -Path $PSScriptRoot -ChildPath 'signing.snk'
 
 function Show-Help {
     Write-Host "Usage: .\Sign-StrongNames.ps1 [options]"

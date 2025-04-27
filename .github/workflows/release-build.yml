@@ -36,9 +36,6 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
-      SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
