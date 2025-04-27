@@ -101,6 +101,7 @@ pre {
     max-width: 100%;
     white-space: pre-wrap;
     word-wrap: break-word;
+    position: relative;
 }
 
 code {
@@ -118,6 +119,24 @@ pre code {
     padding: 0;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+/* Copy code icon styling */
+.copy-code-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9em;
+    color: #666;
+    z-index: 2;
+}
+.copy-code-icon:hover {
+    color: #333;
 }
 
 /* Links */
@@ -248,4 +267,24 @@ hr {
     z-index: 1000;
     max-width: 300px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Toast notification styling */
+.toast {
+    position: fixed;
+    bottom: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    opacity: 0;
+    transition: bottom 0.3s ease, opacity 0.3s ease;
+    z-index: 999;
+}
+.toast.visible {
+    bottom: 30px;
+    opacity: 1;
 }

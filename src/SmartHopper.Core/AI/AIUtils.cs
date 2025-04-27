@@ -8,16 +8,15 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Diagnostics;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.AI
 {
@@ -95,10 +94,10 @@ namespace SmartHopper.Core.AI
 
                     if (contextMessages.Any())
                     {
-                        var contextMessage = "Conversation context:\n\n" + 
+                        var contextMessage = "Conversation context:\n\n" +
                                              string.Join("\n", contextMessages);
-                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
-                        { 
+                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>>
+                        {
                             new KeyValuePair<string, string>("system", contextMessage)
                         });
 

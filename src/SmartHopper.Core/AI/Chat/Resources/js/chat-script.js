@@ -45,8 +45,25 @@ function addMessage(messageHtml) {
  * Processes code blocks for potential syntax highlighting
  */
 function processCodeBlocks() {
-    // If you want to add syntax highlighting, you could add that here
-    // This is a placeholder for future enhancements
+    // Add copy icon for each code block
+    document.querySelectorAll('pre').forEach(pre => {
+        if (pre.querySelector('.copy-code-icon')) return;
+        pre.style.position = 'relative';
+        const button = document.createElement('button');
+        button.className = 'copy-code-icon';
+        button.type = 'button';
+        button.title = 'Copy code';
+        button.innerText = '📋';
+        button.addEventListener('click', () => {
+            const code = pre.querySelector('code');
+            if (code) {
+                const text = encodeURIComponent(code.innerText);
+                console.debug("[chat-script] Triggering host copy", text);
+                window.location.href = `clipboard://copy?text=${text}`;
+            }
+        });
+        pre.appendChild(button);
+    });
 }
 
 /**
@@ -160,4 +177,22 @@ function hideTooltip() {
 function hideAllTooltips() {
     const tooltips = document.querySelectorAll('.metrics-tooltip');
     tooltips.forEach(tooltip => tooltip.remove());
+}
+
+/**
+ * Shows a temporary toast message at the bottom of the screen.
+ * @param {string} message - The message to display
+ */
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = message;
+    document.body.appendChild(toast);
+    // Trigger show animation
+    setTimeout(() => toast.classList.add('visible'), 100);
+    // Hide after 2 seconds
+    setTimeout(() => {
+        toast.classList.remove('visible');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 2000);
 }

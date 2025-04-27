@@ -8,10 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.AI
 {

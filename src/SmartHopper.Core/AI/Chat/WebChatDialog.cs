@@ -108,6 +108,32 @@ namespace SmartHopper.Core.AI.Chat
             // Add WebView event handlers for debugging
             _webView.DocumentLoaded += (sender, e) => Debug.WriteLine("[WebChatDialog] WebView document loaded");
             _webView.DocumentLoading += (sender, e) => Debug.WriteLine("[WebChatDialog] WebView document loading");
+            // Intercept custom clipboard URIs to copy via host and show toast
+            _webView.DocumentLoading += (sender, e) =>
+            {
+                try
+                {
+                    var uri = e.Uri;
+                    if (uri.Scheme == "clipboard")
+                    {
+                        e.Cancel = true;
+                        // Extract encoded text after 'text='
+                        var query = uri.Query;
+                        var prefix = "?text=";
+                        var encoded = query.StartsWith(prefix) ? query.Substring(prefix.Length) : query.TrimStart('?');
+                        var text = Uri.UnescapeDataString(encoded);
+                        // Copy to host clipboard
+                        Clipboard.Instance.Text = text;
+                        Debug.WriteLine($"[WebChatDialog] Copied to clipboard via host: {text}");
+                        // Trigger JS toast
+                        _webView.ExecuteScriptAsync("showToast('Code copied to clipboard :)');");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Clipboard intercept error: {ex.Message}");
+                }
+            };
 
             _userInputTextArea = new TextArea
             {

@@ -10,7 +10,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Rhino;
 
 namespace SmartHopper.Core.AI
@@ -60,7 +59,7 @@ namespace SmartHopper.Core.AI
         public Dictionary<string, string> GetContext()
         {
             var rhinoVersion = RhinoApp.Version.ToString();
-            
+
             return new Dictionary<string, string>
             {
                 { "operating-system", Environment.OSVersion.ToString() },
