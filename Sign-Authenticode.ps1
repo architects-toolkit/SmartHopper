@@ -94,8 +94,8 @@ if ($Generate) {
         Write-Host "Reading Base64 PFX data from '$File'"
         $Base64 = Get-Content $File -Raw
     }
-    # If no Base64 or File, try to locate existing PFX in script directory
-    if (-not $Base64 -and -not $File) {
+    # If no Base64 or File and no explicit -PfxPath provided, locate existing PFX in script directory
+    if (-not $Base64 -and -not $File -and -not $PfxPath) {
         $scriptDir = Split-Path $MyInvocation.MyCommand.Path
         $found = Get-ChildItem -Path $scriptDir -Filter '*.pfx' | Select-Object -First 1
         if ($found) {
@@ -119,30 +119,29 @@ if ($Generate) {
     }
     Write-Host "Signing provider assemblies under path '$Sign' with Authenticode certificate"
     $signtool = Get-Command signtool.exe -ErrorAction SilentlyContinue
-    
-    ## DEBUGGING CODE ----------
-    # Write-Host "Inspecting PFX certificate at $pfxPath"
-    # try { $certInfo = Get-PfxCertificate -FilePath $pfxPath -Password (ConvertTo-SecureString -String $Password -AsPlainText -Force) } catch { Write-Error "Failed to load PFX: $_"; exit 1 }
-    # Write-Host "Certificate Subject: $($certInfo.Subject)"
-    # Write-Host "Enhanced Key Usages: $($certInfo.EnhancedKeyUsageList.FriendlyName -join ', ')"
-    # Write-Host "Key Usage: $($certInfo.KeyUsage)"
-    ## END DEBUGGING CODE ------
 
-    # Attempt file-based signing first
-    Write-Host "Attempting file-based signing..."
-    # Sign provider DLLs and the Config assembly
-    Get-ChildItem -Path $Sign -Recurse -Filter "*.dll" |
-      Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Config.dll" } |
-      ForEach-Object {
-        $dll = $_.FullName
-        Write-Host "Signing $dll with PFX file..."
-        & $signtool.Source sign /fd SHA256 /a /f "$pfxPath" /p "$Password" $dll
+    # Determine items to sign: explicit DLL or provider assemblies directory
+    if ((Test-Path $Sign -PathType Leaf) -and ([IO.Path]::GetExtension($Sign) -ieq ".dll")) {
+        Write-Host "Signing explicit DLL: $Sign"
+        $items = @(Get-Item $Sign)
+    } elseif (Test-Path $Sign -PathType Container) {
+        Write-Host "Signing assemblies under directory: $Sign"
+        $items = Get-ChildItem -Path $Sign -Recurse -Filter "*.dll" |
+            Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Config.dll" }
+    } else {
+        Write-Error "Path '$Sign' is not a .dll file or directory"
+        exit 1
+    }
+
+    foreach ($dll in $items) {
+        Write-Host "Signing $($dll.FullName) with PFX file..."
+        & $signtool.Source sign /fd SHA256 /a /f "$pfxPath" /p "$Password" $dll.FullName
         if ($LASTEXITCODE -ne 0) {
             Write-Host "File-based signing failed (exit code $LASTEXITCODE), falling back to store-based signing..."
-            $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -AsPlainText -Force -String $Password)
+            $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $Password -AsPlainText -Force)
             $thumb = $imported.Thumbprint
-            Write-Host "Signing $dll with certificate thumbprint $thumb..."
-            & $signtool.Source sign /fd SHA256 /sha1 $thumb $dll
+            Write-Host "Signing $($dll.FullName) with certificate thumbprint $thumb..."
+            & $signtool.Source sign /fd SHA256 /sha1 $thumb $dll.FullName
         }
     }
 }
