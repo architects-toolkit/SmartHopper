@@ -108,7 +108,7 @@ jobs:
       shell: pwsh
       run: |
         # Initialize Developer PowerShell environment for VS tools
-        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        & 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
         pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
 
     - name: Restore dependencies
