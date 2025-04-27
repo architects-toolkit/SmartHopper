@@ -232,7 +232,8 @@ jobs:
         }
         
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        pwsh ./Sign-Authenticode.ps1 -Sign "$buildPath" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        & ./Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
 
     - name: Create Output Directory
       shell: pwsh
