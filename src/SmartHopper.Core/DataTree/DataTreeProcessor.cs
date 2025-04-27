@@ -8,14 +8,14 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 
 namespace SmartHopper.Core.DataTree
 {
@@ -81,7 +81,7 @@ namespace SmartHopper.Core.DataTree
                 // Avoid comparing the current path
                 if (path == currentPath)
                     continue;
-                
+
                 // Get branches for this path from all trees
                 var siblingBranches = trees.ToDictionary(
                     kvp => kvp.Key,
@@ -105,7 +105,7 @@ namespace SmartHopper.Core.DataTree
         {
             var keyParts = branches
                 .OrderBy(kvp => kvp.Key)
-                .Select(kvp => 
+                .Select(kvp =>
                 {
                     var branch = kvp.Value;
                     var branchData = branch.Select(item => item.ToString());
@@ -114,7 +114,7 @@ namespace SmartHopper.Core.DataTree
 
             return string.Join("|", keyParts);
         }
-        
+
         #endregion
 
         #region TREES
@@ -195,13 +195,13 @@ namespace SmartHopper.Core.DataTree
         /// </summary>
         /// <returns>A tuple containing the list of unique processing paths and a dictionary mapping paths to their identical branches</returns>
         private static (List<GH_Path> uniquePaths, Dictionary<GH_Path, List<GH_Path>> pathsToApplyMap) GetProcessingPaths<T>(
-            Dictionary<string, GH_Structure<T>> trees, 
+            Dictionary<string, GH_Structure<T>> trees,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false) where T : IGH_Goo
         {
             var allPaths = new List<GH_Path>();
             var pathsToApplyMap = new Dictionary<GH_Path, List<GH_Path>>();
-            
+
             if (!onlyMatchingPaths)
             {
                 // Get the amount of items in each tree
@@ -241,7 +241,7 @@ namespace SmartHopper.Core.DataTree
             var processingPaths = onlyMatchingPaths ? GetMatchingPaths(trees.Values) : allPaths;
 
             // If groupIdenticalBranches is true, find and group identical branches
-            if (groupIdenticalBranches && 
+            if (groupIdenticalBranches &&
                 (typeof(T) == typeof(GH_String) ||
                  typeof(T) == typeof(GH_Number) ||
                  typeof(T) == typeof(GH_Integer) ||
@@ -249,7 +249,7 @@ namespace SmartHopper.Core.DataTree
             {
                 Debug.WriteLine($"[DataTreeProcessor] Starting identical branch grouping for {processingPaths.Count} paths");
                 Debug.WriteLine($"[DataTreeProcessor] Initial paths: {string.Join(", ", processingPaths)}");
-                
+
                 // Initialize the dictionary with each path mapping to itself
                 foreach (var path in processingPaths)
                 {
@@ -265,47 +265,47 @@ namespace SmartHopper.Core.DataTree
                 for (int i = 0; i < processingPaths.Count; i++)
                 {
                     var currentPath = processingPaths[i];
-                    
+
                     // Skip paths that are already processed as part of another group
                     if (pathsToRemove.Contains(currentPath))
                     {
                         Debug.WriteLine($"[DataTreeProcessor] Skipping path {currentPath} as it's already assigned to another group");
                         continue;
                     }
-                        
+
                     // Get branches for current path from all trees
                     var currentBranches = trees.ToDictionary(
                         kvp => kvp.Key,
                         kvp => GetBranchFromTree(kvp.Value, currentPath, preserveStructure: true)
                     );
-                    
+
                     var currentKey = GetBranchesKey(currentBranches);
                     Debug.WriteLine($"[DataTreeProcessor] Checking path {currentPath} with key: {currentKey}");
-                    
+
                     // Look for other paths with identical branch data
                     for (int j = i + 1; j < processingPaths.Count; j++)
                     {
                         var siblingPath = processingPaths[j];
-                        
+
                         // Skip paths that are already processed
                         if (pathsToRemove.Contains(siblingPath))
                             continue;
-                        
+
                         // Get branches for this path from all trees
                         var siblingBranches = trees.ToDictionary(
                             kvp => kvp.Key,
                             kvp => GetBranchFromTree(kvp.Value, siblingPath, preserveStructure: true)
                         );
-                        
+
                         var siblingKey = GetBranchesKey(siblingBranches);
-                        
+
                         // If branches are identical, add to the group and mark as processed
                         if (siblingKey == currentKey)
                         {
                             Debug.WriteLine($"[DataTreeProcessor] Path {siblingPath} is identical to {currentPath}");
                             pathsToApplyMap[currentPath].Add(siblingPath);
                             pathsToRemove.Add(siblingPath);
-                            
+
                             // Remove the sibling path from the pathsToApplyMap as a key
                             // since it will be processed as part of the current path's group
                             if (pathsToApplyMap.ContainsKey(siblingPath))
@@ -320,10 +320,10 @@ namespace SmartHopper.Core.DataTree
                             Debug.WriteLine($"[DataTreeProcessor] - Key for {siblingPath}: {siblingKey}");
                         }
                     }
-                    
+
                     processedPaths.Add(currentPath);
                 }
-                
+
                 // Remove paths that are processed as part of another path's group
                 foreach (var pathToRemove in pathsToRemove)
                 {
@@ -333,7 +333,7 @@ namespace SmartHopper.Core.DataTree
                         processingPaths.Remove(pathToRemove);
                     }
                 }
-                
+
                 Debug.WriteLine($"[DataTreeProcessor] After grouping, path map:");
 
                 foreach (var kvp in pathsToApplyMap)
@@ -386,14 +386,14 @@ namespace SmartHopper.Core.DataTree
 
                 // Check for cancellation
                 token.ThrowIfCancellationRequested();
-                
+
                 // For each tree, get the branch corresponding to the path, preserving the original dictionary keys
                 var branches = trees
                     .ToDictionary(
                         kvp => kvp.Key,
                         kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
                     );
-                
+
                 // Check for empty branches
                 var emptyBranches = branches.Where(kvp => !kvp.Value.Any()).ToList();
 
@@ -409,19 +409,19 @@ namespace SmartHopper.Core.DataTree
                         }
                     }
                 }
-                
-                try 
+
+                try
                 {
                     // Get the paths to apply the result to (could be multiple if they have identical branch data)
                     var pathsToApply = pathsToApplyMap[path];
-                    
+
                     // Calculate the reuse count as the number of paths this result will be applied to
                     int reuseCount = pathsToApply.Count;
                     Debug.WriteLine($"[DataTreeProcessor] Result for path {path} will be reused {reuseCount} times");
-                    
+
                     // Apply the function to the current branch and await its completion, passing the reuse count
                     var branchResult = await function(branches, reuseCount);
-                    
+
                     // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
                     foreach (var applyPath in pathsToApply)
                     {
@@ -432,7 +432,7 @@ namespace SmartHopper.Core.DataTree
                                 result[kvp.Key] = new GH_Structure<U>();
                                 Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
                             }
-                            
+
                             if (kvp.Value != null)
                             {
                                 Debug.WriteLine($"[DataTreeProcessor] Appending {kvp.Value.Count} items to path {applyPath} for key {kvp.Key}");

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Improved chat UI with timestamps for messages, collapsible tool messages, inline metrics per message, and better formatting.
+- Improved chat UI with timestamps for messages, collapsible tool messages, inline metrics per message, button to copy codeblocks to clipboard, and better formatting.
 
 ## [0.3.0-alpha] - 2025-04-27
 
