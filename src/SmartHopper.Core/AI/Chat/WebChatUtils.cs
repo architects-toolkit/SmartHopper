@@ -20,9 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Eto.Forms;
 using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
-using Rhino;
-using Rhino.UI;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -49,17 +46,17 @@ namespace SmartHopper.Core.AI.Chat
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse lastResponse = null;
-            
+
             Debug.WriteLine("[WebChatUtils] Preparing to show web chat dialog");
 
             try
             {
                 // Create a function to get responses from the AI provider
-                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = 
+                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse =
                     messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint, includeToolDefinitions: true);
 
                 // We need to use Rhino's UI thread to show the dialog
-                Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
@@ -75,10 +72,10 @@ namespace SmartHopper.Core.AI.Chat
                         if (componentId != default && _openDialogs.TryGetValue(componentId, out WebChatDialog existingDialog))
                         {
                             Debug.WriteLine("[WebChatUtils] Reusing existing dialog for component");
-                            
+
                             // Use the cross-platform EnsureVisibility method to make the dialog visible
                             existingDialog.EnsureVisibility();
-                            
+
                             // Complete the task with null to indicate no new response
                             tcs.TrySetResult(null);
                             return;
@@ -86,42 +83,42 @@ namespace SmartHopper.Core.AI.Chat
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
                         var dialog = new WebChatDialog(getResponse);
-                        
+
                         // If component ID is provided, store the dialog
                         if (componentId != default)
                         {
                             _openDialogs[componentId] = dialog;
                         }
-                        
+
                         // Handle dialog closing
-                        dialog.Closed += (sender, e) => 
+                        dialog.Closed += (sender, e) =>
                         {
                             Debug.WriteLine("[WebChatUtils] Dialog closed");
-                            
+
                             // Remove from open dialogs dictionary
                             if (componentId != default)
                             {
                                 _openDialogs.Remove(componentId);
                             }
-                            
+
                             // Complete the task with the last response
                             tcs.TrySetResult(lastResponse);
                         };
-                        
+
                         // Handle responses
-                        dialog.ResponseReceived += (sender, response) => 
+                        dialog.ResponseReceived += (sender, response) =>
                         {
                             Debug.WriteLine("[WebChatUtils] Response received");
                             lastResponse = response;
                         };
-                        
+
                         // Configure the dialog window
                         dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
-                        
+
                         // Show the dialog as a non-modal window
                         Debug.WriteLine("[WebChatUtils] Showing dialog");
                         dialog.Show();
-                        
+
                         // Ensure the dialog is visible and active
                         dialog.BringToFront();
                         dialog.Focus();
@@ -131,8 +128,8 @@ namespace SmartHopper.Core.AI.Chat
                         Debug.WriteLine($"[WebChatUtils] Error in UI thread: {ex.Message}");
                         tcs.TrySetException(ex);
                     }
-                }));
-                
+                });
+
                 // Wait for the dialog to close
                 return await tcs.Task;
             }
@@ -185,7 +182,7 @@ namespace SmartHopper.Core.AI.Chat
             public async Task ProcessChatAsync(CancellationToken cancellationToken)
             {
                 _progressReporter?.Invoke("Opening web chat dialog...");
-                
+
                 try
                 {
                     _lastResponse = await ShowWebChatDialog(_providerName, _modelName, _endpoint, _componentId);
@@ -218,8 +215,8 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="componentId">The unique ID of the component instance</param>
         /// <returns>A new web chat worker</returns>
         public static WebChatWorker CreateWebChatWorker(
-            string providerName, 
-            string modelName, 
+            string providerName,
+            string modelName,
             string endpoint,
             Action<string> progressReporter,
             Guid componentId = default)

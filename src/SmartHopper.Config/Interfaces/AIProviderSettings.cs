@@ -13,8 +13,11 @@ namespace SmartHopper.Config.Interfaces
     public interface IAIProviderSettings
     {
         Control CreateSettingsControl();
+
         Dictionary<string, object> GetSettings();
+
         void LoadSettings(Dictionary<string, object> settings);
+
         bool ValidateSettings();
     }
 

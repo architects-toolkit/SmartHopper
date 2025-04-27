@@ -14,9 +14,9 @@
  */
 
 using System;
-using System.Net;
 using System.Diagnostics;
-using System.Text;
+using System.Net;
+using SmartHopper.Config.Models;
 using Markdig;
 
 namespace SmartHopper.Core.AI.Chat
@@ -35,7 +35,7 @@ namespace SmartHopper.Core.AI.Chat
         public HtmlChatRenderer()
         {
             Debug.WriteLine("[HtmlChatRenderer] Initializing HtmlChatRenderer");
-            
+
             // Configure Markdig pipeline with needed extensions
             _markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
@@ -48,7 +48,7 @@ namespace SmartHopper.Core.AI.Chat
                 .UseAutoLinks()
                 .UseGenericAttributes()
                 .Build();
-                
+
             // Initialize the resource manager
             _resourceManager = new ChatResourceManager();
             Debug.WriteLine("[HtmlChatRenderer] Resource manager initialized");
@@ -61,26 +61,26 @@ namespace SmartHopper.Core.AI.Chat
         public string GetInitialHtml()
         {
             Debug.WriteLine("[HtmlChatRenderer] Getting initial HTML");
-            
+
             try
             {
                 string html = _resourceManager.GetCompleteHtml();
                 Debug.WriteLine($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
-                
+
                 // For debugging, output the first 200 characters of the HTML
                 if (html != null && html.Length > 0)
                 {
                     string preview = html.Length > 200 ? html.Substring(0, 200) + "..." : html;
                     Debug.WriteLine($"[HtmlChatRenderer] HTML preview: {preview}");
                 }
-                
+
                 return html;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[HtmlChatRenderer] Error getting complete HTML: {ex.Message}");
                 Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
-                
+
                 // Use the error template from resources
                 return _resourceManager.GetErrorTemplate(ex.Message);
             }
@@ -90,16 +90,16 @@ namespace SmartHopper.Core.AI.Chat
         /// Generates HTML for a chat message.
         /// </summary>
         /// <param name="role">The role of the message sender (user, assistant, system).</param>
-        /// <param name="content">The message content.</param>
+        /// <param name="response">The AIResponse containing metrics data.</param>
         /// <returns>HTML representation of the message.</returns>
-        public string GenerateMessageHtml(string role, string content)
+        public string GenerateMessageHtml(string role, AIResponse response)
         {
             Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for role: {role}");
-            
+
             try
             {
                 string displayRole;
-                
+
                 // Determine display role based on message role
                 switch (role)
                 {
@@ -116,26 +116,25 @@ namespace SmartHopper.Core.AI.Chat
                         displayRole = role;
                         break;
                 }
-                
-                // Convert markdown to HTML
-                Debug.WriteLine("[HtmlChatRenderer] Converting markdown to HTML");
-                string htmlContent = Markdown.ToHtml(content, _markdownPipeline);
-                Debug.WriteLine($"[HtmlChatRenderer] Markdown converted, HTML length: {htmlContent?.Length ?? 0}");
-                
+
                 try
                 {
                     // Create timestamp for the message
                     string timestamp = DateTime.Now.ToString("HH:mm");
                     // Use the resource manager to create the message HTML
-                    string messageHtml = _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent, timestamp);
+                    string messageHtml = _resourceManager.CreateMessageHtml(
+                        role,
+                        WebUtility.HtmlEncode(displayRole),
+                        timestamp,
+                        response);
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
-                    
+
                     return messageHtml;
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[HtmlChatRenderer] Error creating message HTML with resource manager: {ex.Message}");
-                    
+
                     // Create a simple message HTML as fallback
                     return "error";
                 }
@@ -144,7 +143,7 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Debug.WriteLine($"[HtmlChatRenderer] Error generating message HTML: {ex.Message}");
                 Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
-                
+
                 // Create a simple message HTML as fallback
                 return "error";
             }

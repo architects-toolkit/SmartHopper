@@ -28,6 +28,9 @@ function addMessage(messageHtml) {
     // Make links open in a new window
     processLinks();
     
+    // Setup metrics tooltips
+    setupMetricsTooltip();
+    
     // Scroll to the bottom of the chat
     scrollToBottom();
     
@@ -83,4 +86,78 @@ function createMessageFromTemplate(role, displayName, content, timestamp) {
     }
     
     return "error";   
+}
+
+/**
+ * Handles tooltip creation and positioning for message metrics
+ */
+function setupMetricsTooltip() {
+    // Find all metrics icons
+    const metricIcons = document.querySelectorAll('.metrics-icon');
+    
+    metricIcons.forEach(icon => {
+        // Remove any previous event listeners
+        icon.removeEventListener('mouseenter', showTooltip);
+        icon.removeEventListener('mouseleave', hideTooltip);
+        
+        // Add event listeners
+        icon.addEventListener('mouseenter', showTooltip);
+        icon.addEventListener('mouseleave', hideTooltip);
+    });
+}
+
+/**
+ * Shows the metrics tooltip
+ * @param {Event} event - The mouse event
+ */
+function showTooltip(event) {
+    // Remove any existing tooltips
+    hideAllTooltips();
+    
+    const icon = event.target;
+    const inTokens = icon.getAttribute('data-in');
+    const outTokens = icon.getAttribute('data-out');
+    const provider = icon.getAttribute('data-provider');
+    const model = icon.getAttribute('data-model');
+    const reason = icon.getAttribute('data-reason');
+    
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'metrics-tooltip';
+    tooltip.innerHTML = `
+        <div><strong>Provider:</strong> ${provider || 'Unknown'}</div>
+        <div><strong>Model:</strong> ${model || 'Unknown'}</div>
+        <div><strong>Tokens In:</strong> ${inTokens || '0'}</div>
+        <div><strong>Tokens Out:</strong> ${outTokens || '0'}</div>
+        <div><strong>Finish Reason:</strong> ${reason || 'Unknown'}</div>
+    `;
+    
+    // Position tooltip
+    const iconRect = icon.getBoundingClientRect();
+    tooltip.style.left = `${iconRect.left}px`;
+    tooltip.style.top = `${iconRect.top - 5 - tooltip.offsetHeight}px`;
+    
+    // Add tooltip to document
+    document.body.appendChild(tooltip);
+    
+    // Adjust position if tooltip is cut off at the top
+    const tooltipRect = tooltip.getBoundingClientRect();
+    if (tooltipRect.top < 0) {
+        tooltip.style.top = `${iconRect.bottom + 5}px`;
+    }
+}
+
+/**
+ * Hides all metrics tooltips
+ */
+function hideTooltip() {
+    hideAllTooltips();
+}
+
+/**
+ * Removes all tooltips from the document
+ */
+function hideAllTooltips() {
+    const tooltips = document.querySelectorAll('.metrics-tooltip');
+    tooltips.forEach(tooltip => tooltip.remove());
 }
