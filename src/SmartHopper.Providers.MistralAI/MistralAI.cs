@@ -179,10 +179,16 @@ namespace SmartHopper.Providers.MistralAI
                 var convertedMessages = new JArray();
                 foreach (var msg in messages)
                 {
+                    // Provider-specific: propagate assistant tool_call messages unmodified
                     string role = msg["role"]?.ToString().ToLower() ?? "user";
                     string content = msg["content"]?.ToString() ?? "";
 
-                    // Map OpenAI role names to Mistral role names if needed
+                    var messageObj = new JObject
+                    {
+                        ["content"] = content
+                    };
+
+                    // Map role names
                     if (role == "system")
                     {
                         // Mistral uses system role
@@ -190,17 +196,37 @@ namespace SmartHopper.Providers.MistralAI
                     else if (role == "assistant")
                     {
                         // Mistral uses assistant role
+
+                        // Pass tool_calls if available
+                        if (msg["tool_calls"] != null)
+                        {
+                            messageObj["tool_calls"] = msg["tool_calls"];
+                        }
+                    }
+                    else if (role == "tool")
+                    {
+                        // Propagate tool_call ID and name from incoming message
+                        if (msg["name"] != null)
+                            messageObj["name"] = msg["name"];
+                        if (msg["tool_call_id"] != null)
+                            messageObj["tool_call_id"] = msg["tool_call_id"];
+                    }
+                    else if (role == "tool_call")
+                    {
+                        // Omit it
+                        continue;
+                    }
+                    else if (role == "user")
+                    {
+                        // Mistral uses user role
                     }
                     else
                     {
-                        role = "user"; // Default to user
+                        role = "system"; // Default to system
                     }
 
-                    var messageObj = new JObject
-                    {
-                        ["role"] = role,
-                        ["content"] = content
-                    };
+                    messageObj["role"] = role;
+                    
                     convertedMessages.Add(messageObj);
                 }
 
@@ -256,6 +282,7 @@ namespace SmartHopper.Providers.MistralAI
                     var aiResponse = new AIResponse
                     {
                         Response = message["content"]?.ToString() ?? "",
+                        Provider = "MistralAI",
                         Model = modelName,
                         FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
                         InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
