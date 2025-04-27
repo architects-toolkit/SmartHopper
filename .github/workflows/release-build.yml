@@ -50,7 +50,9 @@ jobs:
         # Get the latest tag
         $latestTag = git describe --tags --abbrev=0 2>$null
         if (-not $latestTag) {
-          $latestTag = "0.1.2-alpha" # Fallback if no tags exist
+          # Fail if no tags exist
+          Write-Host "##[error] No tags found in the repository."
+          exit 1
         }
         Write-Host "Latest tag: $latestTag"
         echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
@@ -110,12 +112,26 @@ jobs:
         # Initialize Developer PowerShell environment for VS tools
         & 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
         pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+        
+        # Verify the SNK file was created
+        if (-not (Test-Path -Path "signing.snk")) {
+          Write-Host "##[error] signing.snk file was not created"
+          exit 1
+        }
+        
+        # Show the absolute path for reference
+        $absolutePath = Resolve-Path -Path "signing.snk"
+        Write-Host "SNK absolute path: $absolutePath"
 
     - name: Restore dependencies
       run: dotnet restore SmartHopper.sln
 
     - name: Build solution
-      run: dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=signing.snk
+      shell: pwsh
+      run: |
+        $snkPath = Resolve-Path -Path "signing.snk" | Select-Object -ExpandProperty Path
+        Write-Host "Building with SNK at: $snkPath"
+        dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true "/p:AssemblyOriginatorKeyFile=$snkPath"
 
     - name: Decode Authenticode PFX from secrets
       shell: pwsh
