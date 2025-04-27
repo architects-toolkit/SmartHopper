@@ -203,14 +203,14 @@ hr {
 }
 
 /* Collapsible tool messages */
-.message.system.tool .message-content {
+.message.tool .message-content {
     max-height: 30px;
     overflow: hidden;
     position: relative;
 }
 
 /* Expand tool message on toggle */
-.message.system.tool.expanded .message-content {
+.message.tool.expanded .message-content {
     max-height: none;
     overflow: visible;
 }
@@ -221,7 +221,7 @@ hr {
 }
 
 /* Arrow styling inside tool messages */
-.message.system.tool .message-content .toggle-arrow {
+.message.tool .message-content .toggle-arrow {
     display: block;
     position: absolute;
     top: 10px;
@@ -236,7 +236,7 @@ hr {
 }
 
 /* Rotate arrow when expanded */
-.message.system.tool.expanded .message-content .toggle-arrow {
+.message.tool.expanded .message-content .toggle-arrow {
     transform: rotate(90deg);
     display: block;
 }

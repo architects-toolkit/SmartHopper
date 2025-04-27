@@ -112,6 +112,12 @@ namespace SmartHopper.Core.AI.Chat
                     case "system":
                         displayRole = "System";
                         break;
+                    case "tool":
+                        displayRole = "Tool";
+                        break;
+                    case "tool_call":
+                        displayRole = "Calling a tool...";
+                        break;
                     default:
                         displayRole = role;
                         break;

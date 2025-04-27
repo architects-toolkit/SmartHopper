@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -17,19 +17,10 @@ namespace SmartHopper.Core.AI
 {
     public static class AIMessageBuilder
     {
-        //public static Dictionary<string, string> GetRoleReplacement()
-        //{
-        //    return new Dictionary<string, string>()
-        //    {
-        //        { OpenAI._name, "assistant" },
-        //        { MistralAI._name, "assistant" },
-        //        { "User", "user" }
-        //    };
-        //}
-
         /// <summary>
         /// Creates a message array from a list of key-value pairs.
         /// </summary>
+        /// <returns></returns>
         public static JArray CreateMessage(List<KeyValuePair<string, string>> kvp)
         {
             var messages = new JArray();
@@ -41,75 +32,95 @@ namespace SmartHopper.Core.AI
                     messages.Add(singleMessage[0]);
                 }
             }
+
             return messages;
         }
 
         /// <summary>
-        /// Creates a message array from a list of TextChatModel.
+        /// Creates a message array from a list of ChatMessageModel.
         /// </summary>
-        public static JArray CreateMessage(List<TextChatModel> chatMessages)
+        /// <returns></returns>
+        public static JArray CreateMessage(List<ChatMessageModel> chatMessages)
         {
             var messages = new JArray();
-            foreach (TextChatModel element in chatMessages)
+            foreach (ChatMessageModel element in chatMessages)
             {
-                if (!string.IsNullOrEmpty(element.Body))
+                // Handle system and user messages
+                if (element.Author == "system" || element.Author == "user")
                 {
-                    if (element.Author == "system" || element.Author == "user" || element.Author == "tool")
+                    var single = CreateMessage(element.Author, element.Body);
+                    if (single.Count > 0) messages.Add(single[0]);
+                }
+                // Handle tool output messages
+                else if (element.Author == "tool")
+                {
+                    if (element.ToolCalls != null && element.ToolCalls.Count > 0)
                     {
-                        var singleMessage = element.Author == "tool"
-                            ? CreateMessage(element.Author, element.Body, element.ToolCallId)
-                            : CreateMessage(element.Author, element.Body);
-                        if (singleMessage.Count > 0)
+                        foreach (var call in element.ToolCalls)
                         {
-                            messages.Add(singleMessage[0]);
+                            var arr = CreateMessage("tool", element.Body, call.Id);
+                            if (arr.Count > 0)
+                            {
+                                var msg = arr[0];
+                                msg["name"] = call.Name;
+                                messages.Add(msg);
+                            }
                         }
                     }
-                    else if (element.Author == "assistant")
+                    else
                     {
-                        if (!string.IsNullOrEmpty(element.ToolName) || !string.IsNullOrEmpty(element.ToolArgs))
+                        var single = CreateMessage("tool", element.Body);
+                        if (single.Count > 0) messages.Add(single[0]);
+                    }
+                }
+                // Handle assistant messages, including tool calls
+                else if (element.Author == "assistant")
+                {
+                    if (element.ToolCalls != null && element.ToolCalls.Count > 0)
+                    {
+                        var item = new JObject
                         {
-                            var item = new JObject();
-                            item["role"] = element.Author;
-                            item["tool_calls"] = new JArray
+                            ["role"] = "assistant",
+                            ["content"] = element != null ? JToken.FromObject(element) : JValue.CreateNull(),
+                        };
+                        var toolCallsArray = new JArray();
+                        int idx = 0;
+                        foreach (var call in element.ToolCalls)
+                        {
+                            var functionObj = new JObject
                             {
-                                new JObject
-                                {
-                                    ["function"] = new JObject()
-                                }
+                                ["name"] = call.Name,
+                                ["arguments"] = string.IsNullOrEmpty(call.Arguments)
+                                    ? new JObject()
+                                    : JObject.Parse(call.Arguments),
                             };
-
-                            item["tool_calls"][0]["type"] = "function";
-                            item["tool_calls"][0]["id"] = !string.IsNullOrEmpty(element.ToolCallId) ? element.ToolCallId : Guid.NewGuid().ToString("N").Substring(0, 9).ToUpper();
-
-                            if (!string.IsNullOrEmpty(element.ToolName))
+                            var toolObj = new JObject
                             {
-                                item["tool_calls"][0]["function"]["name"] = element.ToolName;
-                            }
-
-                            if (!string.IsNullOrEmpty(element.ToolArgs))
-                            {
-                                item["tool_calls"][0]["function"]["arguments"] = JObject.Parse(element.ToolArgs);
-                            }
-                            messages.Add(item);
+                                ["index"] = idx++,
+                                ["id"] = call.Id,
+                                ["type"] = "function",
+                                ["function"] = functionObj,
+                            };
+                            toolCallsArray.Add(toolObj);
                         }
-                        else
-                        {
-                            var singleMessage = CreateMessage(element.Author, element.Body);
-                            if (singleMessage.Count > 0)
-                            {
-                                messages.Add(singleMessage[0]);
-                            }
-                        }
+                        item["tool_calls"] = toolCallsArray;
+                        messages.Add(item);
+                    }
+                    else
+                    {
+                        var single = CreateMessage(element.Author, element.Body);
+                        if (single.Count > 0) messages.Add(single[0]);
                     }
                 }
             }
+
             return messages;
         }
 
         /// <summary>
         /// Core function to create a single message. Returns an empty array if the message is invalid.
         /// </summary>
-        private static JArray CreateMessage(string role, string content, string toolCallId = null)
+        private static JArray CreateMessage(string role, string content, string? toolCallId = null)
         {
             var messages = new JArray();
             if (!string.IsNullOrEmpty(content))
@@ -122,9 +133,11 @@ namespace SmartHopper.Core.AI
                     {
                         message["tool_call_id"] = toolCallId;
                     }
+
                     messages.Add(message);
                 }
             }
+
             return messages;
         }
     }

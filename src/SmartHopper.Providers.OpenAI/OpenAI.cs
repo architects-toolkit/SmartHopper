@@ -179,11 +179,62 @@ namespace SmartHopper.Providers.OpenAI
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
                 httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
+                // Format messages for OpenAI API
+                var convertedMessages = new JArray();
+                foreach (var msg in messages)
+                {
+                    string role = msg["role"]?.ToString().ToLower() ?? "user";
+                    string content = msg["content"]?.ToString() ?? "";
+
+                    var messageObj = new JObject
+                    {
+                        ["content"] = content
+                    };
+
+                    if (role == "assistant")
+                    {
+                        // Pass tool_calls if available
+                        if (msg["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                        {
+                            foreach (JObject toolCall in toolCalls)
+                            {
+                                var function = toolCall["function"] as JObject;
+                                if (function != null)
+                                {
+                                    // Ensure 'arguments' is serialized as a JSON string
+                                    if (function["arguments"] is JObject argumentsObject)
+                                    {
+                                        function["arguments"] = argumentsObject.ToString(Newtonsoft.Json.Formatting.None);
+                                    }
+                                }
+                            }
+                            messageObj["tool_calls"] = toolCalls;
+                        }
+                    }
+                    else if (role == "tool")
+                    {
+                        var toolCallId = msg["tool_call_id"]?.ToString();
+                        var toolName = msg["name"]?.ToString();
+                        if (!string.IsNullOrEmpty(toolCallId))
+                        {
+                            messageObj["tool_call_id"] = toolCallId;
+                        }
+                        if (!string.IsNullOrEmpty(toolName))
+                        {
+                            messageObj["name"] = toolName;
+                        }
+                    }
+
+                    messageObj["role"] = role;
+                    convertedMessages.Add(messageObj);
+                }
+
+
                 // Build request body
                 var requestBody = new JObject
                 {
                     ["model"] = modelName,
-                    ["messages"] = messages,
+                    ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens
                 };
 
@@ -241,6 +292,7 @@ namespace SmartHopper.Providers.OpenAI
                     var aiResponse = new AIResponse
                     {
                         Response = message["content"]?.ToString() ?? "",
+                        Provider = "OpenAI",
                         Model = modelName,
                         FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
                         InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
