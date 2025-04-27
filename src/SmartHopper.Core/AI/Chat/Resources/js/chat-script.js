@@ -36,7 +36,7 @@ function addMessage(messageHtml) {
     
     // Enable collapsible for tool messages
     const lastMsg = chatContainer.lastElementChild;
-    if (lastMsg && lastMsg.classList.contains('system') && lastMsg.classList.contains('tool')) {
+    if (lastMsg && lastMsg.classList.contains('tool')) {
         lastMsg.addEventListener('click', () => lastMsg.classList.toggle('expanded'));
     }
 }
