@@ -124,8 +124,10 @@ namespace SmartHopper.Core.AI.Chat
                 
                 try
                 {
+                    // Create timestamp for the message
+                    string timestamp = DateTime.Now.ToString("HH:mm");
                     // Use the resource manager to create the message HTML
-                    string messageHtml = _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent);
+                    string messageHtml = _resourceManager.CreateMessageHtml(role, WebUtility.HtmlEncode(displayRole), htmlContent, timestamp);
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
                     
                     return messageHtml;

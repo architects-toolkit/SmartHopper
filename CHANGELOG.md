@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
 
+- Improved chat UI with timestamps for messages, collapsible tool messages and better formatting.
 
 ## [0.3.0-alpha] - 2025-04-27
 
