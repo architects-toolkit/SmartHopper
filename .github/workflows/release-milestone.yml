@@ -14,7 +14,7 @@ name: 🏁 Create Release on Milestone Close
 
 on:
   milestone:
-    types: [closed]
+    types: [ closed ]
 
 jobs:
   create-release:

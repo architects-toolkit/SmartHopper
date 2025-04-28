@@ -14,7 +14,9 @@ name: 🔄 Update Development Version Date
 
 on:
   push:
-    branches: [ dev ]
+    branches: 
+      - dev
+      - release/*
     paths:
       - '**/*.cs'
       - '**/*.csproj'
@@ -81,7 +83,7 @@ jobs:
         uses: ./.github/actions/versioning/calculate-version
         with:
           version: ${{ steps.current-version.outputs.version }}
-          increment: auto-date
+          increment: date
           change-pre-release: none
 
       # Only proceed if the date was actually updated

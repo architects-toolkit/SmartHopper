@@ -13,7 +13,7 @@ name: 🏷️ Update Issue Labels on Close
 
 on:
   issues:
-    types: [closed]
+    types: [ closed ]
 
 permissions:
   issues: write
