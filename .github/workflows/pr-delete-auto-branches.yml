@@ -17,8 +17,10 @@ on:
   pull_request:
     types:
       - closed
+
 permissions:
   contents: write
+  
 jobs:
   delete-auto-branches:
     name: Delete auto branches
