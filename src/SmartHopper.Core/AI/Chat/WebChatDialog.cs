@@ -135,6 +135,44 @@ namespace SmartHopper.Core.AI.Chat
                 }
             };
 
+            // Add handler to format selected messages as Markdown on copy
+            _webView.DocumentLoaded += (sender, e) =>
+            {
+                var script = @"
+document.addEventListener('copy', function(e) {
+    var selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    var range = selection.getRangeAt(0);
+    var div = document.createElement('div');
+    div.appendChild(range.cloneContents());
+    div.querySelectorAll('.copy-code-icon').forEach(function(icon) { icon.remove(); });
+    var msgs = div.querySelectorAll('.message');
+    if (msgs.length === 0) {
+        var msgNode = selection.anchorNode;
+        if (msgNode.nodeType === Node.TEXT_NODE) msgNode = msgNode.parentElement;
+        while (msgNode && !msgNode.classList.contains('message')) {
+            msgNode = msgNode.parentElement;
+        }
+        if (msgNode) msgs = [msgNode];
+    }
+    var markdown = '';
+    msgs.forEach(function(msg){
+        var senderEl = msg.querySelector('.message-sender');
+        var timestampEl = msg.querySelector('.message-timestamp');
+        var contentEl = msg.querySelector('.message-content');
+        var sender = senderEl ? senderEl.innerText.trim() : '';
+        var timestamp = timestampEl ? timestampEl.innerText.trim() : '';
+        var content = contentEl ? contentEl.innerText.trim() : '';
+        markdown += sender + ' (' + timestamp + '): ' + content + '\n\n';
+    });
+    if (!markdown.trim()) markdown = selection.toString();
+    e.clipboardData.setData('text/plain', markdown.trim());
+    e.preventDefault();
+});
+";
+                _webView.ExecuteScriptAsync(script);
+            };
+
             _userInputTextArea = new TextArea
             {
                 Height = 60,
