@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             );
             yield return new AITool(
                 name: "search_rhino_forum",
-                description: "Search Rhino Discourse forum posts by query and return matching posts.",
+                description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -237,6 +237,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var content = await response.Content.ReadAsStringAsync();
             var json = JObject.Parse(content);
             var posts = json["posts"] as JArray ?? new JArray();
+            posts = new JArray(posts.Take(10));
             var topics = json["topics"] as JArray ?? new JArray();
             // Build a map of topic ID to title
             var topicTitles = topics
