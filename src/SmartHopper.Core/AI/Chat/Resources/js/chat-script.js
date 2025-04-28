@@ -152,7 +152,7 @@ function showTooltip(event) {
     // Position tooltip
     const iconRect = icon.getBoundingClientRect();
     tooltip.style.left = `${iconRect.left}px`;
-    tooltip.style.top = `${iconRect.top - 5 - tooltip.offsetHeight}px`;
+    tooltip.style.top = `${iconRect.bottom - tooltip.offsetHeight}px`;
     
     // Add tooltip to document
     document.body.appendChild(tooltip);
