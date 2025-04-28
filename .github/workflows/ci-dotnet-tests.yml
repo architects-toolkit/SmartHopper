@@ -1,4 +1,5 @@
 name: 🧪 .NET CI
+
 # Description: This workflow runs .NET tests on the SmartHopper solution to ensure that changes do not break functionality.
 # 
 # Triggers:
@@ -11,9 +12,13 @@ name: 🧪 .NET CI
 
 on:
   push:
-    branches: [ main ]
+    branches: 
+      - main
+      - release/*
   pull_request:
-    branches: [ main ]
+    branches: 
+      - main
+      - release/*
 
 permissions:
   contents: read

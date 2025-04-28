@@ -17,15 +17,22 @@ on:
   pull_request:
     types:
       - closed
+
 permissions:
   contents: write
+
 jobs:
   delete-auto-branches:
     name: Delete auto branches
     if: |
       startsWith(github.event.pull_request.head.ref, 'update-branch/') ||
       startsWith(github.event.pull_request.head.ref, 'chore/update-dev-version-date-') ||
-      startsWith(github.event.pull_request.head.ref, 'docs/update-version-badge-')
+      startsWith(github.event.pull_request.head.ref, 'docs/update-version-badge-') ||
+      startsWith(github.event.pull_request.head.ref, 'ci/') ||
+      startsWith(github.event.pull_request.head.ref, 'release/') ||
+      startsWith(github.event.pull_request.head.ref, 'feature/') ||
+      startsWith(github.event.pull_request.head.ref, 'hotfix/') ||
+      startsWith(github.event.pull_request.head.ref, 'bugfix/')
     runs-on: ubuntu-latest
     steps:
       - name: Delete branch
