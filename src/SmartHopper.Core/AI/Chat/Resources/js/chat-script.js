@@ -141,13 +141,31 @@ function showTooltip(event) {
     // Create tooltip element
     const tooltip = document.createElement('div');
     tooltip.className = 'metrics-tooltip';
-    tooltip.innerHTML = `
-        <div><strong>Provider:</strong> ${provider || 'Unknown'}</div>
-        <div><strong>Model:</strong> ${model || 'Unknown'}</div>
-        <div><strong>Tokens In:</strong> ${inTokens || '0'}</div>
-        <div><strong>Tokens Out:</strong> ${outTokens || '0'}</div>
-        <div><strong>Finish Reason:</strong> ${reason || 'Unknown'}</div>
-    `;
+    const providerDiv = document.createElement('div');
+    providerDiv.innerHTML = '<strong>Provider:</strong> ';
+    providerDiv.appendChild(document.createTextNode(provider || 'Unknown'));
+    
+    const modelDiv = document.createElement('div');
+    modelDiv.innerHTML = '<strong>Model:</strong> ';
+    modelDiv.appendChild(document.createTextNode(model || 'Unknown'));
+    
+    const inTokensDiv = document.createElement('div');
+    inTokensDiv.innerHTML = '<strong>Tokens In:</strong> ';
+    inTokensDiv.appendChild(document.createTextNode(inTokens || '0'));
+    
+    const outTokensDiv = document.createElement('div');
+    outTokensDiv.innerHTML = '<strong>Tokens Out:</strong> ';
+    outTokensDiv.appendChild(document.createTextNode(outTokens || '0'));
+    
+    const reasonDiv = document.createElement('div');
+    reasonDiv.innerHTML = '<strong>Finish Reason:</strong> ';
+    reasonDiv.appendChild(document.createTextNode(reason || 'Unknown'));
+    
+    tooltip.appendChild(providerDiv);
+    tooltip.appendChild(modelDiv);
+    tooltip.appendChild(inTokensDiv);
+    tooltip.appendChild(outTokensDiv);
+    tooltip.appendChild(reasonDiv);
     
     // Position tooltip
     const iconRect = icon.getBoundingClientRect();
