@@ -50,6 +50,7 @@ namespace SmartHopper.Core.AI.Chat
         private readonly HtmlChatRenderer _htmlRenderer;
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
+        private readonly Action<string>? _progressReporter;
 
         /// <summary>
         /// Event raised when a new AI response is received.
@@ -63,9 +64,11 @@ namespace SmartHopper.Core.AI.Chat
         /// Creates a new web chat dialog.
         /// </summary>
         /// <param name="getResponse">Function to get responses from the AI provider</param>
-        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse)
+        /// <param name="progressReporter">Optional callback to report progress updates</param>
+        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
+            _progressReporter = progressReporter;
 
             Title = "SmartHopper AI Chat";
             MinimumSize = new Size(600, 700);
@@ -588,23 +591,6 @@ document.addEventListener('copy', function(e) {
             }
         }
 
-        private void ShowTemporaryStatusMessage(string message, int seconds = 2)
-        {
-            Application.Instance.AsyncInvoke(() =>
-            {
-                _statusLabel.Text = message;
-            });
-
-            // Reset status after specified seconds using a Timer
-            var statusResetTimer = new System.Threading.Timer(_ =>
-            {
-                Application.Instance.AsyncInvoke(() =>
-                {
-                    _statusLabel.Text = "Ready";
-                });
-            }, null, seconds * 1000, Timeout.Infinite);
-        }
-
         private async void SendMessage()
         {
             if (!_webViewInitialized)
@@ -634,7 +620,8 @@ document.addEventListener('copy', function(e) {
             _progressBar.Visible = true;
             Application.Instance.AsyncInvoke(() =>
             {
-                _statusLabel.Text = "Waiting for response...";
+                _statusLabel.Text = "Thinking...";
+                _progressReporter?.Invoke("Thinking...");
             });
 
             try
@@ -648,6 +635,7 @@ document.addEventListener('copy', function(e) {
                 Application.Instance.AsyncInvoke(() =>
                 {
                     _statusLabel.Text = "Error occurred";
+                    _progressReporter?.Invoke("Error :(");
                 });
             }
             finally
@@ -680,6 +668,7 @@ document.addEventListener('copy', function(e) {
                     Application.Instance.AsyncInvoke(() =>
                     {
                         _statusLabel.Text = "Error: No response received";
+                        _progressReporter?.Invoke("Error :(");
                     });
                     return;
                 }
@@ -692,6 +681,7 @@ document.addEventListener('copy', function(e) {
                     Application.Instance.AsyncInvoke(() =>
                     {
                         _statusLabel.Text = "Error in response";
+                        _progressReporter?.Invoke("Error :(");
                     });
                     return;
                 }
@@ -724,7 +714,9 @@ document.addEventListener('copy', function(e) {
 
                     Application.Instance.AsyncInvoke(() =>
                     {
-                        _statusLabel.Text = $"Response received ({response.InTokens} in, {response.OutTokens} out)";
+                        // _statusLabel.Text = $"Response received ({response.InTokens} in, {response.OutTokens} out)";
+                        _statusLabel.Text = $"Ready";
+                        _progressReporter?.Invoke("Ready");
                     });
                 }
             }
@@ -751,6 +743,7 @@ document.addEventListener('copy', function(e) {
                 Application.Instance.AsyncInvoke(() =>
                 {
                     _statusLabel.Text = $"Executing tool: {toolCall.Name}...";
+                    _progressReporter?.Invoke("Executing a tool...");
                 });
 
                 // Execute the tool
@@ -853,6 +846,7 @@ document.addEventListener('copy', function(e) {
             Application.Instance.AsyncInvoke(() =>
             {
                 _statusLabel.Text = "Ready";
+                _progressReporter?.Invoke("Ready");
             });
         }
     }
