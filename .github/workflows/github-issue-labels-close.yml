@@ -9,7 +9,7 @@ name: 🏷️ Close Issue on Close Label
 
 on:
   issues:
-    types: [labeled]
+    types: [ labeled ]
 
 permissions:
   issues: write
