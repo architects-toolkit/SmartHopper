@@ -230,9 +230,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         private async Task<object> ExecuteSearchRhinoForumAsync(JObject parameters)
         {
             string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
-            var httpClient = new HttpClient();
             var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
-            var response = await httpClient.GetAsync(searchUri);
+            var response = await _httpClient.GetAsync(searchUri);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             var json = JObject.Parse(content);
@@ -268,9 +267,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         private async Task<object> ExecuteGetRhinoForumPostAsync(JObject parameters)
         {
             int id = parameters.Value<int>("id");
-            var httpClient = new HttpClient();
             var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
-            var response = await httpClient.GetAsync(postUri);
+            var response = await _httpClient.GetAsync(postUri);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             var json = JObject.Parse(content);
