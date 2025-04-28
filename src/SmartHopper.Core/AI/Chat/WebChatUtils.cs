@@ -16,9 +16,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Forms;
+using Grasshopper.Kernel;
 using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.AI.Chat
@@ -41,8 +43,9 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="modelName">The model to use for AI processing.</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
+        /// <param name="progressReporter">Optional action to report progress.</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string? endpoint = null, Guid componentId = default)
+        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string? endpoint = null, Guid componentId = default, Action<string>? progressReporter = null)
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse? lastResponse = null;
@@ -82,7 +85,7 @@ namespace SmartHopper.Core.AI.Chat
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-                        var dialog = new WebChatDialog(getResponse);
+                        var dialog = new WebChatDialog(getResponse, progressReporter);
 
                         // If component ID is provided, store the dialog
                         if (componentId != default)
@@ -181,16 +184,33 @@ namespace SmartHopper.Core.AI.Chat
             /// <returns>The task representing the asynchronous operation.</returns>
             public async Task ProcessChatAsync(CancellationToken cancellationToken)
             {
-                this.progressReporter?.Invoke("Opening web chat dialog...");
+                // Decorate reporter to also expire the GH component
+                Action<string>? reporter = null;
+                if (this.progressReporter != null)
+                {
+                    reporter = msg =>
+                    {
+                        this.progressReporter(msg);
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            var ghCanvas = Grasshopper.Instances.ActiveCanvas;
+                            var ghDoc = ghCanvas?.Document;
+                            var comp = ghDoc?.Objects.OfType<GH_Component>().FirstOrDefault(c => c.InstanceGuid == this.componentId);
+                            comp?.ExpireSolution(true);
+                        });
+                    };
+                }
+
+                reporter?.Invoke("Opening...");
 
                 try
                 {
-                    this.lastResponse = await ShowWebChatDialog(this.providerName, this.modelName, this.endpoint, this.componentId).ConfigureAwait(false);
-                    this.progressReporter?.Invoke("Web chat dialog closed");
+                    this.lastResponse = await ShowWebChatDialog(this.providerName, this.modelName, this.endpoint, this.componentId, reporter).ConfigureAwait(false);
+                    reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)
                 {
-                    this.progressReporter?.Invoke($"Error: {ex.Message}");
+                    reporter?.Invoke($"Error: {ex.Message}");
                     throw;
                 }
             }
