@@ -14,7 +14,10 @@ name: 🔄 Update Version Badge
 on:
   workflow_dispatch:
   push:
-    branches: [ main, dev ]
+    branches: 
+      - main
+      - dev
+      - release/*
     paths:
       - 'Solution.props'
 

@@ -1,0 +1,59 @@
+name: 🔄 Remove Release Version Date
+
+# Description: Automatically strips the date component from the version in Solution.props
+# when a pull request targets the main branch. Commits the updated version back to the PR branch.
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Solution.props'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  remove-release-date:
+    name: 🔄 Remove Release Version Date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get current version
+        id: get-version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Strip date from version
+        id: strip-date
+        shell: bash
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+          echo "Original version: $VERSION"
+          if [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-([a-zA-Z0-9]+)\.[0-9]{6}$ ]]; then
+            BASE="${BASH_REMATCH[1]}"
+            PRE="${BASH_REMATCH[2]}"
+            NEW_VERSION="$BASE-$PRE"
+          else
+            echo "No date suffix to remove, version unchanged"
+            NEW_VERSION="$VERSION"
+          fi
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version in Solution.props
+        uses: ./.github/actions/versioning/update-version
+        with:
+          new-version: ${{ steps.strip-date.outputs.new-version }}
+
+      - name: Commit and push changes
+        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Solution.props
+          git commit -m "chore: remove date from version for main release"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
