@@ -11,10 +11,6 @@ name: 🧪 .NET CI
 # - pull-requests: read - Required to read pull request information
 
 on:
-  push:
-    branches: 
-      - main
-      - release/*
   pull_request:
     branches: 
       - main
