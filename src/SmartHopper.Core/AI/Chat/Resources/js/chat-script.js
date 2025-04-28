@@ -170,16 +170,17 @@ function showTooltip(event) {
     // Position tooltip
     const iconRect = icon.getBoundingClientRect();
     tooltip.style.left = `${iconRect.left}px`;
-    tooltip.style.bottom = `${iconRect.bottom}px`;
     
-    // Add tooltip to document
+    // Add tooltip and compute top so its bottom aligns with icon bottom
     document.body.appendChild(tooltip);
-    
-    // Adjust position if tooltip is cut off at the top
     const tooltipRect = tooltip.getBoundingClientRect();
-    if (tooltipRect.top < 0) {
-        tooltip.style.top = `${iconRect.bottom + 5}px`;
+    // Position tooltip: bottom of tooltip == bottom of icon
+    let tooltipTop = iconRect.bottom - tooltipRect.height;
+    // If tooltip would be off-screen at top, place it below icon
+    if (tooltipTop < 0) {
+        tooltipTop = iconRect.bottom + 5;
     }
+    tooltip.style.top = `${tooltipTop}px`;
 }
 
 /**
