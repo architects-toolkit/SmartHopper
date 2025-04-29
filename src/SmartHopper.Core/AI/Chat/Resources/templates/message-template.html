@@ -1,6 +1,15 @@
 <div class='message {{role}}'>
     <div>
-        <div class='message-sender'>{{displayName}}</div>
-        <div class='message-content'>{{content}}</div>
+        <div class='message-header'>
+            <span class='message-sender'>{{displayName}}</span>
+            <span class='message-timestamp'>{{timestamp}}</span>
+        </div>
+        <div class='message-content' data-copy-content='{{displayName}} ({{timestamp}}): {{mdContent}}'>
+            {{htmlContent}}
+        </div>
+        <span class='toggle-arrow'></span>
+        <div class='message-footer'>
+            <span class='metrics-icon' data-in="{{inTokens}}" data-out="{{outTokens}}" data-provider="{{provider}}" data-model="{{model}}" data-reason="{{finishReason}}">📈</span>
+        </div>
     </div>
 </div>

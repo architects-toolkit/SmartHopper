@@ -19,13 +19,13 @@
  * asynchronous operations while maintaining Grasshopper's component lifecycle.
  */
 
-using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -136,7 +136,7 @@ namespace SmartHopper.Core.ComponentBase
                 Workers.Add(worker);
 
                 Debug.WriteLine("[AsyncComponentBase] Gathering input");
-                
+
                 // Gather input before starting the task
                 worker.GatherInput(DA);
                 CurrentWorker = worker;
@@ -146,9 +146,9 @@ namespace SmartHopper.Core.ComponentBase
                 _cancellationSources.Add(source);
 
                 // Create task that properly awaits the async work
-                var task = Task.Run(async () => 
+                var task = Task.Run(async () =>
                 {
-                    try 
+                    try
                     {
                         await worker.DoWorkAsync(source.Token);
                     }
@@ -180,18 +180,18 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     Debug.WriteLine($"[AsyncComponentBase] Setting output for worker {i + 1}/{Workers.Count}");
                     string outMessage = null;
-                    
+
                     // Ensure SetOutput runs on UI thread
-                    Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         Workers[i].SetOutput(DA, out outMessage);
                         Message = outMessage;
                         Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
-                    }));
-                    
+                    });
+
                     Interlocked.Decrement(ref _state);
                 }
-                
+
                 Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {_state}");
                 OnSolveInstancePostSolve(DA);
             }
@@ -216,7 +216,7 @@ namespace SmartHopper.Core.ComponentBase
             if (_state == 0 && _tasks.Count > 0 && _setData == 0)
             {
                 Debug.WriteLine($"[AsyncComponentBase] Starting {_tasks.Count} tasks");
-                
+
                 // Create a continuation task that will handle completion of all tasks
                 Task.WhenAll(_tasks)
                     .ContinueWith(t =>
@@ -249,15 +249,15 @@ namespace SmartHopper.Core.ComponentBase
                                     Workers.Reverse();
                                 }
                             }
-                            
+
                             Debug.WriteLine($"[AsyncComponentBase] All tasks completed successfully. State: {_state}, SetData: {_setData}, Workers: {Workers.Count}");
                         }
 
                         // Schedule component update on UI thread
-                        Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
                         {
                             ExpireSolution(true);
-                        }));
+                        });
                     }, TaskScheduler.Default);
             }
         }
@@ -303,7 +303,7 @@ namespace SmartHopper.Core.ComponentBase
         protected virtual void ClearDataOnly()
         {
             Debug.WriteLine($"[AsyncComponentBase] Cleaning Output Data Only");
-            
+
             // Clear output data
             for (int i = 0; i < Params.Output.Count; i++)
             {

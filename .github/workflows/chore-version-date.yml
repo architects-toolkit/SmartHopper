@@ -1,7 +1,7 @@
-name: 🔄 Update Development Version Date
+name: 🔄 Update Version Date
 
-# Description: This workflow automatically updates the date component in development versions
-# when changes are pushed to development branches. It creates a PR with the updated date
+# Description: This workflow automatically updates the date component 
+# when the version includes it. It creates a PR with the updated date
 # to ensure the version reflects the latest changes.
 #
 # Triggers:
@@ -14,7 +14,9 @@ name: 🔄 Update Development Version Date
 
 on:
   push:
-    branches: [ dev ]
+    branches: 
+      - dev
+      - release/*
     paths:
       - '**/*.cs'
       - '**/*.csproj'
@@ -81,7 +83,7 @@ jobs:
         uses: ./.github/actions/versioning/calculate-version
         with:
           version: ${{ steps.current-version.outputs.version }}
-          increment: auto-date
+          increment: date
           change-pre-release: none
 
       # Only proceed if the date was actually updated
