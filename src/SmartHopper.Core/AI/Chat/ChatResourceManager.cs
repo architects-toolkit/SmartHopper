@@ -233,13 +233,17 @@ namespace SmartHopper.Core.AI.Chat
             string htmlContent = Markdown.ToHtml(response.Response, _markdownPipeline);
             Debug.WriteLine($"[ChatResourceManager] Markdown converted, HTML length: {htmlContent?.Length ?? 0}");
 
+            // Escape markdown for safe use in an HTML attribute
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(response?.Response ?? "").Replace("'", "&#39;");
+
             string template = GetMessageTemplate();
 
             string result = template
                 .Replace("{{role}}", role)
                 .Replace("{{displayName}}", displayName)
                 .Replace("{{timestamp}}", timestamp)
-                .Replace("{{content}}", htmlContent)
+                .Replace("{{htmlContent}}", htmlContent)
+                .Replace("{{mdContent}}", mdContentEscaped)
                 .Replace("{{inTokens}}", response?.InTokens.ToString() ?? "")
                 .Replace("{{outTokens}}", response?.OutTokens.ToString() ?? "")
                 .Replace("{{provider}}", response?.Provider ?? "")
