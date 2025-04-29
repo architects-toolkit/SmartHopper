@@ -172,7 +172,7 @@ namespace SmartHopper.Components.AI
                     this.lastResponse = chatWorker.GetLastResponse();
 
                     Debug.WriteLine("[AIChatWorker] Web chat worker completed");
-                    this.progressReporter?.Invoke("Web chat completed");
+                    // this.progressReporter?.Invoke("Web chat completed");
                 }
                 catch (Exception ex)
                 {
@@ -189,7 +189,7 @@ namespace SmartHopper.Components.AI
             /// <param name="message">Output message.</param>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                message = "Web chat completed";
+                message = "Ready";
 
                 if (this.lastResponse != null)
                 {
@@ -200,13 +200,13 @@ namespace SmartHopper.Components.AI
                     // Store metrics for the base class to output
                     this.component.StoreResponseMetrics(this.lastResponse);
 
-                    message = $"Web chat completed. Used {this.lastResponse.InTokens} input tokens, {this.lastResponse.OutTokens} output tokens.";
+                     message = $"Ready";
                 }
                 else
                 {
                     // Set empty output if no response
                     this.component.SetPersistentOutput("Last Response", new GH_String(string.Empty), DA);
-                    message = "Web chat completed without a response.";
+                    message = "Ready";
                 }
             }
         }

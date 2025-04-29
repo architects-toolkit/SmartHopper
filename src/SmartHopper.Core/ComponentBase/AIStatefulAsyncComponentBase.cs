@@ -20,15 +20,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
 using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
-using SmartHopper.Config.Managers;
-
-using System.Windows.Forms;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -238,7 +237,7 @@ namespace SmartHopper.Core.ComponentBase
             return changedInputs;
         }
 
-#endregion
+        #endregion
 
         #region AI
 
@@ -251,8 +250,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="reuseCount">Optional. The number of times this response will be reused across different branches. Default is 1.</param>
         /// <returns>The AI response from the provider.</returns>
         protected async Task<AIResponse> GetResponse(
-            List<KeyValuePair<string, string>> messages, 
-            string contextProviderFilter = null, 
+            List<KeyValuePair<string, string>> messages,
+            string contextProviderFilter = null,
             string contextKeyFilter = null,
             int reuseCount = 1)
         {
@@ -296,7 +295,7 @@ namespace SmartHopper.Core.ComponentBase
         protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
         {
             var responseMessage = response.Response.ToLower();
-            
+
             if (responseMessage.Contains("401") ||
                 responseMessage.Contains("unauthorized"))
             {
@@ -338,7 +337,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // Set the reuse count on the response
                 response.ReuseCount = reuseCount;
-                
+
                 _responseMetrics.Add(response);
 
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list with reuse count: {reuseCount}");
@@ -464,7 +463,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Store the selected AI provider
                 writer.SetString("AIProvider", _aiProvider);
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Write] Stored AI provider: {_aiProvider}");
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -491,7 +490,7 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     string storedProvider = reader.GetString("AIProvider");
                     Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Read stored AI provider: {storedProvider}");
-                    
+
                     // Check if the provider exists in the available providers
                     var providers = ProviderManager.Instance.GetProviders();
                     if (providers.Any(p => p.Name == storedProvider))
@@ -509,7 +508,7 @@ namespace SmartHopper.Core.ComponentBase
                         Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Provider not found, using default: {_aiProvider}");
                     }
                 }
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -533,7 +532,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Use the ProviderManager to get the default provider
                 return ProviderManager.Instance.GetDefaultAIProvider();
             }
-            
+
             return _aiProvider;
         }
     }
