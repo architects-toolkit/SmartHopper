@@ -8,10 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.ComponentBase
 {

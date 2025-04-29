@@ -36,6 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
+        #region ToolRegistration
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -54,8 +55,40 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ExecuteFetchWebPageTextAsync
             );
+            yield return new AITool(
+                name: "search_rhino_forum",
+                description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""query"": {
+                            ""type"": ""string"",
+                            ""description"": ""Search query for Rhino Discourse forum.""
+                        }
+                    },
+                    ""required"": [""query""]
+                }",
+                execute: this.ExecuteSearchRhinoForumAsync
+            );
+            yield return new AITool(
+                name: "get_rhino_forum_post",
+                description: "Retrieve full JSON of a Rhino Discourse forum post by ID.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""id"": {
+                            ""type"": ""integer"",
+                            ""description"": ""ID of the forum post to fetch.""
+                        }
+                    },
+                    ""required"": [""id""]
+                }",
+                execute: this.ExecuteGetRhinoForumPostAsync
+            );
         }
+        #endregion
 
+        #region fetchWebpageText
         /// <summary>
         /// Fetches the text content of a webpage given its URL, if allowed by robots.txt.
         /// </summary>
@@ -191,14 +224,69 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             return text;
         }
+        #endregion
 
+        #region searchRhinoForum
+        private async Task<object> ExecuteSearchRhinoForumAsync(JObject parameters)
+        {
+            string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
+            var httpClient = new HttpClient();
+            var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
+            var response = await httpClient.GetAsync(searchUri);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            var json = JObject.Parse(content);
+            var posts = json["posts"] as JArray ?? new JArray();
+            posts = new JArray(posts.Take(10));
+            var topics = json["topics"] as JArray ?? new JArray();
+            // Build a map of topic ID to title
+            var topicTitles = topics
+                .Where(t => t["id"] != null)
+                .ToDictionary(t => (int)t["id"], t => (string)(t["title"] ?? t["fancy_title"] ?? ""));
+            var result = new JArray(posts.Select(p =>
+            {
+                int postId = p.Value<int>("id");
+                int topicId = p.Value<int>("topic_id");
+                return new JObject
+                {
+                    ["id"] = postId,
+                    ["username"] = p.Value<string>("username"),
+                    ["topic_id"] = topicId,
+                    ["title"] = topicTitles.GetValueOrDefault(topicId, string.Empty),
+                    ["date"] = p.Value<string>("created_at"),
+                    ["cooked"] = p.Value<string>("cooked")
+                };
+            }));
+            return result;
+        }
+        #endregion
+
+        #region getRhinoForumPost
         /// <summary>
-        /// Simple robots.txt parser supporting User-agent: * and Disallow directives.
+        /// Retrieves full JSON of a Rhino Discourse forum post by ID.
         /// </summary>
+        /// <param name="parameters">A JObject containing the ID parameter.</param>
+        private async Task<object> ExecuteGetRhinoForumPostAsync(JObject parameters)
+        {
+            int id = parameters.Value<int>("id");
+            var httpClient = new HttpClient();
+            var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
+            var response = await httpClient.GetAsync(postUri);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            var json = JObject.Parse(content);
+            return json;
+        }
+        #endregion
+
+        #region Helpers
         private class RobotsTxtParser
         {
             private readonly List<string> disallowed = new List<string>();
 
+            /// <summary>
+        /// Simple robots.txt parser supporting User-agent: * and Disallow directives.
+        /// </summary>
             public RobotsTxtParser(string content)
             {
                 bool appliesToAll = false;
@@ -241,5 +329,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return true;
             }
         }
+        #endregion
     }
 }

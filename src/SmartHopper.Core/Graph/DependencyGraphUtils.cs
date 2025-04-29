@@ -8,12 +8,12 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Core.JSON;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using SmartHopper.Core.JSON;
 
 namespace SmartHopper.Core.Graph
 {

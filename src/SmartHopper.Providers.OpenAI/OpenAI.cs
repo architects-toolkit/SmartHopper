@@ -1,17 +1,13 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +15,10 @@ using System.Drawing;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -27,27 +27,29 @@ namespace SmartHopper.Providers.OpenAI
     /// </summary>
     public sealed class OpenAI : AIProvider
     {
-        private const string _name = "OpenAI";
+        private const string NameValue = "OpenAI";
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
-        private const string _defaultModel = "gpt-4o-mini";
+        private const string DefaultModelValue = "gpt-4o-mini";
 
-        private static readonly Lazy<OpenAI> _instance = new Lazy<OpenAI>(() => new OpenAI());
+        private static readonly Lazy<OpenAI> InstanceValue = new (() => new OpenAI());
 
-        public static OpenAI Instance => _instance.Value;
+        public static OpenAI Instance => InstanceValue.Value;
 
-        private OpenAI() { }
+        private OpenAI()
+        {
+        }
 
-        public override string Name => _name;
+        public override string Name => NameValue;
 
-        public override string DefaultModel => _defaultModel;
+        public override string DefaultModel => DefaultModelValue;
 
         /// <summary>
-        /// Gets whether this provider is enabled and should be available for use.
+        /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
         /// </summary>
         public override bool IsEnabled => true;
 
         /// <summary>
-        /// Gets the provider's icon
+        /// Gets the provider's icon.
         /// </summary>
         public override Image Icon
         {
@@ -69,7 +71,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Name = "ApiKey",
                     Type = typeof(string),
-                    DefaultValue = "",
+                    DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
                     Description = "Your OpenAI API key",
@@ -78,10 +80,10 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Name = "Model",
                     Type = typeof(string),
-                    DefaultValue = _defaultModel,
+                    DefaultValue = DefaultModelValue,
                     IsSecret = false,
                     DisplayName = "Model",
-                    Description = "The model to use for completions"
+                    Description = "The model to use for completions",
                 },
                 new SettingDescriptor
                 {
@@ -90,8 +92,8 @@ namespace SmartHopper.Providers.OpenAI
                     DefaultValue = 150,
                     IsSecret = false,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate"
-                }
+                    Description = "Maximum number of tokens to generate",
+                },
             };
         }
 
@@ -99,24 +101,28 @@ namespace SmartHopper.Providers.OpenAI
         {
             Debug.WriteLine($"[OpenAI] ValidateSettings called. Settings null? {settings == null}");
             if (settings == null)
+            {
                 return false;
-                
+            }
+
             // Only validate settings that are actually provided
             // This allows partial setting updates rather than requiring all settings
-            
+
             // Check API key format if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 string apiKey = apiKeyObj.ToString();
+
                 // Simple format validation - don't require presence, just valid format if provided
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
                     Debug.WriteLine("[OpenAI] API key format validation failed: empty key provided");
                     return false;
                 }
+
                 Debug.WriteLine($"[OpenAI] API key format validation passed (length: {apiKey.Length})");
             }
-            
+
             // Check model format if present
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
@@ -126,9 +132,10 @@ namespace SmartHopper.Providers.OpenAI
                     Debug.WriteLine("[OpenAI] Model format validation failed: empty model name provided");
                     return false;
                 }
+
                 Debug.WriteLine($"[OpenAI] Model validation passed: {model}");
             }
-            
+
             // Check max tokens if present - must be a positive number
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
@@ -140,6 +147,7 @@ namespace SmartHopper.Providers.OpenAI
                         Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
                         return false;
                     }
+
                     Debug.WriteLine($"[OpenAI] MaxTokens validation passed: {maxTokens}");
                 }
                 else
@@ -148,7 +156,7 @@ namespace SmartHopper.Providers.OpenAI
                     return false;
                 }
             }
-            
+
             // All provided settings are valid
             return true;
         }
@@ -156,20 +164,20 @@ namespace SmartHopper.Providers.OpenAI
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             // Get settings from the secure settings store
-            string apiKey = GetSetting<string>("ApiKey");
-            int maxTokens = GetSetting<int>("MaxTokens");
-            string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
-            
+            string apiKey = this.GetSetting<string>("ApiKey");
+            int maxTokens = this.GetSetting<int>("MaxTokens");
+            string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
+
             // Validate API key
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new Exception("OpenAI API key is not configured or is invalid.");
             }
-            
+
             // Use default model if none specified
             if (string.IsNullOrWhiteSpace(modelName))
             {
-                modelName = _defaultModel;
+                modelName = DefaultModelValue;
             }
 
             Debug.WriteLine($"[OpenAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
@@ -179,12 +187,64 @@ namespace SmartHopper.Providers.OpenAI
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
                 httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
+                // Format messages for OpenAI API
+                var convertedMessages = new JArray();
+                foreach (var msg in messages)
+                {
+                    string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
+                    string content = msg["content"]?.ToString() ?? string.Empty;
+
+                    var messageObj = new JObject
+                    {
+                        ["content"] = content,
+                    };
+
+                    if (role == "assistant")
+                    {
+                        // Pass tool_calls if available
+                        if (msg["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                        {
+                            foreach (JObject toolCall in toolCalls)
+                            {
+                                var function = toolCall["function"] as JObject;
+                                if (function != null)
+                                {
+                                    // Ensure 'arguments' is serialized as a JSON string
+                                    if (function["arguments"] is JObject argumentsObject)
+                                    {
+                                        function["arguments"] = argumentsObject.ToString(Newtonsoft.Json.Formatting.None);
+                                    }
+                                }
+                            }
+
+                            messageObj["tool_calls"] = toolCalls;
+                        }
+                    }
+                    else if (role == "tool")
+                    {
+                        var toolCallId = msg["tool_call_id"]?.ToString();
+                        var toolName = msg["name"]?.ToString();
+                        if (!string.IsNullOrEmpty(toolCallId))
+                        {
+                            messageObj["tool_call_id"] = toolCallId;
+                        }
+
+                        if (!string.IsNullOrEmpty(toolName))
+                        {
+                            messageObj["name"] = toolName;
+                        }
+                    }
+
+                    messageObj["role"] = role;
+                    convertedMessages.Add(messageObj);
+                }
+
                 // Build request body
                 var requestBody = new JObject
                 {
                     ["model"] = modelName,
-                    ["messages"] = messages,
-                    ["max_tokens"] = maxTokens
+                    ["messages"] = convertedMessages,
+                    ["max_tokens"] = maxTokens,
                 };
 
                 // Add response format if JSON schema is provided
@@ -192,7 +252,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     requestBody["response_format"] = new JObject
                     {
-                        ["type"] = "json_object"
+                        ["type"] = "json_object",
                     };
                 }
 
@@ -213,8 +273,8 @@ namespace SmartHopper.Providers.OpenAI
                 try
                 {
                     var apiUrl = string.IsNullOrEmpty(endpoint) ? ApiURL : endpoint;
-                    var response = await httpClient.PostAsync(apiUrl, requestContent);
-                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var response = await httpClient.PostAsync(apiUrl, requestContent).ConfigureAwait(false);
+                    var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     Debug.WriteLine($"[OpenAI] Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
@@ -240,7 +300,8 @@ namespace SmartHopper.Providers.OpenAI
 
                     var aiResponse = new AIResponse
                     {
-                        Response = message["content"]?.ToString() ?? "",
+                        Response = message["content"]?.ToString() ?? string.Empty,
+                        Provider = "OpenAI",
                         Model = modelName,
                         FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
                         InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
@@ -260,7 +321,7 @@ namespace SmartHopper.Providers.OpenAI
                                 {
                                     Id = toolCall["id"]?.ToString(),
                                     Name = function["name"]?.ToString(),
-                                    Arguments = function["arguments"]?.ToString()
+                                    Arguments = function["arguments"]?.ToString(),
                                 });
                             }
                         }
@@ -281,22 +342,26 @@ namespace SmartHopper.Providers.OpenAI
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
                 return requestedModel;
+            }
 
             // Use the model from settings if available
-            string modelFromSettings = GetSetting<string>("Model");
+            string modelFromSettings = this.GetSetting<string>("Model");
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
                 return modelFromSettings;
+            }
 
             // Fall back to the default model
-            return DefaultModel;
+            return this.DefaultModel;
         }
 
         /// <summary>
-        /// Gets the tools formatted for the OpenAI API
+        /// Gets the tools formatted for the OpenAI API.
         /// </summary>
-        /// <returns>JArray of formatted tools</returns>
-        private JArray GetFormattedTools()
+        /// <returns>JArray of formatted tools.</returns>
+        private static new JArray? GetFormattedTools()
         {
             try
             {
@@ -323,8 +388,8 @@ namespace SmartHopper.Providers.OpenAI
                         {
                             ["name"] = tool.Value.Name,
                             ["description"] = tool.Value.Description,
-                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema)
-                        }
+                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
+                        },
                     };
 
                     toolsArray.Add(toolObject);
