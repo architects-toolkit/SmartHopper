@@ -21,6 +21,7 @@ using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Core.Models.Document;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -48,229 +49,53 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddTextParameter("Components", "C", "List of components", GH_ParamAccess.list);
         }
 
-        protected override void SolveInstance(IGH_DataAccess DA)
+       protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Get run parameter
+            // 1. Read “Run?” switch
             bool run = false;
-
-            if (!DA.GetData(1, ref run))
-            {
-                return;
-            }
-
+            if (!DA.GetData(1, ref run)) return;
             if (!run)
             {
-                if (this.lastComponentNames.Count > 0)
-                {
-                    DA.SetDataList(0, this.lastComponentNames);
-                }
+                if (lastComponentNames.Count > 0)
+                    DA.SetDataList(0, lastComponentNames);
                 else
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to place components");
-                }
-
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
+                        "Set Run to True to place components");
                 return;
             }
 
-            // Clear previous results when starting a new run
-            this.lastComponentNames.Clear();
+            // 2. Clear previous results and get JSON input
+            lastComponentNames.Clear();
+            string json = null;
+            if (!DA.GetData(0, ref json)) return;
 
             try
             {
-                // Get the JSON
-                string? json = null;
-                if (!DA.GetData(0, ref json))
+                // 3. Call the AI tool
+                var parameters = new JObject { ["json"] = json };
+                var toolResult = AIToolManager
+                    .ExecuteTool("gh_put", parameters, null)
+                    .GetAwaiter()
+                    .GetResult() as JObject;
+
+                // 4. Handle errors
+                if (toolResult == null || !(toolResult["success"]?.ToObject<bool>() ?? false))
                 {
+                    var err = toolResult?["error"]?.ToString() ?? "Unknown error";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"Tool 'gh_put' failed: {err}");
                     return;
                 }
 
-                // Parse and validate JSON
-                GrasshopperDocument document;
-                try
-                {
-                    document = GrasshopperJsonConverter.DeserializeFromJson(json);
-                    if (document?.Components == null || !document.Components.Any())
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "JSON must contain a non-empty components array");
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Invalid JSON format: " + ex.Message);
-                    return;
-                }
-
-                // Dictionary to store original to new GUIDs mapping
-                var guidMapping = new Dictionary<Guid, Guid>();
-
-                // Get the starting position for the components
-                var startPoint = GHCanvasUtils.StartPoint(100);
-
-                // Check if any components are missing pivot positions
-                bool needsPositioning = document.Components.Any(c => c.Pivot.IsEmpty);
-                Dictionary<string, PointF>? generatedPositions = null;
-
-                if (needsPositioning)
-                {
-                    try
-                    {
-                        // Generate positions for components using DependencyGraphUtils
-                        var positions = DependencyGraphUtils.CreateComponentGrid(document);
-
-                        // Update component positions in the document
-                        foreach (var component in document.Components)
-                        {
-                            if (positions.TryGetValue(component.InstanceGuid.ToString(), out var position))
-                            {
-                                component.Pivot = new Point((int)position.X * 150, (int)position.Y * 150);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error generating component positions: {ex.Message}");
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Could not generate optimal component positions");
-                    }
-                }
-
-                // Create components
-                foreach (var component in document.Components)
-                {
-                    try
-                    {
-                        // Find and create component
-                        IGH_ObjectProxy proxy = GHObjectFactory.FindProxy(component.ComponentGuid, component.Name);
-                        IGH_DocumentObject instance = GHObjectFactory.CreateInstance(proxy);
-
-                        Debug.WriteLine($"Creating component: {component.Name} of type {component.Type}");
-
-                        // Handle number sliders specially
-                        if (instance is GH_NumberSlider slider && component.Properties != null)
-                        {
-                            try
-                            {
-                                var currentValueProp = component.Properties["CurrentValue"];
-                                if (currentValueProp != null && currentValueProp.Value != null)
-                                {
-                                    var currentValue = ((JObject)currentValueProp.Value)["value"].ToString();
-                                    Debug.WriteLine($"Setting slider value to: {currentValue}");
-                                    slider.SetInitCode(currentValue);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Error setting number slider value: {ex.Message}");
-                                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error setting number slider value: {ex.Message}");
-                            }
-                        }
-
-                        // Set properties for non-slider components
-                        else if (component.Properties != null)
-                        {
-                            var filteredProperties = component.Properties
-                                .Where(kvp => !GHPropertyManager.IsPropertyOmitted(kvp.Key))
-                                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                            GHPropertyManager.SetProperties(instance, filteredProperties);
-                        }
-
-                        // Set position - use generated position if pivot is missing
-                        PointF position;
-                        if (component.Pivot.IsEmpty)
-                        {
-                            position = generatedPositions != null && generatedPositions.TryGetValue(component.InstanceGuid.ToString(), out PointF genPos)
-                                ? new PointF(genPos.X + startPoint.X, genPos.Y + startPoint.Y)
-                                : startPoint; // Fallback to startPoint if no generated position
-                        }
-                        else
-                        {
-                            position = new PointF(
-                                component.Pivot.X + startPoint.X,
-                                component.Pivot.Y + startPoint.Y);
-                        }
-
-                        // Add to canvas
-                        GHCanvasUtils.AddObjectToCanvas(instance, position, true);
-
-                        // Store GUID mapping
-                        guidMapping[component.InstanceGuid] = instance.InstanceGuid;
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error creating component {component.Name}: {ex.Message}");
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Error creating component {component.Name}");
-                    }
-                }
-
-                // Create connections
-                foreach (var connection in document.Connections)
-                {
-                    try
-                    {
-                        if (!connection.IsValid())
-                        {
-                            continue;
-                        }
-
-                        // Get source and target objects
-                        if (!guidMapping.TryGetValue(connection.From.ComponentId, out Guid sourceGuid) ||
-                            !guidMapping.TryGetValue(connection.To.ComponentId, out Guid targetGuid))
-                        {
-                            continue;
-                        }
-
-                        IGH_DocumentObject sourceObj = GHCanvasUtils.FindInstance(sourceGuid);
-                        IGH_DocumentObject targetObj = GHCanvasUtils.FindInstance(targetGuid);
-
-                        if (sourceObj == null || targetObj == null)
-                        {
-                            continue;
-                        }
-
-                        // Get source parameter
-                        IGH_Param? sourceParam = null;
-                        if (sourceObj is IGH_Component sourceComp)
-                        {
-                            sourceParam = GHParameterUtils.GetOutputByName(sourceComp, connection.From.ParamName);
-                        }
-                        else if (sourceObj is IGH_Param)
-                        {
-                            sourceParam = sourceObj as IGH_Param;
-                        }
-
-                        // Get target parameter and set source
-                        if (targetObj is IGH_Component targetComp)
-                        {
-                            var targetParam = GHParameterUtils.GetInputByName(targetComp, connection.To.ParamName);
-                            if (targetParam != null && sourceParam != null)
-                            {
-                                GHParameterUtils.SetSource(targetParam, sourceParam);
-                            }
-                        }
-                        else if (targetObj is IGH_Param targetParam)
-                        {
-                            if (sourceParam != null)
-                            {
-                                GHParameterUtils.SetSource(targetParam, sourceParam);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error creating connection: {ex.Message}");
-                    }
-                }
-
-                // Output component names
-                var componentNames = document.Components.Select(c => c.Name).Distinct().ToList();
-                this.lastComponentNames = componentNames;
+                // 5. Extract and output component names
+                var componentNames = toolResult["components"]
+                    ?.ToObject<List<string>>() ?? new List<string>();
+                lastComponentNames = componentNames;
                 DA.SetDataList(0, componentNames);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error: {ex.Message}");
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error: {ex.Message}");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
     }

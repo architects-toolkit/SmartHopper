@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
-                execute: this.ExecuteTogglePreviewAsync
+                execute: this.GhTogglePreviewAsync
             );
 
             // New tool to toggle component locked state
@@ -71,7 +71,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [ ""guids"", ""locked"" ]
                 }",
-                execute: this.ExecuteToggleLockAsync
+                execute: this.GhToggleLockAsync
             );
 
             // New tool to move component pivot position
@@ -101,17 +101,17 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [ ""guids"", ""x"", ""y"" ]
                 }",
-                execute: this.ExecuteMoveObjAsync
+                execute: this.GhMoveObjAsync
             );
         }
         #endregion
 
         #region Preview
-        private async Task<object> ExecuteTogglePreviewAsync(JObject parameters)
+        private async Task<object> GhTogglePreviewAsync(JObject parameters)
         {
             var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
             var previewOn = parameters["previewOn"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] ExecuteTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
+            Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
             var updated = new List<string>();
 
             foreach (var s in guids)
@@ -135,11 +135,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #endregion
 
         #region Lock
-        private async Task<object> ExecuteToggleLockAsync(JObject parameters)
+        private async Task<object> GhToggleLockAsync(JObject parameters)
         {
             var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
             var locked = parameters["locked"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] ExecuteToggleLockAsync: locked={locked}, guids count={guids.Count}");
+            Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
             var updated = new List<string>();
 
             foreach (var s in guids)
@@ -163,13 +163,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #endregion
 
         #region MoveInstance
-        private async Task<object> ExecuteMoveObjAsync(JObject parameters)
+        private async Task<object> GhMoveObjAsync(JObject parameters)
         {
             var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
             var x = parameters["x"]?.ToObject<float>() ?? 0f;
             var y = parameters["y"]?.ToObject<float>() ?? 0f;
             var relative = parameters["relative"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] ExecuteMoveObjAsync: x={x}, y={y}, relative={relative}, count={guids.Count}");
+            Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: x={x}, y={y}, relative={relative}, count={guids.Count}");
             var updated = new List<string>();
             foreach (var s in guids)
             {

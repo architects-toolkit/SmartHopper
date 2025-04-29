@@ -29,7 +29,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
     /// </summary>
-    public class GhTools : IAIToolProvider
+    public class GhGetTools : IAIToolProvider
     {
         #region Synonyms
         /// <summary>
@@ -194,7 +194,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         }
                     }
                 }",
-                execute: this.ExecuteGhGetToolAsync
+                execute: this.GhGetToolAsync
             );
 
             // New tool to list installed component types
@@ -211,7 +211,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         }
                     }
                 }",
-                execute: this.ExecuteGhRetrieveToolAsync
+                execute: this.GhRetrieveToolAsync
             );
 
             // New tool to list Grasshopper categories and subcategories
@@ -227,7 +227,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         }
                     }
                 }",
-                execute: this.ExecuteGhCategoriesToolAsync
+                execute: this.GhCategoriesToolAsync
             );
         }
         #endregion
@@ -238,7 +238,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// </summary>
         /// <param name="parameters">Parameters object containing filter settings.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<object> ExecuteGhGetToolAsync(JObject parameters)
+        private Task<object> GhGetToolAsync(JObject parameters)
         {
             // Parse filters
             var attrFilters = parameters["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
@@ -396,7 +396,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <summary>
         /// Executes the Grasshopper list component types tool.
         /// </summary>
-        private Task<object> ExecuteGhRetrieveToolAsync(JObject parameters)
+        private Task<object> GhRetrieveToolAsync(JObject parameters)
         {
             var server = Instances.ComponentServer;
             var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
@@ -491,7 +491,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <summary>
         /// Executes the Grasshopper categories listing tool with optional soft string filter.
         /// </summary>
-        private Task<object> ExecuteGhCategoriesToolAsync(JObject parameters)
+        private Task<object> GhCategoriesToolAsync(JObject parameters)
         {
             var server = Instances.ComponentServer;
             var filterString = parameters["filter"]?.ToObject<string>() ?? string.Empty;

@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "fetch_webpage_text",
+                name: "web_fetch_page_text",
                 description: "Retrieve plain text content of a webpage at the given URL, excluding HTML, scripts, styles, and images. Respects robots.txt.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -53,10 +53,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""url""]
                 }",
-                execute: this.ExecuteFetchWebPageTextAsync
+                execute: this.WebFetchPageTextAsync
             );
             yield return new AITool(
-                name: "search_rhino_forum",
+                name: "web_search_rhino_forum",
                 description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -68,10 +68,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""query""]
                 }",
-                execute: this.ExecuteSearchRhinoForumAsync
+                execute: this.WebSearchRhinoForumAsync
             );
             yield return new AITool(
-                name: "get_rhino_forum_post",
+                name: "web_get_rhino_forum_post",
                 description: "Retrieve full JSON of a Rhino Discourse forum post by ID.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -83,17 +83,17 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""id""]
                 }",
-                execute: this.ExecuteGetRhinoForumPostAsync
+                execute: this.WebGetRhinoForumPostAsync
             );
         }
         #endregion
 
-        #region fetchWebpageText
+        #region WebFetchPageText
         /// <summary>
         /// Fetches the text content of a webpage given its URL, if allowed by robots.txt.
         /// </summary>
         /// <param name="parameters">A JObject containing the URL parameter.</param>
-        private async Task<object> ExecuteFetchWebPageTextAsync(JObject parameters)
+        private async Task<object> WebFetchPageTextAsync(JObject parameters)
         {
             string url = parameters.Value<string>("url") ?? throw new ArgumentException("Missing 'url' parameter.");
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
@@ -226,8 +226,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
         #endregion
 
-        #region searchRhinoForum
-        private async Task<object> ExecuteSearchRhinoForumAsync(JObject parameters)
+        #region WebSearchRhinoForum
+        private async Task<object> WebSearchRhinoForumAsync(JObject parameters)
         {
             string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
             var httpClient = new HttpClient();
@@ -261,12 +261,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
         #endregion
 
-        #region getRhinoForumPost
+        #region WebGetRhinoForumPost
         /// <summary>
         /// Retrieves full JSON of a Rhino Discourse forum post by ID.
         /// </summary>
         /// <param name="parameters">A JObject containing the ID parameter.</param>
-        private async Task<object> ExecuteGetRhinoForumPostAsync(JObject parameters)
+        private async Task<object> WebGetRhinoForumPostAsync(JObject parameters)
         {
             int id = parameters.Value<int>("id");
             var httpClient = new HttpClient();
