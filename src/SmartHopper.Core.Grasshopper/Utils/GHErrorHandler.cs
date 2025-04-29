@@ -8,9 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {

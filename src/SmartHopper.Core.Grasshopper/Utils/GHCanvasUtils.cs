@@ -8,12 +8,12 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper;
-using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using Grasshopper;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
