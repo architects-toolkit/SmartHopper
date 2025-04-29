@@ -38,20 +38,24 @@ jobs:
     runs-on: windows-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
+      uses: actions/checkout@v4
       with:
-        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
         fetch-depth: 0  # Fetch all history for all tags and branches
     
     - name: Get latest release tag
       id: get_latest_release
       shell: pwsh
       run: |
-        # Get the latest tag
-        $latestTag = git describe --tags --abbrev=0 2>$null
-        if (-not $latestTag) {
-          $latestTag = "0.1.2-alpha" # Fallback if no tags exist
+        # Get all tags and sort them by version number
+        $tags = git tag -l --sort=-v:refname
+        if (-not $tags) {
+          # Fail if no tags exist
+          Write-Host "##[error] No tags found in the repository."
+          exit 1
         }
+        
+        # Get the latest tag (first in sorted list)
+        $latestTag = $tags[0]
         Write-Host "Latest tag: $latestTag"
         echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
     
@@ -83,6 +87,21 @@ jobs:
         
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         echo "IS_RELEASE=$isRelease" >> $env:GITHUB_OUTPUT
+        
+        # Checkout the tag that matches the version
+        git checkout $version
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "##[error] Failed to checkout tag $version - does it exist?"
+          Write-Host "Available tags:"
+          git tag -l
+          exit 1
+        }
+        
+        # Verify current commit matches tag
+        $tagCommit = git rev-parse $version
+        $headCommit = git rev-parse HEAD
+        Write-Host "Tag $version commit: $tagCommit"
+        Write-Host "Current HEAD commit: $headCommit"
     
     - name: Check if release is draft
       if: github.event_name == 'release'
@@ -108,27 +127,113 @@ jobs:
       shell: pwsh
       run: |
         # Initialize Developer PowerShell environment for VS tools
-        & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (-not (Test-Path $vsDevCmd)) {
+          Write-Host "##[warning] Visual Studio Developer Command Prompt not found at $vsDevCmd. Trying to find it..."
+          $vsDevCmd = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "VsDevCmd.bat" | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vsDevCmd) {
+            Write-Host "##[error] Could not find Visual Studio Developer Command Prompt"
+            exit 1
+          }
+        }
+        Write-Host "Using Visual Studio Developer environment: $vsDevCmd"
+        
+        # Import VS Dev environment
+        & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+          if ($_ -match '^([^=]+)=(.*)$') {
+            [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+          }
+        }
+        
+        # Now run the SNK script in the VS Dev environment
         pwsh ./Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
-
+        
+        # Verify the SNK file was created
+        if (-not (Test-Path -Path "signing.snk")) {
+          Write-Host "##[error] signing.snk file was not created"
+          exit 1
+        }
+        
+        # Show the absolute path for reference
+        $absolutePath = Resolve-Path -Path "signing.snk"
+        Write-Host "SNK absolute path: $absolutePath"
+    
     - name: Restore dependencies
       run: dotnet restore SmartHopper.sln
 
     - name: Build solution
-      run: dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=signing.snk
-
+      shell: pwsh
+      run: |
+        # Initialize Developer PowerShell environment for VS tools
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          Write-Host "Setting up Visual Studio Developer environment..."
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        } else {
+          Write-Host "##[warning] Visual Studio Developer Command Prompt not found. Proceeding with regular environment."
+        }
+        
+        $snkPath = Resolve-Path -Path "signing.snk" | Select-Object -ExpandProperty Path
+        Write-Host "Building with SNK at: $snkPath"
+        dotnet build SmartHopper.sln --configuration Release --no-restore /p:SignAssembly=true "/p:AssemblyOriginatorKeyFile=$snkPath"
+    
     - name: Decode Authenticode PFX from secrets
       shell: pwsh
       run: |
+        # Setup VS Developer environment
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        }
+        
         Write-Host "Decoding Authenticode PFX from secrets..."
         pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
 
     - name: Authenticode-sign provider assemblies
       shell: pwsh
       run: |
+        # Setup VS Developer environment
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        }
+        
+        # Make signtool available by adding Windows SDK paths to PATH
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\x64"
+        
         $version = "${{ steps.determine_version.outputs.VERSION }}"
-        Write-Host "Auth-signing SmartHopper provider DLLs in bin\\$version\\Release"
-        pwsh ./Sign-Authenticode.ps1 -Sign "bin\\$version\\Release" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        $buildPath = "bin/$version/Release"
+        
+        # Verify the build directory exists
+        if (-not (Test-Path $buildPath)) {
+          Write-Host "##[warning] Build directory '$buildPath' not found. Checking for alternate paths..."
+          # Try to find any build output directory
+          $possibleDirs = Get-ChildItem -Path "bin" -Directory -Recurse | Where-Object { $_.Name -eq "Release" }
+          if ($possibleDirs) {
+            $buildPath = $possibleDirs[0].FullName
+            Write-Host "Found alternate build path: $buildPath"
+          } else {
+            Write-Host "##[error] No build output directory found. Skipping signing."
+          exit 1
+        }
+        }
+        
+        Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
+        & ./Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
 
     - name: Create Output Directory
       shell: pwsh
@@ -303,7 +408,7 @@ jobs:
         echo "zip_paths=$zipPathsJson" >> $env:GITHUB_OUTPUT
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+      uses: actions/upload-artifact@v4
       with:
         name: plugin-package
         path: artifacts/
@@ -338,7 +443,7 @@ jobs:
         
     - name: Upload Windows Rhino8 Release Asset
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -349,7 +454,7 @@ jobs:
         
     - name: Upload Mac Rhino8 Release Asset
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
