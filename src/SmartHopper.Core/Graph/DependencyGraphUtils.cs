@@ -23,8 +23,6 @@ namespace SmartHopper.Core.Graph
         {
             public static Dictionary<string, PointF> CreateComponentGrid(List<JsonStructure> components)
             {
-                //List<GrasshopperComponent> components = JsonConvert.DeserializeObject<List<GrasshopperComponent>>(json);
-
                 Debug.WriteLine("Creating component grid...");
                 Debug.WriteLine("Number of components to order: " + components.Count);
 

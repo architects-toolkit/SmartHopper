@@ -16,6 +16,7 @@ using SmartHopper.Core.JSON;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using RhinoCodePlatform.GH;
 using System.Linq;
 using System.Reflection;
 
@@ -119,7 +120,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 To = new Connection
                                 {
                                     ComponentId = recipientGuid,
-                                    ParamName = recipient.Name
+                                    ParamName = recipient.Name,
                                 }
                             };
                             document.Connections.Add(connection);
@@ -134,6 +135,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
                 // Get component properties
                 var propertyValues = GetObjectProperties(obj);
+
+                // Inject the Script property for script components
+                if (obj is IScriptComponent scriptComp)
+                {
+                    propertyValues["Script"] = scriptComp.Text;
+                }
+
                 foreach (var prop in propertyValues)
                 {
                     componentProps.Properties[prop.Key] = new ComponentProperty

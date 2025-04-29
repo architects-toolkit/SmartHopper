@@ -167,7 +167,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "ghget",
+                name: "gh_get",
                 description: "Retrieve Grasshopper components as GhJSON with optional filters. By default, it returns all components.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -199,7 +199,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // New tool to list installed component types
             yield return new AITool(
-                name: "ghretrievecomponents",
+                name: "gh_retrieve_components",
                 description: "Retrieve all installed Grasshopper components in the user's environment as JSON with names, GUIDs, categories, subcategories, descriptions, and keywords.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -216,7 +216,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // New tool to list Grasshopper categories and subcategories
             yield return new AITool(
-                name: "ghcategories",
+                name: "gh_categories",
                 description: "List Grasshopper component categories and subcategories with optional soft string filter.",
                 parametersSchema: @"{
                     ""type"": ""object"",

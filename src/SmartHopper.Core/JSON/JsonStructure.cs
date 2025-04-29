@@ -127,6 +127,8 @@ namespace SmartHopper.Core.JSON
             // Button
             {"ExpressionNormal", null},
             {"ExpressionPressed", null},
+            // Script
+            {"Script", null},
         };
         public static bool IsPropertyInWhitelist(string propertyName)
         {
@@ -152,16 +154,5 @@ namespace SmartHopper.Core.JSON
 
             return childPropertyValues;
         }
-        //public static void AddChildPropertiesToDictionary(Dictionary<string, object> dictionary, string propertyName, Dictionary<string, object> childPropertyValues, object value)
-        //{
-        //    if (childPropertyValues.Count > 0)
-        //    {
-        //        dictionary[propertyName] = childPropertyValues;
-        //    }
-        //    else
-        //    {
-        //        dictionary[propertyName] = value;
-        //    }
-        //}
     }
 }
