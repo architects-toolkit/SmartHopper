@@ -215,3 +215,49 @@ function showToast(message) {
         setTimeout(() => document.body.removeChild(toast), 300);
     }, 2000);
 }
+
+// Copy handler: only override when one or more FULL messages are selected
+document.addEventListener('copy', function(e) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;             // nothing selected
+  
+    const text = sel.toString().trim();
+    if (!text) return;                               // only whitespace
+  
+    // 1) grab all message‐content elements (ignores header/footer)
+    const msgs = Array.from(
+      document.querySelectorAll('.message-content')
+    );
+    if (msgs.length === 0) return;
+  
+    // 2) wrap the user’s selection as a single Range
+    const range = sel.getRangeAt(0);
+  
+    // 3) find any message‐content DIVs the selection even *touches*
+    const touched = msgs.filter(msg => range.intersectsNode(msg));
+    if (touched.length === 0) return;                // selection outside chat
+  
+    // 4) of those, which are fully contained?
+    const fully = touched.filter(msg => {
+      const contentRange = document.createRange();
+      contentRange.selectNodeContents(msg);
+      return (
+        range.compareBoundaryPoints(Range.START_TO_START, contentRange) <= 0 &&
+        range.compareBoundaryPoints(Range.END_TO_END,   contentRange) >= 0
+      );
+    });
+  
+    // 5) if none are fully contained, fall back to default copy
+    if (fully.length === 0) return;
+  
+    // 6) otherwise, build a clipboard string by pulling each DIV’s data-copy-content
+    const out = touched
+      .map(m => m.dataset.copyContent || '')
+      .filter(Boolean)
+      .join('\n\n');
+  
+    if (out) {
+      e.clipboardData.setData('text/plain', out);
+      e.preventDefault();
+    }
+  });

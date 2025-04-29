@@ -28,6 +28,7 @@ body {
     display: flex;
     margin-bottom: 10px;
     max-width: 80%;
+    position: relative;
 }
 
 .message.user {
@@ -46,6 +47,7 @@ body {
     overflow-wrap: break-word;
     word-wrap: break-word;
     word-break: break-word;
+    position: relative;
 }
 
 .message.user .message-content {
@@ -221,7 +223,7 @@ hr {
 }
 
 /* Arrow styling inside tool messages */
-.message.tool .message-content .toggle-arrow {
+.message.tool .toggle-arrow {
     display: block;
     position: absolute;
     top: 10px;
@@ -236,7 +238,7 @@ hr {
 }
 
 /* Rotate arrow when expanded */
-.message.tool.expanded .message-content .toggle-arrow {
+.message.tool.expanded .toggle-arrow {
     transform: rotate(90deg);
     display: block;
 }
