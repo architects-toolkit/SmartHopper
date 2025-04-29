@@ -8,31 +8,122 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Drawing;
+using SmartHopper.Core.Models.Components;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
     public class GHPropertyManager
     {
         // List of omitted properties
-        public static List<string> omittedProperties = new List<string>() {
+        private static List<string> omittedProperties = new List<string>() {
             "VolatileData",
             "DataType",
             "Properties",
         };
 
-        public static void SetProperties(object instance, Dictionary<string, JSON.ComponentProperty> properties)
+        // List of properties to serialize
+        private static Dictionary<string, List<string>> PropertiesWhitelist { get; } = new Dictionary<string, List<string>>
+        {
+            {"Value", null},
+            {"Locked", null}, // Enabled?
+            {"Simplify", null}, //True or False
+            {"Reverse", null}, //True or False
+            {"DataMapping", null}, // Graft(2), Flatten(1) or None(0)
+            {"DataType", null}, // remote(3), void(1) or local(2)
+            {"Expression", null},
+            {"Invert", null},
+            {"NickName", null},
+            {"DisplayName", null},
+            // Internalized data in params
+            {"PersistentData", null},
+            // Current data
+            {"VolatileData", null},
+            // Panel
+            {"UserText", null},
+            {"Properties", new List<string> {"Properties"}}, // Only get Properties > Properties
+            // Scribble
+            {"Text", null},
+            {"Font", null},
+            {"Corners", null},
+            // Number Slider, com fer even, odd, rational???
+            {"CurrentValue", null},
+            // {"InstanceDescription", null},
+                // {"TickCount", null},
+                // {"TickValue", null},
+            // Control Knob
+            {"Minimum", null},
+            {"Maximum", null},
+            {"Range", null},
+            {"Decimals", null},
+            {"Limit", null},
+            {"DisplayFormat", null},
+            // Multidimensional Slider
+            {"SliderMode", null},
+            {"XInterval", null},
+            {"YInterval", null},
+            {"ZInterval", null},
+            {"X", null},
+            {"Y", null},
+            {"Z", null},
+            // GeometryPipeline
+            {"LayerFilter", null},
+            {"NameFilter", null},
+            {"TypeFilter", null},
+            {"IncludeLocked", null},
+            {"IncludeHidden", null},
+            {"GroupByLayer", null},
+            {"GroupByType", null},
+            // GraphMapper
+            {"GraphType", null},
+            // PathMapper
+            {"Lexers", null},
+            // ValueList --> es podria netejar
+            {"ListMode", null},
+            {"ListItems", null},
+            // ColorWheel
+            {"State", null},
+            // DataRecorder
+            {"DataLimit", null},
+            {"RecordData", null}, // Negatiu vol dir desactivat
+            // ItemPicker (cherry picker)
+            {"TreePath", null}, //Aquest valor no es defineix quan és {first}
+            {"TreeIndex", null},
+            // Button
+            {"ExpressionNormal", null},
+            {"ExpressionPressed", null},
+            // Script
+            {"Script", null},
+        };
+
+        public static bool IsPropertyInWhitelist(string propertyName)
+        {
+            return PropertiesWhitelist.ContainsKey(propertyName);
+        }
+
+        /// <summary>
+        /// Returns the child-property names for a whitelisted property,
+        /// or null if there are no nested keys.
+        /// </summary>
+        public static List<string>? GetChildProperties(string propertyName)
+        {
+            if (PropertiesWhitelist.TryGetValue(propertyName, out var childKeys))
+                return childKeys;
+            return null;
+        }
+
+        public static void SetProperties(object instance, Dictionary<string, ComponentProperty> properties)
         {
             foreach (var prop in properties)
             {

@@ -31,7 +31,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             Debug.WriteLine($"[GHComponentUtils] SetComponentPreview: guid={guid}, previewOn={previewOn}");
             var obj = GHCanvasUtils.FindInstance(guid);
             Debug.WriteLine(obj != null
-                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}" 
+                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}"
                 : "[GHComponentUtils] Found null object");
             if (obj is GH_Component component)
             {
@@ -79,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             Debug.WriteLine($"[GHComponentUtils] SetComponentLock: guid={guid}, locked={locked}");
             var obj = GHCanvasUtils.FindInstance(guid);
             Debug.WriteLine(obj != null
-                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}" 
+                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}"
                 : "[GHComponentUtils] Found null object");
             if (obj is GH_Component component)
             {

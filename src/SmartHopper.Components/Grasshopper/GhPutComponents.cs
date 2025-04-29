@@ -15,12 +15,12 @@ using System.Drawing;
 using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.JSON;
+using SmartHopper.Core.Models.Serialization;
+using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -85,10 +85,10 @@ namespace SmartHopper.Components.Grasshopper
                 }
 
                 // Parse and validate JSON
-                Core.JSON.GrasshopperDocument document;
+                GrasshopperDocument document;
                 try
                 {
-                    document = JsonConvert.DeserializeObject<Core.JSON.GrasshopperDocument>(json);
+                    document = GrasshopperJsonConverter.DeserializeFromJson(json);
                     if (document?.Components == null || !document.Components.Any())
                     {
                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "JSON must contain a non-empty components array");
@@ -115,21 +115,8 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     try
                     {
-                        // Convert to JsonStructure format for DependencyGraphUtils
-                        var jsonStructures = document.Components.Select(c => new JsonStructure
-                        {
-                            ID = c.InstanceGuid,
-                            Name = c.Name,
-                            Inputs = document.GetComponentConnections(c.InstanceGuid)
-                                .Where(conn => conn.To.ComponentId == c.InstanceGuid)
-                                .Select(conn => new JsonInput
-                                {
-                                    Sources = new List<Guid> { conn.From.ComponentId },
-                                }).ToList(),
-                        }).ToList();
-
                         // Generate positions for components using DependencyGraphUtils
-                        var positions = DependencyGraphUtils.Program.CreateComponentGrid(jsonStructures);
+                        var positions = DependencyGraphUtils.CreateComponentGrid(document);
 
                         // Update component positions in the document
                         foreach (var component in document.Components)

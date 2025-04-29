@@ -8,17 +8,18 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
-using SmartHopper.Core.Grasshopper.Converters;
-using SmartHopper.Core.JSON;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using RhinoCodePlatform.GH;
-using System.Linq;
-using System.Reflection;
+using SmartHopper.Core.Grasshopper.Converters;
+using SmartHopper.Core.Models.Components;
+using SmartHopper.Core.Models.Connections;
+using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -175,11 +176,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 try
                 {
-                    if (!JsonProperties.IsPropertyInWhitelist(property.Name))
-                    {
+                    // 1) Never serialize the GH runtime Params collection (it loops back on itself)
+                    if (property.Name == "Params")
                         continue;
-                    }
 
+                    // 2) Only include properties you've explicitly whitelisted
+                    if (!GHPropertyManager.IsPropertyInWhitelist(property.Name))
+                        continue;
+
+                    // 3) Now get the value and build your ComponentProperty
                     var value = property.GetValue(obj) ?? "";
 
                     // Special handling for number slider current value
@@ -191,10 +196,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         value = NumberSliderUtils.FormatSliderValue(lowerLimit, upperLimit, currentValue);
                     }
 
-                    // Check if the property has child properties
-                    if (JsonProperties.HasChildProperties(property.Name))
+                    // 4) If you have child-property names defined (your whitelist dictionary's value list),
+                    //    you can drill in here and pull only those sub-props.
+                    var childKeys = GHPropertyManager.GetChildProperties(property.Name);
+                    if (childKeys != null)
                     {
-                        var childPropertyValues = JsonProperties.GetChildProperties(value, property.Name);
+                        // Here you'd extract child properties if needed
                         propertyValues[property.Name] = new ComponentProperty
                         {
                             Value = value,
@@ -204,7 +211,8 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     }
                     else
                     {
-                        if (new[] { "PersistentData" }.Contains(property.Name))
+                        // Handle PersistentData specially
+                        if (property.Name == "PersistentData")
                         {
                             IGH_Structure dataTree = value as IGH_Structure;
                             Dictionary<string, List<object>> dictionary = IGHStructureProcessor.IGHStructureToDictionary(dataTree);
@@ -212,6 +220,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         }
                         else
                         {
+                            // Regular leaf property
                             propertyValues[property.Name] = new ComponentProperty
                             {
                                 Value = value,

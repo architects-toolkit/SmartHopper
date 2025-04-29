@@ -8,53 +8,11 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using Grasshopper.Kernel;
 using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.Grasshopper.Models
 {
-    public class ComponentProperties
-    {
-        public string Name { get; set; }
-        public Guid InstanceGuid { get; set; }
-        public Guid ComponentGuid { get; set; }
-        public string Type { get; set; }
-        public string ObjectType { get; set; }
-        public Dictionary<string, ComponentProperty> Properties { get; set; }
-        public List<string> Warnings { get; set; }
-        public List<string> Errors { get; set; }
-        public PointF Pivot { get; set; }
-        public bool Selected { get; set; }
-    }
-
-    public class ComponentProperty
-    {
-        public object Value { get; set; }
-        public string Type { get; set; }
-        public string HumanReadable { get; set; }
-    }
-
-    public class Connection
-    {
-        public Guid ComponentId { get; set; }
-        public string ParamName { get; set; }
-    }
-
-    public class ConnectionPairing
-    {
-        public Connection From { get; set; }
-        public Connection To { get; set; }
-    }
-
-    public class GrasshopperDocument
-    {
-        public List<ComponentProperties> Components { get; set; }
-        public List<ConnectionPairing> Connections { get; set; }
-    }
-
     /// <summary>
     /// Generic result type for AI evaluations, providing a standard interface between tools and components
     /// </summary>

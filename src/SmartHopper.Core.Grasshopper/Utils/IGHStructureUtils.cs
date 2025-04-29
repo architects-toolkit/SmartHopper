@@ -8,13 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
