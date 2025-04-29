@@ -1,35 +1,34 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Diagnostics;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.AI
 {
     public static class AIUtils
     {
         /// <summary>
-        /// Tries to parse a JSON string into a JToken
+        /// Tries to parse a JSON string into a JToken.
         /// </summary>
-        /// <param name="strInput">The JSON string to parse</param>
-        /// <param name="jToken">The output JToken if successful</param>
-        /// <returns>True if parsing was successful, false otherwise</returns>
-        public static bool TryParseJson(string strInput, out JToken jToken)
+        /// <param name="strInput">The JSON string to parse.</param>
+        /// <param name="jToken">The output JToken if successful.</param>
+        /// <returns>True if parsing was successful, false otherwise.</returns>
+        public static bool TryParseJson(string strInput, out JToken? jToken)
         {
             try
             {
@@ -50,25 +49,23 @@ namespace SmartHopper.Core.AI
             string jsonSchema = "",
             string endpoint = "",
             bool includeToolDefinitions = false,
-            string contextProviderFilter = null,
-            string contextKeyFilter = null
-        )
+            string? contextProviderFilter = null,
+            string? contextKeyFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
         }
 
         public static async Task<AIResponse> GetResponse(
             string providerName,
             string model,
-            List<TextChatModel> messages,
+            List<ChatMessageModel> messages,
             string jsonSchema = "",
             string endpoint = "",
             bool includeToolDefinitions = false,
-            string contextProviderFilter = null,
-            string contextKeyFilter = null
-        )
+            string? contextProviderFilter = null,
+            string? contextKeyFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
         }
 
         private static async Task<AIResponse> GetResponse(
@@ -78,9 +75,8 @@ namespace SmartHopper.Core.AI
             string jsonSchema = "",
             string endpoint = "",
             bool includeToolDefinitions = false,
-            string contextProviderFilter = null,
-            string contextKeyFilter = null
-        )
+            string? contextProviderFilter = null,
+            string? contextKeyFilter = null)
         {
             // Add message context
             try
@@ -95,11 +91,11 @@ namespace SmartHopper.Core.AI
 
                     if (contextMessages.Any())
                     {
-                        var contextMessage = "Conversation context:\n\n" + 
+                        var contextMessage = "Conversation context:\n\n" +
                                              string.Join("\n", contextMessages);
-                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>> 
-                        { 
-                            new KeyValuePair<string, string>("system", contextMessage)
+                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>>
+                        {
+                            new ("system", contextMessage),
                         });
 
                         // Insert context at the beginning of messages
@@ -130,13 +126,13 @@ namespace SmartHopper.Core.AI
                     {
                         Response = $"Error: Unknown provider '{providerName}'. Available providers: {string.Join(", ", providers.Select(p => p.Name))}",
                         FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     };
                 }
 
                 Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} {(includeToolDefinitions ? "with" : "without")} tools");
 
-                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions);
+                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions).ConfigureAwait(false);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
                 return response;

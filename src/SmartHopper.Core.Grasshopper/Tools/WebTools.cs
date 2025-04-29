@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             );
             yield return new AITool(
                 name: "search_rhino_forum",
-                description: "Search Rhino Discourse forum posts by query and return matching posts.",
+                description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -230,12 +230,14 @@ namespace SmartHopper.Core.Grasshopper.Tools
         private async Task<object> ExecuteSearchRhinoForumAsync(JObject parameters)
         {
             string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
+            var httpClient = new HttpClient();
             var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
-            var response = await _httpClient.GetAsync(searchUri);
+            var response = await httpClient.GetAsync(searchUri);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             var json = JObject.Parse(content);
             var posts = json["posts"] as JArray ?? new JArray();
+            posts = new JArray(posts.Take(10));
             var topics = json["topics"] as JArray ?? new JArray();
             // Build a map of topic ID to title
             var topicTitles = topics
@@ -267,8 +269,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
         private async Task<object> ExecuteGetRhinoForumPostAsync(JObject parameters)
         {
             int id = parameters.Value<int>("id");
+            var httpClient = new HttpClient();
             var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
-            var response = await _httpClient.GetAsync(postUri);
+            var response = await httpClient.GetAsync(postUri);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             var json = JObject.Parse(content);

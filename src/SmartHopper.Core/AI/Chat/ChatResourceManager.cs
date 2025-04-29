@@ -14,11 +14,13 @@
  */
 
 using System;
-using System.IO;
-using System.Reflection;
-using System.Net;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Reflection;
+using Markdig;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -32,6 +34,7 @@ namespace SmartHopper.Core.AI.Chat
         private string _cachedErrorTemplate;
         private string _cachedCssContent;
         private string _cachedJsContent;
+        private readonly MarkdownPipeline _markdownPipeline;
 
         // Resource names
         private const string CSS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.css.chat-styles.css";
@@ -46,9 +49,22 @@ namespace SmartHopper.Core.AI.Chat
         public ChatResourceManager()
         {
             Debug.WriteLine("[ChatResourceManager] Initializing ChatResourceManager");
-            
+
             // List all embedded resources for debugging
             ListAllEmbeddedResources();
+
+            // Configure Markdig pipeline with needed extensions
+            _markdownPipeline = new MarkdownPipelineBuilder()
+                .UseAdvancedExtensions()
+                .UseSoftlineBreakAsHardlineBreak()
+                .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Default)
+                .UseGridTables()
+                .UsePipeTables()
+                .UseListExtras()
+                .UseTaskLists()
+                .UseAutoLinks()
+                .UseGenericAttributes()
+                .Build();
         }
 
         /// <summary>
@@ -58,7 +74,7 @@ namespace SmartHopper.Core.AI.Chat
         public string GetCompleteHtml()
         {
             Debug.WriteLine("[ChatResourceManager] Creating complete HTML with embedded resources");
-            
+
             try
             {
                 // Load all required resources
@@ -66,10 +82,10 @@ namespace SmartHopper.Core.AI.Chat
                 string jsContent = GetJsContent();
                 string messageTemplate = GetMessageTemplate();
                 string chatTemplate = GetChatTemplate();
-                
+
                 // Escape single quotes in the message template to avoid breaking the JavaScript
                 messageTemplate = messageTemplate.Replace("'", "\\'");
-                
+
                 // Replace all placeholders with actual content
                 string completeHtml = chatTemplate
                     .Replace("{{cssChat}}", cssContent)
@@ -77,7 +93,7 @@ namespace SmartHopper.Core.AI.Chat
                     .Replace("{{messageTemplate}}", messageTemplate);
 
                 Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
-                
+
                 // Write the complete HTML to a debug file for inspection
                 try
                 {
@@ -89,7 +105,7 @@ namespace SmartHopper.Core.AI.Chat
                 {
                     Debug.WriteLine($"[ChatResourceManager] Failed to write debug file: {ex.Message}");
                 }
-                
+
                 return completeHtml;
             }
             catch (Exception ex)
@@ -107,7 +123,7 @@ namespace SmartHopper.Core.AI.Chat
         private string GetChatTemplate()
         {
             Debug.WriteLine("[ChatResourceManager] Getting chat template");
-            
+
             if (string.IsNullOrEmpty(_cachedChatTemplate))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CHAT_TEMPLATE_RESOURCE}");
@@ -125,7 +141,7 @@ namespace SmartHopper.Core.AI.Chat
         private string GetMessageTemplate()
         {
             Debug.WriteLine("[ChatResourceManager] Getting message template");
-            
+
             if (string.IsNullOrEmpty(_cachedMessageTemplate))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {MESSAGE_TEMPLATE_RESOURCE}");
@@ -144,7 +160,7 @@ namespace SmartHopper.Core.AI.Chat
         public string GetErrorTemplate(string errorMessage)
         {
             Debug.WriteLine("[ChatResourceManager] Getting error template");
-            
+
             if (string.IsNullOrEmpty(_cachedErrorTemplate))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {ERROR_TEMPLATE_RESOURCE}");
@@ -155,7 +171,7 @@ namespace SmartHopper.Core.AI.Chat
             // Replace error message placeholder
             string result = _cachedErrorTemplate.Replace("{{errorMessage}}", WebUtility.HtmlEncode(errorMessage));
             Debug.WriteLine("[ChatResourceManager] Error template prepared with error message injected");
-            
+
             return result;
         }
 
@@ -166,7 +182,7 @@ namespace SmartHopper.Core.AI.Chat
         private string GetCssContent()
         {
             Debug.WriteLine("[ChatResourceManager] Getting CSS content");
-            
+
             if (string.IsNullOrEmpty(_cachedCssContent))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CSS_RESOURCE}");
@@ -184,7 +200,7 @@ namespace SmartHopper.Core.AI.Chat
         private string GetJsContent()
         {
             Debug.WriteLine("[ChatResourceManager] Getting JavaScript content");
-            
+
             if (string.IsNullOrEmpty(_cachedJsContent))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {JS_RESOURCE}");
@@ -201,20 +217,41 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="role">The role of the message sender (user, assistant, system).</param>
         /// <param name="displayName">The display name of the sender.</param>
         /// <param name="content">The HTML content of the message.</param>
+        /// <param name="timestamp">The formatted timestamp of the message.</param>
+        /// <param name="inTokens">Number of input tokens (for AI responses)</param>
+        /// <param name="outTokens">Number of output tokens (for AI responses)</param>
+        /// <param name="provider">AI provider name (for AI responses)</param>
+        /// <param name="model">AI model name (for AI responses)</param>
+        /// <param name="finishReason">AI response finish reason (for AI responses)</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string role, string displayName, string content)
+        public string CreateMessageHtml(string role, string displayName, string timestamp, AIResponse response)
         {
             Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
-            
+
+            // Convert markdown to HTML
+            Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
+            string htmlContent = Markdown.ToHtml(response.Response, _markdownPipeline);
+            Debug.WriteLine($"[ChatResourceManager] Markdown converted, HTML length: {htmlContent?.Length ?? 0}");
+
+            // Escape markdown for safe use in an HTML attribute
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(response?.Response ?? "").Replace("'", "&#39;");
+
             string template = GetMessageTemplate();
 
             string result = template
                 .Replace("{{role}}", role)
                 .Replace("{{displayName}}", displayName)
-                .Replace("{{content}}", content);
-                
+                .Replace("{{timestamp}}", timestamp)
+                .Replace("{{htmlContent}}", htmlContent)
+                .Replace("{{mdContent}}", mdContentEscaped)
+                .Replace("{{inTokens}}", response?.InTokens.ToString() ?? "")
+                .Replace("{{outTokens}}", response?.OutTokens.ToString() ?? "")
+                .Replace("{{provider}}", response?.Provider ?? "")
+                .Replace("{{model}}", response?.Model ?? "")
+                .Replace("{{finishReason}}", response?.FinishReason ?? "unknown");
+
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
-            
+
             return result;
         }
 
@@ -226,9 +263,9 @@ namespace SmartHopper.Core.AI.Chat
         private string ReadEmbeddedResource(string resourceName)
         {
             Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {resourceName}");
-            
+
             Assembly assembly = Assembly.GetExecutingAssembly();
-            
+
             try
             {
                 using (Stream stream = assembly.GetManifestResourceStream(resourceName))
@@ -238,9 +275,9 @@ namespace SmartHopper.Core.AI.Chat
                         Debug.WriteLine($"[ChatResourceManager] ERROR: Embedded resource not found: {resourceName}");
                         throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
                     }
-                    
+
                     Debug.WriteLine($"[ChatResourceManager] Resource stream opened, length: {stream.Length}");
-                    
+
                     using (StreamReader reader = new StreamReader(stream))
                     {
                         string content = reader.ReadToEnd();
@@ -256,7 +293,7 @@ namespace SmartHopper.Core.AI.Chat
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Lists all embedded resources in the assembly for debugging purposes.
         /// </summary>
@@ -266,13 +303,13 @@ namespace SmartHopper.Core.AI.Chat
             {
                 Assembly assembly = Assembly.GetExecutingAssembly();
                 string[] resources = assembly.GetManifestResourceNames();
-                
+
                 Debug.WriteLine($"[ChatResourceManager] Found {resources.Length} embedded resources:");
                 foreach (string resource in resources)
                 {
                     Debug.WriteLine($"[ChatResourceManager]   - {resource}");
                 }
-                
+
                 // Check if our specific resources exist
                 Debug.WriteLine("[ChatResourceManager] Checking for required resources:");
                 Debug.WriteLine($"[ChatResourceManager]   - CSS: {resources.Contains(CSS_RESOURCE)}");
