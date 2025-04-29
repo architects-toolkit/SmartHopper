@@ -32,6 +32,11 @@
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Reference Include="RhinoCodePlatform.GH">
+      <HintPath>$(ProgramFiles)\Rhino 8\System\RhinoCodePlatform.GH.dll</HintPath>
+      <Private>false</Private>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

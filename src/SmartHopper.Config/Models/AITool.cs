@@ -8,10 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
 using System;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Config.Models
 {
@@ -24,17 +23,17 @@ namespace SmartHopper.Config.Models
         /// Name of the tool (used for tool calls)
         /// </summary>
         public string Name { get; }
-        
+
         /// <summary>
         /// Description of what the tool does
         /// </summary>
         public string Description { get; }
-        
+
         /// <summary>
         /// JSON schema describing the tool's parameters
         /// </summary>
         public string ParametersSchema { get; }
-        
+
         /// <summary>
         /// Function to execute the tool with given parameters
         /// </summary>
