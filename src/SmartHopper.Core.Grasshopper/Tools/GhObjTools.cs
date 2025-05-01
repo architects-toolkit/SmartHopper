@@ -17,6 +17,8 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Grasshopper.Utils;
+using System.Linq;
+using SmartHopper.Core.Grasshopper.Graph;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -104,6 +106,32 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ""required"": [ ""guids"", ""x"", ""y"" ]
                 }",
                 execute: this.GhMoveObjAsync
+            );
+
+            // New tool to tidy up selected components into a grid layout
+            yield return new AITool(
+                name: "ghtidyup",
+                description: "Organize selected components into a tidy grid layout.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""guids"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""List of component GUIDs to include in the tidy-up.""
+                        },
+                        ""startPoint"": {
+                            ""type"": ""object"",
+                            ""properties"": {
+                                ""x"": { ""type"": ""number"" },
+                                ""y"": { ""type"": ""number"" }
+                            },
+                            ""description"": ""Optional absolute start point for the top-left of the grid. Overrides selection's top-left if provided.""
+                        }
+                    },
+                    ""required"": [ ""guids"" ]
+                }",
+                execute: this.GhTidyUpAsync
             );
         }
         #endregion
@@ -194,6 +222,54 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
 
             return new { success = true, updated };
+        }
+        #endregion
+
+        #region TidyUp
+        /// <summary>
+        /// Reorganize selected components into a tidy grid layout by GUID list.
+        /// </summary>
+        private async Task<object> GhTidyUpAsync(JObject parameters)
+        {
+            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var startToken = parameters["startPoint"];
+            var hasStart = startToken != null;
+            PointF origin = default;
+            if (hasStart)
+            {
+                var sx = startToken["x"]?.ToObject<float>() ?? 0f;
+                var sy = startToken["y"]?.ToObject<float>() ?? 0f;
+                origin = new PointF(sx, sy);
+            }
+            var currentObjs = GHCanvasUtils.GetCurrentObjects();
+            var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
+            if (!selected.Any())
+            {
+                Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
+                return new { success = false, error = "No matching components found for provided GUIDs." };
+            }
+            var doc = GHDocumentUtils.GetObjectsDetails(selected);
+            var layout = DependencyGraphUtils.CreateComponentGrid(doc);
+            if (!hasStart)
+            {
+                var pts = selected.Select(o => o.Attributes.Pivot);
+                var minX = pts.Min(pt => pt.X);
+                var minY = pts.Min(pt => pt.Y);
+                origin = new PointF(minX, minY);
+            }
+            var moved = new List<string>();
+            foreach (var kv in layout)
+            {
+                var guid = kv.Key;
+                var rel = kv.Value;
+                var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
+                var ok = GHCanvasUtils.MoveInstance(guid, target, relative: false);
+                Debug.WriteLine(ok
+                    ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
+                    : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
+                if (ok) moved.Add(guid.ToString());
+            }
+            return new { success = true, moved };
         }
         #endregion
 
