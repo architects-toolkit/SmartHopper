@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the "Accepted feature request: Allow for copy-paste the chat in a good format when selecting the text" ([#86](https://github.com/architects-toolkit/SmartHopper/issues/86)).
 - Added support for script components in `GhGet`.
+- Allow `CreateComponentGrid` for fractional row positions for components, to create a more human-like layout.
 
 ### Changed
 
