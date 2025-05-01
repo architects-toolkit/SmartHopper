@@ -37,15 +37,25 @@ namespace SmartHopper.Core.Grasshopper.Graph
             // Pivot check: find first default pivot
             bool IsEmptyPivot(PointF pt) => pt.X == 0 && pt.Y == 0;
             var missingComp = components.FirstOrDefault(c => IsEmptyPivot(c.Pivot));
+            
+            // If any component has a default pivot, recalculate all positions
             if (missingComp != null)
             {
                 Debug.WriteLine($"[CreateComponentGrid] Component {missingComp.Name} (ID: {missingComp.InstanceGuid}) has default pivot, recalculating all positions");
             }
+            
+            // Return original pivots relative to the most top-left position
             else
             {
                 Debug.WriteLine("[CreateComponentGrid] All components have valid pivots");
-                Debug.WriteLine("[CreateComponentGrid] Using original pivots");
-                return components.ToDictionary(c => c.InstanceGuid, c => c.Pivot);
+                Debug.WriteLine("[CreateComponentGrid] Using adjusted original pivots");
+                float minX = components.Min(c => c.Pivot.X);
+                float minY = components.Min(c => c.Pivot.Y);
+                Debug.WriteLine($"[CreateComponentGrid] Normalizing pivots by ({minX}, {minY})");
+                return components.ToDictionary(
+                    c => c.InstanceGuid,
+                    c => new PointF(c.Pivot.X - minX, c.Pivot.Y - minY)
+                );
             }
 
             // Fixed spacing
