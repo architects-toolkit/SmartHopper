@@ -91,6 +91,24 @@ namespace SmartHopper.Core.Models.Serialization
                     }
                 }
             }
+            // Remove all pivots if not all components define one
+            if (jroot["components"] is JArray compsPivot)
+            {
+                bool allHavePivot = true;
+                foreach (var comp in compsPivot)
+                {
+                    if (comp["pivot"] == null || comp["pivot"]["X"] == null || comp["pivot"]["Y"] == null)
+                    {
+                        allHavePivot = false;
+                        break;
+                    }
+                }
+                if (!allHavePivot)
+                {
+                    foreach (var comp in compsPivot)
+                        ((JObject)comp).Remove("pivot");
+                }
+            }
             // Deserialize into document
             return JsonConvert.DeserializeObject<GrasshopperDocument>(jroot.ToString(), settings ?? DefaultSettings);
         }
