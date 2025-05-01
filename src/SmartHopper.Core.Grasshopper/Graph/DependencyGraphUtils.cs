@@ -224,16 +224,14 @@ namespace SmartHopper.Core.Grasshopper.Graph
                             if (rowVal < floor) rowVal = floor;
                             rowIndices[key] = rowVal;
                             nextFree[li] = rowVal + 1f;
-                            var pivot = comp.Pivot;
-                            grid[key] = UnifyCenterPivot(Guid.Parse(key), new PointF(pivot.X + columnOffsets[li], pivot.Y + rowVal * spacingY));
+                            grid[key] = UnifyCenterPivot(Guid.Parse(key), new PointF(columnOffsets[li], rowVal * spacingY));
                             Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={rowVal}");
                         }
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"[CreateComponentGrid] Layout failed for {comp.Name} ({key}): {ex.Message}, applying fallback for component");
                             int fallbackIndex = originalOrder[key];
-                            var pivot = comp.Pivot;
-                            grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(pivot.X, pivot.Y + fallbackIndex * spacingY));
+                            grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(0f, fallbackIndex * spacingY));
                         }
                     }
                 }
@@ -247,8 +245,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 foreach (var comp in components)
                 {
                     var key = comp.InstanceGuid.ToString();
-                    var pivot = comp.Pivot;
-                    grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(pivot.X, pivot.Y + r * spacingY));
+                    grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(0f, r * spacingY));
                     Debug.WriteLine($"[CreateComponentGrid] Fallback {comp.Name} ({key}) at row={r}");
                     r++;
                 }

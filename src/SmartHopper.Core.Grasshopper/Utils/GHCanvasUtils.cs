@@ -109,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         obj.Attributes.Pivot = interp;
                         obj.Attributes.ExpireLayout();
-                        Instances.RedrawCanvas();
+                        // Instances.RedrawCanvas();
                     });
                     await Task.Delay(duration / steps);
                 }

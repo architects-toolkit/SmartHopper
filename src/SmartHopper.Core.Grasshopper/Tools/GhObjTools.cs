@@ -252,10 +252,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var layout = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
             if (!hasStart)
             {
-                var pts = selected.Select(o => o.Attributes.Pivot);
-                var minX = pts.Min(pt => pt.X);
-                var minY = pts.Min(pt => pt.Y);
-                origin = new PointF(minX, minY);
+                // Anchor grid at original pivot of top-left component
+                var first = layout.OrderBy(kv => kv.Value.X).ThenBy(kv => kv.Value.Y).First();
+                var origObj = selected.First(o => o.InstanceGuid == first.Key);
+                var origPivot = origObj.Attributes.Pivot;
+                origin = new PointF(origPivot.X - first.Value.X, origPivot.Y - first.Value.Y);
             }
             var moved = new List<string>();
             foreach (var kv in layout)

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow `CreateComponentGrid` for fractional row positions for components, to create a more human-like layout.
 - Added `ghtidyup` AI tool in `GhObjTools` for arranging selected components into a dependency-based grid layout.
 - New `GhTidyUp` component.
+- New `SelectingComponentBase` for components that need the button to select other components.
 
 ### Changed
 
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses horizontal margin of 50 and vertical spacing of 80
   - Centers Params from their actual center instead of the top-left position
 - Added a nice animation in `MoveInstance` so that components move smoothly to their new position.
+- Modified `GhGetComponents` to use the new `SelectingComponentBase`.
 
 ### Fixed
 
