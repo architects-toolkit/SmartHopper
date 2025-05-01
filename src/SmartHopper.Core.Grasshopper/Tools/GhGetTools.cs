@@ -324,7 +324,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     }
                 }
 
-                typeFiltered = tf.Distinct().ToList();
+                typeFiltered = tf.ToList();
             }
 
             if (excludeTypes.Any())
@@ -514,10 +514,20 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     .ToList();
             }
 
-            var distinct = resultObjects.Distinct().ToList();
-            var document = GHDocumentUtils.GetObjectsDetails(distinct);
+            var document = GHDocumentUtils.GetObjectsDetails(resultObjects);
+
+            // only keep connections where both components are in our filtered set
+            var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
+            document.Connections = document.Connections
+                .Where(c => allowed.Contains(c.From.ComponentId)
+                         && allowed.Contains(c.To.ComponentId))
+                .ToList();
+
+            // Get names and guids
             var names = document.Components.Select(c => c.Name).Distinct().ToList();
             var guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
+
+            // Serialize document
             var json = JsonConvert.SerializeObject(document, Formatting.None);
 
             // Package result with classifications
