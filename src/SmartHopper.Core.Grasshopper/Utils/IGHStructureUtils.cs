@@ -18,23 +18,23 @@ using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-
     public static class IGHStructureProcessor
     {
         public static Dictionary<string, List<object>> IGHStructureToDictionary(IGH_Structure structure)
         {
-            Dictionary<string, List<object>> result = new Dictionary<string, List<object>>();
+            Dictionary<string, List<object>> result = new();
 
             foreach (GH_Path path in structure.Paths)
             {
-                List<object> dataList = new List<object>();
+                List<object> dataList = new();
 
                 // Iterate over the data items in the path
                 foreach (object dataItem in structure.get_Branch(path))
                 {
                     // Add the data item to the list
                     dataList.Add(dataItem);
-                    //Debug.WriteLine($"{path.ToString()}: {dataItem.ToString()}");
+
+                    // Debug.WriteLine($"{path.ToString()}: {dataItem.ToString()}");
                 }
 
                 // Add the path and list to the dictionary
@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
         public static Dictionary<string, object> IGHStructureDictionaryTo1DDictionary(Dictionary<string, List<object>> dictionary)
         {
-            Dictionary<string, object> result = new Dictionary<string, object>();
+            Dictionary<string, object> result = new();
 
             foreach (var kvp in dictionary)
             {
@@ -58,6 +58,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         tempDict.Add($"{kvp.Key}({index++})", val);
                     }
+
                     result.Add(kvp.Key, tempDict);
                 }
                 else
@@ -69,9 +70,10 @@ namespace SmartHopper.Core.Grasshopper.Utils
             return result;
         }
 
-        public static GH_Structure<T> JObjectToIGHStructure<T>(JToken input, Func<JToken, T> convertFunction) where T : IGH_Goo
+        public static GH_Structure<T> JObjectToIGHStructure<T>(JToken input, Func<JToken, T> convertFunction)
+            where T : IGH_Goo
         {
-            GH_Structure<T> result = new GH_Structure<T>();
+            GH_Structure<T> result = new();
 
             // Handle JArray input
             if (input is JArray array)
@@ -81,6 +83,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 {
                     result.Append(convertFunction(value), defaultPath);
                 }
+
                 return result;
             }
 
@@ -89,7 +92,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 foreach (var path in jObject)
                 {
-                    GH_Path p = new GH_Path(ParseKeyToPath(path.Key));
+                    GH_Path p = new(ParseKeyToPath(path.Key));
                     JObject items = (JObject)path.Value;
 
                     foreach (var item in items)
@@ -104,6 +107,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         }
                     }
                 }
+
                 return result;
             }
 
@@ -111,14 +115,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
             result.Append(convertFunction(input), new GH_Path(0));
             return result;
         }
+
         private static GH_Path ParseKeyToPath(string key)
         {
             // Remove list indices in parentheses and split the key by semicolons
-            string cleanedKey = Regex.Replace(key, @"\(\d+\)", "");
+            string cleanedKey = Regex.Replace(key, @"\(\d+\)", string.Empty);
             var pathElements = cleanedKey.Trim('{', '}').Split(';');
 
             // Convert the path elements to integers and create a new GH_Path
-            List<int> indices = new List<int>();
+            List<int> indices = new();
             foreach (var element in pathElements)
             {
                 if (int.TryParse(element, out int index))

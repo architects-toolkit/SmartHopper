@@ -23,9 +23,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Set preview state of a Grasshopper component by GUID.
         /// </summary>
-        /// <param name="guid">GUID of the component</param>
-        /// <param name="previewOn">True to show preview, false to hide</param>
-        /// <param name="redraw">True to redraw canvas immediately</param>
+        /// <param name="guid">GUID of the component.</param>
+        /// <param name="previewOn">True to show preview, false to hide.</param>
+        /// <param name="redraw">True to redraw canvas immediately.</param>
         public static void SetComponentPreview(Guid guid, bool previewOn, bool redraw = true)
         {
             Debug.WriteLine($"[GHComponentUtils] SetComponentPreview: guid={guid}, previewOn={previewOn}");
@@ -71,9 +71,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Set lock state of a Grasshopper component by GUID.
         /// </summary>
-        /// <param name="guid">GUID of the component</param>
-        /// <param name="locked">True to lock (disable), false to unlock (enable)</param>
-        /// <param name="redraw">True to redraw canvas immediately</param>
+        /// <param name="guid">GUID of the component.</param>
+        /// <param name="locked">True to lock (disable), false to unlock (enable).</param>
+        /// <param name="redraw">True to redraw canvas immediately.</param>
         public static void SetComponentLock(Guid guid, bool locked, bool redraw = true)
         {
             Debug.WriteLine($"[GHComponentUtils] SetComponentLock: guid={guid}, locked={locked}");

@@ -1,3 +1,13 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,9 +19,9 @@ using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
-using SmartHopper.Core.Graph;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -25,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <summary>
         /// Returns the GH put tool.
         /// </summary>
+        /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -65,8 +76,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     var positions = DependencyGraphUtils.CreateComponentGrid(document);
                     foreach (var component in document.Components)
                     {
-                        if (positions.TryGetValue(component.InstanceGuid.ToString(), out var pos))
+                        if (positions.TryGetValue(component.InstanceGuid, out var pos))
+                        {
                             component.Pivot = new PointF(pos.X, pos.Y);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -116,26 +129,40 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     try
                     {
                         if (!connection.IsValid())
+                        {
                             continue;
+                        }
+
                         if (!guidMapping.TryGetValue(connection.From.ComponentId, out var src) ||
                             !guidMapping.TryGetValue(connection.To.ComponentId, out var tgt))
+                        {
                             continue;
+                        }
 
                         var srcObj = GHCanvasUtils.FindInstance(src);
                         var tgtObj = GHCanvasUtils.FindInstance(tgt);
-                        if (srcObj == null || tgtObj == null) continue;
+                        if (srcObj == null || tgtObj == null)
+                        {
+                            continue;
+                        }
 
-                        IGH_Param srcParam = null;
+                        IGH_Param? srcParam = null;
                         if (srcObj is IGH_Component sc)
+                        {
                             srcParam = GHParameterUtils.GetOutputByName(sc, connection.From.ParamName);
+                        }
                         else if (srcObj is IGH_Param sp)
+                        {
                             srcParam = sp;
+                        }
 
                         if (tgtObj is IGH_Component tc)
                         {
                             var tp = GHParameterUtils.GetInputByName(tc, connection.To.ParamName);
                             if (tp != null && srcParam != null)
+                            {
                                 GHParameterUtils.SetSource(tp, srcParam);
+                            }
                         }
                         else if (tgtObj is IGH_Param tp2 && srcParam != null)
                         {

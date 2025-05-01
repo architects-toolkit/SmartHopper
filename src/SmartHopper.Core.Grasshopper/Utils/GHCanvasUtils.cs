@@ -17,7 +17,7 @@ using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHCanvasUtils
+    public static class GHCanvasUtils
     {
         // Get the current canvas
         public static GH_Document GetCurrentCanvas()
@@ -57,18 +57,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
             if (obj is IGH_Component)
             {
                 IGH_Component component = obj as IGH_Component;
-                //Debug.WriteLine("The object is an IGH_Component.");
+
+                // Debug.WriteLine("The object is an IGH_Component.");
                 return component;
             }
             else if (obj is IGH_Param)
             {
                 IGH_Param param = obj as IGH_Param;
-                //Debug.WriteLine("The object is an IGH_Param.");
+
+                // Debug.WriteLine("The object is an IGH_Param.");
                 return param;
             }
             else
             {
-                //Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
+                // Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
                 return obj;
             }
         }
@@ -84,7 +86,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static bool MoveInstance(Guid guid, PointF position, bool relative = false, bool redraw = true)
         {
             var obj = FindInstance(guid);
-            if (obj == null) return false;
+            if (obj == null)
+            {
+                return false;
+            }
+
             var current = obj.Attributes.Pivot;
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
@@ -95,6 +101,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 obj.Attributes.ExpireLayout();
                 Instances.RedrawCanvas();
             }
+
             return true;
         }
 
@@ -109,7 +116,8 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static PointF StartPoint(int span = 100)
         {
             RectangleF bounds = BoundingBox();
-            //return new PointF(bounds.X, bounds.Bottom+span);
+
+            // return new PointF(bounds.X, bounds.Bottom+span);
             return new PointF(50, bounds.Bottom + span);
         }
     }

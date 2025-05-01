@@ -26,9 +26,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
     public class GhObjTools : IAIToolProvider
     {
         #region ToolRegistration
+
         /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
+        /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -181,13 +183,16 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ? $"[GhObjTools] Moved GUID: {guid} to ({x},{y}) relative={relative}"
                         : $"[GhObjTools] Instance not found for GUID: {guid}");
                     if (moved)
+                    {
                         updated.Add(guid.ToString());
+                    }
                 }
                 else
                 {
                     Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
                 }
             }
+
             return new { success = true, updated };
         }
         #endregion
