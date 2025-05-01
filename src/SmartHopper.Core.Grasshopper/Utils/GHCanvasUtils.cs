@@ -14,6 +14,8 @@ using System.Drawing;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
+using System.Threading.Tasks;
+using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -86,21 +88,39 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static bool MoveInstance(Guid guid, PointF position, bool relative = false, bool redraw = true)
         {
             var obj = FindInstance(guid);
-            if (obj == null)
-            {
-                return false;
-            }
-
+            if (obj == null) return false;
             var current = obj.Attributes.Pivot;
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
                 : position;
-            obj.Attributes.Pivot = target;
-            if (redraw)
+
+            // Animate movement concurrently over 300ms with 15 frames
+            Task.Run(async () =>
             {
-                obj.Attributes.ExpireLayout();
-                Instances.RedrawCanvas();
-            }
+                const int steps = 15;
+                const int duration = 300;
+                for (int i = 1; i <= steps; i++)
+                {
+                    float t = i / (float)steps;
+                    var x = current.X + (target.X - current.X) * t;
+                    var y = current.Y + (target.Y - current.Y) * t;
+                    var interp = new PointF(x, y);
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        obj.Attributes.Pivot = interp;
+                        obj.Attributes.ExpireLayout();
+                        Instances.RedrawCanvas();
+                    });
+                    await Task.Delay(duration / steps);
+                }
+                // Final snap to target
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    obj.Attributes.Pivot = target;
+                    obj.Attributes.ExpireLayout();
+                    Instances.RedrawCanvas();
+                });
+            });
 
             return true;
         }

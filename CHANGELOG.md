@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the "Accepted feature request: Allow for copy-paste the chat in a good format when selecting the text" ([#86](https://github.com/architects-toolkit/SmartHopper/issues/86)).
 - Added support for script components in `GhGet`.
 - Allow `CreateComponentGrid` for fractional row positions for components, to create a more human-like layout.
+- Added `ghtidyup` AI tool in `GhObjTools` for arranging selected components into a dependency-based grid layout.
+- New `GhTidyUp` component.
 
 ### Changed
 
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses a more human-like layout with column widths based on actual component widths
   - Uses horizontal margin of 50 and vertical spacing of 80
   - Centers Params from their actual center instead of the top-left position
+- Added a nice animation in `MoveInstance` so that components move smoothly to their new position.
 
 ### Fixed
 
