@@ -22,6 +22,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Config.Managers;
+using SmartHopper.Core.Grasshopper.Utils;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -247,8 +248,7 @@ namespace SmartHopper.Components.Grasshopper
                             if (obj is IGH_DocumentObject docObj)
                             {
                                 // Get current bounds of the component
-                                var bounds = docObj.Attributes.Bounds;
-
+                                var bounds = GHComponentUtils.GetComponentBounds(docObj.InstanceGuid);
                                 // Add a small padding around the component
                                 var padding = 4f;
                                 var highlightBounds = RectangleF.Inflate(bounds, padding, padding);

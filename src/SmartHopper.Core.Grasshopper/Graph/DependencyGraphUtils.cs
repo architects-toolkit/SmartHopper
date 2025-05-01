@@ -54,12 +54,13 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 Debug.WriteLine($"[CreateComponentGrid] Normalizing pivots by ({minX}, {minY})");
                 return components.ToDictionary(
                     c => c.InstanceGuid,
-                    c => new PointF(c.Pivot.X - minX, c.Pivot.Y - minY)
+                    c => UnifyCenterPivot(c.InstanceGuid, new PointF(c.Pivot.X - minX, c.Pivot.Y - minY))
                 );
             }
 
-            // Fixed spacing
-            float spacingX = 200f, spacingY = 100f;
+            // Spacing settings
+            const float horizontalMargin = 50f;
+            float spacingY = 80f;
 
             // 1. Build expanded graph with phantom nodes per input port in original order
             var graph = components.ToDictionary(c => c.InstanceGuid.ToString(), c => new List<string>());
@@ -164,6 +165,26 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     layerNodes[srcLayer] = before.Concat(orderedSrcs).Concat(after).ToList();
                 }
 
+                // Calculate dynamic column offsets based on component widths
+                var columnOffsets = new Dictionary<int, float>();
+                float cumulativeX = 0f;
+                for (int idx = 0; idx < realLayers.Count; idx++)
+                {
+                    var layerKey = realLayers[idx];
+                    var compIds = layerNodes[layerKey].Where(k => !phantomMap.Values.Contains(k)).ToList();
+                    float maxWidth = compIds.Select(k =>
+                    {
+                        if (Guid.TryParse(k, out var id))
+                        {
+                            var bounds = GHComponentUtils.GetComponentBounds(id);
+                            return bounds.Width;
+                        }
+                        return 0f;
+                    }).DefaultIfEmpty(0f).Max();
+                    columnOffsets[idx] = cumulativeX;
+                    cumulativeX += maxWidth + horizontalMargin;
+                }
+
                 // 4. Assign positions for real components with cascade-based fractional rows
                 var nextFree = new Dictionary<int, float>();
                 var rowIndices = new Dictionary<string, float>();
@@ -198,7 +219,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                             rowIndices[key] = rowVal;
                             nextFree[li] = rowVal + 1f;
                             var pivot = comp.Pivot;
-                            grid[key] = new PointF(pivot.X + li * spacingX, pivot.Y + rowVal * spacingY);
+                            grid[key] = UnifyCenterPivot(Guid.Parse(key), new PointF(pivot.X + columnOffsets[li], pivot.Y + rowVal * spacingY));
                             Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={rowVal}");
                         }
                         catch (Exception ex)
@@ -206,7 +227,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                             Debug.WriteLine($"[CreateComponentGrid] Layout failed for {comp.Name} ({key}): {ex.Message}, applying fallback for component");
                             int fallbackIndex = originalOrder[key];
                             var pivot = comp.Pivot;
-                            grid[key] = new PointF(pivot.X, pivot.Y + fallbackIndex * spacingY);
+                            grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(pivot.X, pivot.Y + fallbackIndex * spacingY));
                         }
                     }
                 }
@@ -221,7 +242,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 {
                     var key = comp.InstanceGuid.ToString();
                     var pivot = comp.Pivot;
-                    grid[key] = new PointF(pivot.X, pivot.Y + r * spacingY);
+                    grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(pivot.X, pivot.Y + r * spacingY));
                     Debug.WriteLine($"[CreateComponentGrid] Fallback {comp.Name} ({key}) at row={r}");
                     r++;
                 }
@@ -349,6 +370,21 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         return m;
                     }).ToList();
             }
+        }
+
+        // Helper to unify pivot origin: params use top-left by default, center-align for grid
+        private static PointF UnifyCenterPivot(Guid id, PointF pivot)
+        {
+            var obj = GHCanvasUtils.FindInstance(id);
+            if (obj is IGH_Param)
+            {
+                var bounds = GHComponentUtils.GetComponentBounds(id);
+                if (!bounds.IsEmpty)
+                {
+                    pivot = new PointF(pivot.X - bounds.Width / 2f, pivot.Y - bounds.Height / 2f);
+                }
+            }
+            return pivot;
         }
     }
 }

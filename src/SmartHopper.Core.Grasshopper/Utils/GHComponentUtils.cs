@@ -10,6 +10,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using Grasshopper;
 using Grasshopper.Kernel;
 
@@ -107,6 +108,21 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 Debug.WriteLine("[GHComponentUtils] Object is neither a GH_Component nor a GH_Param");
             }
+        }
+
+        /// <summary>
+        /// Gets the bounding rectangle of a Grasshopper component or parameter on the canvas.
+        /// </summary>
+        /// <param name="guid">GUID of the component or parameter.</param>
+        /// <returns>The bounding rectangle, or RectangleF.Empty if not found.</returns>
+        public static RectangleF GetComponentBounds(Guid guid)
+        {
+            var obj = GHCanvasUtils.FindInstance(guid);
+            if (obj != null)
+            {
+                return obj.Attributes.Bounds;
+            }
+            return RectangleF.Empty;
         }
     }
 }
