@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed component placement in `GhPut` tool was too separated.
 - Fixed source components in `TopologicalSort` were not sorted in reverse order.
 - Limited `ghget` connections to components within the result objects set.
+- Fixed `ghtidyup` moving components on every execution.
+- Fixed `CreateComponentGrid` joining last and last-1 column together.
 
 ## [0.3.0-alpha] - 2025-04-27
 
