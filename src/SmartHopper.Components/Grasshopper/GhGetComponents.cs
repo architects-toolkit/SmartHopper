@@ -12,17 +12,12 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Windows.Forms;
-using Grasshopper;
-using Grasshopper.GUI;
-using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Config.Managers;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.ComponentBase;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -30,13 +25,11 @@ namespace SmartHopper.Components.Grasshopper
     /// Component that converts selected or all Grasshopper components to GhJSON format.
     /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff), and classification by object type via Type filter (params, components, input, output, processing, isolated).
     /// </summary>
-    public class GhGetComponents : GH_Component
+    public class GhGetComponents : SelectingComponentBase
     {
         private List<string> lastComponentNames = new List<string>();
         private List<string> lastComponentGuids = new List<string>();
         private string lastJsonOutput = "";
-        internal List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
-        private bool inSelectionMode = false;
 
         public GhGetComponents()
             : base("Get Components", "GhGet",
@@ -45,57 +38,9 @@ namespace SmartHopper.Components.Grasshopper
         {
         }
 
-        public override void CreateAttributes()
-        {
-            m_attributes = new GhGetComponentsAttributes(this);
-        }
-
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
 
         protected override Bitmap Icon => Resources.ghget;
-
-        public void EnableSelectionMode()
-        {
-            // Clear previous selection
-            selectedObjects.Clear();
-            inSelectionMode = true;
-
-            // Get the Grasshopper canvas
-            var canvas = Instances.ActiveCanvas;
-            if (canvas == null) return;
-
-            // Enable selection mode
-            canvas.ContextMenuStrip?.Hide();
-            Canvas_SelectionChanged();
-
-            // Force component update
-            ExpireSolution(true);
-        }
-
-        private void Canvas_SelectionChanged()
-        {
-            if (!inSelectionMode) return;
-
-            var canvas = Instances.ActiveCanvas;
-            if (canvas == null) return;
-
-            // Store selected objects
-            selectedObjects = canvas.Document.SelectedObjects()
-                .OfType<IGH_ActiveObject>()
-                .ToList();
-
-            // Update message with selection count
-            Message = $"{selectedObjects.Count} selected";
-
-            // Force component update
-            ExpireSolution(true);
-        }
-
-        protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
-        {
-            base.AppendAdditionalComponentMenuItems(menu);
-            Menu_AppendItem(menu, "Select Components", (s, e) => EnableSelectionMode());
-        }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -158,7 +103,7 @@ namespace SmartHopper.Components.Grasshopper
                     ["attrFilters"] = JArray.FromObject(filters),
                     ["typeFilter"] = JArray.FromObject(typeFilters),
                     ["connectionDepth"] = connectionDepth,
-                    ["guidFilter"] = JArray.FromObject(selectedObjects.Select(o => o.InstanceGuid.ToString())),
+                    ["guidFilter"] = JArray.FromObject(SelectedObjects.Select(o => o.InstanceGuid.ToString())),
                 };
                 var toolResult = AIToolManager.ExecuteTool("gh_get", parameters, null).GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)
@@ -181,122 +126,6 @@ namespace SmartHopper.Components.Grasshopper
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
-        }
-    }
-
-    public class GhGetComponentsAttributes : GH_ComponentAttributes
-    {
-        private new readonly GhGetComponents Owner;
-        private Rectangle ButtonBounds;
-        private bool IsHovering;
-        private bool IsClicking;
-
-        public GhGetComponentsAttributes(GhGetComponents owner) : base(owner)
-        {
-            Owner = owner;
-            IsHovering = false;
-            IsClicking = false;
-        }
-
-        protected override void Layout()
-        {
-            base.Layout();
-
-            // Add space for the button at the bottom of the component
-            const int margin = 5;
-            var width = (int)Bounds.Width - (2 * margin);  // Subtract margins from both sides
-            var height = 24;
-            var x = (int)Bounds.X + margin;
-            var y = (int)Bounds.Bottom;
-
-            ButtonBounds = new Rectangle(x, y, width, height);
-            Bounds = new RectangleF(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height + height + margin);
-        }
-
-        protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
-        {
-            base.Render(canvas, graphics, channel);
-
-            if (channel == GH_CanvasChannel.Objects)
-            {
-                var button = ButtonBounds;
-
-                // Draw button background with different states
-                var palette = IsClicking ? GH_Palette.White : (IsHovering ? GH_Palette.Grey : GH_Palette.Black);
-                var capsule = GH_Capsule.CreateCapsule(button, palette);
-                capsule.Render(graphics, Selected, Owner.Locked, false);
-                capsule.Dispose();
-
-                // Draw button text
-                var font = GH_FontServer.Standard;
-                var text = "Select";
-                var textSize = graphics.MeasureString(text, font);
-
-                // Use PointF for text position
-                var tx = button.X + (button.Width - textSize.Width) / 2;
-                var ty = button.Y + (button.Height - textSize.Height) / 2;
-                graphics.DrawString(text, font, IsHovering || IsClicking ? Brushes.Black : Brushes.White, new PointF(tx, ty));
-
-                // Draw rectangles around selected components when hovering
-                if (IsHovering && Owner.selectedObjects.Count > 0)
-                {
-                    using (var pen = new Pen(Color.DodgerBlue, 2f))
-                    {
-                        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        foreach (var obj in Owner.selectedObjects)
-                        {
-                            if (obj is IGH_DocumentObject docObj)
-                            {
-                                // Get current bounds of the component
-                                var bounds = GHComponentUtils.GetComponentBounds(docObj.InstanceGuid);
-                                // Add a small padding around the component
-                                var padding = 4f;
-                                var highlightBounds = RectangleF.Inflate(bounds, padding, padding);
-                                graphics.DrawRectangle(pen, highlightBounds.X, highlightBounds.Y,
-                                                    highlightBounds.Width, highlightBounds.Height);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                if (ButtonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y))
-                {
-                    IsClicking = true;
-                    Owner.ExpireSolution(true);
-                    Owner.EnableSelectionMode();
-                    return GH_ObjectResponse.Handled;
-                }
-            }
-            return base.RespondToMouseDown(sender, e);
-        }
-
-        public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
-        {
-            bool wasHovering = IsHovering;
-            IsHovering = ButtonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
-
-            if (wasHovering != IsHovering)
-            {
-                Owner.ExpireSolution(true);
-            }
-
-            return base.RespondToMouseMove(sender, e);
-        }
-
-        public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
-        {
-            if (IsClicking)
-            {
-                IsClicking = false;
-                Owner.ExpireSolution(true);
-            }
-            return base.RespondToMouseUp(sender, e);
         }
     }
 }
