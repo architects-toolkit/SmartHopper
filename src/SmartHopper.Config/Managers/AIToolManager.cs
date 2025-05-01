@@ -187,7 +187,7 @@ namespace SmartHopper.Config.Managers
                     }
                 }
 
-                Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {toolProviderTypes.Count} providers");
+                Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {toolProviderTypes.Count} tool sets");
                 _toolsDiscovered = true;
             }
             catch (Exception ex)

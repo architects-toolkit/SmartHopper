@@ -14,7 +14,7 @@ using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHParameterUtils
+    public static class GHParameterUtils
     {
         public static List<IGH_Param> GetAllInputs(IGH_Component component)
         {
@@ -26,7 +26,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             return component.Params.Output;
         }
 
-        public static IGH_Param GetInputByName(IGH_Component component, string name)
+        public static IGH_Param? GetInputByName(IGH_Component component, string name)
         {
             List<IGH_Param> paramList = GetAllInputs(component);
             foreach (IGH_Param param in paramList)
@@ -36,11 +36,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     return param;
                 }
             }
+
             Debug.WriteLine($"Could not find input named '{name}' in component '{component.InstanceGuid}'");
             return null;
         }
 
-        public static IGH_Param GetOutputByName(IGH_Component component, string name)
+        public static IGH_Param? GetOutputByName(IGH_Component component, string name)
         {
             List<IGH_Param> paramList = GetAllOutputs(component);
             foreach (IGH_Param param in paramList)
@@ -50,6 +51,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     return param;
                 }
             }
+
             Debug.WriteLine($"Could not find output named '{name}' in component '{component.InstanceGuid}'");
             return null;
         }

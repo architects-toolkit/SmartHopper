@@ -1,0 +1,296 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using Grasshopper.Kernel;
+using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Models.Components;
+using SmartHopper.Core.Models.Connections;
+using SmartHopper.Core.Models.Document;
+
+namespace SmartHopper.Core.Grasshopper.Graph
+{
+    public static class DependencyGraphUtils
+    {
+        /// <summary>
+        /// Layout components to minimize wire crossings using Sugiyama framework.
+        /// </summary>
+        public static Dictionary<Guid, PointF> CreateComponentGrid(GrasshopperDocument doc)
+        {
+            Debug.WriteLine("[CreateComponentGrid] Starting layout...");
+            Debug.WriteLine($"[CreateComponentGrid] Components: {doc.Components.Count}, Connections: {doc.Connections.Count}");
+
+            var components = doc.Components;
+            var connections = doc.Connections;
+            // Fixed spacing
+            float spacingX = 200f, spacingY = 100f;
+            // 1. Build expanded graph with phantom nodes per input port in original order
+            var graph = components.ToDictionary(c => c.InstanceGuid.ToString(), c => new List<string>());
+            // map each component to input port sequence
+            var inputOrder = new Dictionary<string, List<string>>();
+            foreach (var compProps in components)
+            {
+                var proxy = GHObjectFactory.FindProxy(compProps.ComponentGuid, compProps.Name);
+                var ghComp = GHObjectFactory.CreateInstance(proxy) as IGH_Component;
+                var inputs = ghComp != null
+                    ? GHParameterUtils.GetAllInputs(ghComp).Select(p => p.Name).ToList()
+                    : new List<string>();
+                inputOrder[compProps.InstanceGuid.ToString()] = inputs;
+            }
+            // group connections by destination component
+            var phantomMap = new Dictionary<(string comp, string port), string>();
+            foreach (var grp in connections.GroupBy(c => c.To.ComponentId.ToString()))
+            {
+                var dst = grp.Key;
+                var ports = inputOrder.ContainsKey(dst)
+                    ? inputOrder[dst]
+                    : grp.Select(c => c.To.ParamName).Distinct().ToList();
+                foreach (var port in ports)
+                {
+                    var pid = $"{dst}:{port}";
+                    phantomMap[(dst, port)] = pid;
+                    // edge: phantom node -> component
+                    graph[pid] = new List<string> { dst };
+                    // edges: each source -> phantom node
+                    foreach (var c in grp.Where(c => c.To.ParamName == port))
+                    {
+                        var src = c.From.ComponentId.ToString();
+                        graph[src].Add(pid);
+                    }
+                }
+            }
+            // Prepare grid early
+            var grid = new Dictionary<string, PointF>();
+            try
+            {
+                // 2. Topological sort
+                Debug.WriteLine("[TopologicalSort] Starting...");
+                var topo = TopologicalSort(graph);
+                Debug.WriteLine($"[CreateComponentGrid] Topo order: {string.Join(" -> ", topo)}");
+
+                // 3. Compute layers (reverse sink-based to source-based)
+                var sinkLayers = ComputeLayers(graph);
+                var maxSinkLayer = sinkLayers.Values.DefaultIfEmpty(0).Max();
+
+                // flip so sources (inputs) are on left
+                var layers = sinkLayers.ToDictionary(kv => kv.Key, kv => maxSinkLayer - kv.Value);
+
+                // group nodes by new layer and init ordering by topo
+                var layerNodes = layers.GroupBy(kv => kv.Value)
+                    .ToDictionary(g => g.Key, g => g.OrderBy(kv => topo.IndexOf(kv.Key)).Select(kv => kv.Key).ToList());
+
+                // refine crossing order
+                var parentsMap = graph.Invert();
+                RefineLayerOrders(layerNodes, graph, parentsMap, topo);
+
+                // collapse empty layers keeping only layers with real components
+                var realLayers = layerNodes
+                    .Where(kv => kv.Value.Any(k => !phantomMap.Values.Contains(k)))
+                    .OrderBy(kv => kv.Key)
+                    .Select(kv => kv.Key)
+                    .ToList();
+
+                // enforce input-port order among sources for each target component
+                var compInputs = connections.GroupBy(c => c.To.ComponentId.ToString()).ToDictionary(g => g.Key, g => g.ToList());
+                foreach (var target in compInputs.Keys)
+                {
+                    if (!layers.TryGetValue(target, out var tLayer)) continue;
+                    
+                    // walk backwards until we find a layer containing a real component
+                    var srcLayer = tLayer - 1;
+                    while (srcLayer >= 0 && !layerNodes[srcLayer].Any(k => !phantomMap.Values.Contains(k)))
+                    {
+                        srcLayer--;
+                    }
+                    if (srcLayer < 0) continue;
+
+                    if (!layerNodes.ContainsKey(srcLayer)) continue;
+                    
+                    var layerList = layerNodes[srcLayer];
+                    var portOrder = inputOrder[target];
+                    var mapping = compInputs[target]
+                        .Select(c => new { src = c.From.ComponentId.ToString(), idx = portOrder.IndexOf(c.To.ParamName) })
+                        .Distinct()
+                        .Where(m => layerList.Contains(m.src) && !phantomMap.Values.Contains(m.src))
+                        .ToList();
+                    var srcs = mapping.Select(m => m.src).ToList();
+                    if (srcs.Count <= 1) continue;
+                    var indices = srcs.Select(s => layerList.IndexOf(s)).OrderBy(i => i).ToList();
+                    if (indices.Last() - indices.First() + 1 != indices.Count) continue;
+                    var orderedSrcs = mapping.OrderBy(m => m.idx).Select(m => m.src).ToList();
+                    var before = layerList.Take(indices.First()).ToList();
+                    var after = layerList.Skip(indices.Last() + 1).ToList();
+                    layerNodes[srcLayer] = before.Concat(orderedSrcs).Concat(after).ToList();
+                }
+
+                // 4. Assign positions for real components with collapsed layers
+                var nextFree = new Dictionary<int, int>();
+                for (int li = 0; li < realLayers.Count; li++)
+                {
+                    var oldLayer = realLayers[li];
+                    var compLayer = layerNodes[oldLayer].Where(k => !phantomMap.Values.Contains(k)).ToList();
+                    int r = 0;
+                    foreach (var key in compLayer)
+                    {
+                        var row = Math.Max(r, nextFree.GetValueOrDefault(li, 0));
+                        nextFree[li] = row + 1;
+                        var comp = components.First(c => c.InstanceGuid.ToString() == key);
+                        var pivot = comp.Pivot;
+                        grid[key] = new PointF(pivot.X + li * spacingX, pivot.Y + row * spacingY);
+                        Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={row}");
+                        r++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CreateComponentGrid] Layout failed: {ex.Message}, applying fallback");
+
+                // Fallback: linear layout by original components order
+                int r = 0;
+                foreach (var comp in components)
+                {
+                    var key = comp.InstanceGuid.ToString();
+                    var pivot = comp.Pivot;
+                    grid[key] = new PointF(pivot.X, pivot.Y + r * spacingY);
+                    Debug.WriteLine($"[CreateComponentGrid] Fallback {comp.Name} ({key}) at row={r}");
+                    r++;
+                }
+            }
+
+            // convert string keys to Guid and return
+            var result = new Dictionary<Guid, PointF>();
+            foreach (var kv in grid)
+            {
+                if (Guid.TryParse(kv.Key, out var id))
+                {
+                    result[id] = kv.Value;
+                }
+            }
+
+            return result;
+        }
+
+        // Topological sort with debug
+        private static List<string> TopologicalSort(Dictionary<string, List<string>> graph)
+        {
+            var sorted = new List<string>();
+            var visited = new HashSet<string>();
+            var temp = new HashSet<string>();
+            foreach (var node in graph.Keys)
+            {
+                if (!visited.Contains(node))
+                {
+                    Visit(node, graph, visited, temp, sorted);
+                }
+            }
+
+            sorted.Reverse();
+            Debug.WriteLine($"[TopologicalSort] Sorted: {string.Join(" -> ", sorted)}");
+            return sorted;
+        }
+
+        // DFS visit
+        private static void Visit(string node, Dictionary<string, List<string>> graph, HashSet<string> visited, HashSet<string> temp, List<string> sorted)
+        {
+            Debug.WriteLine($"[Visit] Visiting node {node}");
+            if (temp.Contains(node))
+            {
+                Debug.WriteLine("[Visit] Cyclic dependency detected");
+                throw new Exception("Cyclic dependency detected");
+            }
+            if (!visited.Contains(node))
+            {
+                temp.Add(node);
+                foreach (var child in graph[node]) Visit(child, graph, visited, temp, sorted);
+                temp.Remove(node);
+                visited.Add(node);
+                sorted.Add(node);
+            }
+        }
+
+        // Compute layers: sink nodes = 0
+        private static Dictionary<string, int> ComputeLayers(Dictionary<string, List<string>> graph)
+        {
+            var layers = new Dictionary<string, int>();
+            int Dfs(string n)
+            {
+                if (layers.TryGetValue(n, out var v)) return v;
+                var children = graph[n];
+                var layer = children.Count == 0 ? 0 : children.Select(Dfs).Max() + 1;
+                layers[n] = layer;
+                return layer;
+            }
+            foreach (var n in graph.Keys) Dfs(n);
+            return layers;
+        }
+
+        // Invert graph: child -> [parents]
+        private static Dictionary<string, List<string>> Invert(this Dictionary<string, List<string>> graph)
+        {
+            var inv = graph.Keys.ToDictionary(k => k, k => new List<string>());
+            foreach (var kv in graph)
+                foreach (var child in kv.Value)
+                    inv[child].Add(kv.Key);
+            return inv;
+        }
+
+        // Refine orders to reduce crossings
+        private static void RefineLayerOrders(
+            Dictionary<int, List<string>> layerNodes,
+            Dictionary<string, List<string>> childrenMap,
+            Dictionary<string, List<string>> parentsMap,
+            List<string> topo)
+        {
+            int maxL = layerNodes.Keys.Max();
+
+            // forward sweep
+            for (int l = 1; l <= maxL; l++)
+            {
+                var prev = layerNodes[l - 1];
+                layerNodes[l] = layerNodes[l]
+                    .OrderBy(k =>
+                    {
+                        var idxs = parentsMap[k]
+                            .Where(prev.Contains)
+                            .Select(p => prev.IndexOf(p))
+                            .OrderBy(i => i)
+                            .ToList();
+                        if (!idxs.Any()) return double.MaxValue;
+                        var m = idxs.Count % 2 == 1 ? idxs[idxs.Count / 2] : (idxs[idxs.Count/2 - 1] + idxs[idxs.Count/2]) / 2.0;
+                        Debug.WriteLine($"[Refine forward] layer {l} {k} median {m}");
+                        return m;
+                    }).ToList();
+            }
+            // reverse sweep
+            for (int l = maxL - 1; l >= 0; l--)
+            {
+                var next = layerNodes[l + 1];
+                layerNodes[l] = layerNodes[l]
+                    .OrderBy(k =>
+                    {
+                        var idxs = childrenMap[k]
+                            .Where(next.Contains)
+                            .Select(c => next.IndexOf(c))
+                            .OrderBy(i => i)
+                            .ToList();
+                        if (!idxs.Any()) return double.MaxValue;
+                        var m = idxs.Count % 2 == 1 ? idxs[idxs.Count/2] : (idxs[idxs.Count/2 - 1] + idxs[idxs.Count/2]) / 2.0;
+                        Debug.WriteLine($"[Refine reverse] layer {l} {k} median {m}");
+                        return m;
+                    }).ToList();
+            }
+        }
+    }
+}

@@ -18,11 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reorganization of JSON models for clearer structure.
 - Migrated the `GhPut` tool from the `GhPutComponent` to the `GhPutTools` class, using the `AIToolManager`.
 - `DeserializeJSON` now fixes invalid InstanceGuids in Grasshopper JSON documents when deserializing.
+- Moved `DependencyGraphUtils` and `ConnectionGraphUtils` from `SmartHopper.Core.Graph` to `SmartHopper.Core.Grasshopper.Graph`.
 
 ### Fixed
 
 - Fixed issue with tool calls in chat messages. Now the code provides exactly the json structure expected by MistralAI and OpenAI.
 - Fixed tooltip visibility at the bottom of the chat.
+- Fixed component placement in `GhPut` tool was too separated.
+- Fixed source components in `TopologicalSort` were not sorted in reverse order.
 
 ## [0.3.0-alpha] - 2025-04-27
 

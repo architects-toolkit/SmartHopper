@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -12,7 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SmartHopper.Core.Graph
+namespace SmartHopper.Core.Grasshopper.Graph
 {
     /// <summary>
     /// Provides methods to traverse and expand component connections.
@@ -47,13 +47,17 @@ namespace SmartHopper.Core.Graph
                         foreach (var n in neighbors)
                         {
                             if (!visited.Contains(n))
+                            {
                                 next.Add(n);
+                            }
                         }
                     }
                 }
 
                 if (next.Count == 0)
+                {
                     break;
+                }
 
                 visited.UnionWith(next);
                 frontier = next;
