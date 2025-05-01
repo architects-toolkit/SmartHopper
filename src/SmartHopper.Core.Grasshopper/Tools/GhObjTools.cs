@@ -249,7 +249,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return new { success = false, error = "No matching components found for provided GUIDs." };
             }
             var doc = GHDocumentUtils.GetObjectsDetails(selected);
-            var layout = DependencyGraphUtils.CreateComponentGrid(doc);
+            var layout = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
             if (!hasStart)
             {
                 var pts = selected.Select(o => o.Attributes.Pivot);
