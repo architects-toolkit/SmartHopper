@@ -134,22 +134,38 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     layerNodes[srcLayer] = before.Concat(orderedSrcs).Concat(after).ToList();
                 }
 
-                // 4. Assign positions for real components with collapsed layers
-                var nextFree = new Dictionary<int, int>();
+                // 4. Assign positions for real components with cascade-based fractional rows
+                var nextFree = new Dictionary<int, float>();
+                var rowIndices = new Dictionary<string, float>();
                 for (int li = 0; li < realLayers.Count; li++)
                 {
                     var oldLayer = realLayers[li];
                     var compLayer = layerNodes[oldLayer].Where(k => !phantomMap.Values.Contains(k)).ToList();
-                    int r = 0;
                     foreach (var key in compLayer)
                     {
-                        var row = Math.Max(r, nextFree.GetValueOrDefault(li, 0));
-                        nextFree[li] = row + 1;
+                        float rowVal;
+                        if (li > 0 && compInputs.TryGetValue(key, out var conns) && conns.Any())
+                        {
+                            var parentRows = conns
+                                .Select(c => c.From.ComponentId.ToString())
+                                .Where(id => rowIndices.ContainsKey(id))
+                                .Select(id => rowIndices[id])
+                                .Distinct()
+                                .ToList();
+                            rowVal = parentRows.Any() ? parentRows.Average() : nextFree.GetValueOrDefault(li, 0f);
+                        }
+                        else
+                        {
+                            rowVal = nextFree.GetValueOrDefault(li, 0f);
+                        }
+                        var floor = nextFree.GetValueOrDefault(li, 0f);
+                        if (rowVal < floor) rowVal = floor;
+                        rowIndices[key] = rowVal;
+                        nextFree[li] = rowVal + 1f;
                         var comp = components.First(c => c.InstanceGuid.ToString() == key);
                         var pivot = comp.Pivot;
-                        grid[key] = new PointF(pivot.X + li * spacingX, pivot.Y + row * spacingY);
-                        Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={row}");
-                        r++;
+                        grid[key] = new PointF(pivot.X + li * spacingX, pivot.Y + rowVal * spacingY);
+                        Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={rowVal}");
                     }
                 }
             }
