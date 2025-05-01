@@ -123,6 +123,19 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 // flip so sources (inputs) are on left
                 var layers = sinkLayers.ToDictionary(kv => kv.Key, kv => maxSinkLayer - kv.Value);
 
+                // Adjust true sink components to the next layer after their parents
+                var sinkIds = components.Select(c => c.InstanceGuid.ToString()).ToHashSet();
+                var fromIds = connections.Select(c => c.From.ComponentId.ToString()).ToHashSet();
+                var trueSinkIds = sinkIds.Except(fromIds);
+                foreach (var sinkId in trueSinkIds)
+                {
+                    var parentLayers = connections
+                        .Where(c => c.To.ComponentId.ToString() == sinkId)
+                        .Select(c => layers[c.From.ComponentId.ToString()]);
+                    var baseLayer = parentLayers.DefaultIfEmpty(0).Max();
+                    layers[sinkId] = baseLayer + 1;
+                }
+
                 // group nodes by new layer and init ordering by topo
                 var layerNodes = layers.GroupBy(kv => kv.Value)
                     .ToDictionary(g => g.Key, g => g.OrderBy(kv => topo.IndexOf(kv.Key)).Select(kv => kv.Key).ToList());
@@ -131,12 +144,17 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 var parentsMap = graph.Invert();
                 RefineLayerOrders(layerNodes, graph, parentsMap, topo);
 
+                // DEBUG: show all layers before collapse
+                foreach (var kv in layerNodes)
+                    Debug.WriteLine($"[CreateComponentGrid] Layer {kv.Key} nodes: {string.Join(", ", kv.Value)}; realCount={kv.Value.Count(n => !phantomMap.Values.Contains(n))}");
+
                 // collapse empty layers keeping only layers with real components
                 var realLayers = layerNodes
                     .Where(kv => kv.Value.Any(k => !phantomMap.Values.Contains(k)))
                     .OrderBy(kv => kv.Key)
                     .Select(kv => kv.Key)
                     .ToList();
+                Debug.WriteLine($"[CreateComponentGrid] RealLayers after collapse: {string.Join(", ", realLayers)}");
 
                 // enforce input-port order among sources for each target component
                 var compInputs = connections.GroupBy(c => c.To.ComponentId.ToString()).ToDictionary(g => g.Key, g => g.ToList());
