@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated the `GhPut` tool from the `GhPutComponent` to the `GhPutTools` class, using the `AIToolManager`.
 - `DeserializeJSON` now fixes invalid InstanceGuids in Grasshopper JSON documents when deserializing.
 - Moved `DependencyGraphUtils` and `ConnectionGraphUtils` from `SmartHopper.Core.Graph` to `SmartHopper.Core.Grasshopper.Graph`.
+- When pivots are provided to `CreateComponentGrid`, it now returns the original pivots relative to the most top-left position.
 
 ### Fixed
 
