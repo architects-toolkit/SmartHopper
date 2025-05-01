@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved chat UI with timestamps for messages, collapsible tool messages, inline metrics per message, button to copy codeblocks to clipboard, and better formatting.
 - Reorganization of JSON models for clearer structure.
 - Migrated the `GhPut` tool from the `GhPutComponent` to the `GhPutTools` class, using the `AIToolManager`.
+- `DeserializeJSON` now fixes invalid InstanceGuids in Grasshopper JSON documents when deserializing.
 
 ### Fixed
 
