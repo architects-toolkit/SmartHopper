@@ -26,7 +26,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         /// <summary>
         /// Layout components to minimize wire crossings using Sugiyama framework.
         /// </summary>
-        public static Dictionary<Guid, PointF> CreateComponentGrid(GrasshopperDocument doc)
+        public static Dictionary<Guid, PointF> CreateComponentGrid(GrasshopperDocument doc, bool force = false)
         {
             Debug.WriteLine("[CreateComponentGrid] Starting layout...");
             Debug.WriteLine($"[CreateComponentGrid] Components: {doc.Components.Count}, Connections: {doc.Connections.Count}");
@@ -42,6 +42,12 @@ namespace SmartHopper.Core.Grasshopper.Graph
             if (missingComp != null)
             {
                 Debug.WriteLine($"[CreateComponentGrid] Component {missingComp.Name} (ID: {missingComp.InstanceGuid}) has default pivot, recalculating all positions");
+            }
+
+            // If force is enabled, recalculate all positions
+            else if (force)
+            {
+                Debug.WriteLine("[CreateComponentGrid] Force layout, recalculating all positions");
             }
             
             // Return original pivots relative to the most top-left position
