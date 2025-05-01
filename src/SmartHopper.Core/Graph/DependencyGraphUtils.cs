@@ -40,101 +40,54 @@ namespace SmartHopper.Core.Graph
                 dependencyGraph[src].Add(dst);
             }
 
-            // Build a dependency graph
-            //Dictionary<string, List<string>> dependencyGraph = new Dictionary<string, List<string>>();
-            //Dictionary<string, ComponentProperties> componentDict = new Dictionary<string, ComponentProperties>();
-
-            //foreach (var component in components)
-            //{
-            //    componentDict[component.ID.ToString()] = component;
-            //    dependencyGraph[component.ID.ToString()] = new List<string>();
-
-            //    Debug.WriteLine("Component: " + component.Name);
-            //}
-
-            //foreach (var component in components)
-            //{
-            //    foreach (var input in component.Inputs)
-            //    {
-            //        foreach (var source in input.Sources)
-            //        {
-            //            if (dependencyGraph.ContainsKey(source.ToString()))
-            //            {
-            //                dependencyGraph[source.ToString()].Add(component.ID.ToString());
-
-            //                Debug.WriteLine("Input: " + source.ToString() + " -> " + component.ID.ToString());
-            //            }
-            //        }
-            //    }
-            //}
+            // If every component already specifies a pivot, use those positions directly
+            if (components.All(c => !c.Pivot.IsEmpty))
+                return components.ToDictionary(c => c.InstanceGuid.ToString(), c => c.Pivot);
 
             // Topologically sort the components to determine the execution order
             var order = TopologicalSort(dependencyGraph);
-            var grid  = new Dictionary<string, PointF>();
-            int n     = order.Count;
-            int cols  = (int)Math.Ceiling(Math.Sqrt(n));
-            float spacing = 100f;
 
-            for (int i = 0; i < n; i++)
+            // Dependency-aware placement with median alignment and optimized collision avoidance
+            var grid = new Dictionary<string, PointF>();
+            var positions = new Dictionary<string, (int col, int row)>();
+            var columnNextFreeRow = new Dictionary<int, int>();
+            // Build incoming dependency map
+            var incoming = components.ToDictionary(c => c.InstanceGuid.ToString(), c => new List<string>());
+            foreach (var conn in connections)
             {
-                var key = order[i];                            // GUID string
-                var comp = components
-                            .First(c => c.InstanceGuid.ToString() == key);
-                var pivot = comp.Pivot;                       // direct PointF
-                int row = i / cols, col = i % cols;
-                grid[key] = new PointF(
-                    pivot.X + col * spacing,
-                    pivot.Y + row * spacing
-                );
+                var src = conn.From.ComponentId.ToString();
+                var dst = conn.To.ComponentId.ToString();
+                if (incoming.ContainsKey(dst))
+                    incoming[dst].Add(src);
             }
-            return grid;
-            // // Create the grid
-            // Dictionary<string, PointF> grid = new Dictionary<string, PointF>();
-            // Dictionary<string, PointF> positions = new Dictionary<string, PointF>();
-            // HashSet<(int, int)> usedPositions = new HashSet<(int, int)>();
-
-            // foreach (var componentGuid in executionOrder)
-            // {
-            //     int col = 0;
-            //     List<int> inputRows = new List<int>();
-
-            //     foreach (var input in componentDict[componentGuid].Inputs)
-            //     {
-            //         foreach (var source in input.Sources)
-            //         {
-            //             if (positions.ContainsKey(source.ToString()))
-            //             {
-            //                 col = Math.Max(col, (int)positions[source.ToString()].X + 1);
-            //                 inputRows.Add((int)positions[source.ToString()].Y);
-            //             }
-            //         }
-            //     }
-
-            //     int row;
-            //     if (inputRows.Count > 0)
-            //     {
-            //         row = (int)Math.Round(inputRows.Average());
-            //     }
-            //     else
-            //     {
-            //         row = 0;
-            //         while (usedPositions.Contains((col, row)))
-            //         {
-            //             row++;
-            //         }
-            //     }
-
-            //     while (usedPositions.Contains((col, row)))
-            //     {
-            //         row++;
-            //     }
-
-            //     PointF position = new PointF(col, row);
-            //     positions[componentGuid] = position;
-            //     grid[componentGuid] = position;
-            //     usedPositions.Add((col, row));
-            // }
-
+            float spacingX = 200f, spacingY = 100f; // X and Y spacing
+            foreach (var key in order)
+            {
+                int col = 0;
+                var inputRows = new List<int>();
+                foreach (var parent in incoming[key])
+                {
+                    if (positions.TryGetValue(parent, out var pr))
+                    {
+                        col = Math.Max(col, pr.col + 1);
+                        inputRows.Add(pr.row);
+                    }
+                }
+                int row = 0;
+                if (inputRows.Count > 0)
+                {
+                    inputRows.Sort();
+                    row = inputRows[inputRows.Count / 2]; // median
+                }
+                if (columnNextFreeRow.TryGetValue(col, out var nextFree))
+                    row = Math.Max(row, nextFree);
+                columnNextFreeRow[col] = row + 1;
+                positions[key] = (col, row);
+                var comp = components.First(c => c.InstanceGuid.ToString() == key);
+                var pivot = comp.Pivot;
+                grid[key] = new PointF(pivot.X + col * spacingX, pivot.Y + row * spacingY);
+                Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at col={col}, row={row} -> pos=({grid[key].X:F1},{grid[key].Y:F1})");
+            }
             return grid;
         }
 

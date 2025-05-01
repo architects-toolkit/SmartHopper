@@ -59,22 +59,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var guidMapping = new Dictionary<Guid, Guid>();
                 var startPoint = GHCanvasUtils.StartPoint(100);
 
-                bool needsPositioning = document.Components.Any(c => c.Pivot.IsEmpty);
-                if (needsPositioning)
+                // Always compute positions, even if pivots are already set; CreateComponentGrid handles existing pivots
+                try
                 {
-                    try
+                    var positions = DependencyGraphUtils.CreateComponentGrid(document);
+                    foreach (var component in document.Components)
                     {
-                        var positions = DependencyGraphUtils.CreateComponentGrid(document);
-                        foreach (var component in document.Components)
-                        {
-                            if (positions.TryGetValue(component.InstanceGuid.ToString(), out var pos))
-                                component.Pivot = new Point((int)pos.X * 150, (int)pos.Y * 150);
-                        }
+                        if (positions.TryGetValue(component.InstanceGuid.ToString(), out var pos))
+                            component.Pivot = new PointF(pos.X, pos.Y);
                     }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error generating component positions: {ex.Message}");
-                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error generating component positions: {ex.Message}");
                 }
 
                 foreach (var component in document.Components)
