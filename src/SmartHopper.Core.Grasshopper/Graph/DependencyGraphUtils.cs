@@ -33,10 +33,27 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
             var components = doc.Components;
             var connections = doc.Connections;
+
+            // Pivot check: find first default pivot
+            bool IsEmptyPivot(PointF pt) => pt.X == 0 && pt.Y == 0;
+            var missingComp = components.FirstOrDefault(c => IsEmptyPivot(c.Pivot));
+            if (missingComp != null)
+            {
+                Debug.WriteLine($"[CreateComponentGrid] Component {missingComp.Name} (ID: {missingComp.InstanceGuid}) has default pivot, recalculating all positions");
+            }
+            else
+            {
+                Debug.WriteLine("[CreateComponentGrid] All components have valid pivots");
+                Debug.WriteLine("[CreateComponentGrid] Using original pivots");
+                return components.ToDictionary(c => c.InstanceGuid, c => c.Pivot);
+            }
+
             // Fixed spacing
             float spacingX = 200f, spacingY = 100f;
+
             // 1. Build expanded graph with phantom nodes per input port in original order
             var graph = components.ToDictionary(c => c.InstanceGuid.ToString(), c => new List<string>());
+
             // map each component to input port sequence
             var inputOrder = new Dictionary<string, List<string>>();
             foreach (var compProps in components)
@@ -48,6 +65,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     : new List<string>();
                 inputOrder[compProps.InstanceGuid.ToString()] = inputs;
             }
+
             // group connections by destination component
             var phantomMap = new Dictionary<(string comp, string port), string>();
             foreach (var grp in connections.GroupBy(c => c.To.ComponentId.ToString()))
@@ -70,6 +88,8 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     }
                 }
             }
+
+
             // Prepare grid early
             var grid = new Dictionary<string, PointF>();
             try
@@ -137,35 +157,47 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 // 4. Assign positions for real components with cascade-based fractional rows
                 var nextFree = new Dictionary<int, float>();
                 var rowIndices = new Dictionary<string, float>();
+                var originalOrder = components.Select((c, i) => new { key = c.InstanceGuid.ToString(), index = i })
+                                              .ToDictionary(x => x.key, x => x.index);
                 for (int li = 0; li < realLayers.Count; li++)
                 {
                     var oldLayer = realLayers[li];
                     var compLayer = layerNodes[oldLayer].Where(k => !phantomMap.Values.Contains(k)).ToList();
                     foreach (var key in compLayer)
                     {
-                        float rowVal;
-                        if (li > 0 && compInputs.TryGetValue(key, out var conns) && conns.Any())
-                        {
-                            var parentRows = conns
-                                .Select(c => c.From.ComponentId.ToString())
-                                .Where(id => rowIndices.ContainsKey(id))
-                                .Select(id => rowIndices[id])
-                                .Distinct()
-                                .ToList();
-                            rowVal = parentRows.Any() ? parentRows.Average() : nextFree.GetValueOrDefault(li, 0f);
-                        }
-                        else
-                        {
-                            rowVal = nextFree.GetValueOrDefault(li, 0f);
-                        }
-                        var floor = nextFree.GetValueOrDefault(li, 0f);
-                        if (rowVal < floor) rowVal = floor;
-                        rowIndices[key] = rowVal;
-                        nextFree[li] = rowVal + 1f;
                         var comp = components.First(c => c.InstanceGuid.ToString() == key);
-                        var pivot = comp.Pivot;
-                        grid[key] = new PointF(pivot.X + li * spacingX, pivot.Y + rowVal * spacingY);
-                        Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={rowVal}");
+                        try
+                        {
+                            float rowVal;
+                            if (li > 0 && compInputs.TryGetValue(key, out var conns) && conns.Any())
+                            {
+                                var parentRows = conns
+                                    .Select(conn => conn.From.ComponentId.ToString())
+                                    .Where(id => rowIndices.ContainsKey(id))
+                                    .Select(id => rowIndices[id])
+                                    .Distinct()
+                                    .ToList();
+                                rowVal = parentRows.Any() ? parentRows.Average() : nextFree.GetValueOrDefault(li, 0f);
+                            }
+                            else
+                            {
+                                rowVal = nextFree.GetValueOrDefault(li, 0f);
+                            }
+                            var floor = nextFree.GetValueOrDefault(li, 0f);
+                            if (rowVal < floor) rowVal = floor;
+                            rowIndices[key] = rowVal;
+                            nextFree[li] = rowVal + 1f;
+                            var pivot = comp.Pivot;
+                            grid[key] = new PointF(pivot.X + li * spacingX, pivot.Y + rowVal * spacingY);
+                            Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={rowVal}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[CreateComponentGrid] Layout failed for {comp.Name} ({key}): {ex.Message}, applying fallback for component");
+                            int fallbackIndex = originalOrder[key];
+                            var pivot = comp.Pivot;
+                            grid[key] = new PointF(pivot.X, pivot.Y + fallbackIndex * spacingY);
+                        }
                     }
                 }
             }
