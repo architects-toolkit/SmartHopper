@@ -20,6 +20,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// </summary>
     public class PutTools : IAIToolProvider
     {
+        #region ToolRegistration
+
         /// <summary>
         /// Returns the GH put tool.
         /// </summary>
@@ -38,6 +40,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.GhPutToolAsync
             );
         }
+
+        #endregion
+
+        #region GhPut
 
         private async Task<object> GhPutToolAsync(JObject parameters)
         {
@@ -155,4 +161,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
         }
     }
+
+    #endregion
 }

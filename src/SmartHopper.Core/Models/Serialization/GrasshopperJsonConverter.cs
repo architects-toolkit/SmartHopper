@@ -9,8 +9,10 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Models.Serialization
@@ -48,7 +50,49 @@ namespace SmartHopper.Core.Models.Serialization
         /// <returns>A Grasshopper document object</returns>
         public static GrasshopperDocument DeserializeFromJson(string json, JsonSerializerSettings settings = null)
         {
-            return JsonConvert.DeserializeObject<GrasshopperDocument>(json, settings ?? DefaultSettings);
+            // Parse JSON and fix invalid GUIDs in components and connections
+            var jroot = JObject.Parse(json);
+            var idMapping = new Dictionary<string, Guid>();
+            // Fix component instanceGuids
+            if (jroot["components"] is JArray comps)
+            {
+                foreach (var comp in comps)
+                {
+                    if (comp["instanceGuid"] is JToken instToken)
+                    {
+                        var instStr = instToken.ToString();
+                        if (!Guid.TryParse(instStr, out _))
+                        {
+                            var newGuid = Guid.NewGuid();
+                            idMapping[instStr] = newGuid;
+                            comp["instanceGuid"] = newGuid.ToString();
+                        }
+                    }
+                }
+            }
+            // Fix connection componentIds
+            if (jroot["connections"] is JArray conns)
+            {
+                foreach (var conn in conns)
+                {
+                    var fromToken = conn["from"]?["componentId"];
+                    if (fromToken != null)
+                    {
+                        var oldStrFrom = fromToken.ToString();
+                        if (idMapping.TryGetValue(oldStrFrom, out var mappedFrom))
+                            conn["from"]["componentId"] = mappedFrom.ToString();
+                    }
+                    var toToken = conn["to"]?["componentId"];
+                    if (toToken != null)
+                    {
+                        var oldStrTo = toToken.ToString();
+                        if (idMapping.TryGetValue(oldStrTo, out var mappedTo))
+                            conn["to"]["componentId"] = mappedTo.ToString();
+                    }
+                }
+            }
+            // Deserialize into document
+            return JsonConvert.DeserializeObject<GrasshopperDocument>(jroot.ToString(), settings ?? DefaultSettings);
         }
 
         /// <summary>
