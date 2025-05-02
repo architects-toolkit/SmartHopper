@@ -36,7 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "ghtogglepreview",
+                name: "gh_toggle_preview",
                 description: "Toggle Grasshopper component preview on or off by GUID.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -58,7 +58,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // New tool to toggle component locked state
             yield return new AITool(
-                name: "ghtogglelock",
+                name: "gh_toggle_lock",
                 description: "Toggle Grasshopper component locked state (enable/disable) by GUID.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // New tool to move component pivot position
             yield return new AITool(
-                name: "ghmoveobj",
+                name: "gh_move_obj",
                 description: "Move Grasshopper component pivot by GUID, with absolute or relative position.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -110,8 +110,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // New tool to tidy up selected components into a grid layout
             yield return new AITool(
-                name: "ghtidyup",
-                description: "Organize selected components into a tidy grid layout.",
+                name: "gh_tidy_up",
+                description: "Organize selected components into a tidy grid layout. Call `gh_get` first to get the list of GUIDs.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
