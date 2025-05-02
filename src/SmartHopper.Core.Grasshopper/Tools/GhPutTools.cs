@@ -58,13 +58,16 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
         private async Task<object> GhPutToolAsync(JObject parameters)
         {
+            string analysisMsg = null;
             try
             {
                 var json = parameters["json"]?.ToString() ?? string.Empty;
-                var document = GrasshopperJsonConverter.DeserializeFromJson(json);
+                GHJsonAnalyzer.Analyze(json, out analysisMsg);
+                var document = GHJsonConverter.DeserializeFromJson(json);
                 if (document?.Components == null || !document.Components.Any())
                 {
-                    return new { success = false, error = "JSON must contain a non-empty components array" };
+                    var msg = analysisMsg ?? "JSON must contain a non-empty components array";
+                    return new { success = false, analysis = msg };
                 }
 
                 var guidMapping = new Dictionary<Guid, Guid>();
@@ -176,12 +179,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }
 
                 var names = document.Components.Select(c => c.Name).Distinct().ToList();
-                return new { success = true, components = names };
+                return new { success = true, components = names, analysis = analysisMsg };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[PutTools] Error in GhPutToolAsync: {ex.Message}");
-                return new { success = false, error = ex.Message };
+                var combined = string.IsNullOrEmpty(analysisMsg) ? ex.Message : analysisMsg + "\nException: " + ex.Message;
+                return new { success = false, analysis = combined };
             }
         }
     }

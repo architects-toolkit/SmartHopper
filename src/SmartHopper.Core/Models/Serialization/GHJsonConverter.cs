@@ -20,7 +20,7 @@ namespace SmartHopper.Core.Models.Serialization
     /// <summary>
     /// Utility class for serializing and deserializing Grasshopper documents to/from JSON format.
     /// </summary>
-    public static class GrasshopperJsonConverter
+    public static class GHJsonConverter
     {
         /// <summary>
         /// Default JSON serialization settings with formatting.
@@ -48,67 +48,18 @@ namespace SmartHopper.Core.Models.Serialization
         /// <param name="json">The JSON string to deserialize</param>
         /// <param name="settings">Optional JSON serializer settings</param>
         /// <returns>A Grasshopper document object</returns>
-        public static GrasshopperDocument DeserializeFromJson(string json, JsonSerializerSettings settings = null)
+        public static GrasshopperDocument DeserializeFromJson(string json, bool fixJson = true, JsonSerializerSettings settings = null)
         {
-            // Parse JSON and fix invalid GUIDs in components and connections
             var jroot = JObject.Parse(json);
-            var idMapping = new Dictionary<string, Guid>();
-            // Fix component instanceGuids
-            if (jroot["components"] is JArray comps)
+
+            if (fixJson)
             {
-                foreach (var comp in comps)
-                {
-                    if (comp["instanceGuid"] is JToken instToken)
-                    {
-                        var instStr = instToken.ToString();
-                        if (!Guid.TryParse(instStr, out _))
-                        {
-                            var newGuid = Guid.NewGuid();
-                            idMapping[instStr] = newGuid;
-                            comp["instanceGuid"] = newGuid.ToString();
-                        }
-                    }
-                }
+                var idMapping = new Dictionary<string, Guid>();
+                (jroot, idMapping) = GHJsonFixer.FixComponentInstanceGuids(jroot, idMapping);
+                (jroot, idMapping) = GHJsonFixer.FixConnectionComponentIds(jroot, idMapping);
+                jroot = GHJsonFixer.RemovePivotsIfIncomplete(jroot);
             }
-            // Fix connection componentIds
-            if (jroot["connections"] is JArray conns)
-            {
-                foreach (var conn in conns)
-                {
-                    var fromToken = conn["from"]?["componentId"];
-                    if (fromToken != null)
-                    {
-                        var oldStrFrom = fromToken.ToString();
-                        if (idMapping.TryGetValue(oldStrFrom, out var mappedFrom))
-                            conn["from"]["componentId"] = mappedFrom.ToString();
-                    }
-                    var toToken = conn["to"]?["componentId"];
-                    if (toToken != null)
-                    {
-                        var oldStrTo = toToken.ToString();
-                        if (idMapping.TryGetValue(oldStrTo, out var mappedTo))
-                            conn["to"]["componentId"] = mappedTo.ToString();
-                    }
-                }
-            }
-            // Remove all pivots if not all components define one
-            if (jroot["components"] is JArray compsPivot)
-            {
-                bool allHavePivot = true;
-                foreach (var comp in compsPivot)
-                {
-                    if (comp["pivot"] == null || comp["pivot"]["X"] == null || comp["pivot"]["Y"] == null)
-                    {
-                        allHavePivot = false;
-                        break;
-                    }
-                }
-                if (!allHavePivot)
-                {
-                    foreach (var comp in compsPivot)
-                        ((JObject)comp).Remove("pivot");
-                }
-            }
+
             // Deserialize into document
             return JsonConvert.DeserializeObject<GrasshopperDocument>(jroot.ToString(), settings ?? DefaultSettings);
         }
@@ -134,7 +85,7 @@ namespace SmartHopper.Core.Models.Serialization
         public static GrasshopperDocument LoadFromFile(string filePath, JsonSerializerSettings settings = null)
         {
             string json = File.ReadAllText(filePath);
-            return DeserializeFromJson(json, settings);
+            return DeserializeFromJson(json, settings: settings);
         }
     }
 }

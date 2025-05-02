@@ -78,14 +78,25 @@ namespace SmartHopper.Components.Grasshopper
                     .GetAwaiter()
                     .GetResult() as JObject;
 
-                // 4. Handle errors
-                if (toolResult == null || !(toolResult["success"]?.ToObject<bool>() ?? false))
+                var success = toolResult?["success"]?.ToObject<bool>() ?? false;
+                var analysis = toolResult?["analysis"]?.ToString();
+                // Display analysis messages
+                if (!string.IsNullOrEmpty(analysis))
                 {
-                    var err = toolResult?["error"]?.ToString() ?? "Unknown error";
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        $"Tool 'gh_put' failed: {err}");
-                    return;
+                    GH_RuntimeMessageLevel currentLevel = GH_RuntimeMessageLevel.Remark;
+                    foreach (var line in analysis.Split(new[]{'\r','\n'}, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var trimmed = line.Trim();
+                        if (trimmed == "Errors:") currentLevel = GH_RuntimeMessageLevel.Error;
+                        else if (trimmed == "Warnings:") currentLevel = GH_RuntimeMessageLevel.Warning;
+                        else if (trimmed.StartsWith("Information:")) currentLevel = GH_RuntimeMessageLevel.Remark;
+                        else if (trimmed.StartsWith("- "))
+                        {
+                            AddRuntimeMessage(currentLevel, trimmed.Substring(2));
+                        }
+                    }
                 }
+                if (!success) return;
 
                 // 5. Extract and output component names
                 var componentNames = toolResult["components"]
