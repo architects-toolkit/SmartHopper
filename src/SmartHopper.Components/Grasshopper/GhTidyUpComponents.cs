@@ -91,10 +91,10 @@ namespace SmartHopper.Components.Grasshopper
             try
             {
                 var parameters = new JObject { ["guids"] = JArray.FromObject(guids) };
-                var result = AIToolManager.ExecuteTool("ghtidyup", parameters, null)
+                var result = AIToolManager.ExecuteTool("gh_tidy_up", parameters, null)
                                   .GetAwaiter().GetResult() as JObject;
                 if (result == null)
-                    LastErrors.Add("Tool 'ghtidyup' returned invalid result");
+                    LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
                 else if (result["success"]?.ToObject<bool>() == false)
                     LastErrors.Add(result["error"]?.ToString() ?? "Unknown error");
                 else

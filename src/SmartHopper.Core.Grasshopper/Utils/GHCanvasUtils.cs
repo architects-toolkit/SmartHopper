@@ -94,6 +94,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 ? new PointF(current.X + position.X, current.Y + position.Y)
                 : position;
 
+            // Skip movement if initial and target positions are the same
+            if (current == target) return false;
+
             // Animate movement concurrently over 300ms with 15 frames
             Task.Run(async () =>
             {
