@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Grasshopper
         }
 
         public override Guid ComponentGuid => new Guid("D4C8A9E5-B123-4F67-8C90-1234567890AB");
-        
+
         protected override Bitmap Icon => null;
 
         public void EnableSelectionMode()
@@ -66,12 +66,17 @@ namespace SmartHopper.Components.Grasshopper
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             object runObj = null;
-            if (!DA.GetData(0, ref runObj)) return;
+            if (!DA.GetData(0, ref runObj))
+            {
+                return;
+            }
+
             if (!(runObj is GH_Boolean run))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
                 return;
             }
+
             if (!run.Value)
             {
                 if (LastErrors.Count > 0)
@@ -80,6 +85,7 @@ namespace SmartHopper.Components.Grasshopper
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute tidy up");
                 return;
             }
+
             LastErrors.Clear();
             var guids = SelectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
             if (!guids.Any())
