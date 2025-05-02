@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `gh_tidy_up` AI tool in `GhObjTools` for arranging selected components into a dependency-based grid layout.
 - New `gh_tidy_up` component.
 - New `SelectingComponentBase` for components that need the button to select other components.
+- New `GHJsonAnalyzer` and `GHJsonFixer` classes for analyzing and fixing GHJSON formats.
 
 ### Changed
 
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added a nice animation so that components move smoothly to their new position.
   - Skip movement if initial and target positions are the same.
 - Modified `GhGetComponents` to use the new `SelectingComponentBase`.
+- Implemented the new `GHJsonAnalyzer` and `GHJsonFixer` in `GhPutTools` and `GhPutComponents`.
 
 ### Fixed
 

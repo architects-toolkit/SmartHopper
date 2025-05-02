@@ -20,6 +20,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Forms;
+using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Config.Models;
 
@@ -193,7 +194,7 @@ namespace SmartHopper.Core.AI.Chat
                         this.progressReporter(msg);
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
                         {
-                            var ghCanvas = Grasshopper.Instances.ActiveCanvas;
+                            var ghCanvas = Instances.ActiveCanvas;
                             var ghDoc = ghCanvas?.Document;
                             var comp = ghDoc?.Objects.OfType<GH_Component>().FirstOrDefault(c => c.InstanceGuid == this.componentId);
                             comp?.ExpireSolution(true);
