@@ -8,16 +8,16 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper;
-using Grasshopper.Kernel;
 using System;
 using System.Diagnostics;
+using Grasshopper;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHObjectFactory
+    public static class GHObjectFactory
     {
-        public static IGH_ObjectProxy FindProxy(Guid guid)
+        public static IGH_ObjectProxy? FindProxy(Guid guid)
         {
             IGH_ObjectProxy objectProxy = Instances.ComponentServer.EmitObjectProxy(guid);
 
@@ -30,7 +30,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             return null;
         }
 
-        public static IGH_ObjectProxy FindProxy(string name)
+        public static IGH_ObjectProxy? FindProxy(string name)
         {
             IGH_ObjectProxy objectProxy = Instances.ComponentServer.FindObjectByName(name, true, true);
 
@@ -43,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             return null;
         }
 
-        public static IGH_ObjectProxy FindProxy(Guid guid, string name)
+        public static IGH_ObjectProxy? FindProxy(Guid guid, string name)
         {
             if (guid == Guid.Empty && !string.IsNullOrEmpty(name))
             {
@@ -65,4 +65,3 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
     }
 }
-

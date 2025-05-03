@@ -10,6 +10,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using Grasshopper;
 using Grasshopper.Kernel;
 
@@ -23,15 +24,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Set preview state of a Grasshopper component by GUID.
         /// </summary>
-        /// <param name="guid">GUID of the component</param>
-        /// <param name="previewOn">True to show preview, false to hide</param>
-        /// <param name="redraw">True to redraw canvas immediately</param>
+        /// <param name="guid">GUID of the component.</param>
+        /// <param name="previewOn">True to show preview, false to hide.</param>
+        /// <param name="redraw">True to redraw canvas immediately.</param>
         public static void SetComponentPreview(Guid guid, bool previewOn, bool redraw = true)
         {
             Debug.WriteLine($"[GHComponentUtils] SetComponentPreview: guid={guid}, previewOn={previewOn}");
             var obj = GHCanvasUtils.FindInstance(guid);
             Debug.WriteLine(obj != null
-                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}" 
+                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}"
                 : "[GHComponentUtils] Found null object");
             if (obj is GH_Component component)
             {
@@ -71,15 +72,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Set lock state of a Grasshopper component by GUID.
         /// </summary>
-        /// <param name="guid">GUID of the component</param>
-        /// <param name="locked">True to lock (disable), false to unlock (enable)</param>
-        /// <param name="redraw">True to redraw canvas immediately</param>
+        /// <param name="guid">GUID of the component.</param>
+        /// <param name="locked">True to lock (disable), false to unlock (enable).</param>
+        /// <param name="redraw">True to redraw canvas immediately.</param>
         public static void SetComponentLock(Guid guid, bool locked, bool redraw = true)
         {
             Debug.WriteLine($"[GHComponentUtils] SetComponentLock: guid={guid}, locked={locked}");
             var obj = GHCanvasUtils.FindInstance(guid);
             Debug.WriteLine(obj != null
-                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}" 
+                ? $"[GHComponentUtils] Found object of type {obj.GetType().Name}"
                 : "[GHComponentUtils] Found null object");
             if (obj is GH_Component component)
             {
@@ -107,6 +108,21 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 Debug.WriteLine("[GHComponentUtils] Object is neither a GH_Component nor a GH_Param");
             }
+        }
+
+        /// <summary>
+        /// Gets the bounding rectangle of a Grasshopper component or parameter on the canvas.
+        /// </summary>
+        /// <param name="guid">GUID of the component or parameter.</param>
+        /// <returns>The bounding rectangle, or RectangleF.Empty if not found.</returns>
+        public static RectangleF GetComponentBounds(Guid guid)
+        {
+            var obj = GHCanvasUtils.FindInstance(guid);
+            if (obj != null)
+            {
+                return obj.Attributes.Bounds;
+            }
+            return RectangleF.Empty;
         }
     }
 }
