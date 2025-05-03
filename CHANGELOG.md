@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses horizontal margin of 50 and vertical spacing of 80
   - Centers Params from their actual center instead of the top-left position
   - Improved by detecting islands of components, ensure connected components stay together, and use barycenter heuristic algorithm for initial layer ordering
+  - Minimizes connection length
+  - Aligns parents with children
 - Improved `MoveInstance`:
   - Added a nice animation so that components move smoothly to their new position.
   - Skip movement if initial and target positions are the same.
