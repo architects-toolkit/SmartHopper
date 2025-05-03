@@ -92,13 +92,28 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 foreach (var n in sub)
                     n.Pivot = new PointF(n.Pivot.X, n.Pivot.Y + currentYOffset);
                 result.AddRange(sub);
+
+                // minimize layer connections
+                result = MinimizeLayerConnections(result);
+
+                // one-to-one connections
+                result = OneToOneConnections(result, spacingY);
+
+                // align params to inputs
+                result = AlignParamsToInputs(result, spacingY);
+
+                // align parents and children
+                // result = AlignParentsAndChildren(result, spacingY);
+
+                // avoid collisions
+                result = AvoidCollisions(result);
+
                 // update offset for next island
                 var maxY = sub.Max(n => n.Pivot.Y);
                 currentYOffset = maxY + islandSpacingY;
             }
 
-            result = AlignParentsAndChildren(result, spacingY);
-            DebugDumpGrid("After AlignParentsAndChildren", result);
+            DebugDumpGrid("Result", result);
             
             return result;
         }
@@ -433,15 +448,15 @@ namespace SmartHopper.Core.Grasshopper.Graph
         }
 
         /// <summary>
-        /// Aligns parent components belonging to the same single child into a contiguous block above the child.
+        /// Aligns params to inputs of the same single child.
         /// </summary>
         /// <param name="grid">The positioned grid of node components.</param>
         /// <param name="spacingY">Vertical spacing between original grid rows.</param>
-        private static List<NodeGridComponent> AlignParentsAndChildren(List<NodeGridComponent> grid, float spacingY)
+        private static List<NodeGridComponent> AlignParamsToInputs(List<NodeGridComponent> grid, float spacingY)
         {
             spacingY = spacingY / 2;
             
-            Debug.WriteLine($"[AlignParentsAndChildren] Starting alignment with spacingY={spacingY}");
+            Debug.WriteLine($"[AlignParamsToInputs] Starting alignment with spacingY={spacingY}");
             // Group nodes by actual X position (columns)
             var byColumn = grid.GroupBy(n => n.Pivot.X)
                                 .OrderBy(g => g.Key)
@@ -474,18 +489,51 @@ namespace SmartHopper.Core.Grasshopper.Graph
                             {
                                 var rect = inputs[inputIdx].Attributes.Bounds;
                                 // calculate relative grid Y based on canvas offset
-                                float inputPivotY = rect.Y + rect.Height / 2;
+                                float inputPivotY = rect.Y + rect.Height / 2f;
                                 var canvasChildBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
-                                float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height;
+                                float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height / 2f;
                                 float deltaCanvasY = inputPivotY - canvasChildCenterY;
-                                float deltaGridY = child.Pivot.Y + deltaCanvasY;
-                                Debug.WriteLine($"[AlignParentsAndChildren] Param-case: aligning parent {p.ComponentId} relativeGridY={deltaGridY}");
+                                // target grid Y
+                                float targetY = child.Pivot.Y + deltaCanvasY;
+                                Debug.WriteLine($"[AlignParamsToInputs] Param-case: aligning parent {p.ComponentId} relativeGridY={targetY}");
                                 // pivot relative to child pivot group
-                                p.Pivot = new PointF(p.Pivot.X, deltaGridY);
+                                p.Pivot = new PointF(p.Pivot.X, targetY);
                             }
                         }
-                        continue;
                     }
+                }
+            }
+            return grid;
+        }
+        
+        /// <summary>
+        /// Aligns parent components belonging to the same single child into a contiguous block above the child.
+        /// </summary>
+        /// <param name="grid">The positioned grid of node components.</param>
+        /// <param name="spacingY">Vertical spacing between original grid rows.</param>
+        private static List<NodeGridComponent> AlignParentsAndChildren(List<NodeGridComponent> grid, float spacingY)
+        {
+            spacingY = spacingY / 2;
+            
+            Debug.WriteLine($"[AlignParentsAndChildren] Starting alignment with spacingY={spacingY}");
+            // Group nodes by actual X position (columns)
+            var byColumn = grid.GroupBy(n => n.Pivot.X)
+                                .OrderBy(g => g.Key)
+                                .Select(g => g.ToList())
+                                .ToList();
+            // For each layer beyond the first, align parents above each child
+            for (int i = 1; i < byColumn.Count; i++)
+            {
+                Debug.WriteLine($"[AlignParentsAndChildren] Processing column {i}, X={byColumn[i].First().Pivot.X}");
+                var prevCol = byColumn[i - 1];
+                var currCol = byColumn[i];
+                foreach (var child in currCol)
+                {
+                    Debug.WriteLine($"[AlignParentsAndChildren] Child {child.ComponentId} at Y={child.Pivot.Y}");
+
+                    // all parents connecting to this child
+                    var parents = prevCol.Where(p => p.Children.ContainsKey(child.ComponentId)).ToList();
+
                     Debug.WriteLine($"[AlignParentsAndChildren] Found {parents.Count} parents for child {child.ComponentId}: {string.Join(",", parents.Select(p => p.ComponentId))}");
                     // sort parents top-to-bottom and center group over child
                     var orderedParents = parents.OrderBy(p => p.Pivot.Y).ToList();
@@ -507,6 +555,95 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         Debug.WriteLine($"[AlignParentsAndChildren] Moving parent {p.ComponentId} from Y={oldY} to Y={yCursor}");
                         yCursor += bounds.Height + spacingY;
                     }
+                }
+            }
+            return grid;
+        }
+
+        /// <summary>
+        /// Minimizes vertical connection lengths layer by layer using mean-squared optimal shift.
+        /// </summary>
+        private static List<NodeGridComponent> MinimizeLayerConnections(List<NodeGridComponent> grid)
+        {
+            // Group nodes by column (X) and sort layers
+            var byLayer = grid.GroupBy(n => n.Pivot.X).OrderBy(g => g.Key).ToList();
+            var idToNode = grid.ToDictionary(n => n.ComponentId, n => n);
+            // Iterate each adjacent pair: shift the next layer to minimize connection length
+            for (int i = 0; i < byLayer.Count - 1; i++)
+            {
+                var currLayer = byLayer[i].ToList();
+                var nextLayer = byLayer[i + 1].ToList();
+                var deltas = new List<float>();
+                // Collect vertical deltas for edges between these two layers
+                foreach (var u in currLayer)
+                {
+                    foreach (var childId in u.Children.Keys)
+                    {
+                        if (idToNode.TryGetValue(childId, out var v) &&
+                            Math.Abs(v.Pivot.X - nextLayer[0].Pivot.X) < 0.001f)
+                        {
+                            deltas.Add(u.Pivot.Y - v.Pivot.Y);
+                        }
+                    }
+                }
+                if (deltas.Count == 0) continue;
+                // Compute average delta (minimizes sum of squared differences)
+                var avgDelta = deltas.Sum() / deltas.Count;
+                // Shift all nodes in the next layer by the average delta
+                foreach (var v in nextLayer)
+                    v.Pivot = new PointF(v.Pivot.X, v.Pivot.Y + avgDelta);
+            }
+            return grid;
+        }
+
+        /// <summary>
+        /// Aligns components that have a single parent and that parent has only that child by setting them to the same Y.
+        /// </summary>
+        private static List<NodeGridComponent> OneToOneConnections(List<NodeGridComponent> grid, float spacingY)
+        {
+            var idToNode = grid.ToDictionary(n => n.ComponentId, n => n);
+            Debug.WriteLine("[OneToOneConnections] Aligning single-child parents");
+            foreach (var parent in grid.Where(n => n.Children.Count == 1))
+            {
+                var childId = parent.Children.Keys.First();
+                if (!idToNode.TryGetValue(childId, out var child)) continue;
+                int inputIndex = child.Parents[parent.ComponentId];
+                if (inputIndex < 0) continue;
+                // fetch input port bounds
+                if (!(GHCanvasUtils.FindInstance(child.ComponentId) is IGH_Component childComp)) continue;
+                var inputs = GHParameterUtils.GetAllInputs(childComp);
+                if (inputIndex >= inputs.Count) continue;
+                var port = inputs[inputIndex];
+                var rect = port.Attributes.Bounds;
+                // compute offset from child's center
+                float inputPivotY = rect.Y + rect.Height / 2f;
+                var canvasChildBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
+                float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height / 2f;
+                float deltaCanvasY = inputPivotY - canvasChildCenterY;
+                // target grid Y
+                float targetY = child.Pivot.Y + deltaCanvasY + spacingY / 2;
+                Debug.WriteLine($"[OneToOneConnections] Align parent {parent.ComponentId} to Y={targetY}");
+                parent.Pivot = new PointF(parent.Pivot.X, targetY);
+            }
+            return grid;
+        }
+
+        /// <summary>
+        /// Shifts nodes in each column to avoid overlapping based on their component bounds.
+        /// </summary>
+        private static List<NodeGridComponent> AvoidCollisions(List<NodeGridComponent> grid)
+        {
+            var byColumn = grid.GroupBy(n => n.Pivot.X).OrderBy(g => g.Key);
+            foreach (var col in byColumn)
+            {
+                var sorted = col.OrderBy(n => n.Pivot.Y).ToList();
+                float lastBottom = float.MinValue;
+                foreach (var node in sorted)
+                {
+                    var bounds = GHComponentUtils.GetComponentBounds(node.ComponentId);
+                    if (node.Pivot.Y < lastBottom)
+                        node.Pivot = new PointF(node.Pivot.X, lastBottom);
+                    lastBottom = node.Pivot.Y + bounds.Height;
                 }
             }
             return grid;
