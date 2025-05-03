@@ -17,6 +17,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Models.Document;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 
@@ -249,20 +250,21 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return new { success = false, error = "No matching components found for provided GUIDs." };
             }
             var doc = GHDocumentUtils.GetObjectsDetails(selected);
-            var layout = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+            var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+
             if (!hasStart)
             {
                 // Anchor grid at original pivot of top-left component
-                var first = layout.OrderBy(kv => kv.Value.X).ThenBy(kv => kv.Value.Y).First();
-                var origObj = selected.First(o => o.InstanceGuid == first.Key);
+                var firstNode = layoutNodes.OrderBy(n => n.Pivot.X).ThenBy(n => n.Pivot.Y).First();
+                var origObj = selected.First(o => o.InstanceGuid == firstNode.ComponentId);
                 var origPivot = origObj.Attributes.Pivot;
-                origin = new PointF(origPivot.X - first.Value.X, origPivot.Y - first.Value.Y);
+                origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
             }
             var moved = new List<string>();
-            foreach (var kv in layout)
+            foreach (var node in layoutNodes)
             {
-                var guid = kv.Key;
-                var rel = kv.Value;
+                var guid = node.ComponentId;
+                var rel = node.Pivot;
                 var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
                 var ok = GHCanvasUtils.MoveInstance(guid, target, relative: false);
                 Debug.WriteLine(ok

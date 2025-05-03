@@ -20,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Grasshopper.Graph;
+using SmartHopper.Core.Models.Document;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
 
@@ -76,14 +77,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 // Always compute positions, even if pivots are already set; CreateComponentGrid handles existing pivots
                 try
                 {
-                    var positions = DependencyGraphUtils.CreateComponentGrid(document);
+                    var nodes = DependencyGraphUtils.CreateComponentGrid(document);
+                    var posMap = nodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
                     foreach (var component in document.Components)
-                    {
-                        if (positions.TryGetValue(component.InstanceGuid, out var pos))
-                        {
-                            component.Pivot = new PointF(pos.X, pos.Y);
-                        }
-                    }
+                        if (posMap.TryGetValue(component.InstanceGuid, out var pivot))
+                            component.Pivot = pivot;
                 }
                 catch (Exception ex)
                 {

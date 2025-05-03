@@ -24,458 +24,474 @@ namespace SmartHopper.Core.Grasshopper.Graph
     public static class DependencyGraphUtils
     {
         /// <summary>
-        /// Layout components to minimize wire crossings using the Sugiyama framework.
+        /// Layout components and produce a unified grid of NodeGridComponent.
         /// </summary>
         /// <param name="doc">The Grasshopper document containing components and connections.</param>
         /// <param name="force">If true, forces a full layout recalculation even when pivots exist.</param>
-        /// <param name="spacingX">The horizontal spacing between component columns.</param>
-        /// <param name="spacingY">The vertical spacing between grid rows.</param>
-        /// <param name="islandSpacingY">The vertical spacing between islands.</param>
-        /// <returns>A dictionary mapping each component's GUID to its calculated pivot PointF.</returns>
-        public static Dictionary<Guid, PointF> CreateComponentGrid(GrasshopperDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 0f)
+        /// <param name="spacingX">Horizontal spacing between component columns.</param>
+        /// <param name="spacingY">Vertical spacing between grid rows.</param>
+        /// <param name="islandSpacingY">Vertical spacing between disconnected islands.</param>
+        /// <returns>List of NodeGridComponent entries for each component.</returns>
+        public static List<NodeGridComponent> CreateComponentGrid(GrasshopperDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 80f)
         {
-            Debug.WriteLine("[CreateComponentGrid] Starting layout...");
-            Debug.WriteLine($"[CreateComponentGrid] Components: {doc.Components.Count}, Connections: {doc.Connections.Count}");
-
-            // 1. Grab data
-            var components = doc.Components;
-            var connections = doc.Connections;
-
-            // 2. Try original pivots
-            var orig = TryUseOriginalPivots(components, force);
-            if (orig != null) return orig;
-
-            // 3. Build port order & graph
-            var inputOrder = BuildInputOrder(components);
-            var (graph, phantomMap) = ExpandGraph(components, connections, inputOrder);
-
-            // 4. Compute layers & ordering
-            var layerNodes = ComputeLayerNodes(graph, connections, inputOrder, phantomMap);
-
-            // 5. Position components in a grid
-            var grid = CalculateGridPositions(layerNodes, components, connections, spacingX, spacingY);
-
-            // 6. Stack disconnected “islands”
-            grid = StackIslands(graph, grid, spacingY, islandSpacingY);
-
-            // 7. Convert string-keys → Guid
-            return ConvertStringKeysToGuids(grid);
-
-            #region old CreateComponentGrid
-
-            /*var components = doc.Components;
-            var connections = doc.Connections;
-
-            // Pivot check: find first default pivot
-            bool IsEmptyPivot(PointF pt) => pt.X == 0 && pt.Y == 0;
-            var missingComp = components.FirstOrDefault(c => IsEmptyPivot(c.Pivot));
+            Debug.WriteLine("[CreateComponentGrid] Initializing unified grid...");
             
-            // If any component has a default pivot, recalculate all positions
-            if (missingComp != null)
-            {
-                Debug.WriteLine($"[CreateComponentGrid] Component {missingComp.Name} (ID: {missingComp.InstanceGuid}) has default pivot, recalculating all positions");
-            }
+            // Initialize grid
+            var grid = InitializeGrid(doc);
 
-            // If force is enabled, recalculate all positions
-            else if (force)
+            // Return if pivots are already provided and force is not set
+            if (!force)
             {
-                Debug.WriteLine("[CreateComponentGrid] Force layout, recalculating all positions");
-            }
-            
-            // Return original pivots relative to the most top-left position
-            else
-            {
-                Debug.WriteLine("[CreateComponentGrid] All components have valid pivots");
-                Debug.WriteLine("[CreateComponentGrid] Using adjusted original pivots");
-                float minX = components.Min(c => c.Pivot.X);
-                float minY = components.Min(c => c.Pivot.Y);
-                Debug.WriteLine($"[CreateComponentGrid] Normalizing pivots by ({minX}, {minY})");
-                return components.ToDictionary(
-                    c => c.InstanceGuid,
-                    c => UnifyCenterPivot(c.InstanceGuid, new PointF(c.Pivot.X - minX, c.Pivot.Y - minY))
-                );
-            }
-
-            // Spacing settings
-            float spacingX = 50f;
-            float spacingY = 80f;
-
-            // 1. Build expanded graph with phantom nodes per input port in original order
-            var graph = components.ToDictionary(c => c.InstanceGuid.ToString(), c => new List<string>());
-
-            // map each component to input port sequence
-            var inputOrder = new Dictionary<string, List<string>>();
-            foreach (var compProps in components)
-            {
-                var proxy = GHObjectFactory.FindProxy(compProps.ComponentGuid, compProps.Name);
-                var ghComp = GHObjectFactory.CreateInstance(proxy) as IGH_Component;
-                var inputs = ghComp != null
-                    ? GHParameterUtils.GetAllInputs(ghComp).Select(p => p.Name).ToList()
-                    : new List<string>();
-                inputOrder[compProps.InstanceGuid.ToString()] = inputs;
-            }
-
-            // group connections by destination component
-            var phantomMap = new Dictionary<(string comp, string port), string>();
-            foreach (var grp in connections.GroupBy(c => c.To.ComponentId.ToString()))
-            {
-                var dst = grp.Key;
-                var ports = inputOrder.ContainsKey(dst)
-                    ? inputOrder[dst]
-                    : grp.Select(c => c.To.ParamName).Distinct().ToList();
-                foreach (var port in ports)
+                if (grid.All(n => n.Pivot != PointF.Empty))
                 {
-                    var pid = $"{dst}:{port}";
-                    phantomMap[(dst, port)] = pid;
-                    // edge: phantom node -> component
-                    graph[pid] = new List<string> { dst };
-                    // edges: each source -> phantom node
-                    foreach (var c in grp.Where(c => c.To.ParamName == port))
-                    {
-                        var src = c.From.ComponentId.ToString();
-                        graph[src].Add(pid);
-                    }
+                    var minX = grid.Min(n => n.Pivot.X);
+                    var minY = grid.Min(n => n.Pivot.Y);
+                    foreach (var n in grid)
+                        n.Pivot = UnifyCenterPivot(n.ComponentId, new PointF(n.Pivot.X - minX, n.Pivot.Y - minY));
                 }
+                return grid;
             }
 
-
-            // Prepare grid early
-            var grid = new Dictionary<string, PointF>();
-            try
+            // Island detection: split into connected components by parent/child links
+            var idToNode = grid.ToDictionary(n => n.ComponentId, n => n);
+            var visited = new HashSet<Guid>();
+            var islands = new List<List<NodeGridComponent>>();
+            foreach (var node in grid)
             {
-                // 2. Topological sort
-                Debug.WriteLine("[TopologicalSort] Starting...");
-                var topo = TopologicalSort(graph);
-                Debug.WriteLine($"[CreateComponentGrid] Topo order: {string.Join(" -> ", topo)}");
-
-                // 3. Compute layers (reverse sink-based to source-based)
-                var sinkLayers = ComputeLayers(graph);
-                var maxSinkLayer = sinkLayers.Values.DefaultIfEmpty(0).Max();
-
-                // flip so sources (inputs) are on left
-                var layers = sinkLayers.ToDictionary(kv => kv.Key, kv => maxSinkLayer - kv.Value);
-
-                // Adjust true sink components to the next layer after their parents
-                var sinkIds = components.Select(c => c.InstanceGuid.ToString()).ToHashSet();
-                var fromIds = connections.Select(c => c.From.ComponentId.ToString()).ToHashSet();
-                var trueSinkIds = sinkIds.Except(fromIds);
-                foreach (var sinkId in trueSinkIds)
+                if (visited.Contains(node.ComponentId)) continue;
+                var stack = new Stack<Guid>();
+                stack.Push(node.ComponentId);
+                visited.Add(node.ComponentId);
+                var island = new List<NodeGridComponent>();
+                while (stack.Count > 0)
                 {
-                    var parentLayers = connections
-                        .Where(c => c.To.ComponentId.ToString() == sinkId)
-                        .Select(c => layers[c.From.ComponentId.ToString()]);
-                    var baseLayer = parentLayers.DefaultIfEmpty(0).Max();
-                    layers[sinkId] = baseLayer + 1;
-                }
-
-                // group nodes by new layer and init ordering by barycenter heuristic
-                var parentsMap = graph.Invert();
-                var layerNodes = new Dictionary<int, List<string>>();
-                var layerKeys = layers.Values.Distinct().OrderBy(i => i);
-                foreach (var li in layerKeys)
-                {
-                    var nodesInLayer = layers.Where(kv => kv.Value == li).Select(kv => kv.Key).ToList();
-                    List<string> sorted;
-                    if (li == 0)
-                        sorted = nodesInLayer.OrderBy(n => topo.IndexOf(n)).ToList();
-                    else
+                    var id = stack.Pop();
+                    var n = idToNode[id];
+                    island.Add(n);
+                    foreach (var neighbor in n.Children.Keys.Concat(n.Parents.Keys))
                     {
-                        var prev = layerNodes[li - 1];
-                        sorted = nodesInLayer
-                            .Select(n => new { key = n, bary = parentsMap[n]
-                                .Where(p => layers[p] == li - 1)
-                                .Select(p => prev.IndexOf(p))
-                                .DefaultIfEmpty(topo.IndexOf(n))
-                                .Average() })
-                            .OrderBy(x => x.bary)
-                            .Select(x => x.key)
-                            .ToList();
-                    }
-                    // Must-stay-together: group phantom nodes of same component
-                    var grouped = new List<string>();
-                    var addedComps = new HashSet<string>();
-                    foreach (var k in sorted)
-                    {
-                        if (k.Contains(':'))
+                        if (!visited.Contains(neighbor) && idToNode.ContainsKey(neighbor))
                         {
-                            var compId = k.Split(':')[0];
-                            if (!addedComps.Contains(compId))
-                            {
-                                var group = sorted.Where(x => x.StartsWith(compId + ":")).ToList();
-                                grouped.AddRange(group);
-                                addedComps.Add(compId);
-                            }
-                        }
-                        else grouped.Add(k);
-                    }
-                    layerNodes[li] = grouped;
-                }
-
-                // refine crossing order
-                RefineLayerOrders(layerNodes, graph, parentsMap, topo);
-
-                // DEBUG: show all layers before collapse
-                foreach (var kv in layerNodes)
-                    Debug.WriteLine($"[CreateComponentGrid] Layer {kv.Key} nodes: {string.Join(", ", kv.Value)}; realCount={kv.Value.Count(n => !phantomMap.Values.Contains(n))}");
-
-                // collapse empty layers keeping only layers with real components
-                var realLayers = layerNodes
-                    .Where(kv => kv.Value.Any(k => !phantomMap.Values.Contains(k)))
-                    .OrderBy(kv => kv.Key)
-                    .Select(kv => kv.Key)
-                    .ToList();
-                Debug.WriteLine($"[CreateComponentGrid] RealLayers after collapse: {string.Join(", ", realLayers)}");
-
-                // Calculate dynamic column offsets based on component widths
-                var columnOffsets = new Dictionary<int, float>();
-                float cumulativeX = 0f;
-                for (int idx = 0; idx < realLayers.Count; idx++)
-                {
-                    var layerKey = realLayers[idx];
-                    var compIds = layerNodes[layerKey].Where(k => !phantomMap.Values.Contains(k)).ToList();
-                    float maxWidth = compIds.Select(k =>
-                    {
-                        if (Guid.TryParse(k, out var id))
-                        {
-                            var bounds = GHComponentUtils.GetComponentBounds(id);
-                            return bounds.Width;
-                        }
-                        return 0f;
-                    }).DefaultIfEmpty(0f).Max();
-                    columnOffsets[idx] = cumulativeX;
-                    cumulativeX += maxWidth + spacingX;
-                }
-
-                // 4. Assign positions for real components with cascade-based fractional rows
-                var nextFree = new Dictionary<int, float>();
-                var rowIndices = new Dictionary<string, float>();
-                var originalOrder = components.Select((c, i) => new { key = c.InstanceGuid.ToString(), index = i })
-                                              .ToDictionary(x => x.key, x => x.index);
-                for (int li = 0; li < realLayers.Count; li++)
-                {
-                    var oldLayer = realLayers[li];
-                    var compLayer = layerNodes[oldLayer].Where(k => !phantomMap.Values.Contains(k)).ToList();
-                    foreach (var key in compLayer)
-                    {
-                        var comp = components.First(c => c.InstanceGuid.ToString() == key);
-                        try
-                        {
-                            float rowVal;
-                            if (li > 0 && connections.Any(c => c.To.ComponentId.ToString() == key))
-                            {
-                                var parentRows = connections
-                                    .Where(c => c.To.ComponentId.ToString() == key)
-                                    .Select(conn => conn.From.ComponentId.ToString())
-                                    .Where(id => rowIndices.ContainsKey(id))
-                                    .Select(id => rowIndices[id])
-                                    .Distinct()
-                                    .ToList();
-                                rowVal = parentRows.Any() ? parentRows.Average() : nextFree.GetValueOrDefault(li, 0f);
-                            }
-                            else
-                            {
-                                rowVal = nextFree.GetValueOrDefault(li, 0f);
-                            }
-                            var floor = nextFree.GetValueOrDefault(li, 0f);
-                            if (rowVal < floor) rowVal = floor;
-                            rowIndices[key] = rowVal;
-                            nextFree[li] = rowVal + 1f;
-                            grid[key] = UnifyCenterPivot(Guid.Parse(key), new PointF(columnOffsets[li], rowVal * spacingY));
-                            Debug.WriteLine($"[CreateComponentGrid] {comp.Name} ({key}) at layer={li}, row={rowVal}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[CreateComponentGrid] Layout failed for {comp.Name} ({key}): {ex.Message}, applying fallback for component");
-                            int fallbackIndex = originalOrder[key];
-                            grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(0f, fallbackIndex * spacingY));
+                            visited.Add(neighbor);
+                            stack.Push(neighbor);
                         }
                     }
                 }
+                islands.Add(island);
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[CreateComponentGrid] Layout failed: {ex.Message}, applying fallback");
-
-                // Fallback: linear layout by original components order
-                int r = 0;
-                foreach (var comp in components)
-                {
-                    var key = comp.InstanceGuid.ToString();
-                    grid[key] = UnifyCenterPivot(comp.InstanceGuid, new PointF(0f, r * spacingY));
-                    Debug.WriteLine($"[CreateComponentGrid] Fallback {comp.Name} ({key}) at row={r}");
-                    r++;
-                }
-            }
-
-            // stack islands vertically
-            var undirected = graph.ToDictionary(
-                kv => kv.Key,
-                kv => kv.Value.Concat(graph.Where(x => x.Value.Contains(kv.Key)).Select(x => x.Key)).ToList()
-            );
-            var visited = new HashSet<string>();
-            var islands = new List<List<string>>();
-            foreach (var node in graph.Keys)
-            {
-                if (visited.Contains(node)) continue;
-                var queue = new Queue<string>();
-                queue.Enqueue(node);
-                visited.Add(node);
-                var comp = new List<string>();
-                while (queue.Count > 0)
-                {
-                    var n = queue.Dequeue();
-                    comp.Add(n);
-                    foreach (var neigh in undirected[n])
-                        if (!visited.Contains(neigh))
-                        {
-                            visited.Add(neigh);
-                            queue.Enqueue(neigh);
-                        }
-                }
-                islands.Add(comp);
-            }
-            // compute vertical stacking
-            float islandOffsetY = islandSpacingY;
-            float marginY = spacingY;
-            var stackedGrid = new Dictionary<string, PointF>();
+            Debug.WriteLine($"[CreateComponentGrid] Found {islands.Count} islands");
+            // Layout each island and stack vertically
+            var result = new List<NodeGridComponent>();
+            float currentYOffset = 0f;
             foreach (var island in islands)
             {
-                var ys = island.Where(k => grid.ContainsKey(k)).Select(k => grid[k].Y);
-                float minY = ys.DefaultIfEmpty(0f).Min();
-                float shift = islandOffsetY - minY;
-                foreach (var key in island)
-                    if (grid.TryGetValue(key, out var pt))
-                        stackedGrid[key] = new PointF(pt.X, pt.Y + shift);
-                float maxY = stackedGrid.Where(kv => island.Contains(kv.Key)).Select(kv => kv.Value.Y).DefaultIfEmpty(0f).Max();
-                islandOffsetY = maxY + marginY;
+                // independent layout
+                var sub = SugiyamaAlgorithm(new List<NodeGridComponent>(island));
+                sub = ApplySpacing(sub, spacingX, spacingY);
+                // offset Y by accumulated island offset
+                foreach (var n in sub)
+                    n.Pivot = new PointF(n.Pivot.X, n.Pivot.Y + currentYOffset);
+                result.AddRange(sub);
+                // update offset for next island
+                var maxY = sub.Max(n => n.Pivot.Y);
+                currentYOffset = maxY + islandSpacingY;
             }
-            grid = stackedGrid;
 
-            // convert string keys to Guid and return
-            var result = new Dictionary<Guid, PointF>();
-            foreach (var kv in grid)
+            result = AlignParentsAndChildren(result, spacingY);
+            DebugDumpGrid("After AlignParentsAndChildren", result);
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Initializes grid nodes.
+        /// </summary>
+        /// <param name="doc">The Grasshopper document containing components and connections.</param>
+        private static List<NodeGridComponent> InitializeGrid(GrasshopperDocument doc)
+        {
+            var grid = doc.Components.Select(c => new NodeGridComponent
             {
-                if (Guid.TryParse(kv.Key, out var id))
+                ComponentId = c.InstanceGuid,
+                Pivot = c.Pivot,
+                Parents = new Dictionary<Guid, int>(),
+                Children = new Dictionary<Guid, int>()
+            }).ToList();
+
+            foreach (var conn in doc.Connections)
+            {
+                if (grid.Any(n => n.ComponentId == conn.To.ComponentId) && grid.Any(n => n.ComponentId == conn.From.ComponentId))
                 {
-                    result[id] = kv.Value;
+                    var toNode = grid.First(n => n.ComponentId == conn.To.ComponentId);
+                    var fromNode = grid.First(n => n.ComponentId == conn.From.ComponentId);
+                    // compute input parameter index on child
+                    int inputIndex = -1;
+                    if (GHCanvasUtils.FindInstance(toNode.ComponentId) is IGH_Component childComp)
+                    {
+                        var inputs = GHParameterUtils.GetAllInputs(childComp);
+                        inputIndex = inputs.FindIndex(p => p.Name == conn.To.ParamName);
+                    }
+                    toNode.Parents[conn.From.ComponentId] = inputIndex;
+                    // compute output parameter index on parent
+                    int outputIndex = -1;
+                    if (GHCanvasUtils.FindInstance(fromNode.ComponentId) is IGH_Component parentComp)
+                    {
+                        var outputs = GHParameterUtils.GetAllOutputs(parentComp);
+                        outputIndex = outputs.FindIndex(p => p.Name == conn.From.ParamName);
+                    }
+                    fromNode.Children[conn.To.ComponentId] = outputIndex;
                 }
             }
 
-            return result;*/
-
-            #endregion
-
+            return grid;
         }
 
-        // Topological sort with debug
-        private static List<string> TopologicalSort(Dictionary<string, List<string>> graph)
+        private static List<NodeGridComponent> SugiyamaAlgorithm(List<NodeGridComponent> grid)
         {
-            var sorted = new List<string>();
-            var visited = new HashSet<string>();
-            var temp = new HashSet<string>();
-            foreach (var node in graph.Keys)
-            {
-                if (!visited.Contains(node))
-                {
-                    Visit(node, graph, visited, temp, sorted);
-                }
-            }
+            Debug.WriteLine($"[SugiyamaAlgorithm] Step 1: Compute layers");
+            grid = Sugiyama01_ComputeLayers(grid);
+            DebugDumpGrid("After ComputeLayers", grid);
 
-            sorted.Reverse();
-            Debug.WriteLine($"[TopologicalSort] Sorted: {string.Join(" -> ", sorted)}");
-            return sorted;
+            Debug.WriteLine($"[SugiyamaAlgorithm] Step 2: Edge concentration");
+            grid = Sugiyama02_EdgeConcentration(grid);
+            DebugDumpGrid("After EdgeConcentration", grid);
+
+            Debug.WriteLine($"[SugiyamaAlgorithm] Step 3: Compute rows");
+            grid = Sugiyama03_ComputeRows(grid);
+            DebugDumpGrid("After ComputeRows", grid);
+
+            Debug.WriteLine($"[SugiyamaAlgorithm] Step 4: Minimize edge crossings");
+            grid = Sugiyama04_MinimizeEdgeCrossings(grid);
+            DebugDumpGrid("After MinimizeEdgeCrossings", grid);
+
+            Debug.WriteLine($"[SugiyamaAlgorithm] Step 5: Multi-layer sweep");
+            grid = Sugiyama05_MultiLayerSweep(grid);
+            DebugDumpGrid("After MultiLayerSweep", grid);
+            
+            return grid;
         }
 
-        // DFS visit
-        private static void Visit(string node, Dictionary<string, List<string>> graph, HashSet<string> visited, HashSet<string> temp, List<string> sorted)
+        private static List<NodeGridComponent> Sugiyama01_ComputeLayers(List<NodeGridComponent> grid)
         {
-            Debug.WriteLine($"[Visit] Visiting node {node}");
-            if (temp.Contains(node))
-            {
-                Debug.WriteLine("[Visit] Cyclic dependency detected");
-                throw new Exception("Cyclic dependency detected");
-            }
-            if (!visited.Contains(node))
-            {
-                temp.Add(node);
-                foreach (var child in graph[node]) Visit(child, graph, visited, temp, sorted);
-                temp.Remove(node);
-                visited.Add(node);
-                sorted.Add(node);
-            }
-        }
-
-        // Compute layers: sink nodes = 0
-        private static Dictionary<string, int> ComputeLayers(Dictionary<string, List<string>> graph)
-        {
-            var layers = new Dictionary<string, int>();
-            int Dfs(string n)
+            var graph = grid.ToDictionary(n => n.ComponentId, n => n.Children);
+            var layers = new Dictionary<Guid, int>();
+            int Dfs(Guid n)
             {
                 if (layers.TryGetValue(n, out var v)) return v;
                 var children = graph[n];
-                var layer = children.Count == 0 ? 0 : children.Select(Dfs).Max() + 1;
+                var layer = children.Count == 0 ? 0 : children.Select(child => Dfs(child.Key)).Max() + 1;
                 layers[n] = layer;
                 return layer;
             }
             foreach (var n in graph.Keys) Dfs(n);
-            return layers;
+            var maxLayer = layers.Values.DefaultIfEmpty(0).Max();
+            foreach (var n in grid)
+                if (layers.TryGetValue(n.ComponentId, out var layer))
+                    n.Pivot = new PointF(maxLayer - layer, n.Pivot.Y);
+            return grid;
         }
 
-        // Invert graph: child -> [parents]
-        private static Dictionary<string, List<string>> Invert(this Dictionary<string, List<string>> graph)
+        private static List<NodeGridComponent> Sugiyama02_EdgeConcentration(List<NodeGridComponent> grid)
         {
-            var inv = graph.Keys.ToDictionary(k => k, k => new List<string>());
-            foreach (var kv in graph)
-                foreach (var child in kv.Value)
-                    inv[child].Add(kv.Key);
-            return inv;
+            var newGrid = new List<NodeGridComponent>(grid);
+            // group nodes by layer key (float Pivot.X)
+            var byLayer = grid.GroupBy(n => n.Pivot.X).OrderBy(g => g.Key).ToList();
+            for (int li = 0; li < byLayer.Count - 1; li++)
+            {
+                var left = byLayer[li].ToList();
+                var rightIds = new HashSet<Guid>(byLayer[li + 1].Select(n => n.ComponentId));
+                // group left nodes by identical set of targets in next layer
+                var groups = left.Select(n => new { Node = n,
+                                        Targets = n.Children.Keys.Where(id => rightIds.Contains(id)).OrderBy(id => id).ToList() })
+                                .GroupBy(x => string.Join(",", x.Targets))
+                                .Where(g => g.Count() > 1 && g.First().Targets.Count > 1);
+                foreach (var grp in groups)
+                {
+                    var S = grp.Select(x => x.Node).ToList();
+                    var T = grp.First().Targets;
+                    // create edge-concentration node
+                    var ec = new NodeGridComponent
+                    {
+                        ComponentId = Guid.NewGuid(),
+                        Pivot = new PointF(left[0].Pivot.X + 0.5f, 0),
+                        Parents = new Dictionary<Guid, int>(),
+                        Children = new Dictionary<Guid, int>()
+                    };
+                    // remove original edges S->T
+                    foreach (var s in S)
+                        foreach (var t in T)
+                            s.Children.Remove(t);
+                    foreach (var t in newGrid.Where(n => T.Contains(n.ComponentId)))
+                        foreach (var s in S)
+                            t.Parents.Remove(s.ComponentId);
+                    // add stars: S->ec and ec->T
+                    foreach (var s in S)
+                    {
+                        s.Children[ec.ComponentId] = -1;
+                        ec.Parents[s.ComponentId] = -1;
+                    }
+                    foreach (var t in newGrid.Where(n => T.Contains(n.ComponentId)))
+                    {
+                        t.Parents[ec.ComponentId] = -1;
+                        ec.Children[t.ComponentId] = -1;
+                    }
+                    newGrid.Add(ec);
+                }
+            }
+            return newGrid;
         }
 
-        // Refine orders to reduce crossings
-        private static void RefineLayerOrders(
-            Dictionary<int, List<string>> layerNodes,
-            Dictionary<string, List<string>> childrenMap,
-            Dictionary<string, List<string>> parentsMap,
-            List<string> topo)
+        private static List<NodeGridComponent> Sugiyama03_ComputeRows(List<NodeGridComponent> grid)
         {
-            int maxL = layerNodes.Keys.Max();
+            var byLayer = grid.GroupBy(n => (int)n.Pivot.X).OrderBy(g => g.Key).ToList();
+            // Top-down pass: initial ordering by output indices and barycenter
+            for (int layerIndex = 0; layerIndex < byLayer.Count; layerIndex++)
+            {
+                var currentLayer = byLayer[layerIndex].ToList();
+                if (layerIndex == 0)
+                {
+                    // Sort sources by average output parameter index
+                    currentLayer.Sort((a, b) =>
+                    {
+                        float aOut = a.Children.Any() ? (float)a.Children.Values.Average() : float.MaxValue;
+                        float bOut = b.Children.Any() ? (float)b.Children.Values.Average() : float.MaxValue;
+                        return aOut.CompareTo(bOut);
+                    });
+                }
+                else
+                {
+                    SortLayerByBarycenter(currentLayer, byLayer[layerIndex - 1].ToList(), useParents: false);
+                }
+                // Assign row positions
+                for (int i = 0; i < currentLayer.Count; i++)
+                    currentLayer[i].Pivot = new PointF(currentLayer[i].Pivot.X, i);
+            }
+            // Bottom-up pass: refine ordering by parent barycenter
+            for (int layerIndex = byLayer.Count - 2; layerIndex >= 0; layerIndex--)
+            {
+                var currentLayer = byLayer[layerIndex].ToList();
+                SortLayerByBarycenter(currentLayer, byLayer[layerIndex + 1].ToList(), useParents: true);
+                for (int i = 0; i < currentLayer.Count; i++)
+                    currentLayer[i].Pivot = new PointF(currentLayer[i].Pivot.X, i);
+            }
+            return grid;
+        }
 
-            // forward sweep
-            for (int l = 1; l <= maxL; l++)
+        // Sorts a layer based on barycenter relative to nodes in adjacent layer
+        private static void SortLayerByBarycenter(List<NodeGridComponent> currentLayer,
+            List<NodeGridComponent> adjacentLayer, bool useParents)
+        {
+            currentLayer.Sort((a, b) =>
             {
-                var prev = layerNodes[l - 1];
-                layerNodes[l] = layerNodes[l]
-                    .OrderBy(k =>
-                    {
-                        var idxs = parentsMap[k]
-                            .Where(prev.Contains)
-                            .Select(p => prev.IndexOf(p))
-                            .OrderBy(i => i)
-                            .ToList();
-                        if (!idxs.Any()) return double.MaxValue;
-                        var m = idxs.Count % 2 == 1 ? idxs[idxs.Count / 2] : (idxs[idxs.Count/2 - 1] + idxs[idxs.Count/2]) / 2.0;
-                        Debug.WriteLine($"[Refine forward] layer {l} {k} median {m}");
-                        return m;
-                    }).ToList();
-            }
-            // reverse sweep
-            for (int l = maxL - 1; l >= 0; l--)
+                float aKey = CalculateBarycenter(a, adjacentLayer, useParents);
+                float bKey = CalculateBarycenter(b, adjacentLayer, useParents);
+                return aKey.CompareTo(bKey);
+            });
+        }
+
+        // Calculates average Y position of connections to adjacent layer
+        private static float CalculateBarycenter(NodeGridComponent node,
+            List<NodeGridComponent> adjacentLayer, bool useParents)
+        {
+            var connected = useParents ? node.Parents.Keys : node.Children.Keys;
+            var positions = new List<float>();
+            foreach (var id in connected)
             {
-                var next = layerNodes[l + 1];
-                layerNodes[l] = layerNodes[l]
-                    .OrderBy(k =>
-                    {
-                        var idxs = childrenMap[k]
-                            .Where(next.Contains)
-                            .Select(c => next.IndexOf(c))
-                            .OrderBy(i => i)
-                            .ToList();
-                        if (!idxs.Any()) return double.MaxValue;
-                        var m = idxs.Count % 2 == 1 ? idxs[idxs.Count/2] : (idxs[idxs.Count/2 - 1] + idxs[idxs.Count/2]) / 2.0;
-                        Debug.WriteLine($"[Refine reverse] layer {l} {k} median {m}");
-                        return m;
-                    }).ToList();
+                var found = adjacentLayer.FirstOrDefault(n => n.ComponentId == id);
+                if (found != null) positions.Add(found.Pivot.Y);
             }
+            return positions.Any() ? (float)positions.Average() : float.MaxValue;
+        }
+
+        /// <summary>
+        /// Reduces edge crossings by applying a median heuristic to reorder nodes within each layer.
+        /// </summary>
+        /// <param name="grid">Grid of node components with layer assignments and initial ordering.</param>
+        /// <returns>Grid with updated node ordering to minimize edge crossings.</returns>
+        private static List<NodeGridComponent> Sugiyama04_MinimizeEdgeCrossings(List<NodeGridComponent> grid)
+        {
+            var byLayer = grid.GroupBy(n => (int)n.Pivot.X)
+                               .OrderBy(g => g.Key)
+                               .Select(g => g.ToList())
+                               .ToList();
+            // Top-down pass: reorder by median parent positions
+            for (int layerIndex = 1; layerIndex < byLayer.Count; layerIndex++)
+            {
+                var prevLayer = byLayer[layerIndex - 1];
+                var currLayer = byLayer[layerIndex];
+                currLayer.Sort((a, b) => CalculateMedian(a, prevLayer, useParents: true)
+                                      .CompareTo(CalculateMedian(b, prevLayer, useParents: true)));
+                for (int i = 0; i < currLayer.Count; i++)
+                    currLayer[i].Pivot = new PointF(currLayer[i].Pivot.X, i);
+            }
+            // Bottom-up pass: reorder by median child positions
+            for (int layerIndex = byLayer.Count - 2; layerIndex >= 0; layerIndex--)
+            {
+                var nextLayer = byLayer[layerIndex + 1];
+                var currLayer = byLayer[layerIndex];
+                currLayer.Sort((a, b) => CalculateMedian(a, nextLayer, useParents: false)
+                                      .CompareTo(CalculateMedian(b, nextLayer, useParents: false)));
+                for (int i = 0; i < currLayer.Count; i++)
+                    currLayer[i].Pivot = new PointF(currLayer[i].Pivot.X, i);
+            }
+            return grid;
+        }
+
+        /// <summary>
+        /// Calculates the median position of adjacent nodes in a given layer.
+        /// </summary>
+        /// <param name="node">The node to calculate the median for.</param>
+        /// <param name="adjacentLayer">Nodes in the adjacent layer.</param>
+        /// <param name="useParents">If true, use parent connections; otherwise, use child connections.</param>
+        /// <returns>Median Y position of connected nodes, or float.MaxValue if no connections.</returns>
+        private static float CalculateMedian(NodeGridComponent node, List<NodeGridComponent> adjacentLayer, bool useParents)
+        {
+            var connected = useParents ? node.Parents.Keys : node.Children.Keys;
+            var positions = new List<float>();
+            foreach (var id in connected)
+            {
+                var found = adjacentLayer.FirstOrDefault(n => n.ComponentId == id);
+                if (found != null)
+                    positions.Add(found.Pivot.Y);
+            }
+            if (!positions.Any())
+                return float.MaxValue;
+            positions.Sort();
+            int mid = positions.Count / 2;
+            if (positions.Count % 2 == 1)
+                return positions[mid];
+            return (positions[mid - 1] + positions[mid]) / 2f;
+        }
+
+        /// <summary>
+        /// Repeatedly applies one-pass crossing minimization until node ordering stabilizes across layers.
+        /// </summary>
+        /// <param name="grid">Grid of node components ordered by layer and initial row positions.</param>
+        /// <returns>Grid with stable ordering after iterative crossing minimization.</returns>
+        private static List<NodeGridComponent> Sugiyama05_MultiLayerSweep(List<NodeGridComponent> grid)
+        {
+            bool changed;
+            do
+            {
+                // Snapshot current row positions
+                var oldY = grid.ToDictionary(n => n.ComponentId, n => n.Pivot.Y);
+                // One-pass median crossing minimization
+                grid = Sugiyama04_MinimizeEdgeCrossings(grid);
+                // Check if any ordering changed
+                changed = grid.Any(n => n.Pivot.Y != oldY[n.ComponentId]);
+
+                Debug.WriteLine($"[Sugiyama05_MultiLayerSweep] Changing pivot for {grid.Count(n => n.Pivot.Y != oldY[n.ComponentId])} nodes");
+            } while (changed);
+            return grid;
+        }
+
+        /// <summary>
+        /// Scales pivots by spacing and offsets positions based on component size.
+        /// </summary>
+        /// <param name="grid">Grid of node components.</param>
+        /// <param name="spacingX">Horizontal spacing.</param>
+        /// <param name="spacingY">Vertical spacing.</param>
+        /// <returns>List of positioned node grid components.</returns>
+        private static List<NodeGridComponent> ApplySpacing(List<NodeGridComponent> grid, float spacingX, float spacingY)
+        {
+            // Scale pivots by spacing
+            foreach (var n in grid)
+                n.Pivot = new PointF(n.Pivot.X * spacingX, n.Pivot.Y * spacingY);
+
+            // Compute column offsets based on component widths
+            var columns = grid.GroupBy(n => (int)(n.Pivot.X / spacingX)).OrderBy(g => g.Key);
+            var colOffsets = new Dictionary<int, float>();
+            float xOffset = 0;
+            foreach (var group in columns)
+            {
+                float maxWidth = group.Max(n => GHComponentUtils.GetComponentBounds(n.ComponentId).Width);
+                colOffsets[group.Key] = xOffset;
+                xOffset += maxWidth + spacingX;
+            }
+
+            // Compute row offsets based on component heights
+            var rows = grid.GroupBy(n => (int)(n.Pivot.Y / spacingY)).OrderBy(g => g.Key);
+            var rowOffsets = new Dictionary<int, float>();
+            float yOffset = 0;
+            foreach (var group in rows)
+            {
+                float maxHeight = group.Max(n => GHComponentUtils.GetComponentBounds(n.ComponentId).Height);
+                rowOffsets[group.Key] = yOffset;
+                yOffset += maxHeight + spacingY;
+            }
+
+            // Apply final positions
+            foreach (var n in grid)
+            {
+                int col = (int)(n.Pivot.X / spacingX);
+                int row = (int)(n.Pivot.Y / spacingY);
+                n.Pivot = new PointF(colOffsets[col], rowOffsets[row]);
+            }
+            return grid;
+        }
+
+        /// <summary>
+        /// Aligns parent components belonging to the same single child into a contiguous block above the child.
+        /// </summary>
+        /// <param name="grid">The positioned grid of node components.</param>
+        /// <param name="spacingY">Vertical spacing between original grid rows.</param>
+        private static List<NodeGridComponent> AlignParentsAndChildren(List<NodeGridComponent> grid, float spacingY)
+        {
+            spacingY = spacingY / 2;
+            
+            Debug.WriteLine($"[AlignParentsAndChildren] Starting alignment with spacingY={spacingY}");
+            // Group nodes by actual X position (columns)
+            var byColumn = grid.GroupBy(n => n.Pivot.X)
+                                .OrderBy(g => g.Key)
+                                .Select(g => g.ToList())
+                                .ToList();
+            // For each layer beyond the first, align parents above each child
+            for (int i = 1; i < byColumn.Count; i++)
+            {
+                Debug.WriteLine($"[AlignParentsAndChildren] Processing column {i}, X={byColumn[i].First().Pivot.X}");
+                var prevCol = byColumn[i - 1];
+                var currCol = byColumn[i];
+                foreach (var child in currCol)
+                {
+                    Debug.WriteLine($"[AlignParentsAndChildren] Child {child.ComponentId} at Y={child.Pivot.Y}");
+                    // all parents connecting to this child
+                    var parents = prevCol.Where(p => p.Children.ContainsKey(child.ComponentId)).ToList();
+                    if (parents.Count <= 1) continue;
+                    Debug.WriteLine($"[AlignParentsAndChildren] Found {parents.Count} parents for child {child.ComponentId}: {string.Join(",", parents.Select(p => p.ComponentId))}");
+                    // sort parents top-to-bottom and center group over child
+                    var orderedParents = parents.OrderBy(p => p.Pivot.Y).ToList();
+                    // compute total group height including margins between parents
+                    var heights = orderedParents.Select(p => GHComponentUtils.GetComponentBounds(p.ComponentId).Height).ToList();
+                    float totalHeight = heights.Sum() + spacingY * (orderedParents.Count - 1);
+                    // compute child center Y
+                    var childBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
+                    float childCenterY = child.Pivot.Y + childBounds.Height / 2f;
+                    // position group such that its center aligns with child center
+                    float groupTop = childCenterY - totalHeight / 2f;
+                    Debug.WriteLine($"[AlignParentsAndChildren] Parent group height={totalHeight}, childCenterY={childCenterY}, groupTop={groupTop}");
+                    float yCursor = groupTop;
+                    foreach (var p in orderedParents)
+                    {
+                        var oldY = p.Pivot.Y;
+                        var bounds = GHComponentUtils.GetComponentBounds(p.ComponentId);
+                        p.Pivot = new PointF(p.Pivot.X, yCursor);
+                        Debug.WriteLine($"[AlignParentsAndChildren] Moving parent {p.ComponentId} from Y={oldY} to Y={yCursor}");
+                        yCursor += bounds.Height + spacingY;
+                    }
+                }
+            }
+            return grid;
+        }
+
+        /// <summary>
+        /// Dumps the grid: component IDs and pivot positions.
+        /// </summary>
+        /// <param name="stage">Identifier for dump stage.</param>
+        /// <param name="grid">List of NodeGridComponent to dump.</param>
+        private static void DebugDumpGrid(string stage, List<NodeGridComponent> grid)
+        {
+            Debug.WriteLine($"[DebugDumpGrid:{stage}] Dumping {grid.Count} nodes");
+            foreach (var n in grid)
+                Debug.WriteLine($"[DebugDumpGrid:{stage}] {n.ComponentId} => Pivot=({n.Pivot.X},{n.Pivot.Y})");
         }
 
         // Helper to unify pivot origin: params use top-left by default, center-align for grid
@@ -487,339 +503,13 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 var bounds = GHComponentUtils.GetComponentBounds(id);
                 if (!bounds.IsEmpty)
                 {
-                    pivot = new PointF(pivot.X - bounds.Width / 2f, pivot.Y - bounds.Height / 2f);
+                    pivot = new PointF(
+                        pivot.X - bounds.Width / 2f,
+                        pivot.Y - bounds.Height / 2f
+                        );
                 }
             }
             return pivot;
         }
-
-        #region CreateComponentGrid Helper Methods
-
-        /// <summary>
-        /// If all components have valid non-zero pivots (and force==false),
-        /// normalize them to the top-left origin and return that map.
-        /// Otherwise returns null to signal a full layout pass.
-        /// </summary>
-        private static Dictionary<Guid, PointF> TryUseOriginalPivots(
-            IEnumerable<ComponentProperties> components,
-            bool force)
-        {
-            bool IsEmpty(PointF pt) => pt.X == 0 && pt.Y == 0;
-            if (force || components.Any(c => IsEmpty(c.Pivot)))
-                return null;
-
-            float minX = components.Min(c => c.Pivot.X);
-            float minY = components.Min(c => c.Pivot.Y);
-            return components.ToDictionary(
-                c => c.InstanceGuid,
-                c => UnifyCenterPivot(c.InstanceGuid, new PointF(c.Pivot.X - minX, c.Pivot.Y - minY))
-            );
-        }
-
-        /// <summary>
-        /// Builds a map: component-ID → list of its input-port names in GH parameter order.
-        /// </summary>
-        private static Dictionary<string, List<string>> BuildInputOrder(
-            IEnumerable<ComponentProperties> components)
-        {
-            var inputOrder = new Dictionary<string, List<string>>();
-            foreach (var cp in components)
-            {
-                var proxy = GHObjectFactory.FindProxy(cp.ComponentGuid, cp.Name);
-                var ghComp = GHObjectFactory.CreateInstance(proxy) as IGH_Component;
-                var names = ghComp != null
-                    ? GHParameterUtils.GetAllInputs(ghComp).Select(p => p.Name).ToList()
-                    : new List<string>();
-                inputOrder[cp.InstanceGuid.ToString()] = names;
-            }
-            return inputOrder;
-        }
-
-        /// <summary>
-        /// Expands the graph by creating a phantom node for each component:port,
-        /// wiring source→phantom and phantom→component edges.
-        /// </summary>
-        private static (Dictionary<string,List<string>> graph,
-                    Dictionary<(string comp,string port),string> phantomMap)
-        ExpandGraph(
-            IEnumerable<ComponentProperties> components,
-            IEnumerable<ConnectionPairing> connections,
-            Dictionary<string,List<string>> inputOrder)
-        {
-            var graph = components.ToDictionary(
-                c => c.InstanceGuid.ToString(),
-                c => new List<string>());
-
-            var phantomMap = new Dictionary<(string, string), string>();
-            foreach (var grp in connections.GroupBy(c => c.To.ComponentId.ToString()))
-            {
-                var dst = grp.Key;
-                var ports = inputOrder.ContainsKey(dst)
-                    ? inputOrder[dst]
-                    : grp.Select(c => c.To.ParamName).Distinct().ToList();
-                foreach (var port in ports)
-                {
-                    var pid = $"{dst}:{port}";
-                    phantomMap[(dst, port)] = pid;
-                    // edge: phantom node -> component
-                    graph[pid] = new List<string> { dst };
-                    // edges: each source -> phantom node
-                    foreach (var c in grp.Where(c => c.To.ParamName == port))
-                    {
-                        var src = c.From.ComponentId.ToString();
-                        graph[src].Add(pid);
-                    }
-                }
-            }
-            return (graph, phantomMap);
-        }
-
-        /// <summary>
-        /// Runs TopologicalSort, ComputeLayers, applies barycenter ordering + phantom grouping,
-        /// calls RefineLayerOrders, then collapses phantom-only layers.
-        /// </summary>
-        private static Dictionary<int,List<string>> ComputeLayerNodes(
-            Dictionary<string,List<string>> graph,
-            IEnumerable<ConnectionPairing> connections,
-            Dictionary<string,List<string>> inputOrder,
-            Dictionary<(string comp,string port),string> phantomMap)
-        {
-            Debug.WriteLine("[ComputeLayerNodes] Starting topo sort");
-            var topo = TopologicalSort(graph);
-            Debug.WriteLine($"[ComputeLayerNodes] Topo order: {string.Join(" -> ", topo)}");
-
-            // compute sink-based layers
-            var sinkLayers = ComputeLayers(graph);
-            var maxSinkLayer = sinkLayers.Values.DefaultIfEmpty(0).Max();
-
-            // flip so sources on left
-            var layers = sinkLayers.ToDictionary(kv => kv.Key, kv => maxSinkLayer - kv.Value);
-
-            // adjust true sinks
-            var sinkIds = graph.Keys.Except(phantomMap.Values).ToHashSet();
-            var fromIds = connections.Select(c => c.From.ComponentId.ToString()).ToHashSet();
-            var trueSinkIds = sinkIds.Except(fromIds);
-            foreach (var sinkId in trueSinkIds)
-            {
-                var parentLayers = connections
-                    .Where(c => c.To.ComponentId.ToString() == sinkId)
-                    .Select(c => layers[c.From.ComponentId.ToString()]);
-                var baseLayer = parentLayers.DefaultIfEmpty(0).Max();
-                layers[sinkId] = baseLayer + 1;
-            }
-
-            // initial ordering with barycenter + phantom grouping
-            var parentsMap = graph.Invert();
-            var layerNodes = new Dictionary<int,List<string>>();
-            var layerKeys = layers.Values.Distinct().OrderBy(i => i);
-            foreach (var li in layerKeys)
-            {
-                var nodesInLayer = layers.Where(kv => kv.Value == li).Select(kv => kv.Key).ToList();
-                List<string> sorted;
-                if (li == 0)
-                    sorted = nodesInLayer;
-                else
-                {
-                    var prev = layerNodes[li - 1];
-                    sorted = nodesInLayer
-                        .Select(n => new
-                        {
-                            key = n,
-                            bary = parentsMap[n]
-                                .Where(p => layers[p] == li - 1)
-                                .Select(p => prev.IndexOf(p))
-                                .DefaultIfEmpty(topo.IndexOf(n))
-                                .Average(),
-                        })
-                        .OrderBy(x => x.bary)
-                        .Select(x => x.key)
-                        .ToList();
-                }
-
-                // must-stay-together grouping
-                var grouped = new List<string>();
-                var addedComps = new HashSet<string>();
-                foreach (var k in sorted)
-                {
-                    if (k.Contains(':'))
-                    {
-                        var compId = k.Split(':')[0];
-                        if (!addedComps.Contains(compId))
-                        {
-                            var groupNodes = sorted.Where(x => x.StartsWith(compId + ":")).ToList();
-                            grouped.AddRange(groupNodes);
-                            addedComps.Add(compId);
-                        }
-                    }
-                    else grouped.Add(k);
-                }
-                layerNodes[li] = grouped;
-            }
-
-            // crossing reduction
-            RefineLayerOrders(layerNodes, graph, parentsMap, topo);
-
-            // collapse phantom-only layers
-            var realLayers = layerNodes
-                .Where(kv => kv.Value.Any(n => !phantomMap.Values.Contains(n)))
-                .OrderBy(kv => kv.Key)
-                .Select(kv => kv.Key)
-                .ToList();
-            var collapsed = new Dictionary<int, List<string>>();
-            for (int i = 0; i < realLayers.Count; i++)
-                collapsed[i] = layerNodes[realLayers[i]];
-
-            return collapsed;
-        }
-
-        /// <summary>
-        /// Given ordered layerNodes, compute each component’s grid X/Y via
-        /// columnOffsets (component widths + margin) and cascade-row approach.
-        /// </summary>
-        private static Dictionary<string, PointF> CalculateGridPositions(
-            Dictionary<int,List<string>> layerNodes,
-            IEnumerable<ComponentProperties> components,
-            IEnumerable<ConnectionPairing> connections,
-            float spacingX = 50f,
-            float spacingY = 80f)
-        {
-            // compute column offsets
-            var columnOffsets = new Dictionary<int, float>();
-            float cumulativeX = 0f;
-            for (int idx = 0; idx < layerNodes.Keys.Count; idx++)
-            {
-                var layerKey = layerNodes.Keys.ElementAt(idx);
-                var compIds = layerNodes[layerKey].Where(k => !k.Contains(":")).ToList();
-                float maxWidth = compIds.Select(k =>
-                {
-                    if (Guid.TryParse(k, out var id))
-                    {
-                        var bounds = GHComponentUtils.GetComponentBounds(id);
-                        return bounds.Width;
-                    }
-                    return 0f;
-                }).DefaultIfEmpty(0f).Max();
-                columnOffsets[idx] = cumulativeX;
-                cumulativeX += maxWidth + spacingX;
-            }
-
-            // assign positions
-            var grid = new Dictionary<string, PointF>();
-            var nextFree = new Dictionary<int, float>();
-            var rowIndices = new Dictionary<string, float>();
-            var originalOrder = components
-                .Select((c, i) => new { key = c.InstanceGuid.ToString(), index = i })
-                .ToDictionary(x => x.key, x => x.index);
-
-            for (int li = 0; li < layerNodes.Keys.Count; li++)
-            {
-                var layerKey = layerNodes.Keys.ElementAt(li);
-                var compLayer = layerNodes[layerKey].Where(k => !k.Contains(":")).ToList();
-                foreach (var key in compLayer)
-                {
-                    var comp = components.First(c => c.InstanceGuid.ToString() == key);
-                    try
-                    {
-                        float rowVal;
-                        var conns = connections.Where(c => c.To.ComponentId.ToString() == key).ToList();
-                        if (li > 0 && conns.Any())
-                        {
-                            var parentRows = conns
-                                .Select(conn => conn.From.ComponentId.ToString())
-                                .Where(id => rowIndices.ContainsKey(id))
-                                .Select(id => rowIndices[id])
-                                .Distinct()
-                                .ToList();
-                            rowVal = parentRows.Any() ? parentRows.Average() : nextFree.GetValueOrDefault(li, 0f);
-                        }
-                        else
-                        {
-                            rowVal = nextFree.GetValueOrDefault(li, 0f);
-                        }
-                        var floor = nextFree.GetValueOrDefault(li, 0f);
-                        if (rowVal < floor) rowVal = floor;
-                        rowIndices[key] = rowVal;
-                        nextFree[li] = rowVal + 1f;
-                        grid[key] = UnifyCenterPivot(Guid.Parse(key), new PointF(columnOffsets[li], rowVal * spacingY));
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[CalculateGridPositions] Layout failed for {key}: {ex.Message}, applying fallback");
-                        int fallbackIndex = originalOrder[key];
-                        grid[key] = UnifyCenterPivot(Guid.Parse(key), new PointF(0f, fallbackIndex * spacingY));
-                    }
-                }
-            }
-            return grid;
-        }
-
-        /// <summary>
-        /// Separates disconnected subgraphs (“islands”) and stacks each island
-        /// below the previous so wires never cross islands.
-        /// </summary>
-        private static Dictionary<string, PointF> StackIslands(
-            Dictionary<string,List<string>> graph,
-            Dictionary<string,PointF> grid,
-            float spacingY = 80f,
-            float islandSpacingY = 0f)
-        {
-            var undirected = graph.ToDictionary(
-                kv => kv.Key,
-                kv => kv.Value.Concat(graph.Where(x => x.Value.Contains(kv.Key)).Select(x => x.Key)).ToList()
-            );
-            var visited = new HashSet<string>();
-            var islands = new List<List<string>>();
-            foreach (var node in graph.Keys)
-            {
-                if (visited.Contains(node)) continue;
-                var queue = new Queue<string>();
-                queue.Enqueue(node);
-                visited.Add(node);
-                var comp = new List<string>();
-                while (queue.Count > 0)
-                {
-                    var n = queue.Dequeue();
-                    comp.Add(n);
-                    foreach (var neigh in undirected[n])
-                        if (!visited.Contains(neigh))
-                        {
-                            visited.Add(neigh);
-                            queue.Enqueue(neigh);
-                        }
-                }
-                islands.Add(comp);
-            }
-            // compute vertical stacking
-            float islandOffsetY = islandSpacingY;
-            float marginY = spacingY;
-            var stackedGrid = new Dictionary<string, PointF>();
-            foreach (var island in islands)
-            {
-                var ys = island.Where(k => grid.ContainsKey(k)).Select(k => grid[k].Y);
-                float minY = ys.DefaultIfEmpty(0f).Min();
-                float shift = islandOffsetY - minY;
-                foreach (var key in island)
-                    if (grid.TryGetValue(key, out var pt))
-                        stackedGrid[key] = new PointF(pt.X, pt.Y + shift);
-                float maxY = stackedGrid.Where(kv => island.Contains(kv.Key)).Select(kv => kv.Value.Y).DefaultIfEmpty(0f).Max();
-                islandOffsetY = maxY + marginY;
-            }
-            return stackedGrid;
-        }
-
-        /// <summary>
-        /// Converts the string keys of the grid back to Guid keys.
-        /// </summary>
-        private static Dictionary<Guid, PointF> ConvertStringKeysToGuids(
-            Dictionary<string,PointF> grid)
-        {
-            var result = new Dictionary<Guid,PointF>();
-            foreach (var kv in grid)
-                if (Guid.TryParse(kv.Key, out var id))
-                    result[id] = kv.Value;
-            return result;
-        }
-
-        #endregion
     }
 }
