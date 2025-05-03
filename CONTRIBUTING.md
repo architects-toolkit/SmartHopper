@@ -149,9 +149,9 @@ Follow these steps to configure Visual Studio 2022 for SmartHopper development:
 4. In **Solution Explorer**, right-click the solution and select **Restore NuGet Packages**.
 5. Verify that all projects target **.NET 7** and that Rhino/Grasshopper SDK references resolve.
 
-### Initializing Code Signing (required before the first build)
+### Initializing Code Signing
 
-When developing locally, you must generate and apply both strong-name and Authenticode signatures:
+When developing locally, you must generate and apply both strong-name and Authenticode signatures.
 
 1. Open **Developer PowerShell for Visual Studio 2022** as Administrator.
 2. cd to the repository root.
@@ -169,6 +169,7 @@ When developing locally, you must generate and apply both strong-name and Authen
    ```
 6. Authenticode-sign provider DLLs (e.g. for Grasshopper testing):
    ```powershell
-   .\Sign-Authenticode.ps1 -Base64 '<Base64Pfx>' -Password '<password>' -Sign bin\Debug\net7.0-windows
+   .\Sign-Authenticode.ps1 -Sign bin\Debug\net7.0-windows -Password '<password>'
    ```
-7. Open the `bin\Debug\net7.0-windows` folder in Grasshopper to load the signed plugin.
+
+**Note:** Repeat steps 1, 2, and 6 after every build to ensure your providers are signed and SmartHopper can load them.
