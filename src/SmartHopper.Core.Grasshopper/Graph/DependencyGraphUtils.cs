@@ -242,7 +242,10 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
         private static List<NodeGridComponent> Sugiyama03_ComputeRows(List<NodeGridComponent> grid)
         {
-            var byLayer = grid.GroupBy(n => (int)n.Pivot.X).OrderBy(g => g.Key).ToList();
+            var byLayer = grid.GroupBy(n => (int)n.Pivot.X)
+                               .OrderBy(g => g.Key)
+                               .Select(g => g.ToList())
+                               .ToList();
             // Top-down pass: initial ordering by output indices and barycenter
             for (int layerIndex = 0; layerIndex < byLayer.Count; layerIndex++)
             {
@@ -453,9 +456,36 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 foreach (var child in currCol)
                 {
                     Debug.WriteLine($"[AlignParentsAndChildren] Child {child.ComponentId} at Y={child.Pivot.Y}");
+
                     // all parents connecting to this child
                     var parents = prevCol.Where(p => p.Children.ContainsKey(child.ComponentId)).ToList();
-                    if (parents.Count <= 1) continue;
+
+                    // param-case: one slider per input -> reorder to input order and align to port Ys
+                    if (parents.Count > 1
+                        && GHCanvasUtils.FindInstance(child.ComponentId) is IGH_Component childComp
+                        && childComp.Params.Input.Count == parents.Count
+                        && parents.All(p => GHCanvasUtils.FindInstance(p.ComponentId) is IGH_Param))
+                    {
+                        var inputs = GHParameterUtils.GetAllInputs(childComp);
+                        foreach (var p in parents.OrderBy(p => child.Parents[p.ComponentId]))
+                        {
+                            int inputIdx = child.Parents[p.ComponentId];
+                            if (inputIdx >= 0 && inputIdx < inputs.Count)
+                            {
+                                var rect = inputs[inputIdx].Attributes.Bounds;
+                                // calculate relative grid Y based on canvas offset
+                                float inputPivotY = rect.Y + rect.Height / 2;
+                                var canvasChildBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
+                                float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height;
+                                float deltaCanvasY = inputPivotY - canvasChildCenterY;
+                                float deltaGridY = child.Pivot.Y + deltaCanvasY;
+                                Debug.WriteLine($"[AlignParentsAndChildren] Param-case: aligning parent {p.ComponentId} relativeGridY={deltaGridY}");
+                                // pivot relative to child pivot group
+                                p.Pivot = new PointF(p.Pivot.X, deltaGridY);
+                            }
+                        }
+                        continue;
+                    }
                     Debug.WriteLine($"[AlignParentsAndChildren] Found {parents.Count} parents for child {child.ComponentId}: {string.Join(",", parents.Select(p => p.ComponentId))}");
                     // sort parents top-to-bottom and center group over child
                     var orderedParents = parents.OrderBy(p => p.Pivot.Y).ToList();
