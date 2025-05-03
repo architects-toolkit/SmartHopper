@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Limited `ghget` connections to components within the result objects set.
 - Fixed `gh_tidy_up` moving components on every execution.
 - Fixed `CreateComponentGrid` joining last and last-1 column together.
+- (automatically added) Fixes "Panels and params position is calculated from top-left, not from center" ([#184](https://github.com/architects-toolkit/SmartHopper/issues/184)).
 
 ## [0.3.0-alpha] - 2025-04-27
 
