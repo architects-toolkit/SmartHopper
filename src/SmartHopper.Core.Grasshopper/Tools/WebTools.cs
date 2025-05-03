@@ -238,6 +238,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #endregion
 
         #region WebSearchRhinoForum
+        // TODO: take only 5 and return a summary of the posts
         private async Task<object> WebSearchRhinoForumAsync(JObject parameters)
         {
             string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");

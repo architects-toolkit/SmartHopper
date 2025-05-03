@@ -36,6 +36,8 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 
 ## 📊 Development Status
 
+### Components
+
 | Component | Planned | In Progress | Testing | Released 🎉 |
 |-----------|:-------:|:-----------:|:-------:|:------------------------:|
 | Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Optionally filter them by runtime messages: errors, warnings, remarks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -59,6 +61,30 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | ⚪ | - | - | - |
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | ⚪ | - | - | - |
+
+### AI Tools
+
+| Tool Name | Description | Planned | In Progress | Testing | Released 🎉 |
+|-----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
+| evaluateText | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
+| generateText | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| evaluateList | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
+| filterList | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
+| script_review | Review a script for potential issues using AI-powered checks | ⚪ | - | - | - |
+| script_generate | Generate a script using AI language models | ⚪ | - | - | - |
+| web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
+| web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
+| web_get_rhino_forum_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
+| get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
+| gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_move_obj | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_generate | Generate Grasshopper definitions using AI | ⚪ | - | - | - |
+| gh_group | Group components and set a meaningful title | ⚪ | - | - | - |
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
