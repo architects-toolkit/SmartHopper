@@ -45,7 +45,7 @@ jobs:
         with:
           action: create-release
           version: ${{ github.event.milestone.title }}
-      - name: Fix header code style
+      - name: Fix code style
         uses: ./.github/actions/code-style
         with:
           mode: fix
