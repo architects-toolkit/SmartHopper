@@ -40,4 +40,4 @@ jobs:
           title: "${{ github.event.pull_request.head.ref }}"
           body: "${{ github.event.pull_request.body }}"
           base: main
-          branch: ${{ github.event.pull_request.base.ref }}
+          branch: dev
