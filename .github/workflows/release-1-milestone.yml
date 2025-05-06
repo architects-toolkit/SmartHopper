@@ -25,10 +25,10 @@ jobs:
   release-preparation:
     runs-on: ubuntu-latest
     steps:
-      # - uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0
-      #     ref: dev
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev
 
       - name: Set up Git user
         run: |
