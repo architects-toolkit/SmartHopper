@@ -5,9 +5,10 @@ inputs:
     description: "Operation mode: fix or check"
     required: false
     default: "check"
-  token:
-    description: "GitHub token for authentication"
-    required: true
+  commit:
+    description: "Commit?"
+    required: false
+    default: false
 runs:
   using: "composite"
   steps:
@@ -42,8 +43,12 @@ runs:
       uses: ./.github/actions/code-style/using-sorter
       with:
         mode: ${{ inputs.mode }}
+    - name: Check namespaces
+      uses: ./.github/actions/code-style/namespace-fixer
+      with:
+        mode: check
     - name: Commit & push changes
-      if: ${{ inputs.mode == 'fix' }}
+      if: ${{ inputs.commit }}
       shell: bash
       run: |
         git config user.name "github-actions"
