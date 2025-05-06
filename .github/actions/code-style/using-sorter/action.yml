@@ -19,7 +19,7 @@ runs:
         fi
     - name: Setup .NET SDK
       if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 7.0.x
     - name: Run using sorter
