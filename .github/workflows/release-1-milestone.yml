@@ -25,10 +25,10 @@ jobs:
   release-preparation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: dev
+      # - uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 0
+      #     ref: dev
 
       - name: Set up Git user
         run: |
@@ -43,7 +43,6 @@ jobs:
           body: "This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}"
           base: dev
           branch: release/${{ github.event.milestone.title }}
-          draft: true
           milestone: ${{ github.event.milestone.number }}
 
       - name: Update version in Solution.props
@@ -71,7 +70,7 @@ jobs:
       #   with:
       #     mode: fix
       #     commit: false
-
+      
       - name: Commit and push changes
         run: |
           git add Solution.props CHANGELOG.md README.md
