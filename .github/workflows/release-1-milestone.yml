@@ -46,17 +46,10 @@ jobs:
           action: create-release
           version: ${{ github.event.milestone.title }}
       - name: Fix header code style
-        uses: ./.github/actions/code-style/header-fixer
+        uses: ./.github/actions/code-style
         with:
           mode: fix
-      - name: Sort usings
-        uses: ./.github/actions/code-style/using-sorter
-        with:
-          mode: fix
-      - name: Remove trailing whitespace
-        uses: ./.github/actions/code-style/trailing-whitespace
-        with:
-          mode: fix
+          commit: false
       - name: Commit and push changes
         run: |
           git add Solution.props CHANGELOG.md
