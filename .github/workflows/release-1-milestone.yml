@@ -1,0 +1,73 @@
+name: 🏁 1 Prepare Release on Milestone Close
+
+# Description: This workflow automatically prepares a release branch when a milestone is closed.
+# It extracts the milestone title as the version number and compiles release notes from
+# all issues and pull requests associated with the milestone.
+#
+# Triggers:
+# - Automatically when a milestone is closed
+#
+# Permissions:
+# - contents:write - Required to create GitHub releases
+# - issues:read - Required to read issue information for release notes
+# - pull-requests:read - Required to read PR information for release notes
+
+on:
+  workflow_dispatch:
+  milestone:
+    types: [ closed ]
+
+jobs:
+  release-preparation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+      - name: Create release branch
+        run: git checkout -b release/${{ github.event.milestone.title }}
+      - name: Update version in Solution.props
+        uses: ./.github/actions/versioning/update-version
+        with:
+          new-version: ${{ github.event.milestone.title }}
+      - name: Include missing issues in changelog
+        uses: ./.github/actions/documentation/update-changelog-issues
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days-lookback: 90
+      - name: Update changelog section
+        uses: ./.github/actions/documentation/update-changelog
+        with:
+          action: create-release
+          version: ${{ github.event.milestone.title }}
+      - name: Fix header code style
+        uses: ./.github/actions/code-style/header-fixer
+        with:
+          mode: fix
+      - name: Sort usings
+        uses: ./.github/actions/code-style/using-sorter
+        with:
+          mode: fix
+      - name: Remove trailing whitespace
+        uses: ./.github/actions/code-style/trailing-whitespace
+        with:
+          mode: fix
+      - name: Commit and push changes
+        run: |
+          git add Solution.props CHANGELOG.md
+          git commit -m "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
+          git push origin release/${{ github.event.milestone.title }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
+          body: "This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}"
+          base: dev
+          branch: release/${{ github.event.milestone.title }}
+          milestone: ${{ github.event.milestone.number }}
