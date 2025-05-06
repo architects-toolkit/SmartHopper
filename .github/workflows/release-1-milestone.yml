@@ -18,7 +18,6 @@ permissions:
   pull-requests: write
 
 on:
-  workflow_dispatch:
   milestone:
     types: [ closed ]
 

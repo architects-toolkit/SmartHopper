@@ -2,7 +2,7 @@ name: "Namespace Fixer"
 description: "Check or fix C# file namespaces to match file path"
 inputs:
   mode:
-    description: "Operation mode: fix or check"
+    description: "Operation mode: fix, check, or soft-check"
     required: false
     default: "check"
 runs:
@@ -34,8 +34,13 @@ runs:
                 sed -i "s/^namespace .*/namespace $ns/" "$file"
                 echo "WARNING: References to this file may need manual updates."
               else
-                echo "Namespace mismatch in $file: expected $ns but found $actual"
-                ERR=1
+                if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                  # emit a non-blocking warning
+                  echo "::warning file=$file::Namespace mismatch in $file (run with mode=fix to auto-fix)"
+                else
+                  echo "Namespace mismatch in $file: expected $ns but found $actual"
+                  ERR=1
+                fi
               fi
             fi
           fi
