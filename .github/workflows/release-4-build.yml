@@ -1,4 +1,4 @@
-name: 🚀 Build Project
+name: 🏁 4 Build Project
 
 # Description: This workflow builds the project to verify that it compiles correctly.
 # It can be triggered manually to validate the build process without creating a release.
@@ -25,10 +25,6 @@ on:
         default: false
   release:
     types: [published]
-  # push:
-  #   branches: [ main ]
-  # pull_request:
-  #   branches: [ main ]
 
 permissions:
   contents: write
