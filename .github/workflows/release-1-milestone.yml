@@ -91,7 +91,6 @@ jobs:
             --base dev \
             --head release/${{ github.event.milestone.title }} \
             --title "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes" \
-            --body "This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}" \
-            --milestone "${{ github.event.milestone.title }}"
+            --body "This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
