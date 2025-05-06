@@ -35,6 +35,20 @@ jobs:
           git config user.name "github-actions"
           git config user.email "action@github.com"
 
+      - name: Check if release branch exists
+        id: check-branch
+        run: |
+          git ls-remote --heads origin release/${{ github.event.milestone.title }}
+          if [ $? -eq 0 ]; then
+            echo "branch_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "branch_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Remove existing release branch if exists
+        if: steps.check-branch.outputs.branch_exists == 'true'
+        run: git branch -D release/${{ github.event.milestone.title }}
+
       - name: Create release branch
         run: git checkout -b release/${{ github.event.milestone.title }}
 
