@@ -35,16 +35,6 @@ jobs:
           git config user.name "github-actions"
           git config user.email "action@github.com"
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
-          body: "This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}"
-          base: dev
-          branch: release/${{ github.event.milestone.title }}
-          milestone: ${{ github.event.milestone.number }}
-
       - name: Update version in Solution.props
         uses: ./.github/actions/versioning/update-version
         with:
@@ -65,7 +55,7 @@ jobs:
       - name: Update README badges
         uses: ./.github/actions/documentation/update-badges
         id: update-badges
-        
+
       # - name: Fix code style
       #   uses: ./.github/actions/code-style
       #   with:
@@ -77,3 +67,14 @@ jobs:
           git add Solution.props CHANGELOG.md README.md
           git commit -m "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
           git push origin release/${{ github.event.milestone.title }}
+
+      - name: Create Pull Request
+        run: |
+          gh pr create \
+            --base dev \
+            --head release/${{ github.event.milestone.title }} \
+            --title "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes" \
+            --body "This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}" \
+            --milestone ${{ github.event.milestone.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
