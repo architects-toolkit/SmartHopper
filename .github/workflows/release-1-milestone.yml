@@ -49,11 +49,11 @@ jobs:
         with:
           action: create-release
           version: ${{ github.event.milestone.title }}
-      - name: Fix code style
-        uses: ./.github/actions/code-style
-        with:
-          mode: fix
-          commit: false
+      # - name: Fix code style
+      #   uses: ./.github/actions/code-style
+      #   with:
+      #     mode: fix
+      #     commit: false
       - name: Commit and push changes
         run: |
           git add Solution.props CHANGELOG.md
