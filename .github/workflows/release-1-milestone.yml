@@ -47,7 +47,7 @@ jobs:
 
       - name: Remove existing release branch if exists
         if: steps.check-branch.outputs.branch_exists == 'true'
-        run: git branch -D release/${{ github.event.milestone.title }}
+        run: git push origin --delete release/${{ github.event.milestone.title }}
 
       - name: Create release branch
         run: git checkout -b release/${{ github.event.milestone.title }}
