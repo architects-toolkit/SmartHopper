@@ -34,10 +34,11 @@ jobs:
           git config user.name "github-actions"
           git config user.email "action@github.com"
       - name: Create PR
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "${{ github.event.pull_request.head.ref }}"
-          body: "${{ github.event.pull_request.body }}"
-          base: main
-          branch: dev
+        run: |
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "${{ github.event.pull_request.head.ref }}" \
+            --body "${{ github.event.pull_request.body }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
