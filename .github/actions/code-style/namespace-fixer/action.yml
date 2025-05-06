@@ -45,11 +45,3 @@ runs:
           fi
         done
         exit $ERR
-    - name: Commit & push changes
-      if: ${{ inputs.mode == 'fix' }}
-      shell: bash
-      run: |
-        git config user.name "github-actions"
-        git config user.email "actions@github.com"
-        git add .
-        git diff --quiet || (git commit -m "chore: automatically fix namespaces" && git push)
