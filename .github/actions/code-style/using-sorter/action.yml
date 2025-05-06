@@ -2,7 +2,7 @@ name: "Using Sorter"
 description: "Check or fix C# using directives ordering and remove unused usings"
 inputs:
   mode:
-    description: "Operation mode: fix or check"
+    description: "Operation mode: fix, check, or soft-check"
     required: false
     default: "check"
 runs:
@@ -31,7 +31,7 @@ runs:
         export PATH="$HOME/.dotnet/tools:$PATH"
         for file in $FILES; do
           if [ -f "$file" ]; then
-            if [ "${{ inputs.mode }}" = "check" ]; then
+            if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.mode }}" = "soft-check" ]; then
               dotnet format "$file" --verify-no-changes --fix-analyzers
             else
               dotnet format "$file" --fix-analyzers

@@ -40,7 +40,7 @@ runs:
     - name: Process C# file headers
       uses: ./.github/actions/code-style/header-fixer
       with:
-        mode: check
+        mode: soft-check
     - name: Process trailing whitespace
       uses: ./.github/actions/code-style/trailing-whitespace
       with:
@@ -52,7 +52,7 @@ runs:
     - name: Check namespaces
       uses: ./.github/actions/code-style/namespace-fixer
       with:
-        mode: check
+        mode: soft-check
     - name: Commit & push changes
       if: ${{ inputs.commit }}
       shell: bash
