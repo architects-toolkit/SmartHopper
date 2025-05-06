@@ -10,7 +10,12 @@ name: 🏁 1 Prepare Release on Milestone Close
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
-# - pull-requests:read - Required to read PR information for release notes
+# - pull-requests:write - Required to create pull requests
+#
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
 
 on:
   workflow_dispatch:
