@@ -25,7 +25,7 @@ namespace SmartHopper.Config.Models
         public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
         public string Provider { get; set; }
         public string Model { get; set; }
-        
+
         /// <summary>
         /// Tracks how many times this response is reused across different data tree branches.
         /// Default is 1 (used once).

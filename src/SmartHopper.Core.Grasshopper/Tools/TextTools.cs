@@ -8,31 +8,31 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
-using SmartHopper.Core.AI;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.Grasshopper.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Models;
+using SmartHopper.Core.AI;
+using SmartHopper.Core.Grasshopper.Models;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
     /// <summary>
-    /// Contains tools for text analysis and manipulation using AI
+    /// Contains tools for text analysis and manipulation using AI.
     /// </summary>
     public class TextTools : IAIToolProvider
     {
         #region IAIToolProvider Implementation
 
         /// <summary>
-        /// Get all tools provided by this class
+        /// Get all tools provided by this class.
         /// </summary>
-        /// <returns>Collection of AI tools</returns>
+        /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             // Define the evaluate text tool
@@ -47,9 +47,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
-                execute: this.EvaluateTextToolWrapper
-            );
-            
+                execute: this.EvaluateTextToolWrapper);
+
             // Define the generate text tool
             yield return new AITool(
                 name: "generateText",
@@ -68,15 +67,14 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""prompt""]
                 }",
-                execute: this.GenerateTextToolWrapper
-            );
+                execute: this.GenerateTextToolWrapper);
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateText function
+        /// Tool wrapper for the EvaluateText function.
         /// </summary>
-        /// <param name="parameters">Parameters passed from the AI</param>
-        /// <returns>Result object</returns>
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
         private async Task<object> EvaluateTextToolWrapper(JObject parameters)
         {
             try
@@ -84,10 +82,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 Debug.WriteLine("[TextTools] Running EvaluateTextToolWrapper");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? "";
-                string modelName = parameters["model"]?.ToString() ?? "";
-                string text = parameters["text"]?.ToString();
-                string question = parameters["question"]?.ToString();
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string? text = parameters["text"]?.ToString();
+                string? question = parameters["question"]?.ToString();
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
@@ -102,11 +100,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await EvaluateTextAsync(
                     new GH_String(text),
                     new GH_String(question),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)
-                );
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
 
                 // Return standardized result
-                return new {
+                return new
+                {
                     success = result.Success,
                     result = result.Success ? result.Result.Value : false,
                     error = result.Success ? null : result.ErrorMessage,
@@ -124,10 +122,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Tool wrapper for the GenerateText function
+        /// Tool wrapper for the GenerateText function.
         /// </summary>
-        /// <param name="parameters">Parameters passed from the AI</param>
-        /// <returns>Result object</returns>
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
         private async Task<object> GenerateTextToolWrapper(JObject parameters)
         {
             try
@@ -135,15 +133,16 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 Debug.WriteLine("[TextTools] Running GenerateTextToolWrapper");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? "";
-                string modelName = parameters["model"]?.ToString() ?? "";
-                string prompt = parameters["prompt"]?.ToString();
-                string instructions = parameters["instructions"]?.ToString() ?? "";
-                
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string? prompt = parameters["prompt"]?.ToString();
+                string instructions = parameters["instructions"]?.ToString() ?? string.Empty;
+
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    return new { 
-                        success = false, 
+                    return new
+                    {
+                        success = false,
                         error = "Missing required parameter: prompt",
                     };
                 }
@@ -152,11 +151,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await GenerateTextAsync(
                     new GH_String(prompt),
                     new GH_String(instructions),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)
-                );
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
 
                 // Return standardized result
-                return new {
+                return new
+                {
                     success = result.Success,
                     text = result.Success ? result.Result.Value : null,
                     error = result.Success ? null : result.ErrorMessage,
@@ -165,8 +164,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateTextToolWrapper: {ex.Message}");
-                return new { 
-                    success = false, 
+                return new
+                {
+                    success = false,
                     error = $"Error: {ex.Message}",
                 };
             }
@@ -177,12 +177,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #region Text Evaluation
 
         /// <summary>
-        /// Evaluates text against a true/false question using AI with a custom GetResponse function
+        /// Evaluates text against a true/false question using AI with a custom GetResponse function.
         /// </summary>
-        /// <param name="text">The text to analyze</param>
-        /// <param name="question">The true/false question to evaluate</param>
-        /// <param name="getResponse">Custom function to get AI response</param>
-        /// <returns>Evaluation result containing the AI response, parsed result, and any error information</returns>
+        /// <param name="text">The text to analyze.</param>
+        /// <param name="question">The true/false question to evaluate.</param>
+        /// <param name="getResponse">Custom function to get AI response.</param>
+        /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
         public static async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
@@ -194,19 +194,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var messages = new List<KeyValuePair<string, string>>
                 {
                     // System prompt
-                    new KeyValuePair<string, string>("system", 
+                    new ("system",
                         "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\n" +
                         "Respond with TRUE or FALSE, nothing else.\n\n" +
                         "In case the text does not match the criteria, respond with FALSE."),
 
                     // User message
-                    new KeyValuePair<string, string>("user", 
+                    new ("user",
                         $"This is my question: \"{question.Value}\"\n\n" +
                         $"Answer the previous question based on the following input:\n{text.Value}\n\n"),
                 };
 
                 // Get response using the provided function
-                var response = await getResponse(messages);
+                var response = await getResponse(messages).ConfigureAwait(false);
 
                 // Check for API errors
                 if (response.FinishReason == "error")
@@ -242,13 +242,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Evaluates text against a true/false question using AI with the default AIUtils.GetResponse
+        /// Evaluates text against a true/false question using AI with the default AIUtils.GetResponse.
         /// </summary>
-        /// <param name="text">The text to analyze</param>
-        /// <param name="question">The true/false question to evaluate</param>
-        /// <param name="provider">The AI provider to use</param>
-        /// <param name="model">The model to use, or empty for default</param>
-        /// <returns>Evaluation result containing the AI response, parsed result, and any error information</returns>
+        /// <param name="text">The text to analyze.</param>
+        /// <param name="question">The true/false question to evaluate.</param>
+        /// <param name="provider">The AI provider to use.</param>
+        /// <param name="model">The model to use, or empty for default.</param>
+        /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
         public static Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
@@ -257,9 +257,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         {
             return EvaluateTextAsync(
                 text,
-                question, 
-                messages => AIUtils.GetResponse(provider, model, messages)
-                );
+                question,
+                messages => AIUtils.GetResponse(provider, model, messages));
         }
 
         #endregion
@@ -267,12 +266,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #region Text Generation
 
         /// <summary>
-        /// Generates text from a prompt and optional instructions using AI with a custom GetResponse function
+        /// Generates text from a prompt and optional instructions using AI with a custom GetResponse function.
         /// </summary>
-        /// <param name="prompt">The user's prompt</param>
-        /// <param name="instructions">Optional instructions for the AI</param>
-        /// <param name="getResponse">Custom function to get AI response</param>
-        /// <returns>The generated text as a GH_String</returns>
+        /// <param name="prompt">The user's prompt.</param>
+        /// <param name="instructions">Optional instructions for the AI.</param>
+        /// <param name="getResponse">Custom function to get AI response.</param>
+        /// <returns>The generated text as a GH_String.</returns>
         public static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
@@ -294,7 +293,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 messages.Add(new KeyValuePair<string, string>("user", prompt.Value));
 
                 // Get response using the provided function
-                var response = await getResponse(messages);
+                var response = await getResponse(messages).ConfigureAwait(false);
 
                 // Check for API errors
                 if (response.FinishReason == "error")
@@ -320,14 +319,14 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Generates text from a prompt and optional instructions using AI with the default AIUtils.GetResponse
+        /// Generates text from a prompt and optional instructions using AI with the default AIUtils.GetResponse.
         /// </summary>
-        /// <param name="prompt">The user's prompt</param>
-        /// <param name="instructions">Optional instructions for the AI</param>
-        /// <param name="provider">The AI provider to use</param>
-        /// <param name="model">The model to use, or empty for default</param>
-        /// <returns>The generated text as a GH_String</returns>
-        public Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
+        /// <param name="prompt">The user's prompt.</param>
+        /// <param name="instructions">Optional instructions for the AI.</param>
+        /// <param name="provider">The AI provider to use.</param>
+        /// <param name="model">The model to use, or empty for default.</param>
+        /// <returns>The generated text as a GH_String.</returns>
+        public static Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
             string provider,
@@ -336,8 +335,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             return GenerateTextAsync(
                 prompt,
                 instructions,
-                messages => AIUtils.GetResponse(provider, model, messages)
-                );
+                messages => AIUtils.GetResponse(provider, model, messages));
         }
 
         #endregion

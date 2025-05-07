@@ -8,31 +8,143 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Drawing;
+using SmartHopper.Core.Models.Components;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHPropertyManager
+    public static class GHPropertyManager
     {
         // List of omitted properties
-        public static List<string> omittedProperties = new List<string>() {
+        private static List<string> omittedProperties = new()
+        {
             "VolatileData",
             "DataType",
             "Properties",
         };
 
-        public static void SetProperties(object instance, Dictionary<string, JSON.ComponentProperty> properties)
+        // List of properties to serialize
+        private static Dictionary<string, List<string>> PropertiesWhitelist { get; } = new Dictionary<string, List<string>>
+        {
+            { "Value", null },
+            { "Locked", null }, // Enabled?
+            { "Simplify", null }, // True or False
+            { "Reverse", null }, // True or False
+            { "DataMapping", null }, // Graft(2), Flatten(1) or None(0)
+            { "DataType", null }, // remote(3), void(1) or local(2)
+            { "Expression", null },
+            { "Invert", null },
+            { "NickName", null },
+            { "DisplayName", null },
+
+            // Internalized data in params
+            { "PersistentData", null },
+
+            // Current data
+            { "VolatileData", null },
+
+            // Panel
+            { "UserText", null },
+            { "Properties", new List<string> { "Properties" } }, // Only get Properties > Properties
+
+            // Scribble
+            { "Text", null },
+            { "Font", null },
+            { "Corners", null },
+
+            // Number Slider, com fer even, odd, rational???
+            { "CurrentValue", null },
+
+            // {"InstanceDescription", null},
+                // {"TickCount", null},
+                // {"TickValue", null},
+            // Control Knob
+            { "Minimum", null },
+            { "Maximum", null },
+            { "Range", null },
+            { "Decimals", null },
+            { "Limit", null },
+            { "DisplayFormat", null },
+
+            // Multidimensional Slider
+            { "SliderMode", null },
+            { "XInterval", null },
+            { "YInterval", null },
+            { "ZInterval", null },
+            { "X", null },
+            { "Y", null },
+            { "Z", null },
+
+            // GeometryPipeline
+            { "LayerFilter", null },
+            { "NameFilter", null },
+            { "TypeFilter", null },
+            { "IncludeLocked", null },
+            { "IncludeHidden", null },
+            { "GroupByLayer", null },
+            { "GroupByType", null },
+
+            // GraphMapper
+            { "GraphType", null },
+
+            // PathMapper
+            { "Lexers", null },
+
+            // ValueList --> es podria netejar
+            { "ListMode", null },
+            { "ListItems", null },
+
+            // ColorWheel
+            { "State", null },
+
+            // DataRecorder
+            { "DataLimit", null },
+            { "RecordData", null }, // Negatiu vol dir desactivat
+
+            // ItemPicker (cherry picker)
+            { "TreePath", null }, // Aquest valor no es defineix quan és {first}
+            { "TreeIndex", null },
+
+            // Button
+            { "ExpressionNormal", null },
+            { "ExpressionPressed", null },
+
+            // Script
+            { "Script", null },
+        };
+
+        public static bool IsPropertyInWhitelist(string propertyName)
+        {
+            return PropertiesWhitelist.ContainsKey(propertyName);
+        }
+
+        /// <summary>
+        /// Returns the child-property names for a whitelisted property,
+        /// or null if there are no nested keys.
+        /// </summary>
+        /// <returns></returns>
+        public static List<string>? GetChildProperties(string propertyName)
+        {
+            if (PropertiesWhitelist.TryGetValue(propertyName, out var childKeys))
+            {
+                return childKeys;
+            }
+
+            return null;
+        }
+
+        public static void SetProperties(object instance, Dictionary<string, ComponentProperty> properties)
         {
             foreach (var prop in properties)
             {
@@ -50,7 +162,6 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
             }
         }
-
 
         public static void SetProperty(object obj, string propertyPath, object value)
         {
@@ -84,6 +195,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         Debug.WriteLine($"Error: Property '{parts[i]}' not found.");
                         return;
                     }
+
                     currentObj = property.GetValue(currentObj);
                     if (currentObj == null)
                     {
@@ -117,10 +229,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
         }
 
-        private static object ConvertValue(object value, Type targetType)
+        private static object? ConvertValue(object value, Type targetType)
         {
-            if (value == null || value is JValue jValue && jValue.Value == null)
+            if (value == null || (value is JValue jValue && jValue.Value == null))
+            {
                 return null;
+            }
 
             try
             {
@@ -139,6 +253,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         var dict = jObj.ToObject<Dictionary<string, object>>();
                         return Activator.CreateInstance(targetType, dict);
                     }
+
                     // Otherwise try to deserialize directly
                     return jObj.ToObject(targetType);
                 }
@@ -159,10 +274,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 switch (targetType.Name)
                 {
                     case "Color":
-                        if (value is string stringValue && stringValue.Contains(","))
+                        if (value is string stringValue && stringValue.Contains(','))
                         {
                             return StringConverter.StringToColor(stringValue);
                         }
+
                         return ColorTranslator.FromHtml(value.ToString());
 
                     case "Font":
@@ -187,17 +303,29 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
                 // Handle basic type conversions
                 if (targetType == typeof(string))
+                {
                     return value?.ToString();
+                }
                 else if (targetType == typeof(int))
+                {
                     return Convert.ToInt32(value);
+                }
                 else if (targetType == typeof(double))
+                {
                     return Convert.ToDouble(value);
+                }
                 else if (targetType == typeof(bool))
+                {
                     return Convert.ToBoolean(value);
+                }
                 else if (targetType == typeof(float))
+                {
                     return Convert.ToSingle(value);
+                }
                 else if (targetType.IsEnum)
+                {
                     return Enum.Parse(targetType, value.ToString());
+                }
 
                 // If no specific conversion is defined, try direct assignment
                 return value;
@@ -213,7 +341,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             // Check direct property names
             if (omittedProperties.Contains(propertyName))
+            {
                 return true;
+            }
 
             // Check nested properties (Properties.X format)
             return omittedProperties

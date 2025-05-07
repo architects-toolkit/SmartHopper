@@ -1,7 +1,7 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E3%2E1--dev%2E250429-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E3%2E1--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
@@ -40,6 +40,8 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 |-----------|:-------:|:-----------:|:-------:|:------------------------:|
 | Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Optionally filter them by runtime messages: errors, warnings, remarks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Grasshopper Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Grasshopper Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate Definitions (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI language models</sub> | ⚪ | 🟡 | 🟠 | 🟢 |

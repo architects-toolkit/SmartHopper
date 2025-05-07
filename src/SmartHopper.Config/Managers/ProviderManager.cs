@@ -8,24 +8,21 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Configuration;
-using SmartHopper.Config.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Security;
 using System.Threading.Tasks;
 using Rhino;
-using Eto.Forms;
+using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Dialogs;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography.Pkcs;
-using System.Drawing;
+using SmartHopper.Config.Interfaces;
 
 namespace SmartHopper.Config.Managers
 {
@@ -95,7 +92,7 @@ namespace SmartHopper.Config.Managers
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
             DiscoverProviders();
-            
+
             // After discovery, refresh settings for all providers
             Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
             SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
@@ -200,17 +197,17 @@ namespace SmartHopper.Config.Managers
         {
             if (provider == null || string.IsNullOrEmpty(provider.Name))
                 return;
-                
+
             // Add the provider and its settings to our dictionaries
             _providers[provider.Name] = provider;
             _providerSettings[provider.Name] = settings;
-            
+
             // Store the assembly for future reference
             if (assembly != null && !_providerAssemblies.ContainsKey(provider.Name))
             {
                 _providerAssemblies[provider.Name] = assembly;
             }
-            
+
             // Initialize the provider with its settings from SmartHopperSettings
             var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
             if (settingsDict != null)
@@ -236,14 +233,14 @@ namespace SmartHopper.Config.Managers
         public IAIProvider GetProvider(string providerName)
         {
             if (string.IsNullOrEmpty(providerName)) return null;
-            
+
             // Handle "Default" provider name
             if (providerName == "Default")
             {
                 // Avoid calling SmartHopperSettings.Instance to prevent circular dependency
                 // Instead use a static field or direct lookup from the dictionary
                 string defaultProviderName = null;
-                try 
+                try
                 {
                     // Try to get default provider name without causing circular dependency
                     defaultProviderName = SmartHopperSettings.Instance?.DefaultAIProvider;
@@ -252,7 +249,7 @@ namespace SmartHopper.Config.Managers
                 {
                     Debug.WriteLine($"Error getting default provider: {ex.Message}");
                 }
-                
+
                 if (string.IsNullOrEmpty(defaultProviderName))
                 {
                     // No default set, return first available provider
@@ -260,7 +257,7 @@ namespace SmartHopper.Config.Managers
                 }
                 providerName = defaultProviderName;
             }
-            
+
             // Try to get the provider
             if (_providers.TryGetValue(providerName, out var provider))
             {
@@ -268,10 +265,10 @@ namespace SmartHopper.Config.Managers
                 // The provider's settings will be refreshed when needed by specific operations
                 return provider;
             }
-            
+
             return null;
         }
-        
+
         /// <summary>
         /// Refreshes a provider with current settings from SmartHopperSettings.
         /// </summary>
@@ -281,7 +278,7 @@ namespace SmartHopper.Config.Managers
             try
             {
                 if (provider == null) return;
-                
+
                 // Check if settings are available before calling GetProviderSettings
                 if (SmartHopperSettings.Instance != null)
                 {
@@ -354,7 +351,7 @@ namespace SmartHopper.Config.Managers
         public void UpdateProviderSettings(string providerName, Dictionary<string, object> settings)
         {
             Debug.WriteLine($"[ProviderManager] Updating settings for {providerName} with {settings?.Count ?? 0} values");
-            
+
             var provider = GetProvider(providerName);
             if (provider == null)
             {
@@ -375,7 +372,7 @@ namespace SmartHopper.Config.Managers
                 // Check if it's a secret to avoid logging sensitive data
                 var isSecret = provider.GetSettingDescriptors()
                     .FirstOrDefault(d => d.Name == setting.Key)?.IsSecret ?? false;
-                
+
                 Debug.WriteLine($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
             }
 
@@ -388,7 +385,7 @@ namespace SmartHopper.Config.Managers
             // Save settings to disk
             Debug.WriteLine($"[ProviderManager] Saving settings to disk");
             SmartHopperSettings.Instance.Save();
-            
+
             // Re-initialize the provider with new settings
             var updatedSettings = SmartHopperSettings.Instance.GetProviderSettings(providerName);
             provider.InitializeSettings(updatedSettings);
