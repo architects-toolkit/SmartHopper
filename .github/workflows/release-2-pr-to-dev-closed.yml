@@ -15,10 +15,11 @@ on:
     types: [ closed ]
     branches:
       - dev
+  workflow_call:
 
 jobs:
   create-pr-dev-to-main:
-    if: ${{ github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/') }}
+    if: ${{ ( github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')) || github.event_name == 'workflow_call' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

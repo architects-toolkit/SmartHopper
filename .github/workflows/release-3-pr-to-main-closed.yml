@@ -17,10 +17,11 @@ on:
     types: [ closed ]
     branches:
       - main
+  workflow_call:
 
 jobs:
   create-release:
-    if: ${{ github.event.pull_request.merged == true }}
+    if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_call' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
