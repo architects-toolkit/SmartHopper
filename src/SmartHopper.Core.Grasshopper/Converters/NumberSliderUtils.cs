@@ -11,7 +11,7 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Diagnostics;
-using SmartHopper.Core.JSON;
+using SmartHopper.Core.Models.Components;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {

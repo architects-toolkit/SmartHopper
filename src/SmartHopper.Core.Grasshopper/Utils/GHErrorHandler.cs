@@ -8,13 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHErrors
+    public static class GHErrors
     {
         public static IList<string> GetRuntimeErrors(IGH_ActiveObject obj, string type = "error")
         {
@@ -34,4 +34,3 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
     }
 }
-

@@ -8,16 +8,18 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper;
-using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using Grasshopper;
+using Grasshopper.Kernel;
+using System.Threading.Tasks;
+using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHCanvasUtils
+    public static class GHCanvasUtils
     {
         // Get the current canvas
         public static GH_Document GetCurrentCanvas()
@@ -57,18 +59,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
             if (obj is IGH_Component)
             {
                 IGH_Component component = obj as IGH_Component;
-                //Debug.WriteLine("The object is an IGH_Component.");
+
+                // Debug.WriteLine("The object is an IGH_Component.");
                 return component;
             }
             else if (obj is IGH_Param)
             {
                 IGH_Param param = obj as IGH_Param;
-                //Debug.WriteLine("The object is an IGH_Param.");
+
+                // Debug.WriteLine("The object is an IGH_Param.");
                 return param;
             }
             else
             {
-                //Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
+                // Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
                 return obj;
             }
         }
@@ -89,12 +93,38 @@ namespace SmartHopper.Core.Grasshopper.Utils
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
                 : position;
-            obj.Attributes.Pivot = target;
-            if (redraw)
+
+            // Skip movement if initial and target positions are the same
+            if (current == target) return false;
+
+            // Animate movement concurrently over 300ms with 15 frames
+            Task.Run(async () =>
             {
-                obj.Attributes.ExpireLayout();
-                Instances.RedrawCanvas();
-            }
+                const int steps = 15;
+                const int duration = 300;
+                for (int i = 1; i <= steps; i++)
+                {
+                    float t = i / (float)steps;
+                    var x = current.X + (target.X - current.X) * t;
+                    var y = current.Y + (target.Y - current.Y) * t;
+                    var interp = new PointF(x, y);
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        obj.Attributes.Pivot = interp;
+                        obj.Attributes.ExpireLayout();
+                        // Instances.RedrawCanvas();
+                    });
+                    await Task.Delay(duration / steps);
+                }
+                // Final snap to target
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    obj.Attributes.Pivot = target;
+                    obj.Attributes.ExpireLayout();
+                    Instances.RedrawCanvas();
+                });
+            });
+
             return true;
         }
 
@@ -109,7 +139,8 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static PointF StartPoint(int span = 100)
         {
             RectangleF bounds = BoundingBox();
-            //return new PointF(bounds.X, bounds.Bottom+span);
+
+            // return new PointF(bounds.X, bounds.Bottom+span);
             return new PointF(50, bounds.Bottom + span);
         }
     }

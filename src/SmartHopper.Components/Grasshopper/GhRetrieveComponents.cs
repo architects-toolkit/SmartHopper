@@ -87,12 +87,12 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                var toolResult = AIToolManager.ExecuteTool("ghretrievecomponents", parameters, null)
+                var toolResult = AIToolManager.ExecuteTool("gh_retrieve_components", parameters, null)
                     .GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        "Tool 'ghretrievecomponents' did not return a valid result");
+                        "Tool 'gh_retrieve_components' did not return a valid result");
                     return;
                 }
 

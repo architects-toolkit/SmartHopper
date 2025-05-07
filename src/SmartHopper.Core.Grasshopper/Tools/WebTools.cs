@@ -36,11 +36,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
+        /// <returns></returns>
         #region ToolRegistration
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "fetch_webpage_text",
+                name: "web_fetch_page_text",
                 description: "Retrieve plain text content of a webpage at the given URL, excluding HTML, scripts, styles, and images. Respects robots.txt.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -53,10 +54,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""url""]
                 }",
-                execute: this.ExecuteFetchWebPageTextAsync
-            );
+                execute: this.WebFetchPageTextAsync);
             yield return new AITool(
-                name: "search_rhino_forum",
+                name: "web_search_rhino_forum",
                 description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -68,10 +68,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""query""]
                 }",
-                execute: this.ExecuteSearchRhinoForumAsync
-            );
+                execute: this.WebSearchRhinoForumAsync);
             yield return new AITool(
-                name: "get_rhino_forum_post",
+                name: "web_get_rhino_forum_post",
                 description: "Retrieve full JSON of a Rhino Discourse forum post by ID.",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -83,35 +82,39 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     },
                     ""required"": [""id""]
                 }",
-                execute: this.ExecuteGetRhinoForumPostAsync
-            );
+                execute: this.WebGetRhinoForumPostAsync);
         }
         #endregion
 
-        #region fetchWebpageText
+        #region WebFetchPageText
+
         /// <summary>
         /// Fetches the text content of a webpage given its URL, if allowed by robots.txt.
         /// </summary>
         /// <param name="parameters">A JObject containing the URL parameter.</param>
-        private async Task<object> ExecuteFetchWebPageTextAsync(JObject parameters)
+        private async Task<object> WebFetchPageTextAsync(JObject parameters)
         {
             string url = parameters.Value<string>("url") ?? throw new ArgumentException("Missing 'url' parameter.");
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+            {
                 throw new ArgumentException($"Invalid URL: {url}");
+            }
 
             using var httpClient = new HttpClient();
 
             // Check robots.txt
-            Uri robotsUri = new Uri(uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
+            Uri robotsUri = new(uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
             try
             {
-                var robotsResponse = await httpClient.GetAsync(robotsUri);
+                var robotsResponse = await httpClient.GetAsync(robotsUri).ConfigureAwait(false);
                 if (robotsResponse.IsSuccessStatusCode)
                 {
-                    string robotsContent = await robotsResponse.Content.ReadAsStringAsync();
+                    string robotsContent = await robotsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
                     var robots = new RobotsTxtParser(robotsContent);
                     if (!robots.IsAllowed(uri.PathAndQuery))
+                    {
                         throw new InvalidOperationException($"Access to '{uri}' is disallowed by robots.txt.");
+                    }
                 }
             }
             catch (HttpRequestException)
@@ -122,16 +125,20 @@ namespace SmartHopper.Core.Grasshopper.Tools
             // Fetch page HTML
             string html = string.Empty;
             bool usedJson = false;
+
             // Try JSON endpoint if available
             try
             {
                 var jsonUriBuilder = new UriBuilder(uri);
                 if (!jsonUriBuilder.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                {
                     jsonUriBuilder.Path = jsonUriBuilder.Path.TrimEnd('/') + ".json";
-                var jsonResponse = await httpClient.GetAsync(jsonUriBuilder.Uri);
+                }
+
+                var jsonResponse = await httpClient.GetAsync(jsonUriBuilder.Uri).ConfigureAwait(false);
                 if (jsonResponse.IsSuccessStatusCode)
                 {
-                    var contentText = await jsonResponse.Content.ReadAsStringAsync();
+                    var contentText = await jsonResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
                     Debug.WriteLine($"[WebTools] Fetched JSON from {jsonUriBuilder.Uri}. Length: {contentText.Length}");
                     try
                     {
@@ -159,11 +166,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
             {
                 // JSON endpoint unavailable; fallback to HTML
             }
+
             if (!usedJson)
             {
-                html = await httpClient.GetStringAsync(uri);
+                html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
                 Debug.WriteLine($"[WebTools] Fetched HTML from {url}. Length: {html.Length}");
             }
+
             Debug.WriteLine($"[WebTools] Final HTML length used: {html.Length}");
 
             // Parse and strip unwanted nodes
@@ -173,7 +182,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             string[] xpaths = new[]
             {
                 "//script", "//style", "//img", "//noscript", "//header",
-                "//footer", "//nav", "//aside", "//form", "//svg", "//canvas"
+                "//footer", "//nav", "//aside", "//form", "//svg", "//canvas",
             };
             foreach (string xp in xpaths)
             {
@@ -181,7 +190,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 if (nodes != null)
                 {
                     foreach (var node in nodes)
+                    {
                         node.Remove();
+                    }
                 }
             }
 
@@ -226,23 +237,24 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
         #endregion
 
-        #region searchRhinoForum
-        private async Task<object> ExecuteSearchRhinoForumAsync(JObject parameters)
+        #region WebSearchRhinoForum
+        private async Task<object> WebSearchRhinoForumAsync(JObject parameters)
         {
             string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
             var httpClient = new HttpClient();
             var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
-            var response = await httpClient.GetAsync(searchUri);
+            var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var json = JObject.Parse(content);
             var posts = json["posts"] as JArray ?? new JArray();
             posts = new JArray(posts.Take(10));
             var topics = json["topics"] as JArray ?? new JArray();
+
             // Build a map of topic ID to title
             var topicTitles = topics
                 .Where(t => t["id"] != null)
-                .ToDictionary(t => (int)t["id"], t => (string)(t["title"] ?? t["fancy_title"] ?? ""));
+                .ToDictionary(t => (int)t["id"], t => (string)(t["title"] ?? t["fancy_title"] ?? string.Empty));
             var result = new JArray(posts.Select(p =>
             {
                 int postId = p.Value<int>("id");
@@ -254,26 +266,27 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ["topic_id"] = topicId,
                     ["title"] = topicTitles.GetValueOrDefault(topicId, string.Empty),
                     ["date"] = p.Value<string>("created_at"),
-                    ["cooked"] = p.Value<string>("cooked")
+                    ["cooked"] = p.Value<string>("cooked"),
                 };
             }));
             return result;
         }
         #endregion
 
-        #region getRhinoForumPost
+        #region WebGetRhinoForumPost
+
         /// <summary>
         /// Retrieves full JSON of a Rhino Discourse forum post by ID.
         /// </summary>
         /// <param name="parameters">A JObject containing the ID parameter.</param>
-        private async Task<object> ExecuteGetRhinoForumPostAsync(JObject parameters)
+        private async Task<object> WebGetRhinoForumPostAsync(JObject parameters)
         {
             int id = parameters.Value<int>("id");
             var httpClient = new HttpClient();
             var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
-            var response = await httpClient.GetAsync(postUri);
+            var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var json = JObject.Parse(content);
             return json;
         }
@@ -282,11 +295,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #region Helpers
         private class RobotsTxtParser
         {
-            private readonly List<string> disallowed = new List<string>();
+            private readonly List<string> disallowed = new();
 
             /// <summary>
-        /// Simple robots.txt parser supporting User-agent: * and Disallow directives.
-        /// </summary>
+            /// Initializes a new instance of the <see cref="RobotsTxtParser"/> class.
+            /// Simple robots.txt parser supporting User-agent: * and Disallow directives.
+            /// </summary>
             public RobotsTxtParser(string content)
             {
                 bool appliesToAll = false;
@@ -294,9 +308,16 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 {
                     string trimmed = line.Trim();
                     if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#"))
+                    {
                         continue;
+                    }
+
                     var parts = trimmed.Split(':', 2);
-                    if (parts.Length != 2) continue;
+                    if (parts.Length != 2)
+                    {
+                        continue;
+                    }
+
                     string field = parts[0].Trim().ToLowerInvariant();
                     string value = parts[1].Trim();
                     if (field == "user-agent")
@@ -305,7 +326,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     }
                     else if (field == "disallow" && appliesToAll)
                     {
-                        disallowed.Add(value);
+                        this.disallowed.Add(value);
                     }
                     else if (field == "allow" && appliesToAll)
                     {
@@ -319,13 +340,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
             /// </summary>
             public bool IsAllowed(string path)
             {
-                foreach (var rule in disallowed)
+                foreach (var rule in this.disallowed)
                 {
                     if (string.IsNullOrEmpty(rule))
+                    {
                         continue;
+                    }
+
                     if (path.StartsWith(rule))
+                    {
                         return false;
+                    }
                 }
+
                 return true;
             }
         }

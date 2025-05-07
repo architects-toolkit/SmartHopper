@@ -8,33 +8,35 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
+using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Converters;
-using SmartHopper.Core.JSON;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Reflection;
+using SmartHopper.Core.Models.Components;
+using SmartHopper.Core.Models.Connections;
+using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public class GHDocumentUtils
+    public static class GHDocumentUtils
     {
-        //public static IGH_DocumentObject GroupObjects(Guid[] guids, string groupName = null)
-        //{
+        // public static IGH_DocumentObject GroupObjects(Guid[] guids, string groupName = null)
+        // {
         //    GH_Document doc = GHCanvasUtils.GetCurrentCanvas();
         //    GH_Group group = new GH_Group();
 
-        //    if (!string.IsNullOrEmpty(groupName))
+        // if (!string.IsNullOrEmpty(groupName))
         //    {
         //        group.NickName = groupName;
         //        group.Colour = Color.FromArgb(255, 100, 100, 100);
         //    }
 
-        //    foreach (var guid in guids)
+        // foreach (var guid in guids)
         //    {
         //        IGH_DocumentObject obj = doc.FindObject(guid, true);
         //        if (obj != null)
@@ -43,16 +45,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
         //        }
         //    }
 
-        //    doc.AddObject(group, false);
+        // doc.AddObject(group, false);
         //    return group;
-        //}
-
+        // }
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects)
         {
             var document = new GrasshopperDocument
             {
                 Components = new List<ComponentProperties>(),
-                Connections = new List<ConnectionPairing>()
+                Connections = new List<ConnectionPairing>(),
             };
 
             foreach (var obj in objects)
@@ -64,7 +65,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     ComponentGuid = obj.ComponentGuid,
                     Properties = new Dictionary<string, ComponentProperty>(),
                     Warnings = GHErrors.GetRuntimeErrors(obj, "warning").ToList(),
-                    Errors = GHErrors.GetRuntimeErrors(obj, "error").ToList()
+                    Errors = GHErrors.GetRuntimeErrors(obj, "error").ToList(),
                 };
 
                 if (obj is IGH_Component component)
@@ -85,13 +86,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                     From = new Connection
                                     {
                                         ComponentId = component.InstanceGuid,
-                                        ParamName = output.Name
+                                        ParamName = output.Name,
                                     },
                                     To = new Connection
                                     {
                                         ComponentId = recipientGuid,
-                                        ParamName = recipient.Name
-                                    }
+                                        ParamName = recipient.Name,
+                                    },
                                 };
                                 document.Connections.Add(connection);
                             }
@@ -114,13 +115,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 From = new Connection
                                 {
                                     ComponentId = param.InstanceGuid,
-                                    ParamName = param.Name
+                                    ParamName = param.Name,
                                 },
                                 To = new Connection
                                 {
                                     ComponentId = recipientGuid,
-                                    ParamName = recipient.Name
-                                }
+                                    ParamName = recipient.Name,
+                                },
                             };
                             document.Connections.Add(connection);
                         }
@@ -134,13 +135,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
                 // Get component properties
                 var propertyValues = GetObjectProperties(obj);
+
+                // Inject the Script property for script components
+                if (obj is IScriptComponent scriptComp)
+                {
+                    propertyValues["Script"] = scriptComp.Text;
+                }
+
                 foreach (var prop in propertyValues)
                 {
                     componentProps.Properties[prop.Key] = new ComponentProperty
                     {
                         Value = prop.Value,
                         Type = prop.Value?.GetType().Name ?? "null",
-                        HumanReadable = prop.Value?.ToString() ?? "null"
+                        HumanReadable = prop.Value?.ToString() ?? "null",
                     };
                 }
 
@@ -161,18 +169,26 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             Type type = obj.Attributes.DocObject.GetType();
             PropertyInfo[] properties = type.GetProperties();
-            Dictionary<string, object> propertyValues = new Dictionary<string, object>();
+            Dictionary<string, object> propertyValues = new ();
 
             foreach (PropertyInfo property in properties)
             {
                 try
                 {
-                    if (!JsonProperties.IsPropertyInWhitelist(property.Name))
+                    // 1) Never serialize the GH runtime Params collection (it loops back on itself)
+                    if (property.Name == "Params")
                     {
                         continue;
                     }
 
-                    var value = property.GetValue(obj) ?? "";
+                    // 2) Only include properties you've explicitly whitelisted
+                    if (!GHPropertyManager.IsPropertyInWhitelist(property.Name))
+                    {
+                        continue;
+                    }
+
+                    // 3) Now get the value and build your ComponentProperty
+                    var value = property.GetValue(obj) ?? string.Empty;
 
                     // Special handling for number slider current value
                     if (obj is GH_NumberSlider slider && property.Name == "CurrentValue")
@@ -183,32 +199,36 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         value = NumberSliderUtils.FormatSliderValue(lowerLimit, upperLimit, currentValue);
                     }
 
-                    // Check if the property has child properties
-                    if (JsonProperties.HasChildProperties(property.Name))
+                    // 4) If you have child-property names defined (your whitelist dictionary's value list),
+                    //    you can drill in here and pull only those sub-props.
+                    var childKeys = GHPropertyManager.GetChildProperties(property.Name);
+                    if (childKeys != null)
                     {
-                        var childPropertyValues = JsonProperties.GetChildProperties(value, property.Name);
+                        // Here you'd extract child properties if needed
                         propertyValues[property.Name] = new ComponentProperty
                         {
                             Value = value,
                             Type = value?.GetType().Name ?? "null",
-                            HumanReadable = value?.ToString() ?? "null"
+                            HumanReadable = value?.ToString() ?? "null",
                         };
                     }
                     else
                     {
-                        if (new[] { "PersistentData" }.Contains(property.Name))
+                        // Handle PersistentData specially
+                        if (property.Name == "PersistentData")
                         {
-                            IGH_Structure dataTree = value as IGH_Structure;
+                            IGH_Structure? dataTree = value as IGH_Structure;
                             Dictionary<string, List<object>> dictionary = IGHStructureProcessor.IGHStructureToDictionary(dataTree);
                             propertyValues[property.Name] = IGHStructureProcessor.IGHStructureDictionaryTo1DDictionary(dictionary);
                         }
                         else
                         {
+                            // Regular leaf property
                             propertyValues[property.Name] = new ComponentProperty
                             {
                                 Value = value,
                                 Type = value?.GetType().Name ?? "null",
-                                HumanReadable = value?.ToString() ?? "null"
+                                HumanReadable = value?.ToString() ?? "null",
                             };
                         }
                     }

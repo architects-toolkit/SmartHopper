@@ -7,18 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1-alpha] - 2025-05-06
+
 ### Added
 
 - Added the "Accepted feature request: Allow for copy-paste the chat in a good format when selecting the text" ([#86](https://github.com/architects-toolkit/SmartHopper/issues/86)).
+- Added support for script components in `GhGet`.
+- Allow `CreateComponentGrid` for fractional row positions for components, to create a more human-like layout.
+- Added `gh_tidy_up` AI tool in `GhObjTools` for arranging selected components into a dependency-based grid layout.
+- New `gh_tidy_up` component.
+- New `SelectingComponentBase` for components that need the button to select other components.
+- New `GHJsonAnalyzer` and `GHJsonFixer` classes for analyzing and fixing GHJSON formats.
 
 ### Changed
 
 - Improved chat UI with timestamps for messages, collapsible tool messages, inline metrics per message, button to copy codeblocks to clipboard, and better formatting.
+- Reorganization of JSON models for clearer structure.
+- Migrated the `GhPut` tool from the `GhPutComponent` to the `GhPutTools` class, using the `AIToolManager`.
+- `DeserializeJSON` now fixes invalid InstanceGuids in Grasshopper JSON documents when deserializing.
+- Moved `DependencyGraphUtils` and `ConnectionGraphUtils` from `SmartHopper.Core.Graph` to `SmartHopper.Core.Grasshopper.Graph`.
+- Improved `CreateComponentGrid` in `DependencyGraphUtils`:
+  - Now returns original pivots relative to the most top-left component to ensure relative positioning
+  - Uses a more human-like layout with column widths based on actual component widths
+  - Uses horizontal margin of 50 and vertical spacing of 80
+  - Centers Params from their actual center instead of the top-left position
+  - Improved by detecting islands of components, ensure connected components stay together, and use barycenter heuristic algorithm for initial layer ordering
+  - Minimizes connection length
+  - Aligns parents with children
+- Improved `MoveInstance`:
+  - Added a nice animation so that components move smoothly to their new position.
+  - Skip movement if initial and target positions are the same.
+- Modified `GhGetComponents` to use the new `SelectingComponentBase`.
+- Implemented the new `GHJsonAnalyzer` and `GHJsonFixer` in `GhPutTools` and `GhPutComponents`.
 
 ### Fixed
 
 - Fixed issue with tool calls in chat messages. Now the code provides exactly the json structure expected by MistralAI and OpenAI.
 - Fixed tooltip visibility at the bottom of the chat.
+- Fixed component placement in `GhPut` tool was too separated.
+- Fixed source components in `TopologicalSort` were not sorted in reverse order.
+- Limited `ghget` connections to components within the result objects set.
+- Fixed `gh_tidy_up` moving components on every execution.
+- Fixed `CreateComponentGrid` joining last and last-1 column together.
+- (automatically added) Fixes "Panels and params position is calculated from top-left, not from center" ([#184](https://github.com/architects-toolkit/SmartHopper/issues/184)).
 
 ## [0.3.0-alpha] - 2025-04-27
 
@@ -30,9 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `ConnectionGraphUtils` class in `SmartHopper.Core.Graph` namespace with method `ExpandByDepth` to expand a set of component IDs by following connections up to the given depth.
 - Added `GhRetrieveComponents` component and `ghretrievecomponents` AI tool for listing Grasshopper component types with descriptions, keywords, category filters, and list of inputs and outputs.
 - Added `ghcategories` AI tool in `GhTools` to list Grasshopper component categories and subcategories with optional soft string filter.
-- Added new `ghtogglepreview` AI tool in `GhObjTools` for toggling Grasshopper component preview by GUID.
-- Added new `ghtogglelock` AI tool in `GhObjTools` for toggling Grasshopper component lock state by GUID.
-- Added new `ghmoveobj` AI tool in `GhObjTools` for moving Grasshopper component pivot by GUID with absolute or relative position.
+- Added new `gh_toggle_preview` AI tool in `GhObjTools` for toggling Grasshopper component preview by GUID.
+- Added new `gh_toggle_lock` AI tool in `GhObjTools` for toggling Grasshopper component lock state by GUID.
+- Added new `gh_move_obj` AI tool in `GhObjTools` for moving Grasshopper component pivot by GUID with absolute or relative position.
 - Added `MoveInstance` method in `GHCanvasUtils` to move existing instances by GUID with absolute or relative pivot positions.
 - Improved security in Providers by accepting only signed assemblies.
 - Added multiple CI Tests, for example, to ensure unsigned provider assemblies are rejected by `ProviderManager.VerifySignature`, to ensure only signed assemblies are loaded by `ProviderManager.LoadProviderAssembly`, and to ensure only enabled providers are registered by `ProviderManager.RegisterProviders`.
