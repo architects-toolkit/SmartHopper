@@ -2,18 +2,24 @@ name: "Using Sorter"
 description: "Check or fix C# using directives ordering and remove unused usings"
 inputs:
   mode:
-    description: "Operation mode: fix or check"
+    description: "Operation mode: fix, check, or soft-check"
     required: false
     default: "check"
 runs:
   using: "composite"
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    - name: Check for existing .NET SDK
+      id: check-dotnet
+      shell: bash
+      run: |
+        if dotnet --version >/dev/null 2>&1; then
+          echo "installed=true" >> $GITHUB_OUTPUT
+        else
+          echo "installed=false" >> $GITHUB_OUTPUT
+        fi
     - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
+      if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 7.0.x
     - name: Run using sorter
@@ -25,7 +31,7 @@ runs:
         export PATH="$HOME/.dotnet/tools:$PATH"
         for file in $FILES; do
           if [ -f "$file" ]; then
-            if [ "${{ inputs.mode }}" = "check" ]; then
+            if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.mode }}" = "soft-check" ]; then
               dotnet format "$file" --verify-no-changes --fix-analyzers
             else
               dotnet format "$file" --fix-analyzers

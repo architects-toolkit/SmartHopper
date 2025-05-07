@@ -2,16 +2,12 @@ name: "Trailing Whitespace"
 description: "Check or fix trailing whitespace and normalize line endings"
 inputs:
   mode:
-    description: "Operation mode: fix or check"
+    description: "Operation mode: fix, check, or soft-check"
     required: false
     default: "check"
 runs:
   using: "composite"
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
     - name: Process trailing whitespace
       shell: bash
       run: |
@@ -25,8 +21,13 @@ runs:
               sed -i 's/\r$//' "$file"
             else
               if grep -qE '[ \t]+$' "$file" || file "$file" | grep -q CRLF; then
-                echo "Trailing whitespace or CRLF found in $file"
-                ERR=1
+                if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                  # emit a non-blocking warning
+                  echo "::warning file=$file::Trailing whitespace or CRLF found in $file (run with mode=fix to auto-fix)"
+                else
+                  echo "Trailing whitespace or CRLF found in $file"
+                  ERR=1
+                fi
               fi
             fi
           fi
