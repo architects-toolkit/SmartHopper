@@ -8,7 +8,7 @@ name: 🏁 2 PR Release to Main from Dev
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
-# - pull-requests:read - Required to read PR information for release notes
+# - pull-requests:write - Required to create PRs
 
 on:
   pull_request:
@@ -31,7 +31,7 @@ jobs:
     permissions:
       contents: write
       issues: read
-      pull-requests: read
+      pull-requests: write
     steps:
       - name: Create PR (on PR closed)
         if: ${{ github.event_name == 'pull_request' }}
