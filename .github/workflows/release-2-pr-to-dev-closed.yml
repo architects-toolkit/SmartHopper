@@ -16,6 +16,13 @@ on:
     branches:
       - dev
   workflow_dispatch:
+    inputs:
+      pr-title:
+        required: true
+        type: string
+      pr-body:
+        required: true
+        type: string
 
 jobs:
   create-pr-dev-to-main:
@@ -26,7 +33,8 @@ jobs:
       issues: read
       pull-requests: read
     steps:
-      - name: Create PR
+      - name: Create PR (on PR closed)
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           gh pr create \
             --repo ${{ github.repository }} \
@@ -34,5 +42,17 @@ jobs:
             --head dev \
             --title "${{ github.event.pull_request.head.ref }}" \
             --body "${{ github.event.pull_request.body }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR (manual dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          gh pr create \
+            --repo ${{ github.repository }} \
+            --base main \
+            --head dev \
+            --title "${{ github.event.inputs['pr-title'] }}" \
+            --body "${{ github.event.inputs['pr-body'] }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
