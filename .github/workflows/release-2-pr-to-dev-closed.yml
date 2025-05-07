@@ -25,17 +25,10 @@ jobs:
       issues: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: dev
-      - name: Set up Git user
-        run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
       - name: Create PR
         run: |
           gh pr create \
+            --repo ${{ github.repository }} \
             --base main \
             --head dev \
             --title "${{ github.event.pull_request.head.ref }}" \
