@@ -34,11 +34,15 @@ jobs:
           fetch-depth: 0
           ref: main # Checkout the main branch
 
-      - name: Get Release Info
+      - name: Get Release Version
         id: release_info
+        uses: ./.github/actions/versioning/get-version
+        with:
+          branch: main
+
+      - name: Set Release Info
         run: |
-          VERSION=$(grep -oPm1 "(?<=<Version>)[^<]+" Solution.props)
-          echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "RELEASE_VERSION=${{ steps.release_info.outputs.version }}" >> $GITHUB_ENV
           echo "RELEASE_DESCRIPTION<<EOF" >> $GITHUB_ENV
           echo "${{ github.event.pull_request.body }}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
