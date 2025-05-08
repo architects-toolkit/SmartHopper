@@ -187,7 +187,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         {
             yield return new AITool(
                 name: "gh_get",
-                description: "Retrieve Grasshopper components as GhJSON with optional filters. By default, it returns all components.",
+                description: "Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -218,8 +218,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             // New tool to list installed component types
             yield return new AITool(
-                name: "gh_retrieve_components",
-                description: "Retrieve all installed Grasshopper components in the user's environment as JSON with names, GUIDs, categories, subcategories, descriptions, and keywords.",
+                name: "gh_get_available_components",
+                description: "Retrieve a list of all installed components in this current environment. Returns a JSON dictionary with names, GUIDs, categories, subcategories, descriptions, and keywords.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -236,7 +236,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
             // New tool to list Grasshopper categories and subcategories
             yield return new AITool(
                 name: "gh_categories",
-                description: "List Grasshopper component categories and subcategories with optional soft string filter.",
+                description: "List all available Grasshopper component categories and subcategories with optional soft string filter.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
