@@ -1,0 +1,96 @@
+name: 🏁 1 Prepare Release on Milestone Close
+
+# Description: This workflow automatically prepares a release branch when a milestone is closed.
+# It extracts the milestone title as the version number and compiles release notes from
+# all issues and pull requests associated with the milestone.
+#
+# Triggers:
+# - Automatically when a milestone is closed
+#
+# Permissions:
+# - contents:write - Required to create GitHub releases
+# - issues:read - Required to read issue information for release notes
+# - pull-requests:write - Required to create pull requests
+#
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
+
+on:
+  milestone:
+    types: [ closed ]
+
+jobs:
+  release-preparation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev
+
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      - name: Check if release branch exists
+        id: check-branch
+        run: |
+          git ls-remote --heads origin release/${{ github.event.milestone.title }}
+          if [ $? -eq 0 ]; then
+            echo "branch_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "branch_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Remove existing release branch if exists
+        if: steps.check-branch.outputs.branch_exists == 'true'
+        run: git push origin --delete release/${{ github.event.milestone.title }}
+
+      - name: Create release branch
+        run: git checkout -b release/${{ github.event.milestone.title }}
+
+      - name: Update version in Solution.props
+        uses: ./.github/actions/versioning/update-version
+        with:
+          new-version: ${{ github.event.milestone.title }}
+
+      - name: Include missing issues in changelog
+        uses: ./.github/actions/documentation/update-changelog-issues
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days-lookback: 90
+
+      - name: Update changelog section
+        uses: ./.github/actions/documentation/update-changelog
+        with:
+          action: create-release
+          version: ${{ github.event.milestone.title }}
+          
+      - name: Update README badges
+        uses: ./.github/actions/documentation/update-badges
+        id: update-badges
+
+      # - name: Fix code style
+      #   uses: ./.github/actions/code-style
+      #   with:
+      #     mode: fix
+      #     commit: false
+      
+      - name: Commit and push changes
+        run: |
+          git add Solution.props CHANGELOG.md README.md
+          git commit -m "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
+          git push origin release/${{ github.event.milestone.title }}
+
+      - name: Create Pull Request
+        run: |
+          gh pr create \
+            --base dev \
+            --head release/${{ github.event.milestone.title }} \
+            --title "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes" \
+            --body $'This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Fixed header code style\n- Sorted usings\n- Removed trailing whitespace\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges\n\nMILESTONE DESCRIPTION:\n${{ github.event.milestone.description }}'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

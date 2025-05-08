@@ -1,0 +1,58 @@
+name: 🏁 2 PR Release to Main from Dev
+
+# Description: This workflow automatically creates a PR to merge a release branch into main. When the release/* branch is merged to dev.
+#
+# Triggers:
+# - Automatically when a PR to dev is closed
+#
+# Permissions:
+# - contents:write - Required to create GitHub releases
+# - issues:read - Required to read issue information for release notes
+# - pull-requests:write - Required to create PRs
+
+on:
+  pull_request:
+    types: [ closed ]
+    branches:
+      - dev
+  workflow_dispatch:
+    inputs:
+      pr-title:
+        required: true
+        type: string
+      pr-body:
+        required: true
+        type: string
+
+jobs:
+  create-pr-dev-to-main:
+    if: ${{ ( github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')) || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: write
+    steps:
+      - name: Create PR (on PR closed)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          gh pr create \
+            --repo ${{ github.repository }} \
+            --base main \
+            --head dev \
+            --title "${{ github.event.pull_request.head.ref }}" \
+            --body "${{ github.event.pull_request.body }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR (manual dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          gh pr create \
+            --repo ${{ github.repository }} \
+            --base main \
+            --head dev \
+            --title "${{ github.event.inputs['pr-title'] }}" \
+            --body "${{ github.event.inputs['pr-body'] }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
