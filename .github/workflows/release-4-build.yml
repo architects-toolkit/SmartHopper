@@ -1,4 +1,4 @@
-name: 🚀 Build Project
+name: 🏁 4 Build Project
 
 # Description: This workflow builds the project to verify that it compiles correctly.
 # It can be triggered manually to validate the build process without creating a release.
@@ -25,10 +25,6 @@ on:
         default: false
   release:
     types: [published]
-  # push:
-  #   branches: [ main ]
-  # pull_request:
-  #   branches: [ main ]
 
 permissions:
   contents: write
@@ -118,8 +114,19 @@ jobs:
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
     
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
+    - name: Check for existing .NET SDK
+      id: check-dotnet
+      shell: bash
+      run: |
+        if dotnet --version >/dev/null 2>&1; then
+          echo "installed=true" >> $GITHUB_OUTPUT
+        else
+          echo "installed=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Setup .NET
+      if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '7.0.x'
 

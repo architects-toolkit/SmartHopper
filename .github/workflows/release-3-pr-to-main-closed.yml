@@ -1,6 +1,6 @@
-name: 🏁 Create Release on Milestone Close
+name: 🏁 3 Create Release on Release PR Close
 
-# Description: This workflow automatically creates a GitHub Release when a milestone is closed.
+# Description: This workflow automatically creates a GitHub Release when a release PR is closed.
 # It extracts the milestone title as the version number and compiles release notes from
 # all issues and pull requests associated with the milestone.
 #
@@ -13,11 +13,15 @@ name: 🏁 Create Release on Milestone Close
 # - pull-requests:read - Required to read PR information for release notes
 
 on:
-  milestone:
+  pull_request:
     types: [ closed ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   create-release:
+    if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -25,66 +29,58 @@ jobs:
       pull-requests: read
 
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: main # Checkout the main branch
 
-      - name: Get Milestone Info
-        id: milestone
+      - name: Get Release Version
+        id: release_info
+        uses: ./.github/actions/versioning/get-version
+        with:
+          branch: main
+
+      - name: Set Release Info
         run: |
-          echo "MILESTONE_TITLE=${{ github.event.milestone.title }}" >> $GITHUB_ENV
-          echo "MILESTONE_DESCRIPTION<<EOF" >> $GITHUB_ENV
-          echo "${{ github.event.milestone.description }}" >> $GITHUB_ENV
+          echo "RELEASE_VERSION=${{ steps.release_info.outputs.version }}" >> $GITHUB_ENV
+          echo "RELEASE_DESCRIPTION<<EOF" >> $GITHUB_ENV
+          echo "${{ github.event.pull_request.body }}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      - name: Get Closed Issues
+      - name: Generate Release Notes
         id: issues
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@v7
         with:
           script: |
-            const milestone_number = context.payload.milestone.number;
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              milestone: milestone_number,
-              state: 'closed'
-            });
-            
-            // Generate release notes
+            // Generate release notes for the new release version
             const releaseNotes = await github.rest.repos.generateReleaseNotes({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: process.env.MILESTONE_TITLE,
+              tag_name: process.env.RELEASE_VERSION,
               target_commitish: 'main'
             });
 
             await core.setOutput('changelog', releaseNotes.data.body);
 
-      - name: Update Solution.props with milestone version
-        uses: ./.github/actions/versioning/update-version
-        with:
-          new-version: ${{ github.event.milestone.title }}
-
       - name: Check Prerelease Status
         id: prerelease
         run: |
-          title="${{ github.event.milestone.title }}"
-          if [[ "$title" == *-* ]] || [[ "$title" == *+* ]]; then
+          title="${{ env.RELEASE_VERSION }}"
+          if [[ "${title}" == *-* ]] || [[ "${title}" == *+* ]]; then
             echo "IS_PRERELEASE=true" >> $GITHUB_ENV
           else
             echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           fi
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.event.milestone.title }}
-          name: Release ${{ github.event.milestone.title }}
+          tag_name: ${{ env.RELEASE_VERSION }}
+          name: "SmartHopper ${{ env.RELEASE_VERSION }}: <add an engaging title here>"
           body: |
-            ${{ env.MILESTONE_DESCRIPTION }}
+            ${{ env.RELEASE_DESCRIPTION }}
             
             ${{ steps.issues.outputs.changelog }}
           draft: true
