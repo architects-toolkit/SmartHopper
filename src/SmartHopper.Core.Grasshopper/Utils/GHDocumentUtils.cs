@@ -142,13 +142,33 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     propertyValues["Script"] = scriptComp.Text;
                 }
 
+                // Only set humanReadable for non-primitive types when ToString() is meaningful
                 foreach (var prop in propertyValues)
                 {
+                    var val = prop.Value;
+                    var typeName = val?.GetType().Name ?? "null";
+                    string humanReadable = null;
+                    if (val != null)
+                    {
+                        var hr = val.ToString();
+                        var t = val.GetType();
+                        var fullName = t.FullName;
+                        var nameOnly = t.Name;
+
+                        if (!string.IsNullOrWhiteSpace(hr)
+                            && hr != fullName
+                            && hr != nameOnly
+                            && typeName != "String"
+                            && typeName != "Boolean")
+                        {
+                            humanReadable = hr;
+                        }
+                    }
                     componentProps.Properties[prop.Key] = new ComponentProperty
                     {
-                        Value = prop.Value,
-                        Type = prop.Value?.GetType().Name ?? "null",
-                        HumanReadable = prop.Value?.ToString() ?? "null",
+                        Value = val,
+                        Type = typeName,
+                        HumanReadable = humanReadable,
                     };
                 }
 
@@ -205,12 +225,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     if (childKeys != null)
                     {
                         // Here you'd extract child properties if needed
-                        propertyValues[property.Name] = new ComponentProperty
-                        {
-                            Value = value,
-                            Type = value?.GetType().Name ?? "null",
-                            HumanReadable = value?.ToString() ?? "null",
-                        };
+                        propertyValues[property.Name] = value;
                     }
                     else
                     {
@@ -224,12 +239,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         else
                         {
                             // Regular leaf property
-                            propertyValues[property.Name] = new ComponentProperty
-                            {
-                                Value = value,
-                                Type = value?.GetType().Name ?? "null",
-                                HumanReadable = value?.ToString() ?? "null",
-                            };
+                            propertyValues[property.Name] = value;
                         }
                     }
                 }
