@@ -216,7 +216,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.GhGetToolAsync
             );
 
-            // New tool to list installed component types
             yield return new AITool(
                 name: "gh_get_available_components",
                 description: "Retrieve a list of all installed components in this current environment. Returns a JSON dictionary with names, GUIDs, categories, subcategories, descriptions, and keywords.",
@@ -226,14 +225,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         ""categoryFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optionally filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'ghcategories' to get the full list of available categories)""
+                            ""description"": ""Optionally filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'gh_categories' to get the full list of available categories)""
                         }
                     }
                 }",
                 execute: this.GhRetrieveToolAsync
             );
 
-            // New tool to list Grasshopper categories and subcategories
             yield return new AITool(
                 name: "gh_categories",
                 description: "List all available Grasshopper component categories and subcategories with optional soft string filter.",
@@ -242,7 +240,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ""properties"": {
                         ""filter"": {
                             ""type"": ""string"",
-                            ""description"": ""Soft filter: return categories or subcategories containing the search tokens (split by space, ignores , ; - _).""
+                            ""description"": ""Soft filter: return categories or subcategories containing the search tokens (split by space).""
                         }
                     }
                 }",
