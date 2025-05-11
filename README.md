@@ -1,7 +1,7 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E3%2E1--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E3%2E2--dev.250511-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
@@ -66,12 +66,12 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 
 | Tool Name | Description | Planned | In Progress | Testing | Released 🎉 |
 |-----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
-| evaluateText | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
-| generateText | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| evaluateList | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
-| filterList | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_review | Review a script for potential issues using AI-powered checks | ⚪ | - | - | - |
-| script_generate | Generate a script using AI language models | ⚪ | - | - | - |
+| text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
+| text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| list_evaluate | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
+| list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
+| script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | - | - |
+| script_generate | Generate a script using AI language models | ⚪ | 🟡 | - | - |
 | web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
 | web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
 | web_get_rhino_forum_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -117,6 +117,7 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 ## 📚 Usage Examples
 
 **Disclaimer:** All videos correspond to previous versions. Since version 0.2.0, the plugin made a huge step forward and the interface has been completely redesigned. It looks much better now, and its functionality has been enhanced.
+
 ### 1 Generate a Title for the Current Document
 
 [![SmartHopper_Generate Title](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651352-6cfca3b39c99d01e9bbdb1590ac7f1325d35b8dfa16e0b5ced2aad704eef2bbe-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447175)

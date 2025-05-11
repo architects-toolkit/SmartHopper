@@ -36,9 +36,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
-            // Define the evaluate list tool
             yield return new AITool(
-                name: "evaluateList",
+                name: "list_evaluate",
                 description: "Evaluates a list based on a natural language question",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -50,9 +49,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.EvaluateListToolWrapper);
 
-            // Define the filter list tool
             yield return new AITool(
-                name: "filterList",
+                name: "list_filter",
                 description: "Filters a list based on natural language criteria",
                 parametersSchema: @"{
                     ""type"": ""object"",

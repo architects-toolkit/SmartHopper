@@ -35,9 +35,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
-            // Define the evaluate text tool
             yield return new AITool(
-                name: "evaluateText",
+                name: "text_evaluate",
                 description: "Evaluates a text against a true/false question",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -49,9 +48,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.EvaluateTextToolWrapper);
 
-            // Define the generate text tool
             yield return new AITool(
-                name: "generateText",
+                name: "text_generate",
                 description: "Generates text based on a prompt and optional instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
