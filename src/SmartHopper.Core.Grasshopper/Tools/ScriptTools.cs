@@ -20,12 +20,13 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using RhinoCodePlatform.GH;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
-using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.AI;
-using RhinoCodePlatform.GH;
-using Grasshopper.Kernel.Special;
+using SmartHopper.Core.Grasshopper.Utils;
+using System.Reflection;
+using System.Collections;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -210,7 +211,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 Debug.WriteLine($"[ScriptEditTool] Before setting code on component {scriptGuid}, old length: {target.Text?.Length ?? 0}");
                 Debug.WriteLine($"[ScriptEditTool] New cleaned code length: {cleanedCode.Length}");
-                target.Text = cleanedCode;
+                        target.Text = cleanedCode;
                 // TODO: Close edition to allow for further modifications
                 Debug.WriteLine($"[ScriptEditTool] After setting code on component {scriptGuid}, new length: {target.Text?.Length ?? 0}");
                 return new JObject { ["success"] = true, ["modifiedCode"] = cleanedCode };
