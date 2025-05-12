@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added undo support to `MoveInstance`.
+
 ## [0.3.1-alpha] - 2025-05-06
 
 ### Added
