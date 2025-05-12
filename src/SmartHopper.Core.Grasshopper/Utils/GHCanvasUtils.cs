@@ -89,6 +89,8 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             var obj = FindInstance(guid);
             if (obj == null) return false;
+            // Record undo event before moving the instance
+            obj.RecordUndoEvent("[SH] Move Instance");
             var current = obj.Attributes.Pivot;
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
@@ -126,6 +128,65 @@ namespace SmartHopper.Core.Grasshopper.Utils
             });
 
             return true;
+        }
+
+
+        /// <summary>
+        /// Moves instances to specific targets by GUID mapping, with optional relative offsets, batching into one undo event.
+        /// </summary>
+        public static List<Guid> MoveInstance(IDictionary<Guid, PointF> targets, bool relative = false, bool redraw = true)
+        {
+            var doc = GetCurrentCanvas();
+            var undo = doc.UndoUtil.CreateGenericObjectEvent("[SH] Move Instances");
+            var moved = new List<Guid>();
+            var moves = new List<(IGH_DocumentObject obj, PointF start, PointF target)>();
+            foreach (var kvp in targets)
+            {
+                var obj = FindInstance(kvp.Key);
+                if (obj == null) continue;
+                var start = obj.Attributes.Pivot;
+                var targetPos = relative
+                    ? new PointF(start.X + kvp.Value.X, start.Y + kvp.Value.Y)
+                    : kvp.Value;
+                if (start == targetPos) continue;
+                obj.RecordUndoEvent(undo);
+                moves.Add((obj, start, targetPos));
+                moved.Add(kvp.Key);
+            }
+            if (!moves.Any()) return moved;
+
+            Task.Run(async () =>
+            {
+                const int steps = 15;
+                const int duration = 300;
+                for (int i = 1; i <= steps; i++)
+                {
+                    float t = i / (float)steps;
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        foreach (var (obj, start, targetPos) in moves)
+                        {
+                            var ix = start.X + (targetPos.X - start.X) * t;
+                            var iy = start.Y + (targetPos.Y - start.Y) * t;
+                            var interp = new PointF(ix, iy);
+                            obj.Attributes.Pivot = interp;
+                            obj.Attributes.ExpireLayout();
+                        }
+                    });
+                    await Task.Delay(duration / steps);
+                }
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    foreach (var (obj, start, targetPos) in moves)
+                    {
+                        obj.Attributes.Pivot = targetPos;
+                        obj.Attributes.ExpireLayout();
+                    }
+                    if (redraw) Instances.RedrawCanvas();
+                    doc.UndoUtil.RecordEvent(undo);
+                });
+            });
+            return moved;
         }
 
         // Identify occupied areas
