@@ -25,10 +25,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.13.24317.13001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.18.25100.11001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <PackageReference Include="RhinoCommon" Version="8.13.24317.13001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.18.25100.11001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Resources.Extensions" Version="7.0.0" />

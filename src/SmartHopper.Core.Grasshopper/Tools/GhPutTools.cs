@@ -18,12 +18,13 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
+using RhinoCodePluginGH.Parameters;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Grasshopper.Graph;
-using SmartHopper.Core.Models.Document;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
+
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -81,8 +82,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     var nodes = DependencyGraphUtils.CreateComponentGrid(document);
                     var posMap = nodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
                     foreach (var component in document.Components)
+                    {
                         if (posMap.TryGetValue(component.InstanceGuid, out var pivot))
+                        {
                             component.Pivot = pivot;
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -120,13 +125,77 @@ namespace SmartHopper.Core.Grasshopper.Tools
                             scriptComp.Text = scriptCode;
                             Debug.WriteLine($"Set script code for component {instance.InstanceGuid}, length: {scriptCode.Length}");
                         }
-                        
-                        // Set other properties as normal
+
+                        // Process script input parameters via public API using ScriptVariableParam
+                        if (component.Properties.TryGetValue("ScriptInputs", out var inputsProperty) &&
+                            inputsProperty?.Value is JArray inputArray)
+                        {
+                            Debug.WriteLine($"GhPutToolAsync: processing ScriptInputs for {instance.InstanceGuid}, inputArray.Count: {inputArray.Count}");
+                            foreach (JObject o in inputArray)
+                            {
+                                var variableName = o["variableName"]?.ToString() ?? string.Empty;
+                                var prettyName = o["name"]?.ToString() ?? variableName;
+                                var description = o["description"]?.ToString() ?? string.Empty;
+                                // Parse access as GH_ParamAccess
+                                var access = Enum.TryParse<GH_ParamAccess>(o["access"]?.ToString(), true, out var pa)
+                                    ? pa
+                                    : GH_ParamAccess.item;
+
+                                // Create variable parameter
+                                var param = new ScriptVariableParam(variableName)
+                                {
+                                   PrettyName = prettyName,
+                                   Description = description,
+                                   Access = access
+                                };
+                                param.CreateAttributes();
+
+                                // Register as input
+                                ((IGH_Component)scriptComp).Params.RegisterInputParam(param);
+                            }
+                        }
+
+                        // Process script output parameters via public API using ScriptVariableParam
+                        if (component.Properties.TryGetValue("ScriptOutputs", out var outputsProperty) &&
+                            outputsProperty?.Value is JArray outputArray)
+                        {
+                            Debug.WriteLine($"GhPutToolAsync: processing ScriptOutputs for {instance.InstanceGuid}, outputArray.Count: {outputArray.Count}");
+                            foreach (JObject o in outputArray)
+                            {
+                                var variableName = o["variableName"]?.ToString() ?? string.Empty;
+                                var prettyName = o["name"]?.ToString() ?? variableName;
+                                var description = o["description"]?.ToString() ?? string.Empty;
+                                var access = Enum.TryParse<GH_ParamAccess>(o["access"]?.ToString(), true, out var pa2)
+                                    ? pa2
+                                    : GH_ParamAccess.item;
+                                var param = new ScriptVariableParam(variableName)
+                                {
+                                   PrettyName = prettyName,
+                                   Description = description,
+                                   Access = access
+                                };
+                                param.CreateAttributes();
+
+                                // Register as output
+                                ((IGH_Component)scriptComp).Params.RegisterOutputParam(param);
+                            }
+                        }
+
+                        // Rebuild variable parameter UI
+                        ((dynamic)scriptComp).VariableParameterMaintenance();
+
+                        // Set other properties as normal (excluding the script-specific ones we've handled)
                         var filtered = component.Properties
-                            .Where(kvp => !GHPropertyManager.IsPropertyOmitted(kvp.Key) && kvp.Key != "Script")
+                            .Where(kvp => !GHPropertyManager.IsPropertyOmitted(kvp.Key) && 
+                                   kvp.Key != "Script" && 
+                                   kvp.Key != "ScriptLanguage" && 
+                                   kvp.Key != "MarshInputs" && 
+                                   kvp.Key != "MarshOutputs" && 
+                                   kvp.Key != "MarshGuids" && 
+                                   kvp.Key != "ScriptInputs" && 
+                                   kvp.Key != "ScriptOutputs")
                             .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                        GHPropertyManager.SetProperties(instance, filtered);
-                    }
+                        GHPropertyManager.SetProperties(instance, filtered);                    }
                     else if (component.Properties != null)
                     {
                         var filtered = component.Properties
