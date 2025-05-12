@@ -20,6 +20,7 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Document;
 using System.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -82,30 +83,32 @@ namespace SmartHopper.Core.Grasshopper.Tools
             // New tool to move component pivot position
             yield return new AITool(
                 name: "gh_move_obj",
-                description: "Move Grasshopper component pivot by GUID, with absolute or relative position.",
+                description: "Move Grasshopper components by GUID with specific targets and optional relative offset.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""guids"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""List of component GUIDs to move.""
-                        },
-                        ""x"": {
-                            ""type"": ""number"",
-                            ""description"": ""X coordinate for pivot (absolute or offset).""
-                        },
-                        ""y"": {
-                            ""type"": ""number"",
-                            ""description"": ""Y coordinate for pivot (absolute or offset).""
+                        ""targets"": {
+                            ""type"": ""object"",
+                            ""patternProperties"": {
+                                ""^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$"": {
+                                    ""type"": ""object"",
+                                    ""properties"": {
+                                        ""x"": { ""type"": ""number"" },
+                                        ""y"": { ""type"": ""number"" }
+                                    },
+                                    ""required"": [ ""x"", ""y"" ]
+                                }
+                            },
+                            ""additionalProperties"": false,
+                            ""description"": ""Mapping of component GUID strings to target coordinates (keys must be GUIDs).""
                         },
                         ""relative"": {
                             ""type"": ""boolean"",
-                            ""description"": ""True for relative offset; false for absolute.""
+                            ""description"": ""True to treat targets as relative offsets.""
                         }
                     },
-                    ""required"": [ ""guids"", ""x"", ""y"" ]
-                }",
+                    ""required"": [ ""targets"" ]
+                }" ,
                 execute: this.GhMoveObjAsync
             );
 
@@ -196,33 +199,29 @@ namespace SmartHopper.Core.Grasshopper.Tools
         #region MoveInstance
         private async Task<object> GhMoveObjAsync(JObject parameters)
         {
-            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var x = parameters["x"]?.ToObject<float>() ?? 0f;
-            var y = parameters["y"]?.ToObject<float>() ?? 0f;
+            var targetsObj = parameters["targets"] as JObject;
+            if (targetsObj == null)
+                return new { success = false, error = "Missing or invalid 'targets' parameter." };
             var relative = parameters["relative"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: x={x}, y={y}, relative={relative}, count={guids.Count}");
-            var updated = new List<string>();
-            foreach (var s in guids)
+            var dict = new Dictionary<Guid, PointF>();
+            foreach (var prop in targetsObj.Properties())
             {
-                Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
-                if (Guid.TryParse(s, out var guid))
+                if (Guid.TryParse(prop.Name, out var g))
                 {
-                    var moved = GHCanvasUtils.MoveInstance(guid, new PointF(x, y), relative);
-                    Debug.WriteLine(moved
-                        ? $"[GhObjTools] Moved GUID: {guid} to ({x},{y}) relative={relative}"
-                        : $"[GhObjTools] Instance not found for GUID: {guid}");
-                    if (moved)
+                    var xToken = prop.Value["x"];
+                    var yToken = prop.Value["y"];
+                    if (xToken == null || yToken == null)
                     {
-                        updated.Add(guid.ToString());
+                        Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
+                        continue;
                     }
-                }
-                else
-                {
-                    Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
+                    dict[g] = new PointF(
+                        xToken.ToObject<float>(),
+                        yToken.ToObject<float>());
                 }
             }
-
-            return new { success = true, updated };
+            var movedList = GHCanvasUtils.MoveInstance(dict, relative);
+            return new { success = movedList.Any(), updated = movedList.Select(g => g.ToString()).ToList() };
         }
         #endregion
 
