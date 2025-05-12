@@ -35,6 +35,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// </summary>
     public class ScriptTools : IAIToolProvider
     {
+        #region Tool Registration
+        
         /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
@@ -73,6 +75,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.ScriptEditToolAsync);
         }
 
+        #endregion
+
+        #region ScriptReview
+
         /// <summary>
         /// Executes the "script_review" tool: retrieves the component by GUID, runs coded checks, and obtains an AI-based review.
         /// </summary>
@@ -106,13 +112,16 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 // Coded static checks by language
                 var codedIssues = new List<string>();
+
                 // Always check for TODO comments
                 if (scriptCode.IndexOf("TODO", StringComparison.OrdinalIgnoreCase) >= 0)
                     codedIssues.Add("Found TODO comments in script.");
+
                 // Check line count
                 var lineCount = scriptCode.Split('\n').Length;
                 if (lineCount > 200)
                     codedIssues.Add($"Script has {lineCount} lines; consider refactoring into smaller methods.");
+
                 // Language-specific debug checks
                 if (Regex.IsMatch(scriptCode, @"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase) 
                     || scriptCode.IndexOf("import ", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -176,6 +185,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
         }
 
+        #endregion
+
+        #region ScriptEdit
+
         /// <summary>
         /// Executes the "script_edit" tool: applies user instructions to modify a script component and updates it on the canvas.
         /// </summary>
@@ -221,5 +234,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return new JObject { ["success"] = false, ["error"] = ex.Message };
             }
         }
+
+        #endregion
     }
 }
