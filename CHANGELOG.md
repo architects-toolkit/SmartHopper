@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for script components in `GhPutTools`, enabling placement of script components with code from GhJSON.
 - Enhanced `GetObjectsDetails` in `GHDocumentUtils` to serialize variable input and output parameters from script components to GhJSON.
 - Extended `GhPutTools` to handle variable input and output parameters when placing script components from GhJSON.
+- Added support for parameter modifiers (simplify, flatten, graft, reverse) in both input and output parameters for script components in `GhPutTools` and `GHDocumentUtils`.
 
 ### Changed
 
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent `GHDocumentUtils.GetObjectsDetails` from generating humanReadable field if value is already human readable (numbers and strings)
 - Renamed `evaluateList` and `filterList` AI tools to `list_evaluate` and `list_filter`
 - Renamed `evaluateText` and `generateText` AI tools to `text_evaluate` and `text_generate`
+- Minimum Rhino version required increased to 8.18
 
 ## [0.3.1-alpha] - 2025-05-06
 

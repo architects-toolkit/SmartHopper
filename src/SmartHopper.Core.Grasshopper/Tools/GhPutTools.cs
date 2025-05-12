@@ -151,6 +151,29 @@ namespace SmartHopper.Core.Grasshopper.Tools
                                     };
                                     param.CreateAttributes();
 
+                                    // Apply modifiers if present in the JSON
+                                    if (o["simplify"] != null)
+                                    {
+                                        bool simplify = o["simplify"].Value<bool>();
+                                        param.Simplify = simplify;
+                                        Debug.WriteLine($"Setting input parameter '{variableName}' Simplify={simplify}");
+                                    }
+
+                                    if (o["reverse"] != null)
+                                    {
+                                        bool reverse = o["reverse"].Value<bool>();
+                                        param.Reverse = reverse;
+                                        Debug.WriteLine($"Setting input parameter '{variableName}' Reverse={reverse}");
+                                    }
+
+                                    if (o["dataMapping"] != null)
+                                    {
+                                        string dataMappingStr = o["dataMapping"].ToString();
+                                        GH_DataMapping dataMapping = StringConverter.StringToGHDataMapping(dataMappingStr);
+                                        param.DataMapping = dataMapping;
+                                        Debug.WriteLine($"Setting input parameter '{variableName}' DataMapping={dataMapping}");
+                                    }
+
                                     ((IGH_Component)scriptComp).Params.RegisterInputParam(param);
                                 }
                                 else
@@ -183,6 +206,29 @@ namespace SmartHopper.Core.Grasshopper.Tools
                                        Access = access
                                     };
                                     param.CreateAttributes();
+                                    
+                                    // Apply modifiers if present in the JSON
+                                    if (o["simplify"] != null)
+                                    {
+                                        bool simplify = o["simplify"].Value<bool>();
+                                        param.Simplify = simplify;
+                                        Debug.WriteLine($"Setting output parameter '{variableName}' Simplify={simplify}");
+                                    }
+
+                                    if (o["reverse"] != null)
+                                    {
+                                        bool reverse = o["reverse"].Value<bool>();
+                                        param.Reverse = reverse;
+                                        Debug.WriteLine($"Setting output parameter '{variableName}' Reverse={reverse}");
+                                    }
+
+                                    if (o["dataMapping"] != null)
+                                    {
+                                        string dataMappingStr = o["dataMapping"].ToString();
+                                        GH_DataMapping dataMapping = StringConverter.StringToGHDataMapping(dataMappingStr);
+                                        param.DataMapping = dataMapping;
+                                        Debug.WriteLine($"Setting output parameter '{variableName}' DataMapping={dataMapping}");
+                                    }
 
                                     ((IGH_Component)scriptComp).Params.RegisterOutputParam(param);
                                 }
