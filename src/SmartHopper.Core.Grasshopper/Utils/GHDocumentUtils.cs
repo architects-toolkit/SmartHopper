@@ -15,6 +15,7 @@ using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
+using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Models.Components;
@@ -136,10 +137,56 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 // Get component properties
                 var propertyValues = GetObjectProperties(obj);
 
-                // Inject the Script property for script components
+                // Inject script properties for script components
                 if (obj is IScriptComponent scriptComp)
                 {
+                    // Add the script text content
                     propertyValues["Script"] = scriptComp.Text;
+
+                    // Add information about language and marshaling options
+                    //if (scriptComp.LanguageSpec != null)
+                    //{
+                    //    propertyValues["ScriptLanguage"] = scriptComp.LanguageSpec.Name;
+                    //}
+                    propertyValues["MarshInputs"] = scriptComp.MarshInputs;
+                    propertyValues["MarshOutputs"] = scriptComp.MarshOutputs;
+                    propertyValues["MarshGuids"] = scriptComp.MarshGuids;
+
+                    // Serialize input parameters
+                    if (scriptComp.Inputs != null && scriptComp.Inputs.Any())
+                    {
+                        var inputParamsArray = new JArray();
+                        foreach (var input in scriptComp.Inputs)
+                        {
+                            var paramObj = new JObject
+                            {
+                                ["variableName"] = input.VariableName,
+                                ["name"] = input.PrettyName,
+                                ["description"] = input.Description ?? string.Empty,
+                                ["access"] = input.Access.ToString(),
+                            };
+                            inputParamsArray.Add(paramObj);
+                        }
+                        propertyValues["ScriptInputs"] = inputParamsArray;
+                    }
+
+                    // Serialize output parameters
+                    if (scriptComp.Outputs != null && scriptComp.Outputs.Any())
+                    {
+                        var outputParamsArray = new JArray();
+                        foreach (var output in scriptComp.Outputs)
+                        {
+                            var paramObj = new JObject
+                            {
+                                ["variableName"] = output.VariableName,
+                                ["name"] = output.PrettyName,
+                                ["description"] = output.Description ?? string.Empty,
+                                ["access"] = output.Access.ToString(),
+                            };
+                            outputParamsArray.Add(paramObj);
+                        }
+                        propertyValues["ScriptOutputs"] = outputParamsArray;
+                    }
                 }
 
                 // Only set humanReadable for non-primitive types when ToString() is meaningful
@@ -159,7 +206,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             && hr != fullName
                             && hr != nameOnly
                             && typeName != "String"
-                            && typeName != "Boolean")
+                            && typeName != "Boolean"
+                            && typeName != "JArray"
+                            && typeName != "JObject")
                         {
                             humanReadable = hr;
                         }

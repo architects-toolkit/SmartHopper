@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `script_new` AI tool for generating Grasshopper scripts.
   - New `script_edit` AI tool for modifying script component code per user instructions.
 - Added support for script components in `GhPutTools`, enabling placement of script components with code from GhJSON.
+- Enhanced `GetObjectsDetails` in `GHDocumentUtils` to serialize variable input and output parameters from script components to GhJSON.
+- Extended `GhPutTools` to handle variable input and output parameters when placing script components from GhJSON.
 
 ### Changed
 
