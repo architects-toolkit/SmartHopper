@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
+using RhinoCodePlatform.GH;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.Grasshopper.Graph;
@@ -108,6 +109,23 @@ namespace SmartHopper.Core.Grasshopper.Tools
                         {
                             Debug.WriteLine($"Error setting slider value: {ex.Message}");
                         }
+                    }
+                    else if (instance is IScriptComponent scriptComp && component.Properties != null)
+                    {
+                        // Handle script component by setting its code from the Script property
+                        if (component.Properties.TryGetValue("Script", out var scriptProperty) && 
+                            scriptProperty?.Value != null)
+                        {
+                            string scriptCode = scriptProperty.Value.ToString();
+                            scriptComp.Text = scriptCode;
+                            Debug.WriteLine($"Set script code for component {instance.InstanceGuid}, length: {scriptCode.Length}");
+                        }
+                        
+                        // Set other properties as normal
+                        var filtered = component.Properties
+                            .Where(kvp => !GHPropertyManager.IsPropertyOmitted(kvp.Key) && kvp.Key != "Script")
+                            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                        GHPropertyManager.SetProperties(instance, filtered);
                     }
                     else if (component.Properties != null)
                     {

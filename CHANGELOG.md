@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New `ScriptTools` class in `SmartHopper.Core.Grasshopper.Tools` for Grasshopper script components, including:
   - New `script_review` AI tool for reviewing Grasshopper scripts.
-  - New `script_generate` AI tool for generating Grasshopper scripts.
+  - New `script_new` AI tool for generating Grasshopper scripts.
   - New `script_edit` AI tool for modifying script component code per user instructions.
+- Added support for script components in `GhPutTools`, enabling placement of script components with code from GhJSON.
 
 ### Changed
 
