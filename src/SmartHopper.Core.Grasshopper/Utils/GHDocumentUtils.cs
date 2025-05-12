@@ -164,6 +164,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 ["name"] = input.PrettyName,
                                 ["description"] = input.Description ?? string.Empty,
                                 ["access"] = input.Access.ToString(),
+                                ["simplify"] = input.Simplify,
+                                ["reverse"] = input.Reverse,
+                                ["dataMapping"] = input.DataMapping.ToString()
                             };
                             inputParamsArray.Add(paramObj);
                         }
@@ -182,6 +185,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 ["name"] = output.PrettyName,
                                 ["description"] = output.Description ?? string.Empty,
                                 ["access"] = output.Access.ToString(),
+                                ["simplify"] = output.Simplify,
+                                ["reverse"] = output.Reverse,
+                                ["dataMapping"] = output.DataMapping.ToString()
                             };
                             outputParamsArray.Add(paramObj);
                         }
