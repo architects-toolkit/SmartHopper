@@ -14,6 +14,7 @@ using System.Drawing;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Undo;
 using System.Threading.Tasks;
 using Rhino;
 
@@ -137,9 +138,10 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static List<Guid> MoveInstance(IDictionary<Guid, PointF> targets, bool relative = false, bool redraw = true)
         {
             var doc = GetCurrentCanvas();
-            var undo = doc.UndoUtil.CreateGenericObjectEvent("[SH] Move Instances");
             var moved = new List<Guid>();
             var moves = new List<(IGH_DocumentObject obj, PointF start, PointF target)>();
+
+            // Collect valid moves
             foreach (var kvp in targets)
             {
                 var obj = FindInstance(kvp.Key);
@@ -149,12 +151,28 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     ? new PointF(start.X + kvp.Value.X, start.Y + kvp.Value.Y)
                     : kvp.Value;
                 if (start == targetPos) continue;
-                obj.RecordUndoEvent(undo);
                 moves.Add((obj, start, targetPos));
                 moved.Add(kvp.Key);
             }
-            if (!moves.Any()) return moved;
 
+            if (!moves.Any())
+            {
+                return moved;
+            }
+
+            // Start the batch record (this also captures the first object’s action for you)
+            var undo = doc.UndoUtil.CreateGenericObjectEvent(
+                "[SH] Move Instances",
+                moves[0].obj
+            );
+
+            // For every other object, grab its auto-generated action and append it
+            foreach (var (obj, _, _) in moves.Skip(1))
+            {
+                obj.RecordUndoEvent(undo);
+            }
+
+            // Animate all moves
             Task.Run(async () =>
             {
                 const int steps = 15;
@@ -173,16 +191,25 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             obj.Attributes.ExpireLayout();
                         }
                     });
+
                     await Task.Delay(duration / steps);
                 }
+
+                // Final snap to target
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
-                    foreach (var (obj, start, targetPos) in moves)
+                    foreach (var (obj, _, targetPos) in moves)
                     {
                         obj.Attributes.Pivot = targetPos;
                         obj.Attributes.ExpireLayout();
                     }
-                    if (redraw) Instances.RedrawCanvas();
+
+                    if (redraw)
+                    {
+                        Instances.RedrawCanvas();
+                    }
+
+                    // Once everything’s in place, commit the record as a single undo step
                     doc.UndoUtil.RecordEvent(undo);
                 });
             });

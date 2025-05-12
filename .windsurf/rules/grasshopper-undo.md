@@ -13,11 +13,16 @@ Ensure that any code which mutates Grasshopper canvas objects (moving, adding, d
   ```csharp
   obj.RecordUndoEvent("[SH] <Action Description>");
   ```
-- For batch or multi-step operations, use the document’s undo util:
+- For batch or multi-step operations, create and commit a `GH_UndoRecord`:
   ```csharp
-  var undo = document.UndoUtil.CreateGenericObjectEvent("[SH] Batch Action");
+  using Grasshopper.Kernel.Undo;
+
+  var record = new GH_UndoRecord("[SH] Batch Action");
   // for each object change:
-  obj.RecordUndoEvent(undo);
+  obj.RecordUndoEvent(record);
+  // after all changes:
+  doc.UndoUtil.RecordEvent(record);
+  ```
 
 ## Examples
 - MoveInstance
