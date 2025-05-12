@@ -205,10 +205,21 @@ namespace SmartHopper.Core.Grasshopper.Tools
             var relative = parameters["relative"]?.ToObject<bool>() ?? false;
             var dict = new Dictionary<Guid, PointF>();
             foreach (var prop in targetsObj.Properties())
+            {
                 if (Guid.TryParse(prop.Name, out var g))
+                {
+                    var xToken = prop.Value["x"];
+                    var yToken = prop.Value["y"];
+                    if (xToken == null || yToken == null)
+                    {
+                        Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
+                        continue;
+                    }
                     dict[g] = new PointF(
-                        prop.Value["x"]?.ToObject<float>() ?? 0f,
-                        prop.Value["y"]?.ToObject<float>() ?? 0f);
+                        xToken.ToObject<float>(),
+                        yToken.ToObject<float>());
+                }
+            }
             var movedList = GHCanvasUtils.MoveInstance(dict, relative);
             return new { success = movedList.Any(), updated = movedList.Select(g => g.ToString()).ToList() };
         }
