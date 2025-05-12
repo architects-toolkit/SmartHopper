@@ -141,17 +141,22 @@ namespace SmartHopper.Core.Grasshopper.Tools
                                     ? pa
                                     : GH_ParamAccess.item;
 
-                                // Create variable parameter
-                                var param = new ScriptVariableParam(variableName)
+                                if (GHParameterUtils.GetInputByName((IGH_Component)scriptComp, variableName) == null)
                                 {
-                                   PrettyName = prettyName,
-                                   Description = description,
-                                   Access = access
-                                };
-                                param.CreateAttributes();
+                                    var param = new ScriptVariableParam(variableName)
+                                    {
+                                       PrettyName = prettyName,
+                                       Description = description,
+                                       Access = access
+                                    };
+                                    param.CreateAttributes();
 
-                                // Register as input
-                                ((IGH_Component)scriptComp).Params.RegisterInputParam(param);
+                                    ((IGH_Component)scriptComp).Params.RegisterInputParam(param);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Input parameter '{variableName}' already exists; skipping creation.");
+                                }
                             }
                         }
 
@@ -168,16 +173,23 @@ namespace SmartHopper.Core.Grasshopper.Tools
                                 var access = Enum.TryParse<GH_ParamAccess>(o["access"]?.ToString(), true, out var pa2)
                                     ? pa2
                                     : GH_ParamAccess.item;
-                                var param = new ScriptVariableParam(variableName)
-                                {
-                                   PrettyName = prettyName,
-                                   Description = description,
-                                   Access = access
-                                };
-                                param.CreateAttributes();
 
-                                // Register as output
-                                ((IGH_Component)scriptComp).Params.RegisterOutputParam(param);
+                                if (GHParameterUtils.GetOutputByName((IGH_Component)scriptComp, variableName) == null)
+                                {
+                                    var param = new ScriptVariableParam(variableName)
+                                    {
+                                       PrettyName = prettyName,
+                                       Description = description,
+                                       Access = access
+                                    };
+                                    param.CreateAttributes();
+
+                                    ((IGH_Component)scriptComp).Params.RegisterOutputParam(param);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Output parameter '{variableName}' already exists; skipping creation.");
+                                }
                             }
                         }
 
