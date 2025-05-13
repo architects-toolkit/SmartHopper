@@ -65,3 +65,27 @@ jobs:
         uses: ./.github/actions/code-style/namespace-fixer
         with:
           mode: "${{ github.event.inputs.mode }}"
+
+  commit-changes:
+    name: 📦 Commit Code Style Fixes
+    needs: [header-fixer, trailing-whitespace, using-sorter, namespace-check]
+    if: ${{ github.event.inputs.mode == 'fix' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          ref: ${{ github.ref }}
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Commit and Push code style fixes
+        run: |
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ci): apply code style fixes"
+            git push
+          else
+            echo "No changes to commit"
+          fi
