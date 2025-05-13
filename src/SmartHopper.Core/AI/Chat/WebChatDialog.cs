@@ -1,32 +1,12 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
-
-/*
- * WebChatDialog.cs
- * Provides a dialog-based chat interface using WebView for rendering HTML content.
- */
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
-using Eto.Drawing;
-using Eto.Forms;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Properties;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -530,11 +510,12 @@ namespace SmartHopper.Core.AI.Chat
 
                 // Escape special characters in the message HTML
                 string escapedHtml = messageHtml
-                    .Replace("\\", "\\\\")
-                    .Replace("\"", "\\\"")
-                    .Replace("\n", "\\n")
-                    .Replace("\r", "\\r")
-                    .Replace("\t", "\\t");
+                    .Replace("\", "\\")
+                    .Replace("\"", "\\"")
+                    .Replace("
+", "\n")
+                    .Replace("", "\r")
+                    .Replace("	", "\t");
 
                 // Try a different approach for executing JavaScript
                 string script = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
@@ -718,7 +699,10 @@ namespace SmartHopper.Core.AI.Chat
 
                 // wrap the tool result in an AIResponse
                 var toolResponse = new AIResponse {
-                    Response    = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```",
+                    Response    = $"⚙️ **Tool Result**:
+```json
+{resultJson}
+```",
                     Provider    = parentResponse.Provider,
                     Model       = parentResponse.Model,
                     FinishReason= null,

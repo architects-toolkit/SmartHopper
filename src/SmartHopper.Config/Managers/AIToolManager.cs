@@ -1,23 +1,12 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Dynamic;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
 
 namespace SmartHopper.Config.Managers
 {
@@ -237,14 +226,18 @@ namespace SmartHopper.Config.Managers
 
             var docs = new List<string>
             {
-                "# Available Tools\n"
+                "# Available Tools
+"
             };
 
             foreach (var tool in _tools.Values)
             {
-                docs.Add($"## {tool.Name}\n");
-                docs.Add($"{tool.Description}\n");
-                docs.Add("### Parameters\n");
+                docs.Add($"## {tool.Name}
+");
+                docs.Add($"{tool.Description}
+");
+                docs.Add("### Parameters
+");
 
                 // Parse parameters schema
                 try
@@ -274,10 +267,12 @@ namespace SmartHopper.Config.Managers
                     docs.Add("Error parsing parameters schema.");
                 }
 
-                docs.Add("\n");
+                docs.Add("
+");
             }
 
-            return string.Join("\n", docs);
+            return string.Join("
+", docs);
         }
     }
 }

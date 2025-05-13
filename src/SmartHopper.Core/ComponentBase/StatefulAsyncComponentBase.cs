@@ -1,37 +1,12 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
- * 
- * Portions of this code adapted from:
- * https://github.com/specklesystems/GrasshopperAsyncComponent
- * Apache License 2.0
- * Copyright (c) 2021 Speckle Systems
  */
-
-/*
- * Base class for all stateful asynchronous SmartHopper components.
- * This class provides the fundamental structure for components that need to perform
- * asynchronous, showing an State message, while maintaining
- * Grasshopper's component lifecycle.
- */
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using GH_IO.Serialization;
-using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
-using SmartHopper.Config.Configuration;
-using Timer = System.Threading.Timer;
 
 namespace SmartHopper.Core.ComponentBase
 {

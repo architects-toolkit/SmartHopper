@@ -1,0 +1,21 @@
+diff --git a/src/SmartHopper.Components.Test/Misc/TestAsyncPrimeCalculatorComponent.cs b/src/SmartHopper.Components.Test/Misc/TestAsyncPrimeCalculatorComponent.cs
+index 62be3ee..1a0cdc2 100644
+--- a/src/SmartHopper.Components.Test/Misc/TestAsyncPrimeCalculatorComponent.cs
++++ b/src/SmartHopper.Components.Test/Misc/TestAsyncPrimeCalculatorComponent.cs
+@@ -23 +23 @@ using System.Drawing;
+-namespace SmartHopper.Components.Misc
++namespace SmartHopper.Components.Test.Misc
+diff --git a/src/SmartHopper.Components.Test/Misc/TestStatefulPrimeCalculatorComponent.cs b/src/SmartHopper.Components.Test/Misc/TestStatefulPrimeCalculatorComponent.cs
+index 94aedb3..a5e4fbf 100644
+--- a/src/SmartHopper.Components.Test/Misc/TestStatefulPrimeCalculatorComponent.cs
++++ b/src/SmartHopper.Components.Test/Misc/TestStatefulPrimeCalculatorComponent.cs
+@@ -23 +23 @@ using System.Drawing;
+-namespace SmartHopper.Components.Misc
++namespace SmartHopper.Components.Test.Misc
+diff --git a/src/SmartHopper.Core/Models/Serialization/GHJsonAnalyzer.cs b/src/SmartHopper.Core/Models/Serialization/GHJsonAnalyzer.cs
+index 9aa1525..dfdda7d 100644
+--- a/src/SmartHopper.Core/Models/Serialization/GHJsonAnalyzer.cs
++++ b/src/SmartHopper.Core/Models/Serialization/GHJsonAnalyzer.cs
+@@ -18 +18 @@ using Newtonsoft.Json.Linq;
+-namespace SmartHopper.Core.Grasshopper.Utils
++namespace SmartHopper.Core.Models.Serialization
