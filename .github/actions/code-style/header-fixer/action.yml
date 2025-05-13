@@ -78,8 +78,15 @@ runs:
                 echo "Updating header in $file"
                 # Extract content after header template
                 CONTENT=$(tail -n +$((HEADER_LINE_COUNT + 1)) "$file")
-                # Write new file with correct header
+                # Close any open comment block
+                OPEN_COUNT=$(grep -o '/\*' <<< "$CONTENT" | wc -l)
+                CLOSE_COUNT=$(grep -o '\*/' <<< "$CONTENT" | wc -l)
+                if [ $OPEN_COUNT -gt $CLOSE_COUNT ]; then
+                  CONTENT="$CONTENT"$'\n'"*/"
+                fi
+                # Prepare header
                 NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
+                # Write new file with header and content
                 echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
               elif [ "${{ inputs.mode }}" = "soft-check" ]; then
                 # emit a non-blocking warning
