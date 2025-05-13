@@ -1,13 +1,13 @@
-namespace SmartHopper.Config.Tests
-{
-    using Newtonsoft.Json;
-    using SmartHopper.Config.Configuration;
-    using Xunit;
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
 
-    public class SmartHopperSettingsTests
-    {
-#if NET7_WINDOWS
-        [Fact(DisplayName = "SmartHopperSettings_BindsFromValidJson [Windows]")]
 #else
         [Fact(DisplayName = "SmartHopperSettings_BindsFromValidJson [Core]")]
 #endif
