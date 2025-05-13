@@ -21,12 +21,16 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
+using Grasshopper.Kernel;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Core.Grasshopper.Utils;
 using System.Reflection;
 using System.Collections;
+using SmartHopper.Core.Models.Document;
+using SmartHopper.Core.Models.Components;
+using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -73,6 +77,18 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ""required"": [""guid"", ""instructions""]
                 }",
                 execute: this.ScriptEditToolAsync);
+            yield return new AITool(
+                name: "script_new",
+                description: "Generate a script component in the specified language (default python) based on user instructions and place it on the canvas.",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""prompt"": { ""type"": ""string"", ""description"": ""Instructions for generating the script."" },
+                        ""language"": { ""type"": ""string"", ""description"": ""Python (default), C#, IronPython or VB."" }
+                    },
+                    ""required"": [""prompt""]
+                }",
+                execute: this.ScriptNewToolAsync);
         }
 
         #endregion
@@ -237,8 +253,114 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
         #endregion
 
-        #region ScriptPut
-        
+        #region ScriptNew
+
+        /// <summary>
+        /// Executes the "script_new" tool: generates a script component based on user instructions and places it on the canvas.
+        /// </summary>
+        private async Task<object> ScriptNewToolAsync(JObject parameters)
+        {
+            try
+            {
+                var prompt = parameters.Value<string>("prompt") ?? throw new ArgumentException("Missing 'prompt' parameter.");
+                var language = parameters.Value<string>("language") ?? "python";
+                var providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                var modelName = parameters["model"]?.ToString() ?? string.Empty;
+
+                var langKey = language.Trim().ToLowerInvariant();
+                string objectType;
+                string displayName;
+                Guid componentGuid;
+                switch (langKey)
+                {
+                    case "python":
+                    case "python3":
+                        objectType = "RhinoCodePluginGH.Components.Python3Component";
+                        displayName = "Python 3 Script";
+                        break;
+                    case "ironpython":
+                    case "ironpython2":
+                        objectType = "RhinoCodePluginGH.Components.IronPython2Component";
+                        displayName = "IronPython 2 Script";
+                        break;
+                    case "c#":
+                    case "csharp":
+                        objectType = "RhinoCodePluginGH.Components.CSharpComponent";
+                        displayName = "C# Script";
+                        break;
+                    case "vb":
+                    case "vb.net":
+                    case "vbnet":
+                        objectType = "ScriptComponents.Component_VBNET_Script";
+                        displayName = "VB Script";
+                        break;
+                    default:
+                        throw new ArgumentException($"Unsupported language: {language}. Supported: python, ironpython, c#, vb.");
+                }
+
+                // Discover component GUID dynamically
+                var proxy = GHObjectFactory.FindProxy(displayName)
+                               ?? throw new Exception($"Component type '{displayName}' not found in this Grasshopper installation.");
+                IGH_Component tempComp = null;
+                // Instantiate component proxy on UI thread
+                RhinoApp.InvokeOnUiThread(() =>
+                {
+                    var inst = GHObjectFactory.CreateInstance(proxy);
+                    tempComp = inst as IGH_Component;
+                });
+                if (tempComp == null)
+                    throw new Exception($"Proxy for '{displayName}' did not create an IGH_Component.");
+                componentGuid = tempComp.ComponentGuid;
+
+                //TODO: Require JSON output with script, inputs and outputs
+
+                // Prepare AI messages
+                var messages = new List<KeyValuePair<string, string>>
+                {
+                    new KeyValuePair<string, string>("system", $"You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt."),
+                    new KeyValuePair<string, string>("user", prompt)
+                };
+
+                // Get AI response
+                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(providerName, modelName, msgs);
+                var aiResponse = await getResponse(messages).ConfigureAwait(false);
+                var scriptCode = aiResponse.Response;
+
+                // Create document with one script component
+                var doc = new GrasshopperDocument();
+                var comp = new ComponentProperties
+                {
+                    Name = displayName,
+                    Type = "IGH_Component",
+                    ObjectType = objectType,
+                    ComponentGuid = componentGuid,
+                    InstanceGuid = Guid.NewGuid(),
+                    Properties = new Dictionary<string, ComponentProperty>
+                    {
+                        ["Script"] = new ComponentProperty
+                        {
+                            Value = scriptCode,
+                            Type = typeof(string).Name,
+                            HumanReadable = scriptCode
+                        }
+                    }
+                };
+                doc.Components.Add(comp);
+
+                // Place the component on the canvas on UI thread
+                List<string> placed = null;
+                RhinoApp.InvokeOnUiThread(() =>
+                {
+                    placed = Put.PutObjectsOnCanvas(doc);
+                });
+                return new { success = true, script = scriptCode, components = placed };
+            }
+            catch (Exception ex)
+            {
+                return new { success = false, error = ex.Message };
+            }
+        }
+
         #endregion
     }
 }
