@@ -14,7 +14,6 @@ runs:
         GITHUB_EVENT_NAME: ${{ github.event_name }}
         GITHUB_EVENT_PATH: ${{ github.event_path }}
       run: |
-        set -x
         echo "Header Fixer Debug: mode=${{ inputs.mode }}, event=$GITHUB_EVENT_NAME"
         # Determine files to process: changed in PR or all .cs in src/
         if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -f "$GITHUB_EVENT_PATH" ]; then
