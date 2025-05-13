@@ -33,6 +33,10 @@ runs:
           if [ -f "$file" ]; then
             year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
             [ -z "$year" ] && year=$(date +%Y)
+            # If in fix mode, always use the current year
+            if [ "${{ inputs.mode }}" = "fix" ]; then
+              year=$(date +%Y)
+            fi
             
             # Create header template
             HEADER="/*\n * SmartHopper - AI-powered Grasshopper Plugin\n * Copyright (C) $year Marc Roca Musach\n *\n * This library is free software; you can redistribute it and/or\n * modify it under the terms of the GNU Lesser General Public\n * License as published by the Free Software Foundation; either\n * version 3 of the License, or (at your option) any later version.\n */"
