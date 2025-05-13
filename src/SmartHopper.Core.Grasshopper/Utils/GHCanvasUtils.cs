@@ -15,7 +15,6 @@ using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
 using System.Threading.Tasks;
-using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
