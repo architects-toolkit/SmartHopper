@@ -31,11 +31,7 @@ runs:
         ERR=0
         for file in $FILES; do
           if [ -f "$file" ]; then
-            
-            # Normalize file
-            dos2unix "$file"
-            sed -i 's/[[:space:]]*$//' "$file"
-            
+
             # Get year
             year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
             [ -z "$year" ] && year=$(date +%Y)
