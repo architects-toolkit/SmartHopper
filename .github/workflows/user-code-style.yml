@@ -37,7 +37,7 @@ jobs:
         run: git diff > header-fixer.patch
       - name: Upload header-fixer patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: header-fixer-patch
           path: header-fixer.patch
@@ -57,7 +57,7 @@ jobs:
         run: git diff > trailing-whitespace.patch
       - name: Upload trailing-whitespace patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: trailing-whitespace-patch
           path: trailing-whitespace.patch
@@ -77,7 +77,7 @@ jobs:
         run: git diff > using-sorter.patch
       - name: Upload using-sorter patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: using-sorter-patch
           path: using-sorter.patch
@@ -97,7 +97,7 @@ jobs:
         run: git diff > namespace-check.patch
       - name: Upload namespace-check patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: namespace-check-patch
           path: namespace-check.patch
@@ -117,22 +117,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Download header-fixer patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v2
         with:
           name: header-fixer-patch
           path: .
       - name: Download trailing-whitespace patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v2
         with:
           name: trailing-whitespace-patch
           path: .
       - name: Download using-sorter patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v2
         with:
           name: using-sorter-patch
           path: .
       - name: Download namespace-check patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v2
         with:
           name: namespace-check-patch
           path: .
