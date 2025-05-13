@@ -1,12 +1,25 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
+
+/*
+ * StyledMessageDialog.cs
+ * Provides styled Eto.Forms dialogs with SmartHopper branding for error, warning, info messages, and confirmations.
+ */
+
+using System;
+using System.IO;
+using Eto.Forms;
+using Eto.Drawing;
+using SmartHopper.Config.Properties;
+using Rhino.UI;
+using System.Reflection;
 
 namespace SmartHopper.Config.Dialogs
 {

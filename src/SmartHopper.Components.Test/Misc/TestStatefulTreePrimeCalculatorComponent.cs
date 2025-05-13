@@ -1,12 +1,28 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ * 
+ * Portions of this code adapted from:
+ * https://github.com/specklesystems/GrasshopperAsyncComponent
+ * Apache License 2.0
+ * Copyright (c) 2021 Speckle Systems
  */
+
+using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase;
+using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using System.Collections.Generic;
+using System.Drawing;
 
 namespace SmartHopper.Components.Test.Misc
 {

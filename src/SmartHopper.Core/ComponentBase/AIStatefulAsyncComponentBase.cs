@@ -1,12 +1,33 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
+
+/*
+ * Base class for all AI-powered stateful asynchronous SmartHopper components.
+ * This class provides the fundamental structure for components that
+ * need to perform asynchronous AI queries, showing an state message,
+ * while maintaining Grasshopper's component lifecycle.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
+using SmartHopper.Core.AI;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -63,9 +84,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific inputs
             RegisterAdditionalInputParams(pManager);
 
-            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.
-If none is specified, the default model will be used.
-You can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, "");
+            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.\nIf none is specified, the default model will be used.\nYou can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, "");
             pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
@@ -292,8 +311,7 @@ You can define the default model in the SmartHopper settings menu.", GH_ParamAcc
                 SetPersistentRuntimeMessage(
                     "ai_error",
                     GH_RuntimeMessageLevel.Error,
-                    $"AI error while processing the response:
-{response.Response}",
+                    $"AI error while processing the response:\n{response.Response}",
                     false
                 );
             }

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  *
@@ -7,6 +7,10 @@
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
+
+using System;
+using Grasshopper.Kernel;
+using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Components.Misc
 {
