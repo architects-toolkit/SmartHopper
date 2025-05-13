@@ -51,6 +51,7 @@ runs:
               " * License as published by the Free Software Foundation; either"
               " * version 3 of the License, or (at your option) any later version."
               " */"
+              ""
             )
             HEADER_LINE_COUNT=${#HEADER_LINES_ARRAY[@]}
 
@@ -75,17 +76,11 @@ runs:
             if (( mismatch == 1 )); then
               if [ "${{ inputs.mode }}" = "fix" ]; then
                 echo "Updating header in $file"
-                # Find namespace line
-                NAMESPACE_LINE=$(grep -n '^namespace ' "$file" | head -1 | cut -d: -f1)
-                if [ -n "$NAMESPACE_LINE" ]; then
-                  # Extract content from namespace line to end
-                  CONTENT=$(tail -n +$NAMESPACE_LINE "$file")
-                  # Write new file with correct header
-                  NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
-                  echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
-                else
-                  echo "Warning: Could not find namespace line in $file"
-                fi
+                # Extract content after header template
+                CONTENT=$(tail -n +$((HEADER_LINE_COUNT + 1)) "$file")
+                # Write new file with correct header
+                NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
+                echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
               elif [ "${{ inputs.mode }}" = "soft-check" ]; then
                 # emit a non-blocking warning
                 echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
