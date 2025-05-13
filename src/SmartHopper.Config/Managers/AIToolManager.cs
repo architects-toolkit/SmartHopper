@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -237,18 +237,14 @@ namespace SmartHopper.Config.Managers
 
             var docs = new List<string>
             {
-                "# Available Tools
-"
+                "# Available Tools\n"
             };
 
             foreach (var tool in _tools.Values)
             {
-                docs.Add($"## {tool.Name}
-");
-                docs.Add($"{tool.Description}
-");
-                docs.Add("### Parameters
-");
+                docs.Add($"## {tool.Name}\n");
+                docs.Add($"{tool.Description}\n");
+                docs.Add("### Parameters\n");
 
                 // Parse parameters schema
                 try
@@ -278,12 +274,10 @@ namespace SmartHopper.Config.Managers
                     docs.Add("Error parsing parameters schema.");
                 }
 
-                docs.Add("
-");
+                docs.Add("\n");
             }
 
-            return string.Join("
-", docs);
+            return string.Join("\n", docs);
         }
     }
 }

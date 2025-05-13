@@ -1,13 +1,13 @@
-/*
- * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3 of the License, or (at your option) any later version.
- */
-
+using System;
+using System.IO;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Diagnostics;
+using SmartHopper.Config.Managers;
+using Xunit;
+using Xunit.Abstractions;
+using System.Runtime.InteropServices;
+using Xunit.Sdk;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using System.Security;
@@ -100,10 +100,8 @@ namespace SmartHopper.Config.Tests
             proc1.WaitForExit();
             var stdout1 = proc1.StandardOutput.ReadToEnd();
             var stderr1 = proc1.StandardError.ReadToEnd();
-            _output.WriteLine("Generate PFX STDOUT:
-" + stdout1);
-            _output.WriteLine("Generate PFX STDERR:
-" + stderr1);
+            _output.WriteLine("Generate PFX STDOUT:\n" + stdout1);
+            _output.WriteLine("Generate PFX STDERR:\n" + stderr1);
             Assert.Equal(0, proc1.ExitCode);
 
             // Sign the dummy DLL with Authenticode using test PFX
@@ -120,10 +118,8 @@ namespace SmartHopper.Config.Tests
             proc2.WaitForExit();
             var stdout2 = proc2.StandardOutput.ReadToEnd();
             var stderr2 = proc2.StandardError.ReadToEnd();
-            _output.WriteLine("SIGN DLL STDOUT:
-" + stdout2);
-            _output.WriteLine("SIGN DLL STDERR:
-" + stderr2);
+            _output.WriteLine("SIGN DLL STDOUT:\n" + stdout2);
+            _output.WriteLine("SIGN DLL STDERR:\n" + stderr2);
             Assert.Equal(0, proc2.ExitCode);
 
             try
@@ -175,10 +171,8 @@ namespace SmartHopper.Config.Tests
             procSnk.WaitForExit();
             var stdoutSnk = procSnk.StandardOutput.ReadToEnd();
             var stderrSnk = procSnk.StandardError.ReadToEnd();
-            _output.WriteLine("Generate SNK STDOUT:
-" + stdoutSnk);
-            _output.WriteLine("Generate SNK STDERR:
-" + stderrSnk);
+            _output.WriteLine("Generate SNK STDOUT:\n" + stdoutSnk);
+            _output.WriteLine("Generate SNK STDERR:\n" + stderrSnk);
             Assert.Equal(0, procSnk.ExitCode);
             
             // Copy SNK to assembly directory to ensure same strong-name for tests
@@ -246,10 +240,8 @@ namespace SmartHopper.Config.Tests
             procSnk.WaitForExit();
             var stdoutSnk = procSnk.StandardOutput.ReadToEnd();
             var stderrSnk = procSnk.StandardError.ReadToEnd();
-            _output.WriteLine("Generate SNK STDOUT:
-" + stdoutSnk);
-            _output.WriteLine("Generate SNK STDERR:
-" + stderrSnk);
+            _output.WriteLine("Generate SNK STDOUT:\n" + stdoutSnk);
+            _output.WriteLine("Generate SNK STDERR:\n" + stderrSnk);
             Assert.Equal(0, procSnk.ExitCode);
             
             // Copy SNK to assembly directory to ensure same strong-name for tests
@@ -283,10 +275,8 @@ namespace SmartHopper.Config.Tests
             proc1.WaitForExit();
             var stdout1 = proc1.StandardOutput.ReadToEnd();
             var stderr1 = proc1.StandardError.ReadToEnd();
-            _output.WriteLine("Generate PFX STDOUT:
-" + stdout1);
-            _output.WriteLine("Generate PFX STDERR:
-" + stderr1);
+            _output.WriteLine("Generate PFX STDOUT:\n" + stdout1);
+            _output.WriteLine("Generate PFX STDERR:\n" + stderr1);
             Assert.Equal(0, proc1.ExitCode);
 
             // Sign with Authenticode
@@ -303,10 +293,8 @@ namespace SmartHopper.Config.Tests
             proc2.WaitForExit();
             var stdout2 = proc2.StandardOutput.ReadToEnd();
             var stderr2 = proc2.StandardError.ReadToEnd();
-            _output.WriteLine("SIGN DLL STDOUT:
-" + stdout2);
-            _output.WriteLine("SIGN DLL STDERR:
-" + stderr2);
+            _output.WriteLine("SIGN DLL STDOUT:\n" + stdout2);
+            _output.WriteLine("SIGN DLL STDERR:\n" + stderr2);
             Assert.Equal(0, proc2.ExitCode);
 
             try

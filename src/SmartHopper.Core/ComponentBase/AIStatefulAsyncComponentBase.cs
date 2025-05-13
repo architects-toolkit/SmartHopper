@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -84,9 +84,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific inputs
             RegisterAdditionalInputParams(pManager);
 
-            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.
-If none is specified, the default model will be used.
-You can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, "");
+            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.\nIf none is specified, the default model will be used.\nYou can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, "");
             pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
@@ -313,8 +311,7 @@ You can define the default model in the SmartHopper settings menu.", GH_ParamAcc
                 SetPersistentRuntimeMessage(
                     "ai_error",
                     GH_RuntimeMessageLevel.Error,
-                    $"AI error while processing the response:
-{response.Response}",
+                    $"AI error while processing the response:\n{response.Response}",
                     false
                 );
             }
