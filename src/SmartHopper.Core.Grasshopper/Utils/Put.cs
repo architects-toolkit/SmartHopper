@@ -29,15 +29,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// </summary>
     public static class Put
     {
+        public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, int span = 100)
+        {
+            var startPoint = GHCanvasUtils.StartPoint(span);
+            return PutObjectsOnCanvas(document, startPoint);
+        }
+        
         /// <summary>
         /// Instantiates components, sets properties, adds them to the canvas, and creates connections.
         /// </summary>
         /// <param name="document">Deserialized Grasshopper document.</param>
         /// <returns>Names of components placed.</returns>
-        public static List<string> PutObjectsOnCanvas(GrasshopperDocument document)
+        public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, PointF startPoint)
         {
             var guidMapping = new Dictionary<Guid, Guid>();
-            var startPoint = GHCanvasUtils.StartPoint(100);
 
             // Compute positions
             try
