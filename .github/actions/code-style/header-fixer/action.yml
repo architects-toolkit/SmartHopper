@@ -36,47 +36,51 @@ runs:
             year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
             [ -z "$year" ] && year=$(date +%Y)
             
-            # Create header template
-            HEADER="/*\n * SmartHopper - AI-powered Grasshopper Plugin\n * Copyright (C) $year Marc Roca Musach\n *\n * This library is free software; you can redistribute it and/or\n * modify it under the terms of the GNU Lesser General Public\n * License as published by the Free Software Foundation; either\n * version 3 of the License, or (at your option) any later version.\n */"
-            
-            # Get current header
-            HEADER_LINES=$(echo -e "$HEADER" | wc -l)
-            CURRENT_HEADER=$(head -n $HEADER_LINES "$file")
-            
-            # Skip if header matches template ignoring year
-            HEADER_CAN=$(echo "$HEADER" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
-            CURRENT_CAN=$(echo "$CURRENT_HEADER" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
+            # Header template lines
+            HEADER_LINES_ARRAY=(
+              "/*"
+              " * SmartHopper - AI-powered Grasshopper Plugin"
+              " * Copyright (C) $year Marc Roca Musach"
+              " *"
+              " * This library is free software; you can redistribute it and/or"
+              " * modify it under the terms of the GNU Lesser General Public"
+              " * License as published by the Free Software Foundation; either"
+              " * version 3 of the License, or (at your option) any later version."
+              " */"
+            )
+            HEADER_LINE_COUNT=${#HEADER_LINES_ARRAY[@]}
 
-            echo "Expected Header (Canonical):"
-            echo "$HEADER_CAN"
-            echo "Current Header (Canonical):"
-            echo "$CURRENT_CAN"
-
-            if [ "$HEADER_CAN" = "$CURRENT_CAN" ]; then
-              continue
-            fi
+            # Compare header per-line ignoring year
+            mismatch=0
+            for ((i=0; i<HEADER_LINE_COUNT; i++)); do
+              TEMPLATE_LINE=${HEADER_LINES_ARRAY[i]}
+              FILE_LINE=$(sed -n "$((i+1))p" "$file")
+              TEMPLATE_CAN=$(echo "$TEMPLATE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
+              CURRENT_CAN=$(echo "$FILE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
+              if [[ "$TEMPLATE_CAN" != "$CURRENT_CAN" ]]; then mismatch=1; break; fi
+            done
+            if (( mismatch == 0 )); then continue; fi
             
-            if [ "$HEADER" != "$CURRENT_HEADER" ]; then
-              if [ "${{ inputs.mode }}" = "fix" ]; then
-                echo "Updating header in $file"
-                # Find namespace line
-                NAMESPACE_LINE=$(grep -n '^namespace ' "$file" | head -1 | cut -d: -f1)
-                if [ -n "$NAMESPACE_LINE" ]; then
-                  # Extract content from namespace line to end
-                  CONTENT=$(tail -n +$NAMESPACE_LINE "$file")
-                  # Write new file with correct header
-                  echo -e "$HEADER\n\n$CONTENT" > "$file"
-                else
-                  echo "Warning: Could not find namespace line in $file"
-                fi
+            if [ "${{ inputs.mode }}" = "fix" ]; then
+              echo "Updating header in $file"
+              # Find namespace line
+              NAMESPACE_LINE=$(grep -n '^namespace ' "$file" | head -1 | cut -d: -f1)
+              if [ -n "$NAMESPACE_LINE" ]; then
+                # Extract content from namespace line to end
+                CONTENT=$(tail -n +$NAMESPACE_LINE "$file")
+                # Write new file with correct header
+                NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
+                echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
               else
-                if [ "${{ inputs.mode }}" = "soft-check" ]; then
-                  # emit a non-blocking warning
-                  echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
-                else
-                  echo "Header mismatch in $file"
-                  ERR=1
-                fi
+                echo "Warning: Could not find namespace line in $file"
+              fi
+            else
+              if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                # emit a non-blocking warning
+                echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
+              else
+                echo "Header mismatch in $file"
+                ERR=1
               fi
             fi
           fi
