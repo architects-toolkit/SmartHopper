@@ -1,12 +1,23 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
+
+/*
+ * HTML Chat Renderer for WebView-based chat interface.
+ * This class provides methods for converting chat messages to HTML format.
+ */
+
+using System;
+using System.Diagnostics;
+using System.Net;
+using Markdig;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Core.AI.Chat
 {

@@ -1,12 +1,27 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
+
+using Eto.Forms;
+using Eto.Drawing;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using SmartHopper.Config.Configuration;
+using SmartHopper.Config.Models;
+using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Managers;
+using SmartHopper.Config.Properties;
+using Rhino;
+using Newtonsoft.Json;
 
 namespace SmartHopper.Menu.Dialogs
 {
