@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Mode for code style: fix or check'
+        description: 'Mode for code style: fix, check, or soft-check'
         required: true
         default: 'check'
         type: string
