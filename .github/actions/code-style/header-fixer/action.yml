@@ -31,6 +31,12 @@ runs:
         ERR=0
         for file in $FILES; do
           if [ -f "$file" ]; then
+            
+            # Normalize file
+            dos2unix "$file"
+            sed -i 's/[[:space:]]*$//' "$file"
+            
+            # Get year
             year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}')
             [ -z "$year" ] && year=$(date +%Y)
             
@@ -44,6 +50,12 @@ runs:
             # Skip if header matches template ignoring year
             HEADER_CAN=$(echo "$HEADER" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
             CURRENT_CAN=$(echo "$CURRENT_HEADER" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
+
+            echo "Expected Header (Canonical):"
+            echo "$HEADER_CAN"
+            echo "Current Header (Canonical):"
+            echo "$CURRENT_CAN"
+
             if [ "$HEADER_CAN" = "$CURRENT_CAN" ]; then
               continue
             fi
