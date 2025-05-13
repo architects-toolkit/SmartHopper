@@ -22,24 +22,46 @@ on:
         type: string
 
 jobs:
-  code-style:
-    name: 🛠️ Fix Code Style
+  header-fixer:
+    name: 🧾 Header Fixer
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-      - name: Run Code Style
-        uses: ./.github/actions/code-style
+      - name: Process C# file headers
+        uses: ./.github/actions/code-style/header-fixer
         with:
           mode: "${{ github.event.inputs.mode }}"
-          token: ${{ github.token }}
+
+  trailing-whitespace:
+    name: 🧹 Trailing Whitespace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Process trailing whitespace
+        uses: ./.github/actions/code-style/trailing-whitespace
+        with:
+          mode: "${{ github.event.inputs.mode }}"
+
+  using-sorter:
+    name: 🔀 Using Sorter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Process using directives
+        uses: ./.github/actions/code-style/using-sorter
+        with:
+          mode: "${{ github.event.inputs.mode }}"
+
   namespace-check:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Run Namespace Fixer
         uses: ./.github/actions/code-style/namespace-fixer
         with:
-          mode: "check"
+          mode: "${{ github.event.inputs.mode }}"
