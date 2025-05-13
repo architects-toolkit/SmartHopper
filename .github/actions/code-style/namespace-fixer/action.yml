@@ -12,6 +12,7 @@ runs:
       if: always()
       shell: bash
       run: |
+        set +e
         if [ -n "${{ github.event.pull_request }}" ]; then
           FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.cs')
         else

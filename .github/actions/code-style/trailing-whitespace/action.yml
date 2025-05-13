@@ -11,6 +11,7 @@ runs:
     - name: Process trailing whitespace
       shell: bash
       run: |
+        set +e
         FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
         ERR=0
         for file in $FILES; do
