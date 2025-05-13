@@ -1,12 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.Threading.Tasks;
-using System.Linq;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Managers;
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
 
 namespace SmartHopper.Config.Interfaces
 {

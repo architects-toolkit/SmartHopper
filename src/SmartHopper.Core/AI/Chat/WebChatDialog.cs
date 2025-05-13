@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -530,11 +530,12 @@ namespace SmartHopper.Core.AI.Chat
 
                 // Escape special characters in the message HTML
                 string escapedHtml = messageHtml
-                    .Replace("\\", "\\\\")
-                    .Replace("\"", "\\\"")
-                    .Replace("\n", "\\n")
-                    .Replace("\r", "\\r")
-                    .Replace("\t", "\\t");
+                    .Replace("\", "\\")
+                    .Replace("\"", "\\"")
+                    .Replace("
+", "\n")
+                    .Replace("", "\r")
+                    .Replace("	", "\t");
 
                 // Try a different approach for executing JavaScript
                 string script = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
@@ -718,7 +719,10 @@ namespace SmartHopper.Core.AI.Chat
 
                 // wrap the tool result in an AIResponse
                 var toolResponse = new AIResponse {
-                    Response    = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```",
+                    Response    = $"⚙️ **Tool Result**:
+```json
+{resultJson}
+```",
                     Provider    = parentResponse.Provider,
                     Model       = parentResponse.Model,
                     FinishReason= null,
