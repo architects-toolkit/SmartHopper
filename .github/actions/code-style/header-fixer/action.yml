@@ -37,7 +37,7 @@ runs:
 
             # Get year
             year=$(grep -m1 '^ \* Copyright' "$file" | grep -oE '[0-9]{4}' || true)
-            echo "Extracted year for $file: $year"
+            # echo "Extracted year for $file: $year"
             [ -z "$year" ] && year=$(date +%Y)
             
             # Header template lines
@@ -55,17 +55,22 @@ runs:
             HEADER_LINE_COUNT=${#HEADER_LINES_ARRAY[@]}
 
             # Compare header per-line ignoring year
-            echo "Comparing header for $file"
+            # echo "Comparing header for $file"
             mismatch=0
+            mismatch_line=0
             for ((i=0; i<HEADER_LINE_COUNT; i++)); do
               TEMPLATE_LINE=${HEADER_LINES_ARRAY[i]}
               FILE_LINE=$(sed -n "$((i+1))p" "$file")
               TEMPLATE_CAN=$(echo "$TEMPLATE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
               CURRENT_CAN=$(echo "$FILE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
-              if [[ "$TEMPLATE_CAN" != "$CURRENT_CAN" ]]; then mismatch=1; break; fi
+              if [[ "$TEMPLATE_CAN" != "$CURRENT_CAN" ]]; then
+                mismatch=1
+                mismatch_line=$((i+1))
+                break
+              fi
             done
             
-            echo "Header mismatch flag for $file: $mismatch"
+            # echo "Header mismatch flag for $file: $mismatch"
             # Process header mismatch
             if (( mismatch == 1 )); then
               if [ "${{ inputs.mode }}" = "fix" ]; then
@@ -85,8 +90,8 @@ runs:
                 # emit a non-blocking warning
                 echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
               elif [ "${{ inputs.mode }}" = "check" ]; then
-                # Collect failed files for summary report
-                FAILED_FILES+=("$file")
+                # Collect failed files and line for summary report
+                FAILED_FILES+=("$file:$mismatch_line")
                 ERR=1
               fi
             fi
@@ -94,8 +99,12 @@ runs:
         done
         # Summarize failures in check mode
         if [ "${{ inputs.mode }}" = "check" ] && [ ${#FAILED_FILES[@]} -ne 0 ]; then
-          echo "❌ Header validation failed for the following files:"
-          for f in "${FAILED_FILES[@]}"; do echo "  - $f"; done
+          echo "❌ Header validation failed for the following files (file:line):"
+          for entry in "${FAILED_FILES[@]}"; do
+            path=${entry%%:*}
+            ln=${entry##*:}
+            echo "  - $path (line $ln)"
+          done
           echo "Run with mode=fix to automatically update headers"
         elif [ "${{ inputs.mode }}" = "check" ]; then
           echo "✅ All header validations passed"
