@@ -29,6 +29,7 @@ runs:
           exit 0
         fi
         ERR=0
+        FAILED_FILES=()
         for file in $FILES; do
           if [ -f "$file" ]; then
 
@@ -59,30 +60,39 @@ runs:
               CURRENT_CAN=$(echo "$FILE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
               if [[ "$TEMPLATE_CAN" != "$CURRENT_CAN" ]]; then mismatch=1; break; fi
             done
-            if (( mismatch == 0 )); then continue; fi
             
-            if [ "${{ inputs.mode }}" = "fix" ]; then
-              echo "Updating header in $file"
-              # Find namespace line
-              NAMESPACE_LINE=$(grep -n '^namespace ' "$file" | head -1 | cut -d: -f1)
-              if [ -n "$NAMESPACE_LINE" ]; then
-                # Extract content from namespace line to end
-                CONTENT=$(tail -n +$NAMESPACE_LINE "$file")
-                # Write new file with correct header
-                NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
-                echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
-              else
-                echo "Warning: Could not find namespace line in $file"
-              fi
-            else
-              if [ "${{ inputs.mode }}" = "soft-check" ]; then
+            # Process header mismatch
+            if (( mismatch == 1 )); then
+              if [ "${{ inputs.mode }}" = "fix" ]; then
+                echo "Updating header in $file"
+                # Find namespace line
+                NAMESPACE_LINE=$(grep -n '^namespace ' "$file" | head -1 | cut -d: -f1)
+                if [ -n "$NAMESPACE_LINE" ]; then
+                  # Extract content from namespace line to end
+                  CONTENT=$(tail -n +$NAMESPACE_LINE "$file")
+                  # Write new file with correct header
+                  NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
+                  echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
+                else
+                  echo "Warning: Could not find namespace line in $file"
+                fi
+              elif [ "${{ inputs.mode }}" = "soft-check" ]; then
                 # emit a non-blocking warning
                 echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
-              else
-                echo "Header mismatch in $file"
+              elif [ "${{ inputs.mode }}" = "check" ]; then
+                # Collect failed files for summary report
+                FAILED_FILES+=("$file")
                 ERR=1
               fi
             fi
           fi
         done
+        # Summarize failures in check mode
+        if [ "${{ inputs.mode }}" = "check" ] && [ ${#FAILED_FILES[@]} -ne 0 ]; then
+          echo "❌ Header validation failed for the following files:"
+          for f in "${FAILED_FILES[@]}"; do echo "  - $f"; done
+          echo "Run with mode=fix to automatically update headers"
+        elif [ "${{ inputs.mode }}" = "check" ]; then
+          echo "✅ All header validations passed"
+        fi
         exit $ERR
