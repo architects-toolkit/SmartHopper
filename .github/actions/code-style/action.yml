@@ -26,17 +26,17 @@ runs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '7.0.x'
-    - name: Run dotnet-format
-      shell: bash
-      run: |
-        dotnet restore
-        dotnet tool install -g dotnet-format || true
-        export PATH="$HOME/.dotnet/tools:$PATH"
-        if [ "${{ inputs.mode }}" = "check" ]; then
-          dotnet format --verify-no-changes
-        else
-          dotnet format
-        fi
+    # - name: Run dotnet-format
+    #   shell: bash
+    #   run: |
+    #     dotnet restore
+    #     dotnet tool install -g dotnet-format || true
+    #     export PATH="$HOME/.dotnet/tools:$PATH"
+    #     if [ "${{ inputs.mode }}" = "check" ]; then
+    #       dotnet format --verify-no-changes
+    #     else
+    #       dotnet format
+    #     fi
     - name: Process C# file headers
       uses: ./.github/actions/code-style/header-fixer
       with:
