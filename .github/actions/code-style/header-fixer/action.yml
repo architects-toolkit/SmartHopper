@@ -102,8 +102,14 @@ runs:
                 echo "DEBUG: Modified content snippet: $(printf '%s\n' "$MODIFIED_CONTENT" | head -n 3 | sed 's/^/DEBUG: /')"
                 
                 # Analyze comment blocks and balance them intelligently
-                OPEN_COUNT=$(grep -o '/\*' <<< "$MODIFIED_CONTENT" | wc -l)
-                CLOSE_COUNT=$(grep -o '\*/' <<< "$MODIFIED_CONTENT" | wc -l)
+                OPEN_COUNT=$(
+                  grep -o '/\*' <<<"$MODIFIED_CONTENT" | wc -l \
+                  || true
+                )
+                CLOSE_COUNT=$(
+                  grep -o '\*/' <<<"$MODIFIED_CONTENT" | wc -l \
+                  || true
+                )
                 echo "DEBUG: OPEN_COUNT=$OPEN_COUNT, CLOSE_COUNT=$CLOSE_COUNT"
                 
                 NEEDS_UPDATE=0
