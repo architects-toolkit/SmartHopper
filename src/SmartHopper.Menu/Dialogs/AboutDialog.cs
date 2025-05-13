@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -144,9 +144,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.
-
-It currently supports MistralAI and OpenAI.",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI and OpenAI.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };

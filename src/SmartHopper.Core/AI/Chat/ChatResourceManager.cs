@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -84,7 +84,7 @@ namespace SmartHopper.Core.AI.Chat
                 string chatTemplate = GetChatTemplate();
 
                 // Escape single quotes in the message template to avoid breaking the JavaScript
-                messageTemplate = messageTemplate.Replace("'", "\'");
+                messageTemplate = messageTemplate.Replace("'", "\\'");
 
                 // Replace all placeholders with actual content
                 string completeHtml = chatTemplate

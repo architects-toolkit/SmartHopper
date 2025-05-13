@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  *

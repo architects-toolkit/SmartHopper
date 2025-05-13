@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -15,7 +15,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace SmartHopper.Core.Models.Serialization
+namespace SmartHopper.Core.Grasshopper.Utils
 {
     /// <summary>
     /// Utilities to validate Grasshopper JSON (GhJSON) format.
