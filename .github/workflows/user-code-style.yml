@@ -34,7 +34,7 @@ jobs:
           mode: "${{ github.event.inputs.mode }}"
       - name: Generate header-fixer patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        run: git diff > header-fixer.patch
+        run: git diff --unified=0 > header-fixer.patch
       - name: Upload header-fixer patch
         if: ${{ github.event.inputs.mode == 'fix' }}
         uses: actions/upload-artifact@v4
@@ -54,7 +54,7 @@ jobs:
           mode: "${{ github.event.inputs.mode }}"
       - name: Generate trailing-whitespace patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        run: git diff > trailing-whitespace.patch
+        run: git diff --unified=0 > trailing-whitespace.patch
       - name: Upload trailing-whitespace patch
         if: ${{ github.event.inputs.mode == 'fix' }}
         uses: actions/upload-artifact@v4
@@ -74,7 +74,7 @@ jobs:
           mode: "${{ github.event.inputs.mode }}"
       - name: Generate using-sorter patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        run: git diff > using-sorter.patch
+        run: git diff --unified=0 > using-sorter.patch
       - name: Upload using-sorter patch
         if: ${{ github.event.inputs.mode == 'fix' }}
         uses: actions/upload-artifact@v4
@@ -94,7 +94,7 @@ jobs:
           mode: "${{ github.event.inputs.mode }}"
       - name: Generate namespace-check patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        run: git diff > namespace-check.patch
+        run: git diff --unified=0 > namespace-check.patch
       - name: Upload namespace-check patch
         if: ${{ github.event.inputs.mode == 'fix' }}
         uses: actions/upload-artifact@v4
@@ -138,7 +138,7 @@ jobs:
           path: .
       - name: Apply patches
         run: |
-          for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply "$p"; fi; done
+          for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply --unidiff-zero "$p"; fi; done
       - name: Commit and Push code style fixes
         run: |
           git add .
