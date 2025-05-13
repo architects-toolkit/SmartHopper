@@ -25,7 +25,7 @@ runs:
           # Fallback to all .cs files under src/
           FILES=$(find src -type f -name '*.cs')
         fi
-        echo "Files to process: $FILES"
+        echo "Files to process: length=${#FILES[@]}"
         # If no files, skip
         if [ -z "$FILES" ]; then
           echo "No C# files to process"
