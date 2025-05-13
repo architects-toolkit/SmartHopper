@@ -83,64 +83,67 @@ runs:
                 echo "Updating header in $file"
                 # Extract content after header template
                 CONTENT=$(tail -n +$((HEADER_LINE_COUNT + 1)) "$file")
-                # Analyze comment blocks and balance them intelligently
-                OPEN_COUNT=$(grep -o '/\*' <<< "$CONTENT" | wc -l)
-                CLOSE_COUNT=$(grep -o '\*/' <<< "$CONTENT" | wc -l)
                 
-                if [ $OPEN_COUNT -gt $CLOSE_COUNT ]; then
-                  # More opening than closing comments - add a closing comment
-                  CONTENT="$CONTENT"$'\n'"*/"
-                  echo "Added missing comment closing */"
-                elif [ $CLOSE_COUNT -gt $OPEN_COUNT ]; then
-                  # More closing than opening comments - analyze content structure
-                  # First check for stray closing comments to make /**/
-                  if grep -q '\*/' <<< "$CONTENT"; then
-                    # Replace each stray */ with /**/
-                    MODIFIED_CONTENT=""
-                    while IFS= read -r line; do
-                      if [[ "$line" =~ \*/ && ! "$line" =~ /\* ]]; then
-                        # This line has a closing comment without an opening comment
-                        # Replace */ with /**/
-                        MODIFIED_LINE=$(echo "$line" | sed -E 's/(^|[^/])\*\//\1\/\*\*\//g')
-                        MODIFIED_CONTENT+="$MODIFIED_LINE"$'\n'
-                      else
-                        MODIFIED_CONTENT+="$line"$'\n'
-                      fi
-                    done <<< "$CONTENT"
-                    CONTENT="${MODIFIED_CONTENT%$'\n'}"
-                    echo "Added missing comment opening /* directly before closing */ markers"
-                  # Then check if there are lines starting with * (comment block structure)
-                  elif echo "$CONTENT" | head -n 5 | grep -q '^[[:space:]]*\*'; then
-                    # Find the first line with a * pattern
-                    LINE_NUM=1
-                    while IFS= read -r line; do
-                      if [[ "$line" =~ ^[[:space:]]*\* ]]; then
-                        break
-                      fi
-                      ((LINE_NUM++))
-                    done <<< "$CONTENT"
-                    
-                    # Split content to insert /* before first * line
-                    BEFORE_COMMENT=$(echo "$CONTENT" | head -n $((LINE_NUM-1)))
-                    COMMENT_AND_AFTER=$(echo "$CONTENT" | tail -n +$LINE_NUM)
-                    
-                    # Recombine with /* added
-                    if [ -n "$BEFORE_COMMENT" ]; then
-                      CONTENT="${BEFORE_COMMENT}"$'\n'"/*"$'\n'"${COMMENT_AND_AFTER}"
-                    else
-                      CONTENT="/*"$'\n'"${COMMENT_AND_AFTER}"
-                    fi
-                    echo "Added missing comment opening /* before line $LINE_NUM"
-                  else
-                    # No clear comment structure, add /* at beginning
-                    CONTENT="/*"$'\n'"$CONTENT"
-                    echo "Added missing comment opening /* at beginning"
-                  fi
-                fi
                 # Prepare header
                 NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
-                # Write new file with header and content
+                
+                # Write new file with header and content first
                 echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
+                
+                # Now analyze the file after insertion to fix any comment issues
+                # Get the content after the header in the updated file
+                MODIFIED_CONTENT=$(tail -n +$((HEADER_LINE_COUNT + 1)) "$file")
+                
+                # Analyze comment blocks and balance them intelligently
+                OPEN_COUNT=$(grep -o '/\*' <<< "$MODIFIED_CONTENT" | wc -l)
+                CLOSE_COUNT=$(grep -o '\*/' <<< "$MODIFIED_CONTENT" | wc -l)
+                
+                NEEDS_UPDATE=0
+                FIXED_CONTENT="$MODIFIED_CONTENT"
+                
+                # Check for unbalanced comments
+                if [ $OPEN_COUNT -ne $CLOSE_COUNT ]; then
+                  NEEDS_UPDATE=1
+                  if [ $OPEN_COUNT -lt $CLOSE_COUNT ]; then
+                    # More closing than opening - we need to add opening comments
+                    if echo "$FIXED_CONTENT" | head -n 5 | grep -q '^[[:space:]]*\*'; then
+                      # Find the first line with a * pattern
+                      LINE_NUM=1
+                      while IFS= read -r line; do
+                        if [[ "$line" =~ ^[[:space:]]*\* ]]; then
+                          break
+                        fi
+                        ((LINE_NUM++))
+                      done <<< "$FIXED_CONTENT"
+                      
+                      # Split content to insert /* before first * line
+                      BEFORE_COMMENT=$(echo "$FIXED_CONTENT" | head -n $((LINE_NUM-1)))
+                      COMMENT_AND_AFTER=$(echo "$FIXED_CONTENT" | tail -n +$LINE_NUM)
+                      
+                      # Recombine with /* added
+                      if [ -n "$BEFORE_COMMENT" ]; then
+                        FIXED_CONTENT="${BEFORE_COMMENT}"$'\n'"/*"$'\n'"${COMMENT_AND_AFTER}"
+                      else
+                        FIXED_CONTENT="/*"$'\n'"${COMMENT_AND_AFTER}"
+                      fi
+                      echo "Added missing comment opening /* before line $LINE_NUM"
+                    else
+                      # No clear comment structure, add /* at beginning
+                      FIXED_CONTENT="/*"$'\n'"$FIXED_CONTENT"
+                      echo "Added missing comment opening /* at beginning"
+                    fi
+                  elif [ $OPEN_COUNT -gt $CLOSE_COUNT ]; then
+                    # More opening than closing - add a closing comment at the end
+                    FIXED_CONTENT="$FIXED_CONTENT"$'\n'"*/"
+                    echo "Added missing comment closing */ at the end"
+                  fi
+                fi
+                
+                # Update the file if we made changes to the content
+                if [ $NEEDS_UPDATE -eq 1 ]; then
+                  echo -e "$NEW_HEADER\n\n$FIXED_CONTENT" > "$file"
+                  echo "Fixed comment structure imbalance in $file"
+                fi
               elif [ "${{ inputs.mode }}" = "soft-check" ]; then
                 # emit a non-blocking warning
                 echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
