@@ -138,7 +138,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 var propertyValues = GetObjectProperties(obj);
 
                 // Inject script properties for script components
-                if (obj is IScriptComponent scriptComp)
+                if (obj is IScriptComponent scriptComp && obj is IGH_Component ghComp)
                 {
                     // Add the script text content
                     propertyValues["Script"] = scriptComp.Text;
@@ -158,15 +158,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         var inputParamsArray = new JArray();
                         foreach (var input in scriptComp.Inputs)
                         {
+                            // find the real GH_Param
+                            var ghParam = GHParameterUtils.GetInputByName(ghComp, input.VariableName);
+
                             var paramObj = new JObject
                             {
                                 ["variableName"] = input.VariableName,
                                 ["name"] = input.PrettyName,
                                 ["description"] = input.Description ?? string.Empty,
                                 ["access"] = input.Access.ToString(),
-                                ["simplify"] = input.Simplify,
-                                ["reverse"] = input.Reverse,
-                                ["dataMapping"] = input.DataMapping.ToString()
+
+                                // pull the modifiers from the GH_Param, not from IScriptParameter
+                                ["simplify"] = ghParam?.Simplify ?? false,
+                                ["reverse"] = ghParam?.Reverse ?? false,
+                                ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
                             };
                             inputParamsArray.Add(paramObj);
                         }
@@ -179,15 +184,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         var outputParamsArray = new JArray();
                         foreach (var output in scriptComp.Outputs)
                         {
+                            // find the real GH_Param
+                            var ghParam = GHParameterUtils.GetOutputByName(ghComp, output.VariableName);
+
                             var paramObj = new JObject
                             {
                                 ["variableName"] = output.VariableName,
                                 ["name"] = output.PrettyName,
                                 ["description"] = output.Description ?? string.Empty,
                                 ["access"] = output.Access.ToString(),
-                                ["simplify"] = output.Simplify,
-                                ["reverse"] = output.Reverse,
-                                ["dataMapping"] = output.DataMapping.ToString()
+
+                                // pull the modifiers from the GH_Param, not from IScriptParameter
+                                ["simplify"] = ghParam?.Simplify ?? false,
+                                ["reverse"] = ghParam?.Reverse ?? false,
+                                ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
                             };
                             outputParamsArray.Add(paramObj);
                         }

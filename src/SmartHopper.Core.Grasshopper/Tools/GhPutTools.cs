@@ -21,6 +21,7 @@ using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
@@ -178,7 +179,18 @@ namespace SmartHopper.Core.Grasshopper.Tools
                                 }
                                 else
                                 {
-                                    Debug.WriteLine($"Input parameter '{variableName}' already exists; skipping creation.");
+                                    // Update modifiers on existing input parameter
+                                    var existingInput = GHParameterUtils.GetInputByName((IGH_Component)scriptComp, variableName);
+                                    if (existingInput != null)
+                                    {
+                                        if (o["simplify"] != null)
+                                            existingInput.Simplify = o["simplify"].Value<bool>();
+                                        if (o["reverse"] != null)
+                                            existingInput.Reverse = o["reverse"].Value<bool>();
+                                        if (o["dataMapping"] != null)
+                                            existingInput.DataMapping = StringConverter.StringToGHDataMapping(o["dataMapping"].ToString());
+                                        Debug.WriteLine($"Updated existing input '{variableName}' modifiers");
+                                    }
                                 }
                             }
                         }
@@ -234,7 +246,18 @@ namespace SmartHopper.Core.Grasshopper.Tools
                                 }
                                 else
                                 {
-                                    Debug.WriteLine($"Output parameter '{variableName}' already exists; skipping creation.");
+                                    // Update modifiers on existing output parameter
+                                    var existingOutput = GHParameterUtils.GetOutputByName((IGH_Component)scriptComp, variableName);
+                                    if (existingOutput != null)
+                                    {
+                                        if (o["simplify"] != null)
+                                            existingOutput.Simplify = o["simplify"].Value<bool>();
+                                        if (o["reverse"] != null)
+                                            existingOutput.Reverse = o["reverse"].Value<bool>();
+                                        if (o["dataMapping"] != null)
+                                            existingOutput.DataMapping = StringConverter.StringToGHDataMapping(o["dataMapping"].ToString());
+                                        Debug.WriteLine($"Updated existing output '{variableName}' modifiers");
+                                    }
                                 }
                             }
                         }
