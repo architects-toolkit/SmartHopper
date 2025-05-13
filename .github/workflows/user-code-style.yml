@@ -139,6 +139,8 @@ jobs:
       - name: Apply patches
         run: |
           for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply --unidiff-zero "$p"; fi; done
+      - name: Remove patch files
+        run: rm *.patch
       - name: Commit and Push code style fixes
         run: |
           git add .
