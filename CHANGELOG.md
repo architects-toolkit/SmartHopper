@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `evaluateText` and `generateText` AI tools to `text_evaluate` and `text_generate`
 - Migrated `GhPutTools` to `Utils` in `Core.Grasshopper`
 - Improved OpenAI provider to support structured output.
+- Improved `ScriptNewTool` to create component inputs and outputs.
 
 ### Fixed
 
