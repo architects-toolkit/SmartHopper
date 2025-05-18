@@ -250,10 +250,25 @@ namespace SmartHopper.Providers.OpenAI
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
                 {
-                    requestBody["response_format"] = new JObject
+                    var responseFormat = new JObject
                     {
-                        ["type"] = "json_object",
+                        ["type"] = "json_schema"
                     };
+
+                    // Add schema if provided (OpenAI supports schema in response_format)
+                    try
+                    {
+                        var schemaObj = JObject.Parse(jsonSchema);
+                        responseFormat["schema"] = schemaObj;
+                        responseFormat["strict"] = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
+                        // Continue without schema if parsing fails
+                    }
+
+                    requestBody["response_format"] = responseFormat;
                 }
 
                 // Add tools if requested
