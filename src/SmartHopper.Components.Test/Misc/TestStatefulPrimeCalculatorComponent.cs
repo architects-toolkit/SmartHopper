@@ -20,7 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Drawing;
 
-namespace SmartHopper.Components.Misc
+namespace SmartHopper.Components.Test.Misc
 {
     public class TestStatefulPrimeCalculatorComponent : StatefulAsyncComponentBase
     {

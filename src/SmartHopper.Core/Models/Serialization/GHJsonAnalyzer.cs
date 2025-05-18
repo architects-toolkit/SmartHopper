@@ -15,7 +15,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace SmartHopper.Core.Grasshopper.Utils
+namespace SmartHopper.Core.Models.Serialization
 {
     /// <summary>
     /// Utilities to validate Grasshopper JSON (GhJSON) format.
