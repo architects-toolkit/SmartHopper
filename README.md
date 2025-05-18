@@ -78,6 +78,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | - | - |
 | script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
 | script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | - | - |
+| json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
 | web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
 | web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
 | web_get_rhino_forum_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
