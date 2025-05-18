@@ -26,8 +26,8 @@ using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Core.Grasshopper.Utils;
-using System.Reflection;
-using System.Collections;
+using SmartHopper.Core.Grasshopper.Models;
+using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 using SmartHopper.Core.Models.Document;
 using SmartHopper.Core.Models.Components;
 using Rhino;
@@ -312,19 +312,118 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     throw new Exception($"Proxy for '{displayName}' did not create an IGH_Component.");
                 componentGuid = tempComp.ComponentGuid;
 
-                //TODO: Require JSON output with script, inputs and outputs
+                // Define JSON schema for structured output
+                var jsonSchema = @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""script"": {
+                            ""type"": ""string"",
+                            ""description"": ""The complete script code for the component""
+                        },
+                        ""inputs"": {
+                            ""type"": ""array"",
+                            ""items"": {
+                                ""type"": ""object"",
+                                ""properties"": {
+                                    ""name"": { ""type"": ""string"" },
+                                    ""type"": { ""type"": ""string"" },
+                                    ""description"": { ""type"": ""string"" },
+                                    ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""] }
+                                },
+                                ""required"": [""name"", ""type""],
+                                ""additionalProperties"": false
+                            }
+                        },
+                        ""outputs"": {
+                            ""type"": ""array"",
+                            ""items"": {
+                                ""type"": ""object"",
+                                ""properties"": {
+                                    ""name"": { ""type"": ""string"" },
+                                    ""type"": { ""type"": ""string"" },
+                                    ""description"": { ""type"": ""string"" }
+                                },
+                                ""required"": [""name"", ""type""],
+                                ""additionalProperties"": false
+                            }
+                        }
+                    },
+                    ""required"": [""script"", ""inputs"", ""outputs""],
+                    ""additionalProperties"": false
+                }".Replace('"', '"');
 
-                // Prepare AI messages
+                // Prepare AI messages with instructions for structured output
                 var messages = new List<KeyValuePair<string, string>>
                 {
-                    new KeyValuePair<string, string>("system", $"You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt."),
-                    new KeyValuePair<string, string>("user", prompt)
+                    new("system", $"""
+                    You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
+                    
+                    Your response MUST be a valid JSON object with the following structure:
+                    - script: The complete script code
+                    - inputs: Array of input parameters with name, type, description, and access (item/list/tree)
+                    - outputs: Array of output parameters with name, type, and description
+                    
+                    The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
+                    """),
+                    new("user", prompt)
                 };
 
-                // Get AI response
-                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(providerName, modelName, msgs);
-                var aiResponse = await getResponse(messages).ConfigureAwait(false);
-                var scriptCode = aiResponse.Response;
+                // Get AI response with JSON schema
+                var aiResponse = await AIUtils.GetResponse(providerName, modelName, messages, jsonSchema).ConfigureAwait(false);
+                var responseJson = JObject.Parse(aiResponse.Response);
+                var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
+                var inputs = responseJson["inputs"] as JArray ?? new JArray();
+                var outputs = responseJson["outputs"] as JArray ?? new JArray();
+
+                // Log the parsed values for debugging
+                Debug.WriteLine($"[ScriptNewTool] Parsed script length: {scriptCode.Length}");
+                Debug.WriteLine($"[ScriptNewTool] Inputs: {inputs.Count}, Outputs: {outputs.Count}");
+
+                // Create script inputs with type validation
+                var scriptInputs = new JArray();
+                foreach (var input in inputs)
+                {
+                    var inputType = input["type"]?.ToString() ?? Generic;
+                    
+                    // Validate input type
+                    if (!SupportedDataTypes.IsValidType(inputType))
+                    {
+                        inputType = Generic; // Fallback to Generic for unsupported types
+                        Debug.WriteLine($"[ScriptNewTool] Unsupported input type: {inputType}, falling back to Generic");
+                    }
+
+                    var inputObj = new JObject
+                    {
+                        ["variableName"] = input["name"]?.ToString() ?? "input",
+                        ["name"] = input["name"]?.ToString() ?? "Input",
+                        ["description"] = input["description"]?.ToString() ?? string.Empty,
+                        ["access"] = input["access"]?.ToString()?.ToLower() ?? "item",
+                        ["type"] = inputType
+                    };
+                    scriptInputs.Add(inputObj);
+                }
+
+                var scriptOutputs = new JArray();
+                foreach (var output in outputs)
+                {
+                    var outputType = output["type"]?.ToString() ?? Generic;
+                    
+                    // Validate output type
+                    if (!SupportedDataTypes.IsValidType(outputType))
+                    {
+                        outputType = Generic; // Fallback to Generic for unsupported types
+                        Debug.WriteLine($"[ScriptNewTool] Unsupported output type: {outputType}, falling back to Generic");
+                    }
+
+                    var outputObj = new JObject
+                    {
+                        ["variableName"] = output["name"]?.ToString() ?? "output",
+                        ["name"] = output["name"]?.ToString() ?? "Output",
+                        ["description"] = output["description"]?.ToString() ?? string.Empty,
+                        ["type"] = outputType
+                    };
+                    scriptOutputs.Add(outputObj);
+                }
 
                 // Create document with one script component
                 var doc = new GrasshopperDocument();
@@ -342,7 +441,17 @@ namespace SmartHopper.Core.Grasshopper.Tools
                             Value = scriptCode,
                             Type = typeof(string).Name,
                             HumanReadable = scriptCode
-                        }
+                        },
+                        ["ScriptInputs"] = new ComponentProperty
+                        {
+                            Value = scriptInputs,
+                            Type = typeof(JArray).Name
+                        },
+                        ["ScriptOutputs"] = new ComponentProperty
+                        {
+                            Value = scriptOutputs,
+                            Type = typeof(JArray).Name
+                        },
                     }
                 };
                 doc.Components.Add(comp);
