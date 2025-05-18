@@ -96,83 +96,41 @@ runs:
                 echo "Updating header in $file"
                 echo "DEBUG: mismatch_line=$mismatch_line, HEADER_LINE_COUNT=$HEADER_LINE_COUNT"
 
-                # Extract content after header template
-                CONTENT=$(cat "$file")
-                echo "DEBUG: Initial content snippet: $(printf '%s\n' "$CONTENT" | head -n 3 | sed 's/^/DEBUG: /')"
+                # Read file into array for selective updates
+                readarray -t FILE_CONTENT < "$file"
+                # Determine if full header insertion or line update
+                if [ "$mismatch_line" -eq 1 ]; then
+                  echo "DEBUG: Full header missing, inserting full header"
+                  NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
+                  printf "%s\n\n" "$NEW_HEADER" > "$file"
+                  printf "%s\n" "${FILE_CONTENT[@]}" >> "$file"
+                else
+                  TEMPLATE_LINE="${HEADER_LINES_ARRAY[$((mismatch_line-1))]}"
+                  echo "DEBUG: Replacing header line $mismatch_line with: $TEMPLATE_LINE"
+                  FILE_CONTENT[$((mismatch_line-1))]="$TEMPLATE_LINE"
+                  printf "%s\n" "${FILE_CONTENT[@]}" > "$file"
+                fi
                 
-                # Prepare header
-                NEW_HEADER=$(printf "%s\n" "${HEADER_LINES_ARRAY[@]}")
-                
-                # Write new file with header and content first
-                echo -e "$NEW_HEADER\n\n$CONTENT" > "$file"
-                echo "DEBUG: Wrote header to $file"
-                
-                # Now analyze the file after insertion to fix any comment issues
-                MODIFIED_CONTENT=$(cat "$file")
-                echo "DEBUG: Modified content snippet: $(printf '%s\n' "$MODIFIED_CONTENT" | head -n 3 | sed 's/^/DEBUG: /')"
-                
-                # Analyze comment blocks and balance them intelligently
-                OPEN_COUNT=$(
-                  grep -o '/\*' <<<"$MODIFIED_CONTENT" | wc -l \
-                  || true
-                )
-                CLOSE_COUNT=$(
-                  grep -o '\*/' <<<"$MODIFIED_CONTENT" | wc -l \
-                  || true
-                )
-                echo "DEBUG: OPEN_COUNT=$OPEN_COUNT, CLOSE_COUNT=$CLOSE_COUNT"
-                
-                NEEDS_UPDATE=0
-                FIXED_CONTENT="$MODIFIED_CONTENT"
-                echo "DEBUG: NEEDS_UPDATE initially $NEEDS_UPDATE"
-                
-                # Check for unbalanced comments
-                if [ $OPEN_COUNT -ne $CLOSE_COUNT ]; then
-                  echo "DEBUG: Unbalanced comments, proceeding to fix"
-                  NEEDS_UPDATE=1
-                  if [ $OPEN_COUNT -lt $CLOSE_COUNT ]; then
-                    # More closing than opening - we need to add opening comments
-                    if echo "$FIXED_CONTENT" | head -n 5 | grep -q '^[[:space:]]*\*'; then
-                      # Find the first line with a * pattern
-                      LINE_NUM=1
-                      while IFS= read -r line; do
-                        if [[ "$line" =~ ^[[:space:]]*\* ]]; then
-                          break
-                        fi
-                        ((LINE_NUM++))
-                      done <<< "$FIXED_CONTENT"
-                      
-                      # Split content to insert /* before first * line
-                      BEFORE_COMMENT=$(echo "$FIXED_CONTENT" | head -n $((LINE_NUM-1)))
-                      COMMENT_AND_AFTER=$(echo "$FIXED_CONTENT" | tail -n +$LINE_NUM)
-                      
-                      # Recombine with /* added
-                      if [ -n "$BEFORE_COMMENT" ]; then
-                        FIXED_CONTENT="${BEFORE_COMMENT}"$'\n'"/*"$'\n'"${COMMENT_AND_AFTER}"
-                      else
-                        FIXED_CONTENT="/*"$'\n'"${COMMENT_AND_AFTER}"
-                      fi
-                      echo "Added missing comment opening /* before line $LINE_NUM"
-                    else
-                      # No clear comment structure, add /* at beginning
-                      FIXED_CONTENT="/*"$'\n'"$FIXED_CONTENT"
-                      echo "Added missing comment opening /* at beginning"
-                    fi
-                  elif [ $OPEN_COUNT -gt $CLOSE_COUNT ]; then
-                    # More opening than closing - add a closing comment at the end
-                    FIXED_CONTENT="$FIXED_CONTENT"$'\n'"*/"
-                    echo "Added missing comment closing */ at the end"
+                # Check and fix unbalanced comment blocks in first 20 lines
+                HEAD_LINES=$(head -n 20 "$file")
+                OPEN_COUNT=$(grep -o '/\*' <<<"$HEAD_LINES" | wc -l || true)
+                CLOSE_COUNT=$(grep -o '\*/' <<<"$HEAD_LINES" | wc -l || true)
+                echo "DEBUG: OPEN_COUNT=$OPEN_COUNT, CLOSE_COUNT=$CLOSE_COUNT in first 20 lines"
+                if [ "$OPEN_COUNT" -ne "$CLOSE_COUNT" ]; then
+                  echo "DEBUG: Unbalanced comments in header area, fixing"
+                  if [ "$OPEN_COUNT" -lt "$CLOSE_COUNT" ]; then
+                    # Add missing /* before first comment line
+                    awk 'NR <= 20 && /^[[:space:]]*\*/ && !x {print "/*"; x=1}1' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+                  else
+                    # Add missing */ after last comment line
+                    awk 'NR <= 20 && /\*\// && !x {print; print "*/"; x=1; next}1' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
                   fi
                 fi
-                
-                # Update the file if we made changes to the content
-                if [ $NEEDS_UPDATE -eq 1 ]; then
-                  echo -e "$NEW_HEADER\n\n$FIXED_CONTENT" > "$file"
-                  echo "Fixed comment structure imbalance in $file"
-                fi
+
               elif [ "${{ inputs.mode }}" = "soft-check" ]; then
                 # emit a non-blocking warning
                 echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
+
               elif [ "${{ inputs.mode }}" = "check" ]; then
                 # Collect failed files and line for summary report
                 FAILED_FILES+=("$file:$mismatch_line")
@@ -181,6 +139,7 @@ runs:
             fi
           fi
         done
+        
         # Summarize failures in check mode
         if [ "${{ inputs.mode }}" = "check" ] && [ ${#FAILED_FILES[@]} -ne 0 ]; then
           echo " Header validation failed for the following files (file:line):"
