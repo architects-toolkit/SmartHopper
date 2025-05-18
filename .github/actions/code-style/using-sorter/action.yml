@@ -27,8 +27,12 @@ runs:
       run: |
         FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
         ERR=0
+
+        # Install dotnet-format
         dotnet tool install -g dotnet-format || true
         export PATH="$HOME/.dotnet/tools:$PATH"
+
+        # Process each file
         for file in $FILES; do
           if [[ -f "$file" ]]; then
             if [[ "${{ inputs.mode }}" == "fix" ]]; then
