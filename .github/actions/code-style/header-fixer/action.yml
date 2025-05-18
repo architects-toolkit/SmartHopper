@@ -95,6 +95,7 @@ runs:
               if [ "${{ inputs.mode }}" = "fix" ]; then
                 echo "Updating header in $file"
                 echo "DEBUG: mismatch_line=$mismatch_line, HEADER_LINE_COUNT=$HEADER_LINE_COUNT"
+
                 # Extract content after header template
                 CONTENT=$(cat "$file")
                 echo "DEBUG: Initial content snippet: $(printf '%s\n' "$CONTENT" | head -n 3 | sed 's/^/DEBUG: /')"
@@ -107,7 +108,7 @@ runs:
                 echo "DEBUG: Wrote header to $file"
                 
                 # Now analyze the file after insertion to fix any comment issues
-                MODIFIED_CONTENT=$(tail -n +$((HEADER_LINE_COUNT + 1)) "$file")
+                MODIFIED_CONTENT=$(cat "$file")
                 echo "DEBUG: Modified content snippet: $(printf '%s\n' "$MODIFIED_CONTENT" | head -n 3 | sed 's/^/DEBUG: /')"
                 
                 # Analyze comment blocks and balance them intelligently
