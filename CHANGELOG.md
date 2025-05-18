@@ -10,6 +10,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added undo support to `MoveInstance`, `SetComponentPreview`, and `SetComponentLock`.
+- New `ScriptTools` class in `SmartHopper.Core.Grasshopper.Tools` for Grasshopper script components, including:
+  - New `script_review` AI tool for reviewing Grasshopper scripts.
+  - New `script_new` AI tool for generating Grasshopper scripts.
+  - New `script_edit` AI tool for modifying script component code per user instructions.
+- Added support for script components in `GhPutTools`, enabling placement of script components with code from GhJSON.
+- Enhanced `GetObjectsDetails` in `GHDocumentUtils` to serialize variable input and output parameters from script components to GhJSON.
+- Extended `GhPutTools` to handle variable input and output parameters when placing script components from GhJSON.
+- Added support for parameter modifiers (simplify, flatten, graft, reverse) in both input and output parameters for script components in `GhPutTools` and `GHDocumentUtils`.
+
+### Changed
+
+- Minimum Rhino version required increased to 8.18
+- Renamed `gh_retrieve_components` by `gh_get_available_components`
+- Prevent `GHDocumentUtils.GetObjectsDetails` from generating humanReadable field if value is already human readable (numbers and strings)
+- Renamed `evaluateList` and `filterList` AI tools to `list_evaluate` and `list_filter`
+- Renamed `evaluateText` and `generateText` AI tools to `text_evaluate` and `text_generate`
+- Migrated `GhPutTools` to `Utils` in `Core.Grasshopper`
+- Improved OpenAI provider to support structured output.
+- Improved `ScriptNewTool` to create component inputs and outputs.
+
+### Fixed
+
+- Fixed MistralAI provider not working with structured output ([#112](https://github.com/architects-toolkit/SmartHopper/issues/112)).
+- Fixed OpenAI error in API URI.
 
 ## [0.3.1-alpha] - 2025-05-06
 

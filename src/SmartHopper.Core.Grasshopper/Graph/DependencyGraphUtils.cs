@@ -77,8 +77,10 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         }
                     }
                 }
+
                 islands.Add(island);
             }
+
             Debug.WriteLine($"[CreateComponentGrid] Found {islands.Count} islands");
             // Layout each island and stack vertically
             var result = new List<NodeGridComponent>();

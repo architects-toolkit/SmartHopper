@@ -58,7 +58,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.GhTogglePreviewAsync
             );
 
-            // New tool to toggle component locked state
             yield return new AITool(
                 name: "gh_toggle_lock",
                 description: "Toggle Grasshopper component locked state (enable/disable) by GUID.",
@@ -80,7 +79,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.GhToggleLockAsync
             );
 
-            // New tool to move component pivot position
             yield return new AITool(
                 name: "gh_move_obj",
                 description: "Move Grasshopper components by GUID with specific targets and optional relative offset.",
@@ -112,7 +110,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.GhMoveObjAsync
             );
 
-            // New tool to tidy up selected components into a grid layout
             yield return new AITool(
                 name: "gh_tidy_up",
                 description: "Organize selected components into a tidy grid layout. Call `gh_get` first to get the list of GUIDs.",

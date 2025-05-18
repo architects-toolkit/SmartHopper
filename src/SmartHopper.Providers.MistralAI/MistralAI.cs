@@ -253,6 +253,26 @@ namespace SmartHopper.Providers.MistralAI
                     ["max_tokens"] = maxTokens,
                 };
 
+                // Add JSON response format if schema is provided
+                if (!string.IsNullOrWhiteSpace(jsonSchema))
+                {
+                    // Add response format for structured output
+                    requestBody["response_format"] = new JObject
+                    {
+                        ["type"] = "json_object"
+                    };
+
+                    // Add schema as a system message to guide the model
+                    var systemMessage = new JObject
+                    {
+                        ["role"] = "system",
+                        ["content"] = "You are a helpful assistant that returns responses in JSON format. " +
+                                      "The response must be a valid JSON object that follows this schema exactly: " + 
+                                      jsonSchema
+                    };
+                    convertedMessages.Insert(0, systemMessage);
+                }
+
                 // Add tools if requested
                 if (includeToolDefinitions)
                 {

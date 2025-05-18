@@ -15,6 +15,7 @@ using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
+using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Models.Components;
@@ -136,19 +137,103 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 // Get component properties
                 var propertyValues = GetObjectProperties(obj);
 
-                // Inject the Script property for script components
-                if (obj is IScriptComponent scriptComp)
+                // Inject script properties for script components
+                if (obj is IScriptComponent scriptComp && obj is IGH_Component ghComp)
                 {
+                    // Add the script text content
                     propertyValues["Script"] = scriptComp.Text;
+
+                    // Add information about language and marshaling options
+                    //if (scriptComp.LanguageSpec != null)
+                    //{
+                    //    propertyValues["ScriptLanguage"] = scriptComp.LanguageSpec.Name;
+                    //}
+                    propertyValues["MarshInputs"] = scriptComp.MarshInputs;
+                    propertyValues["MarshOutputs"] = scriptComp.MarshOutputs;
+                    propertyValues["MarshGuids"] = scriptComp.MarshGuids;
+
+                    // Serialize input parameters
+                    if (scriptComp.Inputs != null && scriptComp.Inputs.Any())
+                    {
+                        var inputParamsArray = new JArray();
+                        foreach (var input in scriptComp.Inputs)
+                        {
+                            // find the real GH_Param
+                            var ghParam = GHParameterUtils.GetInputByName(ghComp, input.VariableName);
+
+                            var paramObj = new JObject
+                            {
+                                ["variableName"] = input.VariableName,
+                                ["name"] = input.PrettyName,
+                                ["description"] = input.Description ?? string.Empty,
+                                ["access"] = input.Access.ToString(),
+
+                                // pull the modifiers from the GH_Param, not from IScriptParameter
+                                ["simplify"] = ghParam?.Simplify ?? false,
+                                ["reverse"] = ghParam?.Reverse ?? false,
+                                ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
+                            };
+                            inputParamsArray.Add(paramObj);
+                        }
+                        propertyValues["ScriptInputs"] = inputParamsArray;
+                    }
+
+                    // Serialize output parameters
+                    if (scriptComp.Outputs != null && scriptComp.Outputs.Any())
+                    {
+                        var outputParamsArray = new JArray();
+                        foreach (var output in scriptComp.Outputs)
+                        {
+                            // find the real GH_Param
+                            var ghParam = GHParameterUtils.GetOutputByName(ghComp, output.VariableName);
+
+                            var paramObj = new JObject
+                            {
+                                ["variableName"] = output.VariableName,
+                                ["name"] = output.PrettyName,
+                                ["description"] = output.Description ?? string.Empty,
+                                ["access"] = output.Access.ToString(),
+
+                                // pull the modifiers from the GH_Param, not from IScriptParameter
+                                ["simplify"] = ghParam?.Simplify ?? false,
+                                ["reverse"] = ghParam?.Reverse ?? false,
+                                ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
+                            };
+                            outputParamsArray.Add(paramObj);
+                        }
+                        propertyValues["ScriptOutputs"] = outputParamsArray;
+                    }
                 }
 
+                // Only set humanReadable for non-primitive types when ToString() is meaningful
                 foreach (var prop in propertyValues)
                 {
+                    var val = prop.Value;
+                    var typeName = val?.GetType().Name ?? "null";
+                    string humanReadable = null;
+                    if (val != null)
+                    {
+                        var hr = val.ToString();
+                        var t = val.GetType();
+                        var fullName = t.FullName;
+                        var nameOnly = t.Name;
+
+                        if (!string.IsNullOrWhiteSpace(hr)
+                            && hr != fullName
+                            && hr != nameOnly
+                            && typeName != "String"
+                            && typeName != "Boolean"
+                            && typeName != "JArray"
+                            && typeName != "JObject")
+                        {
+                            humanReadable = hr;
+                        }
+                    }
                     componentProps.Properties[prop.Key] = new ComponentProperty
                     {
-                        Value = prop.Value,
-                        Type = prop.Value?.GetType().Name ?? "null",
-                        HumanReadable = prop.Value?.ToString() ?? "null",
+                        Value = val,
+                        Type = typeName,
+                        HumanReadable = humanReadable,
                     };
                 }
 
@@ -205,12 +290,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     if (childKeys != null)
                     {
                         // Here you'd extract child properties if needed
-                        propertyValues[property.Name] = new ComponentProperty
-                        {
-                            Value = value,
-                            Type = value?.GetType().Name ?? "null",
-                            HumanReadable = value?.ToString() ?? "null",
-                        };
+                        propertyValues[property.Name] = value;
                     }
                     else
                     {
@@ -224,12 +304,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         else
                         {
                             // Regular leaf property
-                            propertyValues[property.Name] = new ComponentProperty
-                            {
-                                Value = value,
-                                Type = value?.GetType().Name ?? "null",
-                                HumanReadable = value?.ToString() ?? "null",
-                            };
+                            propertyValues[property.Name] = value;
                         }
                     }
                 }

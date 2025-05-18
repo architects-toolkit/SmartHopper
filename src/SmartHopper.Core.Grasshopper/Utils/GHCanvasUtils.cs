@@ -16,7 +16,6 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Undo;
 using System.Threading.Tasks;
-using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
