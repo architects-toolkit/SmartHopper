@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added undo support to `MoveInstance`, `SetComponentPreview`, and `SetComponentLock`.
 - New `ScriptTools` class in `SmartHopper.Core.Grasshopper.Tools` for Grasshopper script components, including:
   - New `script_review` AI tool for reviewing Grasshopper scripts.
   - New `script_new` AI tool for generating Grasshopper scripts.
