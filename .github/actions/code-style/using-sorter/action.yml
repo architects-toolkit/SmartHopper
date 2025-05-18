@@ -27,16 +27,28 @@ runs:
       run: |
         FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
         ERR=0
+
+        # Install dotnet-format
         dotnet tool install -g dotnet-format || true
         export PATH="$HOME/.dotnet/tools:$PATH"
+
+        # Process each file
         for file in $FILES; do
-          if [ -f "$file" ]; then
-            if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.mode }}" = "soft-check" ]; then
-              dotnet format "$file" --verify-no-changes --fix-analyzers
-            else
+          if [[ -f "$file" ]]; then
+            if [[ "${{ inputs.mode }}" == "fix" ]]; then
               dotnet format "$file" --fix-analyzers
+            else
+              dotnet format "$file" --verify-no-changes --fix-analyzers
+              CODE=$?
+              if [ $CODE -ne 0 ]; then
+                if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                  echo "::warning file=$file::Using sorter found issues in $file (run with mode=fix to auto-fix)"
+                else
+                  echo "Using sorter check failed in $file"
+                  ERR=1
+                fi
+              fi
             fi
           fi
         done
-        # fail if any check error
         exit $ERR
