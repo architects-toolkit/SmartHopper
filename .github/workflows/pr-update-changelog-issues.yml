@@ -13,10 +13,10 @@ name: 📝 Update Changelog with Closed Issues
 # - issues:read - Required to read issue information
 
 on:
-  pull_request:
-    branches: 
-      - main
-      - dev
+  # pull_request:
+  #   branches: 
+  #     - main
+  #     - dev
   workflow_dispatch:
 
 permissions:

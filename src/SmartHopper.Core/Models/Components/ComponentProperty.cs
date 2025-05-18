@@ -33,7 +33,7 @@ namespace SmartHopper.Core.Models.Components
         /// <summary>
         /// A human-readable representation of the property value.
         /// </summary>
-        [JsonProperty("humanReadable")]
+        [JsonProperty("humanReadable", NullValueHandling = NullValueHandling.Ignore)]
         public string HumanReadable { get; set; }
     }
 }
