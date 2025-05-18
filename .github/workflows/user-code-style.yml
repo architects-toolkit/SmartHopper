@@ -136,17 +136,17 @@ jobs:
         with:
           name: namespace-check-patch
           path: .
-      # - name: Apply patches
-      #   run: |
-      #     for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply --unidiff-zero "$p"; fi; done
-      # - name: Remove patch files
-      #   run: rm *.patch
-      # - name: Commit and Push code style fixes
-      #   run: |
-      #     git add .
-      #     if ! git diff --cached --quiet; then
-      #       git commit -m "chore(ci): apply code style fixes"
-      #       git push
-      #     else
-      #       echo "No changes to commit"
-      #     fi
+      - name: Apply patches
+        run: |
+          for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply --unidiff-zero "$p"; fi; done
+      - name: Remove patch files
+        run: rm *.patch
+      - name: Commit and Push code style fixes
+        run: |
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ci): apply code style fixes"
+            git push
+          else
+            echo "No changes to commit"
+          fi
