@@ -57,3 +57,6 @@ design/icons/source/*
 # Code signing
 *.snk
 *.pfx
+
+# Unlicensed libraries
+lib/Rhino/*

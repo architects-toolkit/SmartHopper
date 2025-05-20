@@ -26,10 +26,10 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
-    <PackageReference Include="Grasshopper" Version="8.18.25100.11001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.19.25132.1001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <PackageReference Include="RhinoCommon" Version="8.18.25100.11001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.19.25132.1001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
