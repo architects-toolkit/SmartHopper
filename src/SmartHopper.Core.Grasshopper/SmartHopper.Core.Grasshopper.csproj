@@ -24,21 +24,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.18.25100.11001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.19.25132.1001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="HtmlAgilityPack" Version="1.12.1" />
-    <PackageReference Include="RhinoCommon" Version="8.18.25100.11001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.19.25132.1001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Reference Include="RhinoCodePlatform.GH">
-      <HintPath>$(ProgramFiles)\Rhino 8\System\RhinoCodePlatform.GH.dll</HintPath>
+      <HintPath>$(SolutionDir)\lib\Rhino\8.19\RhinoCodePlatform.GH.dll</HintPath>
       <Private>false</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="RhinoCodePluginGH">
-      <HintPath>$(ProgramFiles)\Rhino 8\Plug-ins\Grasshopper\Components\RhinoCodePluginGH.gha</HintPath>
+      <HintPath>$(SolutionDir)\lib\Rhino\8.19\RhinoCodePluginGH.gha</HintPath>
       <Private>false</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>

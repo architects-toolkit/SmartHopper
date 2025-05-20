@@ -19,18 +19,21 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using RhinoCodePlatform.GH;
+using Grasshopper.GUI.Script;
 using Grasshopper.Kernel;
+using Newtonsoft.Json.Linq;
+using Rhino;
+using RhinoCodePlatform.GH;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
-using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Grasshopper.Models;
-using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
-using SmartHopper.Core.Models.Document;
+using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Components;
-using Rhino;
+using SmartHopper.Core.Models.Document;
+
+using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
+
 
 namespace SmartHopper.Core.Grasshopper.Tools
 {
@@ -240,8 +243,17 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 Debug.WriteLine($"[ScriptEditTool] Before setting code on component {scriptGuid}, old length: {target.Text?.Length ?? 0}");
                 Debug.WriteLine($"[ScriptEditTool] New cleaned code length: {cleanedCode.Length}");
-                        target.Text = cleanedCode;
-                // TODO: Close edition to allow for further modifications
+
+                target.Text = cleanedCode;
+
+                // grab the open editor for that component and close it to allow for further modifications
+                var editor = GH_ScriptEditor.FindScriptEditor((IGH_DocumentObject)target);
+                if (editor != null)
+                {
+                    // must run on UI thread
+                    Rhino.RhinoApp.InvokeOnUiThread(() => editor.Close());
+                }
+
                 Debug.WriteLine($"[ScriptEditTool] After setting code on component {scriptGuid}, new length: {target.Text?.Length ?? 0}");
                 return new JObject { ["success"] = true, ["modifiedCode"] = cleanedCode };
             }
