@@ -24,10 +24,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
     /// <summary>
     /// Tool provider for placing Grasshopper components from GhJSON format.
     /// </summary>
-    public class GhPutTools : IAIToolProvider
+    public class gh_put : IAIToolProvider
     {
-        #region ToolRegistration
-
         /// <summary>
         /// Returns the GH put tool.
         /// </summary>
@@ -47,10 +45,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 execute: this.GhPutToolAsync
             );
         }
-
-        #endregion
-
-        #region GhPut
 
         private async Task<object> GhPutToolAsync(JObject parameters)
         {
@@ -80,6 +74,4 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
         }
     }
-
-    #endregion
 }

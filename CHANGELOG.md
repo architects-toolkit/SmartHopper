@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split AI Tools into smaller files:
   - `TextTools` into `text_evaluate.cs` and `text_generate.cs`
   - `ListTools` into `list_evaluate.cs` and `list_filter.cs`
+  - `GhObjTools` into `gh_tidy_up.cs`, `gh_toggle_preview.cs`, `gh_toggle_lock.cs`, `gh_move_obj.cs`
+  - `GhPutTools` into `gh_put.cs`
 - Now `Put` removes all default inputs and outputs from the component before adding a new script component.
 - Improved OpenAI provider to support structured output.
 - Improved `script_new` in several ways:
