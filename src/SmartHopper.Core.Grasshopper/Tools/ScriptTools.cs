@@ -31,6 +31,7 @@ using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
+using SmartHopper.Core.Grasshopper.Scripts;
 
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
@@ -241,25 +242,19 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var cleanedCode = Regex.Replace(modifiedCode, @"```[\w]*\r?\n", string.Empty);
                 cleanedCode = Regex.Replace(cleanedCode, @"```", string.Empty);
 
-                Debug.WriteLine($"[ScriptEditTool] Before setting code on component {scriptGuid}, old length: {target.Text?.Length ?? 0}");
                 Debug.WriteLine($"[ScriptEditTool] New cleaned code length: {cleanedCode.Length}");
 
-                Rhino.RhinoApp.InvokeOnUiThread(() => target.Text = cleanedCode);
-
-                // grab the open editor for that component and close it to allow for further modifications
-                var editor = GH_ScriptEditor.FindScriptEditor((IGH_DocumentObject)target);
-                if (editor != null)
+                // Use live editor control via CurrentEditor
+                var curr = CurrentEditor.GetCurrentEditor();
+                if (curr == null)
                 {
-                    // must run on UI thread
-                    Rhino.RhinoApp.InvokeOnUiThread(() => editor.Close());
-                    Debug.WriteLine($"[ScriptEditTool] Closed editor for component {scriptGuid}");
+                    return new JObject { ["success"] = false, ["error"] = "Open exactly one script editor before editing." };
                 }
-                else
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
-                    Debug.WriteLine($"[ScriptEditTool] No editor found for component {scriptGuid}");
-                }
-
-                Debug.WriteLine($"[ScriptEditTool] After setting code on component {scriptGuid}, new length: {target.Text?.Length ?? 0}");
+                    curr.SetCode_RunScript(new SourceCode(cleanedCode));
+                    curr.RunScript();
+                });
                 return new JObject { ["success"] = true, ["modifiedCode"] = cleanedCode };
             }
             catch (Exception ex)

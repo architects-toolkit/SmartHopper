@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved `script_new` in several ways:
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
+- Improved `script_edit` to edit existing script components directly from the editor, instead of injecting the code, which freezed the editor UI.
 
 ### Fixed
 

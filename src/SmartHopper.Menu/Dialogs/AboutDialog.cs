@@ -199,6 +199,18 @@ namespace SmartHopper.Menu.Dialogs
                 }
             };
 
+            var ghscriptgptLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items = 
+                {
+                    new Label { Text = "- Akihito Yokota (4kk11) for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("GHScriptGPT", "https://github.com/4kk11/GHScriptGPT"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
+                }
+            };
+
             var materialIconsLink = new StackLayout
             {
                 Orientation = Orientation.Horizontal,
@@ -264,6 +276,7 @@ namespace SmartHopper.Menu.Dialogs
                         openSourceThanksLabel,
                         speckleLink,
                         ghptLink,
+                        ghscriptgptLink,
                         materialIconsLink,
                         null, // spacing   
                         null, // spacing
