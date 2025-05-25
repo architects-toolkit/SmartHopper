@@ -167,6 +167,13 @@ jobs:
     
     - name: Restore dependencies
       run: dotnet restore SmartHopper.sln
+    
+    - name: Checkout libs
+      uses: actions/checkout@v3
+      with:
+        repository: architects-toolkit/SmartHopper-unlicensed-libs
+        token: ${{ secrets.LIBS_REPO_PAT }}
+        path: lib
 
     - name: Build solution
       shell: pwsh
