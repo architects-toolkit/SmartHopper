@@ -56,11 +56,25 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Validate Code Style
-        uses: ./.github/actions/code-style
+      - name: Validate C# file headers
+        uses: ./.github/actions/code-style/header-fixer
         with:
           mode: check
-          token: ${{ github.token }}
+
+      - name: Validate trailing whitespace
+        uses: ./.github/actions/code-style/trailing-whitespace
+        with:
+          mode: check
+
+      - name: Validate using directives
+        uses: ./.github/actions/code-style/using-sorter
+        with:
+          mode: check
+
+      - name: Validate namespaces
+        uses: ./.github/actions/code-style/namespace-fixer
+        with:
+          mode: check
 
   changelog-check:
     name: 📝 Changelog Check
