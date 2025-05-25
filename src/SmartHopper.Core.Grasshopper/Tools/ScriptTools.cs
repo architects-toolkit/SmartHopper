@@ -68,18 +68,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 }",
                 execute: this.ScriptReviewToolAsync
             );
-            yield return new AITool(
-                name: "script_edit",
-                description: "Modify a script component's code per user instructions and apply changes to the component.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""guid"": { ""type"": ""string"", ""description"": ""Instance GUID of the component to edit."" },
-                        ""instructions"": { ""type"": ""string"", ""description"": ""User instructions for code modifications."" }
-                    },
-                    ""required"": [""guid"", ""instructions""]
-                }",
-                execute: this.ScriptEditToolAsync);
+
             yield return new AITool(
                 name: "script_new",
                 description: "Generate a script component in the specified language (default python) based on user instructions and place it on the canvas.",
@@ -201,70 +190,6 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ["success"] = false,
                     ["error"] = ex.Message
                 };
-            }
-        }
-
-        #endregion
-
-        #region ScriptEdit
-
-        /// <summary>
-        /// Executes the "script_edit" tool: applies user instructions to modify a script component and updates it on the canvas.
-        /// </summary>
-        private async Task<object> ScriptEditToolAsync(JObject parameters)
-        {
-            try
-            {
-                var guidStr = parameters.Value<string>("guid") ?? throw new ArgumentException("Missing 'guid' parameter.");
-                if (!Guid.TryParse(guidStr, out var scriptGuid))
-                    throw new ArgumentException($"Invalid GUID: {guidStr}");
-                var instructions = parameters.Value<string>("instructions") ?? throw new ArgumentException("Missing 'instructions' parameter.");
-                var providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                var modelName = parameters["model"]?.ToString() ?? string.Empty;
-
-                var objects = GHCanvasUtils.GetCurrentObjects();
-                var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid) as IScriptComponent;
-                if (target == null)
-                    return new JObject { ["success"] = false, ["error"] = $"Component with GUID {scriptGuid} not found." };
-
-                var scriptCode = target.Text ?? string.Empty;
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    new("system", "You are a code modification assistant. Apply the user instructions to the script code and only return the full modified code."),
-                    new("user", $"Instructions: {instructions}\n```\n{scriptCode}\n```")
-                };
-                Func<List<KeyValuePair<string,string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(providerName, modelName, msgs);
-                var aiResponse = await getResponse(messages).ConfigureAwait(false);
-                var modifiedCode = aiResponse.Response?.Trim() ?? string.Empty;
-
-                // Remove markdown code fences
-                var cleanedCode = Regex.Replace(modifiedCode, @"```[\w]*\r?\n", string.Empty);
-                cleanedCode = Regex.Replace(cleanedCode, @"```", string.Empty);
-
-                Debug.WriteLine($"[ScriptEditTool] Before setting code on component {scriptGuid}, old length: {target.Text?.Length ?? 0}");
-                Debug.WriteLine($"[ScriptEditTool] New cleaned code length: {cleanedCode.Length}");
-
-                Rhino.RhinoApp.InvokeOnUiThread(() => target.Text = cleanedCode);
-
-                // grab the open editor for that component and close it to allow for further modifications
-                var editor = GH_ScriptEditor.FindScriptEditor((IGH_DocumentObject)target);
-                if (editor != null)
-                {
-                    // must run on UI thread
-                    Rhino.RhinoApp.InvokeOnUiThread(() => editor.Close());
-                    Debug.WriteLine($"[ScriptEditTool] Closed editor for component {scriptGuid}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[ScriptEditTool] No editor found for component {scriptGuid}");
-                }
-
-                Debug.WriteLine($"[ScriptEditTool] After setting code on component {scriptGuid}, new length: {target.Text?.Length ?? 0}");
-                return new JObject { ["success"] = true, ["modifiedCode"] = cleanedCode };
-            }
-            catch (Exception ex)
-            {
-                return new JObject { ["success"] = false, ["error"] = ex.Message };
             }
         }
 
