@@ -86,6 +86,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
                 else if (instance is IScriptComponent scriptComp && component.Properties != null)
                 {
+                    // clear default script inputs and outputs
+                    var ghComp = (IGH_Component)scriptComp;
+                    // remove all existing inputs
+                    foreach (var p in ghComp.Params.Input.ToArray())
+                        ghComp.Params.UnregisterInputParameter(p);
+                    // remove all existing outputs
+                    foreach (var p in ghComp.Params.Output.ToArray())
+                        ghComp.Params.UnregisterOutputParameter(p);
+
                     // Script code
                     if (component.Properties.TryGetValue("Script", out var scriptProperty) && scriptProperty?.Value != null)
                     {
