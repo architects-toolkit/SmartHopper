@@ -18,7 +18,9 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
@@ -168,31 +170,30 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
 
-                    // Use the generic ListTools.EvaluateListAsync method with the string JSON representation
-                    // TODO: call AI Tool instead of direct function
-                    var evaluationResult = await list_evaluate.EvaluateListAsync(
-                        normalizedListTree[i].Value,
-                        question,
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
-
-                    if (!evaluationResult.Success)
+                    // Call the AI tool through the tool manager
+                    var parameters = new JObject
                     {
-                        // Handle error
-                        if (evaluationResult.Response != null && evaluationResult.Response.FinishReason == "error")
-                        {
-                            parent.AIErrorToPersistentRuntimeMessage(evaluationResult.Response);
-                        }
-                        else
-                        {
-                            parent.SetPersistentRuntimeMessage("ai_error", evaluationResult.ErrorLevel, evaluationResult.ErrorMessage, false);
-                        }
+                        ["list"] = JArray.Parse(normalizedListTree[i].Value),
+                        ["question"] = question.Value,
+                        ["contextProviderFilter"] = "-environment,-time",
+                        ["reuseCount"] = reuseCount
+                    };
 
+                    var toolResult = await AIToolManager
+                        .ExecuteTool("list_evaluate", parameters, null)
+                        .ConfigureAwait(false) as JObject;
+
+                    bool success = toolResult?["success"]?.ToObject<bool>() ?? false;
+                    if (!success)
+                    {
+                        string errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
+                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, errorMessage, false);
                         outputs["Result"].Add(null);
                     }
                     else
                     {
-                        // Add the result
-                        outputs["Result"].Add(new GH_Boolean(evaluationResult.Result));
+                        bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
+                        outputs["Result"].Add(new GH_Boolean(result));
                     }
 
                     i++;

@@ -18,7 +18,9 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
@@ -160,30 +162,31 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
 
-                    // Use the generic tool to generate text
-                    // TODO: call the AI tool instead of the direct function
-                    var result = await text_generate.GenerateTextAsync(
-                        promptTree[i],
-                        instructionsTree[i],
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
-
-                    if (!result.Success)
+                    // Call the AI tool through the tool manager
+                    var parameters = new JObject
                     {
-                        if (result.Response?.FinishReason == "error")
-                        {
-                            parent.AIErrorToPersistentRuntimeMessage(result.Response);
-                        }
-                        else
-                        {
-                            parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
-                        }
+                        ["prompt"] = promptTree[i]?.Value,
+                        ["instructions"] = instructionsTree[i]?.Value,
+                        ["contextProviderFilter"] = "-environment,-time",
+                        ["reuseCount"] = reuseCount
+                    };
 
+                    var toolResult = await AIToolManager
+                        .ExecuteTool("text_generate", parameters, null)
+                        .ConfigureAwait(false) as JObject;
+
+                    bool success = toolResult?["success"]?.ToObject<bool>() ?? false;
+                    if (!success)
+                    {
+                        string errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
+                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, errorMessage, false);
                         outputs["Result"].Add(new GH_String(string.Empty));
                         i++;
                         continue;
                     }
 
-                    outputs["Result"].Add(result.Result);
+                    string result = toolResult?["result"]?.ToString() ?? string.Empty;
+                    outputs["Result"].Add(new GH_String(result));
                     i++;
                 }
 

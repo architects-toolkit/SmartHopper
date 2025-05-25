@@ -18,7 +18,9 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
@@ -168,33 +170,37 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
-                    // Use the generic ListTools.FilterListAsync method with the string JSON overload
-                    // TODO: call AI Tool instead of direct function
-                    var filterResult = await list_filter.FilterListAsync(
-                        normalizedListTree[i].Value,
-                        criterion,
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
-
-                    if (!filterResult.Success)
+                    // Call the AI tool through the tool manager
+                    var parameters = new JObject
                     {
-                        // Handle error
-                        if (filterResult.Response != null && filterResult.Response.FinishReason == "error")
-                        {
-                            parent.AIErrorToPersistentRuntimeMessage(filterResult.Response);
-                        }
-                        else
-                        {
-                            parent.SetPersistentRuntimeMessage("ai_error", filterResult.ErrorLevel, filterResult.ErrorMessage, false);
-                        }
+                        ["list"] = JArray.Parse(normalizedListTree[i].Value),
+                        ["criteria"] = criterion.Value,
+                        ["contextProviderFilter"] = "-environment,-time",
+                        ["reuseCount"] = reuseCount
+                    };
 
+                    var toolResult = await AIToolManager
+                        .ExecuteTool("list_filter", parameters, null)
+                        .ConfigureAwait(false) as JObject;
+
+                    bool success = toolResult?["success"]?.ToObject<bool>() ?? false;
+                    if (!success)
+                    {
+                        string errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
+                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, errorMessage, false);
                         outputs["Result"].Add(new GH_String(string.Empty));
                     }
                     else
                     {
-                        // Build filtered list using indices helper
-                        // TODO: call AI Tool instead of direct function
-                        var result = list_filter.BuildFilteredListFromIndices(branches["List"], filterResult.Result);
-                        outputs["Result"].AddRange(result);
+                        // Get the indices from the tool result
+                        var indices = toolResult?["indices"]?.ToObject<List<int>>() ?? new List<int>();
+                        
+                        // Build filtered list using indices
+                        var filteredItems = indices
+                            .Where(idx => idx >= 0 && idx < branches["List"].Count)
+                            .Select(idx => new GH_String(branches["List"][idx].Value));
+                            
+                        outputs["Result"].AddRange(filteredItems);
                     }
 
                     i++;

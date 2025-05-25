@@ -32,11 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GhObjTools` into `gh_tidy_up.cs`, `gh_toggle_preview.cs`, `gh_toggle_lock.cs`, `gh_move_obj.cs`
   - `GhPutTools` into `gh_put.cs`
   - `WebTools` into `web_generic_page_read.cs`, `web_rhino_forum_read_post.cs` and `web_rhino_forum_search.cs`
+  - `GhGetTools` into `gh_get.cs`, `gh_list_components.cs` and `gh_list_categories.cs`
 - Now `Put` removes all default inputs and outputs from the component before adding a new script component.
 - Improved OpenAI provider to support structured output.
 - Improved `script_new` in several ways:
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
+- Modified `AITextGenerate`, `AITextEvaluate`, `AIListEvaluate` and `AIListFilter` to use `AIToolManager` instead of calling the AI tool directly.
 
 ### Removed
 
