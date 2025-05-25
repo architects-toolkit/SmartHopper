@@ -224,20 +224,5 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             return result;
         }
-
-        /// <summary>
-        /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
-        /// </summary>
-        private static List<string> NormalizeListInput(JObject parameters)
-        {
-            var token = parameters["list"];
-            if (token is JArray array)
-            {
-                return array.Select(t => t.ToString()).ToList();
-            }
-
-            var raw = token?.ToString();
-            return ParsingTools.ParseStringArrayFromResponse(raw);
-        }
     }
 }
