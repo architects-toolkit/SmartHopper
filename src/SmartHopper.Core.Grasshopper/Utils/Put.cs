@@ -36,11 +36,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
         
         /// <summary>
-        /// Instantiates components, sets properties, adds them to the canvas, and creates connections.
+        /// Core placement logic; returns mapping from template InstanceGuid to placed component InstanceGuid.
         /// </summary>
-        /// <param name="document">Deserialized Grasshopper document.</param>
-        /// <returns>Names of components placed.</returns>
-        public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, PointF startPoint)
+        private static Dictionary<Guid, Guid> InternalPutObjects(GrasshopperDocument document, PointF startPoint)
         {
             var guidMapping = new Dictionary<Guid, Guid>();
 
@@ -86,6 +84,15 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
                 else if (instance is IScriptComponent scriptComp && component.Properties != null)
                 {
+                    // clear default script inputs and outputs
+                    var ghComp = (IGH_Component)scriptComp;
+                    // remove all existing inputs
+                    foreach (var p in ghComp.Params.Input.ToArray())
+                        ghComp.Params.UnregisterInputParameter(p);
+                    // remove all existing outputs
+                    foreach (var p in ghComp.Params.Output.ToArray())
+                        ghComp.Params.UnregisterOutputParameter(p);
+
                     // Script code
                     if (component.Properties.TryGetValue("Script", out var scriptProperty) && scriptProperty?.Value != null)
                     {
@@ -239,8 +246,33 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
             }
 
-            // Return placed component names
+            return guidMapping;
+        }
+
+        /// <summary>
+        /// Places components and returns their names.
+        /// </summary>
+        public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, PointF startPoint)
+        {
+            var mapping = InternalPutObjects(document, startPoint);
             return document.Components.Select(c => c.Name).Distinct().ToList();
+        }
+
+        /// <summary>
+        /// Places components and returns mapping; overload for span.
+        /// </summary>
+        public static Dictionary<Guid, Guid> PutObjectsOnCanvasWithMapping(GrasshopperDocument document, int span = 100)
+        {
+            var startPoint = GHCanvasUtils.StartPoint(span);
+            return InternalPutObjects(document, startPoint);
+        }
+
+        /// <summary>
+        /// Places components and returns mapping; overload for point.
+        /// </summary>
+        public static Dictionary<Guid, Guid> PutObjectsOnCanvasWithMapping(GrasshopperDocument document, PointF startPoint)
+        {
+            return InternalPutObjects(document, startPoint);
         }
     }
 }

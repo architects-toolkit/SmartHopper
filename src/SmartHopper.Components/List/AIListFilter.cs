@@ -169,7 +169,8 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
                     // Use the generic ListTools.FilterListAsync method with the string JSON overload
-                    var filterResult = await ListTools.FilterListAsync(
+                    // TODO: call AI Tool instead of direct function
+                    var filterResult = await list_filter.FilterListAsync(
                         normalizedListTree[i].Value,
                         criterion,
                         messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
@@ -191,7 +192,8 @@ namespace SmartHopper.Components.List
                     else
                     {
                         // Build filtered list using indices helper
-                        var result = ListTools.BuildFilteredListFromIndices(branches["List"], filterResult.Result);
+                        // TODO: call AI Tool instead of direct function
+                        var result = list_filter.BuildFilteredListFromIndices(branches["List"], filterResult.Result);
                         outputs["Result"].AddRange(result);
                     }
 
