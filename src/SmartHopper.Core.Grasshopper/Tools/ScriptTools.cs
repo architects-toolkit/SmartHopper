@@ -473,13 +473,28 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 };
                 doc.Components.Add(comp);
 
-                // Place the component on the canvas on UI thread
-                List<string> placed = null;
-                RhinoApp.InvokeOnUiThread(() =>
+                // Place the component and retrieve mapping on UI thread via TaskCompletionSource
+                var tcs = new TaskCompletionSource<Dictionary<Guid, Guid>>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
-                    placed = Put.PutObjectsOnCanvas(doc);
+                    try
+                    {
+                        var map = Put.PutObjectsOnCanvasWithMapping(doc);
+                        tcs.SetResult(map);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
                 });
-                return new { success = true, script = scriptCode, guid = comp.InstanceGuid, inputs = scriptInputs, outputs = scriptOutputs };
+                var mapping = await tcs.Task.ConfigureAwait(false);
+
+                // Retrieve actual placed GUID
+                if (mapping.TryGetValue(comp.InstanceGuid, out var actualGuid))
+                {
+                    return new { success = true, script = scriptCode, guid = actualGuid, inputs = scriptInputs, outputs = scriptOutputs };
+                }
+                return new { success = false, error = "Failed to retrieve placed component GUID." };
             }
             catch (Exception ex)
             {
