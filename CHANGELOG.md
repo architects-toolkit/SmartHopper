@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
 
+### Removed
+
+- Removed `Eto.Forms` reference from `SmartHopper.Config`.
+
 ### Fixed
 
 - Fixed MistralAI provider not working with structured output ([#112](https://github.com/architects-toolkit/SmartHopper/issues/112)).
