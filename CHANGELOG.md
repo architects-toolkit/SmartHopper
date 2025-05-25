@@ -28,11 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated `GhPutTools` to `Utils` in `Core.Grasshopper`
 - Improved OpenAI provider to support structured output.
 - Improved `ScriptNewTool` to create component inputs and outputs.
+- Now `Put` removes all default inputs and outputs from the component before adding a new script component.
 
 ### Fixed
 
 - Fixed MistralAI provider not working with structured output ([#112](https://github.com/architects-toolkit/SmartHopper/issues/112)).
 - Fixed OpenAI error in API URI.
+
 
 ## [0.3.1-alpha] - 2025-05-06
 

@@ -244,7 +244,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 Debug.WriteLine($"[ScriptEditTool] Before setting code on component {scriptGuid}, old length: {target.Text?.Length ?? 0}");
                 Debug.WriteLine($"[ScriptEditTool] New cleaned code length: {cleanedCode.Length}");
 
-                target.Text = cleanedCode;
+                Rhino.RhinoApp.InvokeOnUiThread(() => target.Text = cleanedCode);
 
                 // grab the open editor for that component and close it to allow for further modifications
                 var editor = GH_ScriptEditor.FindScriptEditor((IGH_DocumentObject)target);
@@ -252,6 +252,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 {
                     // must run on UI thread
                     Rhino.RhinoApp.InvokeOnUiThread(() => editor.Close());
+                    Debug.WriteLine($"[ScriptEditTool] Closed editor for component {scriptGuid}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[ScriptEditTool] No editor found for component {scriptGuid}");
                 }
 
                 Debug.WriteLine($"[ScriptEditTool] After setting code on component {scriptGuid}, new length: {target.Text?.Length ?? 0}");
