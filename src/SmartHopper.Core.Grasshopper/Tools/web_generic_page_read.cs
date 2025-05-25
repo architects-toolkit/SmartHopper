@@ -73,8 +73,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 if (robotsResponse.IsSuccessStatusCode)
                 {
                     string robotsContent = await robotsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    var robots = new WebTools.RobotsTxtParser(robotsContent);
-                    if (!robots.IsAllowed(uri.PathAndQuery))
+                    var robots = new WebTools(robotsContent);
+                    if (!robots.IsPathAllowed(uri.PathAndQuery))
                     {
                         throw new InvalidOperationException($"Access to '{uri}' is disallowed by robots.txt.");
                     }
