@@ -479,7 +479,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 {
                     placed = Put.PutObjectsOnCanvas(doc);
                 });
-                return new { success = true, script = scriptCode, components = placed };
+                return new { success = true, script = scriptCode, guid = comp.InstanceGuid, inputs = scriptInputs, outputs = scriptOutputs };
             }
             catch (Exception ex)
             {
