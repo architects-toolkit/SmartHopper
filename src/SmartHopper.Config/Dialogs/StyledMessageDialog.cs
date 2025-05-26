@@ -13,13 +13,12 @@
  * Provides styled Eto.Forms dialogs with SmartHopper branding for error, warning, info messages, and confirmations.
  */
 
-using System;
 using System.IO;
-using Eto.Forms;
-using Eto.Drawing;
-using SmartHopper.Config.Properties;
-using Rhino.UI;
 using System.Reflection;
+using Eto.Drawing;
+using Eto.Forms;
+using Rhino.UI;
+using SmartHopper.Config.Properties;
 
 namespace SmartHopper.Config.Dialogs
 {

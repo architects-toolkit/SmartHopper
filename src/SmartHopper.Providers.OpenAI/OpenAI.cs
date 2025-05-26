@@ -239,7 +239,7 @@ namespace SmartHopper.Providers.OpenAI
                     convertedMessages.Add(messageObj);
                 }
 
-                // Build request body
+                // Build request body for the new Responses API
                 var requestBody = new JObject
                 {
                     ["model"] = modelName,
@@ -250,11 +250,23 @@ namespace SmartHopper.Providers.OpenAI
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
                 {
-                    requestBody["response_format"] = new JObject
+                    try
                     {
-                        ["type"] = "json_object",
-                    };
+                        var schemaObj = JObject.Parse(jsonSchema);
+                        requestBody["response_format"] = new JObject
+                        {
+                            ["type"] = "json_schema",
+                            ["schema"] = schemaObj,
+                            ["strict"] = true
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
+                        // Continue without schema if parsing fails
+                    }
                 }
+
 
                 // Add tools if requested
                 if (includeToolDefinitions)
@@ -272,24 +284,23 @@ namespace SmartHopper.Providers.OpenAI
 
                 try
                 {
-                    var apiUrl = string.IsNullOrEmpty(endpoint) ? ApiURL : endpoint;
-                    var response = await httpClient.PostAsync(apiUrl, requestContent).ConfigureAwait(false);
+                    var response = await httpClient.PostAsync(ApiURL, requestContent).ConfigureAwait(false);
                     var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     Debug.WriteLine($"[OpenAI] Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
                     {
                         Debug.WriteLine($"[OpenAI] Error response: {responseContent}");
-                        throw new Exception($"Error from OpenAI API: {response.StatusCode} - {responseContent}");
+                        var errorObj = JObject.Parse(responseContent);
+                        var errorMessage = errorObj["error"]?["message"]?.ToString() ?? responseContent;
+                        throw new Exception($"Error from OpenAI API: {response.StatusCode} - {errorMessage}");
                     }
 
                     var responseJson = JObject.Parse(responseContent);
                     Debug.WriteLine($"[OpenAI] Response parsed successfully");
 
-                    // Extract response content
-                    var choices = responseJson["choices"] as JArray;
-                    var firstChoice = choices != null && choices.Count > 0 ? choices[0] as JObject : null;
-                    var message = firstChoice?["message"] as JObject;
+                    // Extract response content from the Chat Completions API format
+                    var message = responseJson["choices"]?[0]?["message"] as JObject;
                     var usage = responseJson["usage"] as JObject;
 
                     if (message == null)
@@ -298,12 +309,13 @@ namespace SmartHopper.Providers.OpenAI
                         throw new Exception("Invalid response from OpenAI API: No message found");
                     }
 
+
                     var aiResponse = new AIResponse
                     {
-                        Response = message["content"]?.ToString() ?? string.Empty,
+                        Response = message?["content"]?.ToString() ?? string.Empty,
                         Provider = "OpenAI",
                         Model = modelName,
-                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
+                        FinishReason = responseJson["choices"]?[0]?["finish_reason"]?.ToString() ?? "unknown",
                         InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                         OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
                     };
