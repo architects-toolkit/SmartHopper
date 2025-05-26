@@ -15,10 +15,11 @@ on:
     branches:
       - main
       - dev
-      - release/**
   pull_request:
-    branches: 
-      - '**'  # Run on all branches for PRs
+    branches:
+      - main
+      - dev
+      - release/**
 
 permissions:
   contents: read
