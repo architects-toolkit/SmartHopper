@@ -35,7 +35,7 @@ runs:
       shell: pwsh
       run: |
         if (-not (Test-Path signing.snk)) {
-          if ("${{ secrets.SIGNING_SNK_BASE64 }}") {
+          if ("${{ secrets.SIGNING_SNK_BASE64 }}" -ne "") {
             Write-Host "Decoding signing.snk from Base64 secret"
             pwsh Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
           } else {
