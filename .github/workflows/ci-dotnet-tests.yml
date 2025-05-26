@@ -47,28 +47,11 @@ jobs:
         with:
           dotnet-version: '7.0.x'
 
-      - name: Prepare strong-name key
-        shell: pwsh
-        env:
-          SIGNING_SNK_BASE64: ${{ secrets.SIGNING_SNK_BASE64 }}
-        run: |
-          if (-not (Test-Path signing.snk)) {
-            if ($env:SIGNING_SNK_BASE64) {
-              Write-Host "Decoding signing.snk from Base64 secret"
-              ./Sign-StrongNames.ps1 -Base64 $env:SIGNING_SNK_BASE64
-            } else {
-              Write-Host "Generating temporary signing.snk"
-              ./Sign-StrongNames.ps1 -Generate
-            }
-          } else {
-            Write-Host "signing.snk already exists"
-          }
-
-      - name: Restore dependencies
-        run: dotnet restore SmartHopper.sln
-
-      - name: Build solution
-        run: dotnet build --no-restore --configuration Release SmartHopper.sln
+      - name: Dotnet Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          solution: SmartHopper.sln
+          configuration: Release
 
       - name: Run all tests
         run: dotnet test --no-build --configuration Release --results-directory TestResults

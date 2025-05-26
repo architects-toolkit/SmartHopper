@@ -1,0 +1,133 @@
+name: 'Dotnet Build'
+
+description: 'Composite action to build SmartHopper solution with strong-name signing and lib injection'
+
+inputs:
+  solution:
+    description: 'Path to solution file to build'
+    required: false
+    default: 'SmartHopper.sln'
+  configuration:
+    description: 'Build configuration'
+    required: false
+    default: 'Release'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 'Check for existing .NET SDK'
+      id: check-dotnet
+      shell: bash
+      run: |
+        if dotnet --version >/dev/null 2>&1; then
+          echo "installed=true" >> $GITHUB_OUTPUT
+        else
+          echo "installed=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: 'Setup .NET'
+      if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '7.0.x'
+
+    - name: 'Decode strong-name key'
+      shell: pwsh
+      run: |
+        if (-not (Test-Path signing.snk)) {
+          if ("${{ secrets.SIGNING_SNK_BASE64 }}") {
+            Write-Host "Decoding signing.snk from Base64 secret"
+            pwsh Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+          } else {
+            Write-Host "Generating signing.snk"
+            pwsh Sign-StrongNames.ps1 -Generate
+          }
+        } else {
+          Write-Host "signing.snk already exists"
+        }
+
+    - name: 'Checkout unlicensed libs'
+      uses: actions/checkout@v3
+      with:
+        repository: 'architects-toolkit/SmartHopper-unlicensed-libs'
+        token: ${{ secrets.LIBS_REPO_PAT }}
+        path: lib
+
+    - name: 'Restore dependencies'
+      run: dotnet restore ${{ inputs.solution }}
+
+    - name: 'Initialize Visual Studio environment'
+      shell: pwsh
+      run: |
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          Write-Host "Initializing Visual Studio Developer environment..."
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        } else {
+          Write-Host "##[warning] Visual Studio Developer Command Prompt not found. Proceeding without it."
+        }
+
+    - name: 'Build solution'
+      shell: pwsh
+      run: |
+        $snkPath = Resolve-Path -Path "signing.snk" | Select-Object -ExpandProperty Path
+        Write-Host "Building solution with SNK at: $snkPath"
+        dotnet build ${{ inputs.solution }} --configuration ${{ inputs.configuration }} --no-restore /p:SignAssembly=true "/p:AssemblyOriginatorKeyFile=$snkPath"
+
+    - name: Decode Authenticode PFX from secrets
+      shell: pwsh
+      run: |
+        # Setup VS Developer environment
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        }
+        
+        Write-Host "Decoding Authenticode PFX from secrets..."
+        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+
+    - name: Authenticode-sign provider assemblies
+      shell: pwsh
+      run: |
+        # Setup VS Developer environment
+        $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $vsDevCmd) {
+          & cmd /c "call `"$vsDevCmd`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            }
+          }
+        }
+        
+        # Make signtool available by adding Windows SDK paths to PATH
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\x64"
+        
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        $buildPath = "bin/$version/${{ inputs.configuration }}"
+        
+        # Verify the build directory exists
+        if (-not (Test-Path $buildPath)) {
+          Write-Host "##[warning] Build directory '$buildPath' not found. Checking for alternate paths..."
+          # Try to find any build output directory
+          $possibleDirs = Get-ChildItem -Path "bin" -Directory -Recurse | Where-Object { $_.Name -eq "${{ inputs.configuration }}" }
+          if ($possibleDirs) {
+            $buildPath = $possibleDirs[0].FullName
+            Write-Host "Found alternate build path: $buildPath"
+          } else {
+            Write-Host "##[error] No build output directory found. Skipping signing."
+          exit 1
+        }
+        }
+        
+        Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
+        & ./Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
