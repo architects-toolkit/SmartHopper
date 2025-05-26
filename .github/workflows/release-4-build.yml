@@ -123,6 +123,7 @@ jobs:
         libs_repo_pat: ${{ secrets.LIBS_REPO_PAT }}
         signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
         signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        version: ${{ steps.determine_version.outputs.VERSION }}
 
     - name: Create Output Directory
       shell: pwsh

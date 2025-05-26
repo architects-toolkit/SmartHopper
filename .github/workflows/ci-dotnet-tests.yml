@@ -30,23 +30,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Check for existing .NET SDK
-        id: check-dotnet
-        shell: bash
-        run: |
-          if dotnet --version >/dev/null 2>&1; then
-            echo "installed=true" >> $GITHUB_OUTPUT
-          else
-            echo "installed=false" >> $GITHUB_OUTPUT
-          fi
+        uses: actions/checkout@v4
           
       - name: Setup .NET
-        if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '7.0.x'
+
+      - name: Determine version
+        id: determine_version
+        uses: ./.github/actions/versioning/get-version
 
       - name: Dotnet Build
         uses: ./.github/actions/dotnet-build
@@ -57,6 +50,7 @@ jobs:
           libs_repo_pat: ${{ secrets.LIBS_REPO_PAT }}
           signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
           signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+          version: ${{ steps.determine_version.outputs.version }}
 
       - name: Run all tests
         run: dotnet test --no-build --configuration Release --results-directory TestResults

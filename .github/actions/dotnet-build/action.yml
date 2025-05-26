@@ -23,6 +23,10 @@ inputs:
   signing_pfx_password:
     description: 'Password for Authenticode PFX'
     required: false
+  version:
+    description: 'Version to use for build output directory (optional)'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -125,7 +129,7 @@ runs:
         $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
         $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\x64"
         
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        $version = "${{ inputs.version }}"
         $buildPath = "bin/$version/${{ inputs.configuration }}"
         
         # Verify the build directory exists
