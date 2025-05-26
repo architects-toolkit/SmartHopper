@@ -26,53 +26,19 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Get version from Solution.props (Linux/macOS)
-      if: runner.os != 'Windows'
-      id: get-version-linux
-      shell: bash
-      run: |
-        VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
-        echo "Current version: $VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-    - name: Get version from Solution.props (Windows)
-      if: runner.os == 'Windows'
-      id: get-version-windows
+    - name: Get version from Solution.props
+      id: get-version
       shell: pwsh
       run: |
-        $v = (Select-Xml -Path Solution.props -XPath "//SolutionVersion").Node.InnerText
-        Write-Host "Current version: $v"
-        "version=$v" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+        $version = (Select-Xml -Path Solution.props -XPath "//SolutionVersion").Node.InnerText
+        Write-Host "Current version: $version"
+        "version=$version" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
 
-    - name: Parse version components (Linux/macOS)
-      if: runner.os != 'Windows'
-      id: parse-version-linux
-      shell: bash
-      run: |
-        VERSION="${{ steps.get-version-linux.outputs.version }}"
-        if [[ $VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
-          MAJOR="${BASH_REMATCH[1]}"
-          MINOR="${BASH_REMATCH[2]}"
-          PATCH="${BASH_REMATCH[3]}"
-          SUFFIX="${BASH_REMATCH[4]}"
-          
-          echo "major=$MAJOR" >> $GITHUB_OUTPUT
-          echo "minor=$MINOR" >> $GITHUB_OUTPUT
-          echo "patch=$PATCH" >> $GITHUB_OUTPUT
-          echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
-          
-          echo "Parsed version: Major=$MAJOR, Minor=$MINOR, Patch=$PATCH, Suffix=$SUFFIX"
-        else
-          echo "Error: Version format doesn't follow semantic versioning: $VERSION"
-          exit 1
-        fi
-
-    - name: Parse version components (Windows)
-      if: runner.os == 'Windows'
-      id: parse-version-windows
+    - name: Parse version components
+      id: parse-version
       shell: pwsh
       run: |
-        $VERSION = '${{ steps.get-version-windows.outputs.version }}'
+        $VERSION = '${{ steps.get-version.outputs.version }}'
         if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(-[A-Za-z0-9]+(\.[0-9]+)?)?$') {
           $major = $Matches[1]
           $minor = $Matches[2]
