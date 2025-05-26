@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Drawing;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Undo;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -39,6 +40,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 Debug.WriteLine($"[GHComponentUtils] Component.IsPreviewCapable={component.IsPreviewCapable}, Hidden={component.Hidden}");
                 if (component.IsPreviewCapable)
                 {
+                    obj.RecordUndoEvent("[SH] Set Component Preview");
                     component.Hidden = !previewOn;
                     Debug.WriteLine($"[GHComponentUtils] New Hidden={component.Hidden}");
                     if (redraw)
@@ -55,6 +57,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             else if (obj is IGH_PreviewObject preview)
             {
                 Debug.WriteLine($"[GHComponentUtils] IGH_PreviewObject.Hidden={preview.Hidden}");
+                obj.RecordUndoEvent("[SH] Set Component Preview");
                 preview.Hidden = !previewOn;
                 Debug.WriteLine($"[GHComponentUtils] New Hidden={preview.Hidden}");
                 if (redraw)
@@ -85,6 +88,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             if (obj is GH_Component component)
             {
                 Debug.WriteLine($"[GHComponentUtils] Component.Locked={component.Locked}");
+                obj.RecordUndoEvent("[SH] Set Component Lock");
                 component.Locked = locked;
                 Debug.WriteLine($"[GHComponentUtils] New Locked={component.Locked}");
                 if (redraw)
@@ -96,6 +100,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             else if (obj is IGH_Param param)
             {
                 Debug.WriteLine($"[GHComponentUtils] IGH_Param.Locked={param.Locked}");
+                obj.RecordUndoEvent("[SH] Set Component Lock");
                 param.Locked = locked;
                 Debug.WriteLine($"[GHComponentUtils] New Locked={param.Locked}");
                 if (redraw)

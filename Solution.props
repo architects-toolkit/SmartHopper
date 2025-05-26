@@ -1,5 +1,9 @@
 <Project>
   <PropertyGroup>
+<<<<<<< HEAD
     <SolutionVersion>0.3.2-dev.250526</SolutionVersion>
+=======
+    <SolutionVersion>0.3.2-dev.250525</SolutionVersion>
+>>>>>>> 875c5fdd6ce8e4251b4449b14388411160103313
   </PropertyGroup>
 </Project>

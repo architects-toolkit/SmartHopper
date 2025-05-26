@@ -16,7 +16,13 @@ on:
       - 'dependabot/**'  # Ignore dependabot branches
   pull_request:
     branches: 
+<<<<<<< HEAD
       - '**'  # Run on all branches for PRs
+=======
+      - main
+      - dev
+      - release/*
+>>>>>>> 875c5fdd6ce8e4251b4449b14388411160103313
 
 permissions:
   contents: read
