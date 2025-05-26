@@ -53,11 +53,6 @@ namespace SmartHopper.Components.List
             pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
         }
 
-        protected override string GetEndpoint()
-        {
-            return "list-evaluate";
-        }
-
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIListEvaluateWorker(this, this.AddRuntimeMessage);

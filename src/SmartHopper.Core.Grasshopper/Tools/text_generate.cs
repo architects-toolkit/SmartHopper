@@ -54,69 +54,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Tool wrapper for the GenerateText function.
-        /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
-        private async Task<object> GenerateTextToolWrapper(JObject parameters)
-        {
-            try
-            {
-                Debug.WriteLine("[TextTools] Running GenerateTextToolWrapper");
-
-                // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string? prompt = parameters["prompt"]?.ToString();
-                string instructions = parameters["instructions"]?.ToString() ?? string.Empty;
-
-                if (string.IsNullOrEmpty(prompt))
-                {
-                    // Return error object as JObject
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing required parameter: prompt"
-                    };
-                }
-
-                // Execute the tool
-                var result = await GenerateTextAsync(
-                    new GH_String(prompt),
-                    new GH_String(instructions),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)
-                ).ConfigureAwait(false);
-
-                // Build standardized result as JObject
-                var responseObj = new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response)
-                };
-                return responseObj;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[TextTools] Error in GenerateTextToolWrapper: {ex.Message}");
-                // Return error object as JObject
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}"
-                };
-            }
-        }
-
-        /// <summary>
         /// Generates text from a prompt and optional instructions using AI with a custom GetResponse function.
         /// </summary>
         /// <param name="prompt">The user's prompt.</param>
         /// <param name="instructions">Optional instructions for the AI.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>The generated text as a GH_String.</returns>
-        public static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
+        private static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -163,23 +107,64 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Generates text from a prompt and optional instructions using AI with the default AIUtils.GetResponse.
+        /// Tool wrapper for the GenerateText function.
         /// </summary>
-        /// <param name="prompt">The user's prompt.</param>
-        /// <param name="instructions">Optional instructions for the AI.</param>
-        /// <param name="provider">The AI provider to use.</param>
-        /// <param name="model">The model to use, or empty for default.</param>
-        /// <returns>The generated text as a GH_String.</returns>
-        public static Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
-            GH_String prompt,
-            GH_String instructions,
-            string provider,
-            string model = "")
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
+        private async Task<object> GenerateTextToolWrapper(JObject parameters)
         {
-            return GenerateTextAsync(
-                prompt,
-                instructions,
-                messages => AIUtils.GetResponse(provider, model, messages));
+            try
+            {
+                Debug.WriteLine("[TextTools] Running GenerateTextToolWrapper");
+
+                // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string endpoint = "text_generate";
+                string? prompt = parameters["prompt"]?.ToString();
+                string instructions = parameters["instructions"]?.ToString() ?? string.Empty;
+
+                if (string.IsNullOrEmpty(prompt))
+                {
+                    // Return error object as JObject
+                    return new JObject
+                    {
+                        ["success"] = false,
+                        ["error"] = "Missing required parameter: prompt"
+                    };
+                }
+
+                // Execute the tool
+                var result = await GenerateTextAsync(
+                    new GH_String(prompt),
+                    new GH_String(instructions),
+                    messages => AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        endpoint: endpoint)
+                ).ConfigureAwait(false);
+
+                // Build standardized result as JObject
+                var responseObj = new JObject
+                {
+                    ["success"] = result.Success,
+                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response),
+                };
+                return responseObj;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[TextTools] Error in GenerateTextToolWrapper: {ex.Message}");
+                // Return error object as JObject
+                return new JObject
+                {
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}",
+                };
+            }
         }
     }
 }

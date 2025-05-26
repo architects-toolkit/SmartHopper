@@ -53,11 +53,6 @@ namespace SmartHopper.Components.Text
             pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
         }
 
-        protected override string GetEndpoint()
-        {
-            return "text-generate";
-        }
-
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AITextGenerateWorker(this, this.AddRuntimeMessage);

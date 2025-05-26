@@ -161,7 +161,7 @@ namespace SmartHopper.Components.AI
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
                         actualProvider,
                         this.component.GetModel(),
-                        this.component.GetEndpoint(),
+                        "chat",
                         this.progressReporter,
                         this.component.InstanceGuid); // Pass the component's instance GUID
 

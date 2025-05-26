@@ -53,11 +53,6 @@ namespace SmartHopper.Components.Text
             pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
         }
 
-        protected override string GetEndpoint()
-        {
-            return "text-evaluate";
-        }
-
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AITextEvaluateWorker(this, this.AddRuntimeMessage);
