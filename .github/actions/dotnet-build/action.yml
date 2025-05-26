@@ -58,10 +58,10 @@ runs:
           Write-Host "signing.snk already exists"
         }
 
-    - name: 'Checkout unlicensed libs'
+    - name: 'Checkout unlicensed lib'
       uses: actions/checkout@v4
       with:
-        repository: 'architects-toolkit/SmartHopper-unlicensed-libs'
+        repository: 'architects-toolkit/SmartHopper-unlicensed-lib'
         token: ${{ inputs.libs_repo_pat }}
         path: lib
         ref: main
