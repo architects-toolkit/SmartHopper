@@ -28,29 +28,11 @@ runs:
               # normalize to unix line endings
               sed -i 's/\r$//' "$file"
             else
-              # Check trailing whitespace and CRLF with line numbers
-              mapfile -t _TW < <(grep -En '[ \t]+$' "$file")
-              mapfile -t _CR < <(grep -En '\r$' "$file")
-              if (( ${#_TW[@]} || ${#_CR[@]} )); then
-                for l in "${_TW[@]}"; do
-                  lineno=${l%%:*}
-                  if [ "${{ inputs.mode }}" = "soft-check" ]; then
-                    echo "::warning file=$file,line=$lineno::Trailing whitespace found in $file on line $lineno (run with mode=fix to auto-fix)"
-                  else
-                    echo "Trailing whitespace found in $file:$lineno"
-                    ERR=1
-                  fi
-                done
-                for l in "${_CR[@]}"; do
-                  lineno=${l%%:*}
-                  if [ "${{ inputs.mode }}" = "soft-check" ]; then
-                    echo "::warning file=$file,line=$lineno::CRLF found in $file on line $lineno (run with mode=fix to auto-fix)"
-                  else
-                    echo "CRLF found in $file:$lineno"
-                    ERR=1
-                  fi
-                done
-              fi
+              # Check trailing whitespace and CRLF with accurate line numbers
+              found=0
+              awk '/[[:blank:]]$/ {if ("${{ inputs.mode }}" == "soft-check") print "::warning file="FILENAME",line="FNR"::Trailing whitespace found in "FILENAME" on line "FNR" (run with mode=fix to auto-fix)"; else print "Trailing whitespace found in "FILENAME":"FNR; found=1}' "$file"
+              awk '/\r$/ {if ("${{ inputs.mode }}" == "soft-check") print "::warning file="FILENAME",line="FNR"::CRLF found in "FILENAME" on line "FNR" (run with mode=fix to auto-fix)"; else print "CRLF found in "FILENAME":"FNR; found=1}' "$file"
+              (( found )) && ERR=1
             fi
           fi
         done
