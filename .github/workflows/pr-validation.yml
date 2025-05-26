@@ -54,7 +54,9 @@ jobs:
     name: 🖌️ Code Style Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate C# file headers
         uses: ./.github/actions/code-style/header-fixer
@@ -85,14 +87,22 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            src:
+              - 'src/**'
+
       - name: Check CHANGELOG.md is Updated
+        if: steps.filter.outputs.src == 'true'
         uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46.0.1
         id: changelog-check
         with:
           files: CHANGELOG.md
 
       - name: Validate Changelog Update
-        if: steps.changelog-check.outputs.any_changed != 'true'
+        if: steps.filter.outputs.src == 'true' && steps.changelog-check.outputs.any_changed != 'true'
         env:
           CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
         run: |

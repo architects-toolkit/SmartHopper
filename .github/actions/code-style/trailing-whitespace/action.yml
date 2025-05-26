@@ -15,7 +15,7 @@ runs:
         set +e
 
         # Get the list of changed files
-        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -v -e '^\.' -e '/\.')
 
         # Initialize error code
         ERR=0
@@ -28,15 +28,11 @@ runs:
               # normalize to unix line endings
               sed -i 's/\r$//' "$file"
             else
-              if grep -qE '[ \t]+$' "$file" || file "$file" | grep -q CRLF; then
-                if [ "${{ inputs.mode }}" = "soft-check" ]; then
-                  # emit a non-blocking warning
-                  echo "::warning file=$file::Trailing whitespace or CRLF found in $file (run with mode=fix to auto-fix)"
-                else
-                  echo "Trailing whitespace or CRLF found in $file"
-                  ERR=1
-                fi
-              fi
+              # Check trailing whitespace and CRLF with accurate line numbers
+              found=0
+              awk '/[[:blank:]]$/ {if ("${{ inputs.mode }}" == "soft-check") print "::warning file="FILENAME",line="FNR"::Trailing whitespace found in "FILENAME" on line "FNR" (run with mode=fix to auto-fix)"; else print "Trailing whitespace found in "FILENAME":"FNR; found=1}' "$file"
+              awk '/\r$/ {if ("${{ inputs.mode }}" == "soft-check") print "::warning file="FILENAME",line="FNR"::CRLF found in "FILENAME" on line "FNR" (run with mode=fix to auto-fix)"; else print "CRLF found in "FILENAME":"FNR; found=1}' "$file"
+              (( found )) && ERR=1
             fi
           fi
         done
