@@ -15,7 +15,7 @@ runs:
         set +e
 
         # Get the list of changed files
-        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+        FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -v -e '^\.' -e '/\.')
 
         # Initialize error code
         ERR=0
