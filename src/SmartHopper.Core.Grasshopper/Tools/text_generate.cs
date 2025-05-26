@@ -72,10 +72,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    return new
+                    // Return error object as JObject
+                    return new JObject
                     {
-                        success = false,
-                        error = "Missing required parameter: prompt",
+                        ["success"] = false,
+                        ["error"] = "Missing required parameter: prompt"
                     };
                 }
 
@@ -83,23 +84,26 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var result = await GenerateTextAsync(
                     new GH_String(prompt),
                     new GH_String(instructions),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
+                    messages => AIUtils.GetResponse(providerName, modelName, messages)
+                ).ConfigureAwait(false);
 
-                // Return standardized result
-                return new
+                // Build standardized result as JObject
+                var responseObj = new JObject
                 {
-                    success = result.Success,
-                    text = result.Success ? result.Result.Value : null,
-                    error = result.Success ? null : result.ErrorMessage,
+                    ["success"] = result.Success,
+                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
                 };
+                return responseObj;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateTextToolWrapper: {ex.Message}");
-                return new
+                // Return error object as JObject
+                return new JObject
                 {
-                    success = false,
-                    error = $"Error: {ex.Message}",
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}"
                 };
             }
         }

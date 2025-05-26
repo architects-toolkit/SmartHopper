@@ -67,10 +67,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
                 {
-                    return new
+                    // Return error object as JObject
+                    return new JObject
                     {
-                        success = false,
-                        error = "Missing required parameters",
+                        ["success"] = false,
+                        ["error"] = "Missing required parameters"
                     };
                 }
 
@@ -87,21 +88,22 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
 
                 // Return standardized result
-                return new
+                return new JObject
                 {
-                    success = result.Success,
-                    indices = result.Success ? result.Result : null,
-                    count = result.Success ? result.Result.Count : 0,
-                    error = result.Success ? null : result.ErrorMessage,
+                    ["success"] = result.Success,
+                    ["indices"] = result.Success ? JArray.FromObject(result.Result) : JValue.CreateNull(),
+                    ["count"] = new JValue(result.Success ? result.Result.Count : 0),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
                 };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in FilterListToolWrapper: {ex.Message}");
-                return new
+                // Return error object as JObject
+                return new JObject
                 {
-                    success = false,
-                    error = $"Error: {ex.Message}",
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}"
                 };
             }
         }
