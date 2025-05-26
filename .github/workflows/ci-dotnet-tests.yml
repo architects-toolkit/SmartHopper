@@ -11,10 +11,12 @@ name: 🧪 .NET CI
 # - pull-requests: read - Required to read pull request information
 
 on:
+  push:
+    branches-ignore:
+      - 'dependabot/**'  # Ignore dependabot branches
   pull_request:
     branches: 
-      - main
-      - release/*
+      - '**'  # Run on all branches for PRs
 
 permissions:
   contents: read
