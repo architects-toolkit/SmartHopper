@@ -53,6 +53,10 @@ jobs:
         with:
           solution: SmartHopper.sln
           configuration: Release
+          signing_snk_base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+          libs_repo_pat: ${{ secrets.LIBS_REPO_PAT }}
+          signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
 
       - name: Run all tests
         run: dotnet test --no-build --configuration Release --results-directory TestResults

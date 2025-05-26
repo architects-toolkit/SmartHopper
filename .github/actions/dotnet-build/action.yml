@@ -11,6 +11,18 @@ inputs:
     description: 'Build configuration'
     required: false
     default: 'Release'
+  signing_snk_base64:
+    description: 'Base64-encoded signing.snk secret'
+    required: false
+  libs_repo_pat:
+    description: 'GitHub PAT for unlicensed libs repo'
+    required: true
+  signing_pfx_base64:
+    description: 'Base64-encoded Authenticode PFX secret'
+    required: false
+  signing_pfx_password:
+    description: 'Password for Authenticode PFX'
+    required: false
 
 runs:
   using: 'composite'
@@ -35,9 +47,9 @@ runs:
       shell: pwsh
       run: |
         if (-not (Test-Path signing.snk)) {
-          if ("${{ secrets.SIGNING_SNK_BASE64 }}") {
+          if ("${{ inputs.signing_snk_base64 }}" -ne "") {
             Write-Host "Decoding signing.snk from Base64 secret"
-            pwsh Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+            pwsh Sign-StrongNames.ps1 -Base64 "${{ inputs.signing_snk_base64 }}"
           } else {
             Write-Host "Generating signing.snk"
             pwsh Sign-StrongNames.ps1 -Generate
@@ -50,10 +62,11 @@ runs:
       uses: actions/checkout@v3
       with:
         repository: 'architects-toolkit/SmartHopper-unlicensed-libs'
-        token: ${{ secrets.LIBS_REPO_PAT }}
+        token: ${{ inputs.libs_repo_pat }}
         path: lib
 
     - name: 'Restore dependencies'
+      shell: pwsh
       run: dotnet restore ${{ inputs.solution }}
 
     - name: 'Initialize Visual Studio environment'
@@ -92,7 +105,7 @@ runs:
         }
         
         Write-Host "Decoding Authenticode PFX from secrets..."
-        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ secrets.SIGNING_PFX_BASE64 }}" -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password "${{ inputs.signing_pfx_password }}"
 
     - name: Authenticode-sign provider assemblies
       shell: pwsh
@@ -129,5 +142,5 @@ runs:
         }
         
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        & ./Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ secrets.SIGNING_PFX_PASSWORD }}"
+        & ./Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ inputs.signing_pfx_password }}"
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
