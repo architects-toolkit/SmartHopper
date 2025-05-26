@@ -28,14 +28,28 @@ runs:
               # normalize to unix line endings
               sed -i 's/\r$//' "$file"
             else
-              if grep -qE '[ \t]+$' "$file" || file "$file" | grep -q CRLF; then
-                if [ "${{ inputs.mode }}" = "soft-check" ]; then
-                  # emit a non-blocking warning
-                  echo "::warning file=$file::Trailing whitespace or CRLF found in $file (run with mode=fix to auto-fix)"
-                else
-                  echo "Trailing whitespace or CRLF found in $file"
-                  ERR=1
-                fi
+              # Check trailing whitespace and CRLF with line numbers
+              mapfile -t _TW < <(grep -En '[ \t]+$' "$file")
+              mapfile -t _CR < <(grep -En '\r$' "$file")
+              if (( ${#_TW[@]} || ${#_CR[@]} )); then
+                for l in "${_TW[@]}"; do
+                  lineno=${l%%:*}
+                  if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                    echo "::warning file=$file,line=$lineno::Trailing whitespace found in $file on line $lineno (run with mode=fix to auto-fix)"
+                  else
+                    echo "Trailing whitespace found in $file:$lineno"
+                    ERR=1
+                  fi
+                done
+                for l in "${_CR[@]}"; do
+                  lineno=${l%%:*}
+                  if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                    echo "::warning file=$file,line=$lineno::CRLF found in $file on line $lineno (run with mode=fix to auto-fix)"
+                  else
+                    echo "CRLF found in $file:$lineno"
+                    ERR=1
+                  fi
+                done
               fi
             fi
           fi
