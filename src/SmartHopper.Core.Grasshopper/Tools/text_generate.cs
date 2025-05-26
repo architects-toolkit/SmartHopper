@@ -92,7 +92,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 {
                     ["success"] = result.Success,
                     ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response)
                 };
                 return responseObj;
             }

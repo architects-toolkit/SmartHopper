@@ -167,25 +167,11 @@ namespace SmartHopper.Components.Text
                     {
                         ["text"] = textTree[i]?.Value,
                         ["question"] = questionTree[i]?.Value,
-                        ["contextProviderFilter"] = "-environment,-time",
-                        ["reuseCount"] = reuseCount,
-                        ["provider"] = parent.GetActualProviderName(),
-                        ["model"] = parent.GetModel()
+                        ["contextProviderFilter"] = "-environment,-time"
                     };
 
-                    var toolResult = await AIToolManager
-                        .ExecuteTool("text_evaluate", parameters, null)
-                        .ConfigureAwait(false) as JObject;
-
-                    bool success = toolResult?["success"]?.ToObject<bool>() ?? false;
-                    if (!success)
-                    {
-                        string errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, errorMessage, false);
-                        outputs["Result"].Add(null);
-                        i++;
-                        continue;
-                    }
+                    var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)
+                        .ConfigureAwait(false);
 
                     bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
                     outputs["Result"].Add(new GH_Boolean(result));

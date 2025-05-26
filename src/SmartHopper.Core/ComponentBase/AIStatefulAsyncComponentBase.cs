@@ -259,6 +259,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] This method is being deprecated. Use CallAiToolAsync instead.");
+                
                 // Get the actual provider name to use
                 string actualProvider = GetActualProviderName();
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {actualProvider} (Selected: {_aiProvider})");
@@ -292,6 +294,66 @@ namespace SmartHopper.Core.ComponentBase
                     FinishReason = "error"
                 };
             }
+        }
+
+        /// <summary>
+        /// Executes an AI tool via AIToolManager, auto-injecting provider/model
+        /// and storing returned metrics.
+        /// </summary>
+        /// <param name="toolName">Name of the registered tool.</param>
+        /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
+        /// <param name="reuseCount">Reuse count for metrics accounting.</param>
+        /// <returns>Raw tool result as JObject.</returns>
+        protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
+        {
+            parameters ??= new JObject();
+            // Inject provider and model
+            parameters["provider"] = GetActualProviderName();
+            parameters["model"]    = GetModel();
+            parameters["reuseCount"] = reuseCount;
+
+            JObject result;
+            try
+            {
+                result = await AIToolManager
+                    .ExecuteTool(toolName, parameters, null)
+                    .ConfigureAwait(false) as JObject;
+            }
+            catch (Exception ex)
+            {
+                // Execution error
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    ex.Message,
+                    false);
+                result = new JObject
+                {
+                    ["success"] = false,
+                    ["error"]   = ex.Message
+                };
+            }
+
+            // Store metrics if present
+            if (result.TryGetValue("rawResponse", out var metricsToken))
+            {
+                var aiResp = metricsToken.ToObject<AIResponse>();
+                StoreResponseMetrics(aiResp, reuseCount);
+            }
+
+            // Handle tool-level failure
+            bool ok = result.Value<bool?>("success") ?? true;
+            if (!ok)
+            {
+                var errorMsg = result.Value<string>("error") ?? "Unknown error occurred";
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    errorMsg,
+                    false);
+            }
+
+            return result;
         }
 
         protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
