@@ -11,11 +11,15 @@ name: 🧪 .NET CI
 # - pull-requests: read - Required to read pull request information
 
 on:
-  pull_request:
-    branches: 
+  push:
+    branches:
       - main
       - dev
-      - release/*
+  pull_request:
+    branches:
+      - main
+      - dev
+      - release/**
 
 permissions:
   contents: read
@@ -26,46 +30,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Check for existing .NET SDK
-        id: check-dotnet
-        shell: bash
-        run: |
-          if dotnet --version >/dev/null 2>&1; then
-            echo "installed=true" >> $GITHUB_OUTPUT
-          else
-            echo "installed=false" >> $GITHUB_OUTPUT
-          fi
+        uses: actions/checkout@v4
           
       - name: Setup .NET
-        if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '7.0.x'
 
-      - name: Prepare strong-name key
-        shell: pwsh
-        env:
-          SIGNING_SNK_BASE64: ${{ secrets.SIGNING_SNK_BASE64 }}
-        run: |
-          if (-not (Test-Path signing.snk)) {
-            if ($env:SIGNING_SNK_BASE64) {
-              Write-Host "Decoding signing.snk from Base64 secret"
-              ./Sign-StrongNames.ps1 -Base64 $env:SIGNING_SNK_BASE64
-            } else {
-              Write-Host "Generating temporary signing.snk"
-              ./Sign-StrongNames.ps1 -Generate
-            }
-          } else {
-            Write-Host "signing.snk already exists"
-          }
+      - name: Determine version
+        id: determine_version
+        uses: ./.github/actions/versioning/get-version
 
-      - name: Restore dependencies
-        run: dotnet restore SmartHopper.sln
-
-      - name: Build solution
-        run: dotnet build --no-restore --configuration Release SmartHopper.sln
+      - name: Dotnet Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          solution: SmartHopper.sln
+          configuration: Release
+          signing_snk_base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+          libs_repo_pat: ${{ secrets.LIBS_REPO_PAT }}
+          signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+          version: ${{ steps.determine_version.outputs.version }}
 
       - name: Run all tests
         run: dotnet test --no-build --configuration Release --results-directory TestResults
