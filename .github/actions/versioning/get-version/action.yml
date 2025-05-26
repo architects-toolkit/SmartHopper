@@ -28,7 +28,7 @@ runs:
   steps:
     - name: Get version from Solution.props (Linux/macOS)
       if: runner.os != 'Windows'
-      id: get-version
+      id: get-version-linux
       shell: bash
       run: |
         VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
@@ -37,7 +37,7 @@ runs:
 
     - name: Get version from Solution.props (Windows)
       if: runner.os == 'Windows'
-      id: get-version
+      id: get-version-windows
       shell: pwsh
       run: |
         $v = (Select-Xml -Path Solution.props -XPath "//SolutionVersion").Node.InnerText
@@ -46,10 +46,10 @@ runs:
 
     - name: Parse version components (Linux/macOS)
       if: runner.os != 'Windows'
-      id: parse-version
+      id: parse-version-linux
       shell: bash
       run: |
-        VERSION="${{ steps.get-version.outputs.version }}"
+        VERSION="${{ steps.get-version-linux.outputs.version }}"
         if [[ $VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
           MAJOR="${BASH_REMATCH[1]}"
           MINOR="${BASH_REMATCH[2]}"
@@ -69,10 +69,10 @@ runs:
 
     - name: Parse version components (Windows)
       if: runner.os == 'Windows'
-      id: parse-version
+      id: parse-version-windows
       shell: pwsh
       run: |
-        $VERSION = '${{ steps.get-version.outputs.version }}'
+        $VERSION = '${{ steps.get-version-windows.outputs.version }}'
         if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(-[A-Za-z0-9]+(\.[0-9]+)?)?$') {
           $major = $Matches[1]
           $minor = $Matches[2]
