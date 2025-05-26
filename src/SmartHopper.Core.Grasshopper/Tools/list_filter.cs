@@ -93,7 +93,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     ["success"] = result.Success,
                     ["indices"] = result.Success ? JArray.FromObject(result.Result) : JValue.CreateNull(),
                     ["count"] = new JValue(result.Success ? result.Result.Count : 0),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response)
                 };
             }
             catch (Exception ex)

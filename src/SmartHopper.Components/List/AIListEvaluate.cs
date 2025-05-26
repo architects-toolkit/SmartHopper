@@ -175,28 +175,15 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["question"] = question.Value,
-                        ["contextProviderFilter"] = "-environment,-time",
-                        ["reuseCount"] = reuseCount,
-                        ["provider"] = parent.GetActualProviderName(),
-                        ["model"] = parent.GetModel()
+                        ["contextProviderFilter"] = "-environment,-time"
                     };
 
-                    var toolResult = await AIToolManager
-                        .ExecuteTool("list_evaluate", parameters, null)
-                        .ConfigureAwait(false) as JObject;
+                    var toolResult = await parent.CallAiToolAsync(
+                        "list_evaluate", parameters, reuseCount)
+                        .ConfigureAwait(false);
 
-                    bool success = toolResult?["success"]?.ToObject<bool>() ?? false;
-                    if (!success)
-                    {
-                        string errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, errorMessage, false);
-                        outputs["Result"].Add(null);
-                    }
-                    else
-                    {
-                        bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
-                        outputs["Result"].Add(new GH_Boolean(result));
-                    }
+                    bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
+                    outputs["Result"].Add(new GH_Boolean(result));
 
                     i++;
                 }

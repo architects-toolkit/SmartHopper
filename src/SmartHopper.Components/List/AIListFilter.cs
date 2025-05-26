@@ -175,35 +175,18 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["criteria"] = criterion.Value,
-                        ["contextProviderFilter"] = "-environment,-time",
-                        ["reuseCount"] = reuseCount,
-                        ["provider"] = parent.GetActualProviderName(),
-                        ["model"] = parent.GetModel()
+                        ["contextProviderFilter"] = "-environment,-time"
                     };
 
-                    var toolResult = await AIToolManager
-                        .ExecuteTool("list_filter", parameters, null)
-                        .ConfigureAwait(false) as JObject;
+                    var toolResult = await parent.CallAiToolAsync(
+                        "list_filter", parameters, reuseCount)
+                        .ConfigureAwait(false);
 
-                    bool success = toolResult?["success"]?.ToObject<bool>() ?? false;
-                    if (!success)
-                    {
-                        string errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
-                        parent.SetPersistentRuntimeMessage("ai_error", GH_RuntimeMessageLevel.Error, errorMessage, false);
-                        outputs["Result"].Add(new GH_String(string.Empty));
-                    }
-                    else
-                    {
-                        // Get the indices from the tool result
-                        var indices = toolResult?["indices"]?.ToObject<List<int>>() ?? new List<int>();
-                        
-                        // Build filtered list using indices
-                        var filteredItems = indices
-                            .Where(idx => idx >= 0 && idx < branches["List"].Count)
-                            .Select(idx => new GH_String(branches["List"][idx].Value));
-                            
-                        outputs["Result"].AddRange(filteredItems);
-                    }
+                    var indices = toolResult?["indices"]?.ToObject<List<int>>() ?? new List<int>();
+                    var filteredItems = indices
+                        .Where(idx => idx >= 0 && idx < branches["List"].Count)
+                        .Select(idx => new GH_String(branches["List"][idx].Value));
+                    outputs["Result"].AddRange(filteredItems);
 
                     i++;
                 }

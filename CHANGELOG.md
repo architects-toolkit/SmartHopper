@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced `GetObjectsDetails` in `GHDocumentUtils` to serialize variable input and output parameters from script components to GhJSON.
 - Extended `GhPutTools` to handle variable input and output parameters when placing script components from GhJSON.
 - Added support for parameter modifiers (simplify, flatten, graft, reverse) in both input and output parameters for script components in `GhPutTools` and `GHDocumentUtils`.
+- New `CallAiTool` method in `AIStatefulAsyncComponentBase` to handle provider, model and endpoint, as well as metrics output.
 
 ### Changed
 
@@ -40,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
 - Modified `AITextGenerate`, `AITextEvaluate`, `AIListEvaluate` and `AIListFilter` to use `AIToolManager` instead of calling the AI tool directly.
+
+### Deprecated
+
+- `GetResponse` method in `AIStatefulAsyncComponentBase` is deprecated. Use `CallAiTool` instead.
 
 ### Removed
 

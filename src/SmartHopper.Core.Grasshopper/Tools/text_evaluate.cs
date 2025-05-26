@@ -83,8 +83,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return new JObject
                 {
                     ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
+                    ["result"]  = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
+                    ["error"]   = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response)
                 };
             }
             catch (Exception ex)
