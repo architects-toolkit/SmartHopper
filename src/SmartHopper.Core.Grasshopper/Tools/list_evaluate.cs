@@ -67,10 +67,11 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
                 {
-                    return new
+                    // Return error object as JObject
+                    return new JObject
                     {
-                        success = false,
-                        error = "Missing required parameters",
+                        ["success"] = false,
+                        ["error"] = "Missing required parameters"
                     };
                 }
 
@@ -87,20 +88,21 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
 
                 // Return standardized result
-                return new
+                return new JObject
                 {
-                    success = result.Success,
-                    result = result.Success ? result.Result : false,
-                    error = result.Success ? null : result.ErrorMessage,
+                    ["success"] = result.Success,
+                    ["result"] = result.Success ? new JValue(result.Result) : JValue.CreateNull(),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
                 };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
-                return new
+                // Return error object as JObject
+                return new JObject
                 {
-                    success = false,
-                    error = $"Error: {ex.Message}",
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}"
                 };
             }
         }

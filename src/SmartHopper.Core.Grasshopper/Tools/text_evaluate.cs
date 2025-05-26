@@ -66,10 +66,10 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    return new
+                    return new JObject
                     {
-                        success = false,
-                        error = "Missing required parameters",
+                        ["success"] = false,
+                        ["error"] = "Missing required parameters"
                     };
                 }
 
@@ -80,20 +80,20 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
 
                 // Return standardized result
-                return new
+                return new JObject
                 {
-                    success = result.Success,
-                    result = result.Success ? result.Result.Value : false,
-                    error = result.Success ? null : result.ErrorMessage,
+                    ["success"] = result.Success,
+                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage)
                 };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in EvaluateTextToolWrapper: {ex.Message}");
-                return new
+                return new JObject
                 {
-                    success = false,
-                    error = $"Error: {ex.Message}",
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}"
                 };
             }
         }
