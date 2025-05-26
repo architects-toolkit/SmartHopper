@@ -53,11 +53,6 @@ namespace SmartHopper.Components.List
             pManager.AddGenericParameter("Result", "R", "Result after processing the list", GH_ParamAccess.tree);
         }
 
-        protected override string GetEndpoint()
-        {
-            return "list-filter";
-        }
-
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIListFilterWorker(this, this.AddRuntimeMessage);

@@ -67,6 +67,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 var language = parameters.Value<string>("language") ?? "python";
                 var providerName = parameters["provider"]?.ToString() ?? string.Empty;
                 var modelName = parameters["model"]?.ToString() ?? string.Empty;
+                var endpoint = "script_new";
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -170,7 +171,12 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 };
 
                 // Get AI response with JSON schema
-                var aiResponse = await AIUtils.GetResponse(providerName, modelName, messages, jsonSchema).ConfigureAwait(false);
+                var aiResponse = await AIUtils.GetResponse(
+                    providerName,
+                    modelName,
+                    messages,
+                    jsonSchema,
+                    endpoint: endpoint).ConfigureAwait(false);
                 var responseJson = JObject.Parse(aiResponse.Response);
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -185,7 +191,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 foreach (var input in inputs)
                 {
                     var inputType = input["type"]?.ToString() ?? Generic;
-                    
+
                     // Validate input type
                     if (!SupportedDataTypes.IsValidType(inputType))
                     {
@@ -208,7 +214,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 foreach (var output in outputs)
                 {
                     var outputType = output["type"]?.ToString() ?? Generic;
-                    
+
                     // Validate output type
                     if (!SupportedDataTypes.IsValidType(outputType))
                     {

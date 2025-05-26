@@ -215,15 +215,6 @@ namespace SmartHopper.Core.ComponentBase
             return _model ?? ""; // "" means that the provider will use the default model
         }
 
-        /// <summary>
-        /// Gets the API's endpoint to use when getting AI responses.
-        /// </summary>
-        /// <returns>The API's endpoint, or empty string for default endpoint</returns>
-        protected virtual string GetEndpoint()
-        {
-            return ""; // With the default value, the provider will use the default endpoint
-        }
-
         protected override List<string> InputsChanged()
         {
             List<string> changedInputs = base.InputsChanged();
@@ -241,7 +232,7 @@ namespace SmartHopper.Core.ComponentBase
 
         #region AI
 
-        //TODO: deprecate GetResponse, replace with CallAiTool to handle provider, model and endpoint selection, as well as metrics output
+        //TODO: deprecate GetResponse, replace with CallAiTool to handle provider and model selection, as well as metrics output
 
         /// <summary>
         /// Gets a response from the AI provider using the provided messages and cancellation token.
@@ -276,7 +267,6 @@ namespace SmartHopper.Core.ComponentBase
                     actualProvider,
                     model: GetModel(),
                     messages,
-                    endpoint: GetEndpoint(),
                     contextProviderFilter: contextProviderFilter,
                     contextKeyFilter: contextKeyFilter);
 

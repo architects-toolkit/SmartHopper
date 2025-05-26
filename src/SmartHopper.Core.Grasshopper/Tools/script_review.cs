@@ -10,24 +10,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Grasshopper.GUI.Script;
-using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using Rhino;
 using RhinoCodePlatform.GH;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Models.Components;
-using SmartHopper.Core.Models.Document;
-
-using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
 
 namespace SmartHopper.Core.Grasshopper.Tools
@@ -78,6 +69,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     throw new ArgumentException($"Invalid GUID: {guidStr}");
                 var providerName = parameters["provider"]?.ToString() ?? string.Empty;
                 var modelName = parameters["model"]?.ToString() ?? string.Empty;
+                var endpoint = "script_review";
                 var question = parameters["question"]?.ToString();
 
                 // Retrieve the script component from the current canvas
@@ -88,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                     return new JObject
                     {
                         ["success"] = false,
-                        ["error"] = $"Script component with GUID {scriptGuid} not found."
+                        ["error"] = $"Script component with GUID {scriptGuid} not found.",
                     };
                 }
 
@@ -149,14 +141,14 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 else
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
                 messages.Add(new("user", userPrompt));
-                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(providerName, modelName, msgs);
+                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(providerName, modelName, msgs, endpoint: endpoint);
                 var aiResponse = await getResponse(messages).ConfigureAwait(false);
 
                 return new JObject
                 {
                     ["success"] = true,
                     ["codedIssues"] = JArray.FromObject(codedIssues),
-                    ["aiReview"] = aiResponse.Response
+                    ["aiReview"] = aiResponse.Response,
                 };
             }
             catch (Exception ex)
@@ -164,7 +156,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 return new JObject
                 {
                     ["success"] = false,
-                    ["error"] = ex.Message
+                    ["error"] = ex.Message,
                 };
             }
         }

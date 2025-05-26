@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced `GetObjectsDetails` in `GHDocumentUtils` to serialize variable input and output parameters from script components to GhJSON.
 - Extended `GhPutTools` to handle variable input and output parameters when placing script components from GhJSON.
 - Added support for parameter modifiers (simplify, flatten, graft, reverse) in both input and output parameters for script components in `GhPutTools` and `GHDocumentUtils`.
-- New `CallAiTool` method in `AIStatefulAsyncComponentBase` to handle provider, model and endpoint, as well as metrics output.
+- New `CallAiTool` method in `AIStatefulAsyncComponentBase` to handle provider and model selection, and metrics output.
+- `AiTools` now define their own endpoint.
 
 ### Changed
 
@@ -49,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed `Eto.Forms` reference from `SmartHopper.Config`.
+- Removed the `GetEndpoint` method from `AIStatefulAsyncComponentBase`.
 
 ### Fixed
 
