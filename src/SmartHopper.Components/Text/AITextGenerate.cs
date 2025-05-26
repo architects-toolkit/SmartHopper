@@ -168,7 +168,9 @@ namespace SmartHopper.Components.Text
                         ["prompt"] = promptTree[i]?.Value,
                         ["instructions"] = instructionsTree[i]?.Value,
                         ["contextProviderFilter"] = "-environment,-time",
-                        ["reuseCount"] = reuseCount
+                        ["reuseCount"] = reuseCount,
+                        ["provider"] = parent.GetActualProviderName(),
+                        ["model"] = parent.GetModel()
                     };
 
                     var toolResult = await AIToolManager

@@ -241,6 +241,8 @@ namespace SmartHopper.Core.ComponentBase
 
         #region AI
 
+        //TODO: deprecate GetResponse, replace with CallAiTool to handle provider, model and endpoint selection, as well as metrics output
+
         /// <summary>
         /// Gets a response from the AI provider using the provided messages and cancellation token.
         /// </summary>
