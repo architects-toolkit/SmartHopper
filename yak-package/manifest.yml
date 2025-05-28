@@ -1,0 +1,18 @@
+# Package manifest for SmartHopper Yak package
+# version placeholder will be replaced by the workflow
+name: SmartHopper
+version: "{{VERSION}}"
+description: >
+  SmartHopper brings AI-powered components to Grasshopper. Do everything you can do with AI, directly within Grasshopper: Chat with your file, get insights, program scripting components, or learn parametric design with an integrated teaching assistant.
+authors:
+  - "Marc Roca Musach (@marc-romu)"
+repository_url: https://github.com/architects-toolkit/SmartHopper
+keywords:
+  - "smarthopper"
+  - "ai"
+  - "artificial intelligence"
+  - "chat"
+  - "scripting"
+  - "teaching assistant"
+  - "help"
+icon: smarthopper.png
