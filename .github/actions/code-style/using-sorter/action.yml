@@ -36,9 +36,9 @@ runs:
         for file in $FILES; do
           if [[ -f "$file" ]]; then
             if [[ "${{ inputs.mode }}" == "fix" ]]; then
-              dotnet format "$file" --fix-analyzers
+              dotnet format analyzers "$file"
             else
-              dotnet format "$file" --verify-no-changes --fix-analyzers
+              dotnet format analyzers "$file" --verify-no-changes
               CODE=$?
               if [ $CODE -ne 0 ]; then
                 if [ "${{ inputs.mode }}" = "soft-check" ]; then
