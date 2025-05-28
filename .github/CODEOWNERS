@@ -18,7 +18,7 @@
 # Critical repository files
 /.gitignore         @marc-romu
 /.gitattributes     @marc-romu
-/.windsurfrules     @marc-romu
+/.windsurf/**       @marc-romu
 *.ps1               @marc-romu
 
 # Critical solution files
@@ -27,3 +27,6 @@
 /Solution.props     @marc-romu
 /Directory.Build.props @marc-romu
 /Directory.Build.targets @marc-romu
+
+# Yak package
+/yak-package/**     @marc-romu
