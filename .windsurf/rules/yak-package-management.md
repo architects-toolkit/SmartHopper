@@ -62,6 +62,7 @@ icon: icon.png  # Recommended: 64x64px PNG
 ## CLI Reference
 
 ```bash
+
 # Push a package (non-pre-release)
 ./yak.exe push path/to/package.zip
 
