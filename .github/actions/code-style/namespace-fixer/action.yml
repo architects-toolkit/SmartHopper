@@ -42,7 +42,7 @@ runs:
                   # emit a non-blocking warning
                   echo "::warning file=$file::Namespace mismatch in $file (run with mode=fix to auto-fix)"
                 else
-                  echo "Namespace mismatch in $file: expected $ns but found $actual"
+                  echo "::error file=$file::Namespace mismatch in $file: expected $ns but found $actual"
                   ERR=1
                 fi
               fi

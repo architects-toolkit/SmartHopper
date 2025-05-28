@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed MistralAI provider not working with structured output ([#112](https://github.com/architects-toolkit/SmartHopper/issues/112)).
 - Fixed OpenAI error in API URI.
+- Fixed CI Signature Tests in `SmartHopper.Config.Tests`.
 
 ## [0.3.1-alpha] - 2025-05-06
 
@@ -228,7 +229,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixes "Bug: Settings Menu is incompatible with Mac" ([#12](https://github.com/architects-toolkit/SmartHopper/issues/12)).
 - Fixes "AI disclaimer in chat and about" ([#114](https://github.com/architects-toolkit/SmartHopper/issues/114)).
 - Fixed a bug opening the chat dialog that eventually froze the application.
-- Fixed a bug where the chat dialog was not on top when clicking on it from the windows taskbar. 
+- Fixed a bug where the chat dialog was not on top when clicking on it from the windows taskbar.
 
 ## [0.1.2-alpha] - 2025-03-17
 
