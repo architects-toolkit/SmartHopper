@@ -40,7 +40,7 @@ jobs:
           VERSION="${{ steps.version-check.outputs.version }}"
           echo "Checking version: $VERSION"
           if [[ -z "$VERSION" ]]; then
-            echo "Error: Failed to extract version from Solution.props"
+            echo "::error file=Solution.props::Failed to extract version from Solution.props"
             exit 1
           fi
 
@@ -114,7 +114,7 @@ jobs:
         env:
           CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
         run: |
-          echo "Error: CHANGELOG.md must be updated with pull request changes"
+          echo "::error file=CHANGELOG.md::CHANGELOG.md must be updated with pull request changes"
           exit 1
 
   title-check:
@@ -133,7 +133,7 @@ jobs:
           
           # Check if PR title follows conventional commits format
           if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]]; then
-            echo "Error: Pull request title must follow conventional commits format"
+            echo "::error Pull request title must follow conventional commits format"
             echo ""
             echo "Required format: <type>(<optional-scope>): <description>"
             echo ""
