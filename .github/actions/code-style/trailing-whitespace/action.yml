@@ -44,9 +44,9 @@ runs:
                 path="${entry%%:*}"
                 num="${entry#*:}"
                 if [[ "${{ inputs.mode }}" == "soft-check" ]]; then
-                  echo "::warning file=$path,line=$num::CRLF found"
+                  echo "::warning file=$path,line=$num::CRLF found in $file:$num"
                 else
-                  echo "::error file=$path,line=$num::CRLF found"
+                  echo "::error file=$path,line=$num::CRLF found in $file:$num"
                   ERR=1
                 fi
               done < <(grep -n $'\\r$' "$file" || true)
