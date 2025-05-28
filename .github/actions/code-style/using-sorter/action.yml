@@ -54,9 +54,9 @@ runs:
             fi
 
             if [[ "${{ inputs.mode }}" == "fix" ]]; then
-              dotnet format style --fix-style usings --include "$file" "$project_file"
+              dotnet format style --diagnostics IDE0005 SA1208 SA1210 --include "$file" "$project_file"
             else
-              dotnet format style --fix-style usings --include "$file" "$project_file" --verify-no-changes
+              dotnet format style --diagnostics IDE0005 SA1208 SA1210 --include "$file" "$project_file" --verify-no-changes
               CODE=$?
               if [ $CODE -ne 0 ]; then
                 if [ "${{ inputs.mode }}" = "soft-check" ]; then
