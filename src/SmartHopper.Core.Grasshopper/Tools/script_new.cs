@@ -33,7 +33,7 @@ using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 namespace SmartHopper.Core.Grasshopper.Tools
 {
     /// <summary>
-    /// Provides the "script_new" AI tool for code reviewing script components.
+    /// Provides the "script_new" AI tool for generating new script components based on user instructions.
     /// </summary>
     public class script_new : IAIToolProvider
     {
