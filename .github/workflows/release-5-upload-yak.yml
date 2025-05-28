@@ -20,10 +20,11 @@ name: 🚀 5 Upload to Yak Rhino Server
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to upload (defaults to latest release tag)'
+      upload_to_yak:
+        description: 'Confirm upload to Yak?'
         required: false
-        default: ''
+        type: boolean
+        default: false
 
 jobs:
   upload-to-yak:
@@ -138,6 +139,7 @@ jobs:
       #     echo "mac_yak_package=$zipName" >> $env:GITHUB_OUTPUT
 
       - name: Upload Windows Yak package to Yak
+        if: inputs.upload_to_yak == 'true'
         shell: pwsh
         run: |
           $PreRelease = "${{ steps.prerelease.outputs.PRE_RELEASE }}"
@@ -156,6 +158,7 @@ jobs:
           YAK_TOKEN: ${{ secrets.YAK_AUTH_TOKEN }}
 
       # - name: Upload Mac Yak package to Yak
+      #   if: inputs.upload_to_yak == 'true'
       #   shell: pwsh
       #   run: |
       #     $PreRelease = "${{ steps.prerelease.outputs.PRE_RELEASE }}"
