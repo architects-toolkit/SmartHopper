@@ -17,7 +17,9 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
@@ -49,11 +51,6 @@ namespace SmartHopper.Components.Text
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
-        }
-
-        protected override string GetEndpoint()
-        {
-            return "text-evaluate";
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -160,30 +157,19 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textTree.Count}");
 
-                    // Evaluate text using AI with the component's GetResponse, passing the reuseCount
-                    // TODO: call the AI tool instead of the direct function
-                    var result = await text_evaluate.EvaluateTextAsync(
-                        textTree[i],
-                        questionTree[i],
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
-
-                    if (!result.Success)
+                    // Call the AI tool through the tool manager
+                    var parameters = new JObject
                     {
-                        if (result.Response?.FinishReason == "error")
-                        {
-                            parent.AIErrorToPersistentRuntimeMessage(result.Response);
-                        }
-                        else
-                        {
-                            parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
-                        }
+                        ["text"] = textTree[i]?.Value,
+                        ["question"] = questionTree[i]?.Value,
+                        ["contextProviderFilter"] = "-environment,-time"
+                    };
 
-                        outputs["Result"].Add(null);
-                        i++;
-                        continue;
-                    }
+                    var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)
+                        .ConfigureAwait(false);
 
-                    outputs["Result"].Add(result.Result);
+                    bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
+                    outputs["Result"].Add(new GH_Boolean(result));
                     i++;
                 }
 

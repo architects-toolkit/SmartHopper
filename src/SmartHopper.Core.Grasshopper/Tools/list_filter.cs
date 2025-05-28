@@ -49,71 +49,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Tool wrapper for the FilterList function.
-        /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
-        private async Task<object> FilterListToolWrapper(JObject parameters)
-        {
-            try
-            {
-                Debug.WriteLine("[ListTools] Running FilterListToolWrapper");
-
-                // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string? rawList = parameters["list"]?.ToString();
-                string? criteria = parameters["criteria"]?.ToString();
-
-                if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
-                {
-                    return new
-                    {
-                        success = false,
-                        error = "Missing required parameters",
-                    };
-                }
-
-                // Normalize list JSON
-                var parsed = ParsingTools.ParseStringArrayFromResponse(rawList);
-
-                // Convert to GH_String list
-                var ghStringList = parsed.Select(s => new GH_String(s)).ToList();
-
-                // Execute the tool
-                var result = await FilterListAsync(
-                    ghStringList,
-                    new GH_String(criteria),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
-
-                // Return standardized result
-                return new
-                {
-                    success = result.Success,
-                    indices = result.Success ? result.Result : null,
-                    count = result.Success ? result.Result.Count : 0,
-                    error = result.Success ? null : result.ErrorMessage,
-                };
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ListTools] Error in FilterListToolWrapper: {ex.Message}");
-                return new
-                {
-                    success = false,
-                    error = $"Error: {ex.Message}",
-                };
-            }
-        }
-
-        /// <summary>
         /// Filters a list based on natural language criteria using AI with a custom GetResponse function, accepts raw GH_String list.
         /// </summary>
         /// <param name="inputList">The list of GH_String items to filter.</param>
         /// <param name="criteria">The natural language criteria to apply.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, list of indices, and any error information.</returns>
-        public static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
+        private static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
             List<GH_String> inputList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -142,7 +84,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="criteria">The natural language criteria to apply.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, list of indices, and any error information.</returns>
-        public static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
+        private static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
             string jsonList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -202,42 +144,94 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Builds a filtered list of GH_String items based on a list of indices.
+        /// Tool wrapper for the FilterList function.
         /// </summary>
-        /// <param name="items">Original list of items.</param>
-        /// <param name="indices">List of indices to select.</param>
-        /// <returns>Filtered list of items.</returns>
-        public static List<GH_String> BuildFilteredListFromIndices(List<GH_String> items, List<int> indices)
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
+        private async Task<object> FilterListToolWrapper(JObject parameters)
         {
-            var result = new List<GH_String>();
-            foreach (var idx in indices)
+            try
             {
-                if (idx >= 0 && idx < items.Count)
-                {
-                    result.Add(items[idx]);
-                }
-                else
-                {
-                    Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
-                }
-            }
+                Debug.WriteLine("[ListTools] Running FilterListToolWrapper");
 
-            return result;
+                // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string endpoint = "list_filter";
+                string? rawList = parameters["list"]?.ToString();
+                string? criteria = parameters["criteria"]?.ToString();
+
+                if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
+                {
+                    // Return error object as JObject
+                    return new JObject
+                    {
+                        ["success"] = false,
+                        ["error"] = "Missing required parameters",
+                    };
+                }
+
+                // Normalize list JSON
+                var parsed = ParsingTools.ParseStringArrayFromResponse(rawList);
+
+                // Convert to GH_String list
+                var ghStringList = parsed.Select(s => new GH_String(s)).ToList();
+
+                // Execute the tool
+                var result = await FilterListAsync(
+                    ghStringList,
+                    new GH_String(criteria),
+                    messages => AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        endpoint: endpoint)
+                ).ConfigureAwait(false);
+
+                // Return standardized result
+                return new JObject
+                {
+                    ["success"] = result.Success,
+                    ["indices"] = result.Success ? JArray.FromObject(result.Result) : JValue.CreateNull(),
+                    ["count"] = new JValue(result.Success ? result.Result.Count : 0),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response),
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in FilterListToolWrapper: {ex.Message}");
+                // Return error object as JObject
+                return new JObject
+                {
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}",
+                };
+            }
         }
 
-        /// <summary>
-        /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
-        /// </summary>
-        private static List<string> NormalizeListInput(JObject parameters)
-        {
-            var token = parameters["list"];
-            if (token is JArray array)
-            {
-                return array.Select(t => t.ToString()).ToList();
-            }
+        ///// <summary>
+        ///// Builds a filtered list of GH_String items based on a list of indices.
+        ///// </summary>
+        ///// <param name="items">Original list of items.</param>
+        ///// <param name="indices">List of indices to select.</param>
+        ///// <returns>Filtered list of items.</returns>
+        //public static List<GH_String> BuildFilteredListFromIndices(List<GH_String> items, List<int> indices)
+        //{
+        //    var result = new List<GH_String>();
+        //    foreach (var idx in indices)
+        //    {
+        //        if (idx >= 0 && idx < items.Count)
+        //        {
+        //            result.Add(items[idx]);
+        //        }
+        //        else
+        //        {
+        //            Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
+        //        }
+        //    }
 
-            var raw = token?.ToString();
-            return ParsingTools.ParseStringArrayFromResponse(raw);
-        }
+        //    return result;
+        //}
     }
 }

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced `GetObjectsDetails` in `GHDocumentUtils` to serialize variable input and output parameters from script components to GhJSON.
 - Extended `GhPutTools` to handle variable input and output parameters when placing script components from GhJSON.
 - Added support for parameter modifiers (simplify, flatten, graft, reverse) in both input and output parameters for script components in `GhPutTools` and `GHDocumentUtils`.
+- New `CallAiTool` method in `AIStatefulAsyncComponentBase` to handle provider and model selection, and metrics output.
+- `AiTools` now define their own endpoint.
 
 ### Changed
 
@@ -31,15 +33,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ListTools` into `list_evaluate.cs` and `list_filter.cs`
   - `GhObjTools` into `gh_tidy_up.cs`, `gh_toggle_preview.cs`, `gh_toggle_lock.cs`, `gh_move_obj.cs`
   - `GhPutTools` into `gh_put.cs`
+  - `WebTools` into `web_generic_page_read.cs`, `web_rhino_forum_read_post.cs` and `web_rhino_forum_search.cs`
+  - `GhGetTools` into `gh_get.cs`, `gh_list_components.cs` and `gh_list_categories.cs`
+  - `ScriptTools` into `script_new.cs` and `script_review.cs`
 - Now `Put` removes all default inputs and outputs from the component before adding a new script component.
 - Improved OpenAI provider to support structured output.
 - Improved `script_new` in several ways:
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
+- Modified `AITextGenerate`, `AITextEvaluate`, `AIListEvaluate` and `AIListFilter` to use `AIToolManager` instead of calling the AI tool directly.
+
+### Deprecated
+
+- `GetResponse` method in `AIStatefulAsyncComponentBase` is deprecated. Use `CallAiTool` instead.
 
 ### Removed
 
 - Removed `Eto.Forms` reference from `SmartHopper.Config`.
+- Removed the `GetEndpoint` method from `AIStatefulAsyncComponentBase`.
 
 ### Fixed
 

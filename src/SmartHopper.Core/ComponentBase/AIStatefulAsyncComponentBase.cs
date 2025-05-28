@@ -215,15 +215,6 @@ namespace SmartHopper.Core.ComponentBase
             return _model ?? ""; // "" means that the provider will use the default model
         }
 
-        /// <summary>
-        /// Gets the API's endpoint to use when getting AI responses.
-        /// </summary>
-        /// <returns>The API's endpoint, or empty string for default endpoint</returns>
-        protected virtual string GetEndpoint()
-        {
-            return ""; // With the default value, the provider will use the default endpoint
-        }
-
         protected override List<string> InputsChanged()
         {
             List<string> changedInputs = base.InputsChanged();
@@ -241,6 +232,8 @@ namespace SmartHopper.Core.ComponentBase
 
         #region AI
 
+        //TODO: deprecate GetResponse, replace with CallAiTool to handle provider and model selection, as well as metrics output
+
         /// <summary>
         /// Gets a response from the AI provider using the provided messages and cancellation token.
         /// </summary>
@@ -257,6 +250,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] This method is being deprecated. Use CallAiToolAsync instead.");
+                
                 // Get the actual provider name to use
                 string actualProvider = GetActualProviderName();
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {actualProvider} (Selected: {_aiProvider})");
@@ -272,7 +267,6 @@ namespace SmartHopper.Core.ComponentBase
                     actualProvider,
                     model: GetModel(),
                     messages,
-                    endpoint: GetEndpoint(),
                     contextProviderFilter: contextProviderFilter,
                     contextKeyFilter: contextKeyFilter);
 
@@ -290,6 +284,66 @@ namespace SmartHopper.Core.ComponentBase
                     FinishReason = "error"
                 };
             }
+        }
+
+        /// <summary>
+        /// Executes an AI tool via AIToolManager, auto-injecting provider/model
+        /// and storing returned metrics.
+        /// </summary>
+        /// <param name="toolName">Name of the registered tool.</param>
+        /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
+        /// <param name="reuseCount">Reuse count for metrics accounting.</param>
+        /// <returns>Raw tool result as JObject.</returns>
+        protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
+        {
+            parameters ??= new JObject();
+            // Inject provider and model
+            parameters["provider"] = GetActualProviderName();
+            parameters["model"]    = GetModel();
+            parameters["reuseCount"] = reuseCount;
+
+            JObject result;
+            try
+            {
+                result = await AIToolManager
+                    .ExecuteTool(toolName, parameters, null)
+                    .ConfigureAwait(false) as JObject;
+            }
+            catch (Exception ex)
+            {
+                // Execution error
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    ex.Message,
+                    false);
+                result = new JObject
+                {
+                    ["success"] = false,
+                    ["error"]   = ex.Message
+                };
+            }
+
+            // Store metrics if present
+            if (result.TryGetValue("rawResponse", out var metricsToken))
+            {
+                var aiResp = metricsToken.ToObject<AIResponse>();
+                StoreResponseMetrics(aiResp, reuseCount);
+            }
+
+            // Handle tool-level failure
+            bool ok = result.Value<bool?>("success") ?? true;
+            if (!ok)
+            {
+                var errorMsg = result.Value<string>("error") ?? "Unknown error occurred";
+                SetPersistentRuntimeMessage(
+                    "ai_error",
+                    GH_RuntimeMessageLevel.Error,
+                    errorMsg,
+                    false);
+            }
+
+            return result;
         }
 
         protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
