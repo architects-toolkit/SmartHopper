@@ -38,15 +38,15 @@ $pfxPath = if ($PfxPath) { $PfxPath } else { Join-Path -Path $PSScriptRoot -Chil
 function Show-Help {
     Write-Host "Usage: .\Sign-Authenticode.ps1 [options]"
     Write-Host ""
-    Write-Host "Options:"  
-    Write-Host "  -Generate               Creates a self-signed PFX certificate (signing.pfx). Requires -Password."  
-    Write-Host "  -Base64 <data>          Decodes Base64-encoded PFX into signing.pfx. Requires -Password."  
-    Write-Host "  -File <path>            Path to a file containing Base64 PFX data; implies -Base64."  
-    Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing."  
-    Write-Host "  -Export                 Exports signing.pfx as Base64 text to stdout. Requires -Password."  
-    Write-Host "  -Sign <path>            Authenticode-signs all SmartHopper.Providers.*.dll under <path>. Requires Base64 or Generate."  
-    Write-Host "  -Help                   Displays this help message."  
-    Write-Host "  -PfxPath <path>         Override default signing PFX path (default 'signing.pfx')."  
+    Write-Host "Options:"
+    Write-Host "  -Generate               Creates a self-signed PFX certificate (signing.pfx). Requires -Password."
+    Write-Host "  -Base64 <data>          Decodes Base64-encoded PFX into signing.pfx. Requires -Password."
+    Write-Host "  -File <path>            Path to a file containing Base64 PFX data; implies -Base64."
+    Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing."
+    Write-Host "  -Export                 Exports signing.pfx as Base64 text to stdout. Requires -Password."
+    Write-Host "  -Sign <path>            Authenticode-signs all SmartHopper.Providers.*.dll under <path>. Requires Base64 or Generate."
+    Write-Host "  -Help                   Displays this help message."
+    Write-Host "  -PfxPath <path>         Override default signing PFX path (default 'signing.pfx')."
 }
 
 if ($Help -or (-not $Generate -and -not $Base64 -and -not $File -and -not $Export -and -not $Sign)) {
@@ -118,7 +118,7 @@ if ($Generate) {
         exit 1
     }
     Write-Host "Signing provider assemblies under path '$Sign' with Authenticode certificate"
-    
+
     # Find signtool.exe
     $signtoolPath = $null
     $signtoolCmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
@@ -126,7 +126,7 @@ if ($Generate) {
         $signtoolPath = $signtoolCmd.Source
         Write-Host "Found signtool.exe on PATH: $signtoolPath"
     }
-    
+
     # If not found on PATH, search in Windows SDK directories
     if (-not $signtoolPath) {
         Write-Host "Searching for signtool.exe in Windows SDK directories..."
@@ -134,7 +134,7 @@ if ($Generate) {
             ${env:ProgramFiles(x86)},
             $env:ProgramFiles
         ) | Where-Object { $_ }
-        
+
         foreach ($pf in $programFiles) {
             $sdkDir = Join-Path $pf "Windows Kits\10\bin"
             if (Test-Path $sdkDir) {
@@ -152,7 +152,7 @@ if ($Generate) {
             }
         }
     }
-    
+
     if (-not $signtoolPath) {
         Write-Error "Could not find signtool.exe. Please ensure Windows SDK is installed."
         exit 1
