@@ -108,8 +108,8 @@ jobs:
           Invoke-WebRequest -Uri "http://files.mcneel.com/yak/tools/latest/yak.exe" -OutFile "yak.exe"
           Write-Host "Downloaded Yak CLI"
 
-      - name: Prepare Windows Yak package
-        id: prepare_windows
+      - name: Build Windows Yak package
+        id: build_windows
         shell: pwsh
         run: |
           $version = "${{ steps.get_version.outputs.version }}"
@@ -118,25 +118,11 @@ jobs:
           New-Item -ItemType Directory -Path $pkgDir
           Expand-Archive -Path "artifacts/windows.zip" -DestinationPath $pkgDir -Force
           Copy-Item -Path "yak-package\*" -Destination $pkgDir -Recurse -Force
-          (Get-Content "$pkgDir/manifest.yml") -replace '\{\{VERSION\}\}', $version | Set-Content "$pkgDir/manifest.yml"
-          $zipName = "SmartHopper-$version-Windows-Yak.zip"
-          Compress-Archive -Path "$pkgDir/*" -DestinationPath $zipName -Force
-          echo "windows_yak_package=$zipName" >> $env:GITHUB_OUTPUT
-
-      # - name: Prepare Mac Yak package
-      #   id: prepare_mac
-      #   shell: pwsh
-      #   run: |
-      #     $version = "${{ steps.get_version.outputs.version }}"
-      #     $pkgDir = "yak-mac"
-      #     Remove-Item $pkgDir -Recurse -Force -ErrorAction SilentlyContinue
-      #     New-Item -ItemType Directory -Path $pkgDir
-      #     Expand-Archive -Path "artifacts/mac.zip" -DestinationPath $pkgDir -Force
-      #     Copy-Item -Path "yak-package\*" -Destination $pkgDir -Recurse -Force
-      #     (Get-Content "$pkgDir/manifest.yml") -replace '\{\{VERSION\}\}', $version | Set-Content "$pkgDir/manifest.yml"
-      #     $zipName = "SmartHopper-$version-Mac-Yak.zip"
-      #     Compress-Archive -Path "$pkgDir/*" -DestinationPath $zipName -Force
-      #     echo "mac_yak_package=$zipName" >> $env:GITHUB_OUTPUT
+          Push-Location $pkgDir
+          ./yak.exe build --platform win
+          $zip = Get-ChildItem -Filter "*.zip" | Select-Object -ExpandProperty FullName
+          echo "windows_yak_package=$zip" >> $env:GITHUB_OUTPUT
+          Pop-Location
 
       - name: Upload Windows Yak package to Yak
         if: inputs.upload_to_yak == 'true'
@@ -145,7 +131,7 @@ jobs:
           $PreRelease = "${{ steps.prerelease.outputs.PRE_RELEASE }}"
           $Flags = ""
           if ($PreRelease -eq "true") { $Flags = "--pre" }
-          $FilePath = "${{ steps.prepare_windows.outputs.windows_yak_package }}"
+          $FilePath = "${{ steps.build_windows.outputs.windows_yak_package }}"
           Write-Host "Uploading Windows Yak package: $FilePath"
           ./yak.exe push $FilePath $Flags
           if ($LASTEXITCODE -ne 0) {
@@ -157,21 +143,4 @@ jobs:
         env:
           YAK_TOKEN: ${{ secrets.YAK_AUTH_TOKEN }}
 
-      # - name: Upload Mac Yak package to Yak
-      #   if: inputs.upload_to_yak == 'true'
-      #   shell: pwsh
-      #   run: |
-      #     $PreRelease = "${{ steps.prerelease.outputs.PRE_RELEASE }}"
-      #     $Flags = ""
-      #     if ($PreRelease -eq "true") { $Flags = "--pre" }
-      #     $FilePath = "${{ steps.prepare_mac.outputs.mac_yak_package }}"
-      #     Write-Host "Uploading Mac Yak package: $FilePath"
-      #     ./yak.exe push $FilePath $Flags
-      #     if ($LASTEXITCODE -ne 0) {
-      #       Write-Host "::error::Failed to upload Mac Yak package"
-      #       exit 1
-      #     } else {
-      #       Write-Host "Successfully uploaded Mac Yak package"
-      #     }
-      #   env:
-      #     YAK_TOKEN: ${{ secrets.YAK_AUTH_TOKEN }}
+      # Mac pipeline is currently disabled; add mac build/upload with `yak build --platform mac` as needed
