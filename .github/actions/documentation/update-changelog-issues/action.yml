@@ -36,7 +36,7 @@ runs:
         CHANGELOG_PATH="${{ inputs.changelog-path }}"
         
         if [[ ! -f "$CHANGELOG_PATH" ]]; then
-          echo "Error: CHANGELOG.md file not found at $CHANGELOG_PATH"
+          echo "::error file=$CHANGELOG_PATH::CHANGELOG.md file not found at $CHANGELOG_PATH"
           exit 1
         fi
         
@@ -61,13 +61,13 @@ runs:
           
           # Check if the issue was closed as completed
           if [ "$STATE_REASON" != "completed" ]; then
-            echo "Issue #$ISSUE_NUMBER was not closed as completed (reason: $STATE_REASON), skipping"
+            echo "::warning file=$CHANGELOG_PATH::Issue #$ISSUE_NUMBER was not closed as completed (reason: $STATE_REASON), skipping"
             continue
           fi
           
           # Check if the issue is already mentioned in the changelog
           if grep -q "#$ISSUE_NUMBER" "$CHANGELOG_PATH"; then
-            echo "Issue #$ISSUE_NUMBER is already in the changelog, skipping"
+            echo "::warning file=$CHANGELOG_PATH::Issue #$ISSUE_NUMBER is already in the changelog, skipping"
             continue
           fi
           
@@ -103,7 +103,7 @@ runs:
         
         # Check if the Unreleased section exists
         if ! grep -q "## \[Unreleased\]" "$CHANGELOG_PATH"; then
-          echo "Error: Unreleased section not found in CHANGELOG.md"
+          echo "::error file=$CHANGELOG_PATH::Unreleased section not found in CHANGELOG.md"
           exit 1
         fi
         
@@ -126,7 +126,7 @@ runs:
         # Find the end of the Fixed section under Unreleased to append issues
         LINE_NUM=$(grep -n "### Fixed" "$CHANGELOG_PATH" | head -n1 | cut -d: -f1)
         if [ -z "$LINE_NUM" ]; then
-          echo "Error: Could not find Fixed section in CHANGELOG.md"
+          echo "::error file=$CHANGELOG_PATH::Could not find Fixed section in CHANGELOG.md"
           exit 1
         fi
         

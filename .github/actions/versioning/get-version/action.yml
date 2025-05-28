@@ -28,30 +28,28 @@ runs:
   steps:
     - name: Get version from Solution.props
       id: get-version
-      shell: bash
+      shell: pwsh
       run: |
-        VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
-        echo "Current version: $VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        $version = (Select-Xml -Path Solution.props -XPath "//SolutionVersion").Node.InnerText
+        Write-Host "Current version: $version"
+        "version=$version" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
 
     - name: Parse version components
       id: parse-version
-      shell: bash
+      shell: pwsh
       run: |
-        VERSION="${{ steps.get-version.outputs.version }}"
-        if [[ $VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
-          MAJOR="${BASH_REMATCH[1]}"
-          MINOR="${BASH_REMATCH[2]}"
-          PATCH="${BASH_REMATCH[3]}"
-          SUFFIX="${BASH_REMATCH[4]}"
-          
-          echo "major=$MAJOR" >> $GITHUB_OUTPUT
-          echo "minor=$MINOR" >> $GITHUB_OUTPUT
-          echo "patch=$PATCH" >> $GITHUB_OUTPUT
-          echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
-          
-          echo "Parsed version: Major=$MAJOR, Minor=$MINOR, Patch=$PATCH, Suffix=$SUFFIX"
-        else
-          echo "Error: Version format doesn't follow semantic versioning: $VERSION"
+        $VERSION = '${{ steps.get-version.outputs.version }}'
+        if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(-[A-Za-z0-9]+(\.[0-9]+)?)?$') {
+          $major = $Matches[1]
+          $minor = $Matches[2]
+          $patch = $Matches[3]
+          $suffix = $Matches[4]
+          "major=$major" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "minor=$minor" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "patch=$patch" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "suffix=$suffix" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Parsed version: Major=$major, Minor=$minor, Patch=$patch, Suffix=$suffix"
+        } else {
+          Write-Error "Error: Version format doesn't follow semantic versioning: $VERSION"
           exit 1
-        fi
+        }

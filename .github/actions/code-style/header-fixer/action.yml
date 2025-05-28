@@ -132,7 +132,8 @@ runs:
                 echo "::warning file=$file::Header mismatch in $file (run with mode=fix to auto-fix)"
 
               elif [ "${{ inputs.mode }}" = "check" ]; then
-                # Collect failed files and line for summary report
+                # Emit error annotation and collect failure
+                echo "::error file=$file,line=$mismatch_line::Header mismatch in $file"
                 FAILED_FILES+=("$file:$mismatch_line")
                 ERR=1
               fi
