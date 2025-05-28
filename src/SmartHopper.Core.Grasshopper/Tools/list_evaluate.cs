@@ -49,70 +49,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateList function.
-        /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
-        private async Task<object> EvaluateListToolWrapper(JObject parameters)
-        {
-            try
-            {
-                Debug.WriteLine("[ListTools] Running EvaluateListToolWrapper");
-
-                // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string? rawList = parameters["list"]?.ToString();
-                string? question = parameters["question"]?.ToString();
-
-                if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
-                {
-                    return new
-                    {
-                        success = false,
-                        error = "Missing required parameters",
-                    };
-                }
-
-                // Normalize list input
-                var items = NormalizeListInput(parameters);
-
-                // Convert to GH_String list
-                var ghStringList = items.Select(s => new GH_String(s)).ToList();
-
-                // Execute the tool
-                var result = await EvaluateListAsync(
-                    ghStringList,
-                    new GH_String(question),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
-
-                // Return standardized result
-                return new
-                {
-                    success = result.Success,
-                    result = result.Success ? result.Result : false,
-                    error = result.Success ? null : result.ErrorMessage,
-                };
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
-                return new
-                {
-                    success = false,
-                    error = $"Error: {ex.Message}",
-                };
-            }
-        }
-
-        /// <summary>
         /// Evaluates a list based on a natural language question using AI with a custom GetResponse function, accepts raw GH_String list.
         /// </summary>
         /// <param name="inputList">The list of GH_String items to evaluate.</param>
         /// <param name="question">The natural language question to answer.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information.</returns>
-        public static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        private static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
             List<GH_String> inputList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -141,7 +84,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// <param name="question">The natural language question to answer.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information.</returns>
-        public static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        private static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
             string jsonList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -214,6 +157,72 @@ namespace SmartHopper.Core.Grasshopper.Tools
 
             var raw = token?.ToString();
             return ParsingTools.ParseStringArrayFromResponse(raw);
+        }
+
+        /// <summary>
+        /// Tool wrapper for the EvaluateList function.
+        /// </summary>
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
+        private async Task<object> EvaluateListToolWrapper(JObject parameters)
+        {
+            try
+            {
+                Debug.WriteLine("[ListTools] Running EvaluateListToolWrapper");
+
+                // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string endpoint = "list_evaluate";
+                string? rawList = parameters["list"]?.ToString();
+                string? question = parameters["question"]?.ToString();
+
+                if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
+                {
+                    // Return error object as JObject
+                    return new JObject
+                    {
+                        ["success"] = false,
+                        ["error"] = "Missing required parameters"
+                    };
+                }
+
+                // Normalize list input
+                var items = NormalizeListInput(parameters);
+
+                // Convert to GH_String list
+                var ghStringList = items.Select(s => new GH_String(s)).ToList();
+
+                // Execute the tool
+                var result = await EvaluateListAsync(
+                    ghStringList,
+                    new GH_String(question),
+                    messages => AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        endpoint: endpoint)
+                ).ConfigureAwait(false);
+
+                // Return standardized result
+                return new JObject
+                {
+                    ["success"] = result.Success,
+                    ["result"] = result.Success ? new JValue(result.Result) : JValue.CreateNull(),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response),
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
+                // Return error object as JObject
+                return new JObject
+                {
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}",
+                };
+            }
         }
     }
 }

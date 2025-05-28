@@ -48,64 +48,13 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateText function.
-        /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
-        private async Task<object> EvaluateTextToolWrapper(JObject parameters)
-        {
-            try
-            {
-                Debug.WriteLine("[TextTools] Running EvaluateTextToolWrapper");
-
-                // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string? text = parameters["text"]?.ToString();
-                string? question = parameters["question"]?.ToString();
-
-                if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
-                {
-                    return new
-                    {
-                        success = false,
-                        error = "Missing required parameters",
-                    };
-                }
-
-                // Execute the tool
-                var result = await EvaluateTextAsync(
-                    new GH_String(text),
-                    new GH_String(question),
-                    messages => AIUtils.GetResponse(providerName, modelName, messages)).ConfigureAwait(false);
-
-                // Return standardized result
-                return new
-                {
-                    success = result.Success,
-                    result = result.Success ? result.Result.Value : false,
-                    error = result.Success ? null : result.ErrorMessage,
-                };
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[TextTools] Error in EvaluateTextToolWrapper: {ex.Message}");
-                return new
-                {
-                    success = false,
-                    error = $"Error: {ex.Message}",
-                };
-            }
-        }
-
-        /// <summary>
         /// Evaluates text against a true/false question using AI with a custom GetResponse function.
         /// </summary>
         /// <param name="text">The text to analyze.</param>
         /// <param name="question">The true/false question to evaluate.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
-        public static async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
+        private static async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -164,23 +113,61 @@ namespace SmartHopper.Core.Grasshopper.Tools
         }
 
         /// <summary>
-        /// Evaluates text against a true/false question using AI with the default AIUtils.GetResponse.
+        /// Tool wrapper for the EvaluateText function.
         /// </summary>
-        /// <param name="text">The text to analyze.</param>
-        /// <param name="question">The true/false question to evaluate.</param>
-        /// <param name="provider">The AI provider to use.</param>
-        /// <param name="model">The model to use, or empty for default.</param>
-        /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
-        public static Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
-            GH_String text,
-            GH_String question,
-            string provider,
-            string model = "")
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
+        private async Task<object> EvaluateTextToolWrapper(JObject parameters)
         {
-            return EvaluateTextAsync(
-                text,
-                question,
-                messages => AIUtils.GetResponse(provider, model, messages));
+            try
+            {
+                Debug.WriteLine("[TextTools] Running EvaluateTextToolWrapper");
+
+                // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string endpoint = "text_evaluate";
+                string? text = parameters["text"]?.ToString();
+                string? question = parameters["question"]?.ToString();
+
+                if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
+                {
+                    return new JObject
+                    {
+                        ["success"] = false,
+                        ["error"] = "Missing required parameters",
+                    };
+                }
+
+                // Execute the tool
+                var result = await EvaluateTextAsync(
+                    new GH_String(text),
+                    new GH_String(question),
+                    messages => AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        endpoint: endpoint)
+                ).ConfigureAwait(false);
+
+                // Return standardized result
+                return new JObject
+                {
+                    ["success"] = result.Success,
+                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
+                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
+                    ["rawResponse"] = JToken.FromObject(result.Response),
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[TextTools] Error in EvaluateTextToolWrapper: {ex.Message}");
+                return new JObject
+                {
+                    ["success"] = false,
+                    ["error"] = $"Error: {ex.Message}",
+                };
+            }
         }
     }
 }
