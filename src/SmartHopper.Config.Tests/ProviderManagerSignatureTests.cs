@@ -8,36 +8,36 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
-using System.IO;
-using System.Reflection;
-using System.Security.Cryptography;
-using System.Diagnostics;
-using SmartHopper.Config.Managers;
-using Xunit;
-using Xunit.Abstractions;
-using System.Runtime.InteropServices;
-using Xunit.Sdk;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using System.Security;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace SmartHopper.Config.Tests
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Linq;
+    using System.Reflection;
+    using System.Runtime.InteropServices;
+    using System.Security;
+    using System.Security.Cryptography;
+    using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CSharp;
+    using SmartHopper.Config.Managers;
+    using Xunit;
+    using Xunit.Abstractions;
+    using Xunit.Sdk;
+
     public class ProviderManagerSignatureTests
     {
-        private readonly ITestOutputHelper _output;
+        private readonly ITestOutputHelper output;
 
-        public ProviderManagerSignatureTests(ITestOutputHelper output) => _output = output;
+        public ProviderManagerSignatureTests(ITestOutputHelper output) => this.output = output;
 
 #if NET7_WINDOWS
         [Fact(DisplayName = "VerifySignature_UnsignedDll_ThrowsCryptographicException [Windows]")]
 #else
         [Fact(DisplayName = "VerifySignature_UnsignedDll_ThrowsCryptographicException [Core]")]
 #endif
-        public void VerifySignature_UnsignedDll_ThrowsCryptographicException()
+        public void VerifySignatureUnsignedDllThrowsCryptographicException()
         {
             // Arrange: create an unsigned dummy assembly file
             var manager = ProviderManager.Instance;
@@ -52,8 +52,7 @@ namespace SmartHopper.Config.Tests
 
                 // Act & Assert: invoking on unsigned file should throw TargetInvocationException
                 var ex = Assert.Throws<TargetInvocationException>(() =>
-                    verifyMethod.Invoke(manager, new object[] { tempFile })
-                );
+                    verifyMethod.Invoke(manager, new object[] { tempFile }));
 
                 // Inner exception must be a CryptographicException
                 Assert.IsType<CryptographicException>(ex.InnerException);
@@ -62,7 +61,9 @@ namespace SmartHopper.Config.Tests
             {
                 // Cleanup
                 if (File.Exists(tempFile))
+                {
                     File.Delete(tempFile);
+                }
             }
         }
 
@@ -76,10 +77,12 @@ namespace SmartHopper.Config.Tests
         /// The verification may fail with either SecurityException or CryptographicException
         /// depending on which validation check runs first.
         /// </summary>
-        public void VerifySignature_AuthenticodeSigned_NoStrongName_FailsVerification()
+        public void VerifySignatureAuthenticodeSignedNoStrongNameFailsVerification()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
                 throw new SkipException("Authenticode signature tests require Windows");
+            }
 
             const string password = "testpw";
             var manager = ProviderManager.Instance;
@@ -107,8 +110,8 @@ namespace SmartHopper.Config.Tests
 
                 // Authenticode signing
                 EnsureWindowsKitsOnPath();
-                GeneratePfx(script, pfxFile, password);
-                SignAuthenticode(tempFile, pfxFile, password);
+                this.GeneratePfx(script, pfxFile, password);
+                this.SignAuthenticode(tempFile, pfxFile, password);
 
                 // Act & Assert: verify throws an exception for invalid signing
                 var verify = typeof(ProviderManager).GetMethod("VerifySignature", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -120,15 +123,20 @@ namespace SmartHopper.Config.Tests
                     ex.InnerException is SecurityException || ex.InnerException is CryptographicException,
                     $"Expected SecurityException or CryptographicException, got {ex.InnerException?.GetType().Name}");
 
-                _output.WriteLine($"Validation correctly failed with: {ex.InnerException?.GetType().Name}");
+                this.output.WriteLine($"Validation correctly failed with: {ex.InnerException?.GetType().Name}");
             }
             finally
             {
                 if (File.Exists(tempFile))
+                {
                     File.Delete(tempFile);
+                }
+
                 var cleanupPfx = Path.ChangeExtension(tempFile, ".pfx");
                 if (File.Exists(cleanupPfx))
+                {
                     File.Delete(cleanupPfx);
+                }
             }
         }
 
@@ -137,12 +145,15 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "VerifySignature_AuthenticodeUnsigned_StrongNameCorrect_ThrowsCryptographicException [Core]")]
 #endif
-        public void VerifySignature_AuthenticodeUnsigned_StrongNameCorrect_ThrowsCryptographicException()
+        public void VerifySignatureAuthenticodeUnsignedStrongNameCorrectThrowsCryptographicException()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
                 throw new SkipException("Strong-name tests require Windows");
+            }
 
             var manager = ProviderManager.Instance;
+
             // Locate scripts relative to test assembly
             var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
@@ -160,7 +171,7 @@ namespace SmartHopper.Config.Tests
                 {
                     Path.Combine(programFilesX86, "Microsoft SDKs", "Windows", "v10.0A", "bin", "NETFX 4.8 Tools"),
                     Path.Combine(programFilesX86, "Microsoft SDKs", "Windows", "v10.0A", "bin"),
-                    Path.Combine(programFilesX86, "Microsoft SDKs", "Windows", "v8.1A", "bin", "NETFX 4.8 Tools")
+                    Path.Combine(programFilesX86, "Microsoft SDKs", "Windows", "v8.1A", "bin", "NETFX 4.8 Tools"),
                 };
 
                 // 2. Check Windows 10/11 SDK locations
@@ -199,7 +210,7 @@ namespace SmartHopper.Config.Tests
             if (!string.IsNullOrEmpty(newPaths))
             {
                 Environment.SetEnvironmentVariable("PATH", $"{path};{newPaths}");
-                _output.WriteLine($"Updated PATH with: {newPaths}");
+                this.output.WriteLine($"Updated PATH with: {newPaths}");
             }
 
             // Generate temp SNK file for strong-name signing
@@ -210,7 +221,7 @@ namespace SmartHopper.Config.Tests
             var snExe = FindExecutable("sn.exe");
             if (!string.IsNullOrEmpty(snExe))
             {
-                _output.WriteLine($"Using sn.exe at: {snExe}");
+                this.output.WriteLine($"Using sn.exe at: {snExe}");
                 try
                 {
                     var snProcess = Process.Start(new ProcessStartInfo
@@ -219,48 +230,48 @@ namespace SmartHopper.Config.Tests
                         Arguments = "-k \"" + snkPath + "\"",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        UseShellExecute = false
+                        UseShellExecute = false,
                     });
                     snProcess.WaitForExit();
-                    _output.WriteLine("SNK generation output: " + snProcess.StandardOutput.ReadToEnd());
-                    _output.WriteLine("SNK generation error: " + snProcess.StandardError.ReadToEnd());
+                    this.output.WriteLine("SNK generation output: " + snProcess.StandardOutput.ReadToEnd());
+                    this.output.WriteLine("SNK generation error: " + snProcess.StandardError.ReadToEnd());
 
                     if (snProcess.ExitCode == 0 && File.Exists(snkPath))
                     {
                         File.Copy(snkPath, Path.Combine(solutionDir, "signing.snk"), true);
-                        _output.WriteLine("Successfully generated SNK using sn.exe");
+                        this.output.WriteLine("Successfully generated SNK using sn.exe");
                         goto SnkGenerated;
                     }
                 }
                 catch (Exception exception)
                 {
-                    _output.WriteLine($"Error using sn.exe: {exception.Message}");
+                    this.output.WriteLine($"Error using sn.exe: {exception.Message}");
                 }
             }
 
             // Fall back to PowerShell script if sn.exe failed or wasn't found
-            _output.WriteLine("Falling back to PowerShell script for SNK generation");
+            this.output.WriteLine("Falling back to PowerShell script for SNK generation");
             var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{snkScriptPath}\" -Generate")
             {
                 WorkingDirectory = tempDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
             };
             var proc = Process.Start(psi);
             proc.WaitForExit();
             var stdout = proc.StandardOutput.ReadToEnd();
             var stderr = proc.StandardError.ReadToEnd();
-            _output.WriteLine("Generate SNK STDOUT:\n" + stdout);
-            _output.WriteLine("Generate SNK STDERR:\n" + stderr);
+            this.output.WriteLine("Generate SNK STDOUT:\n" + stdout);
+            this.output.WriteLine("Generate SNK STDERR:\n" + stderr);
 
             if (proc.ExitCode != 0)
             {
-                _output.WriteLine($"SNK generation failed: {stderr}. Falling back to existing signing.snk.");
+                this.output.WriteLine($"SNK generation failed: {stderr}. Falling back to existing signing.snk.");
             }
 
-            // If we get here, we used the PowerShell script, so mark that we've generated the SNK
-            SnkGenerated:
+        // If we get here, we used the PowerShell script, so mark that we've generated the SNK
+        SnkGenerated:
 
             // Copy SNK to assembly directory to ensure same strong-name for tests
             var sourceSnk = Path.Combine(solutionDir, "signing.snk");
@@ -279,7 +290,7 @@ namespace SmartHopper.Config.Tests
             }
 
             // Build strong-named dummy via MSBuild
-            var builtDll = BuildStrongNamedAssembly(targetSnk);
+            var builtDll = this.BuildStrongNamedAssembly(targetSnk);
 
             // Act & Assert: correct strong-name but no Authenticode signature
             var verifyMethod = typeof(ProviderManager).GetMethod("VerifySignature", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -287,156 +298,156 @@ namespace SmartHopper.Config.Tests
             Assert.IsType<CryptographicException>(ex.InnerException);
         }
 
-// #if NET7_WINDOWS
-//         [Fact(DisplayName = "VerifySignature_FullySigned_DoesNotThrow [Windows]")]
-// #else
-//         [Fact(DisplayName = "VerifySignature_FullySigned_DoesNotThrow [Core]")]
-// #endif
-//         public void VerifySignature_FullySigned_DoesNotThrow()
-//         {
-//             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-//                 throw new SkipException("Authenticode and strong-name tests require Windows");
+        // #if NET7_WINDOWS
+        //         [Fact(DisplayName = "VerifySignature_FullySigned_DoesNotThrow [Windows]")]
+        // #else
+        //         [Fact(DisplayName = "VerifySignature_FullySigned_DoesNotThrow [Core]")]
+        // #endif
+        //         public void VerifySignature_FullySigned_DoesNotThrow()
+        //         {
+        //             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        //                 throw new SkipException("Authenticode and strong-name tests require Windows");
 
-//             var manager = ProviderManager.Instance;
-//             // Locate scripts relative to test assembly
-//             var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-//             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
-//             var authScriptPath = Path.Combine(solutionDir, "Sign-Authenticode.ps1");
-//             var snkScriptPath = Path.Combine(solutionDir, "Sign-StrongNames.ps1");
-//
-//             // Ensure Windows SDK tools are on PATH
-//             var programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
-//             if (!string.IsNullOrEmpty(programFilesX86))
-//             {
-//                 var sdkRoot = Path.Combine(programFilesX86, "Windows Kits", "10", "bin");
-//                 if (Directory.Exists(sdkRoot))
-//                 {
-//                     var dirs = Directory.GetDirectories(sdkRoot);
-//                     Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
-//                     var latest = dirs.Length > 0 ? dirs[dirs.Length - 1] : null;
-//                     if (latest != null)
-//                     {
-//                         var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-//                         var x64Path = Path.Combine(latest, "x64");
-//                         var x86Path = Path.Combine(latest, "x86");
-//                         var newPath = pathEnv;
-//                         if (Directory.Exists(x64Path)) newPath += ";" + x64Path;
-//                         if (Directory.Exists(x86Path)) newPath += ";" + x86Path;
-//                         Environment.SetEnvironmentVariable("PATH", newPath);
-//                     }
-//                 }
-//             }
-//
-//             // Ensure SNK file exists: use committed or generate via script
-//             var tempDir = Path.GetTempPath();
-//             var sourceSnk = Path.Combine(solutionDir, "signing.snk");
-//             if (!File.Exists(sourceSnk))
-//             {
-//                 var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{snkScriptPath}\" -Generate")
-//                 {
-//                     WorkingDirectory = tempDir,
-//                     RedirectStandardOutput = true,
-//                     RedirectStandardError = true,
-//                     UseShellExecute = false
-//                 };
-//                 var proc = Process.Start(psi);
-//                 proc.WaitForExit();
-//                 _output.WriteLine("Generate SNK STDOUT:\n" + proc.StandardOutput.ReadToEnd());
-//                 _output.WriteLine("Generate SNK STDERR:\n" + proc.StandardError.ReadToEnd());
-//                 Assert.Equal(0, proc.ExitCode);
-//             }
-//             // Copy SNK to test assembly folder
-//             var targetSnk = Path.Combine(assemblyDir, "signing.snk");
-//             File.Copy(sourceSnk, targetSnk, true);
+        // var manager = ProviderManager.Instance;
+        //             // Locate scripts relative to test assembly
+        //             var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        //             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
+        //             var authScriptPath = Path.Combine(solutionDir, "Sign-Authenticode.ps1");
+        //             var snkScriptPath = Path.Combine(solutionDir, "Sign-StrongNames.ps1");
+        //
+        //             // Ensure Windows SDK tools are on PATH
+        //             var programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
+        //             if (!string.IsNullOrEmpty(programFilesX86))
+        //             {
+        //                 var sdkRoot = Path.Combine(programFilesX86, "Windows Kits", "10", "bin");
+        //                 if (Directory.Exists(sdkRoot))
+        //                 {
+        //                     var dirs = Directory.GetDirectories(sdkRoot);
+        //                     Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
+        //                     var latest = dirs.Length > 0 ? dirs[dirs.Length - 1] : null;
+        //                     if (latest != null)
+        //                     {
+        //                         var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        //                         var x64Path = Path.Combine(latest, "x64");
+        //                         var x86Path = Path.Combine(latest, "x86");
+        //                         var newPath = pathEnv;
+        //                         if (Directory.Exists(x64Path)) newPath += ";" + x64Path;
+        //                         if (Directory.Exists(x86Path)) newPath += ";" + x86Path;
+        //                         Environment.SetEnvironmentVariable("PATH", newPath);
+        //                     }
+        //                 }
+        //             }
+        //
+        //             // Ensure SNK file exists: use committed or generate via script
+        //             var tempDir = Path.GetTempPath();
+        //             var sourceSnk = Path.Combine(solutionDir, "signing.snk");
+        //             if (!File.Exists(sourceSnk))
+        //             {
+        //                 var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{snkScriptPath}\" -Generate")
+        //                 {
+        //                     WorkingDirectory = tempDir,
+        //                     RedirectStandardOutput = true,
+        //                     RedirectStandardError = true,
+        //                     UseShellExecute = false
+        //                 };
+        //                 var proc = Process.Start(psi);
+        //                 proc.WaitForExit();
+        //                 _output.WriteLine("Generate SNK STDOUT:\n" + proc.StandardOutput.ReadToEnd());
+        //                 _output.WriteLine("Generate SNK STDERR:\n" + proc.StandardError.ReadToEnd());
+        //                 Assert.Equal(0, proc.ExitCode);
+        //             }
+        //             // Copy SNK to test assembly folder
+        //             var targetSnk = Path.Combine(assemblyDir, "signing.snk");
+        //             File.Copy(sourceSnk, targetSnk, true);
 
-//             // Build strong-named dummy via MSBuild
-//             var builtDll = BuildStrongNamedAssembly(targetSnk);
+        // // Build strong-named dummy via MSBuild
+        //             var builtDll = BuildStrongNamedAssembly(targetSnk);
 
-//             // Generate test PFX and sign with Authenticode
-//             var pfxFile = Path.Combine(tempDir, "test-signing.pfx");
-//             var startInfo1 = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{authScriptPath}\" -Generate -Password testpw")
-//             {
-//                 WorkingDirectory = solutionDir,
-//                 RedirectStandardOutput = true,
-//                 RedirectStandardError = true,
-//                 UseShellExecute = false
-//             };
-//             // Point PFX output to temp file
-//             startInfo1.Arguments += $" -PfxPath \"{pfxFile}\"";
-//             var proc1 = Process.Start(startInfo1);
-//             proc1.WaitForExit();
-//             var stdout1 = proc1.StandardOutput.ReadToEnd();
-//             var stderr1 = proc1.StandardError.ReadToEnd();
-//             _output.WriteLine("Generate PFX STDOUT:\n" + stdout1);
-//             _output.WriteLine("Generate PFX STDERR:\n" + stderr1);
-//             Assert.Equal(0, proc1.ExitCode);
+        // // Generate test PFX and sign with Authenticode
+        //             var pfxFile = Path.Combine(tempDir, "test-signing.pfx");
+        //             var startInfo1 = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{authScriptPath}\" -Generate -Password testpw")
+        //             {
+        //                 WorkingDirectory = solutionDir,
+        //                 RedirectStandardOutput = true,
+        //                 RedirectStandardError = true,
+        //                 UseShellExecute = false
+        //             };
+        //             // Point PFX output to temp file
+        //             startInfo1.Arguments += $" -PfxPath \"{pfxFile}\"";
+        //             var proc1 = Process.Start(startInfo1);
+        //             proc1.WaitForExit();
+        //             var stdout1 = proc1.StandardOutput.ReadToEnd();
+        //             var stderr1 = proc1.StandardError.ReadToEnd();
+        //             _output.WriteLine("Generate PFX STDOUT:\n" + stdout1);
+        //             _output.WriteLine("Generate PFX STDERR:\n" + stderr1);
+        //             Assert.Equal(0, proc1.ExitCode);
 
-//             // Sign with Authenticode
-//             SignAuthenticode(builtDll, pfxFile, "testpw");
-//             // Debug: verify signature via signtool
-//             _output.WriteLine("----- signtool verify on Dummy.dll -----");
-//             var sigTool = FindExecutable("signtool.exe");
-//             if (!string.IsNullOrEmpty(sigTool))
-//             {
-//                 var psiV = new ProcessStartInfo(sigTool, $"verify /pa \"{builtDll}\"")
-//                 {
-//                     RedirectStandardOutput = true,
-//                     RedirectStandardError = true,
-//                     UseShellExecute = false
-//                 };
-//                 var procV = Process.Start(psiV);
-//                 procV.WaitForExit();
-//                 _output.WriteLine("Signtool STDOUT:\n" + procV.StandardOutput.ReadToEnd());
-//                 _output.WriteLine("Signtool STDERR:\n" + procV.StandardError.ReadToEnd());
-//                 _output.WriteLine($"ExitCode: {procV.ExitCode}");
-//             }
-//             else
-//             {
-//                 _output.WriteLine("Signtool not found");
-//             }
-//             // Create a copy of the host assembly and sign that instead, since the original is locked
-//             var providerAssemblyPath = typeof(ProviderManager).Assembly.Location;
-//             var providerAssemblyCopy = Path.Combine(Path.GetDirectoryName(builtDll), Path.GetFileName(providerAssemblyPath));
-//             File.Copy(providerAssemblyPath, providerAssemblyCopy, true);
-//             SignAuthenticode(providerAssemblyCopy, pfxFile, "testpw");
-//             // Debug: verify signature via signtool on ProviderManager.dll
-//             _output.WriteLine("----- signtool verify on ProviderManager.dll -----");
-//             if (!string.IsNullOrEmpty(sigTool))
-//             {
-//                 var psiV2 = new ProcessStartInfo(sigTool, $"verify /pa \"{providerAssemblyCopy}\"")
-//                 {
-//                     RedirectStandardOutput = true,
-//                     RedirectStandardError = true,
-//                     UseShellExecute = false
-//                 };
-//                 var procV2 = Process.Start(psiV2);
-//                 procV2.WaitForExit();
-//                 _output.WriteLine("Signtool STDOUT:\n" + procV2.StandardOutput.ReadToEnd());
-//                 _output.WriteLine("Signtool STDERR:\n" + procV2.StandardError.ReadToEnd());
-//                 _output.WriteLine($"ExitCode: {procV2.ExitCode}");
-//             }
-//             else
-//             {
-//                 _output.WriteLine("Signtool not found");
-//             }
-//             try
-//             {
-//                 // Act & Assert: fully signed DLL should not throw using signed copy of provider assembly
-//                 var loadedProviderAssembly = Assembly.LoadFrom(providerAssemblyCopy);
-//                 var loadedManagerType = loadedProviderAssembly.GetType(typeof(ProviderManager).FullName);
-//                 var loadedManagerInstance = loadedManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static).GetValue(null);
-//                 var verifyMethod = loadedManagerType.GetMethod("VerifySignature", BindingFlags.NonPublic | BindingFlags.Instance);
-//                 var ex2 = Record.Exception(() => verifyMethod.Invoke(loadedManagerInstance, new object[] { builtDll }));
-//                 Assert.Null(ex2);
-//             }
-//             finally
-//             {
-//                 if (File.Exists(builtDll)) File.Delete(builtDll);
-//                 if (File.Exists(pfxFile)) File.Delete(pfxFile);
-//                 if (File.Exists(targetSnk)) File.Delete(targetSnk);
-//                 if (File.Exists(providerAssemblyCopy)) File.Delete(providerAssemblyCopy);
-//             }
-//         }
+        // // Sign with Authenticode
+        //             SignAuthenticode(builtDll, pfxFile, "testpw");
+        //             // Debug: verify signature via signtool
+        //             _output.WriteLine("----- signtool verify on Dummy.dll -----");
+        //             var sigTool = FindExecutable("signtool.exe");
+        //             if (!string.IsNullOrEmpty(sigTool))
+        //             {
+        //                 var psiV = new ProcessStartInfo(sigTool, $"verify /pa \"{builtDll}\"")
+        //                 {
+        //                     RedirectStandardOutput = true,
+        //                     RedirectStandardError = true,
+        //                     UseShellExecute = false
+        //                 };
+        //                 var procV = Process.Start(psiV);
+        //                 procV.WaitForExit();
+        //                 _output.WriteLine("Signtool STDOUT:\n" + procV.StandardOutput.ReadToEnd());
+        //                 _output.WriteLine("Signtool STDERR:\n" + procV.StandardError.ReadToEnd());
+        //                 _output.WriteLine($"ExitCode: {procV.ExitCode}");
+        //             }
+        //             else
+        //             {
+        //                 _output.WriteLine("Signtool not found");
+        //             }
+        //             // Create a copy of the host assembly and sign that instead, since the original is locked
+        //             var providerAssemblyPath = typeof(ProviderManager).Assembly.Location;
+        //             var providerAssemblyCopy = Path.Combine(Path.GetDirectoryName(builtDll), Path.GetFileName(providerAssemblyPath));
+        //             File.Copy(providerAssemblyPath, providerAssemblyCopy, true);
+        //             SignAuthenticode(providerAssemblyCopy, pfxFile, "testpw");
+        //             // Debug: verify signature via signtool on ProviderManager.dll
+        //             _output.WriteLine("----- signtool verify on ProviderManager.dll -----");
+        //             if (!string.IsNullOrEmpty(sigTool))
+        //             {
+        //                 var psiV2 = new ProcessStartInfo(sigTool, $"verify /pa \"{providerAssemblyCopy}\"")
+        //                 {
+        //                     RedirectStandardOutput = true,
+        //                     RedirectStandardError = true,
+        //                     UseShellExecute = false
+        //                 };
+        //                 var procV2 = Process.Start(psiV2);
+        //                 procV2.WaitForExit();
+        //                 _output.WriteLine("Signtool STDOUT:\n" + procV2.StandardOutput.ReadToEnd());
+        //                 _output.WriteLine("Signtool STDERR:\n" + procV2.StandardError.ReadToEnd());
+        //                 _output.WriteLine($"ExitCode: {procV2.ExitCode}");
+        //             }
+        //             else
+        //             {
+        //                 _output.WriteLine("Signtool not found");
+        //             }
+        //             try
+        //             {
+        //                 // Act & Assert: fully signed DLL should not throw using signed copy of provider assembly
+        //                 var loadedProviderAssembly = Assembly.LoadFrom(providerAssemblyCopy);
+        //                 var loadedManagerType = loadedProviderAssembly.GetType(typeof(ProviderManager).FullName);
+        //                 var loadedManagerInstance = loadedManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static).GetValue(null);
+        //                 var verifyMethod = loadedManagerType.GetMethod("VerifySignature", BindingFlags.NonPublic | BindingFlags.Instance);
+        //                 var ex2 = Record.Exception(() => verifyMethod.Invoke(loadedManagerInstance, new object[] { builtDll }));
+        //                 Assert.Null(ex2);
+        //             }
+        //             finally
+        //             {
+        //                 if (File.Exists(builtDll)) File.Delete(builtDll);
+        //                 if (File.Exists(pfxFile)) File.Delete(pfxFile);
+        //                 if (File.Exists(targetSnk)) File.Delete(targetSnk);
+        //                 if (File.Exists(providerAssemblyCopy)) File.Delete(providerAssemblyCopy);
+        //             }
+        //         }
 
         // Helper: build a simple project signed with SNK and return path to Dummy.dll
         private string BuildStrongNamedAssembly(string keyFile)
@@ -453,26 +464,27 @@ namespace SmartHopper.Config.Tests
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
             };
             var procRestore = Process.Start(psiRestore);
             procRestore.WaitForExit();
-            _output.WriteLine("Restore STDOUT:\n" + procRestore.StandardOutput.ReadToEnd());
-            _output.WriteLine("Restore STDERR:\n" + procRestore.StandardError.ReadToEnd());
+            this.output.WriteLine("Restore STDOUT:\n" + procRestore.StandardOutput.ReadToEnd());
+            this.output.WriteLine("Restore STDERR:\n" + procRestore.StandardError.ReadToEnd());
             Assert.Equal(0, procRestore.ExitCode);
 
             // Build signed assembly
-            var psi = new ProcessStartInfo("dotnet",
+            var psi = new ProcessStartInfo(
+                "dotnet",
                 $"build \"{projFile}\" -c Debug -o \"{projDir}\" /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=\"{keyFile}\"")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
             };
             var proc = Process.Start(psi);
             proc.WaitForExit();
-            _output.WriteLine("MSBuild STDOUT:\n" + proc.StandardOutput.ReadToEnd());
-            _output.WriteLine("MSBuild STDERR:\n" + proc.StandardError.ReadToEnd());
+            this.output.WriteLine("MSBuild STDOUT:\n" + proc.StandardOutput.ReadToEnd());
+            this.output.WriteLine("MSBuild STDERR:\n" + proc.StandardError.ReadToEnd());
             Assert.Equal(0, proc.ExitCode);
             return Path.Combine(projDir, "Dummy.dll");
         }
@@ -480,7 +492,7 @@ namespace SmartHopper.Config.Tests
         /// <summary>
         /// Ensures signtool from Windows SDK is on PATH.
         /// </summary>
-        private void EnsureWindowsKitsOnPath()
+        private static void EnsureWindowsKitsOnPath()
         {
             var programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
             if (!string.IsNullOrEmpty(programFilesX86))
@@ -497,8 +509,16 @@ namespace SmartHopper.Config.Tests
                         var x64Path = Path.Combine(latest, "x64");
                         var x86Path = Path.Combine(latest, "x86");
                         var newPath = path;
-                        if (Directory.Exists(x64Path)) newPath += ";" + x64Path;
-                        if (Directory.Exists(x86Path)) newPath += ";" + x86Path;
+                        if (Directory.Exists(x64Path))
+                        {
+                            newPath += ";" + x64Path;
+                        }
+
+                        if (Directory.Exists(x86Path))
+                        {
+                            newPath += ";" + x86Path;
+                        }
+
                         Environment.SetEnvironmentVariable("PATH", newPath);
                     }
                 }
@@ -516,12 +536,12 @@ namespace SmartHopper.Config.Tests
                 WorkingDirectory = workingDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
             };
             var proc = Process.Start(psi);
             proc.WaitForExit();
-            _output.WriteLine(proc.StandardOutput.ReadToEnd());
-            _output.WriteLine(proc.StandardError.ReadToEnd());
+            this.output.WriteLine(proc.StandardOutput.ReadToEnd());
+            this.output.WriteLine(proc.StandardError.ReadToEnd());
             Assert.Equal(0, proc.ExitCode);
         }
 
@@ -530,7 +550,7 @@ namespace SmartHopper.Config.Tests
         /// </summary>
         private void GeneratePfx(string scriptPath, string pfxPath, string password)
         {
-            RunPowerShell(scriptPath, $"-Generate -Password {password} -PfxPath \"{pfxPath}\"");
+            this.RunPowerShell(scriptPath, $"-Generate -Password {password} -PfxPath \"{pfxPath}\"");
         }
 
         /// <summary>
@@ -542,12 +562,12 @@ namespace SmartHopper.Config.Tests
             var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
             var scriptPath = Path.Combine(solutionDir, "Sign-Authenticode.ps1");
-            RunPowerShell(scriptPath, $"-Sign \"{targetFile}\" -Password {password} -PfxPath \"{pfxPath}\"");
+            this.RunPowerShell(scriptPath, $"-Sign \"{targetFile}\" -Password {password} -PfxPath \"{pfxPath}\"");
         }
 
-        private string FindExecutable(string exeName)
+        private static string? FindExecutable(string exeName)
         {
-            this.EnsureWindowsKitsOnPath();
+            EnsureWindowsKitsOnPath();
 
             var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
             var paths = path.Split(Path.PathSeparator);
@@ -558,7 +578,9 @@ namespace SmartHopper.Config.Tests
                 {
                     var fullPath = Path.Combine(p, exeName);
                     if (File.Exists(fullPath))
+                    {
                         return fullPath;
+                    }
                 }
                 catch (Exception ex)
                 {

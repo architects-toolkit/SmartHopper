@@ -8,17 +8,16 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
-using System.Reflection;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using Xunit;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-
 namespace SmartHopper.Config.Tests
 {
+    using System.Collections.Generic;
+    using System.Reflection;
+    using System.Threading.Tasks;
+    using Newtonsoft.Json.Linq;
+    using SmartHopper.Config.Managers;
+    using SmartHopper.Config.Models;
+    using Xunit;
+
     public class AIToolManagerTests
     {
         private void ResetManager()
