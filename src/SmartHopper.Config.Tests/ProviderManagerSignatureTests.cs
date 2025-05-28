@@ -114,7 +114,7 @@ namespace SmartHopper.Config.Tests
                 var verify = typeof(ProviderManager).GetMethod("VerifySignature", BindingFlags.NonPublic | BindingFlags.Instance);
                 var ex = Assert.Throws<TargetInvocationException>(() => verify.Invoke(manager, new object[] { tempFile }));
 
-                // The exception could be either SecurityException (strong-name failure) or 
+                // The exception could be either SecurityException (strong-name failure) or
                 // CryptographicException (general signing validation failure) - both are acceptable
                 Assert.True(
                     ex.InnerException is SecurityException || ex.InnerException is CryptographicException,
@@ -147,7 +147,7 @@ namespace SmartHopper.Config.Tests
             var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
             var snkScriptPath = Path.Combine(solutionDir, "Sign-StrongNames.ps1");
-            
+
             // Configure environment for both local VS and GitHub Actions
             var programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
             var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
@@ -169,7 +169,7 @@ namespace SmartHopper.Config.Tests
                 {
                     var sdkDirs = Directory.GetDirectories(windowsKitRoot)
                         .OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase);
-                    
+
                     foreach (var sdkDir in sdkDirs)
                     {
                         pathsToAdd.Add(Path.Combine(sdkDir, "x64"));
@@ -195,7 +195,7 @@ namespace SmartHopper.Config.Tests
             // Update PATH with found directories
             var newPaths = string.Join(";", pathsToAdd.Distinct()
                 .Where(p => !path.Contains(p, StringComparison.OrdinalIgnoreCase)));
-                
+
             if (!string.IsNullOrEmpty(newPaths))
             {
                 Environment.SetEnvironmentVariable("PATH", $"{path};{newPaths}");
@@ -205,7 +205,7 @@ namespace SmartHopper.Config.Tests
             // Generate temp SNK file for strong-name signing
             var tempDir = Path.GetTempPath();
             var snkPath = Path.Combine(tempDir, "signing.snk");
-            
+
             // Try to find sn.exe in the updated PATH
             var snExe = FindExecutable("sn.exe");
             if (!string.IsNullOrEmpty(snExe))
@@ -224,7 +224,7 @@ namespace SmartHopper.Config.Tests
                     snProcess.WaitForExit();
                     _output.WriteLine("SNK generation output: " + snProcess.StandardOutput.ReadToEnd());
                     _output.WriteLine("SNK generation error: " + snProcess.StandardError.ReadToEnd());
-                    
+
                     if (snProcess.ExitCode == 0 && File.Exists(snkPath))
                     {
                         File.Copy(snkPath, Path.Combine(solutionDir, "signing.snk"), true);
@@ -237,7 +237,7 @@ namespace SmartHopper.Config.Tests
                     _output.WriteLine($"Error using sn.exe: {exception.Message}");
                 }
             }
-            
+
             // Fall back to PowerShell script if sn.exe failed or wasn't found
             _output.WriteLine("Falling back to PowerShell script for SNK generation");
             var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{snkScriptPath}\" -Generate")
@@ -253,15 +253,15 @@ namespace SmartHopper.Config.Tests
             var stderr = proc.StandardError.ReadToEnd();
             _output.WriteLine("Generate SNK STDOUT:\n" + stdout);
             _output.WriteLine("Generate SNK STDERR:\n" + stderr);
-            
+
             if (proc.ExitCode != 0)
             {
                 _output.WriteLine($"SNK generation failed: {stderr}. Falling back to existing signing.snk.");
             }
-                
+
             // If we get here, we used the PowerShell script, so mark that we've generated the SNK
             SnkGenerated:
-            
+
             // Copy SNK to assembly directory to ensure same strong-name for tests
             var sourceSnk = Path.Combine(solutionDir, "signing.snk");
             var targetSnk = Path.Combine(assemblyDir, "signing.snk");
@@ -277,7 +277,7 @@ namespace SmartHopper.Config.Tests
             {
                 throw new FileNotFoundException("Failed to generate or locate the SNK file");
             }
-            
+
             // Build strong-named dummy via MSBuild
             var builtDll = BuildStrongNamedAssembly(targetSnk);
 
@@ -303,7 +303,7 @@ namespace SmartHopper.Config.Tests
 //             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
 //             var authScriptPath = Path.Combine(solutionDir, "Sign-Authenticode.ps1");
 //             var snkScriptPath = Path.Combine(solutionDir, "Sign-StrongNames.ps1");
-            
+//
 //             // Ensure Windows SDK tools are on PATH
 //             var programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
 //             if (!string.IsNullOrEmpty(programFilesX86))
@@ -326,7 +326,7 @@ namespace SmartHopper.Config.Tests
 //                     }
 //                 }
 //             }
-            
+//
 //             // Ensure SNK file exists: use committed or generate via script
 //             var tempDir = Path.GetTempPath();
 //             var sourceSnk = Path.Combine(solutionDir, "signing.snk");
@@ -548,7 +548,7 @@ namespace SmartHopper.Config.Tests
         private string FindExecutable(string exeName)
         {
             this.EnsureWindowsKitsOnPath();
-            
+
             var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
             var paths = path.Split(Path.PathSeparator);
 
