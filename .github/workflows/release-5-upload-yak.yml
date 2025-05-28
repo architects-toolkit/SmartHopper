@@ -71,14 +71,14 @@ jobs:
           out-file-path: "artifacts"
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      # - name: Download Mac release asset
-      #   uses: robinraju/release-downloader@v1
-      #   with:
-      #     repository: ${{ github.repository }}
-      #     tag: ${{ steps.get_version.outputs.version }}
-      #     fileName: "SmartHopper-${{ steps.get_version.outputs.version }}-Rhino8-Mac-not-tested.zip"
-      #     out-file-path: "artifacts"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download Mac release asset
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: ${{ github.repository }}
+          tag: ${{ steps.get_version.outputs.version }}
+          fileName: "SmartHopper-${{ steps.get_version.outputs.version }}-Rhino8-Mac-not-tested.zip"
+          out-file-path: "artifacts"
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Verify downloaded assets
         shell: pwsh
