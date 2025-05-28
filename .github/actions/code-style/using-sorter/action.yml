@@ -28,10 +28,6 @@ runs:
         FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
         ERR=0
 
-        # Install dotnet-format
-        dotnet tool install -g dotnet-format --version 6.* || true
-        export PATH="$HOME/.dotnet/tools:$PATH"
-
         # Function to find the nearest project or solution file
         find_project_file() {
           local dir="$(dirname "$1")"
@@ -58,9 +54,9 @@ runs:
             fi
 
             if [[ "${{ inputs.mode }}" == "fix" ]]; then
-              dotnet format --fix-style usings --include "$file" "$project_file"
+              dotnet format style --fix-style usings --include "$file" "$project_file"
             else
-              dotnet format --fix-style usings --include "$file" "$project_file" --verify-no-changes
+              dotnet format style --fix-style usings --include "$file" "$project_file" --verify-no-changes
               CODE=$?
               if [ $CODE -ne 0 ]; then
                 if [ "${{ inputs.mode }}" = "soft-check" ]; then
