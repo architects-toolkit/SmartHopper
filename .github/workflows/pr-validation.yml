@@ -68,13 +68,21 @@ jobs:
         with:
           mode: check
 
-      - name: Validate using directives
-        uses: ./.github/actions/code-style/using-sorter
-        with:
-          mode: check
-
       - name: Validate namespaces
         uses: ./.github/actions/code-style/namespace-fixer
+        with:
+          mode: check
+  
+  using-directives-check:
+    name: 🖌️ Using Directives Check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate using directives
+        uses: ./.github/actions/code-style/using-sorter
         with:
           mode: check
 
