@@ -124,6 +124,12 @@ jobs:
           echo "windows_yak_package=$zip" >> $env:GITHUB_OUTPUT
           Pop-Location
 
+      - name: Upload Yak package artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-yak-package
+          path: ${{ steps.build_windows.outputs.windows_yak_package }}
+
       - name: Upload Windows Yak package to Yak
         if: inputs.upload_to_yak == 'true'
         shell: pwsh

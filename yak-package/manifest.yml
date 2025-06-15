@@ -5,13 +5,15 @@ version: "{{VERSION}}"
 description: >
   SmartHopper brings AI-powered components to Grasshopper.
   Do everything you can do with AI, directly within Grasshopper:
-    - Get help with your file
-    - Program code directly to script components
-    - Learn parametric design with an integrated teaching assistant
+    - New AI-powered components to make things that were impossible before
+    - Program code directly from natural language to script components
+    - Get help with an integrated chat
+    - Let SmartHopper search on the Rhino forum for you
+    - And many more...
 
 authors:
   - "Marc Roca Musach (@marc-romu)"
-repository_url: https://github.com/architects-toolkit/SmartHopper
+url: https://github.com/architects-toolkit/SmartHopper
 keywords:
   - "smarthopper"
   - "ai"
