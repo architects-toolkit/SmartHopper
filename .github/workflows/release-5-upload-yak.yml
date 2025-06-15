@@ -118,8 +118,9 @@ jobs:
           New-Item -ItemType Directory -Path $pkgDir
           Expand-Archive -Path "artifacts/windows.zip" -DestinationPath $pkgDir -Force
           Copy-Item -Path "yak-package\*" -Destination $pkgDir -Recurse -Force
+
           Push-Location $pkgDir
-          ./yak.exe build --platform win
+          ../yak.exe build --platform win
           $zip = Get-ChildItem -Filter "*.zip" | Select-Object -ExpandProperty FullName
           echo "windows_yak_package=$zip" >> $env:GITHUB_OUTPUT
           Pop-Location
