@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Minimum Rhino version required increased to 8.19
+- Updated SmartHopper logo
 - Renamed `gh_retrieve_components` by `gh_get_available_components`
 - Prevent `GHDocumentUtils.GetObjectsDetails` from generating humanReadable field if value is already human readable (numbers and strings)
 - Renamed `evaluateList` and `filterList` AI tools to `list_evaluate` and `list_filter`
