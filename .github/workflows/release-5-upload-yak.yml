@@ -123,7 +123,7 @@ jobs:
 
           Push-Location $pkgDir
           ../yak.exe build --platform win
-          $zip = Get-ChildItem -Filter "*.zip" | Select-Object -ExpandProperty FullName
+          $zip = Get-ChildItem -Filter "*.yak" | Select-Object -ExpandProperty FullName
           echo "windows_yak_package=$zip" >> $env:GITHUB_OUTPUT
           Pop-Location
 
@@ -131,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-yak-package
-          path: yak-windows/*.zip
+          path: yak-windows/*.yak
 
       - name: Upload Windows Yak package to Yak
         if: inputs.upload_to_yak == 'true'
