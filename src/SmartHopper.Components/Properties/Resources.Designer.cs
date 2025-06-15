@@ -71,40 +71,21 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
+
         internal static Bitmap ghput {
             get {
                 object obj = ResourceManager.GetObject("ghput", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
-        internal static Bitmap listalter {
-            get {
-                object obj = ResourceManager.GetObject("listalter", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
+
         internal static Bitmap listevaluate {
             get {
                 object obj = ResourceManager.GetObject("listevaluate", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
+
         internal static Bitmap listfilter {
             get {
                 object obj = ResourceManager.GetObject("listfilter", resourceCulture);
@@ -112,9 +93,6 @@ namespace SmartHopper.Components.Properties {
             }
         }
         
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
         internal static Bitmap textevaluate {
             get {
                 object obj = ResourceManager.GetObject("textevaluate", resourceCulture);
@@ -122,29 +100,6 @@ namespace SmartHopper.Components.Properties {
             }
         }
         
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
-        internal static Bitmap textalter {
-            get {
-                object obj = ResourceManager.GetObject("textalter", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
-        internal static Bitmap listgenerate {
-            get {
-                object obj = ResourceManager.GetObject("listgenerate", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
         internal static Bitmap textgenerate {
             get {
                 object obj = ResourceManager.GetObject("textgenerate", resourceCulture);
@@ -152,9 +107,6 @@ namespace SmartHopper.Components.Properties {
             }
         }
         
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
         internal static Bitmap aichat {
             get {
                 object obj = ResourceManager.GetObject("aichat", resourceCulture);
@@ -162,12 +114,37 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
-        /// <summary>
-        ///   Looks up a localized resource of type Bitmap.
-        /// </summary>
         internal static Bitmap smarthopper {
             get {
                 object obj = ResourceManager.GetObject("smarthopper", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap context {
+            get {
+                object obj = ResourceManager.GetObject("context", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap components {
+            get {
+                object obj = ResourceManager.GetObject("components", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap metrics {
+            get {
+                object obj = ResourceManager.GetObject("metrics", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap tidyup {
+            get {
+                object obj = ResourceManager.GetObject("tidyup", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
