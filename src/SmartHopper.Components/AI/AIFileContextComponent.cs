@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using Grasshopper.Kernel;
 using SmartHopper.Core.AI;
 
@@ -26,6 +27,11 @@ namespace SmartHopper.Components.AI
         /// Gets the provider identifier.
         /// </summary>
         public string ProviderId => "file";
+
+        /// <summary>
+        /// Gets the component's icon.
+        /// </summary>
+        protected override Bitmap Icon => Properties.Resources.context;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIFileContextComponent"/> class.
