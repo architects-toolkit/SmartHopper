@@ -213,6 +213,13 @@ namespace SmartHopper.Menu.Dialogs
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
+            var logoDesignThanksLabel = new Label
+            {
+                Text = "Special thanks to Jordina Roca Musach for the SmartHopper logo design.",
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word
+            };
+
             var okButton = new Button
             {
                 Text = "OK",
@@ -265,6 +272,8 @@ namespace SmartHopper.Menu.Dialogs
                         speckleLink,
                         ghptLink,
                         materialIconsLink,
+                        null, // spacing
+                        logoDesignThanksLabel,
                         null, // spacing   
                         null, // spacing
                         new StackLayoutItem(null, true), // Push everything up
