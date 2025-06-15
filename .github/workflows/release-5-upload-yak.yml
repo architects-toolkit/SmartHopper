@@ -125,7 +125,7 @@ jobs:
           Pop-Location
 
       - name: Upload Yak package artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-yak-package
           path: ${{ steps.build_windows.outputs.windows_yak_package }}
