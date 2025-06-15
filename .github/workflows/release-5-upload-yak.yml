@@ -128,7 +128,7 @@ jobs:
           path: yak-windows/*.yak
 
       - name: Upload Windows Yak package to Yak
-        if: inputs.upload_to_yak == 'true'
+        if: inputs.upload_to_yak
         shell: pwsh
         run: |
           $FilePath = "${{ steps.build_windows.outputs.windows_yak_package }}"
@@ -139,9 +139,12 @@ jobs:
           $sourceFlag = ""
           if ("${{ inputs.testing }}" -eq "true") {
               $sourceFlag = "--source https://test.yak.rhino3d.com"
+              Write-Host "Uploading to test Yak server"
+          } else {
+              Write-Host "Uploading to production Yak server"
           }
           Write-Host "Uploading Windows Yak package: $FilePath"
-          ./yak.exe push $sourceFlag $FilePath
+          # ./yak.exe push $sourceFlag $FilePath
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::Failed to upload Windows Yak package"
             exit 1
