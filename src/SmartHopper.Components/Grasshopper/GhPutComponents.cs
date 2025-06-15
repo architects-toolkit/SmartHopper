@@ -10,17 +10,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper.Graph;
-using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Models.Serialization;
-using SmartHopper.Core.Models.Document;
 using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Components.Grasshopper
@@ -30,7 +23,7 @@ namespace SmartHopper.Components.Grasshopper
         private List<string> lastComponentNames = new();
 
         public GhPutComponents()
-            : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper definition in this file", "SmartHopper", "Grasshopper")
+            : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper components in this file.\n\nNew components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
         {
         }
 

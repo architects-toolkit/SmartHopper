@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Ensure consistent LF line endings for specific file types
+*.md text eol=lf
+*.ps1 text eol=lf
+*.cs text eol=lf

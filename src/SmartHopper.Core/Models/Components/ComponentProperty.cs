@@ -1,7 +1,7 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -33,7 +33,7 @@ namespace SmartHopper.Core.Models.Components
         /// <summary>
         /// A human-readable representation of the property value.
         /// </summary>
-        [JsonProperty("humanReadable")]
+        [JsonProperty("humanReadable", NullValueHandling = NullValueHandling.Ignore)]
         public string HumanReadable { get; set; }
     }
 }

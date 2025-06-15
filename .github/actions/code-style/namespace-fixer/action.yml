@@ -12,6 +12,10 @@ runs:
       if: always()
       shell: bash
       run: |
+        # Set the shell to continue on error
+        set +e
+
+        # Get the list of changed files
         if [ -n "${{ github.event.pull_request }}" ]; then
           FILES=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.cs')
         else
@@ -38,7 +42,7 @@ runs:
                   # emit a non-blocking warning
                   echo "::warning file=$file::Namespace mismatch in $file (run with mode=fix to auto-fix)"
                 else
-                  echo "Namespace mismatch in $file: expected $ns but found $actual"
+                  echo "::error file=$file::Namespace mismatch in $file: expected $ns but found $actual"
                   ERR=1
                 fi
               fi

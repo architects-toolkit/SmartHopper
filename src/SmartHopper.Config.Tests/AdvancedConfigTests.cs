@@ -1,44 +1,76 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
 namespace SmartHopper.Config.Tests
 {
-    using SmartHopper.Config.Configuration;
-    using SmartHopper.Config.Managers;
-    using SmartHopper.Config.Interfaces;
-    using SmartHopper.Config.Models;
-    using System.Reflection;
-    using System.Linq;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using System;
-    using System.Drawing;
-    using System.Windows.Forms;
+    using SmartHopper.Config.Configuration;
+    using SmartHopper.Config.Interfaces;
+    using SmartHopper.Config.Managers;
+    using SmartHopper.Config.Models;
     using Xunit;
-    using Moq;
 
     public class AdvancedConfigTests
     {
         private class DummyProvider : IAIProvider
         {
             public string Name => "DummyProvider";
+
             public string DefaultModel => "Model";
+
             public bool IsEnabled => true;
-            public System.Drawing.Image Icon => null;
-            public DummyProvider() { }
-            public DummyProvider(string name) { }
+
+            public System.Drawing.Image? Icon => null;
+
+            public DummyProvider()
+            {
+            }
+
+            public DummyProvider(string name)
+            {
+            }
+
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+
             public bool ValidateSettings(Dictionary<string, object> settings) => true;
+
             public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false) => Task.FromResult(default(AIResponse));
-            public string GetModel(Dictionary<string, object> settings, string requestedModel = "") => DefaultModel;
-            public void InitializeSettings(Dictionary<string, object> settings) { }
+
+            public string GetModel(Dictionary<string, object> settings, string requestedModel = "") => this.DefaultModel;
+
+            public void InitializeSettings(Dictionary<string, object> settings)
+            {
+            }
         }
+
         private class DummySettings : IAIProviderSettings
         {
             private readonly IAIProvider provider;
-            public DummySettings(IAIProvider p) { provider = p; }
-            public System.Windows.Forms.Control CreateSettingsControl() => null;
-            public Dictionary<string, object> GetSettings() => new Dictionary<string, object>();
-            public void LoadSettings(Dictionary<string, object> settings) { }
+
+            public DummySettings(IAIProvider p)
+            {
+                this.provider = p;
+            }
+
+            public System.Windows.Forms.Control? CreateSettingsControl() => null;
+
+            public Dictionary<string, object> GetSettings() => new();
+
+            public void LoadSettings(Dictionary<string, object> settings)
+            {
+            }
+
             public bool ValidateSettings() => true;
         }
 
@@ -47,7 +79,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "CustomModel_DefaultValues_AreSet [Core]")]
 #endif
-        public void CustomModel_DefaultValues_AreSet()
+        public void CustomModelDefaultValuesAreSet()
         {
             var settings = new SmartHopperSettings();
             Assert.Equal(1000, settings.DebounceTime);
@@ -60,7 +92,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "GetAvailableProviders_ReturnsAllDiscoveredFactories [Core]")]
 #endif
-        public void GetAvailableProviders_ReturnsAllDiscoveredFactories()
+        public void GetAvailableProvidersReturnsAllDiscoveredFactories()
         {
             var mgr = ProviderManager.Instance;
             var providers = mgr.GetProviders();
@@ -72,7 +104,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "GetProviderByName_ReturnsCorrectFactory [Core]")]
 #endif
-        public void GetProviderByName_ReturnsCorrectFactory()
+        public void GetProviderByNameReturnsCorrectFactory()
         {
             // Skip test for now
             Assert.True(true);
@@ -83,7 +115,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "GetProviderByName_ThrowsIfNotFound [Core]")]
 #endif
-        public void GetProviderByName_ThrowsIfNotFound()
+        public void GetProviderByNameThrowsIfNotFound()
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider("Nonexistent"));
@@ -94,7 +126,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "ProviderSettings_SerializationRoundTrip [Core]")]
 #endif
-        public void ProviderSettings_SerializationRoundTrip()
+        public void ProviderSettingsSerializationRoundTrip()
         {
             var settings = new SmartHopperSettings { DebounceTime = 555, DefaultAIProvider = "ProvX" };
             var json = JsonConvert.SerializeObject(settings);
@@ -108,7 +140,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "IAIProviderSettings_SchemaValidation [Core]")]
 #endif
-        public void IAIProviderSettings_SchemaValidation()
+        public void IAIProviderSettingsSchemaValidation()
         {
             // Skip test for now
             Assert.True(true);
@@ -119,7 +151,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "ConfigurationLoader_RegistersAllServices [Core]")]
 #endif
-        public void ConfigurationLoader_RegistersAllServices()
+        public void ConfigurationLoaderRegistersAllServices()
         {
             // Settings singleton and provider manager should be available
             var settings = SmartHopperSettings.Instance;
@@ -133,7 +165,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "ProviderManager_LoadsFromServiceProvider [Core]")]
 #endif
-        public void ProviderManager_LoadsFromServiceProvider()
+        public void ProviderManagerLoadsFromServiceProvider()
         {
             // Singleton instance consistency
             var m1 = ProviderManager.Instance;
@@ -146,7 +178,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "ProviderManager_HandlesInvalidAssemblyGracefully [Core]")]
 #endif
-        public void ProviderManager_HandlesInvalidAssemblyGracefully()
+        public void ProviderManagerHandlesInvalidAssemblyGracefully()
         {
             // Should not throw on refresh with no external providers
             var ex = Record.Exception(() => ProviderManager.Instance.RefreshProviders());
@@ -158,7 +190,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "ConfigurationLoader_ThrowsOnMalformedJson [Core]")]
 #endif
-        public void ConfigurationLoader_ThrowsOnMalformedJson()
+        public void ConfigurationLoaderThrowsOnMalformedJson()
         {
             // Malformed JSON should throw JsonReaderException
             var bad = "{ \"DebounceTime\": , }";

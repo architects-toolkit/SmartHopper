@@ -16,30 +16,137 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Mode for code style: fix or check'
+        description: 'Mode for code style: fix, check, or soft-check'
         required: true
         default: 'check'
         type: string
 
 jobs:
-  code-style:
-    name: 🛠️ Fix Code Style
+  header-fixer:
+    name: 🧾 Header Fixer
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-      - name: Run Code Style
-        uses: ./.github/actions/code-style
+      - name: Process C# file headers
+        uses: ./.github/actions/code-style/header-fixer
         with:
           mode: "${{ github.event.inputs.mode }}"
-          token: ${{ github.token }}
+      - name: Generate header-fixer patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        run: git diff --unified=0 > header-fixer.patch
+      - name: Upload header-fixer patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: header-fixer-patch
+          path: header-fixer.patch
+
+  trailing-whitespace:
+    name: 🧹 Trailing Whitespace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Process trailing whitespace
+        uses: ./.github/actions/code-style/trailing-whitespace
+        with:
+          mode: "${{ github.event.inputs.mode }}"
+      - name: Generate trailing-whitespace patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        run: git diff --unified=0 > trailing-whitespace.patch
+      - name: Upload trailing-whitespace patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trailing-whitespace-patch
+          path: trailing-whitespace.patch
+
+  using-sorter:
+    name: 🔀 Using Sorter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Process using directives
+        uses: ./.github/actions/code-style/using-sorter
+        with:
+          mode: "${{ github.event.inputs.mode }}"
+      - name: Generate using-sorter patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        run: git diff --unified=0 > using-sorter.patch
+      - name: Upload using-sorter patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: using-sorter-patch
+          path: using-sorter.patch
+
   namespace-check:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Run Namespace Fixer
         uses: ./.github/actions/code-style/namespace-fixer
         with:
-          mode: "check"
+          mode: "${{ github.event.inputs.mode }}"
+      - name: Generate namespace-check patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        run: git diff --unified=0 > namespace-check.patch
+      - name: Upload namespace-check patch
+        if: ${{ github.event.inputs.mode == 'fix' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: namespace-check-patch
+          path: namespace-check.patch
+
+  commit-changes:
+    name: 📦 Commit Code Style Fixes
+    needs: [header-fixer, trailing-whitespace, using-sorter, namespace-check]
+    if: ${{ github.event.inputs.mode == 'fix' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          ref: ${{ github.ref }}
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Download header-fixer patch
+        uses: actions/download-artifact@v4
+        with:
+          name: header-fixer-patch
+          path: .
+      - name: Download trailing-whitespace patch
+        uses: actions/download-artifact@v4
+        with:
+          name: trailing-whitespace-patch
+          path: .
+      - name: Download using-sorter patch
+        uses: actions/download-artifact@v4
+        with:
+          name: using-sorter-patch
+          path: .
+      - name: Download namespace-check patch
+        uses: actions/download-artifact@v4
+        with:
+          name: namespace-check-patch
+          path: .
+      - name: Apply patches
+        run: |
+          for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply --unidiff-zero "$p"; fi; done
+      - name: Remove patch files
+        run: rm *.patch
+      - name: Commit and Push code style fixes
+        run: |
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ci): apply code style fixes"
+            git push
+          else
+            echo "No changes to commit"
+          fi
