@@ -131,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-yak-package
-          path: ${{ steps.build_windows.outputs.windows_yak_package }}
+          path: yak-windows/*.zip
 
       - name: Upload Windows Yak package to Yak
         if: inputs.upload_to_yak == 'true'
