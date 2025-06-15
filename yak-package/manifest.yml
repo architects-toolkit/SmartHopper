@@ -4,7 +4,9 @@ name: SmartHopper
 version: {{VERSION}}
 description: >
   SmartHopper brings AI-powered components to Grasshopper.
+
   WARNING: THIS IS AN ALPHA VERSION, USE AT YOUR OWN RISK.
+
   Do everything you can do with AI, directly within Grasshopper:
     - New AI-powered components to make things that were impossible before
     - Program code directly from natural language to script components
