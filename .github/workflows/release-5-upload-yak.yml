@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      testing:
+        description: 'Just testing?'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   upload-to-yak:
@@ -45,17 +50,6 @@ jobs:
         uses: ./.github/actions/versioning/get-version
         with:
           branch: main
-
-      - name: Determine pre-release flag
-        id: prerelease
-        shell: bash
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          if [[ "$VERSION" =~ -(dev|alpha|beta|rc) ]]; then
-            echo "PRE_RELEASE=true" >> $GITHUB_OUTPUT
-          else
-            echo "PRE_RELEASE=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Create artifacts directory
         shell: pwsh
@@ -118,22 +112,49 @@ jobs:
           New-Item -ItemType Directory -Path $pkgDir
           Expand-Archive -Path "artifacts/windows.zip" -DestinationPath $pkgDir -Force
           Copy-Item -Path "yak-package\*" -Destination $pkgDir -Recurse -Force
+          # Inject actual version into manifest
+          (Get-Content "$pkgDir/manifest.yml") -replace '{{VERSION}}', $version | Set-Content "$pkgDir/manifest.yml"
+
           Push-Location $pkgDir
-          ./yak.exe build --platform win
-          $zip = Get-ChildItem -Filter "*.zip" | Select-Object -ExpandProperty FullName
+          ../yak.exe build --platform win
+          $zip = Get-ChildItem -Filter "*.yak" | Select-Object -ExpandProperty FullName
           echo "windows_yak_package=$zip" >> $env:GITHUB_OUTPUT
           Pop-Location
 
+      - name: Upload Yak package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-yak-package
+          path: yak-windows/*.yak
+
       - name: Upload Windows Yak package to Yak
-        if: inputs.upload_to_yak == 'true'
+        if: inputs.upload_to_yak
         shell: pwsh
         run: |
-          $PreRelease = "${{ steps.prerelease.outputs.PRE_RELEASE }}"
-          $Flags = ""
-          if ($PreRelease -eq "true") { $Flags = "--pre" }
           $FilePath = "${{ steps.build_windows.outputs.windows_yak_package }}"
+          if (-not (Test-Path $FilePath)) {
+              Write-Host "::error::Yak package not found at: $FilePath"
+              exit 1
+          }
+          $sourceFlag = ""
+          if ("${{ inputs.testing }}" -eq "true") {
+              $sourceFlag = "--source https://test.yak.rhino3d.com"
+              Write-Host "Uploading to test Yak server"
+          } else {
+              Write-Host "Uploading to production Yak server"
+          }
           Write-Host "Uploading Windows Yak package: $FilePath"
-          ./yak.exe push $FilePath $Flags
+          Write-Host "File exists: $(Test-Path $FilePath)"
+          Write-Host "File size: $(if (Test-Path $FilePath) { (Get-Item $FilePath).Length } else { 'N/A' }) bytes"
+
+          $exe  = Join-Path $PWD 'yak.exe'
+          $args = @('push')
+          if ($sourceFlag) { $args += $sourceFlag.Split(' ') }
+          $args += $FilePath
+
+          Write-Host "Running: $exe $($args -join ' ')"
+          & $exe @args
+
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::Failed to upload Windows Yak package"
             exit 1
