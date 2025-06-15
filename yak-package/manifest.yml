@@ -1,12 +1,10 @@
 # Package manifest for SmartHopper Yak package
 # version placeholder will be replaced by the workflow
 name: SmartHopper
-version: "{{VERSION}}"
+version: {{VERSION}}
 description: >
   SmartHopper brings AI-powered components to Grasshopper.
-
   WARNING: THIS IS AN ALPHA VERSION, USE AT YOUR OWN RISK.
-
   Do everything you can do with AI, directly within Grasshopper:
     - New AI-powered components to make things that were impossible before
     - Program code directly from natural language to script components
@@ -15,7 +13,7 @@ description: >
     - And many more...
 
 authors:
-  - "Marc Roca Musach"
+  - Marc Roca Musach
 url: https://github.com/architects-toolkit/SmartHopper
 keywords:
   - smarthopper
