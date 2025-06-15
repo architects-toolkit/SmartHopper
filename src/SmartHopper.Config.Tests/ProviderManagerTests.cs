@@ -1,9 +1,18 @@
-using Xunit;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Interfaces;
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
 
 namespace SmartHopper.Config.Tests
 {
+    using SmartHopper.Config.Managers;
+    using Xunit;
+
     public class ProviderManagerTests
     {
 #if NET7_WINDOWS
@@ -11,7 +20,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "GetProviders_ReturnsNonNullCollection [Core]")]
 #endif
-        public void GetProviders_ReturnsNonNullCollection()
+        public void GetProvidersReturnsNonNullCollection()
         {
             var mgr = ProviderManager.Instance;
             var providers = mgr.GetProviders();
@@ -25,7 +34,7 @@ namespace SmartHopper.Config.Tests
 #endif
         [InlineData(null)]
         [InlineData("")]
-        public void GetProvider_NullOrEmptyName_ReturnsNull(string name)
+        public void GetProviderNullOrEmptyNameReturnsNull(string name)
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider(name));
@@ -36,7 +45,7 @@ namespace SmartHopper.Config.Tests
 #else
         [Fact(DisplayName = "GetProvider_NotFound_ReturnsNull [Core]")]
 #endif
-        public void GetProvider_NotFound_ReturnsNull()
+        public void GetProviderNotFoundReturnsNull()
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider("nonexistent"));

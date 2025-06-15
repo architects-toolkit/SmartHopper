@@ -31,14 +31,17 @@ namespace SmartHopper.Components.Grasshopper
 
         public GhTidyUpComponents()
           : base("Tidy Up", "GhTidyUp",
-                 "Organize selected components into a tidy grid layout",
+                 "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
                  "SmartHopper", "Grasshopper")
         {
         }
 
         public override Guid ComponentGuid => new Guid("D4C8A9E5-B123-4F67-8C90-1234567890AB");
 
-        protected override Bitmap Icon => null;
+        /// <summary>
+        /// Gets the component's icon.
+        /// </summary>
+        protected override Bitmap Icon => Properties.Resources.tidyup;
 
         public void EnableSelectionMode()
         {

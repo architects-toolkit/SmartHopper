@@ -27,16 +27,46 @@ runs:
       run: |
         FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- '*.cs')
         ERR=0
-        dotnet tool install -g dotnet-format || true
-        export PATH="$HOME/.dotnet/tools:$PATH"
+
+        # Function to find the nearest project or solution file
+        find_project_file() {
+          local dir="$(dirname "$1")"
+          local project_file
+          
+          while [ "$dir" != "/" ] && [ "$dir" != "." ]; do
+            project_file=$(find "$dir" -maxdepth 1 -type f \( -name '*.csproj' -o -name '*.sln' \) | head -n 1)
+            if [ -n "$project_file" ]; then
+              echo "$project_file"
+              return 0
+            fi
+            dir="$(dirname "$dir")"
+          done
+          return 1
+        }
+
+        # Process each file
         for file in $FILES; do
-          if [ -f "$file" ]; then
-            if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.mode }}" = "soft-check" ]; then
-              dotnet format "$file" --verify-no-changes --fix-analyzers
+          if [[ -f "$file" ]]; then
+            project_file=$(find_project_file "$file")
+            if [ $? -ne 0 ]; then
+              echo "::warning file=$file::Could not find project or solution file for $file"
+              continue
+            fi
+
+            if [[ "${{ inputs.mode }}" == "fix" ]]; then
+              dotnet format style --diagnostics IDE0005 SA1208 SA1210 --include "$file" "$project_file"
             else
-              dotnet format "$file" --fix-analyzers
+              dotnet format style --diagnostics IDE0005 SA1208 SA1210 --include "$file" "$project_file" --verify-no-changes
+              CODE=$?
+              if [ $CODE -ne 0 ]; then
+                if [ "${{ inputs.mode }}" = "soft-check" ]; then
+                  echo "::warning file=$file::Using sorter found issues in $file (run with mode=fix to auto-fix)"
+                else
+                  echo "Using sorter check failed in $file"
+                  ERR=1
+                fi
+              fi
             fi
           fi
         done
-        # fail if any check error
         exit $ERR

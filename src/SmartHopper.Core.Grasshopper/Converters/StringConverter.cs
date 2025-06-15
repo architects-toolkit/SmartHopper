@@ -85,10 +85,27 @@ namespace SmartHopper.Core.Grasshopper.Converters
 
         public static GH_DataMapping StringToGHDataMapping(object value)
         {
-            if (value is long || value is string)
+            if (value is string s)
             {
-                //Convert type of value to Int32
+                // Try parse enum by name
+                if (Enum.TryParse<GH_DataMapping>(s, true, out var namedMapping))
+                    return namedMapping;
+                // Fallback to numeric string
+                if (int.TryParse(s, out var intVal))
+                    value = intVal;
+                else
+                    return GH_DataMapping.None;
+            }
+            else if (value is long || value is int)
+            {
+                // Convert numeric types to Int32
                 value = Convert.ToInt32(value);
+            }
+            else
+            {
+                // Attempt to convert other types safely
+                try { value = Convert.ToInt32(value); }
+                catch { return GH_DataMapping.None; }
             }
 
             switch (value)

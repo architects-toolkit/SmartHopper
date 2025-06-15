@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  *
@@ -9,6 +9,7 @@
  */
 
 using System;
+using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 
@@ -24,6 +25,11 @@ namespace SmartHopper.Components.Misc
         }
 
         public override Guid ComponentGuid => new("250D14BA-D96A-4DC0-8703-87468CE2A18D");
+
+        /// <summary>
+        /// Gets the component's icon.
+        /// </summary>
+        protected override Bitmap Icon => Properties.Resources.metrics;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

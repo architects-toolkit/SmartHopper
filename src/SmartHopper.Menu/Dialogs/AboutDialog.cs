@@ -1,21 +1,21 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Eto.Forms;
-using Eto.Drawing;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using SmartHopper.Config.Properties;
+using Eto.Drawing;
+using Eto.Forms;
 using SmartHopper.Config.Dialogs;
+using SmartHopper.Config.Properties;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -213,6 +213,13 @@ namespace SmartHopper.Menu.Dialogs
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
+            var logoDesignThanksLabel = new Label
+            {
+                Text = "Special thanks to Jordina Roca Musach for the SmartHopper logo design.",
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word
+            };
+
             var okButton = new Button
             {
                 Text = "OK",
@@ -265,6 +272,8 @@ namespace SmartHopper.Menu.Dialogs
                         speckleLink,
                         ghptLink,
                         materialIconsLink,
+                        null, // spacing
+                        logoDesignThanksLabel,
                         null, // spacing   
                         null, // spacing
                         new StackLayoutItem(null, true), // Push everything up

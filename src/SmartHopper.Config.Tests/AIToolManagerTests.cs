@@ -1,14 +1,23 @@
-using System;
-using System.Reflection;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using Xunit;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
 
 namespace SmartHopper.Config.Tests
 {
+    using System.Collections.Generic;
+    using System.Reflection;
+    using System.Threading.Tasks;
+    using Newtonsoft.Json.Linq;
+    using SmartHopper.Config.Managers;
+    using SmartHopper.Config.Models;
+    using Xunit;
+
     public class AIToolManagerTests
     {
         private void ResetManager()

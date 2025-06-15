@@ -18,7 +18,9 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Tools;
@@ -35,7 +37,7 @@ namespace SmartHopper.Components.Text
 
         public AITextGenerate()
             : base("AI Text Generate", "AITextGenerate",
-                  "Generate text from natural language instructions.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                  "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
         }
@@ -49,11 +51,6 @@ namespace SmartHopper.Components.Text
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
-        }
-
-        protected override string GetEndpoint()
-        {
-            return "text-generate";
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -160,29 +157,20 @@ namespace SmartHopper.Components.Text
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
 
-                    // Use the generic tool to generate text
-                    var result = await TextTools.GenerateTextAsync(
-                        promptTree[i],
-                        instructionsTree[i],
-                        messages => parent.GetResponse(messages, contextProviderFilter: "-environment,-time", reuseCount: reuseCount)).ConfigureAwait(false);
-
-                    if (!result.Success)
+                    // Call the AI tool through the tool manager
+                    var parameters = new JObject
                     {
-                        if (result.Response?.FinishReason == "error")
-                        {
-                            parent.AIErrorToPersistentRuntimeMessage(result.Response);
-                        }
-                        else
-                        {
-                            parent.SetPersistentRuntimeMessage("ai_error", result.ErrorLevel, result.ErrorMessage, false);
-                        }
+                        ["prompt"] = promptTree[i]?.Value,
+                        ["instructions"] = instructionsTree[i]?.Value,
+                        ["contextProviderFilter"] = "-environment,-time"
+                    };
 
-                        outputs["Result"].Add(new GH_String(string.Empty));
-                        i++;
-                        continue;
-                    }
+                    var toolResult = await parent.CallAiToolAsync(
+                        "text_generate", parameters, reuseCount)
+                        .ConfigureAwait(false);
 
-                    outputs["Result"].Add(result.Result);
+                    string result = toolResult?["result"]?.ToString() ?? string.Empty;
+                    outputs["Result"].Add(new GH_String(result));
                     i++;
                 }
 

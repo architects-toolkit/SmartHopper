@@ -31,7 +31,7 @@ namespace SmartHopper.Components.Grasshopper
         public GhRetrieveComponents()
             : base(
                   "Retrieve Components", "GhRetrieveComponents",
-                  "Retrieve all available Grasshopper components in your environment as JSON with optional category filter.",
+                  "Get a JSON list of all available Grasshopper components in your Grasshopper installation. Use optional category filter to focus the results.",
                   "SmartHopper", "Grasshopper"
                   )
         {
@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Grasshopper
 
         public override Guid ComponentGuid => new Guid("D2F1E3B4-C5A6-7D8E-9A0B-C1D2E3F4A5B6");
 
-        protected override Bitmap Icon => Resources.ghget;
+        protected override Bitmap Icon => Resources.components;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -87,12 +87,12 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                var toolResult = AIToolManager.ExecuteTool("gh_retrieve_components", parameters, null)
+                var toolResult = AIToolManager.ExecuteTool("gh_get_available_components", parameters, null)
                     .GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        "Tool 'gh_retrieve_components' did not return a valid result");
+                        "Tool 'gh_get_available_components' did not return a valid result");
                     return;
                 }
 

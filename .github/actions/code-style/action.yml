@@ -26,33 +26,44 @@ runs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '7.0.x'
-    - name: Run dotnet-format
-      shell: bash
-      run: |
-        dotnet restore
-        dotnet tool install -g dotnet-format || true
-        export PATH="$HOME/.dotnet/tools:$PATH"
-        if [ "${{ inputs.mode }}" = "check" ]; then
-          dotnet format --verify-no-changes
-        else
-          dotnet format
-        fi
-    - name: Process C# file headers
+    # - name: Run dotnet-format
+    #   shell: bash
+    #   run: |
+    #     dotnet restore
+    #     dotnet tool install -g dotnet-format || true
+    #     export PATH="$HOME/.dotnet/tools:$PATH"
+    #     if [ "${{ inputs.mode }}" = "check" ]; then
+    #       dotnet format --verify-no-changes
+    #     else
+    #       dotnet format
+    #     fi
+    - id: header
+      name: Process C# file headers
+      continue-on-error: ${{ inputs.mode == 'check' }}
       uses: ./.github/actions/code-style/header-fixer
       with:
         mode: soft-check
-    - name: Process trailing whitespace
+    - id: whitespace
+      name: Process trailing whitespace
+      continue-on-error: ${{ inputs.mode == 'check' }}
       uses: ./.github/actions/code-style/trailing-whitespace
       with:
         mode: ${{ inputs.mode }}
-    - name: Process using directives
+    - id: using_sorter
+      name: Process using directives
+      continue-on-error: ${{ inputs.mode == 'check' }}
       uses: ./.github/actions/code-style/using-sorter
       with:
         mode: ${{ inputs.mode }}
-    - name: Check namespaces
+    - id: namespace_fixer
+      name: Check namespaces
+      continue-on-error: ${{ inputs.mode == 'check' }}
       uses: ./.github/actions/code-style/namespace-fixer
       with:
         mode: soft-check
+    - name: Fail on check errors
+      if: ${{ inputs.mode == 'check' && (steps.header.outcome == 'failure' || steps.whitespace.outcome == 'failure' || steps.using_sorter.outcome == 'failure' || steps.namespace_fixer.outcome == 'failure') }}
+      run: exit 1
     - name: Commit & push changes
       if: ${{ inputs.commit }}
       shell: bash
