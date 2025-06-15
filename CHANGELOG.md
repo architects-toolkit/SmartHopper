@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed MistralAI provider not working with structured output ([#112](https://github.com/architects-toolkit/SmartHopper/issues/112)).
 - Fixed OpenAI error in API URI.
 - Fixed CI Signature Tests in `SmartHopper.Config.Tests`.
+- Fixed OpenAI logo quality.
 
 ## [0.3.1-alpha] - 2025-05-06
 
