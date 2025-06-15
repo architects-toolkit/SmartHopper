@@ -118,6 +118,8 @@ jobs:
           New-Item -ItemType Directory -Path $pkgDir
           Expand-Archive -Path "artifacts/windows.zip" -DestinationPath $pkgDir -Force
           Copy-Item -Path "yak-package\*" -Destination $pkgDir -Recurse -Force
+          # Inject actual version into manifest
+          (Get-Content "$pkgDir/manifest.yml") -replace '{{VERSION}}', $version | Set-Content "$pkgDir/manifest.yml"
 
           Push-Location $pkgDir
           ../yak.exe build --platform win
