@@ -31,7 +31,7 @@ namespace SmartHopper.Components.Grasshopper
         public GhRetrieveComponents()
             : base(
                   "Retrieve Components", "GhRetrieveComponents",
-                  "Retrieve all available Grasshopper components in your environment as JSON with optional category filter.",
+                  "Get a JSON list of all available Grasshopper components in your Grasshopper installation. Use optional category filter to focus the results.",
                   "SmartHopper", "Grasshopper"
                   )
         {

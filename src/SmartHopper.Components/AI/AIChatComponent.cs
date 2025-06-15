@@ -41,7 +41,7 @@ namespace SmartHopper.Components.AI
             : base(
                 "AI Chat",
                 "AiChat",
-                "Interactive AI-powered conversational interface with HTML rendering",
+                "Interactive AI-powered conversational interface.",
                 "SmartHopper",
                 "AI")
         {

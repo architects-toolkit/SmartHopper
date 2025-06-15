@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
 - Modified `AITextGenerate`, `AITextEvaluate`, `AIListEvaluate` and `AIListFilter` to use `AIToolManager` instead of calling the AI tool directly.
+- Improved components descriptions.
 
 ### Deprecated
 
