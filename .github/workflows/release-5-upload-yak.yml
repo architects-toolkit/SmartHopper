@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      testing:
+        description: 'Just testing?'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   upload-to-yak:
@@ -137,12 +142,17 @@ jobs:
         if: inputs.upload_to_yak == 'true'
         shell: pwsh
         run: |
-          $PreRelease = "${{ steps.prerelease.outputs.PRE_RELEASE }}"
-          $Flags = ""
-          if ($PreRelease -eq "true") { $Flags = "--pre" }
           $FilePath = "${{ steps.build_windows.outputs.windows_yak_package }}"
+          if (-not (Test-Path $FilePath)) {
+              Write-Host "::error::Yak package not found at: $FilePath"
+              exit 1
+          }
+          $sourceFlag = ""
+          if ("${{ inputs.testing }}" -eq "true") {
+              $sourceFlag = "--source https://test.yak.rhino3d.com"
+          }
           Write-Host "Uploading Windows Yak package: $FilePath"
-          ./yak.exe push $FilePath $Flags
+          ./yak.exe push $sourceFlag $FilePath
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::Failed to upload Windows Yak package"
             exit 1
