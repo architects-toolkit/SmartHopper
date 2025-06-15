@@ -146,8 +146,15 @@ jobs:
           Write-Host "Uploading Windows Yak package: $FilePath"
           Write-Host "File exists: $(Test-Path $FilePath)"
           Write-Host "File size: $(if (Test-Path $FilePath) { (Get-Item $FilePath).Length } else { 'N/A' }) bytes"
-          Write-Host "Running: ./yak.exe push $sourceFlag `"$FilePath`""
-          ./yak.exe push $sourceFlag "$FilePath"
+
+          $exe  = Join-Path $PWD 'yak.exe'
+          $args = @('push')
+          if ($sourceFlag) { $args += $sourceFlag.Split(' ') }
+          $args += $FilePath
+
+          Write-Host "Running: $exe $($args -join ' ')"
+          & $exe @args
+
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::Failed to upload Windows Yak package"
             exit 1
