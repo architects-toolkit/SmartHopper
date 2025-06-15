@@ -23,7 +23,7 @@ namespace SmartHopper.Components.Grasshopper
         private List<string> lastComponentNames = new();
 
         public GhPutComponents()
-            : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper definition in this file", "SmartHopper", "Grasshopper")
+            : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper components in this file.\n\nNew components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
         {
         }
 

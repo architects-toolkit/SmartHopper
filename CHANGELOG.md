@@ -19,10 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for parameter modifiers (simplify, flatten, graft, reverse) in both input and output parameters for script components in `GhPutTools` and `GHDocumentUtils`.
 - New `CallAiTool` method in `AIStatefulAsyncComponentBase` to handle provider and model selection, and metrics output.
 - `AiTools` now define their own endpoint.
+- New icons for all components.
 
 ### Changed
 
 - Minimum Rhino version required increased to 8.19
+- Updated SmartHopper logo
 - Renamed `gh_retrieve_components` by `gh_get_available_components`
 - Prevent `GHDocumentUtils.GetObjectsDetails` from generating humanReadable field if value is already human readable (numbers and strings)
 - Renamed `evaluateList` and `filterList` AI tools to `list_evaluate` and `list_filter`
@@ -42,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now it creates component inputs and outputs.
   - It returns the instance GUID of the created component.
 - Modified `AITextGenerate`, `AITextEvaluate`, `AIListEvaluate` and `AIListFilter` to use `AIToolManager` instead of calling the AI tool directly.
+- Improved components descriptions.
 
 ### Deprecated
 
@@ -57,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed MistralAI provider not working with structured output ([#112](https://github.com/architects-toolkit/SmartHopper/issues/112)).
 - Fixed OpenAI error in API URI.
 - Fixed CI Signature Tests in `SmartHopper.Config.Tests`.
+- Fixed OpenAI logo quality.
 
 ## [0.3.1-alpha] - 2025-05-06
 
