@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using Grasshopper.Kernel;
 using SmartHopper.Core.AI;
 
@@ -28,12 +29,17 @@ namespace SmartHopper.Components.AI
         public string ProviderId => "file";
 
         /// <summary>
+        /// Gets the component's icon.
+        /// </summary>
+        protected override Bitmap Icon => Properties.Resources.context;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AIFileContextComponent"/> class.
         /// Constructor for the AI File Context component.
         /// </summary>
         public AIFileContextComponent()
             : base("AI File Context", "AIFileCtx",
-                "Defines the current file context for AI-powered components",
+                "Defines the current file context.\n\nFor example, explain the aim of this file, your expectations of the results, the main input parameters, and what to avoid.\n\nAI-powered components will read this information to generate relevant responses.",
                 "SmartHopper", "AI")
         {
             // Register this component as a context provider

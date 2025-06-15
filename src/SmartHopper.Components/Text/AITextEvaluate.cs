@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Text
 
         public AITextEvaluate()
             : base("AI Text Evaluate", "AITextEvaluate",
-                  "Use natural language to ask a true or false question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
+                  "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
         }

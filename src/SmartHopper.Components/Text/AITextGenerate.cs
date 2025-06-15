@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Text
 
         public AITextGenerate()
             : base("AI Text Generate", "AITextGenerate",
-                  "Generate text from natural language instructions.\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                  "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
         }
