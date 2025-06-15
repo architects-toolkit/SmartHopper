@@ -51,17 +51,6 @@ jobs:
         with:
           branch: main
 
-      - name: Determine pre-release flag
-        id: prerelease
-        shell: bash
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          if [[ "$VERSION" =~ -(dev|alpha|beta|rc) ]]; then
-            echo "PRE_RELEASE=true" >> $GITHUB_OUTPUT
-          else
-            echo "PRE_RELEASE=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create artifacts directory
         shell: pwsh
         run: |
