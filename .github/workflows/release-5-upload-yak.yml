@@ -143,15 +143,11 @@ jobs:
           } else {
               Write-Host "Uploading to production Yak server"
           }
-          # Normalize path to use forward slashes
-          $NormalizedPath = $FilePath.Replace('\', '/')
-          Write-Host "Uploading Windows Yak package: $NormalizedPath"
-          Write-Host "File exists: $(Test-Path $NormalizedPath)"
-          Write-Host "File size: $(if (Test-Path $NormalizedPath) { (Get-Item $NormalizedPath).Length } else { 'N/A' }) bytes"
-          Write-Host "Current directory: $(Get-Location)"
-          Write-Host "Running: ./yak.exe push $sourceFlag `"$NormalizedPath`""
-          # Try with normalized path and forward slashes
-          ./yak.exe push $sourceFlag "$NormalizedPath"
+          Write-Host "Uploading Windows Yak package: $FilePath"
+          Write-Host "File exists: $(Test-Path $FilePath)"
+          Write-Host "File size: $(if (Test-Path $FilePath) { (Get-Item $FilePath).Length } else { 'N/A' }) bytes"
+          Write-Host "Running: ./yak.exe push $sourceFlag `"$FilePath`""
+          ./yak.exe push $sourceFlag "$FilePath"
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::Failed to upload Windows Yak package"
             exit 1
