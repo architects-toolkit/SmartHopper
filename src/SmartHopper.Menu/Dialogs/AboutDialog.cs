@@ -8,14 +8,14 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Eto.Forms;
-using Eto.Drawing;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using SmartHopper.Config.Properties;
+using Eto.Drawing;
+using Eto.Forms;
 using SmartHopper.Config.Dialogs;
+using SmartHopper.Config.Properties;
 
 namespace SmartHopper.Menu.Dialogs
 {
