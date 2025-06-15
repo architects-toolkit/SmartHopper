@@ -15,14 +15,15 @@ description: >
     - And many more...
 
 authors:
-  - "Marc Roca Musach (@marc-romu)"
+  - "Marc Roca Musach"
 url: https://github.com/architects-toolkit/SmartHopper
 keywords:
-  - "smarthopper"
-  - "ai"
-  - "artificial intelligence"
-  - "chat"
-  - "scripting"
-  - "assistant"
-  - "help"
+  - smarthopper
+  - ai
+  - artificial intelligence
+  - chat
+  - gpt
+  - scripting
+  - assistant
+  - help
 icon: smarthopper.png
