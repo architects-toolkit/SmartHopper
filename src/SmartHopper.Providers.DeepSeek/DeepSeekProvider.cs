@@ -8,9 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,6 +18,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Models;
+using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Providers.DeepSeek
 {
