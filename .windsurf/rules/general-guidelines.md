@@ -7,3 +7,4 @@ trigger: always_on
 - Refer to https://developer.rhino3d.com/ as the official documentation
 - Use English only
 - Only change code lines directly needed to implement the request; avoid unrelated refactors
+- Prefer copy/pasting, renaming, and removing files via PowerShell commands, rather than direct edits
