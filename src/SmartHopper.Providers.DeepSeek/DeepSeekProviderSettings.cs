@@ -8,22 +8,22 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
+using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Dialogs;
+using SmartHopper.Config.Interfaces;
 
-namespace SmartHopper.Providers.Template
+namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
     /// Settings implementation for the Template provider.
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
-    public class TemplateProviderSettings : AIProviderSettings
+    public class DeepSeekProviderSettings : AIProviderSettings
     {
         private readonly IAIProvider provider;
         private TextBox apiKeyTextBox;
@@ -31,10 +31,10 @@ namespace SmartHopper.Providers.Template
         private NumericUpDown maxTokensNumeric;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="TemplateProviderSettings"/> class.
+        /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public TemplateProviderSettings(IAIProvider provider) : base(provider)
+        public DeepSeekProviderSettings(IAIProvider provider) : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
@@ -87,7 +87,7 @@ namespace SmartHopper.Providers.Template
                 Dock = DockStyle.Fill
             };
             panel.Controls.Add(maxTokensNumeric, 1, 2);
-            
+
             return panel;
         }
 
@@ -136,7 +136,7 @@ namespace SmartHopper.Providers.Template
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading Template provider settings: {ex.Message}");
+                Debug.WriteLine($"Error loading DeepSeek provider settings: {ex.Message}");
             }
         }
 

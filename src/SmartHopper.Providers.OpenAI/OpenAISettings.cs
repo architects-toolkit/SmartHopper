@@ -90,9 +90,6 @@ namespace SmartHopper.Providers.OpenAI
             };
             panel.Controls.Add(this.maxTokensNumeric, 1, 2);
 
-            // Load any existing settings
-            this.LoadSettings();
-
             return panel;
         }
 
@@ -124,9 +121,9 @@ namespace SmartHopper.Providers.OpenAI
             try
             {
                 // Load API Key
-                if (settings.TryGetValue("ApiKey", out object? apìKeyValue))
+                if (settings.TryGetValue("ApiKey", out object? apiKeyValue))
                 {
-                    bool defined = apìKeyValue is bool ok && ok;
+                    bool defined = apiKeyValue is bool ok && ok;
                     this.apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
                 }
 
@@ -152,22 +149,6 @@ namespace SmartHopper.Providers.OpenAI
                         this.maxTokensNumeric.Value = parsedMaxTokens;
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading OpenAI provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Loads settings from the SmartHopper configuration.
-        /// </summary>
-        private void LoadSettings()
-        {
-            try
-            {
-                var providerSettings = SmartHopperSettings.Instance.GetProviderSettings(this.provider.Name);
-                this.LoadSettings(providerSettings);
             }
             catch (Exception ex)
             {
