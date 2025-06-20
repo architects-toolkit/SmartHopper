@@ -136,7 +136,7 @@ namespace SmartHopper.Providers.DeepSeek
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading Template provider settings: {ex.Message}");
+                Debug.WriteLine($"Error loading DeepSeek provider settings: {ex.Message}");
             }
         }
 
