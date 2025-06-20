@@ -70,6 +70,8 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 
 ### AI Tools
 
+AI Tools are the interface between AI and Grasshopper, allowing to, for example, read your selected components, get the available Grasshopper components, or write a new script. All these tools are available to the provider to use while chatting in the AI Chat component.
+
 | Tool Name | Description | Planned | In Progress | Testing | Released 🎉 |
 |-----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
 | text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
