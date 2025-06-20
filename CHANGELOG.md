@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Render reasoning panels for `<think>` tags in chat UI as collapsible `<details>` blocks.
 - Exclude reasoning from copy-paste (`mdContent`) and include in HTML display (`htmlContent`).
+- Added configurable reasoning_effort setting (low, medium, high) for OpenAI provider.
 
 ### Changed
 
 - Increased max tokens for OpenAI and MistralAI providers to 100000.
 - Updated deprecated OpenAI max_tokens parameter to max_completion_tokens.
+- Refactored OpenAI settings validation to use a centralized validation method.
 
 ## [0.3.2-alpha] - 2025-06-15
 
