@@ -22,7 +22,7 @@ namespace SmartHopper.Providers.Template
 {
     /// <summary>
     /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    /// 
+    ///
     /// To create a new provider:
     /// 1. Create a new project named SmartHopper.Providers.YourProviderName
     /// 2. Copy this template and rename all "Template" references to your provider name

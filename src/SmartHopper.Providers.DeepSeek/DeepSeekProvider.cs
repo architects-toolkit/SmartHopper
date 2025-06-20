@@ -26,7 +26,7 @@ namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
     /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    /// 
+    ///
     /// To create a new provider:
     /// 1. Create a new project named SmartHopper.Providers.YourProviderName
     /// 2. Copy this template and rename all "Template" references to your provider name
@@ -297,7 +297,7 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         ["role"] = "system",
                         ["content"] = "You are a helpful assistant that returns responses in JSON format. " +
-                                      "The response must be a valid JSON object that follows this schema exactly: " + 
+                                      "The response must be a valid JSON object that follows this schema exactly: " +
                                       jsonSchema
                     };
                     convertedMessages.Insert(0, systemMessage);
