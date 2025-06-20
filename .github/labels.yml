@@ -115,6 +115,9 @@
 - name: "provider: OpenAI"
   color: "000"
   description: "Issues related to the OpenAI provider"
+- name: "provider: DeepSeek"
+  color: "000"
+  description: "Issues related to the DeepSeek provider"
 
 # Feature Labels
 - name: "feature: Settings"
