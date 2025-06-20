@@ -252,7 +252,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
-                    ["max_tokens"] = maxTokens,
+                    ["max_completion_tokens"] = maxTokens,
                     ["reasoning_effort"] = "medium",
                 }; 
 
