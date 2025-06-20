@@ -137,7 +137,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"]);
+                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"], "array");
                 var questionTree = branches["Question"];
 
                 // Normalize tree lengths
