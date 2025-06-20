@@ -82,8 +82,8 @@ namespace SmartHopper.Providers.DeepSeek
             maxTokensNumeric = new NumericUpDown
             {
                 Minimum = 1,
-                Maximum = 4096,
-                Value = 150,
+                Maximum = 100000,
+                Value = 1000,
                 Dock = DockStyle.Fill
             };
             panel.Controls.Add(maxTokensNumeric, 1, 2);
