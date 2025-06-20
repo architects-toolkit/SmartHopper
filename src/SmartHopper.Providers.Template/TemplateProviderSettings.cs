@@ -82,7 +82,7 @@ namespace SmartHopper.Providers.Template
             maxTokensNumeric = new NumericUpDown
             {
                 Minimum = 1,
-                Maximum = 4096,
+                Maximum = 100000,
                 Value = 150,
                 Dock = DockStyle.Fill
             };
