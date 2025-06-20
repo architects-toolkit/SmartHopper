@@ -8,11 +8,11 @@ description: >
   WARNING: THIS IS AN ALPHA VERSION, USE AT YOUR OWN RISK.
 
   Do everything you can do with AI, directly within Grasshopper:
-    - New AI-powered components to make things that were impossible before
-    - Program code directly from natural language to script components
-    - Get help with an integrated chat
-    - Let SmartHopper search on the Rhino forum for you
-    - And many more...
+  - New AI-powered components to make things that were impossible before
+  - Program code directly from natural language to script components
+  - Get help with an integrated chat
+  - Let SmartHopper search on the Rhino forum for you
+  - And many more...
 
 authors:
   - Marc Roca Musach
@@ -26,4 +26,7 @@ keywords:
   - scripting
   - assistant
   - help
+  - openai
+  - mistralai
+  - deepseek
 icon: icon.png
