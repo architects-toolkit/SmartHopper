@@ -138,9 +138,9 @@ namespace SmartHopper.Providers.OpenAI
             try
             {
                 // Load API Key
-                if (settings.TryGetValue("ApiKey", out object? ap�KeyValue))
+                if (settings.TryGetValue("ApiKey", out object? apiKeyValue))
                 {
-                    bool defined = ap�KeyValue is bool ok && ok;
+                    bool defined = apiKeyValue is bool ok && ok;
                     this.apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
                 }
 
