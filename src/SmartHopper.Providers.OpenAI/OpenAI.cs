@@ -161,6 +161,14 @@ namespace SmartHopper.Providers.OpenAI
             return true;
         }
 
+        /// <summary>
+        /// Sends messages to the OpenAI Chat Completions endpoint, injecting a reasoning summary parameter when supported
+        /// and wrapping any returned reasoning_summary in <think> tags before the actual content.
+        /// </summary>
+        /// <remarks>
+        /// We pass { reasoning: { effort: "medium", summary: "auto" } } in the request; if the API returns a 
+        /// reasoning_summary field, we embed it as <think>…</think> immediately preceding the assistant's response.
+        /// </remarks>
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             // Get settings from the secure settings store
@@ -245,7 +253,8 @@ namespace SmartHopper.Providers.OpenAI
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
-                };
+                    ["reasoning_effort"] = "medium",
+                }; 
 
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
@@ -310,9 +319,15 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
 
+                    // extract reasoning_summary and wrap in <think> if present
+                    var content = message?["content"]?.ToString() ?? string.Empty;
+                    var summary = responseJson["choices"]?[0]?["reasoning_summary"]?.ToString();
+                    var combined = !string.IsNullOrWhiteSpace(summary)
+                        ? $"<think>{summary}</think>{content}"
+                        : content;
                     var aiResponse = new AIResponse
                     {
-                        Response = message?["content"]?.ToString() ?? string.Empty,
+                        Response = combined,
                         Provider = "OpenAI",
                         Model = modelName,
                         FinishReason = responseJson["choices"]?[0]?["finish_reason"]?.ToString() ?? "unknown",
