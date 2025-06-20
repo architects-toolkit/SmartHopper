@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added DeepSeek provider.
+
+### Removed
+
+- Removed `private LoadSettings` method from `OpenAISettings`.
+- Removed `private LoadSettings` method from `TemplateProviderSettings`.
+
 ## [0.3.2-alpha] - 2025-06-15
 
 ### Added
