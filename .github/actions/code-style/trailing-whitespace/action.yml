@@ -29,11 +29,11 @@ runs:
               sed -i 's/\r$//' "$file"
             else
               # Report trailing whitespace
-              while IFS=: read -r file_num line_content; do
+              while IFS=: read -r file_num; do
                 if [[ "${{ inputs.mode }}" == "soft-check" ]]; then
-                  echo "::warning file=$file,line=$file_num::Trailing whitespace found: '$line_content' ($file:$file_num)"
+                  echo "::warning file=$file,line=$file_num::Trailing whitespace found in $file (line $file_num)"
                 else
-                  echo "::error file=$file,line=$file_num::Trailing whitespace found: '$line_content' ($file:$file_num)"
+                  echo "::error file=$file,line=$file_num::Trailing whitespace found in $file (line $file_num)"
                   ERR=1
                 fi
               done < <(grep -nE '[^[:space:]]+[[:space:]]+$' "$file" | cut -d: -f1,3- || true)
