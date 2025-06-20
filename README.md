@@ -5,7 +5,7 @@
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
-[![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=lightgrey)](https://openai.com/)
+[![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-lightgrey?logo=openai)](https://openai.com/)
 [![DeepSeek](https://img.shields.io/badge/AI--powered-DeepSeek-blue?logo=deepseek)](https://deepseek.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
