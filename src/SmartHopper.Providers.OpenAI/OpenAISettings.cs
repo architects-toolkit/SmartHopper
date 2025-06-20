@@ -84,7 +84,7 @@ namespace SmartHopper.Providers.OpenAI
             this.maxTokensNumeric = new NumericUpDown
             {
                 Minimum = 1,
-                Maximum = 4096,
+                Maximum = 100000,
                 Value = 150,
                 Dock = DockStyle.Fill,
             };
@@ -124,9 +124,9 @@ namespace SmartHopper.Providers.OpenAI
             try
             {
                 // Load API Key
-                if (settings.TryGetValue("ApiKey", out object? apìKeyValue))
+                if (settings.TryGetValue("ApiKey", out object? apï¿½KeyValue))
                 {
-                    bool defined = apìKeyValue is bool ok && ok;
+                    bool defined = apï¿½KeyValue is bool ok && ok;
                     this.apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
                 }
 
