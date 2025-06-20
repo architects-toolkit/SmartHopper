@@ -33,7 +33,26 @@ SmartHopper is a groundbreaking plugin that enables AI to directly interact with
 
 ## 💻 Installation
 
-SmartHopper is not yet available through Food4Rhino. We will be releasing it soon! In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
+You can install SmartHopper through multiple methods:
+
+1. **Rhino Package Manager** (Recommended):
+   - Open Rhino 8
+   - Type `PackageManager` in the command line
+   - In the Package Manager, select "include pre-releases"
+   - Search for "SmartHopper"
+   - Click "Install"
+
+2. **Food4Rhino**:
+   - Go to [Food4Rhino](https://www.food4rhino.com/en/app/smarthopper)
+   - Click "Install"
+
+3. **GitHub Releases**:
+   - Download the latest release from our [GitHub Releases](https://github.com/architects-toolkit/SmartHopper/releases) page
+   - Extract the downloaded ZIP file
+   - Copy the contents to your Grasshopper plugins folder
+   - Restart Rhino
+
+After installation, all SmartHopper components will be available in the Grasshopper palette.
 
 ## 📊 Development Status
 
@@ -126,31 +145,7 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 
 ## 📚 Usage Examples
 
-**Disclaimer:** All videos correspond to previous versions. Since version 0.2.0, the plugin made a huge step forward and the interface has been completely redesigned. It looks much better now, and its functionality has been enhanced.
-
-### 1 Generate a Title for the Current Document
-
-[![SmartHopper_Generate Title](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651352-6cfca3b39c99d01e9bbdb1590ac7f1325d35b8dfa16e0b5ced2aad704eef2bbe-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447175)
-
-### 2 Working with a CSV file
-
-[![SmartHopper_Working With CSV](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651410-3ca705fd2e8fe276e9ee965339714c2de11f579ecf73d39fa92299b7b9015707-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447217)
-
-## ⚙️ Configuration
-
-### Set Up the API Key and Other Settings
-
-[![SmartHopper_Settings](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651378-ee922c5452393594d6ec931f112e24c82cceadb6c5dab80ced5e362a13ef0d45-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447205)
-
-### Choose the Provider for each Component
-
-[![SmartHopper_Select Provider](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651347-eb497ba95d6fc8008fdb3db9b6288dbdaa4b7b4ab7a3f5f99ccd55495545a00f-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447190)
-
-## ⏩ Developing the Chat Interface
-
-**Disclaimer:** The following video was a previous conceptual preview of the chat interface. From version 0.2.0, the chat interface is now available with a different design. Features will be added in future releases.
-
-[![SmartHopper_Chat Concept](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966657705-a1e9c281ab11e341df94bd14ee797d816afe34413b5af057841d6eb6191595fd-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043452514)
+No usage examples available at the moment.
 
 ## 🤝 Contributing
 
