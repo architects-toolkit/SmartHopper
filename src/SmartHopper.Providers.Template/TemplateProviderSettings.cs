@@ -87,9 +87,6 @@ namespace SmartHopper.Providers.Template
                 Dock = DockStyle.Fill
             };
             panel.Controls.Add(maxTokensNumeric, 1, 2);
-
-            // Load any existing settings
-            LoadSettings();
             
             return panel;
         }
@@ -136,22 +133,6 @@ namespace SmartHopper.Providers.Template
                     maxTokensNumeric.Value = maxTokens;
                 else if (settings.ContainsKey("MaxTokens") && int.TryParse(settings["MaxTokens"].ToString(), out int parsedMaxTokens))
                     maxTokensNumeric.Value = parsedMaxTokens;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading Template provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Loads settings from the SmartHopper configuration.
-        /// </summary>
-        private void LoadSettings()
-        {
-            try
-            {
-                var settings = ProviderManager.Instance.LoadProviderSettings(provider.Name);
-                LoadSettings(settings);
             }
             catch (Exception ex)
             {
