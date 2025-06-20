@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows.Forms;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Dialogs;
@@ -29,6 +30,7 @@ namespace SmartHopper.Providers.OpenAI
         private new TextBox apiKeyTextBox;
         private new TextBox modelTextBox;
         private new NumericUpDown maxTokensNumeric;
+        private new ComboBox reasoningEffortComboBox;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenAISettings"/> class.
@@ -50,7 +52,7 @@ namespace SmartHopper.Providers.OpenAI
             // Create a table layout panel for the settings
             var panel = new TableLayoutPanel
             {
-                RowCount = 3,
+                RowCount = 4,
                 ColumnCount = 2,
                 Dock = DockStyle.Fill,
                 Padding = new Padding(5),
@@ -89,6 +91,17 @@ namespace SmartHopper.Providers.OpenAI
                 Dock = DockStyle.Fill,
             };
             panel.Controls.Add(this.maxTokensNumeric, 1, 2);
+            
+            // Reasoning Effort
+            panel.Controls.Add(new Label { Text = "Reasoning Effort:", Dock = DockStyle.Fill }, 0, 3);
+            this.reasoningEffortComboBox = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            this.reasoningEffortComboBox.Items.AddRange(new object[] { "low", "medium", "high" });
+            this.reasoningEffortComboBox.SelectedIndex = 1; // Default to medium
+            panel.Controls.Add(this.reasoningEffortComboBox, 1, 3);
 
             // Load any existing settings
             this.LoadSettings();
@@ -107,6 +120,7 @@ namespace SmartHopper.Providers.OpenAI
                 ["ApiKey"] = this.apiKeyTextBox.Text,
                 ["Model"] = string.IsNullOrWhiteSpace(this.modelTextBox.Text) ? this.provider.DefaultModel : this.modelTextBox.Text,
                 ["MaxTokens"] = (int)this.maxTokensNumeric.Value,
+                ["ReasoningEffort"] = this.reasoningEffortComboBox.SelectedItem?.ToString() ?? "medium",
             };
         }
 
@@ -152,6 +166,26 @@ namespace SmartHopper.Providers.OpenAI
                         this.maxTokensNumeric.Value = parsedMaxTokens;
                     }
                 }
+                
+                // Load Reasoning Effort
+                if (settings.TryGetValue("ReasoningEffort", out object? reasoningEffortValue))
+                {
+                    string reasoningEffort = reasoningEffortValue.ToString();
+                    if (new[] { "low", "medium", "high" }.Contains(reasoningEffort))
+                    {
+                        this.reasoningEffortComboBox.SelectedItem = reasoningEffort;
+                    }
+                    else
+                    {
+                        // Default to medium if invalid value
+                        this.reasoningEffortComboBox.SelectedIndex = 1;
+                    }
+                }
+                else
+                {
+                    // Default to medium if not specified
+                    this.reasoningEffortComboBox.SelectedIndex = 1;
+                }
             }
             catch (Exception ex)
             {
@@ -176,22 +210,56 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
-        /// Validates the current settings.
+        /// Validates the current settings from the UI controls.
         /// </summary>
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public bool ValidateSettings()
         {
+            string apiKey = this.apiKeyTextBox.Text;
+            string model = this.modelTextBox.Text;
+            string reasoningEffort = this.reasoningEffortComboBox.SelectedItem?.ToString();
+            
+            // Use the internal validation method with UI values
+            return ValidateSettingsLogic(apiKey, model, reasoningEffort, showErrorDialogs: true);
+        }
+
+        /// <summary>
+        /// Internal method for validating OpenAI settings.
+        /// </summary>
+        /// <param name="apiKey">The API key to validate.</param>
+        /// <param name="model">The model name to validate.</param>
+        /// <param name="reasoningEffort">The reasoning effort setting to validate.</param>
+        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
+        /// <returns>True if all provided settings are valid, otherwise false.</returns>
+        internal static bool ValidateSettingsLogic(string apiKey, string model, string reasoningEffort, bool showErrorDialogs = false)
+        {
             // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(this.apiKeyTextBox.Text) || this.apiKeyTextBox.Text == "<secret-defined>")
+            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
             {
-                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
+                }
                 return false;
             }
 
             // Check if the model is provided
-            if (string.IsNullOrWhiteSpace(this.modelTextBox.Text))
+            if (string.IsNullOrWhiteSpace(model))
             {
-                StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                }
+                return false;
+            }
+            
+            // Check if reasoning effort is valid
+            if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high" }.Contains(reasoningEffort))
+            {
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
+                }
                 return false;
             }
 
