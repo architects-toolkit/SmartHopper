@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added DeepSeek provider.
+- Added DeepSeek provider ([#222](https://github.com/architects-toolkit/SmartHopper/issues/222)).
 
 ### Removed
 
 - Removed `private LoadSettings` method from `OpenAISettings`.
 - Removed `private LoadSettings` method from `TemplateProviderSettings`.
+- Removed `ConcatenateItemsToJsonList` method from `ParsingTools` since it was not used.
+
+### Fixed
+
+- Fixed `AI List Filter might not be working as expected` ([#220](https://github.com/architects-toolkit/SmartHopper/issues/220)).
 
 ## [0.3.2-alpha] - 2025-06-15
 
