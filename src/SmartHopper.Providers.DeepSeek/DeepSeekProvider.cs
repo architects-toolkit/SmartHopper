@@ -155,29 +155,12 @@ namespace SmartHopper.Providers.DeepSeek
                 // API key format is valid
             }
 
-            // Check endpoint format if present
-            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
+            // Check model format if present
+            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
-                string endpoint = endpointObj.ToString();
-                if (string.IsNullOrWhiteSpace(endpoint))
+                string model = modelObj.ToString();
+                if (string.IsNullOrWhiteSpace(model))
                 {
-                    // Invalid format: empty endpoint
-                    return false;
-                }
-                
-                // Optional: Add URL format validation if needed
-                try
-                {
-                    // Simple URL validation
-                    if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
-                    {
-                        // Invalid format: not a URL
-                        return false;
-                    }
-                }
-                catch
-                {
-                    // Invalid format
                     return false;
                 }
             }
@@ -344,7 +327,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-                string url = string.IsNullOrWhiteSpace(endpoint) ? ApiURL : endpoint;
+                string url = ApiURL;
                 Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
 
                 var response = await httpClient.PostAsync(url, requestContent).ConfigureAwait(false);
