@@ -18,9 +18,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
-using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Providers.DeepSeek
 {

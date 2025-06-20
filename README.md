@@ -6,6 +6,7 @@
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
+[![DeepSeek](https://img.shields.io/badge/AI--powered-DeepSeek-blue?logo=deepseek)](https://deepseek.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
 SmartHopper is a groundbreaking plugin that enables AI to directly interact with your Grasshopper canvas! Ask for help, search on the McNeel forum, reorganize components, toggle preview on or off, and much more, just by chatting with your customizable AI assistant. Additionally, this plugins includes multiple components that correspond to individual AI tools, so that you can integrate text- or list-based operations directly into your definition.
@@ -14,7 +15,7 @@ SmartHopper is a groundbreaking plugin that enables AI to directly interact with
 
 - 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
 - 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
-- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/) and [**OpenAI**](https://openai.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
+- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/), [**OpenAI**](https://openai.com/) and [**DeepSeek**](https://deepseek.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
 - 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
 
 ## 👥 Who Is This For?
@@ -103,8 +104,8 @@ SmartHopper is currently supporting the following AI providers:
 |----------|:------:|-------------------|
 | [MistralAI](https://mistral.ai/) | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) |
 | [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
+| [DeepSeek](https://deepseek.com/) | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) |
 | [Anthropic](https://anthropic.com/) | 🔜 Planned | [Anthropic Console](https://console.anthropic.com/) |
-| [DeepSeek](https://deepseek.com/) | 🔜 Planned | [DeepSeek Platform](https://platform.deepseek.com/) |
 
 ## 🔢 Supported Data Types
 
