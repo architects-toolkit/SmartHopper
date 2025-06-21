@@ -190,11 +190,11 @@ namespace SmartHopper.Providers.DeepSeek
                 foreach (var msg in messages)
                 {
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string content = msg["content"]?.ToString() ?? string.Empty;
+                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content,
+                        ["content"] = msgContent,
                     };
 
                     // Map role names
@@ -257,7 +257,7 @@ namespace SmartHopper.Providers.DeepSeek
                     // Add response format for structured output
                     requestBody["response_format"] = new JObject
                     {
-                        ["type"] = "json_object"
+                        ["type"] = "json_object",
                     };
 
                     // Add schema as a system message to guide the model
@@ -278,7 +278,7 @@ namespace SmartHopper.Providers.DeepSeek
                 // Add tools if requested
                 if (includeToolDefinitions)
                 {
-                    var tools = GetFormattedTools();
+                    var tools = this.GetFormattedTools();
                     if (tools != null && tools.Count > 0)
                     {
                         requestBody["tools"] = tools;
@@ -321,14 +321,20 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 var usage = responseJson["usage"] as JObject;
+                var reasoning = message["reasoning_content"]?.ToString();
+                var content = message["content"]?.ToString() ?? string.Empty;
+                var combined = !string.IsNullOrWhiteSpace(reasoning)
+                    ? $"<think>{reasoning}</think>{content}"
+                    : content;
+
                 var aiResponse = new AIResponse
                 {
-                    Response = message["content"]?.ToString() ?? string.Empty,
-                    Provider = Name,
+                    Response = combined,
+                    Provider = this.Name,
                     Model = modelName,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0
+                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
                 };
 
                 return aiResponse;
@@ -350,15 +356,19 @@ namespace SmartHopper.Providers.DeepSeek
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
                 return requestedModel;
+            }
 
             // Use the model from settings if available
             string modelFromSettings = GetSetting<string>("Model");
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
                 return modelFromSettings;
+            }
 
             // Fall back to the default model
-            return DefaultModel;
+            return this.DefaultModel;
         }
     }
 }

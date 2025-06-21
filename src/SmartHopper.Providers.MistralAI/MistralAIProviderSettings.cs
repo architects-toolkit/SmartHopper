@@ -19,10 +19,10 @@ namespace SmartHopper.Providers.MistralAI
 {
     public class MistralAIProviderSettings : AIProviderSettings, IDisposable
     {
+        private new readonly MistralAIProvider provider;
         private new TextBox apiKeyTextBox;
         private new TextBox modelTextBox;
         private new NumericUpDown maxTokensNumeric;
-        private new readonly MistralAIProvider provider;
 
         public MistralAIProviderSettings(MistralAIProvider provider)
             : base(provider)
