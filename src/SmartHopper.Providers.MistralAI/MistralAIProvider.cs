@@ -20,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Utils;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -177,11 +178,12 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     // Provider-specific: propagate assistant tool_call messages unmodified
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string content = msg["content"]?.ToString() ?? string.Empty;
+                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                    msgContent = AI.StripThinkTags(msgContent);
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content,
+                        ["content"] = msgContent,
                     };
 
                     // Map role names
