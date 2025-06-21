@@ -25,17 +25,17 @@ namespace SmartHopper.Providers.OpenAI
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public sealed class OpenAI : AIProvider
+    public sealed class OpenAIProvider : AIProvider
     {
         private const string NameValue = "OpenAI";
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
         private const string DefaultModelValue = "gpt-4o-mini";
 
-        private static readonly Lazy<OpenAI> InstanceValue = new (() => new OpenAI());
+        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
 
-        public static OpenAI Instance => InstanceValue.Value;
+        public static OpenAIProvider Instance => InstanceValue.Value;
 
-        private OpenAI()
+        private OpenAIProvider()
         {
         }
 
@@ -169,7 +169,7 @@ namespace SmartHopper.Providers.OpenAI
             // Only validate settings that are actually provided (partial updates allowed)
             if (apiKey != null || model != null || reasoningEffort != null)
             {
-                isValid = OpenAISettings.ValidateSettingsLogic(apiKey, model, reasoningEffort);
+                isValid = OpenAIProviderSettings.ValidateSettingsLogic(apiKey, model, reasoningEffort);
             }
 
             Debug.WriteLine($"[OpenAI] Settings validation result: {isValid}");

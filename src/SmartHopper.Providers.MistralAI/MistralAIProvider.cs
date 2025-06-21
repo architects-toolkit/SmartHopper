@@ -21,19 +21,19 @@ using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
 
-namespace SmartHopper.Providers.MistralAI
+namespace SmartHopper.Providers.MistralAIProvider
 {
-    public sealed class MistralAI : AIProvider
+    public sealed class MistralAIProvider : AIProvider
     {
         private const string NameValue = "MistralAI";
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
         private const string DefaultModelValue = "mistral-small-latest";
 
-        private static readonly Lazy<MistralAI> InstanceValue = new (() => new MistralAI());
+        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
 
-        public static MistralAI Instance => InstanceValue.Value;
+        public static MistralAIProvider Instance => InstanceValue.Value;
 
-        private MistralAI()
+        private MistralAIProvider()
         {
         }
 
@@ -138,7 +138,7 @@ namespace SmartHopper.Providers.MistralAI
             // Only validate settings that are actually provided (partial updates allowed)
             if (apiKey != null || model != null || maxTokens.HasValue)
             {
-                isValid = MistralAISettings.ValidateSettingsLogic(apiKey, model, maxTokens);
+                isValid = MistralAIProviderSettings.ValidateSettingsLogic(apiKey, model, maxTokens);
             }
 
             Debug.WriteLine($"[MistralAI] Settings validation result: {isValid}");

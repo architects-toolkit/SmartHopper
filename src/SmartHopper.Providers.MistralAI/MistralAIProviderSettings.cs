@@ -17,14 +17,14 @@ using SmartHopper.Config.Interfaces;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public class MistralAISettings : AIProviderSettings, IDisposable
+    public class MistralAIProviderSettings : AIProviderSettings, IDisposable
     {
         private new TextBox apiKeyTextBox;
         private new TextBox modelTextBox;
         private new NumericUpDown maxTokensNumeric;
-        private new readonly MistralAI provider;
+        private new readonly MistralAIProvider provider;
 
-        public MistralAISettings(MistralAI provider)
+        public MistralAIProviderSettings(MistralAIProvider provider)
             : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
