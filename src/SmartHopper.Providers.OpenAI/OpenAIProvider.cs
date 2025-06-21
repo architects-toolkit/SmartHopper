@@ -103,6 +103,7 @@ namespace SmartHopper.Providers.OpenAI
                     IsSecret = false,
                     DisplayName = "Reasoning Effort",
                     Description = "Level of reasoning effort for reasoning models (low, medium, or high)",
+                    AllowedValues = new[] { "low", "medium", "high" },
                 },
             };
         }

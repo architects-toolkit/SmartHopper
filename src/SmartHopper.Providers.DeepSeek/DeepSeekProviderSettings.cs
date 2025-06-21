@@ -39,59 +39,6 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Creates a control for configuring the provider settings.
-        /// This control will be displayed in the settings dialog.
-        /// </summary>
-        /// <returns>A control for configuring the provider settings.</returns>
-        public Control CreateSettingsControl()
-        {
-            // Create a table layout panel for the settings
-            var panel = new TableLayoutPanel
-            {
-                RowCount = 3,
-                ColumnCount = 2,
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10),
-                ColumnStyles =
-                {
-                    new ColumnStyle(SizeType.Percent, 30),
-                    new ColumnStyle(SizeType.Percent, 70),
-                },
-            };
-
-            // API Key
-            panel.Controls.Add(new Label { Text = "API Key:", Dock = DockStyle.Fill }, 0, 0);
-            apiKeyTextBox = new TextBox
-            {
-                PasswordChar = '*', // Hide the API key for security
-                Dock = DockStyle.Fill,
-            };
-            panel.Controls.Add(apiKeyTextBox, 1, 0);
-
-            // Model
-            panel.Controls.Add(new Label { Text = "Model:", Dock = DockStyle.Fill }, 0, 1);
-            modelTextBox = new TextBox
-            {
-                Dock = DockStyle.Fill,
-            };
-            panel.Controls.Add(modelTextBox, 1, 1);
-
-            // Max Tokens
-            panel.Controls.Add(new Label { Text = "Max Tokens:", Dock = DockStyle.Fill }, 0, 2);
-            maxTokensNumeric = new NumericUpDown
-            {
-                Minimum = 1,
-                Maximum = 100000,
-                Value = 1000,
-                Dock = DockStyle.Fill,
-            };
-            panel.Controls.Add(maxTokensNumeric, 1, 2);
-
-            return panel;
-        }
-
-
-        /// <summary>
         /// Internal method for validating DeepSeek settings.
         /// </summary>
         /// <param name="apiKey">The API key to validate.</param>

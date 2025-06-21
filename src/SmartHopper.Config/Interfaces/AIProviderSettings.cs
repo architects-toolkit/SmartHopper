@@ -22,7 +22,6 @@ namespace SmartHopper.Config.Interfaces
     /// </summary>
     public interface IAIProviderSettings
     {
-        Control CreateSettingsControl();
     }
 
     /// <summary>
@@ -39,35 +38,6 @@ namespace SmartHopper.Config.Interfaces
         protected AIProviderSettings(IAIProvider provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
-        }
-
-        public virtual Control CreateSettingsControl()
-        {
-            var panel = new TableLayoutPanel
-            {
-                RowCount = 3,
-                ColumnCount = 2,
-                Dock = DockStyle.Fill,
-                Padding = new Padding(5),
-                AutoSize = true,
-            };
-
-            // API Key
-            panel.Controls.Add(new Label { Text = "API Key:", Dock = DockStyle.Fill }, 0, 0);
-            this.apiKeyTextBox = new TextBox { UseSystemPasswordChar = true, Dock = DockStyle.Fill };
-            panel.Controls.Add(this.apiKeyTextBox, 1, 0);
-
-            // Model
-            panel.Controls.Add(new Label { Text = "Model:", Dock = DockStyle.Fill }, 0, 1);
-            this.modelTextBox = new TextBox { Dock = DockStyle.Fill };
-            panel.Controls.Add(this.modelTextBox, 1, 1);
-
-            // Max Tokens
-            panel.Controls.Add(new Label { Text = "Max Tokens:", Dock = DockStyle.Fill }, 0, 2);
-            this.maxTokensNumeric = new NumericUpDown { Minimum = 1, Maximum = 4096, Value = 150, Dock = DockStyle.Fill };
-            panel.Controls.Add(this.maxTokensNumeric, 1, 2);
-
-            return panel;
         }
     }
 }
