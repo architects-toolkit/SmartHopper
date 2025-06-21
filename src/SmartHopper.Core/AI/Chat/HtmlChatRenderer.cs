@@ -135,6 +135,8 @@ namespace SmartHopper.Core.AI.Chat
                         response);
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
 
+                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML: {messageHtml}");
+
                     return messageHtml;
                 }
                 catch (Exception ex)
