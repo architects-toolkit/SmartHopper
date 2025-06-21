@@ -9,6 +9,7 @@
  */
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
@@ -82,8 +83,9 @@ namespace SmartHopper.Core.Grasshopper.Tools
         /// Concatenates a list of GH_String items into a JSON dictionary format.
         /// </summary>
         /// <param name="inputList">The list of GH_String items.</param>
-        /// <returns>A JSON string representing the list as a dictionary.</returns>
-        public static string ConcatenateItemsToJson(List<GH_String> inputList)
+        /// <param name="output">Dictionary or array format. Default is dictionary.</param>
+        /// <returns>A JSON string representing the list as a dictionary or array.</returns>
+        public static string ConcatenateItemsToJson(List<GH_String> inputList, string output = "dict")
         {
             var stringList = new List<string>();
 
@@ -92,19 +94,20 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 stringList.Add(item.ToString());
             }
 
-            return "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}"; // Dictionary format
-        }
+            var result = "";
+            if (output.ToLower() == "array" || output.ToLower() == "arr")
+            {
+                // Array format
+                result = "[" + string.Join(",", stringList.Select((value, index) => $"\"{value}\"")) + "]";
+            }
+            else
+            {
+                // Dictionary format
+                result = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}";
+            }
 
-        /// <summary>
-        /// Concatenates a list of GH_String items into a JSON dictionary format and returns it as a GH_String list with a single item.
-        /// </summary>
-        /// <param name="inputList">The list of GH_String items.</param>
-        /// <returns>A list containing a single GH_String with the JSON representation of the input list.</returns>
-        public static List<GH_String> ConcatenateItemsToJsonList(List<GH_String> inputList)
-        {
-            var result = new List<GH_String>();
-            var jsonString = ConcatenateItemsToJson(inputList);
-            result.Add(new GH_String(jsonString));
+            Debug.WriteLine($"[ParsingTools] Concatenated JSON: {result}");
+
             return result;
         }
 

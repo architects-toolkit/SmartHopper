@@ -90,6 +90,8 @@ namespace SmartHopper.Components.List
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
 
+                Debug.WriteLine($"[Worker] String list tree: {stringListTree}");
+
                 // Store the converted trees
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Criteria"] = criteriaTree;
@@ -137,7 +139,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"]);
+                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"], "array");
                 var criteriaTree = branches["Criteria"];
 
                 // Normalize tree lengths
@@ -165,6 +167,9 @@ namespace SmartHopper.Components.List
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
 
+                    Debug.WriteLine($"[ProcessData] List: {normalizedListTree[i].Value}");
+                    Debug.WriteLine($"[ProcessData] Criterion: {criterion.Value}");
+
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
                     {
@@ -172,6 +177,8 @@ namespace SmartHopper.Components.List
                         ["criteria"] = criterion.Value,
                         ["contextProviderFilter"] = "-environment,-time"
                     };
+
+                    Debug.WriteLine($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
 
                     var toolResult = await parent.CallAiToolAsync(
                         "list_filter", parameters, reuseCount)

@@ -1,11 +1,12 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E3%2E2--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E3%2E3--dev%2E250620-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
-[![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-blue?logo=openai)](https://openai.com/)
+[![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-lightgrey?logo=openai)](https://openai.com/)
+[![DeepSeek](https://img.shields.io/badge/AI--powered-DeepSeek-blue?logo=deepseek)](https://deepseek.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
 SmartHopper is a groundbreaking plugin that enables AI to directly interact with your Grasshopper canvas! Ask for help, search on the McNeel forum, reorganize components, toggle preview on or off, and much more, just by chatting with your customizable AI assistant. Additionally, this plugins includes multiple components that correspond to individual AI tools, so that you can integrate text- or list-based operations directly into your definition.
@@ -14,7 +15,7 @@ SmartHopper is a groundbreaking plugin that enables AI to directly interact with
 
 - 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
 - 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
-- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/) and [**OpenAI**](https://openai.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
+- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/), [**OpenAI**](https://openai.com/) and [**DeepSeek**](https://deepseek.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
 - 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
 
 ## 👥 Who Is This For?
@@ -32,7 +33,26 @@ SmartHopper is a groundbreaking plugin that enables AI to directly interact with
 
 ## 💻 Installation
 
-SmartHopper is not yet available through Food4Rhino. We will be releasing it soon! In the meanwhile, you can download it directly from the [Releases](https://github.com/architects-toolkit/SmartHopper/releases) section in this repository.
+You can install SmartHopper through multiple methods:
+
+1. **Rhino Package Manager** (Recommended):
+   - Open Rhino 8
+   - Type `PackageManager` in the command line
+   - In the Package Manager, select "include pre-releases"
+   - Search for "SmartHopper"
+   - Click "Install"
+
+2. **Food4Rhino**:
+   - Go to [Food4Rhino](https://www.food4rhino.com/en/app/smarthopper)
+   - Click "Install"
+
+3. **GitHub Releases**:
+   - Download the latest release from our [GitHub Releases](https://github.com/architects-toolkit/SmartHopper/releases) page
+   - Extract the downloaded ZIP file
+   - Copy the contents to your Grasshopper plugins folder
+   - Restart Rhino
+
+After installation, all SmartHopper components will be available in the Grasshopper palette.
 
 ## 📊 Development Status
 
@@ -45,7 +65,7 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 | Grasshopper Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Grasshopper Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
-| AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | 🟠 | - |
+| AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Chat Input (AiChatInput)<br><sub>Send some data from your Grasshopper to the AI Chat</sub> | ⚪ | - | - | - |
 | AI Chat Output (AiChatOutput)<br><sub>Receive some data from the AI Chat to your Grasshopper</sub> | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -69,15 +89,17 @@ SmartHopper is not yet available through Food4Rhino. We will be releasing it soo
 
 ### AI Tools
 
+AI Tools are the interface between AI and Grasshopper, allowing to, for example, read your selected components, get the available Grasshopper components, or write a new script. All these tools are available to the provider to use while chatting in the AI Chat component.
+
 | Tool Name | Description | Planned | In Progress | Testing | Released 🎉 |
 |-----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
 | text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
 | text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_evaluate | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | - |
+| script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
-| script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | - |
+| script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
 | web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
 | web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -103,8 +125,8 @@ SmartHopper is currently supporting the following AI providers:
 |----------|:------:|-------------------|
 | [MistralAI](https://mistral.ai/) | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) |
 | [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
+| [DeepSeek](https://deepseek.com/) | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) |
 | [Anthropic](https://anthropic.com/) | 🔜 Planned | [Anthropic Console](https://console.anthropic.com/) |
-| [DeepSeek](https://deepseek.com/) | 🔜 Planned | [DeepSeek Platform](https://platform.deepseek.com/) |
 
 ## 🔢 Supported Data Types
 
@@ -123,31 +145,7 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 
 ## 📚 Usage Examples
 
-**Disclaimer:** All videos correspond to previous versions. Since version 0.2.0, the plugin made a huge step forward and the interface has been completely redesigned. It looks much better now, and its functionality has been enhanced.
-
-### 1 Generate a Title for the Current Document
-
-[![SmartHopper_Generate Title](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651352-6cfca3b39c99d01e9bbdb1590ac7f1325d35b8dfa16e0b5ced2aad704eef2bbe-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447175)
-
-### 2 Working with a CSV file
-
-[![SmartHopper_Working With CSV](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651410-3ca705fd2e8fe276e9ee965339714c2de11f579ecf73d39fa92299b7b9015707-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447217)
-
-## ⚙️ Configuration
-
-### Set Up the API Key and Other Settings
-
-[![SmartHopper_Settings](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651378-ee922c5452393594d6ec931f112e24c82cceadb6c5dab80ced5e362a13ef0d45-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447205)
-
-### Choose the Provider for each Component
-
-[![SmartHopper_Select Provider](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966651347-eb497ba95d6fc8008fdb3db9b6288dbdaa4b7b4ab7a3f5f99ccd55495545a00f-d_200x150&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043447190)
-
-## ⏩ Developing the Chat Interface
-
-**Disclaimer:** The following video was a previous conceptual preview of the chat interface. From version 0.2.0, the chat interface is now available with a different design. Features will be added in future releases.
-
-[![SmartHopper_Chat Concept](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F1966657705-a1e9c281ab11e341df94bd14ee797d816afe34413b5af057841d6eb6191595fd-d_295x166&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1043452514)
+No usage examples available at the moment.
 
 ## 🤝 Contributing
 
