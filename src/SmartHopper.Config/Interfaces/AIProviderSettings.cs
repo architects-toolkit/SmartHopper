@@ -23,12 +23,6 @@ namespace SmartHopper.Config.Interfaces
     public interface IAIProviderSettings
     {
         Control CreateSettingsControl();
-
-        Dictionary<string, object> GetSettings();
-
-        void LoadSettings(Dictionary<string, object> settings);
-
-        bool ValidateSettings();
     }
 
     /// <summary>
@@ -74,74 +68,6 @@ namespace SmartHopper.Config.Interfaces
             panel.Controls.Add(this.maxTokensNumeric, 1, 2);
 
             return panel;
-        }
-
-        public virtual Dictionary<string, object> GetSettings()
-        {
-            return new Dictionary<string, object>
-            {
-                ["ApiKey"] = this.apiKeyTextBox.Text == "<secret-defined>" ? this.decryptedApiKey ?? string.Empty : this.apiKeyTextBox.Text,
-                ["Model"] = string.IsNullOrWhiteSpace(this.modelTextBox.Text) ? this.provider.DefaultModel : this.modelTextBox.Text,
-                ["MaxTokens"] = (int)this.maxTokensNumeric.Value,
-            };
-        }
-
-        public virtual void LoadSettings(Dictionary<string, object> settings)
-        {
-            if (settings == null)
-            {
-                return;
-            }
-
-            try
-            {
-                // API Key
-                if (settings.ContainsKey("ApiKey"))
-                {
-                    var raw = settings["ApiKey"];
-                    if (raw is string key && !string.IsNullOrEmpty(key))
-                    {
-                        this.decryptedApiKey = key;
-                        this.apiKeyTextBox.Text = "<secret-defined>";
-                    }
-                    else if (raw is bool ok && ok)
-                    {
-                        this.apiKeyTextBox.Text = "<secret-defined>";
-                    }
-                    else
-                    {
-                        this.apiKeyTextBox.Text = string.Empty;
-                    }
-                }
-
-                // Model
-                if (settings.ContainsKey("Model"))
-                    modelTextBox.Text = settings["Model"]?.ToString();
-                else
-                    modelTextBox.Text = provider.DefaultModel;
-
-                // Max Tokens
-                if (settings.ContainsKey("MaxTokens") && settings["MaxTokens"] is int maxTokens)
-                    maxTokensNumeric.Value = maxTokens;
-                else if (settings.ContainsKey("MaxTokens") && int.TryParse(settings["MaxTokens"]?.ToString(), out int parsed))
-                    maxTokensNumeric.Value = parsed;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading {provider.Name} provider settings: {ex.Message}");
-            }
-        }
-
-        public virtual bool ValidateSettings()
-        {
-            var text = this.apiKeyTextBox.Text;
-            if (string.IsNullOrWhiteSpace(text) || (text == "<secret-defined>" && string.IsNullOrEmpty(this.decryptedApiKey)))
-            {
-                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
-                return false;
-            }
-
-            return true;
         }
     }
 }

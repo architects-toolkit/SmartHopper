@@ -91,68 +91,6 @@ namespace SmartHopper.Providers.Template
             return panel;
         }
 
-        /// <summary>
-        /// Gets the current settings from the UI controls.
-        /// </summary>
-        /// <returns>A dictionary containing the current settings.</returns>
-        public Dictionary<string, object> GetSettings()
-        {
-            return new Dictionary<string, object>
-            {
-                ["ApiKey"] = apiKeyTextBox.Text,
-                ["Model"] = string.IsNullOrWhiteSpace(modelTextBox.Text) ? provider.DefaultModel : modelTextBox.Text,
-                ["MaxTokens"] = (int)maxTokensNumeric.Value
-            };
-        }
-
-        /// <summary>
-        /// Loads settings into the UI controls.
-        /// </summary>
-        /// <param name="settings">The settings to load.</param>
-        public void LoadSettings(Dictionary<string, object> settings)
-        {
-            if (settings == null)
-                return;
-            try
-            {
-                // Load API Key (show placeholder only)
-                if (settings.ContainsKey("ApiKey"))
-                {
-                    bool defined = !string.IsNullOrEmpty(settings["ApiKey"]?.ToString());
-                    apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
-                }
-
-                // Load Model
-                if (settings.ContainsKey("Model"))
-                    modelTextBox.Text = settings["Model"].ToString();
-                else
-                    modelTextBox.Text = provider.DefaultModel;
-
-                // Load Max Tokens
-                if (settings.ContainsKey("MaxTokens") && settings["MaxTokens"] is int maxTokens)
-                    maxTokensNumeric.Value = maxTokens;
-                else if (settings.ContainsKey("MaxTokens") && int.TryParse(settings["MaxTokens"].ToString(), out int parsedMaxTokens))
-                    maxTokensNumeric.Value = parsedMaxTokens;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading Template provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Validates the current settings.
-        /// </summary>
-        /// <returns>True if the settings are valid, otherwise false.</returns>
-        public bool ValidateSettings()
-        {
-            string apiKey = this.apiKeyTextBox.Text;
-            string endpoint = null; // No endpointTextBox in this class
-            int? maxTokens = this.maxTokensNumeric != null ? (int?)this.maxTokensNumeric.Value : null;
-            
-            // Use the centralized validation method with UI values
-            return ValidateSettingsLogic(apiKey, endpoint, maxTokens, showErrorDialogs: true);
-        }
 
         /// <summary>
         /// Internal method for validating Template provider settings.

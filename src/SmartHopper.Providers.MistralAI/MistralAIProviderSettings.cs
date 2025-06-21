@@ -72,74 +72,6 @@ namespace SmartHopper.Providers.MistralAI
             return panel;
         }
 
-        public Dictionary<string, object> GetSettings()
-        {
-            return new Dictionary<string, object>
-            {
-                ["ApiKey"] = this.apiKeyTextBox.Text,
-                ["Model"] = string.IsNullOrWhiteSpace(this.modelTextBox.Text) ? this.provider.DefaultModel : this.modelTextBox.Text,
-                ["MaxTokens"] = (int)this.maxTokensNumeric.Value,
-            };
-        }
-
-        public void LoadSettings(Dictionary<string, object> settings)
-        {
-            if (settings == null)
-            {
-                return;
-            }
-
-            try
-            {
-                // Load API Key (show placeholder only)
-                if (settings.ContainsKey("ApiKey"))
-                {
-                    bool defined = !string.IsNullOrEmpty(settings["ApiKey"]?.ToString());
-                    apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
-                }
-
-                // Load Model
-                if (settings.TryGetValue("Model", out object? modelValue))
-                {
-                    this.modelTextBox.Text = modelValue.ToString();
-                }
-                else
-                {
-                    this.modelTextBox.Text = this.provider.DefaultModel;
-                }
-
-                // Load Max Tokens
-                if (settings.TryGetValue("MaxTokens", out object? maxTokensValue))
-                {
-                    if (maxTokensValue is int maxTokens)
-                    {
-                        this.maxTokensNumeric.Value = maxTokens;
-                    }
-                    else if (int.TryParse(maxTokensValue.ToString(), out int parsedMaxTokens))
-                    {
-                        this.maxTokensNumeric.Value = parsedMaxTokens;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading MistralAI provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Validates the current settings from the UI controls.
-        /// </summary>
-        /// <returns>True if the settings are valid, otherwise false.</returns>
-        public bool ValidateSettings()
-        {
-            string apiKey = this.apiKeyTextBox.Text;
-            string model = this.modelTextBox.Text;
-            int? maxTokens = this.maxTokensNumeric != null ? (int?)this.maxTokensNumeric.Value : null;
-
-            // Use the centralized validation method with UI values
-            return ValidateSettingsLogic(apiKey, model, maxTokens, showErrorDialogs: true);
-        }
 
         /// <summary>
         /// Internal method for validating MistralAI settings.
@@ -155,26 +87,9 @@ namespace SmartHopper.Providers.MistralAI
 
             // Skip API key validation since any value is valid
 
-            if (string.IsNullOrWhiteSpace(model))
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
-                }
-                return false;
-            }
+            // Skip model validation since any value is valid
 
-            // Check if the model is provided
-            if (string.IsNullOrWhiteSpace(model))
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
-                }
-                return false;
-            }
-
-            // Check max tokens if provided
+            // Ensure max tokens is greater than 0
             if (maxTokens.HasValue && maxTokens.Value <= 0)
             {
                 if (showErrorDialogs)
