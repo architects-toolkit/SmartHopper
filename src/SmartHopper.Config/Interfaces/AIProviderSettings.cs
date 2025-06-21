@@ -10,10 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Windows.Forms;
-using SmartHopper.Config.Dialogs;
-using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Config.Interfaces
 {
@@ -22,6 +19,9 @@ namespace SmartHopper.Config.Interfaces
     /// </summary>
     public interface IAIProviderSettings
     {
+        IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        bool ValidateSettings(Dictionary<string, object> settings);
     }
 
     /// <summary>
@@ -30,14 +30,14 @@ namespace SmartHopper.Config.Interfaces
     public abstract class AIProviderSettings : IAIProviderSettings
     {
         protected readonly IAIProvider provider;
-        protected TextBox apiKeyTextBox;
-        protected TextBox modelTextBox;
-        protected NumericUpDown maxTokensNumeric;
-        protected string decryptedApiKey;
 
         protected AIProviderSettings(IAIProvider provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
+
+        public abstract IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        public abstract bool ValidateSettings(Dictionary<string, object> settings);
     }
 }

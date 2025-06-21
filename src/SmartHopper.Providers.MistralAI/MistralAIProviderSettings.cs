@@ -11,18 +11,15 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Windows.Forms;
 using SmartHopper.Config.Dialogs;
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public class MistralAIProviderSettings : AIProviderSettings, IDisposable
+    public class MistralAIProviderSettings : AIProviderSettings
     {
         private new readonly MistralAIProvider provider;
-        private new TextBox apiKeyTextBox;
-        private new TextBox modelTextBox;
-        private new NumericUpDown maxTokensNumeric;
 
         public MistralAIProviderSettings(MistralAIProvider provider)
             : base(provider)
@@ -30,17 +27,81 @@ namespace SmartHopper.Providers.MistralAI
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
-        /// <summary>
-        /// Internal method for validating MistralAI settings.
-        /// </summary>
-        /// <param name="apiKey">The API key to validate.</param>
-        /// <param name="model">The model name to validate.</param>
-        /// <param name="maxTokens">The maximum tokens setting to validate.</param>
-        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
-        /// <returns>True if all provided settings are valid, otherwise false.</returns>
-        internal static bool ValidateSettingsLogic(string apiKey, string model, int? maxTokens = null, bool showErrorDialogs = false)
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
+            return new[]
+            {
+                new SettingDescriptor
+                {
+                    Name = "ApiKey",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    IsSecret = true,
+                    DisplayName = "API Key",
+                    Description = "Your MistralAI API key",
+                },
+                new SettingDescriptor
+                {
+                    Name = "Model",
+                    Type = typeof(string),
+                    DefaultValue = this.provider.DefaultModel,
+                    IsSecret = false,
+                    DisplayName = "Model",
+                    Description = "The model to use for completions",
+                },
+                new SettingDescriptor
+                {
+                    Name = "MaxTokens",
+                    Type = typeof(int),
+                    DefaultValue = 150,
+                    IsSecret = false,
+                    DisplayName = "Max Tokens",
+                    Description = "Maximum number of tokens to generate",
+                },
+            };
+        }
+
+        public override bool ValidateSettings(Dictionary<string, object> settings)
+        {
+            Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
+
+            if (settings == null)
+            {
+                return false;
+            }
+
+            // Extract values from settings dictionary
+            string apiKey = null;
+            string model = null;
+            int? maxTokens = null;
+
+            // Get API key if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
+            {
+                apiKey = apiKeyObj.ToString();
+                Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
+            }
+
+            // Get model if present
+            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
+            {
+                model = modelObj.ToString();
+                Debug.WriteLine($"[MistralAI] Model extracted: {model}");
+            }
+
+            // Check max tokens if present - must be a positive number
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
+                {
+                    maxTokens = parsedMaxTokens;
+                }
+            }
+
             Debug.WriteLine($"Validating MistralAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+
+            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
 
             // Skip API key validation since any value is valid
 
@@ -58,11 +119,6 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             return true;
-        }
-
-        public void Dispose()
-        {
-            throw new NotImplementedException();
         }
     }
 }

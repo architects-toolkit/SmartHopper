@@ -11,9 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Windows.Forms;
 using SmartHopper.Config.Dialogs;
 using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -25,9 +25,6 @@ namespace SmartHopper.Providers.DeepSeek
     public class DeepSeekProviderSettings : AIProviderSettings
     {
         private readonly IAIProvider provider;
-        private TextBox apiKeyTextBox;
-        private TextBox modelTextBox;
-        private NumericUpDown maxTokensNumeric;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.
@@ -39,16 +36,68 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Internal method for validating DeepSeek settings.
+        /// Gets the setting descriptors for this provider.
+        /// These describe the settings that can be configured in the UI.
         /// </summary>
-        /// <param name="apiKey">The API key to validate.</param>
-        /// <param name="model">The model name to validate.</param>
-        /// <param name="maxTokens">The max tokens to validate.</param>
-        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
-        /// <returns>True if all provided settings are valid, otherwise false.</returns>
-        internal static bool ValidateSettingsLogic(string apiKey, string model, int maxTokens, bool showErrorDialogs = false)
+        /// <returns>A collection of setting descriptors.</returns>
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
+            // Define the settings that your provider requires
+            return new[]
+            {
+                new SettingDescriptor
+                {
+                    Name = "ApiKey",
+                    DisplayName = "API Key",
+                    Description = "Your API key for the DeepSeek service",
+                    IsSecret = true, // Set to true for sensitive data like API keys
+                    Type = typeof(string),
+                },
+                new SettingDescriptor
+                {
+                    Name = "Model",
+                    DisplayName = "Model",
+                    Description = "The model to use for generating responses",
+                    Type = typeof(string),
+                    DefaultValue = this.provider.DefaultModel,
+                },
+                new SettingDescriptor
+                {
+                    Name = "MaxTokens",
+                    DisplayName = "Max Tokens",
+                    Description = "Maximum number of tokens to generate",
+                    Type = typeof(int),
+                    DefaultValue = 150,
+                },
+            };
+        }
+
+        /// <summary>
+        /// Validates the provided settings.
+        /// </summary>
+        /// <param name="settings">The settings to validate.</param>
+        /// <returns>True if the settings are valid, otherwise false.</returns>
+        public override bool ValidateSettings(Dictionary<string, object> settings)
+        {
+            if (settings == null)
+                return false;
+
+            string apiKey = settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null
+                ? apiKeyObj.ToString()
+                : null;
+
+            string model = settings.TryGetValue("Model", out var modelObj) && modelObj != null
+                ? modelObj.ToString()
+                : this.provider.DefaultModel;
+
+            int maxTokens = settings.TryGetValue("MaxTokens", out var maxTokensObj) && 
+                             int.TryParse(maxTokensObj?.ToString(), out var mt)
+                ? mt
+                : 0;
+
             Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+
+            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
 
             // Skip API key validation since any value is valid
 

@@ -196,7 +196,7 @@ namespace SmartHopper.Menu.Dialogs
             layout.Rows.Add(new TableRow(
                 new TableCell(new Label
                 {
-                    Text = "Time to wait for input data to stabilize (no more changes) before sending a request to the AI provider (in milliseconds), specially relevant when run is permenently set to true",
+                    Text = "Time to wait for input data to stabilize (no more changes) before sending a request to the AI provider (in milliseconds), specially relevant when run is permanently set to true",
                     TextColor = Colors.Gray,
                     Font = new Font(SystemFont.Default, 10),
                     Wrap = WrapMode.Word,

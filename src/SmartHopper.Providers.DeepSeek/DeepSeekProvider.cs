@@ -96,69 +96,6 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Gets the setting descriptors for this provider.
-        /// These describe the settings that can be configured in the UI.
-        /// </summary>
-        /// <returns>A collection of setting descriptors.</returns>
-        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
-        {
-            // Define the settings that your provider requires
-            return new[]
-            {
-                new SettingDescriptor
-                {
-                    Name = "ApiKey",
-                    DisplayName = "API Key",
-                    Description = "Your API key for the DeepSeek service",
-                    IsSecret = true, // Set to true for sensitive data like API keys
-                    Type = typeof(string),
-                },
-                new SettingDescriptor
-                {
-                    Name = "Model",
-                    DisplayName = "Model",
-                    Description = "The model to use for generating responses",
-                    Type = typeof(string),
-                    DefaultValue = _defaultModel,
-                },
-                new SettingDescriptor
-                {
-                    Name = "MaxTokens",
-                    DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
-                    Type = typeof(int),
-                    DefaultValue = 150,
-                },
-            };
-        }
-
-        /// <summary>
-        /// Validates the provided settings.
-        /// </summary>
-        /// <param name="settings">The settings to validate.</param>
-        /// <returns>True if the settings are valid, otherwise false.</returns>
-        public override bool ValidateSettings(Dictionary<string, object> settings)
-        {
-            if (settings == null)
-                return false;
-
-            string apiKey = settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null
-                ? apiKeyObj.ToString()
-                : null;
-
-            string model = settings.TryGetValue("Model", out var modelObj) && modelObj != null
-                ? modelObj.ToString()
-                : DefaultModel;
-
-            int maxTokens = settings.TryGetValue("MaxTokens", out var maxTokensObj) && 
-                             int.TryParse(maxTokensObj?.ToString(), out var mt)
-                ? mt
-                : 0;
-
-            return DeepSeekProviderSettings.ValidateSettingsLogic(apiKey, model, maxTokens);
-        }
-
-        /// <summary>
         /// Gets a response from the AI provider.
         /// </summary>
         /// <param name="messages">The messages to send to the AI provider.</param>

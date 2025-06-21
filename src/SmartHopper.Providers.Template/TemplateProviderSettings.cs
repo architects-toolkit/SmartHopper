@@ -13,7 +13,6 @@ using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Windows.Forms;
 using SmartHopper.Config.Dialogs;
 
 namespace SmartHopper.Providers.Template
@@ -40,15 +39,88 @@ namespace SmartHopper.Providers.Template
         }
 
         /// <summary>
-        /// Internal method for validating Template provider settings.
+        /// Gets the setting descriptors for this provider.
+        /// These describe the settings that can be configured in the UI.
         /// </summary>
-        /// <param name="apiKey">The API key to validate.</param>
-        /// <param name="endpoint">The endpoint URL to validate.</param>
-        /// <param name="maxTokens">The maximum tokens setting to validate.</param>
-        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
-        /// <returns>True if all provided settings are valid, otherwise false.</returns>
-        internal static bool ValidateSettingsLogic(string apiKey, string endpoint = null, int? maxTokens = null, bool showErrorDialogs = false)
+        /// <returns>A collection of setting descriptors.</returns>
+        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
+            // Define the settings that your provider requires
+            return new[]
+            {
+                new SettingDescriptor
+                {
+                    Name = "ApiKey",
+                    DisplayName = "API Key",
+                    Description = "Your API key for the Template service",
+                    IsSecret = true, // Set to true for sensitive data like API keys
+                    Type = typeof(string)
+                },
+                new SettingDescriptor
+                {
+                    Name = "Model",
+                    DisplayName = "Model",
+                    Description = "The model to use for generating responses",
+                    Type = typeof(string),
+                    DefaultValue = _defaultModel
+                },
+                new SettingDescriptor
+                {
+                    Name = "MaxTokens",
+                    DisplayName = "Max Tokens",
+                    Description = "Maximum number of tokens to generate",
+                    Type = typeof(int),
+                    DefaultValue = 150
+                }
+            };
+        }
+
+        /// <summary>
+        /// Validates the provided settings.
+        /// </summary>
+        /// <param name="settings">The settings to validate.</param>
+        /// <returns>True if the settings are valid, otherwise false.</returns>
+        public override bool ValidateSettings(Dictionary<string, object> settings)
+        {
+            // Only validate settings that are actually provided
+            if (settings == null)
+                return false;
+
+            // Extract values from settings dictionary
+            string apiKey = null;
+            string endpoint = null;
+            int? maxTokens = null;
+
+            // Get API key if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
+            {
+                apiKey = apiKeyObj.ToString();
+                Debug.WriteLine($"[TemplateProvider] API key extracted (length: {apiKey.Length})");
+            }
+
+            // Get endpoint if present
+            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
+            {
+                endpoint = endpointObj.ToString();
+                Debug.WriteLine($"[TemplateProvider] Endpoint extracted: {endpoint}");
+            }
+
+            // Check max tokens if present
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
+                {
+                    maxTokens = parsedMaxTokens;
+                    Debug.WriteLine($"[TemplateProvider] MaxTokens extracted: {maxTokens}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[TemplateProvider] MaxTokens validation failed: not an integer, got {maxTokensObj}");
+                    return false;
+                }
+            }
+            
             // Skip API key validation since any value is valid
             
             // Check endpoint format if provided

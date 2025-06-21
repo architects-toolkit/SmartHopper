@@ -41,10 +41,6 @@ namespace SmartHopper.Config.Tests
             {
             }
 
-            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
-
-            public bool ValidateSettings(Dictionary<string, object> settings) => true;
-
             public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false) => Task.FromResult(default(AIResponse));
 
             public string GetModel(Dictionary<string, object> settings, string requestedModel = "") => this.DefaultModel;
@@ -52,6 +48,8 @@ namespace SmartHopper.Config.Tests
             public void InitializeSettings(Dictionary<string, object> settings)
             {
             }
+
+            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
         }
 
         private class DummySettings : IAIProviderSettings
@@ -62,6 +60,10 @@ namespace SmartHopper.Config.Tests
             {
                 this.provider = p;
             }
+
+            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+
+            public bool ValidateSettings(Dictionary<string, object> settings) => true;
         }
 
 #if NET7_WINDOWS
