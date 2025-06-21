@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `OpenAISettings` to `OpenAIProviderSettings`.
 - Renamed `MistralAI` to `MistralAIProvider`.
 - Renamed `MistralAISettings` to `MistralAIProviderSettings`.
+- Mention `DeepSeek` as available provider in the About dialog.
 
 ### Removed
 
