@@ -10,7 +10,7 @@
 
 using SmartHopper.Config.Interfaces;
 
-namespace SmartHopper.Providers.MistralAIProvider
+namespace SmartHopper.Providers.MistralAI
 {
     /// <summary>
     /// Factory class for creating MistralAIProvider provider instances.

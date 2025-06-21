@@ -26,7 +26,7 @@ namespace SmartHopper.Providers.OpenAI
     /// </summary>
     public class OpenAIProviderSettings : AIProviderSettings, IDisposable
     {
-        private new readonly OpenAI provider;
+        private new readonly OpenAIProvider provider;
         private new TextBox apiKeyTextBox;
         private new TextBox modelTextBox;
         private new NumericUpDown maxTokensNumeric;

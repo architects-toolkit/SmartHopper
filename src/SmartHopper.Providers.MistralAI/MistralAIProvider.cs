@@ -21,7 +21,7 @@ using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
 
-namespace SmartHopper.Providers.MistralAIProvider
+namespace SmartHopper.Providers.MistralAI
 {
     public sealed class MistralAIProvider : AIProvider
     {
