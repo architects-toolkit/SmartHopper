@@ -12,8 +12,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
-using SmartHopper.Config.Managers;
 using SmartHopper.Config.Dialogs;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Config.Interfaces
 {
@@ -55,26 +55,24 @@ namespace SmartHopper.Config.Interfaces
                 ColumnCount = 2,
                 Dock = DockStyle.Fill,
                 Padding = new Padding(5),
-                AutoSize = true
+                AutoSize = true,
             };
 
             // API Key
             panel.Controls.Add(new Label { Text = "API Key:", Dock = DockStyle.Fill }, 0, 0);
-            apiKeyTextBox = new TextBox { UseSystemPasswordChar = true, Dock = DockStyle.Fill };
-            panel.Controls.Add(apiKeyTextBox, 1, 0);
+            this.apiKeyTextBox = new TextBox { UseSystemPasswordChar = true, Dock = DockStyle.Fill };
+            panel.Controls.Add(this.apiKeyTextBox, 1, 0);
 
             // Model
             panel.Controls.Add(new Label { Text = "Model:", Dock = DockStyle.Fill }, 0, 1);
-            modelTextBox = new TextBox { Dock = DockStyle.Fill };
-            panel.Controls.Add(modelTextBox, 1, 1);
+            this.modelTextBox = new TextBox { Dock = DockStyle.Fill };
+            panel.Controls.Add(this.modelTextBox, 1, 1);
 
             // Max Tokens
             panel.Controls.Add(new Label { Text = "Max Tokens:", Dock = DockStyle.Fill }, 0, 2);
-            maxTokensNumeric = new NumericUpDown { Minimum = 1, Maximum = 4096, Value = 150, Dock = DockStyle.Fill };
-            panel.Controls.Add(maxTokensNumeric, 1, 2);
+            this.maxTokensNumeric = new NumericUpDown { Minimum = 1, Maximum = 4096, Value = 150, Dock = DockStyle.Fill };
+            panel.Controls.Add(this.maxTokensNumeric, 1, 2);
 
-            // Load persisted settings
-            LoadSettings();
             return panel;
         }
 
@@ -82,15 +80,19 @@ namespace SmartHopper.Config.Interfaces
         {
             return new Dictionary<string, object>
             {
-                ["ApiKey"] = apiKeyTextBox.Text == "<secret-defined>" ? decryptedApiKey ?? string.Empty : apiKeyTextBox.Text,
-                ["Model"] = string.IsNullOrWhiteSpace(modelTextBox.Text) ? provider.DefaultModel : modelTextBox.Text,
-                ["MaxTokens"] = (int)maxTokensNumeric.Value
+                ["ApiKey"] = this.apiKeyTextBox.Text == "<secret-defined>" ? this.decryptedApiKey ?? string.Empty : this.apiKeyTextBox.Text,
+                ["Model"] = string.IsNullOrWhiteSpace(this.modelTextBox.Text) ? this.provider.DefaultModel : this.modelTextBox.Text,
+                ["MaxTokens"] = (int)this.maxTokensNumeric.Value,
             };
         }
 
         public virtual void LoadSettings(Dictionary<string, object> settings)
         {
-            if (settings == null) return;
+            if (settings == null)
+            {
+                return;
+            }
+
             try
             {
                 // API Key
@@ -99,23 +101,25 @@ namespace SmartHopper.Config.Interfaces
                     var raw = settings["ApiKey"];
                     if (raw is string key && !string.IsNullOrEmpty(key))
                     {
-                        decryptedApiKey = key;
-                        apiKeyTextBox.Text = "<secret-defined>";
+                        this.decryptedApiKey = key;
+                        this.apiKeyTextBox.Text = "<secret-defined>";
                     }
                     else if (raw is bool ok && ok)
                     {
-                        apiKeyTextBox.Text = "<secret-defined>";
+                        this.apiKeyTextBox.Text = "<secret-defined>";
                     }
                     else
                     {
-                        apiKeyTextBox.Text = string.Empty;
+                        this.apiKeyTextBox.Text = string.Empty;
                     }
                 }
+
                 // Model
                 if (settings.ContainsKey("Model"))
                     modelTextBox.Text = settings["Model"]?.ToString();
                 else
                     modelTextBox.Text = provider.DefaultModel;
+
                 // Max Tokens
                 if (settings.ContainsKey("MaxTokens") && settings["MaxTokens"] is int maxTokens)
                     maxTokensNumeric.Value = maxTokens;
@@ -128,26 +132,15 @@ namespace SmartHopper.Config.Interfaces
             }
         }
 
-        private void LoadSettings()
-        {
-            try
-            {
-                ProviderManager.Instance.RefreshProviders();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading {provider.Name} provider settings: {ex.Message}");
-            }
-        }
-
         public virtual bool ValidateSettings()
         {
-            var text = apiKeyTextBox.Text;
-            if (string.IsNullOrWhiteSpace(text) || (text == "<secret-defined>" && string.IsNullOrEmpty(decryptedApiKey)))
+            var text = this.apiKeyTextBox.Text;
+            if (string.IsNullOrWhiteSpace(text) || (text == "<secret-defined>" && string.IsNullOrEmpty(this.decryptedApiKey)))
             {
                 StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
+
             return true;
         }
     }

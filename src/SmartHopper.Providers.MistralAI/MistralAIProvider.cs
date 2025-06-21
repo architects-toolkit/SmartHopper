@@ -99,6 +99,7 @@ namespace SmartHopper.Providers.MistralAI
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
             Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
+
             if (settings == null)
             {
                 return false;

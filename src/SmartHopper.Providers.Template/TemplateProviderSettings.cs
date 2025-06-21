@@ -118,7 +118,7 @@ namespace SmartHopper.Providers.Template
                 // Load API Key (show placeholder only)
                 if (settings.ContainsKey("ApiKey"))
                 {
-                    bool defined = settings["ApiKey"] is bool ok && ok;
+                    bool defined = !string.IsNullOrEmpty(settings["ApiKey"]?.ToString());
                     apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
                 }
 
@@ -164,15 +164,7 @@ namespace SmartHopper.Providers.Template
         /// <returns>True if all provided settings are valid, otherwise false.</returns>
         internal static bool ValidateSettingsLogic(string apiKey, string endpoint = null, int? maxTokens = null, bool showErrorDialogs = false)
         {
-            // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
-                }
-                return false;
-            }
+            // Skip API key validation since any value is valid
             
             // Check endpoint format if provided
             if (endpoint != null && !string.IsNullOrWhiteSpace(endpoint))
