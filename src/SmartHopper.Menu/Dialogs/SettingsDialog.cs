@@ -9,6 +9,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,22 +35,49 @@ namespace SmartHopper.Menu.Dialogs
 
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
         {
-            [typeof(string)] = descriptor => 
+            // If descriptor is a string
+            [typeof(string)] = descriptor =>
             {
+                // If descriptor has allowed values, render a dropdown
+                if (descriptor.AllowedValues != null && descriptor.AllowedValues.Any())
+                {
+                    var drop = new DropDown();
+                    foreach (var val in descriptor.AllowedValues)
+                        drop.Items.Add(new ListItem { Text = val.ToString() });
+
+                    // Select default value if present
+                    if (descriptor.DefaultValue != null)
+                    {
+                        var def = descriptor.DefaultValue.ToString();
+                        for (int i = 0; i < drop.Items.Count; i++)
+                        {
+                            if (drop.Items[i].Text == def)
+                            {
+                                drop.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    return drop;
+                }
+
+                // If descriptor is secret, render a password box
                 if (descriptor.IsSecret)
                 {
                     return new PasswordBox();
                 }
+
+                // If descriptor is a string, render a text box
                 else
                 {
                     return new TextBox();
                 }
             },
+            // If descriptor is an int, render a numeric stepper
             [typeof(int)] = descriptor => new NumericStepper
             {
                 MinValue = 1,
-                // MaxValue = 4096,
-                Value = Convert.ToInt32(descriptor.DefaultValue),
+                Value = Convert.ToInt32(descriptor.DefaultValue ?? 0),
             },
         };
 

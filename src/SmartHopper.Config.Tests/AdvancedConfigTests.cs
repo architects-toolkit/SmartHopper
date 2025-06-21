@@ -62,8 +62,6 @@ namespace SmartHopper.Config.Tests
             {
                 this.provider = p;
             }
-
-            public System.Windows.Forms.Control? CreateSettingsControl() => null;
         }
 
 #if NET7_WINDOWS
