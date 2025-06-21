@@ -8,22 +8,22 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
+using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Dialogs;
+using SmartHopper.Config.Interfaces;
 
-namespace SmartHopper.Providers.Template
+namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
     /// Settings implementation for the Template provider.
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
-    public class TemplateProviderSettings : AIProviderSettings
+    public class DeepSeekProviderSettings : AIProviderSettings
     {
         private readonly IAIProvider provider;
         private TextBox apiKeyTextBox;
@@ -31,10 +31,10 @@ namespace SmartHopper.Providers.Template
         private NumericUpDown maxTokensNumeric;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="TemplateProviderSettings"/> class.
+        /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public TemplateProviderSettings(IAIProvider provider) : base(provider)
+        public DeepSeekProviderSettings(IAIProvider provider) : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
@@ -83,11 +83,11 @@ namespace SmartHopper.Providers.Template
             {
                 Minimum = 1,
                 Maximum = 100000,
-                Value = 150,
+                Value = 1000,
                 Dock = DockStyle.Fill
             };
             panel.Controls.Add(maxTokensNumeric, 1, 2);
-            
+
             return panel;
         }
 
@@ -136,7 +136,7 @@ namespace SmartHopper.Providers.Template
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading Template provider settings: {ex.Message}");
+                Debug.WriteLine($"Error loading DeepSeek provider settings: {ex.Message}");
             }
         }
 
@@ -146,55 +146,10 @@ namespace SmartHopper.Providers.Template
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public bool ValidateSettings()
         {
-            string apiKey = this.apiKeyTextBox.Text;
-            string endpoint = null; // No endpointTextBox in this class
-            int? maxTokens = this.maxTokensNumeric != null ? (int?)this.maxTokensNumeric.Value : null;
-            
-            // Use the centralized validation method with UI values
-            return ValidateSettingsLogic(apiKey, endpoint, maxTokens, showErrorDialogs: true);
-        }
-
-        /// <summary>
-        /// Internal method for validating Template provider settings.
-        /// </summary>
-        /// <param name="apiKey">The API key to validate.</param>
-        /// <param name="endpoint">The endpoint URL to validate.</param>
-        /// <param name="maxTokens">The maximum tokens setting to validate.</param>
-        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
-        /// <returns>True if all provided settings are valid, otherwise false.</returns>
-        internal static bool ValidateSettingsLogic(string apiKey, string endpoint = null, int? maxTokens = null, bool showErrorDialogs = false)
-        {
             // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
+            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
             {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
-                }
-                return false;
-            }
-            
-            // Check endpoint format if provided
-            if (endpoint != null && !string.IsNullOrWhiteSpace(endpoint))
-            {
-                // Optional: Add URL format validation
-                if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
-                {
-                    if (showErrorDialogs)
-                    {
-                        StyledMessageDialog.ShowError("Endpoint must be a valid URL starting with http:// or https://.", "Validation Error");
-                    }
-                    return false;
-                }
-            }
-            
-            // Check max tokens if provided
-            if (maxTokens.HasValue && maxTokens.Value <= 0)
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
-                }
+                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
 

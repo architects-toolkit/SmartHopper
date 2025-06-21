@@ -22,7 +22,7 @@ namespace SmartHopper.Providers.Template
 {
     /// <summary>
     /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    /// 
+    ///
     /// To create a new provider:
     /// 1. Create a new project named SmartHopper.Providers.YourProviderName
     /// 2. Copy this template and rename all "Template" references to your provider name
@@ -104,7 +104,6 @@ namespace SmartHopper.Providers.Template
                     Name = "ApiKey",
                     DisplayName = "API Key",
                     Description = "Your API key for the Template service",
-                    IsRequired = true,
                     IsSecret = true, // Set to true for sensitive data like API keys
                     Type = typeof(string)
                 },
@@ -113,7 +112,6 @@ namespace SmartHopper.Providers.Template
                     Name = "Model",
                     DisplayName = "Model",
                     Description = "The model to use for generating responses",
-                    IsRequired = false,
                     Type = typeof(string),
                     DefaultValue = _defaultModel
                 },
@@ -122,7 +120,6 @@ namespace SmartHopper.Providers.Template
                     Name = "MaxTokens",
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
-                    IsRequired = false,
                     Type = typeof(int),
                     DefaultValue = 150
                 }

@@ -103,9 +103,6 @@ namespace SmartHopper.Providers.OpenAI
             this.reasoningEffortComboBox.SelectedIndex = 1; // Default to medium
             panel.Controls.Add(this.reasoningEffortComboBox, 1, 3);
 
-            // Load any existing settings
-            this.LoadSettings();
-
             return panel;
         }
 

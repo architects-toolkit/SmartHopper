@@ -28,6 +28,27 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const currentLabels = issue.labels.map(label => label.name);
+
+            // Remove all status labels
+            const statusLabels = currentLabels.filter(label => label.toLowerCase().startsWith('status:'));
+            
+            if (statusLabels.length > 0) {
+              for (const label of statusLabels) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name: label
+                });
+              }
+              console.log(`Removed status labels: ${statusLabels.join(', ')}`);
+            }
+
+            // Skip close label mapping if issue is completed
+            if (issue.state_reason === 'completed') {
+              console.log('Skipping close-label mapping for completed issue');
+              return;
+            }
             
             // Define label mappings (status label -> close label)
             const labelMappings = {
@@ -54,19 +75,4 @@ jobs:
                 labels: labelsToAdd
               });
               console.log(`Added labels: ${labelsToAdd.join(', ')}`);
-            }
-            
-            // Remove all status labels
-            const statusLabels = currentLabels.filter(label => label.toLowerCase().startsWith('status:'));
-            
-            if (statusLabels.length > 0) {
-              for (const label of statusLabels) {
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  name: label
-                });
-              }
-              console.log(`Removed status labels: ${statusLabels.join(', ')}`);
             }
