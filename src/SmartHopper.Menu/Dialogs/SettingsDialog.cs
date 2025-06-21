@@ -140,7 +140,7 @@ namespace SmartHopper.Menu.Dialogs
             layout.Rows.Add(new TableRow(
                 new TableCell(new Label
                 {
-                    Text = "The default AI provider to use when the 'Default' provider is selected",
+                    Text = "The default AI provider to use",
                     TextColor = Colors.Gray,
                     Font = new Font(SystemFont.Default, 10)
                 })
@@ -165,7 +165,7 @@ namespace SmartHopper.Menu.Dialogs
             layout.Rows.Add(new TableRow(
                 new TableCell(new Label
                 {
-                    Text = "Time to wait before sending a new request (in milliseconds)",
+                    Text = "Time to wait for input data to stabilize (no more changes) before sending a request to the AI provider (in milliseconds), specially relevant when run is permenently set to true",
                     TextColor = Colors.Gray,
                     Font = new Font(SystemFont.Default, 10)
                 })

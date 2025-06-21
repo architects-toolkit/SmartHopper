@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `MistralAI` to `MistralAIProvider`.
 - Renamed `MistralAISettings` to `MistralAIProviderSettings`.
 - Mention `DeepSeek` as available provider in the About dialog.
+- Improved descriptions in settings dialog.
 - OpenAI, MisralAI and DeepSeek now remove `<think>` tags from messages before sending them to the API, using the `StripThinkTags` method from `Config.Utils.AI`.
 
 ### Removed
