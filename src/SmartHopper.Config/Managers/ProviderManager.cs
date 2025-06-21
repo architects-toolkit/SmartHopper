@@ -19,6 +19,7 @@ using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Rhino;
 using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Dialogs;
@@ -359,8 +360,11 @@ namespace SmartHopper.Config.Managers
                 return;
             }
 
+            var ui = ProviderManager.Instance.GetProviderSettings(providerName);
+            var descriptors = ui?.GetSettingDescriptors();
+
             // Validate settings
-            if (!provider.ValidateSettings(settings))
+            if (!ui.ValidateSettings(settings))
             {
                 Debug.WriteLine($"[ProviderManager] Settings validation failed for provider {providerName}. Not updating any settings for this provider.");
                 return;
@@ -370,7 +374,7 @@ namespace SmartHopper.Config.Managers
             foreach (var setting in settings)
             {
                 // Check if it's a secret to avoid logging sensitive data
-                var isSecret = provider.GetSettingDescriptors()
+                var isSecret = descriptors
                     .FirstOrDefault(d => d.Name == setting.Key)?.IsSecret ?? false;
 
                 // If value is empty, remove it

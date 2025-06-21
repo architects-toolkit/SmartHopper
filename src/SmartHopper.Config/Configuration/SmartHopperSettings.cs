@@ -345,8 +345,10 @@ namespace SmartHopper.Config.Configuration
 
         private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
-            var provider = ProviderManager.Instance.GetProvider(providerName);
-            return provider?.GetSettingDescriptors() ?? Enumerable.Empty<SettingDescriptor>();
+            var ui = ProviderManager.Instance.GetProviderSettings(providerName);
+            if (ui == null)
+                return Enumerable.Empty<SettingDescriptor>();
+            return ui.GetSettingDescriptors();
         }
 
         /// <summary>
