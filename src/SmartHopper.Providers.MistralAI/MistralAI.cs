@@ -103,60 +103,46 @@ namespace SmartHopper.Providers.MistralAI
                 return false;
             }
 
-            // Only validate settings that are actually provided
-            // This allows partial setting updates rather than requiring all settings
+            // Extract values from settings dictionary
+            string apiKey = null;
+            string model = null;
+            int? maxTokens = null;
 
-            // Check API key format if present
+            // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
-                string apiKey = apiKeyObj.ToString();
-
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    Debug.WriteLine("[MistralAI] API key format validation failed: empty key provided");
-                    return false;
-                }
-
-                Debug.WriteLine($"[MistralAI] API key format validation passed (length: {apiKey.Length})");
+                apiKey = apiKeyObj.ToString();
+                Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
             }
 
-            // Check model format if present
+            // Get model if present
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
-                string model = modelObj.ToString();
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    Debug.WriteLine("[MistralAI] Model format validation failed: empty model name provided");
-                    return false;
-                }
-
-                Debug.WriteLine($"[MistralAI] Model validation passed: {model}");
+                model = modelObj.ToString();
+                Debug.WriteLine($"[MistralAI] Model extracted: {model}");
             }
 
             // Check max tokens if present - must be a positive number
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
                 // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
+                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
                 {
-                    if (maxTokens <= 0)
-                    {
-                        Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
-                        return false;
-                    }
-
-                    Debug.WriteLine($"[MistralAI] MaxTokens validation passed: {maxTokens}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be an integer, got {maxTokensObj}");
-                    return false;
+                    maxTokens = parsedMaxTokens;
                 }
             }
+            
+            // Use the centralized validation method for the common settings
+            bool isValid = true;
+            
+            // Only validate settings that are actually provided (partial updates allowed)
+            if (apiKey != null || model != null || maxTokens.HasValue)
+            {
+                isValid = MistralAISettings.ValidateSettingsLogic(apiKey, model, maxTokens);
+            }
 
-            // All provided settings are valid
-            return true;
+            Debug.WriteLine($"[MistralAI] Settings validation result: {isValid}");
+            return isValid;
         }
 
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)

@@ -63,7 +63,7 @@ namespace SmartHopper.Providers.MistralAI
             this.maxTokensNumeric = new NumericUpDown
             {
                 Minimum = 1,
-                Maximum = 4096,
+                Maximum = 100000,
                 Value = 150,
                 Dock = DockStyle.Fill,
             };
@@ -128,22 +128,56 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <summary>
-        /// Validates the current settings.
+        /// Validates the current settings from the UI controls.
         /// </summary>
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public bool ValidateSettings()
         {
+            string apiKey = this.apiKeyTextBox.Text;
+            string model = this.modelTextBox.Text;
+            int? maxTokens = this.maxTokensNumeric != null ? (int?)this.maxTokensNumeric.Value : null;
+            
+            // Use the centralized validation method with UI values
+            return ValidateSettingsLogic(apiKey, model, maxTokens, showErrorDialogs: true);
+        }
+
+        /// <summary>
+        /// Internal method for validating MistralAI settings.
+        /// </summary>
+        /// <param name="apiKey">The API key to validate.</param>
+        /// <param name="model">The model name to validate.</param>
+        /// <param name="maxTokens">The maximum tokens setting to validate.</param>
+        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
+        /// <returns>True if all provided settings are valid, otherwise false.</returns>
+        internal static bool ValidateSettingsLogic(string apiKey, string model, int? maxTokens = null, bool showErrorDialogs = false)
+        {
             // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(this.apiKeyTextBox.Text) || this.apiKeyTextBox.Text == "<secret-defined>")
+            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
             {
-                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
+                }
                 return false;
             }
 
             // Check if the model is provided
-            if (string.IsNullOrWhiteSpace(this.modelTextBox.Text))
+            if (string.IsNullOrWhiteSpace(model))
             {
-                StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                }
+                return false;
+            }
+            
+            // Check max tokens if provided
+            if (maxTokens.HasValue && maxTokens.Value <= 0)
+            {
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
+                }
                 return false;
             }
 

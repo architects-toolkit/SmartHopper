@@ -137,52 +137,46 @@ namespace SmartHopper.Providers.Template
             if (settings == null)
                 return false;
 
-            // Check API key format if present
+            // Extract values from settings dictionary
+            string apiKey = null;
+            string endpoint = null;
+            int? maxTokens = null;
+
+            // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
-                string apiKey = apiKeyObj.ToString();
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    // Invalid format: empty key
-                    return false;
-                }
-                // API key format is valid
+                apiKey = apiKeyObj.ToString();
+                Debug.WriteLine($"[TemplateProvider] API key extracted (length: {apiKey.Length})");
             }
 
-            // Check model format if present
-            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
+            // Get endpoint if present
+            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
             {
-                string model = modelObj.ToString();
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    // Invalid format: empty model
-                    return false;
-                }
+                endpoint = endpointObj.ToString();
+                Debug.WriteLine($"[TemplateProvider] Endpoint extracted: {endpoint}");
             }
-            
-            // Check max tokens if present - must be a positive number
+
+            // Check max tokens if present
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
                 // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
+                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
                 {
-                    if (maxTokens <= 0)
-                    {
-                        // Invalid format: negative or zero
-                        return false;
-                    }
-                    // MaxTokens format is valid
+                    maxTokens = parsedMaxTokens;
+                    Debug.WriteLine($"[TemplateProvider] MaxTokens extracted: {maxTokens}");
                 }
                 else
                 {
-                    // Invalid format: not an integer
+                    Debug.WriteLine($"[TemplateProvider] MaxTokens validation failed: not an integer, got {maxTokensObj}");
                     return false;
                 }
             }
             
-            // All provided settings have valid format
-            return true;
+            // Use the centralized validation method for the common settings
+            bool isValid = TemplateProviderSettings.ValidateSettingsLogic(apiKey, endpoint, maxTokens);
+            
+            Debug.WriteLine($"[TemplateProvider] Settings validation result: {isValid}");
+            return isValid;
         }
 
         /// <summary>
