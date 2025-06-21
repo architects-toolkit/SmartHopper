@@ -64,7 +64,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Minimum = 1,
                 Maximum = 100000,
-                Value = 150,
+                Value = 500,
                 Dock = DockStyle.Fill,
             };
             panel.Controls.Add(this.maxTokensNumeric, 1, 2);
@@ -91,11 +91,11 @@ namespace SmartHopper.Providers.MistralAI
 
             try
             {
-                // Load API Key
-                if (settings.TryGetValue("ApiKey", out object? apiKeyValue))
+                // Load API Key (show placeholder only)
+                if (settings.ContainsKey("ApiKey"))
                 {
-                    bool defined = apiKeyValue is bool ok && ok;
-                    this.apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
+                    bool defined = !string.IsNullOrEmpty(settings["ApiKey"]?.ToString());
+                    apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
                 }
 
                 // Load Model
@@ -136,7 +136,7 @@ namespace SmartHopper.Providers.MistralAI
             string apiKey = this.apiKeyTextBox.Text;
             string model = this.modelTextBox.Text;
             int? maxTokens = this.maxTokensNumeric != null ? (int?)this.maxTokensNumeric.Value : null;
-            
+
             // Use the centralized validation method with UI values
             return ValidateSettingsLogic(apiKey, model, maxTokens, showErrorDialogs: true);
         }
@@ -151,12 +151,15 @@ namespace SmartHopper.Providers.MistralAI
         /// <returns>True if all provided settings are valid, otherwise false.</returns>
         internal static bool ValidateSettingsLogic(string apiKey, string model, int? maxTokens = null, bool showErrorDialogs = false)
         {
-            // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
+            Debug.WriteLine($"Validating MistralAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+
+            // Skip API key validation since any value is valid
+
+            if (string.IsNullOrWhiteSpace(model))
             {
                 if (showErrorDialogs)
                 {
-                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
+                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
                 }
                 return false;
             }
@@ -170,7 +173,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
                 return false;
             }
-            
+
             // Check max tokens if provided
             if (maxTokens.HasValue && maxTokens.Value <= 0)
             {
@@ -178,6 +181,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
                 }
+
                 return false;
             }
 

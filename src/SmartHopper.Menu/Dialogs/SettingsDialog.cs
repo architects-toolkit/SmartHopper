@@ -8,20 +8,19 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Eto.Forms;
-using Eto.Drawing;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Eto.Drawing;
+using Eto.Forms;
+using Rhino;
 using SmartHopper.Config.Configuration;
-using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 using SmartHopper.Config.Properties;
-using Rhino;
-using Newtonsoft.Json;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -38,16 +37,20 @@ namespace SmartHopper.Menu.Dialogs
             [typeof(string)] = descriptor => 
             {
                 if (descriptor.IsSecret)
+                {
                     return new PasswordBox();
+                }
                 else
+                {
                     return new TextBox();
+                }
             },
             [typeof(int)] = descriptor => new NumericStepper
             {
                 MinValue = 1,
-                MaxValue = 4096,
+                // MaxValue = 4096,
                 Value = Convert.ToInt32(descriptor.DefaultValue),
-            }
+            },
         };
 
         private readonly Dictionary<string, Dictionary<string, Control>> _allControls = new Dictionary<string, Dictionary<string, Control>>();
@@ -70,10 +73,10 @@ namespace SmartHopper.Menu.Dialogs
             }
             Title = "SmartHopper Settings";
             Size = new Size(500, 400);
-            MinimumSize = new Size(400, 300);
+            MinimumSize = new Size(500, 400);
             Resizable = true;
             Padding = new Padding(10);
-            
+
             // Center the dialog on screen
             Location = new Point(
                 (int)((Screen.PrimaryScreen.Bounds.Width - Size.Width) / 2),
@@ -100,7 +103,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     Text = "General Settings",
                     Font = new Font(SystemFont.Bold, 12),
-                    VerticalAlignment = VerticalAlignment.Center
+                    VerticalAlignment = VerticalAlignment.Center,
                 })
             ));
 
@@ -142,7 +145,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     Text = "The default AI provider to use",
                     TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10)
+                    Font = new Font(SystemFont.Default, 10),
                 })
             ));
 
@@ -152,7 +155,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 MinValue = 1000,
                 MaxValue = 5000,
-                Value = _settings.DebounceTime
+                Value = _settings.DebounceTime,
             };
 
             debounceRow.Rows.Add(new TableRow(
@@ -167,7 +170,9 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     Text = "Time to wait for input data to stabilize (no more changes) before sending a request to the AI provider (in milliseconds), specially relevant when run is permenently set to true",
                     TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10)
+                    Font = new Font(SystemFont.Default, 10),
+                    Wrap = WrapMode.Word,
+                    Width = 400,
                 })
             ));
 

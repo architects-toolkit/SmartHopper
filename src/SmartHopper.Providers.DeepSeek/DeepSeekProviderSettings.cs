@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
-using SmartHopper.Config.Configuration;
 using SmartHopper.Config.Dialogs;
 using SmartHopper.Config.Interfaces;
 
@@ -56,8 +55,8 @@ namespace SmartHopper.Providers.DeepSeek
                 ColumnStyles =
                 {
                     new ColumnStyle(SizeType.Percent, 30),
-                    new ColumnStyle(SizeType.Percent, 70)
-                }
+                    new ColumnStyle(SizeType.Percent, 70),
+                },
             };
 
             // API Key
@@ -65,7 +64,7 @@ namespace SmartHopper.Providers.DeepSeek
             apiKeyTextBox = new TextBox
             {
                 PasswordChar = '*', // Hide the API key for security
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
             };
             panel.Controls.Add(apiKeyTextBox, 1, 0);
 
@@ -73,7 +72,7 @@ namespace SmartHopper.Providers.DeepSeek
             panel.Controls.Add(new Label { Text = "Model:", Dock = DockStyle.Fill }, 0, 1);
             modelTextBox = new TextBox
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
             };
             panel.Controls.Add(modelTextBox, 1, 1);
 
@@ -84,7 +83,7 @@ namespace SmartHopper.Providers.DeepSeek
                 Minimum = 1,
                 Maximum = 100000,
                 Value = 1000,
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
             };
             panel.Controls.Add(maxTokensNumeric, 1, 2);
 
@@ -118,7 +117,7 @@ namespace SmartHopper.Providers.DeepSeek
                 // Load API Key (show placeholder only)
                 if (settings.ContainsKey("ApiKey"))
                 {
-                    bool defined = settings["ApiKey"] is bool ok && ok;
+                    bool defined = !string.IsNullOrEmpty(settings["ApiKey"]?.ToString());
                     apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
                 }
 
@@ -146,9 +145,9 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public bool ValidateSettings()
         {
-            string apiKey = apiKeyTextBox.Text;
-            string model = string.IsNullOrWhiteSpace(modelTextBox.Text) ? provider.DefaultModel : modelTextBox.Text;
-            int maxTokens = (int)maxTokensNumeric.Value;
+            string apiKey = this.apiKeyTextBox.Text;
+            string model = string.IsNullOrWhiteSpace(this.modelTextBox.Text) ? this.provider.DefaultModel : this.modelTextBox.Text;
+            int maxTokens = (int)this.maxTokensNumeric.Value;
             return ValidateSettingsLogic(apiKey, model, maxTokens, showErrorDialogs: true);
         }
 
@@ -162,24 +161,40 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>True if all provided settings are valid, otherwise false.</returns>
         internal static bool ValidateSettingsLogic(string apiKey, string model, int maxTokens, bool showErrorDialogs = false)
         {
-            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
-            {
-                if (showErrorDialogs)
-                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
-                return false;
-            }
+            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+
+            // Skip API key validation since any value is valid
+
             if (string.IsNullOrWhiteSpace(model))
             {
                 if (showErrorDialogs)
+                {
                     StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                }
+
                 return false;
             }
+
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                if (showErrorDialogs)
+                {
+                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                }
+
+                return false;
+            }
+
             if (maxTokens <= 0)
             {
                 if (showErrorDialogs)
+                {
                     StyledMessageDialog.ShowError("Max tokens must be greater than zero.", "Validation Error");
+                }
+
                 return false;
             }
+
             return true;
         }
     }

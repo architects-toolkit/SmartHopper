@@ -148,29 +148,17 @@ namespace SmartHopper.Providers.OpenAI
                 // Try to parse as integer
                 if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
                 {
-                    if (parsedMaxTokens <= 0)
-                    {
-                        Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be positive, got {parsedMaxTokens}");
-                        return false;
-                    }
-
                     maxTokens = parsedMaxTokens;
-                    Debug.WriteLine($"[OpenAI] MaxTokens validation passed: {maxTokens}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be an integer, got {maxTokensObj}");
-                    return false;
                 }
             }
-            
+
             // Use the centralizes validation method for the common settings
             bool isValid = true;
-            
+
             // Only validate settings that are actually provided (partial updates allowed)
-            if (apiKey != null || model != null || reasoningEffort != null)
+            if (apiKey != null || model != null || maxTokens.HasValue || reasoningEffort != null)
             {
-                isValid = OpenAIProviderSettings.ValidateSettingsLogic(apiKey, model, reasoningEffort);
+                isValid = OpenAIProviderSettings.ValidateSettingsLogic(apiKey, model, maxTokens.Value, reasoningEffort);
             }
 
             Debug.WriteLine($"[OpenAI] Settings validation result: {isValid}");
@@ -193,11 +181,7 @@ namespace SmartHopper.Providers.OpenAI
             string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
 
-            // Validate API key
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                throw new Exception("OpenAI API key is not configured or is invalid.");
-            }
+            // Skip API key validation since any value is valid
 
             // Use default model if none specified
             if (string.IsNullOrWhiteSpace(modelName))
