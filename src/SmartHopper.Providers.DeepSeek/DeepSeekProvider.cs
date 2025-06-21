@@ -21,6 +21,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Utils;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -38,7 +39,7 @@ namespace SmartHopper.Providers.DeepSeek
     {
         // Static instance for singleton pattern
         private static readonly Lazy<DeepSeekProvider> _instance = new Lazy<DeepSeekProvider>(() => new DeepSeekProvider());
-        
+
         /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
@@ -74,7 +75,7 @@ namespace SmartHopper.Providers.DeepSeek
         public override string DefaultModel => _defaultModel;
 
         /// <summary>
-        /// Gets whether this provider is enabled and should be available for use.
+        /// Gets a value indicating whether this provider is enabled and should be available for use.
         /// Set this to false for template or experimental providers that shouldn't be used in production.
         /// </summary>
         public override bool IsEnabled => true;
@@ -110,7 +111,7 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "API Key",
                     Description = "Your API key for the DeepSeek service",
                     IsSecret = true, // Set to true for sensitive data like API keys
-                    Type = typeof(string)
+                    Type = typeof(string),
                 },
                 new SettingDescriptor
                 {
@@ -118,7 +119,7 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Model",
                     Description = "The model to use for generating responses",
                     Type = typeof(string),
-                    DefaultValue = _defaultModel
+                    DefaultValue = _defaultModel,
                 },
                 new SettingDescriptor
                 {
@@ -126,8 +127,8 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     Type = typeof(int),
-                    DefaultValue = 150
-                }
+                    DefaultValue = 150,
+                },
             };
         }
 
@@ -179,8 +180,9 @@ namespace SmartHopper.Providers.DeepSeek
                 }
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = DefaultModel;
+                    modelName = this.DefaultModel;
                 }
+
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -191,6 +193,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
                     string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                    msgContent = AI.StripThinkTags(msgContent);
 
                     var messageObj = new JObject
                     {
@@ -361,7 +364,7 @@ namespace SmartHopper.Providers.DeepSeek
             }
 
             // Use the model from settings if available
-            string modelFromSettings = GetSetting<string>("Model");
+            string modelFromSettings = this.GetSetting<string>("Model");
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
             {
                 return modelFromSettings;

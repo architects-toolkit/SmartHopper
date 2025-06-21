@@ -19,6 +19,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Utils;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -216,11 +217,12 @@ namespace SmartHopper.Providers.OpenAI
                 foreach (var msg in messages)
                 {
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string content = msg["content"]?.ToString() ?? string.Empty;
+                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                    msgContent = AI.StripThinkTags(msgContent);
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content,
+                        ["content"] = msgContent,
                     };
 
                     if (role == "assistant")

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Render reasoning panels for `<think>` tags in chat UI as collapsible `<details>` blocks.
 - Exclude reasoning from copy-paste (`mdContent`) and include in HTML display (`htmlContent`).
 - Added configurable reasoning_effort setting (low, medium, high) for OpenAI provider.
+- New `StripThinkTags` method in `Config.Utils.AI`.
 
 ### Changed
 
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `MistralAI` to `MistralAIProvider`.
 - Renamed `MistralAISettings` to `MistralAIProviderSettings`.
 - Mention `DeepSeek` as available provider in the About dialog.
+- OpenAI, MisralAI and DeepSeek now remove `<think>` tags from messages before sending them to the API, using the `StripThinkTags` method from `Config.Utils.AI`.
 
 ### Removed
 
