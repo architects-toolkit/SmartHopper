@@ -146,13 +146,40 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public bool ValidateSettings()
         {
-            // Check if the API key is provided
-            if (string.IsNullOrWhiteSpace(apiKeyTextBox.Text) || apiKeyTextBox.Text == "<secret-defined>")
+            string apiKey = apiKeyTextBox.Text;
+            string model = string.IsNullOrWhiteSpace(modelTextBox.Text) ? provider.DefaultModel : modelTextBox.Text;
+            int maxTokens = (int)maxTokensNumeric.Value;
+            return ValidateSettingsLogic(apiKey, model, maxTokens, showErrorDialogs: true);
+        }
+
+        /// <summary>
+        /// Internal method for validating DeepSeek settings.
+        /// </summary>
+        /// <param name="apiKey">The API key to validate.</param>
+        /// <param name="model">The model name to validate.</param>
+        /// <param name="maxTokens">The max tokens to validate.</param>
+        /// <param name="showErrorDialogs">Whether to show error dialogs for validation failures.</param>
+        /// <returns>True if all provided settings are valid, otherwise false.</returns>
+        internal static bool ValidateSettingsLogic(string apiKey, string model, int maxTokens, bool showErrorDialogs = false)
+        {
+            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "<secret-defined>")
             {
-                StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
+                if (showErrorDialogs)
+                    StyledMessageDialog.ShowError("API Key is required.", "Validation Error");
                 return false;
             }
-
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                if (showErrorDialogs)
+                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
+                return false;
+            }
+            if (maxTokens <= 0)
+            {
+                if (showErrorDialogs)
+                    StyledMessageDialog.ShowError("Max tokens must be greater than zero.", "Validation Error");
+                return false;
+            }
             return true;
         }
     }

@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Increased max tokens for OpenAI, MistralAI and DeepSeek providers to 100000.
 - Updated deprecated OpenAI max_tokens parameter to max_completion_tokens.
-- Refactored OpenAI, MistralAI and TemplateProvider settings validation to use centralized validation methods.
+- Refactored OpenAI, MistralAI, DeepSeek and TemplateProvider settings validation to use centralized validation methods.
 
 ### Removed
 

@@ -138,55 +138,23 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            // Only validate settings that are actually provided
             if (settings == null)
                 return false;
 
-            // Check API key format if present
-            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
-            {
-                string apiKey = apiKeyObj.ToString();
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    // Invalid format: empty key
-                    return false;
-                }
-                // API key format is valid
-            }
+            string apiKey = settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null
+                ? apiKeyObj.ToString()
+                : null;
 
-            // Check model format if present
-            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
-            {
-                string model = modelObj.ToString();
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    return false;
-                }
-            }
-            
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
-            {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
-                {
-                    if (maxTokens <= 0)
-                    {
-                        // Invalid format: negative or zero
-                        return false;
-                    }
-                    // MaxTokens format is valid
-                }
-                else
-                {
-                    // Invalid format: not an integer
-                    return false;
-                }
-            }
-            
-            // All provided settings have valid format
-            return true;
+            string model = settings.TryGetValue("Model", out var modelObj) && modelObj != null
+                ? modelObj.ToString()
+                : DefaultModel;
+
+            int maxTokens = settings.TryGetValue("MaxTokens", out var maxTokensObj) && 
+                             int.TryParse(maxTokensObj?.ToString(), out var mt)
+                ? mt
+                : 0;
+
+            return DeepSeekProviderSettings.ValidateSettingsLogic(apiKey, model, maxTokens);
         }
 
         /// <summary>
