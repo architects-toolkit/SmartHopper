@@ -354,9 +354,6 @@ namespace SmartHopper.Menu.Dialogs
                     // For sensitive data, only update if changed and not empty
                     if (descriptor.IsSecret && newValue is string strValue)
                     {
-                        if (string.IsNullOrEmpty(strValue))
-                            continue; // Keep existing value
-                            
                         if (_originalValues[provider.Name].ContainsKey(descriptor.Name) && 
                             strValue == _originalValues[provider.Name][descriptor.Name])
                             continue; // Skip unchanged values

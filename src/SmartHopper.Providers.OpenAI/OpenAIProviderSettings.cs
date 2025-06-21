@@ -105,104 +105,6 @@ namespace SmartHopper.Providers.OpenAI
             return panel;
         }
 
-        /// <summary>
-        /// Gets the current settings from the UI controls.
-        /// </summary>
-        /// <returns>A dictionary containing the current settings.</returns>
-        public Dictionary<string, object> GetSettings()
-        {
-            return new Dictionary<string, object>
-            {
-                ["ApiKey"] = this.apiKeyTextBox.Text,
-                ["Model"] = string.IsNullOrWhiteSpace(this.modelTextBox.Text) ? this.provider.DefaultModel : this.modelTextBox.Text,
-                ["MaxTokens"] = (int)this.maxTokensNumeric.Value,
-                ["ReasoningEffort"] = this.reasoningEffortComboBox.SelectedItem?.ToString() ?? "medium",
-            };
-        }
-
-        /// <summary>
-        /// Loads settings into the UI controls.
-        /// </summary>
-        /// <param name="settings">The settings to load.</param>
-        public void LoadSettings(Dictionary<string, object> settings)
-        {
-            if (settings == null)
-            {
-                return;
-            }
-
-            try
-            {
-                // Load API Key
-                if (settings.TryGetValue("ApiKey", out object? apiKeyValue))
-                {
-                    bool defined = apiKeyValue is bool ok && ok;
-                    this.apiKeyTextBox.Text = defined ? "<secret-defined>" : string.Empty;
-                }
-
-                // Load Model
-                if (settings.TryGetValue("Model", out object? modelValue))
-                {
-                    this.modelTextBox.Text = modelValue.ToString();
-                }
-                else
-                {
-                    this.modelTextBox.Text = this.provider.DefaultModel;
-                }
-
-                // Load Max Tokens
-                if (settings.TryGetValue("MaxTokens", out object? maxTokensValue))
-                {
-                    if (maxTokensValue is int maxTokens)
-                    {
-                        this.maxTokensNumeric.Value = maxTokens;
-                    }
-                    else if (int.TryParse(maxTokensValue.ToString(), out int parsedMaxTokens))
-                    {
-                        this.maxTokensNumeric.Value = parsedMaxTokens;
-                    }
-                }
-
-                // Load Reasoning Effort
-                if (settings.TryGetValue("ReasoningEffort", out object? reasoningEffortValue))
-                {
-                    string reasoningEffort = reasoningEffortValue.ToString();
-                    if (new[] { "low", "medium", "high" }.Contains(reasoningEffort))
-                    {
-                        this.reasoningEffortComboBox.SelectedItem = reasoningEffort;
-                    }
-                    else
-                    {
-                        // Default to medium if invalid value
-                        this.reasoningEffortComboBox.SelectedIndex = 1;
-                    }
-                }
-                else
-                {
-                    // Default to medium if not specified
-                    this.reasoningEffortComboBox.SelectedIndex = 1;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading OpenAI provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Validates the current settings from the UI controls.
-        /// </summary>
-        /// <returns>True if the settings are valid, otherwise false.</returns>
-        public bool ValidateSettings()
-        {
-            string apiKey = this.apiKeyTextBox.Text;
-            string model = this.modelTextBox.Text;
-            int maxTokens = (int)this.maxTokensNumeric.Value;
-            string reasoningEffort = this.reasoningEffortComboBox.SelectedItem?.ToString();
-
-            // Use the internal validation method with UI values
-            return ValidateSettingsLogic(apiKey, model, maxTokens, reasoningEffort, showErrorDialogs: true);
-        }
 
         /// <summary>
         /// Internal method for validating OpenAI settings.
@@ -218,19 +120,10 @@ namespace SmartHopper.Providers.OpenAI
             Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}, Reasoning Effort: {reasoningEffort}");
 
             // Skip API key validation since any value is valid
-            
 
-            // Check if the model is provided
-            if (string.IsNullOrWhiteSpace(model))
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Model is required.", "Validation Error");
-                }
-                return false;
-            }
+            // Skip model validation since any value is valid
 
-            // Check if max tokens is provided
+            // Ensure max tokens is greater than 0
             if (maxTokens <= 0)
             {
                 if (showErrorDialogs)

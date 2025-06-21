@@ -64,14 +64,6 @@ namespace SmartHopper.Config.Tests
             }
 
             public System.Windows.Forms.Control? CreateSettingsControl() => null;
-
-            public Dictionary<string, object> GetSettings() => new();
-
-            public void LoadSettings(Dictionary<string, object> settings)
-            {
-            }
-
-            public bool ValidateSettings() => true;
         }
 
 #if NET7_WINDOWS

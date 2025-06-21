@@ -28,12 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mention `DeepSeek` as available provider in the About dialog.
 - Improved descriptions in settings dialog.
 - OpenAI, MisralAI and DeepSeek now remove `<think>` tags from messages before sending them to the API, using the `StripThinkTags` method from `Config.Utils.AI`.
+- Setting values that are empty or whitespace will be removed from the settings file on `UpdateProviderSettings`.
 
 ### Removed
 
 - Removed `private LoadSettings` method from `OpenAISettings`.
 - Removed `private LoadSettings` method from `TemplateProviderSettings`.
 - Removed `ConcatenateItemsToJsonList` method from `ParsingTools` since it was not used.
+- Removed `ValidateSettings`, `GetSettings` and `LoadSettings` method from `IAIProviderSettings` and all implementations.
 
 ### Fixed
 
