@@ -160,13 +160,20 @@ namespace SmartHopper.Config.Configuration
         /// <returns>True if all settings are valid, false otherwise.</returns>
         internal bool IntegrityCheck()
         {
+            // Skip integrity check if no providers loaded yet
+            var providers = ProviderManager.Instance.GetProviders();
+            if (providers == null || !providers.Any())
+            {
+                Debug.WriteLine("[Settings] Skipping integrity check: no providers loaded yet.");
+                return true;
+            }
             bool isValid = true;
             var invalidSettings = new List<(string Provider, string Setting)>();
 
             foreach (var provider in this.ProviderSettings.Keys.ToList())
             {
                 var descriptors = GetProviderDescriptors(provider);
-                if (descriptors == null) continue;
+                if (descriptors == null || !descriptors.Any()) continue;
 
                 // Check for unknown settings
                 var knownSettingNames = descriptors.Select(d => d.Name).ToList();
