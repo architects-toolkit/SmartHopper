@@ -180,6 +180,23 @@ img {
     height: auto;
 }
 
+/* Reasoning collapsible panels */
+details.think {
+    border: 1px solid #ccc;
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #fafafa;
+    border-radius: 4px;
+}
+details.think summary {
+    cursor: pointer;
+    font-weight: bold;
+    outline: none;
+}
+details.think[open] {
+    background-color: #f0f0f0;
+}
+
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
     margin-top: 0.5em;
