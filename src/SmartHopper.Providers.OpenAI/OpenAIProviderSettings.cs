@@ -24,7 +24,7 @@ namespace SmartHopper.Providers.OpenAI
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
-    public class OpenAISettings : AIProviderSettings, IDisposable
+    public class OpenAIProviderSettings : AIProviderSettings, IDisposable
     {
         private new readonly OpenAI provider;
         private new TextBox apiKeyTextBox;
@@ -33,10 +33,10 @@ namespace SmartHopper.Providers.OpenAI
         private new ComboBox reasoningEffortComboBox;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="OpenAISettings"/> class.
+        /// Initializes a new instance of the <see cref="OpenAIProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public OpenAISettings(OpenAI provider)
+        public OpenAIProviderSettings(OpenAIProvider provider)
             : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));

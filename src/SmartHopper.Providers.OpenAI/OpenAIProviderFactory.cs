@@ -24,7 +24,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <returns>An instance of the OpenAI provider.</returns>
         public IAIProvider CreateProvider()
         {
-            return OpenAI.Instance;
+            return OpenAIProvider.Instance;
         }
 
         /// <summary>
@@ -34,7 +34,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <returns>An instance of the OpenAI provider settings.</returns>
         public IAIProviderSettings CreateProviderSettings()
         {
-            return new OpenAISettings(OpenAI.Instance);
+            return new OpenAIProviderSettings(OpenAIProvider.Instance);
         }
     }
 }
