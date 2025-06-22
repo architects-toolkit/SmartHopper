@@ -97,7 +97,7 @@ namespace SmartHopper.Providers.DeepSeek
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
+                Debug.WriteLine($"[DeepSeek] API key extracted (length: {apiKey.Length})");
 
                 // Skip API key validation since any value is valid
             }
