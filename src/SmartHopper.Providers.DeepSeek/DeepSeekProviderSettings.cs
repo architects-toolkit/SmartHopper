@@ -79,40 +79,60 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
+            Debug.WriteLine($"[DeepSeek] ValidateSettings called. Settings null? {settings == null}");
+            
             if (settings == null)
+            {
                 return false;
-
-            string apiKey = settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null
-                ? apiKeyObj.ToString()
-                : null;
-
-            string model = settings.TryGetValue("Model", out var modelObj) && modelObj != null
-                ? modelObj.ToString()
-                : this.provider.DefaultModel;
-
-            int maxTokens = settings.TryGetValue("MaxTokens", out var maxTokensObj) && 
-                             int.TryParse(maxTokensObj?.ToString(), out var mt)
-                ? mt
-                : 0;
-
-            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+            }
 
             var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
 
-            // Skip API key validation since any value is valid
+            // Extract values from settings dictionary
+            string apiKey = null;
+            string model = null;
+            int? maxTokens = null;
 
-            // Skip model validation since any value is valid
-
-            // Ensure max tokens is greater than 0
-            if (maxTokens <= 0)
+            // Get API key if present
+            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
-                if (showErrorDialogs)
+                apiKey = apiKeyObj.ToString();
+                Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
+
+                // Skip API key validation since any value is valid
+            }
+
+            // Get model if present
+            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
+            {
+                model = modelObj.ToString();
+                Debug.WriteLine($"[MistralAI] Model extracted: {model}");
+
+                // Skip model validation since any value is valid
+            }
+
+            // Check max tokens if present - must be a positive number
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                // Try to parse as integer
+                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
                 {
-                    StyledMessageDialog.ShowError("Max tokens must be greater than zero.", "Validation Error");
+                    maxTokens = parsedMaxTokens;
                 }
 
-                return false;
+                // Ensure max tokens is greater than 0
+                if (maxTokens.HasValue && maxTokens.Value <= 0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
+                    }
+
+                    return false;
+                }
             }
+
+            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
 
             return true;
         }

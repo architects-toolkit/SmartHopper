@@ -89,6 +89,8 @@ namespace SmartHopper.Providers.OpenAI
                 return false;
             }
 
+            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
+
             // Extract values from settings dictionary
             string apiKey = null;
             string model = null;
@@ -100,6 +102,8 @@ namespace SmartHopper.Providers.OpenAI
             {
                 apiKey = apiKeyObj.ToString();
                 Debug.WriteLine($"[OpenAI] API key extracted (length: {apiKey.Length})");
+
+                // Skip API key validation since any value is valid
             }
 
             // Get model if present
@@ -107,6 +111,8 @@ namespace SmartHopper.Providers.OpenAI
             {
                 model = modelObj.ToString();
                 Debug.WriteLine($"[OpenAI] Model extracted: {model}");
+
+                // Skip model validation since any value is valid
             }
 
             // Get reasoning effort if present
@@ -114,6 +120,18 @@ namespace SmartHopper.Providers.OpenAI
             {
                 reasoningEffort = reasoningEffortObj.ToString();
                 Debug.WriteLine($"[OpenAI] ReasoningEffort extracted: {reasoningEffort}");
+
+                // Check if reasoning effort is valid
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high" }.Contains(reasoningEffort))
+                {
+                    Debug.WriteLine($"[OpenAI] Invalid reasoning effort value: {reasoningEffort}");
+                    
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
+                    }
+                    return false;
+                }
             }
 
             // Check max tokens if present - must be a positive number
@@ -124,35 +142,19 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     maxTokens = parsedMaxTokens;
                 }
+
+                // Ensure max tokens is greater than 0
+                if (maxTokens <= 0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
+                    }
+                    return false;
+                }
             }
 
             Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}, Reasoning Effort: {reasoningEffort}");
-
-            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
-
-            // Skip API key validation since any value is valid
-
-            // Skip model validation since any value is valid
-
-            // Ensure max tokens is greater than 0
-            if (maxTokens <= 0)
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
-                }
-                return false;
-            }
-
-            // Check if reasoning effort is valid
-            if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high" }.Contains(reasoningEffort))
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
-                }
-                return false;
-            }
 
             return true;
         }

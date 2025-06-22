@@ -96,6 +96,8 @@ namespace SmartHopper.Providers.Template
             {
                 apiKey = apiKeyObj.ToString();
                 Debug.WriteLine($"[TemplateProvider] API key extracted (length: {apiKey.Length})");
+
+                // Skip API key validation since any value is valid
             }
 
             // Get endpoint if present
@@ -103,6 +105,20 @@ namespace SmartHopper.Providers.Template
             {
                 endpoint = endpointObj.ToString();
                 Debug.WriteLine($"[TemplateProvider] Endpoint extracted: {endpoint}");
+
+                // Check endpoint format if provided
+                if (endpoint != null && !string.IsNullOrWhiteSpace(endpoint))
+                {
+                    // Optional: Add URL format validation
+                    if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
+                    {
+                        if (showErrorDialogs)
+                        {
+                            StyledMessageDialog.ShowError("Endpoint must be a valid URL starting with http:// or https://.", "Validation Error");
+                        }
+                        return false;
+                    }
+                }
             }
 
             // Check max tokens if present
@@ -119,32 +135,16 @@ namespace SmartHopper.Providers.Template
                     Debug.WriteLine($"[TemplateProvider] MaxTokens validation failed: not an integer, got {maxTokensObj}");
                     return false;
                 }
-            }
-            
-            // Skip API key validation since any value is valid
-            
-            // Check endpoint format if provided
-            if (endpoint != null && !string.IsNullOrWhiteSpace(endpoint))
-            {
-                // Optional: Add URL format validation
-                if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
+
+                // Check max tokens if provided
+                if (maxTokens.HasValue && maxTokens.Value <= 0)
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Endpoint must be a valid URL starting with http:// or https://.", "Validation Error");
+                        StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
                     }
                     return false;
                 }
-            }
-            
-            // Check max tokens if provided
-            if (maxTokens.HasValue && maxTokens.Value <= 0)
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
-                }
-                return false;
             }
 
             return true;

@@ -70,6 +70,8 @@ namespace SmartHopper.Providers.MistralAI
                 return false;
             }
 
+            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
+
             // Extract values from settings dictionary
             string apiKey = null;
             string model = null;
@@ -80,6 +82,8 @@ namespace SmartHopper.Providers.MistralAI
             {
                 apiKey = apiKeyObj.ToString();
                 Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
+
+                // Skip API key validation since any value is valid
             }
 
             // Get model if present
@@ -87,6 +91,8 @@ namespace SmartHopper.Providers.MistralAI
             {
                 model = modelObj.ToString();
                 Debug.WriteLine($"[MistralAI] Model extracted: {model}");
+
+                // Skip model validation since any value is valid
             }
 
             // Check max tokens if present - must be a positive number
@@ -97,26 +103,20 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     maxTokens = parsedMaxTokens;
                 }
+
+                // Ensure max tokens is greater than 0
+                if (maxTokens.HasValue && maxTokens.Value <= 0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
+                    }
+
+                    return false;
+                }
             }
 
             Debug.WriteLine($"Validating MistralAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
-
-            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
-
-            // Skip API key validation since any value is valid
-
-            // Skip model validation since any value is valid
-
-            // Ensure max tokens is greater than 0
-            if (maxTokens.HasValue && maxTokens.Value <= 0)
-            {
-                if (showErrorDialogs)
-                {
-                    StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
-                }
-
-                return false;
-            }
 
             return true;
         }
