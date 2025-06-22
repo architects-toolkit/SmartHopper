@@ -134,7 +134,7 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
-            
+
             var communityLabel = new Label
             {
                 Text = "and the SmartHopper Community",
@@ -179,55 +179,55 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- Speckle Systems for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
                     new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var ghptLink = new StackLayout
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- enmerk4r for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
                     new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var materialIconsLink = new StackLayout
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- Google for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
                     new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var MathJaxLink = new StackLayout
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- MathJax for the", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("MathJax library", "https://github.com/mathjax/MathJax"),
                     new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var logoDesignThanksLabel = new Label
             {
                 Text = "Thanks to Jordina Roca Musach for the SmartHopper logo design.",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
@@ -235,7 +235,7 @@ namespace SmartHopper.Menu.Dialogs
             var okButton = new Button
             {
                 Text = "OK",
-                Command = new Command((sender, e) => Close())
+                Command = new Command((sender, e) => Close()),
             };
 
             // Create a layout for the scrollable content and OK button
@@ -273,7 +273,7 @@ namespace SmartHopper.Menu.Dialogs
                         {
                             Orientation = Orientation.Horizontal,
                             Spacing = 5,
-                            Items = new[]
+                            Items =
                             {
                                 new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
                                 githubLinkLabel
@@ -293,8 +293,8 @@ namespace SmartHopper.Menu.Dialogs
                         aiDisclaimerLabel,
                         null, // spacing
                         okButton
-                    }
-                }
+                    },
+                },
             };
 
             return mainContentLayout;
