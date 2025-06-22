@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added DeepSeek provider ([#222](https://github.com/architects-toolkit/SmartHopper/issues/222)).
+- Added temperature support to providers.
+- Added slider ui control in settings dialog for numeric parameters.
 - Added reasoning support:
   - Render reasoning panels for `<think>` tags in chat UI as collapsible `<details>` blocks.
   - Exclude reasoning from copy-paste (`mdContent`) and include in HTML display (`htmlContent`).
