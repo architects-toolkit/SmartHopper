@@ -35,14 +35,14 @@ namespace SmartHopper.Providers.MistralAI
 
         public override string DefaultModel => DefaultModelValue;
 
-        protected override string ApiURL => "https://api.mistral.ai/v1/chat/completions";
-
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
         /// </summary>
         public override bool IsEnabled => true;
 
         public override bool SupportsStreaming => true;
+
+        protected override string ApiURL => "https://api.mistral.ai/v1/chat/completions";
 
         /// <summary>
         /// Gets the provider's icon.
@@ -146,7 +146,7 @@ namespace SmartHopper.Providers.MistralAI
                 // Add response format for structured output
                 requestBody["response_format"] = new JObject
                 {
-                    ["type"] = "json_object"
+                    ["type"] = "json_object",
                 };
 
                 // Add schema as a system message to guide the model
@@ -176,8 +176,13 @@ namespace SmartHopper.Providers.MistralAI
 
         protected override async Task CallStreamingAsync(RequestContext context)
         {
-            // Ensure streaming flag set in body
+            // 1) flip on stream mode
             context.Body["stream"] = true;
+
+            // 2) initialize tool‐call accumulator
+            context.ToolCalls = new List<AIToolCall>();
+
+            // 3) now start HTTP client + reader
             using var client = new HttpClient();
             var apiKey = this.GetSetting<string>("ApiKey");
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
@@ -189,8 +194,11 @@ namespace SmartHopper.Providers.MistralAI
             using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
             using var reader = new StreamReader(stream);
             context.AccumulatedText = string.Empty;
+
+            // 4) process each line of the response
             while (!reader.EndOfStream)
             {
+                // handle text content
                 var line = await reader.ReadLineAsync().ConfigureAwait(false);
 Debug.WriteLine($"[MistralAI] Raw line: '{line}'");
                 if (string.IsNullOrWhiteSpace(line)) continue;
@@ -203,10 +211,32 @@ Debug.WriteLine($"[MistralAI] Trimmed line: '{trimmed}'");
                 try { chunkJson = JObject.Parse(trimmed); } catch { continue; }
                 var delta = chunkJson["choices"]?[0]?["delta"] as JObject;
                 var content = delta?["content"]?.ToString();
+
+                // handle tool calls:
+                var calls = delta?["tool_calls"] as JArray;
+                if (calls != null)
+                {
+                    foreach(var tc in calls)
+                    {
+                        var fn = tc["function"] as JObject;
+                        context.ToolCalls.Add(new AIToolCall {
+                            Id = tc["id"]?.ToString(),
+                            Name = fn?["name"]?.ToString(),
+                            Arguments = fn?["arguments"]?.ToString() ?? ""
+                        });
+                    }
+                }
+
                 var finishReasonToken = chunkJson["choices"]?[0]?["finish_reason"];
 Debug.WriteLine($"[MistralAI] finishReasonToken type: {finishReasonToken?.Type}, raw value: {finishReasonToken}");
 var finishReason = finishReasonToken?.ToString();
 Debug.WriteLine($"[MistralAI] Parsed content: '{content}', finishReason: '{finishReason}'");
+
+                if (finishReason == "tool_calls")
+                {
+                    continue;
+                }
+
                 if (!string.IsNullOrEmpty(content))
                 {
                     context.AccumulatedText += content;
@@ -232,8 +262,9 @@ Debug.WriteLine($"[MistralAI] Reporting chunk via Progress: '{content}', IsFinal
                     Provider = this.Name,
                     Model = context.Model,
                     FinishReason = "streaming",
-                    InTokens = 0,
-                    OutTokens = 0,
+                    InTokens = 0, // TODO: return actual InTokens
+                    OutTokens = 0, // TODO: return actual OutTokens
+                    ToolCalls = context.ToolCalls,
                 };
                 return;
             }
@@ -256,6 +287,9 @@ Debug.WriteLine($"[MistralAI] Reporting chunk via Progress: '{content}', IsFinal
             var choices = json["choices"] as JArray;
             var firstChoice = choices?.FirstOrDefault() as JObject;
             var msg = firstChoice?["message"] as JObject;
+
+            Debug.WriteLine($"[MistralAI] Not streamed Raw JSON: {json.ToString()}");
+
             var usage = json["usage"] as JObject;
 
             if (msg == null) throw new Exception("Invalid response from MistralAI: no message");
@@ -282,7 +316,7 @@ Debug.WriteLine($"[MistralAI] Reporting chunk via Progress: '{content}', IsFinal
                         {
                             Id = tc["id"]?.ToString(),
                             Name = fn["name"]?.ToString(),
-                            Arguments = fn["arguments"]?.ToString()
+                            Arguments = fn["arguments"]?.ToString(),
                         });
                     }
                 }

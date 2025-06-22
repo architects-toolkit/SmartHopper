@@ -9,6 +9,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Config.Models
@@ -19,20 +20,21 @@ namespace SmartHopper.Config.Models
     public sealed class RequestContext
     {
         // Input parameters
-        public string               Model                   { get; set; }
-        public JArray               Messages                { get; set; }
-        public string               JsonSchema              { get; set; }
-        public string               Endpoint                { get; set; }
-        public bool                 IncludeToolDefinitions  { get; set; }
-        public bool                 DoStreaming             { get; set; }
-        public IProgress<ChatChunk>? Progress                { get; set; }
+        public string Model { get; set; }
+        public JArray Messages { get; set; }
+        public string JsonSchema { get; set; }
+        public string Endpoint { get; set; }
+        public bool IncludeToolDefinitions { get; set; }
+        public bool DoStreaming { get; set; }
+        public IProgress<ChatChunk>? Progress { get; set; }
 
         // Shared request body
-        public JObject              Body                    { get; set; }
+        public JObject Body { get; set; }
 
         // Results
-        public string?              RawJson                 { get; set; }
-        public string?              AccumulatedText         { get; set; }
-        public AIResponse?          Response                { get; set; }
+        public string? RawJson { get; set; }
+        public string? AccumulatedText { get; set; }
+        public AIResponse? Response { get; set; }
+        public List<AIToolCall>? ToolCalls { get; set; }
     }
 }

@@ -474,22 +474,25 @@ namespace SmartHopper.Core.AI.Chat
             if (_chatHistory.Count == 0 || _chatHistory.Last().Author != "assistant")
             {
                 var response = new AIResponse { Response = chunkText };
-                _chatHistory.Add(new ChatMessageModel { Author = "assistant", Body = chunkText, Inbound = true, Read = false, Time = DateTime.Now });
-                AddMessageToWebView("assistant", response);
+                this._chatHistory.Add(new ChatMessageModel { Author = "assistant", Body = chunkText, Inbound = true, Read = false, Time = DateTime.Now });
+                this.AddMessageToWebView("assistant", response);
             }
             else
             {
                 // Update last assistant message body
-                var last = _chatHistory.Last();
+                var last = this._chatHistory.Last();
                 last.Body += chunkText;
+
                 // Render updated HTML for the message
                 var partialResponse = new AIResponse { Response = last.Body, ToolCalls = new List<AIToolCall>() };
-                string html = _htmlRenderer.GenerateMessageHtml("assistant", partialResponse);
+                string html = this._htmlRenderer.GenerateMessageHtml("assistant", partialResponse);
+
                 // Escape for JavaScript injection
                 string escaped = html.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
+
                 // Attempt to call JS update function, fallback to adding a new message
                 string script = $"if (typeof updateLastAssistantMessage === 'function') {{ updateLastAssistantMessage(\"{escaped}\"); }} else {{ addMessage(\"{escaped}\"); }}";
-                _webView.ExecuteScript(script);
+                this._webView.ExecuteScript(script);
             }
         }
 
