@@ -194,7 +194,7 @@ namespace SmartHopper.Config.Interfaces
         public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             var ui = ProviderManager.Instance.GetProviderSettings(Name);
-            return ui?.GetSettingDescriptors() 
+            return ui?.GetSettingDescriptors()
                 ?? Enumerable.Empty<SettingDescriptor>();
         }
     }
