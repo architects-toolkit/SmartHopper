@@ -26,14 +26,7 @@ using SmartHopper.Config.Utils;
 namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
-    /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    ///
-    /// To create a new provider:
-    /// 1. Create a new project named SmartHopper.Providers.YourProviderName
-    /// 2. Copy this template and rename all "Template" references to your provider name
-    /// 3. Implement the required methods with your provider-specific logic
-    /// 4. Create a factory class that implements IAIProviderFactory
-    /// 5. Set IsEnabled to true when your provider is ready for use
+    /// DeepSeek AI provider implementation.
     /// </summary>
     public class DeepSeekProvider : AIProvider
     {
@@ -189,6 +182,7 @@ namespace SmartHopper.Providers.DeepSeek
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
 
                 // Add JSON response format if schema is provided

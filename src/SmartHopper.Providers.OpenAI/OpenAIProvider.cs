@@ -155,6 +155,7 @@ namespace SmartHopper.Providers.OpenAI
                     ["messages"] = convertedMessages,
                     ["max_completion_tokens"] = maxTokens,
                     ["reasoning_effort"] = reasoningEffort,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
 
                 // Add response format if JSON schema is provided

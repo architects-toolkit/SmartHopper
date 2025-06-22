@@ -73,13 +73,40 @@ namespace SmartHopper.Menu.Dialogs
                     return new TextBox();
                 }
             },
-            // If descriptor is an int, render a numeric stepper
-            [typeof(int)] = descriptor => new NumericStepper
-            {
-                MinValue = 1,
-                Value = Convert.ToInt32(descriptor.DefaultValue ?? 0),
-            },
+
+            // If descriptor is an int, CreateNumericControl
+            [typeof(int)] = CreateNumericControl,
+
+            // If descriptor is a double, CreateNumericControl
+            [typeof(double)] = CreateNumericControl,
         };
+
+        /// <summary>
+        /// Creates either a Slider or NumericStepper for numeric settings.
+        /// </summary>
+        private static Control CreateNumericControl(SettingDescriptor descriptor)
+        {
+            var p = descriptor.ControlParams as NumericSettingDescriptorControl;
+            if (p != null && p.UseSlider)
+            {
+                var slider = new Slider
+                {
+                    MinValue = p.Min,
+                    MaxValue = p.Max,
+                    Value = Convert.ToDouble(descriptor.DefaultValue ?? 0)
+                };
+                if (p.Step > 0)
+                    slider.ValueChanged += (s, e) => slider.Value = Math.Round(slider.Value / p.Step) * p.Step;
+                return slider;
+            }
+            return new NumericStepper
+            {
+                MinValue = p?.Min ?? 1,
+                MaxValue = p?.Max ?? int.MaxValue,
+                Increment = p?.Step ?? 1,
+                Value = Convert.ToDouble(descriptor.DefaultValue ?? 0)
+            };
+        }
 
         private readonly Dictionary<string, Dictionary<string, Control>> _allControls = new Dictionary<string, Dictionary<string, Control>>();
         private readonly Dictionary<string, Dictionary<string, string>> _originalValues = new Dictionary<string, Dictionary<string, string>>();
@@ -306,6 +333,10 @@ namespace SmartHopper.Menu.Dialogs
                             passwordBox.Text = currentValue;
                         else if (control is NumericStepper numericStepper)
                             numericStepper.Value = Convert.ToInt32(currentValue);
+                        else if (control is Slider slider)
+                        {
+                            slider.Value = Convert.ToDouble(currentValue);
+                        }
                         else if (control is DropDown dropDown)
                         {
                             for (int i = 0; i < dropDown.Items.Count; i++)
@@ -389,6 +420,8 @@ namespace SmartHopper.Menu.Dialogs
                         newValue = passwordBox.Text;
                     else if (control is NumericStepper numericStepper)
                         newValue = (int)numericStepper.Value;
+                    else if (control is Slider slider)
+                        newValue = (double)slider.Value;
                     else if (control is DropDown dropDown)
                     {
                         if (dropDown.SelectedIndex >= 0)

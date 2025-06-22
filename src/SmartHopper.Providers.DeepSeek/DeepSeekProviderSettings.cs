@@ -67,7 +67,29 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     Type = typeof(int),
-                    DefaultValue = 150,
+                    DefaultValue = 500,
+                    ControlParams = new NumericSettingDescriptorControl
+                    {
+                        UseSlider = false,   // keep the NumericStepper
+                        Min       = 1,
+                        Max       = 100000,
+                        Step      = 1
+                    }
+                },
+                new SettingDescriptor
+                {
+                    Name = "Temperature",
+                    Type = typeof(double),
+                    DefaultValue = 1,
+                    DisplayName = "Temperature",
+                    Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+                    ControlParams = new NumericSettingDescriptorControl
+                    {
+                        UseSlider = true,
+                        Min       = 0.0,
+                        Max       = 2.0,
+                        Step      = 0.01
+                    }
                 },
             };
         }

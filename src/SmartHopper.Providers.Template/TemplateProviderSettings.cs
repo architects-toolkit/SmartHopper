@@ -54,7 +54,7 @@ namespace SmartHopper.Providers.Template
                     DisplayName = "API Key",
                     Description = "Your API key for the Template service",
                     IsSecret = true, // Set to true for sensitive data like API keys
-                    Type = typeof(string)
+                    Type = typeof(string),
                 },
                 new SettingDescriptor
                 {
@@ -62,7 +62,7 @@ namespace SmartHopper.Providers.Template
                     DisplayName = "Model",
                     Description = "The model to use for generating responses",
                     Type = typeof(string),
-                    DefaultValue = _defaultModel
+                    DefaultValue = this.provider.DefaultModel,
                 },
                 new SettingDescriptor
                 {
@@ -70,7 +70,14 @@ namespace SmartHopper.Providers.Template
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     Type = typeof(int),
-                    DefaultValue = 150
+                    DefaultValue = 500,
+                    ControlParams = new NumericSettingDescriptorControl
+                    {
+                        UseSlider = false,   // keep the NumericStepper
+                        Min       = 1,
+                        Max       = 100000,
+                        Step      = 1
+                    }
                 }
             };
         }
