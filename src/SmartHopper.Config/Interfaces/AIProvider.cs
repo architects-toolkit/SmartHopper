@@ -13,6 +13,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Managers;
@@ -37,9 +39,21 @@ namespace SmartHopper.Config.Interfaces
         /// </summary>
         bool IsEnabled { get; }
 
-        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
+        /// <summary>
+        /// Indicates whether this provider supports streaming responses.
+        /// </summary>
+        bool SupportsStreaming { get; }
 
-        string GetModel(Dictionary<string, object> settings, string requestedModel = "");
+        Task<AIResponse> GetResponse(
+            JArray messages,
+            string model,
+            string jsonSchema = "",
+            string endpoint = "",
+            bool includeToolDefinitions = false,
+            IProgress<ChatChunk>? progress = null
+        );
+
+        string GetModel(string requestedModel = "");
 
         /// <summary>
         /// Injects decrypted settings for this provider (called by ProviderManager).
@@ -60,11 +74,88 @@ namespace SmartHopper.Config.Interfaces
 
         public abstract string DefaultModel { get; }
 
+        protected abstract string ApiURL { get; }
+
         public abstract bool IsEnabled { get; }
+
+        /// <summary>
+        /// Indicates whether this provider supports streaming responses.
+        /// </summary>
+        public abstract bool SupportsStreaming { get; }
 
         public abstract Image Icon { get; }
 
-        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
+        public async Task<AIResponse> GetResponse(
+            JArray messages,
+            string model,
+            string jsonSchema = "",
+            string endpoint = "",
+            bool includeToolDefinitions = false,
+            IProgress<ChatChunk>? progress = null
+        )
+        {
+            var context = new RequestContext
+            {
+                Messages = messages,
+                Model = this.GetModel(model),
+                JsonSchema = jsonSchema,
+                Endpoint = endpoint,
+                IncludeToolDefinitions = includeToolDefinitions,
+                DoStreaming = this.SupportsStreaming && this.GetSetting<bool>("EnableStreaming") && progress != null,
+                Progress = progress,
+            };
+
+            this.PreCall(context);
+            if (context.DoStreaming)
+            {
+                Debug.WriteLine($"[SmartHopper] STREAMING RESPONSE for {this.Name}");
+                await this.CallStreamingAsync(context);
+            }
+            else
+            {
+                Debug.WriteLine($"[SmartHopper] STREAMING disabled for {this.Name}");
+                await this.CallSyncAsync(context);
+            }
+            this.PostCall(context);
+            return context.Response!;
+        }
+
+        /// <summary>
+        /// Prepare the request context (e.g. populate Body, extract settings).
+        /// </summary>
+        protected virtual void PreCall(RequestContext context)
+        {
+        }
+
+        /// <summary>
+        /// Execute a non-streaming API call.
+        /// </summary>
+        protected virtual async Task CallSyncAsync(RequestContext context)
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {this.GetSetting<string>("ApiKey")}");
+            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+            var resp = await client.PostAsync(this.ApiURL, new StringContent(context.Body.ToString(), Encoding.UTF8, "application/json")).ConfigureAwait(false);
+            var jsonText = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            Debug.WriteLine($"[{this.Name}] Sync response: {jsonText}");
+            context.RawJson = jsonText;
+        }
+
+        /// <summary>
+        /// Execute a streaming API call, reporting chunks via context.Progress.
+        /// </summary>
+        protected virtual Task CallStreamingAsync(RequestContext context)
+        {
+            throw new NotImplementedException("Streaming not yet supported for this provider");
+        }
+
+        /// <summary>
+        /// Finalize the response (e.g. parse accumulated text into AIResponse).
+        /// </summary>
+        protected virtual void PostCall(RequestContext context)
+        {
+        }
 
         /// <summary>
         /// Initializes the provider with the specified settings.
@@ -139,12 +230,14 @@ namespace SmartHopper.Config.Interfaces
         /// <summary>
         /// Default model resolution logic.
         /// </summary>
-        public virtual string GetModel(Dictionary<string, object> settings, string requestedModel = "")
+        public virtual string GetModel(string requestedModel = "")
         {
+            string model = this.GetSetting<string>("Model");
+
             if (!string.IsNullOrWhiteSpace(requestedModel))
                 return requestedModel;
-            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
-                return settings["Model"].ToString();
+            if (!string.IsNullOrWhiteSpace(model))
+                return model;
             return DefaultModel;
         }
 

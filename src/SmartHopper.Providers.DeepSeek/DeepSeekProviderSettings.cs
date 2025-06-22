@@ -67,7 +67,15 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     Type = typeof(int),
-                    DefaultValue = 150,
+                    DefaultValue = 500,
+                },
+                new SettingDescriptor
+                {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Enable streaming responses",
                 },
             };
         }
@@ -92,6 +100,7 @@ namespace SmartHopper.Providers.DeepSeek
             string apiKey = null;
             string model = null;
             int? maxTokens = null;
+            bool? enableStreaming = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -132,7 +141,26 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
-            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+            // Check enable streaming if present
+            if (settings.TryGetValue("EnableStreaming", out var enableStreamingObj) && enableStreamingObj != null)
+            {
+                // Try to parse as boolean
+                if (bool.TryParse(enableStreamingObj.ToString(), out bool parsedEnableStreaming))
+                {
+                    enableStreaming = parsedEnableStreaming;
+                }
+                else
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Enable streaming must be a boolean value.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}, Enable Streaming: {enableStreaming}");
 
             return true;
         }

@@ -55,7 +55,6 @@ namespace SmartHopper.Providers.OpenAI
                     Name = "Model",
                     Type = typeof(string),
                     DefaultValue = this.provider.DefaultModel,
-                    IsSecret = false,
                     DisplayName = "Model",
                     Description = "The model to use for completions",
                 },
@@ -64,7 +63,6 @@ namespace SmartHopper.Providers.OpenAI
                     Name = "MaxTokens",
                     Type = typeof(int),
                     DefaultValue = 150,
-                    IsSecret = false,
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                 },
@@ -73,10 +71,17 @@ namespace SmartHopper.Providers.OpenAI
                     Name = "ReasoningEffort",
                     Type = typeof(string),
                     DefaultValue = "medium",
-                    IsSecret = false,
                     DisplayName = "Reasoning Effort",
                     Description = "Level of reasoning effort for reasoning models (low, medium, or high)",
                     AllowedValues = new[] { "low", "medium", "high" },
+                },
+                new SettingDescriptor
+                {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Enable streaming responses",
                 },
             };
         }
@@ -96,6 +101,7 @@ namespace SmartHopper.Providers.OpenAI
             string model = null;
             string reasoningEffort = null;
             int? maxTokens = null;
+            bool? enableStreaming = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -154,7 +160,26 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}, Reasoning Effort: {reasoningEffort}");
+            // Check enable streaming if present
+            if (settings.TryGetValue("EnableStreaming", out var enableStreamingObj) && enableStreamingObj != null)
+            {
+                // Try to parse as boolean
+                if (bool.TryParse(enableStreamingObj.ToString(), out bool parsedEnableStreaming))
+                {
+                    enableStreaming = parsedEnableStreaming;
+                }
+                else
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Enable streaming must be a boolean value.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}, Reasoning Effort: {reasoningEffort}, Enable Streaming: {enableStreaming}");
 
             return true;
         }

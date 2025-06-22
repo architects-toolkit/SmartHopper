@@ -26,14 +26,7 @@ using SmartHopper.Config.Utils;
 namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
-    /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    ///
-    /// To create a new provider:
-    /// 1. Create a new project named SmartHopper.Providers.YourProviderName
-    /// 2. Copy this template and rename all "Template" references to your provider name
-    /// 3. Implement the required methods with your provider-specific logic
-    /// 4. Create a factory class that implements IAIProviderFactory
-    /// 5. Set IsEnabled to true when your provider is ready for use
+    /// DeepSeek AI provider implementation.
     /// </summary>
     public class DeepSeekProvider : AIProvider
     {
@@ -54,7 +47,8 @@ namespace SmartHopper.Providers.DeepSeek
         /// The default model to use if none is specified.
         /// </summary>
         private const string _defaultModel = "deepseek-chat";
-        private const string ApiURL = "https://api.deepseek.com/chat/completions";
+
+        protected override string ApiURL => "https://api.deepseek.com/chat/completions";
 
         /// <summary>
         /// Private constructor to enforce singleton pattern.
@@ -284,31 +278,6 @@ namespace SmartHopper.Providers.DeepSeek
                 Debug.WriteLine($"[DeepSeek] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with DeepSeek API: {ex.Message}", ex);
             }
-        }
-
-        /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="settings">The provider settings.</param>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-            {
-                return requestedModel;
-            }
-
-            // Use the model from settings if available
-            string modelFromSettings = this.GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-            {
-                return modelFromSettings;
-            }
-
-            // Fall back to the default model
-            return this.DefaultModel;
         }
     }
 }

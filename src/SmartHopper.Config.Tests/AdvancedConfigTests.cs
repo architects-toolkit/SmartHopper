@@ -10,6 +10,7 @@
 
 namespace SmartHopper.Config.Tests
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
@@ -31,6 +32,8 @@ namespace SmartHopper.Config.Tests
 
             public bool IsEnabled => true;
 
+            public bool SupportsStreaming => false;
+
             public System.Drawing.Image? Icon => null;
 
             public DummyProvider()
@@ -41,9 +44,12 @@ namespace SmartHopper.Config.Tests
             {
             }
 
-            public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false) => Task.FromResult(default(AIResponse));
+            public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false, IProgress<ChatChunk>? progress = null)
+            {
+                return Task.FromResult(default(AIResponse));
+            }
 
-            public string GetModel(Dictionary<string, object> settings, string requestedModel = "") => this.DefaultModel;
+            public string GetModel(string requestedModel = "") => this.DefaultModel;
 
             public void InitializeSettings(Dictionary<string, object> settings)
             {

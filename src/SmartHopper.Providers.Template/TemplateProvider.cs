@@ -68,6 +68,8 @@ namespace SmartHopper.Providers.Template
         /// </summary>
         public override string DefaultModel => _defaultModel;
 
+        protected override string ApiURL => "https://api.template.com/v1/chat/completions";
+
         /// <summary>
         /// Gets whether this provider is enabled and should be available for use.
         /// Set this to false for template or experimental providers that shouldn't be used in production.
@@ -136,27 +138,6 @@ namespace SmartHopper.Providers.Template
                 Debug.WriteLine($"Error in TemplateProvider.GetResponse: {ex.Message}");
                 throw new Exception($"Error getting response from Template provider: {ex.Message}", ex);
             }
-        }
-
-        /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="settings">The provider settings.</param>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-                return requestedModel;
-
-            // Use the model from settings if available
-            string modelFromSettings = GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-                return modelFromSettings;
-
-            // Fall back to the default model
-            return DefaultModel;
         }
     }
 }

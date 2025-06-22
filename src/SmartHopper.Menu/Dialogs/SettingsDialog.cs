@@ -73,11 +73,18 @@ namespace SmartHopper.Menu.Dialogs
                     return new TextBox();
                 }
             },
+
             // If descriptor is an int, render a numeric stepper
             [typeof(int)] = descriptor => new NumericStepper
             {
                 MinValue = 1,
                 Value = Convert.ToInt32(descriptor.DefaultValue ?? 0),
+            },
+
+            // If descriptor is a bool, render a checkbox
+            [typeof(bool)] = descriptor => new CheckBox
+            {
+                Checked = Convert.ToBoolean(descriptor.DefaultValue ?? false),
             },
         };
 
@@ -301,11 +308,17 @@ namespace SmartHopper.Menu.Dialogs
                     if (currentValue != null)
                     {
                         if (control is TextBox textBox)
+                        {
                             textBox.Text = currentValue;
+                        }
                         else if (control is PasswordBox passwordBox)
+                        {
                             passwordBox.Text = currentValue;
+                        }
                         else if (control is NumericStepper numericStepper)
+                        {
                             numericStepper.Value = Convert.ToInt32(currentValue);
+                        }
                         else if (control is DropDown dropDown)
                         {
                             for (int i = 0; i < dropDown.Items.Count; i++)
@@ -316,6 +329,10 @@ namespace SmartHopper.Menu.Dialogs
                                     break;
                                 }
                             }
+                        }
+                        else if (control is CheckBox checkBox)
+                        {
+                            checkBox.Checked = Convert.ToBoolean(currentValue);
                         }
 
                         // Store original value for comparison
@@ -384,15 +401,25 @@ namespace SmartHopper.Menu.Dialogs
                     // Get new value from control
                     object newValue = null;
                     if (control is TextBox textBox)
+                    {
                         newValue = textBox.Text;
+                    }
                     else if (control is PasswordBox passwordBox)
+                    {
                         newValue = passwordBox.Text;
+                    }
                     else if (control is NumericStepper numericStepper)
+                    {
                         newValue = (int)numericStepper.Value;
+                    }
                     else if (control is DropDown dropDown)
                     {
                         if (dropDown.SelectedIndex >= 0)
                             newValue = dropDown.Items[dropDown.SelectedIndex].Text;
+                    }
+                    else if (control is CheckBox checkBox)
+                    {
+                        newValue = checkBox.Checked;
                     }
                     
                     // For sensitive data, only update if changed and not empty

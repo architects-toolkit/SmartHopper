@@ -460,6 +460,35 @@ namespace SmartHopper.Core.AI.Chat
         }
 
         /// <summary>
+        /// Appends streaming text to the last assistant message.
+        /// </summary>
+        /// <param name="chunkText">The new text chunk.</param>
+        public void AppendToLastAssistantMessage(string chunkText)
+        {
+            // If no assistant message yet or last message not from assistant, insert new one
+            if (_chatHistory.Count == 0 || _chatHistory.Last().Author != "assistant")
+            {
+                var response = new AIResponse { Response = chunkText };
+                _chatHistory.Add(new ChatMessageModel { Author = "assistant", Body = chunkText, Inbound = true, Read = false, Time = DateTime.Now });
+                AddMessageToWebView("assistant", response);
+            }
+            else
+            {
+                // Update last assistant message body
+                var last = _chatHistory.Last();
+                last.Body += chunkText;
+                // Render updated HTML for the message
+                var partialResponse = new AIResponse { Response = last.Body, ToolCalls = new List<AIToolCall>() };
+                string html = _htmlRenderer.GenerateMessageHtml("assistant", partialResponse);
+                // Escape for JavaScript injection
+                string escaped = html.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
+                // Attempt to call JS update function, fallback to adding a new message
+                string script = $"if (typeof updateLastAssistantMessage === 'function') {{ updateLastAssistantMessage(\"{escaped}\"); }} else {{ addMessage(\"{escaped}\"); }}";
+                _webView.ExecuteScript(script);
+            }
+        }
+
+        /// <summary>
         /// Adds a system message with an optional subtype (e.g., "error").
         /// </summary>
         /// <param name="message">The message text.</param>
@@ -651,9 +680,12 @@ namespace SmartHopper.Core.AI.Chat
                 // Check for tool calls in the response
                 if (response.ToolCalls != null && response.ToolCalls.Count > 0)
                 {
-                        // Add the assistant response with tool calls to chat history
+                    // Add the assistant response with tool calls to chat history
+                    if (!response.FinishReason.Equals("streaming", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(response.Response))
+                    {
                         AddAssistantMessage(response);
-                    
+                    }
+
                     foreach (var toolCall in response.ToolCalls)
                     {
                         Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolCall.Name}");
@@ -668,8 +700,12 @@ namespace SmartHopper.Core.AI.Chat
                 else
                 {
                     Debug.WriteLine("[WebChatDialog] Regular response received, adding to chat");
+
                     // Add response to chat history as a regular message
-                    AddAssistantMessage(response);
+                    if (!response.FinishReason.Equals("streaming", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(response.Response))
+                    {
+                        AddAssistantMessage(response);
+                    }
 
                     // Notify listeners
                     ResponseReceived?.Invoke(this, response);

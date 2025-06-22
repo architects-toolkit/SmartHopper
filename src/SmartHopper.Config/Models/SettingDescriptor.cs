@@ -33,7 +33,7 @@ namespace SmartHopper.Config.Models
         /// <summary>
         /// Whether the setting contains sensitive data that should be masked
         /// </summary>
-        public bool IsSecret { get; set; }
+        public bool IsSecret { get; set; } = false;
 
         /// <summary>
         /// Display name shown in the UI

@@ -56,8 +56,27 @@ namespace SmartHopper.Core.AI.Chat
             try
             {
                 // Create a function to get responses from the AI provider
-                Func<List<ChatMessageModel>, Task<AIResponse>> getResponse =
-                    messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint, includeToolDefinitions: true);
+                WebChatDialog dialog = null!;
+                Func<List<ChatMessageModel>, Task<AIResponse>> getResponse = messages =>
+                {
+                    var progress = new Progress<ChatChunk>(chunk =>
+                    {
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            dialog.AppendToLastAssistantMessage(chunk.Content);
+                            progressReporter?.Invoke(chunk.Content);
+                        });
+                    });
+                    return AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        jsonSchema: "",
+                        endpoint: endpoint,
+                        includeToolDefinitions: true,
+                        progress: progress
+                    );
+                };
 
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
@@ -86,7 +105,7 @@ namespace SmartHopper.Core.AI.Chat
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-                        var dialog = new WebChatDialog(getResponse, progressReporter);
+                        dialog = new WebChatDialog(getResponse, progressReporter);
 
                         // If component ID is provided, store the dialog
                         if (componentId != default)

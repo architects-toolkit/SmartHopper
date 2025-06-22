@@ -50,9 +50,10 @@ namespace SmartHopper.Core.AI
             string endpoint = "",
             bool includeToolDefinitions = false,
             string? contextProviderFilter = null,
-            string? contextKeyFilter = null)
+            string? contextKeyFilter = null,
+            IProgress<ChatChunk>? progress = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
+                            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter, progress).ConfigureAwait(false);
         }
 
         public static async Task<AIResponse> GetResponse(
@@ -63,9 +64,10 @@ namespace SmartHopper.Core.AI
             string endpoint = "",
             bool includeToolDefinitions = false,
             string? contextProviderFilter = null,
-            string? contextKeyFilter = null)
+            string? contextKeyFilter = null,
+            IProgress<ChatChunk>? progress = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
+                            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter, progress).ConfigureAwait(false);
         }
 
         private static async Task<AIResponse> GetResponse(
@@ -76,7 +78,8 @@ namespace SmartHopper.Core.AI
             string endpoint = "",
             bool includeToolDefinitions = false,
             string? contextProviderFilter = null,
-            string? contextKeyFilter = null)
+            string? contextKeyFilter = null,
+            IProgress<ChatChunk>? progress = null)
         {
             // Add message context
             try
@@ -132,7 +135,7 @@ namespace SmartHopper.Core.AI
 
                 Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} {(includeToolDefinitions ? "with" : "without")} tools");
 
-                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions).ConfigureAwait(false);
+                                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions, progress).ConfigureAwait(false);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
                 return response;
