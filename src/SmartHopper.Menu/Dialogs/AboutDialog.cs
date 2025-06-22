@@ -136,7 +136,7 @@ namespace SmartHopper.Menu.Dialogs
             var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
             
             var communityLabel = new Label
-            { 
+            {
                 Text = "and the SmartHopper Community",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
@@ -144,7 +144,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI and OpenAI.",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI and DeepSeek.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
@@ -179,7 +179,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = 
+                Items = new[]
                 {
                     new Label { Text = "- Speckle Systems for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
@@ -191,7 +191,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = 
+                Items = new[]
                 {
                     new Label { Text = "- enmerk4r for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
@@ -203,7 +203,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = 
+                Items = new[]
                 {
                     new Label { Text = "- Google for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
@@ -211,14 +211,26 @@ namespace SmartHopper.Menu.Dialogs
                 }
             };
 
-            var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
+            var MathJaxLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items = new[]
+                {
+                    new Label { Text = "- MathJax for the", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("MathJax library", "https://github.com/mathjax/MathJax"),
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
+                }
+            };
 
             var logoDesignThanksLabel = new Label
             {
-                Text = "Special thanks to Jordina Roca Musach for the SmartHopper logo design.",
+                Text = "Thanks to Jordina Roca Musach for the SmartHopper logo design.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
+
+            var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
             var okButton = new Button
             {
@@ -261,10 +273,10 @@ namespace SmartHopper.Menu.Dialogs
                         {
                             Orientation = Orientation.Horizontal,
                             Spacing = 5,
-                            Items = 
-                            { 
+                            Items = new[]
+                            {
                                 new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
-                                githubLinkLabel 
+                                githubLinkLabel
                             }
                         },
                         null, // spacing
@@ -272,9 +284,10 @@ namespace SmartHopper.Menu.Dialogs
                         speckleLink,
                         ghptLink,
                         materialIconsLink,
+                        MathJaxLink,
                         null, // spacing
                         logoDesignThanksLabel,
-                        null, // spacing   
+                        null, // spacing
                         null, // spacing
                         new StackLayoutItem(null, true), // Push everything up
                         aiDisclaimerLabel,

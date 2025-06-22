@@ -21,6 +21,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Utils;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -38,7 +39,7 @@ namespace SmartHopper.Providers.DeepSeek
     {
         // Static instance for singleton pattern
         private static readonly Lazy<DeepSeekProvider> _instance = new Lazy<DeepSeekProvider>(() => new DeepSeekProvider());
-        
+
         /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
@@ -74,7 +75,7 @@ namespace SmartHopper.Providers.DeepSeek
         public override string DefaultModel => _defaultModel;
 
         /// <summary>
-        /// Gets whether this provider is enabled and should be available for use.
+        /// Gets a value indicating whether this provider is enabled and should be available for use.
         /// Set this to false for template or experimental providers that shouldn't be used in production.
         /// </summary>
         public override bool IsEnabled => true;
@@ -92,101 +93,6 @@ namespace SmartHopper.Providers.DeepSeek
                     return new Bitmap(ms);
                 }
             }
-        }
-
-        /// <summary>
-        /// Gets the setting descriptors for this provider.
-        /// These describe the settings that can be configured in the UI.
-        /// </summary>
-        /// <returns>A collection of setting descriptors.</returns>
-        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
-        {
-            // Define the settings that your provider requires
-            return new[]
-            {
-                new SettingDescriptor
-                {
-                    Name = "ApiKey",
-                    DisplayName = "API Key",
-                    Description = "Your API key for the DeepSeek service",
-                    IsSecret = true, // Set to true for sensitive data like API keys
-                    Type = typeof(string)
-                },
-                new SettingDescriptor
-                {
-                    Name = "Model",
-                    DisplayName = "Model",
-                    Description = "The model to use for generating responses",
-                    Type = typeof(string),
-                    DefaultValue = _defaultModel
-                },
-                new SettingDescriptor
-                {
-                    Name = "MaxTokens",
-                    DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
-                    Type = typeof(int),
-                    DefaultValue = 150
-                }
-            };
-        }
-
-        /// <summary>
-        /// Validates the provided settings.
-        /// </summary>
-        /// <param name="settings">The settings to validate.</param>
-        /// <returns>True if the settings are valid, otherwise false.</returns>
-        public override bool ValidateSettings(Dictionary<string, object> settings)
-        {
-            // Only validate settings that are actually provided
-            if (settings == null)
-                return false;
-
-            // Check API key format if present
-            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
-            {
-                string apiKey = apiKeyObj.ToString();
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    // Invalid format: empty key
-                    return false;
-                }
-                // API key format is valid
-            }
-
-            // Check model format if present
-            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
-            {
-                string model = modelObj.ToString();
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    return false;
-                }
-            }
-            
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
-            {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
-                {
-                    if (maxTokens <= 0)
-                    {
-                        // Invalid format: negative or zero
-                        return false;
-                    }
-                    // MaxTokens format is valid
-                }
-                else
-                {
-                    // Invalid format: not an integer
-                    return false;
-                }
-            }
-            
-            // All provided settings have valid format
-            return true;
         }
 
         /// <summary>
@@ -211,8 +117,9 @@ namespace SmartHopper.Providers.DeepSeek
                 }
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = DefaultModel;
+                    modelName = this.DefaultModel;
                 }
+
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -222,11 +129,12 @@ namespace SmartHopper.Providers.DeepSeek
                 foreach (var msg in messages)
                 {
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string content = msg["content"]?.ToString() ?? string.Empty;
+                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                    msgContent = AI.StripThinkTags(msgContent);
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content,
+                        ["content"] = msgContent,
                     };
 
                     // Map role names
@@ -289,7 +197,7 @@ namespace SmartHopper.Providers.DeepSeek
                     // Add response format for structured output
                     requestBody["response_format"] = new JObject
                     {
-                        ["type"] = "json_object"
+                        ["type"] = "json_object",
                     };
 
                     // Add schema as a system message to guide the model
@@ -310,7 +218,7 @@ namespace SmartHopper.Providers.DeepSeek
                 // Add tools if requested
                 if (includeToolDefinitions)
                 {
-                    var tools = GetFormattedTools();
+                    var tools = this.GetFormattedTools();
                     if (tools != null && tools.Count > 0)
                     {
                         requestBody["tools"] = tools;
@@ -353,14 +261,20 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 var usage = responseJson["usage"] as JObject;
+                var reasoning = message["reasoning_content"]?.ToString();
+                var content = message["content"]?.ToString() ?? string.Empty;
+                var combined = !string.IsNullOrWhiteSpace(reasoning)
+                    ? $"<think>{reasoning}</think>{content}"
+                    : content;
+
                 var aiResponse = new AIResponse
                 {
-                    Response = message["content"]?.ToString() ?? string.Empty,
-                    Provider = Name,
+                    Response = combined,
+                    Provider = this.Name,
                     Model = modelName,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0
+                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
                 };
 
                 return aiResponse;
@@ -382,15 +296,19 @@ namespace SmartHopper.Providers.DeepSeek
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
                 return requestedModel;
+            }
 
             // Use the model from settings if available
-            string modelFromSettings = GetSetting<string>("Model");
+            string modelFromSettings = this.GetSetting<string>("Model");
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
                 return modelFromSettings;
+            }
 
             // Fall back to the default model
-            return DefaultModel;
+            return this.DefaultModel;
         }
     }
 }
