@@ -13,7 +13,7 @@ using SmartHopper.Config.Interfaces;
 namespace SmartHopper.Providers.MistralAI
 {
     /// <summary>
-    /// Factory class for creating MistralAI provider instances.
+    /// Factory class for creating MistralAIProvider provider instances.
     /// This class is used by the provider discovery mechanism to create instances of the provider.
     /// </summary>
     public class MistralAIProviderFactory : IAIProviderFactory
@@ -21,10 +21,10 @@ namespace SmartHopper.Providers.MistralAI
         /// <summary>
         /// Creates an instance of the MistralAI provider.
         /// </summary>
-        /// <returns>An instance of the MistralAI provider.</returns>
+        /// <returns>An instance of the MistralAIProvider provider.</returns>
         public IAIProvider CreateProvider()
         {
-            return MistralAI.Instance;
+            return MistralAIProvider.Instance;
         }
 
         /// <summary>
@@ -33,7 +33,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <returns>An instance of the MistralAI provider settings.</returns>
         public IAIProviderSettings CreateProviderSettings()
         {
-            return new MistralAISettings(MistralAI.Instance);
+            return new MistralAIProviderSettings(MistralAIProvider.Instance);
         }
     }
 }

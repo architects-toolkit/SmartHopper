@@ -7,28 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### WIP
+
+- Adding LaTeX support in chat UI with the MathJax library.
+
 ### Added
 
 - Added DeepSeek provider ([#222](https://github.com/architects-toolkit/SmartHopper/issues/222)).
-- Render reasoning panels for `<think>` tags in chat UI as collapsible `<details>` blocks.
-- Exclude reasoning from copy-paste (`mdContent`) and include in HTML display (`htmlContent`).
-- Added configurable reasoning_effort setting (low, medium, high) for OpenAI provider.
+- Added reasoning support:
+  - Render reasoning panels for `<think>` tags in chat UI as collapsible `<details>` blocks.
+  - Exclude reasoning from copy-paste (`mdContent`) and include in HTML display (`htmlContent`).
+  - Added configurable `reasoning_effort` setting (low, medium, high) for OpenAI provider.
+  - New `StripThinkTags` method in `Config.Utils.AI`.
+  - Set up OpenAI and DeepSeek to return reasoning in the response.
 
 ### Changed
 
-- Increased max tokens for OpenAI, MistralAI and DeepSeek providers to 100000.
-- Updated deprecated OpenAI max_tokens parameter to max_completion_tokens.
-- Refactored OpenAI, MistralAI and TemplateProvider settings validation to use centralized validation methods.
+- Mention `DeepSeek` as available provider in the About dialog.
+- Settings dialog improvements:
+  - Added dropdown support for provider settings when a list of allowed values is provided.
+  - Increased max tokens for OpenAI, MistralAI and DeepSeek providers to 100000.
+  - Improved descriptions.
+  - Setting values that are empty or whitespace will be removed from the settings file on `UpdateProviderSettings`.
+- AI providers updates:
+  - Updated deprecated OpenAI max_tokens parameter to max_completion_tokens.
+  - Refactored OpenAI, MistralAI, DeepSeek and TemplateProvider settings validation to use centralized validation methods.
+  - Renamed `OpenAI` to `OpenAIProvider`.
+  - Renamed `OpenAISettings` to `OpenAIProviderSettings`.
+  - Renamed `MistralAI` to `MistralAIProvider`.
+  - Renamed `MistralAISettings` to `MistralAIProviderSettings`.
+  - OpenAI, MisralAI and DeepSeek now remove `<think>` tags from messages before sending them to the API, using the `StripThinkTags` method from `Config.Utils.AI`.
+  - Reorganized providers settings and moved them from `AIProvider` to `AIProviderSettings`.
 
 ### Removed
 
-- Removed `private LoadSettings` method from `OpenAISettings`.
-- Removed `private LoadSettings` method from `TemplateProviderSettings`.
+- Provider settings cleanup:
+  - Removed `private LoadSettings` method from `OpenAISettings`.
+  - Removed `private LoadSettings` method from `TemplateProviderSettings`.
+  - Removed `CreateSettingsControl`, `GetSettings` and `LoadSettings` method from `IAIProviderSettings` and all implementations.
 - Removed `ConcatenateItemsToJsonList` method from `ParsingTools` since it was not used.
 
 ### Fixed
 
 - Fixed `AI List Filter might not be working as expected` ([#220](https://github.com/architects-toolkit/SmartHopper/issues/220)).
+- Fixed limit to 4096 tokens for AI providers in settings dialog.
+- Fixed errors in validation methods of providers.
+- Fixed failing settings integrity check during initialization because providers were not loaded yet.
+- Fixed settings dialog dropdown values not being saved and restored from storage.
 
 ## [0.3.2-alpha] - 2025-06-15
 
