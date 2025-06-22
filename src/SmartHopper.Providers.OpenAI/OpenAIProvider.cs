@@ -69,7 +69,7 @@ namespace SmartHopper.Providers.OpenAI
         /// and wrapping any returned reasoning_summary in <think> tags before the actual content.
         /// </summary>
         /// <remarks>
-        /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a 
+        /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a
         /// reasoning_summary field, we embed it as <think>…</think> immediately preceding the assistant's response.
         /// </remarks>
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
@@ -155,7 +155,7 @@ namespace SmartHopper.Providers.OpenAI
                     ["messages"] = convertedMessages,
                     ["max_completion_tokens"] = maxTokens,
                     ["reasoning_effort"] = reasoningEffort,
-                }; 
+                };
 
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))

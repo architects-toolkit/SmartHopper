@@ -63,7 +63,7 @@ namespace SmartHopper.Config.Configuration
         /// <returns>The setting value, or null if not found.</returns>
         internal object GetSetting(string providerName, string settingName)
         {
-            if (ProviderSettings.TryGetValue(providerName, out var settings) && 
+            if (ProviderSettings.TryGetValue(providerName, out var settings) &&
                 settings.TryGetValue(settingName, out var value))
             {
                 var descriptors = GetProviderDescriptors(providerName);
@@ -243,7 +243,7 @@ namespace SmartHopper.Config.Configuration
                             if (value != null)
                             {
                                 providerSettings[descriptor.Name] = value;
-                                string sourceInfo = this.ProviderSettings.TryGetValue(provider.Name, out var settings) && 
+                                string sourceInfo = this.ProviderSettings.TryGetValue(provider.Name, out var settings) && settings.Value != null ? settings.Value.
                                                     settings.ContainsKey(descriptor.Name) ? 
                                                     "(from storage)" : "(from default)";
 
@@ -370,7 +370,7 @@ namespace SmartHopper.Config.Configuration
                         settings.IntegrityCheck();
 
                         // Don't automatically refresh providers here to avoid circular dependency
-                        // This should happen explicitly after both SmartHopperSettings and ProviderManager 
+                        // This should happen explicitly after both SmartHopperSettings and ProviderManager
                         // are fully initialized
                         return settings;
                     }

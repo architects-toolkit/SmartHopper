@@ -258,9 +258,9 @@ namespace SmartHopper.Menu.Dialogs
                     // Add label and control
                     var settingRow = new TableLayout { Spacing = new Size(5, 5) };
                     settingRow.Rows.Add(new TableRow(
-                        new TableCell(new Label { 
-                            Text = descriptor.DisplayName + ":", 
-                            VerticalAlignment = VerticalAlignment.Center 
+                        new TableCell(new Label {
+                            Text = descriptor.DisplayName + ":",
+                            VerticalAlignment = VerticalAlignment.Center
                         }),
                         new TableCell(control)
                     ));
@@ -398,7 +398,7 @@ namespace SmartHopper.Menu.Dialogs
                     // For sensitive data, only update if changed and not empty
                     if (descriptor.IsSecret && newValue is string strValue)
                     {
-                        if (_originalValues[provider.Name].ContainsKey(descriptor.Name) && 
+                        if (_originalValues[provider.Name].ContainsKey(descriptor.Name) &&
                             strValue == _originalValues[provider.Name][descriptor.Name])
                             continue; // Skip unchanged values
                     }

@@ -171,7 +171,7 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         ["role"] = "system",
                         ["content"] = "You are a helpful assistant that returns responses in JSON format. " +
-                                      "The response must be a valid JSON object that follows this schema exactly: " + 
+                                      "The response must be a valid JSON object that follows this schema exactly: " +
                                       jsonSchema
                     };
                     convertedMessages.Insert(0, systemMessage);
