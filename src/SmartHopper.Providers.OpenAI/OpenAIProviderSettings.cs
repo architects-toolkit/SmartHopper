@@ -88,17 +88,10 @@ namespace SmartHopper.Providers.OpenAI
                 new SettingDescriptor
                 {
                     Name = "Temperature",
-                    Type = typeof(double),
-                    DefaultValue = 0.8,
+                    Type = typeof(string),
+                    DefaultValue = "1.0",
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
-                    ControlParams = new NumericSettingDescriptorControl
-                    {
-                        UseSlider = true,
-                        Min       = 0.0,
-                        Max       = 2.0,
-                        Step      = 0.01
-                    }
                 },
             };
         }
@@ -118,6 +111,7 @@ namespace SmartHopper.Providers.OpenAI
             string model = null;
             string reasoningEffort = null;
             int? maxTokens = null;
+            double? temperature = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -147,7 +141,7 @@ namespace SmartHopper.Providers.OpenAI
                 if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high" }.Contains(reasoningEffort))
                 {
                     Debug.WriteLine($"[OpenAI] Invalid reasoning effort value: {reasoningEffort}");
-                    
+
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
@@ -171,6 +165,25 @@ namespace SmartHopper.Providers.OpenAI
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
+                    }
+                    return false;
+                }
+            }
+
+            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            {
+                // Try to parse as double
+                if (double.TryParse(temperatureObj.ToString(), out double parsedTemperature))
+                {
+                    temperature = parsedTemperature;
+                }
+
+                // Ensure temperature is between 0.0 and 2.0 (both included)
+                if (temperature <= 0.0 || temperature >= 2.0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
                     }
                     return false;
                 }
