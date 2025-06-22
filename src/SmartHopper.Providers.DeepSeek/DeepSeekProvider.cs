@@ -271,6 +271,24 @@ namespace SmartHopper.Providers.DeepSeek
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
                 };
 
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                {
+                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    foreach (JObject tc in tcs)
+                    {
+                        var fn = tc["function"] as JObject;
+                        if (fn != null)
+                        {
+                            aiResponse.ToolCalls.Add(new AIToolCall
+                            {
+                                Id = tc["id"]?.ToString(),
+                                Name = fn["name"]?.ToString(),
+                                Arguments = fn["arguments"]?.ToString()
+                            });
+                        }
+                    }
+                }
+
                 return aiResponse;
             }
             catch (Exception ex)
