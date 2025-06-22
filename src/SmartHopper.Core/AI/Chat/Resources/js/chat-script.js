@@ -12,6 +12,22 @@
  * Adds a message to the chat container
  * @param {string} messageHtml - HTML content of the message
  */
+function updateLastAssistantMessage(messageHtml) {
+    const chatContainer = document.getElementById('chat-container');
+    const messages = chatContainer.querySelectorAll('.message.assistant');
+    if (messages.length === 0) { addMessage(messageHtml); return; }
+    const last = messages[messages.length - 1];
+    // Replace the last assistant message element
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml;
+    const newElem = tempDiv.firstChild;
+    chatContainer.replaceChild(newElem, last);
+    processCodeBlocks();
+    processLinks();
+    setupMetricsTooltip();
+    scrollToBottom();
+}
+
 function addMessage(messageHtml) {
     const chatContainer = document.getElementById('chat-container');
     

@@ -192,24 +192,31 @@ namespace SmartHopper.Providers.MistralAI
             while (!reader.EndOfStream)
             {
                 var line = await reader.ReadLineAsync().ConfigureAwait(false);
+Debug.WriteLine($"[MistralAI] Raw line: '{line}'");
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 var trimmed = line.Trim();
+Debug.WriteLine($"[MistralAI] Trimmed line: '{trimmed}'");
                 if (trimmed.StartsWith("data:")) trimmed = trimmed.Substring("data:".Length).Trim();
-                if (trimmed == "[DONE]") break;
+                if (trimmed == "[DONE]") { Debug.WriteLine("[MistralAI] Received [DONE] marker, exiting stream loop"); break; }
                 Debug.WriteLine($"[MistralAI] Content chunk: {trimmed}");
                 JObject chunkJson;
                 try { chunkJson = JObject.Parse(trimmed); } catch { continue; }
                 var delta = chunkJson["choices"]?[0]?["delta"] as JObject;
-                var content = chunkJson["chunk"]?["content"]?.ToString();
-                var finishReason = chunkJson["choices"]?[0]?["finish_reason"]?.ToString();
+                var content = delta?["content"]?.ToString();
+                var finishReasonToken = chunkJson["choices"]?[0]?["finish_reason"];
+Debug.WriteLine($"[MistralAI] finishReasonToken type: {finishReasonToken?.Type}, raw value: {finishReasonToken}");
+var finishReason = finishReasonToken?.ToString();
+Debug.WriteLine($"[MistralAI] Parsed content: '{content}', finishReason: '{finishReason}'");
                 if (!string.IsNullOrEmpty(content))
                 {
                     context.AccumulatedText += content;
                     context.Progress?.Report(new ChatChunk { Content = content, IsFinal = finishReason != null });
+Debug.WriteLine($"[MistralAI] Reporting chunk via Progress: '{content}', IsFinal: {finishReason != null}");
                 }
-                else if (finishReason != null)
+                else if (finishReasonToken != null && finishReasonToken.Type != JTokenType.Null)
                 {
                     context.Progress?.Report(new ChatChunk { Content = string.Empty, IsFinal = true });
+                    Debug.WriteLine("[MistralAI] Reporting final chunk via Progress and breaking (finishReason: '" + finishReason + "')");
                     break;
                 }
             }

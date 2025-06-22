@@ -465,6 +465,11 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="chunkText">The new text chunk.</param>
         public void AppendToLastAssistantMessage(string chunkText)
         {
+            if (string.IsNullOrEmpty(chunkText))
+            {
+                Debug.WriteLine("[WebChatDialog] Empty stream chunk, skipping AppendToLastAssistantMessage");
+                return;
+            }
             // If no assistant message yet or last message not from assistant, insert new one
             if (_chatHistory.Count == 0 || _chatHistory.Last().Author != "assistant")
             {

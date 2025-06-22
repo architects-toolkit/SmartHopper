@@ -29,7 +29,9 @@ namespace SmartHopper.Providers.OpenAI
     public sealed class OpenAIProvider : AIProvider
     {
         private const string NameValue = "OpenAI";
-        protected override string ApiURL = "https://api.openai.com/v1/chat/completions";
+
+        protected override string ApiURL => "https://api.openai.com/v1/chat/completions";
+
         private const string DefaultModelValue = "gpt-4o-mini";
 
         public override string Name => NameValue;
@@ -175,15 +177,35 @@ namespace SmartHopper.Providers.OpenAI
 
         protected override void PostCall(RequestContext context)
         {
-            if (!context.Response.IsSuccessStatusCode)
+            if (context.DoStreaming)
             {
-                Debug.WriteLine($"[OpenAI] Error response: {context.Response.RawJson}");
-                var errorObj = JObject.Parse(context.Response.RawJson);
-                var errorMessage = errorObj["error"]?["message"]?.ToString() ?? context.Response.RawJson;
-                throw new Exception($"Error from OpenAI API: {context.Response.StatusCode} - {errorMessage}");
+                context.Response = new AIResponse
+                {
+                    Response = context.AccumulatedText ?? string.Empty,
+                    Provider = this.Name,
+                    Model = context.Model,
+                    FinishReason = "streaming",
+                    InTokens = 0,
+                    OutTokens = 0,
+                };
+                return;
             }
 
-            var responseJson = JObject.Parse(context.Response.RawJson);
+            if (context.RawJson == null)
+            {
+                context.Response = new AIResponse
+                {
+                    Response = "Error: No response received from MistralAI",
+                    Provider = this.Name,
+                    Model = context.Model,
+                    FinishReason = "error",
+                    InTokens = 0,
+                    OutTokens = 0,
+                };
+                return;
+            }
+
+            var responseJson = JObject.Parse(context.RawJson);
             Debug.WriteLine($"[OpenAI] Response parsed successfully");
 
             // Extract response content from the Chat Completions API format
