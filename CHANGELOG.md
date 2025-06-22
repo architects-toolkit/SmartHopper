@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### WIP
 
-- Adding Latex support in chat UI with the MathJax library.
+- Adding LaTeX support in chat UI with the MathJax library.
 
 ### Added
 
