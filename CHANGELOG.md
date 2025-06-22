@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed limit to 4096 tokens for AI providers in settings dialog.
 - Fixed errors in validation methods of providers.
 - Fixed failing settings integrity check during initialization because providers were not loaded yet.
+- Fixed settings dialog dropdown values not being saved and restored from storage.
 
 ## [0.3.2-alpha] - 2025-06-15
 

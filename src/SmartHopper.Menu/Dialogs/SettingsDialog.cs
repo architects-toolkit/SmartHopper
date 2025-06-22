@@ -306,6 +306,17 @@ namespace SmartHopper.Menu.Dialogs
                             passwordBox.Text = currentValue;
                         else if (control is NumericStepper numericStepper)
                             numericStepper.Value = Convert.ToInt32(currentValue);
+                        else if (control is DropDown dropDown)
+                        {
+                            for (int i = 0; i < dropDown.Items.Count; i++)
+                            {
+                                if (dropDown.Items[i].Text == currentValue)
+                                {
+                                    dropDown.SelectedIndex = i;
+                                    break;
+                                }
+                            }
+                        }
 
                         // Store original value for comparison
                         _originalValues[provider.Name][descriptor.Name] = currentValue;
@@ -378,6 +389,11 @@ namespace SmartHopper.Menu.Dialogs
                         newValue = passwordBox.Text;
                     else if (control is NumericStepper numericStepper)
                         newValue = (int)numericStepper.Value;
+                    else if (control is DropDown dropDown)
+                    {
+                        if (dropDown.SelectedIndex >= 0)
+                            newValue = dropDown.Items[dropDown.SelectedIndex].Text;
+                    }
                     
                     // For sensitive data, only update if changed and not empty
                     if (descriptor.IsSecret && newValue is string strValue)
