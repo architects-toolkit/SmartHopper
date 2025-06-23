@@ -17,16 +17,24 @@ using SmartHopper.Config.Models;
 
 namespace SmartHopper.Providers.MistralAI
 {
+    /// <summary>
+    /// Provides settings for the MistralAI provider.
+    /// </summary>
     public class MistralAIProviderSettings : AIProviderSettings
     {
         private new readonly MistralAIProvider provider;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MistralAIProviderSettings"/> class.
+        /// </summary>
+        /// <param name="provider">The MistralAI provider instance.</param>
         public MistralAIProviderSettings(MistralAIProvider provider)
             : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             return new[]
@@ -45,7 +53,6 @@ namespace SmartHopper.Providers.MistralAI
                     Name = "Model",
                     Type = typeof(string),
                     DefaultValue = this.provider.DefaultModel,
-                    IsSecret = false,
                     DisplayName = "Model",
                     Description = "The model to use for completions",
                 },
@@ -54,29 +61,28 @@ namespace SmartHopper.Providers.MistralAI
                     Name = "MaxTokens",
                     Type = typeof(int),
                     DefaultValue = 500,
-                    IsSecret = false,
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min       = 1,
-                        Max       = 100000,
-                        Step      = 1,
-                    }
+                        Min = 1,
+                        Max = 100000,
+                        Step = 1,
+                    },
                 },
                 new SettingDescriptor
                 {
                     Name = "Temperature",
                     Type = typeof(string),
-                    DefaultValue = "1",
-                    IsSecret = false,
+                    DefaultValue = "0.5",
                     DisplayName = "Temperature",
-                    Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+                    Description = "Controls randomness (0.0–3.0). Higher values like 2.0 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
                 },
             };
         }
 
+        /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
             Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
@@ -86,7 +92,8 @@ namespace SmartHopper.Providers.MistralAI
                 return false;
             }
 
-            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
+            // Set to false if you don't want to show error dialogs
+            var showErrorDialogs = true;
 
             // Extract values from settings dictionary
             string apiKey = null;
@@ -141,13 +148,16 @@ namespace SmartHopper.Providers.MistralAI
                     temperature = parsedTemperature;
                 }
 
-                // Ensure temperature is between 0.0 and 2.0 (both included)
-                if (temperature <= 0.0 || temperature >= 2.0)
+                // Ensure temperature is between 0.0 and 3.0 (both included)
+                if (temperature <= 0.0 || temperature >= 3.0)
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                        StyledMessageDialog.ShowError(
+                            "Temperature for MistralAI models must be between 0.0 and 3.0.", 
+                            "Validation Error");
                     }
+
                     return false;
                 }
             }
