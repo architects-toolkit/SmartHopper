@@ -54,12 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed `AI List Filter might not be working as expected` ([#220](https://github.com/architects-toolkit/SmartHopper/issues/220)).
+- Fixed "AI List Filter might not be working as expected" ([#220](https://github.com/architects-toolkit/SmartHopper/issues/220)).
+- Fixes "Accepted feature request: Add compatibility to Magistral thinking (by MistralAI)" ([#223](https://github.com/architects-toolkit/SmartHopper/issues/223)).
 - Fixed limit to 4096 tokens for AI providers in settings dialog.
 - Fixed errors in validation methods of providers.
 - Fixed failing settings integrity check during initialization because providers were not loaded yet.
 - Fixed settings dialog dropdown values not being saved and restored from storage.
-- (automatically added) Fixes "Accepted feature request: Add compatibility to Magistral thinking (by MistralAI)" ([#223](https://github.com/architects-toolkit/SmartHopper/issues/223)).
 
 ## [0.3.2-alpha] - 2025-06-15
 
