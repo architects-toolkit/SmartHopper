@@ -22,7 +22,7 @@ namespace SmartHopper.Providers.Template
 {
     /// <summary>
     /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    /// 
+    ///
     /// To create a new provider:
     /// 1. Create a new project named SmartHopper.Providers.YourProviderName
     /// 2. Copy this template and rename all "Template" references to your provider name
@@ -87,121 +87,6 @@ namespace SmartHopper.Providers.Template
                     return new Bitmap(ms);
                 }
             }
-        }
-
-        /// <summary>
-        /// Gets the setting descriptors for this provider.
-        /// These describe the settings that can be configured in the UI.
-        /// </summary>
-        /// <returns>A collection of setting descriptors.</returns>
-        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
-        {
-            // Define the settings that your provider requires
-            return new[]
-            {
-                new SettingDescriptor
-                {
-                    Name = "ApiKey",
-                    DisplayName = "API Key",
-                    Description = "Your API key for the Template service",
-                    IsRequired = true,
-                    IsSecret = true, // Set to true for sensitive data like API keys
-                    Type = typeof(string)
-                },
-                new SettingDescriptor
-                {
-                    Name = "Model",
-                    DisplayName = "Model",
-                    Description = "The model to use for generating responses",
-                    IsRequired = false,
-                    Type = typeof(string),
-                    DefaultValue = _defaultModel
-                },
-                new SettingDescriptor
-                {
-                    Name = "MaxTokens",
-                    DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
-                    IsRequired = false,
-                    Type = typeof(int),
-                    DefaultValue = 150
-                }
-            };
-        }
-
-        /// <summary>
-        /// Validates the provided settings.
-        /// </summary>
-        /// <param name="settings">The settings to validate.</param>
-        /// <returns>True if the settings are valid, otherwise false.</returns>
-        public override bool ValidateSettings(Dictionary<string, object> settings)
-        {
-            // Only validate settings that are actually provided
-            if (settings == null)
-                return false;
-
-            // Check API key format if present
-            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
-            {
-                string apiKey = apiKeyObj.ToString();
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    // Invalid format: empty key
-                    return false;
-                }
-                // API key format is valid
-            }
-
-            // Check endpoint format if present
-            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
-            {
-                string endpoint = endpointObj.ToString();
-                if (string.IsNullOrWhiteSpace(endpoint))
-                {
-                    // Invalid format: empty endpoint
-                    return false;
-                }
-                
-                // Optional: Add URL format validation if needed
-                try
-                {
-                    // Simple URL validation
-                    if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
-                    {
-                        // Invalid format: not a URL
-                        return false;
-                    }
-                }
-                catch
-                {
-                    // Invalid format
-                    return false;
-                }
-            }
-            
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
-            {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
-                {
-                    if (maxTokens <= 0)
-                    {
-                        // Invalid format: negative or zero
-                        return false;
-                    }
-                    // MaxTokens format is valid
-                }
-                else
-                {
-                    // Invalid format: not an integer
-                    return false;
-                }
-            }
-            
-            // All provided settings have valid format
-            return true;
         }
 
         /// <summary>

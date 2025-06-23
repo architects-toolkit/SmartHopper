@@ -8,20 +8,20 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Eto.Forms;
-using Eto.Drawing;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Eto.Drawing;
+using Eto.Forms;
+using Rhino;
 using SmartHopper.Config.Configuration;
-using SmartHopper.Config.Models;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 using SmartHopper.Config.Properties;
-using Rhino;
-using Newtonsoft.Json;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -35,20 +35,71 @@ namespace SmartHopper.Menu.Dialogs
 
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
         {
-            [typeof(string)] = descriptor => 
+            // If descriptor is a string
+            [typeof(string)] = descriptor =>
             {
+                // If descriptor has allowed values, render a dropdown
+                if (descriptor.AllowedValues != null && descriptor.AllowedValues.Any())
+                {
+                    var drop = new DropDown();
+                    foreach (var val in descriptor.AllowedValues)
+                        drop.Items.Add(new ListItem { Text = val.ToString() });
+
+                    // Select default value if present
+                    if (descriptor.DefaultValue != null)
+                    {
+                        var def = descriptor.DefaultValue.ToString();
+                        for (int i = 0; i < drop.Items.Count; i++)
+                        {
+                            if (drop.Items[i].Text == def)
+                            {
+                                drop.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    return drop;
+                }
+
+                // If descriptor is secret, render a password box
                 if (descriptor.IsSecret)
+                {
                     return new PasswordBox();
+                }
+
+                // If descriptor is a string, render a text box
                 else
+                {
                     return new TextBox();
+                }
             },
-            [typeof(int)] = descriptor => new NumericStepper
-            {
-                MinValue = 1,
-                MaxValue = 4096,
-                Value = Convert.ToInt32(descriptor.DefaultValue),
-            }
+
+            // If descriptor is an int, CreateNumericControl
+            [typeof(int)] = CreateNumericControl,
+
+            // If descriptor is a double, CreateNumericControl
+            [typeof(double)] = CreateNumericControl,
         };
+
+        /// <summary>
+        /// Creates either a Slider or NumericStepper for numeric settings.
+        /// </summary>
+        private static Control CreateNumericControl(SettingDescriptor descriptor)
+        {
+            var p = descriptor.ControlParams as NumericSettingDescriptorControl;
+            if (p != null && p.UseSlider)
+            {
+                // TODO: Implement slider control creation with double type compatibility
+            }
+
+            return new NumericStepper
+            {
+                MinValue = p?.Min ?? 1,
+                MaxValue = p?.Max ?? int.MaxValue,
+                Increment = p?.Step ?? 1,
+                Value = Convert.ToDouble(descriptor.DefaultValue ?? 0),
+            };
+        }
 
         private readonly Dictionary<string, Dictionary<string, Control>> _allControls = new Dictionary<string, Dictionary<string, Control>>();
         private readonly Dictionary<string, Dictionary<string, string>> _originalValues = new Dictionary<string, Dictionary<string, string>>();
@@ -70,10 +121,10 @@ namespace SmartHopper.Menu.Dialogs
             }
             Title = "SmartHopper Settings";
             Size = new Size(500, 400);
-            MinimumSize = new Size(400, 300);
+            MinimumSize = new Size(500, 400);
             Resizable = true;
             Padding = new Padding(10);
-            
+
             // Center the dialog on screen
             Location = new Point(
                 (int)((Screen.PrimaryScreen.Bounds.Width - Size.Width) / 2),
@@ -100,7 +151,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     Text = "General Settings",
                     Font = new Font(SystemFont.Bold, 12),
-                    VerticalAlignment = VerticalAlignment.Center
+                    VerticalAlignment = VerticalAlignment.Center,
                 })
             ));
 
@@ -140,9 +191,9 @@ namespace SmartHopper.Menu.Dialogs
             layout.Rows.Add(new TableRow(
                 new TableCell(new Label
                 {
-                    Text = "The default AI provider to use when the 'Default' provider is selected",
+                    Text = "The default AI provider to use",
                     TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10)
+                    Font = new Font(SystemFont.Default, 10),
                 })
             ));
 
@@ -152,7 +203,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 MinValue = 1000,
                 MaxValue = 5000,
-                Value = _settings.DebounceTime
+                Value = _settings.DebounceTime,
             };
 
             debounceRow.Rows.Add(new TableRow(
@@ -165,9 +216,11 @@ namespace SmartHopper.Menu.Dialogs
             layout.Rows.Add(new TableRow(
                 new TableCell(new Label
                 {
-                    Text = "Time to wait before sending a new request (in milliseconds)",
+                    Text = "Time to wait for input data to stabilize (no more changes) before sending a request to the AI provider (in milliseconds), specially relevant when run is permanently set to true",
                     TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10)
+                    Font = new Font(SystemFont.Default, 10),
+                    Wrap = WrapMode.Word,
+                    Width = 400,
                 })
             ));
 
@@ -213,21 +266,21 @@ namespace SmartHopper.Menu.Dialogs
                 layout.Rows.Add(new TableRow(new TableCell(headerLayout)));
 
                 // Cache settings for this provider
-                var providerSettings = _settings.GetProviderSettings(provider.Name);
+                var providerSettings = this._settings.GetProviderSettings(provider.Name);
 
                 // Add settings for this provider
                 foreach (var descriptor in descriptors)
                 {
                     // Create control for this setting
-                    var control = _controlFactories[descriptor.Type](descriptor);
+                    var control = this._controlFactories[descriptor.Type](descriptor);
                     controls[descriptor.Name] = control;
 
                     // Add label and control
                     var settingRow = new TableLayout { Spacing = new Size(5, 5) };
                     settingRow.Rows.Add(new TableRow(
-                        new TableCell(new Label { 
-                            Text = descriptor.DisplayName + ":", 
-                            VerticalAlignment = VerticalAlignment.Center 
+                        new TableCell(new Label {
+                            Text = descriptor.DisplayName + ":",
+                            VerticalAlignment = VerticalAlignment.Center,
                         }),
                         new TableCell(control)
                     ));
@@ -241,7 +294,9 @@ namespace SmartHopper.Menu.Dialogs
                             {
                                 Text = descriptor.Description,
                                 TextColor = Colors.Gray,
-                                Font = new Font(SystemFont.Default, 10)
+                                Font = new Font(SystemFont.Default, 10),
+                                Wrap = WrapMode.Word,
+                                Width = 400,
                             })
                         ));
                     }
@@ -272,7 +327,22 @@ namespace SmartHopper.Menu.Dialogs
                         else if (control is PasswordBox passwordBox)
                             passwordBox.Text = currentValue;
                         else if (control is NumericStepper numericStepper)
-                            numericStepper.Value = Convert.ToInt32(currentValue);
+                            numericStepper.Value = Convert.ToDouble(currentValue);
+                        else if (control is Slider slider)
+                        {
+                            slider.Value = Convert.ToInt32(currentValue);
+                        }
+                        else if (control is DropDown dropDown)
+                        {
+                            for (int i = 0; i < dropDown.Items.Count; i++)
+                            {
+                                if (dropDown.Items[i].Text == currentValue)
+                                {
+                                    dropDown.SelectedIndex = i;
+                                    break;
+                                }
+                            }
+                        }
 
                         // Store original value for comparison
                         _originalValues[provider.Name][descriptor.Name] = currentValue;
@@ -345,14 +415,18 @@ namespace SmartHopper.Menu.Dialogs
                         newValue = passwordBox.Text;
                     else if (control is NumericStepper numericStepper)
                         newValue = (int)numericStepper.Value;
+                    else if (control is Slider slider)
+                        newValue = (double)slider.Value;
+                    else if (control is DropDown dropDown)
+                    {
+                        if (dropDown.SelectedIndex >= 0)
+                            newValue = dropDown.Items[dropDown.SelectedIndex].Text;
+                    }
                     
                     // For sensitive data, only update if changed and not empty
                     if (descriptor.IsSecret && newValue is string strValue)
                     {
-                        if (string.IsNullOrEmpty(strValue))
-                            continue; // Keep existing value
-                            
-                        if (_originalValues[provider.Name].ContainsKey(descriptor.Name) && 
+                        if (_originalValues[provider.Name].ContainsKey(descriptor.Name) &&
                             strValue == _originalValues[provider.Name][descriptor.Name])
                             continue; // Skip unchanged values
                     }

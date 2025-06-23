@@ -19,6 +19,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Markdig;
 using SmartHopper.Config.Models;
 
@@ -212,6 +213,30 @@ namespace SmartHopper.Core.AI.Chat
         }
 
         /// <summary>
+        /// Renders the reasoning panel (if any) as a collapsible HTML details block.
+        /// </summary>
+        /// <param name="rawResponse">Raw markdown response including <think> tags.</param>
+        /// <returns>HTML for reasoning panel or empty string.</returns>
+        private string RenderReasoning(string rawResponse)
+        {
+            var m = Regex.Match(rawResponse, @"<think>([\s\S]*?)</think>", RegexOptions.Singleline);
+            if (!m.Success) return "";
+            var reasoningMd = m.Groups[1].Value;
+            var reasoningHtml = Markdown.ToHtml(reasoningMd, _markdownPipeline);
+            return $"<details class=\"think\"><summary>Reasoning</summary>{reasoningHtml}</details>";
+        }
+
+        /// <summary>
+        /// Strips any <think>…</think> sections from the raw response.
+        /// </summary>
+        /// <param name="rawResponse">Raw markdown response including <think> tags.</param>
+        /// <returns>Markdown string without reasoning sections.</returns>
+        private string StripReasoning(string rawResponse)
+        {
+            return Regex.Replace(rawResponse, @"<think>[\s\S]*?</think>", "", RegexOptions.Singleline).Trim();
+        }
+
+        /// <summary>
         /// Creates a message HTML from the template.
         /// </summary>
         /// <param name="role">The role of the message sender (user, assistant, system).</param>
@@ -230,11 +255,15 @@ namespace SmartHopper.Core.AI.Chat
 
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
-            string htmlContent = Markdown.ToHtml(response.Response, _markdownPipeline);
-            Debug.WriteLine($"[ChatResourceManager] Markdown converted, HTML length: {htmlContent?.Length ?? 0}");
+            var raw = response?.Response ?? "";
+            var reasoningPanel = RenderReasoning(raw);
+            var answerMd = StripReasoning(raw);
+            Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
+            string answerHtml = Markdown.ToHtml(answerMd, _markdownPipeline);
+            Debug.WriteLine($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
 
-            // Escape markdown for safe use in an HTML attribute
-            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(response?.Response ?? "").Replace("'", "&#39;");
+            // Escape answer markdown for safe use in an HTML attribute
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(answerMd).Replace("'", "&#39;");
 
             string template = GetMessageTemplate();
 
@@ -242,7 +271,7 @@ namespace SmartHopper.Core.AI.Chat
                 .Replace("{{role}}", role)
                 .Replace("{{displayName}}", displayName)
                 .Replace("{{timestamp}}", timestamp)
-                .Replace("{{htmlContent}}", htmlContent)
+                .Replace("{{htmlContent}}", reasoningPanel + answerHtml)
                 .Replace("{{mdContent}}", mdContentEscaped)
                 .Replace("{{inTokens}}", response?.InTokens.ToString() ?? "")
                 .Replace("{{outTokens}}", response?.OutTokens.ToString() ?? "")
