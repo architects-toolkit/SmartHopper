@@ -17,7 +17,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
@@ -139,14 +141,34 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         // DeepSeek uses assistant role
 
-                        // Pass tool_calls if available
+                        // DeepSeek doesn't support tool calls for assistant messages
                         if (msg["tool_calls"] != null)
                         {
-                            messageObj["tool_calls"] = msg["tool_calls"];
+                            var toolCalls = msg["tool_calls"] as JArray;
+                            int i = 0;
+                            foreach (JObject toolCall in toolCalls)
+                            {
+                                toolCalls[i]["function"]["arguments"] = JsonConvert.SerializeObject(toolCall["function"]["arguments"], Formatting.None);
+                                i++;
+                            }
+                            
+                            messageObj["tool_calls"] = toolCalls;
                         }
                     }
                     else if (role == "tool")
                     {
+                        // Ensure content is a string, not a json object
+                        var jsonString = JsonConvert.SerializeObject(msg["content"], Formatting.None);
+                        jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
+                        jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
+                        jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+                        // Remove two or more consecutive whitespace characters
+                        jsonString = Regex.Replace(jsonString, @"\s+", " ");
+
+                        // Replace content with the cleaned string
+                        messageObj["content"] = jsonString;
+
                         // Propagate tool_call ID and name from incoming message
                         if (msg["name"] != null)
                         {
@@ -218,14 +240,6 @@ namespace SmartHopper.Providers.DeepSeek
                         requestBody["tools"] = tools;
                         requestBody["tool_choice"] = "auto";
                     }
-                    else
-                    {
-                        requestBody["tool_choice"] = "none";
-                    }
-                }
-                else
-                {
-                    requestBody["tool_choice"] = "none";
                 }
 
                 var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
