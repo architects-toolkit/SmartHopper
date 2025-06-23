@@ -37,6 +37,7 @@ namespace SmartHopper.Providers.OpenAI
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             return new[]
@@ -55,7 +56,6 @@ namespace SmartHopper.Providers.OpenAI
                     Name = "Model",
                     Type = typeof(string),
                     DefaultValue = this.provider.DefaultModel,
-                    IsSecret = false,
                     DisplayName = "Model",
                     Description = "The model to use for completions",
                 },
@@ -64,15 +64,14 @@ namespace SmartHopper.Providers.OpenAI
                     Name = "MaxTokens",
                     Type = typeof(int),
                     DefaultValue = 500,
-                    IsSecret = false,
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     ControlParams = new NumericSettingDescriptorControl
                     {
-                        UseSlider = false,   // keep the NumericStepper
-                        Min       = 1,
-                        Max       = 100000,
-                        Step      = 1
+                        UseSlider = false, // keep the NumericStepper
+                        Min = 1,
+                        Max = 100000,
+                        Step = 1,
                     }
                 },
                 new SettingDescriptor
@@ -89,13 +88,14 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Name = "Temperature",
                     Type = typeof(string),
-                    DefaultValue = "1.0",
+                    DefaultValue = "0.5",
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
                 },
             };
         }
 
+        /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
             Debug.WriteLine($"[OpenAI] ValidateSettings called. Settings null? {settings == null}");
@@ -104,7 +104,8 @@ namespace SmartHopper.Providers.OpenAI
                 return false;
             }
 
-            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
+            // Set to false if you don't want to show error dialogs
+            var showErrorDialogs = true;
 
             // Extract values from settings dictionary
             string apiKey = null;
