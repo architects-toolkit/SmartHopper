@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
@@ -30,7 +31,7 @@ namespace SmartHopper.Providers.OpenAI
     {
         private const string NameValue = "OpenAI";
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
-        private const string DefaultModelValue = "gpt-4o-mini";
+        private const string DefaultModelValue = "gpt-4.1-mini";
 
         private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
 
@@ -154,8 +155,14 @@ namespace SmartHopper.Providers.OpenAI
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_completion_tokens"] = maxTokens,
-                    ["reasoning_effort"] = reasoningEffort,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
+
+                // Add reasoning effort if model starts with "(0-9)o"
+                if (Regex.IsMatch(modelName, @"^[0-9]o", RegexOptions.IgnoreCase))
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
 
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))

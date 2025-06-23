@@ -17,7 +17,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Models;
@@ -26,14 +28,7 @@ using SmartHopper.Config.Utils;
 namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
-    /// Template AI provider implementation. This class serves as a guide for implementing new AI providers.
-    ///
-    /// To create a new provider:
-    /// 1. Create a new project named SmartHopper.Providers.YourProviderName
-    /// 2. Copy this template and rename all "Template" references to your provider name
-    /// 3. Implement the required methods with your provider-specific logic
-    /// 4. Create a factory class that implements IAIProviderFactory
-    /// 5. Set IsEnabled to true when your provider is ready for use
+    /// DeepSeek AI provider implementation.
     /// </summary>
     public class DeepSeekProvider : AIProvider
     {
@@ -146,14 +141,34 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         // DeepSeek uses assistant role
 
-                        // Pass tool_calls if available
+                        // DeepSeek doesn't support tool calls for assistant messages
                         if (msg["tool_calls"] != null)
                         {
-                            messageObj["tool_calls"] = msg["tool_calls"];
+                            var toolCalls = msg["tool_calls"] as JArray;
+                            int i = 0;
+                            foreach (JObject toolCall in toolCalls)
+                            {
+                                toolCalls[i]["function"]["arguments"] = JsonConvert.SerializeObject(toolCall["function"]["arguments"], Formatting.None);
+                                i++;
+                            }
+                            
+                            messageObj["tool_calls"] = toolCalls;
                         }
                     }
                     else if (role == "tool")
                     {
+                        // Ensure content is a string, not a json object
+                        var jsonString = JsonConvert.SerializeObject(msg["content"], Formatting.None);
+                        jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
+                        jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
+                        jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+                        // Remove two or more consecutive whitespace characters
+                        jsonString = Regex.Replace(jsonString, @"\s+", " ");
+
+                        // Replace content with the cleaned string
+                        messageObj["content"] = jsonString;
+
                         // Propagate tool_call ID and name from incoming message
                         if (msg["name"] != null)
                         {
@@ -189,6 +204,7 @@ namespace SmartHopper.Providers.DeepSeek
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
 
                 // Add JSON response format if schema is provided
@@ -224,14 +240,6 @@ namespace SmartHopper.Providers.DeepSeek
                         requestBody["tools"] = tools;
                         requestBody["tool_choice"] = "auto";
                     }
-                    else
-                    {
-                        requestBody["tool_choice"] = "none";
-                    }
-                }
-                else
-                {
-                    requestBody["tool_choice"] = "none";
                 }
 
                 var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
@@ -276,6 +284,24 @@ namespace SmartHopper.Providers.DeepSeek
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
                 };
+
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                {
+                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    foreach (JObject tc in tcs)
+                    {
+                        var fn = tc["function"] as JObject;
+                        if (fn != null)
+                        {
+                            aiResponse.ToolCalls.Add(new AIToolCall
+                            {
+                                Id = tc["id"]?.ToString(),
+                                Name = fn["name"]?.ToString(),
+                                Arguments = fn["arguments"]?.ToString()
+                            });
+                        }
+                    }
+                }
 
                 return aiResponse;
             }

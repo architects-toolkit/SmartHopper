@@ -243,11 +243,18 @@ namespace SmartHopper.Config.Configuration
                             if (value != null)
                             {
                                 providerSettings[descriptor.Name] = value;
-                                string sourceInfo = this.ProviderSettings.TryGetValue(provider.Name, out var settings) && settings.Value != null ? settings.Value.
-                                                    settings.ContainsKey(descriptor.Name) ? 
-                                                    "(from storage)" : "(from default)";
+                                bool hasStorage = this.ProviderSettings
+                                    .TryGetValue(provider.Name, out var storedSettings)
+                                    && storedSettings != null
+                                    && storedSettings.ContainsKey(descriptor.Name);
 
-                                Debug.WriteLine($"Setting {provider.Name}.{descriptor.Name} = {(descriptor.IsSecret ? "<secret>" : value)} {sourceInfo}");
+                                string sourceInfo = hasStorage
+                                    ? "(from storage)"
+                                    : "(from default)";
+
+                                Debug.WriteLine(
+                                    $"Setting {provider.Name}.{descriptor.Name} = " +
+                                    $"{(descriptor.IsSecret ? "<secret>" : value)} {sourceInfo}");
                             }
                         }
 

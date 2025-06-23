@@ -18,7 +18,7 @@ using SmartHopper.Config.Models;
 namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
-    /// Settings implementation for the Template provider.
+    /// Settings implementation for the DeepSeek provider.
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
@@ -35,11 +35,7 @@ namespace SmartHopper.Providers.DeepSeek
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
-        /// <summary>
-        /// Gets the setting descriptors for this provider.
-        /// These describe the settings that can be configured in the UI.
-        /// </summary>
-        /// <returns>A collection of setting descriptors.</returns>
+        /// <inheritdoc/>
         public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             // Define the settings that your provider requires
@@ -67,7 +63,22 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     Type = typeof(int),
-                    DefaultValue = 150,
+                    DefaultValue = 500,
+                    ControlParams = new NumericSettingDescriptorControl
+                    {
+                        UseSlider = false, // keep the NumericStepper
+                        Min = 1,
+                        Max = 8192,
+                        Step = 1,
+                    },
+                },
+                new SettingDescriptor
+                {
+                    Name = "Temperature",
+                    Type = typeof(string),
+                    DefaultValue = "0.5",
+                    DisplayName = "Temperature",
+                    Description = "Controls randomness (0.0–2.0). Higher values like 1.5 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Check https://api-docs.deepseek.com/quick_start/parameter_settings/ for more information.",
                 },
             };
         }
@@ -86,12 +97,14 @@ namespace SmartHopper.Providers.DeepSeek
                 return false;
             }
 
-            var showErrorDialogs = true; // Set to false if you don't want to show error dialogs
+            // Set to false if you don't want to show error dialogs
+            var showErrorDialogs = true;
 
             // Extract values from settings dictionary
             string apiKey = null;
             string model = null;
             int? maxTokens = null;
+            double? temperature = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -106,7 +119,7 @@ namespace SmartHopper.Providers.DeepSeek
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[MistralAI] Model extracted: {model}");
+                Debug.WriteLine($"[DeepSeek] Model extracted: {model}");
 
                 // Skip model validation since any value is valid
             }
@@ -126,6 +139,26 @@ namespace SmartHopper.Providers.DeepSeek
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            {
+                // Try to parse as double
+                if (double.TryParse(temperatureObj.ToString(), out double parsedTemperature))
+                {
+                    temperature = parsedTemperature;
+                }
+
+                // Ensure temperature is between 0.0 and 2.0 (both included)
+                if (temperature <= 0.0 || temperature >= 2.0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
                     }
 
                     return false;
