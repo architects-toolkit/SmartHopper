@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3-alpha] - 2025-06-23
+
 ### WIP
 
 - Adding LaTeX support in chat UI with the MathJax library.
@@ -57,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed errors in validation methods of providers.
 - Fixed failing settings integrity check during initialization because providers were not loaded yet.
 - Fixed settings dialog dropdown values not being saved and restored from storage.
+- (automatically added) Fixes "Accepted feature request: Add compatibility to Magistral thinking (by MistralAI)" ([#223](https://github.com/architects-toolkit/SmartHopper/issues/223)).
 
 ## [0.3.2-alpha] - 2025-06-15
 
