@@ -14,15 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added DeepSeek provider ([#222](https://github.com/architects-toolkit/SmartHopper/issues/222)).
+- Added temperature parameter support for MistralAI, OpenAI, and DeepSeek providers.
+- Added slider UI control in settings dialog for numeric parameters.
 - Added reasoning support:
   - Render reasoning panels for `<think>` tags in chat UI as collapsible `<details>` blocks.
   - Exclude reasoning from copy-paste (`mdContent`) and include in HTML display (`htmlContent`).
-  - Added configurable `reasoning_effort` setting (low, medium, high) for OpenAI provider.
+  - Added configurable `reasoning_effort` setting (low, medium, high) for OpenAI o-series models.
   - New `StripThinkTags` method in `Config.Utils.AI`.
   - Set up OpenAI and DeepSeek to return reasoning in the response.
 
 ### Changed
 
+- Updated default OpenAI model to gpt-4.1-mini.
 - Mention `DeepSeek` as available provider in the About dialog.
 - Settings dialog improvements:
   - Added dropdown support for provider settings when a list of allowed values is provided.

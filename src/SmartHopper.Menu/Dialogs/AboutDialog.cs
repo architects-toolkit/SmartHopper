@@ -179,7 +179,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- Speckle Systems for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
@@ -191,7 +191,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- enmerk4r for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
@@ -203,7 +203,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- Google for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
@@ -215,7 +215,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                Items = new[]
+                Items =
                 {
                     new Label { Text = "- MathJax for the", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("MathJax library", "https://github.com/mathjax/MathJax"),
@@ -273,7 +273,7 @@ namespace SmartHopper.Menu.Dialogs
                         {
                             Orientation = Orientation.Horizontal,
                             Spacing = 5,
-                            Items = new[]
+                            Items =
                             {
                                 new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
                                 githubLinkLabel
@@ -292,9 +292,9 @@ namespace SmartHopper.Menu.Dialogs
                         new StackLayoutItem(null, true), // Push everything up
                         aiDisclaimerLabel,
                         null, // spacing
-                        okButton
-                    }
-                }
+                        okButton,
+                    },
+                },
             };
 
             return mainContentLayout;

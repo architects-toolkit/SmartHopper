@@ -49,5 +49,10 @@ namespace SmartHopper.Config.Models
         /// For string settings, a list of allowed values that will be displayed as a dropdown
         /// </summary>
         public IEnumerable<object> AllowedValues { get; set; }
+
+        /// <summary>
+        /// Optional UI control parameters (e.g., slider vs stepper for numeric types)
+        /// </summary>
+        public SettingDescriptorControl ControlParams { get; set; }
     }
 }

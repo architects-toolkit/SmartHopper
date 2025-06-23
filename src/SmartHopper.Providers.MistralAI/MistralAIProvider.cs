@@ -155,6 +155,7 @@ namespace SmartHopper.Providers.MistralAI
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
 
                 // Add JSON response format if schema is provided
