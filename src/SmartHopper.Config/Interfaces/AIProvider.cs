@@ -12,11 +12,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Models;
 using SmartHopper.Config.Managers;
+using SmartHopper.Config.Models;
 
 namespace SmartHopper.Config.Interfaces
 {
@@ -37,17 +37,6 @@ namespace SmartHopper.Config.Interfaces
         /// </summary>
         bool IsEnabled { get; }
 
-        IEnumerable<SettingDescriptor> GetSettingDescriptors();
-
-        /// <summary>
-        /// Validates that the provided settings have the correct format.
-        /// Note: This should only validate the settings that are present in the dictionary,
-        /// not require all settings to be present. This allows for partial settings updates.
-        /// </summary>
-        /// <param name="settings">The settings dictionary to validate.</param>
-        /// <returns>True if all provided settings are valid, false otherwise.</returns>
-        bool ValidateSettings(Dictionary<string, object> settings);
-
         Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
 
         string GetModel(Dictionary<string, object> settings, string requestedModel = "");
@@ -56,6 +45,8 @@ namespace SmartHopper.Config.Interfaces
         /// Injects decrypted settings for this provider (called by ProviderManager).
         /// </summary>
         void InitializeSettings(Dictionary<string, object> settings);
+
+        IEnumerable<SettingDescriptor> GetSettingDescriptors();
     }
 
     /// <summary>
@@ -66,12 +57,13 @@ namespace SmartHopper.Config.Interfaces
         private Dictionary<string, object> _injectedSettings;
 
         public abstract string Name { get; }
+
         public abstract string DefaultModel { get; }
+
         public abstract bool IsEnabled { get; }
+
         public abstract Image Icon { get; }
 
-        public abstract IEnumerable<SettingDescriptor> GetSettingDescriptors();
-        public abstract bool ValidateSettings(Dictionary<string, object> settings);
         public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
 
         /// <summary>
@@ -193,6 +185,17 @@ namespace SmartHopper.Config.Interfaces
                 Debug.WriteLine($"Error formatting tools: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Returns the SettingDescriptors for this provider by
+        /// fetching its IAIProviderSettings instance from ProviderManager.
+        /// </summary>
+        public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
+        {
+            var ui = ProviderManager.Instance.GetProviderSettings(Name);
+            return ui?.GetSettingDescriptors()
+                ?? Enumerable.Empty<SettingDescriptor>();
         }
     }
 }

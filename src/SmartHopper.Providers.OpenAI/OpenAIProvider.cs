@@ -14,28 +14,30 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Utils;
 
 namespace SmartHopper.Providers.OpenAI
 {
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public sealed class OpenAI : AIProvider
+    public sealed class OpenAIProvider : AIProvider
     {
         private const string NameValue = "OpenAI";
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
-        private const string DefaultModelValue = "gpt-4o-mini";
+        private const string DefaultModelValue = "gpt-4.1-mini";
 
-        private static readonly Lazy<OpenAI> InstanceValue = new (() => new OpenAI());
+        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
 
-        public static OpenAI Instance => InstanceValue.Value;
+        public static OpenAIProvider Instance => InstanceValue.Value;
 
-        private OpenAI()
+        private OpenAIProvider()
         {
         }
 
@@ -63,116 +65,23 @@ namespace SmartHopper.Providers.OpenAI
             }
         }
 
-        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
-        {
-            return new[]
-            {
-                new SettingDescriptor
-                {
-                    Name = "ApiKey",
-                    Type = typeof(string),
-                    DefaultValue = string.Empty,
-                    IsSecret = true,
-                    DisplayName = "API Key",
-                    Description = "Your OpenAI API key",
-                },
-                new SettingDescriptor
-                {
-                    Name = "Model",
-                    Type = typeof(string),
-                    DefaultValue = DefaultModelValue,
-                    IsSecret = false,
-                    DisplayName = "Model",
-                    Description = "The model to use for completions",
-                },
-                new SettingDescriptor
-                {
-                    Name = "MaxTokens",
-                    Type = typeof(int),
-                    DefaultValue = 150,
-                    IsSecret = false,
-                    DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
-                },
-            };
-        }
-
-        public override bool ValidateSettings(Dictionary<string, object> settings)
-        {
-            Debug.WriteLine($"[OpenAI] ValidateSettings called. Settings null? {settings == null}");
-            if (settings == null)
-            {
-                return false;
-            }
-
-            // Only validate settings that are actually provided
-            // This allows partial setting updates rather than requiring all settings
-
-            // Check API key format if present
-            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
-            {
-                string apiKey = apiKeyObj.ToString();
-
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    Debug.WriteLine("[OpenAI] API key format validation failed: empty key provided");
-                    return false;
-                }
-
-                Debug.WriteLine($"[OpenAI] API key format validation passed (length: {apiKey.Length})");
-            }
-
-            // Check model format if present
-            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
-            {
-                string model = modelObj.ToString();
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    Debug.WriteLine("[OpenAI] Model format validation failed: empty model name provided");
-                    return false;
-                }
-
-                Debug.WriteLine($"[OpenAI] Model validation passed: {model}");
-            }
-
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
-            {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
-                {
-                    if (maxTokens <= 0)
-                    {
-                        Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
-                        return false;
-                    }
-
-                    Debug.WriteLine($"[OpenAI] MaxTokens validation passed: {maxTokens}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[OpenAI] MaxTokens validation failed: value must be an integer, got {maxTokensObj}");
-                    return false;
-                }
-            }
-
-            // All provided settings are valid
-            return true;
-        }
-
+        /// <summary>
+        /// Sends messages to the OpenAI Chat Completions endpoint, injecting a reasoning summary parameter when supported
+        /// and wrapping any returned reasoning_summary in <think> tags before the actual content.
+        /// </summary>
+        /// <remarks>
+        /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a
+        /// reasoning_summary field, we embed it as <think>…</think> immediately preceding the assistant's response.
+        /// </remarks>
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
         {
             // Get settings from the secure settings store
             string apiKey = this.GetSetting<string>("ApiKey");
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
+            string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
 
-            // Validate API key
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                throw new Exception("OpenAI API key is not configured or is invalid.");
-            }
+            // Skip API key validation since any value is valid
 
             // Use default model if none specified
             if (string.IsNullOrWhiteSpace(modelName))
@@ -192,11 +101,12 @@ namespace SmartHopper.Providers.OpenAI
                 foreach (var msg in messages)
                 {
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string content = msg["content"]?.ToString() ?? string.Empty;
+                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                    msgContent = AI.StripThinkTags(msgContent);
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content,
+                        ["content"] = msgContent,
                     };
 
                     if (role == "assistant")
@@ -244,8 +154,15 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
-                    ["max_tokens"] = maxTokens,
+                    ["max_completion_tokens"] = maxTokens,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
+
+                // Add reasoning effort if model starts with "(0-9)o"
+                if (Regex.IsMatch(modelName, @"^[0-9]o", RegexOptions.IgnoreCase))
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
 
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
@@ -310,9 +227,15 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
 
+                    // extract reasoning_summary and wrap in <think> if present
+                    var content = message?["content"]?.ToString() ?? string.Empty;
+                    var summary = responseJson["choices"]?[0]?["reasoning_summary"]?.ToString();
+                    var combined = !string.IsNullOrWhiteSpace(summary)
+                        ? $"<think>{summary}</think>{content}"
+                        : content;
                     var aiResponse = new AIResponse
                     {
-                        Response = message?["content"]?.ToString() ?? string.Empty,
+                        Response = combined,
                         Provider = "OpenAI",
                         Model = modelName,
                         FinishReason = responseJson["choices"]?[0]?["finish_reason"]?.ToString() ?? "unknown",

@@ -8,41 +8,34 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using SmartHopper.Config.Dialogs;
+using SmartHopper.Config.Interfaces;
+using SmartHopper.Config.Models;
 
-namespace SmartHopper.Providers.Template
+namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
-    /// Settings implementation for the Template provider.
+    /// Settings implementation for the DeepSeek provider.
     /// This class is responsible for creating the UI controls for configuring the provider
     /// and for managing the provider's settings.
     /// </summary>
-    public class TemplateProviderSettings : AIProviderSettings
+    public class DeepSeekProviderSettings : AIProviderSettings
     {
         private readonly IAIProvider provider;
-        private TextBox apiKeyTextBox;
-        private TextBox modelTextBox;
-        private NumericUpDown maxTokensNumeric;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="TemplateProviderSettings"/> class.
+        /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public TemplateProviderSettings(IAIProvider provider) : base(provider)
+        public DeepSeekProviderSettings(IAIProvider provider) : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
-        /// <summary>
-        /// Gets the setting descriptors for this provider.
-        /// These describe the settings that can be configured in the UI.
-        /// </summary>
-        /// <returns>A collection of setting descriptors.</returns>
+        /// <inheritdoc/>
         public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             // Define the settings that your provider requires
@@ -52,7 +45,7 @@ namespace SmartHopper.Providers.Template
                 {
                     Name = "ApiKey",
                     DisplayName = "API Key",
-                    Description = "Your API key for the Template service",
+                    Description = "Your API key for the DeepSeek service",
                     IsSecret = true, // Set to true for sensitive data like API keys
                     Type = typeof(string),
                 },
@@ -73,12 +66,20 @@ namespace SmartHopper.Providers.Template
                     DefaultValue = 500,
                     ControlParams = new NumericSettingDescriptorControl
                     {
-                        UseSlider = false,   // keep the NumericStepper
-                        Min       = 1,
-                        Max       = 100000,
-                        Step      = 1
-                    }
-                }
+                        UseSlider = false, // keep the NumericStepper
+                        Min = 1,
+                        Max = 8192,
+                        Step = 1,
+                    },
+                },
+                new SettingDescriptor
+                {
+                    Name = "Temperature",
+                    Type = typeof(string),
+                    DefaultValue = "0.5",
+                    DisplayName = "Temperature",
+                    Description = "Controls randomness (0.0–2.0). Higher values like 1.5 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Check https://api-docs.deepseek.com/quick_start/parameter_settings/ for more information.",
+                },
             };
         }
 
@@ -89,70 +90,82 @@ namespace SmartHopper.Providers.Template
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            // Only validate settings that are actually provided
+            Debug.WriteLine($"[DeepSeek] ValidateSettings called. Settings null? {settings == null}");
+            
             if (settings == null)
+            {
                 return false;
+            }
+
+            // Set to false if you don't want to show error dialogs
+            var showErrorDialogs = true;
 
             // Extract values from settings dictionary
             string apiKey = null;
-            string endpoint = null;
+            string model = null;
             int? maxTokens = null;
+            double? temperature = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[TemplateProvider] API key extracted (length: {apiKey.Length})");
+                Debug.WriteLine($"[DeepSeek] API key extracted (length: {apiKey.Length})");
 
                 // Skip API key validation since any value is valid
             }
 
-            // Get endpoint if present
-            if (settings.TryGetValue("Endpoint", out var endpointObj) && endpointObj != null)
+            // Get model if present
+            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
-                endpoint = endpointObj.ToString();
-                Debug.WriteLine($"[TemplateProvider] Endpoint extracted: {endpoint}");
+                model = modelObj.ToString();
+                Debug.WriteLine($"[DeepSeek] Model extracted: {model}");
 
-                // Check endpoint format if provided
-                if (endpoint != null && !string.IsNullOrWhiteSpace(endpoint))
-                {
-                    // Optional: Add URL format validation
-                    if (!endpoint.StartsWith("http://") && !endpoint.StartsWith("https://"))
-                    {
-                        if (showErrorDialogs)
-                        {
-                            StyledMessageDialog.ShowError("Endpoint must be a valid URL starting with http:// or https://.", "Validation Error");
-                        }
-                        return false;
-                    }
-                }
+                // Skip model validation since any value is valid
             }
 
-            // Check max tokens if present
+            // Check max tokens if present - must be a positive number
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
                 // Try to parse as integer
                 if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
                 {
                     maxTokens = parsedMaxTokens;
-                    Debug.WriteLine($"[TemplateProvider] MaxTokens extracted: {maxTokens}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[TemplateProvider] MaxTokens validation failed: not an integer, got {maxTokensObj}");
-                    return false;
                 }
 
-                // Check max tokens if provided
+                // Ensure max tokens is greater than 0
                 if (maxTokens.HasValue && maxTokens.Value <= 0)
                 {
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
                     }
+
                     return false;
                 }
             }
+
+            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            {
+                // Try to parse as double
+                if (double.TryParse(temperatureObj.ToString(), out double parsedTemperature))
+                {
+                    temperature = parsedTemperature;
+                }
+
+                // Ensure temperature is between 0.0 and 2.0 (both included)
+                if (temperature <= 0.0 || temperature >= 2.0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
 
             return true;
         }

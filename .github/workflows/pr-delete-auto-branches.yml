@@ -31,8 +31,10 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'ci/') ||
       startsWith(github.event.pull_request.head.ref, 'release/') ||
       startsWith(github.event.pull_request.head.ref, 'feature/') ||
+      startsWith(github.event.pull_request.head.ref, 'feat/') ||
       startsWith(github.event.pull_request.head.ref, 'hotfix/') ||
-      startsWith(github.event.pull_request.head.ref, 'bugfix/')
+      startsWith(github.event.pull_request.head.ref, 'bugfix/') ||
+      startsWith(github.event.pull_request.head.ref, 'fix/')
     runs-on: ubuntu-latest
     steps:
       - name: Delete branch

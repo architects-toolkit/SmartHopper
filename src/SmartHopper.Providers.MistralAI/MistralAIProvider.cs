@@ -20,20 +20,21 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Config.Interfaces;
 using SmartHopper.Config.Managers;
 using SmartHopper.Config.Models;
+using SmartHopper.Config.Utils;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAI : AIProvider
+    public sealed class MistralAIProvider : AIProvider
     {
         private const string NameValue = "MistralAI";
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
         private const string DefaultModelValue = "mistral-small-latest";
 
-        private static readonly Lazy<MistralAI> InstanceValue = new (() => new MistralAI());
+        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
 
-        public static MistralAI Instance => InstanceValue.Value;
+        public static MistralAIProvider Instance => InstanceValue.Value;
 
-        private MistralAI()
+        private MistralAIProvider()
         {
         }
 
@@ -59,104 +60,6 @@ namespace SmartHopper.Providers.MistralAI
                     return new Bitmap(ms);
                 }
             }
-        }
-
-        public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
-        {
-            return new[]
-            {
-                new SettingDescriptor
-                {
-                    Name = "ApiKey",
-                    Type = typeof(string),
-                    DefaultValue = string.Empty,
-                    IsSecret = true,
-                    DisplayName = "API Key",
-                    Description = "Your MistralAI API key",
-                },
-                new SettingDescriptor
-                {
-                    Name = "Model",
-                    Type = typeof(string),
-                    DefaultValue = DefaultModelValue,
-                    IsSecret = false,
-                    DisplayName = "Model",
-                    Description = "The model to use for completions",
-                },
-                new SettingDescriptor
-                {
-                    Name = "MaxTokens",
-                    Type = typeof(int),
-                    DefaultValue = 150,
-                    IsSecret = false,
-                    DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
-                },
-            };
-        }
-
-        public override bool ValidateSettings(Dictionary<string, object> settings)
-        {
-            Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
-            if (settings == null)
-            {
-                return false;
-            }
-
-            // Only validate settings that are actually provided
-            // This allows partial setting updates rather than requiring all settings
-
-            // Check API key format if present
-            if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
-            {
-                string apiKey = apiKeyObj.ToString();
-
-                // Simple format validation - don't require presence, just valid format if provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    Debug.WriteLine("[MistralAI] API key format validation failed: empty key provided");
-                    return false;
-                }
-
-                Debug.WriteLine($"[MistralAI] API key format validation passed (length: {apiKey.Length})");
-            }
-
-            // Check model format if present
-            if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
-            {
-                string model = modelObj.ToString();
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    Debug.WriteLine("[MistralAI] Model format validation failed: empty model name provided");
-                    return false;
-                }
-
-                Debug.WriteLine($"[MistralAI] Model validation passed: {model}");
-            }
-
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
-            {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int maxTokens))
-                {
-                    if (maxTokens <= 0)
-                    {
-                        Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be positive, got {maxTokens}");
-                        return false;
-                    }
-
-                    Debug.WriteLine($"[MistralAI] MaxTokens validation passed: {maxTokens}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[MistralAI] MaxTokens validation failed: value must be an integer, got {maxTokensObj}");
-                    return false;
-                }
-            }
-
-            // All provided settings are valid
-            return true;
         }
 
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
@@ -191,11 +94,12 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     // Provider-specific: propagate assistant tool_call messages unmodified
                     string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string content = msg["content"]?.ToString() ?? string.Empty;
+                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                    msgContent = AI.StripThinkTags(msgContent);
 
                     var messageObj = new JObject
                     {
-                        ["content"] = content,
+                        ["content"] = msgContent,
                     };
 
                     // Map role names
@@ -251,6 +155,7 @@ namespace SmartHopper.Providers.MistralAI
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
+                    ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
 
                 // Add JSON response format if schema is provided
@@ -267,7 +172,7 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         ["role"] = "system",
                         ["content"] = "You are a helpful assistant that returns responses in JSON format. " +
-                                      "The response must be a valid JSON object that follows this schema exactly: " + 
+                                      "The response must be a valid JSON object that follows this schema exactly: " +
                                       jsonSchema
                     };
                     convertedMessages.Insert(0, systemMessage);
