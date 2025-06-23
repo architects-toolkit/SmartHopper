@@ -154,9 +154,14 @@ namespace SmartHopper.Providers.OpenAI
                     ["model"] = modelName,
                     ["messages"] = convertedMessages,
                     ["max_completion_tokens"] = maxTokens,
-                    ["reasoning_effort"] = reasoningEffort,
                     ["temperature"] = this.GetSetting<double>("Temperature"),
                 };
+
+                // Add reasoning effort if model starts with "o"
+                if (modelName.StartsWith("o", StringComparison.OrdinalIgnoreCase))
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
 
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
