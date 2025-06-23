@@ -6,6 +6,7 @@ description: Clean code style
 
 2. With the given list of files, perform de following cleaning in *.cs files:
   - Add docstrings for all elements
+  - When using `/// <inheritdoc/>`, ensure the parent has docstring
   - There must be a blank line between elements
   - Code should not contain multiple whitespace characters in a row, such as:
       Min       = 1, -> Min = 1,
