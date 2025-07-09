@@ -22,12 +22,12 @@ using System.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using Grasshopper.Kernel;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for toggling Grasshopper component preview by GUID.
     /// </summary>
-    public class gh_toggle_preview : IAIToolProvider
+    public class gh_toggle_lock : IAIToolProvider
     {
         /// <summary>
         /// Returns AI tools for component visibility control.
@@ -36,32 +36,32 @@ namespace SmartHopper.Core.Grasshopper.Tools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_toggle_preview",
-                description: "Toggle Grasshopper component preview on or off by GUID.",
+                name: "gh_toggle_lock",
+                description: "Toggle Grasshopper component locked state (enable/disable) by GUID.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""guids"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""List of component GUIDs to toggle preview.""
+                            ""description"": ""List of component GUIDs to toggle lock state.""
                         },
-                        ""previewOn"": {
+                        ""locked"": {
                             ""type"": ""boolean"",
-                            ""description"": ""True to enable preview, false to disable preview.""
+                            ""description"": ""True to lock (disable), false to unlock (enable) the component.""
                         }
                     },
-                    ""required"": [ ""guids"", ""previewOn"" ]
+                    ""required"": [ ""guids"", ""locked"" ]
                 }",
-                execute: this.GhTogglePreviewAsync
+                execute: this.GhToggleLockAsync
             );
         }
 
-        private async Task<object> GhTogglePreviewAsync(JObject parameters)
+        private async Task<object> GhToggleLockAsync(JObject parameters)
         {
             var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var previewOn = parameters["previewOn"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
+            var locked = parameters["locked"]?.ToObject<bool>() ?? false;
+            Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
             var updated = new List<string>();
 
             foreach (var s in guids)
@@ -70,8 +70,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
                 if (Guid.TryParse(s, out var guid))
                 {
                     Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                    GHComponentUtils.SetComponentPreview(guid, previewOn);
-                    Debug.WriteLine($"[GhObjTools] Set preview to {previewOn} for GUID: {guid}");
+                    GHComponentUtils.SetComponentLock(guid, locked);
+                    Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
                     updated.Add(guid.ToString());
                 }
                 else

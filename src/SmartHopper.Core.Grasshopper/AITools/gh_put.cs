@@ -19,7 +19,7 @@ using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for placing Grasshopper components from GhJSON format.

@@ -19,8 +19,9 @@ using HtmlAgilityPack;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Core.Grasshopper.Utils;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Provides AI tools for fetching webpage text content,

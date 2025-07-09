@@ -19,12 +19,12 @@ using System.Net;
 using Markdig;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Core.AI.Chat
+namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
     /// Utility class for rendering chat messages as HTML for WebView display.
     /// </summary>
-    public class HtmlChatRenderer
+    internal class HtmlChatRenderer
     {
         private readonly MarkdownPipeline _markdownPipeline;
         private readonly ChatResourceManager _resourceManager;

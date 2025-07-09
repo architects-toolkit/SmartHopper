@@ -17,10 +17,10 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
-using SmartHopper.Core.AI;
 using SmartHopper.Core.Grasshopper.Models;
+using SmartHopper.Core.Messaging;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Contains tools for text analysis and manipulation using AI.

@@ -22,7 +22,7 @@ using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
@@ -88,8 +88,8 @@ namespace SmartHopper.Core.Grasshopper.Tools
             }
 
             var connectionDepth = parameters["connectionDepth"]?.ToObject<int>() ?? 0;
-            var (includeTypes, excludeTypes) = GhGetTools.ParseIncludeExclude(typeFilters, GhGetTools.TypeSynonyms);
-            var (includeTags, excludeTags) = GhGetTools.ParseIncludeExclude(attrFilters, GhGetTools.FilterSynonyms);
+            var (includeTypes, excludeTypes) = Get.ParseIncludeExclude(typeFilters, Get.TypeSynonyms);
+            var (includeTags, excludeTags) = Get.ParseIncludeExclude(attrFilters, Get.FilterSynonyms);
 
             // Apply typeFilters on base objects
             var typeFiltered = new List<IGH_ActiveObject>(objects);

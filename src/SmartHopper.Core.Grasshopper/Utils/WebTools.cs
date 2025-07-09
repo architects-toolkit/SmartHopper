@@ -11,12 +11,12 @@
 using System;
 using System.Collections.Generic;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.Utils
 {
     /// <summary>
     /// Provides web-related utility functions, including robots.txt parsing.
     /// </summary>
-    public class WebTools
+    internal class WebTools
     {
         private readonly List<string> _disallowed = new();
 

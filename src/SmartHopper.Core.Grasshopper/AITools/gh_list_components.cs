@@ -22,7 +22,7 @@ using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
@@ -59,7 +59,7 @@ namespace SmartHopper.Core.Grasshopper.Tools
         {
             var server = Instances.ComponentServer;
             var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-            var (includeCats, excludeCats) = GhGetTools.ParseIncludeExclude(categoryFilters, GhGetTools.CategorySynonyms);
+            var (includeCats, excludeCats) = Get.ParseIncludeExclude(categoryFilters, Get.CategorySynonyms);
 
             // Retrieve all component proxies in one call
             var proxies = server.ObjectProxies.ToList();

@@ -19,9 +19,9 @@ using System.Drawing;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Core.AI;
-using SmartHopper.Core.AI.Chat;
+using SmartHopper.Core.UI.Chat;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.AIContext;
 using SmartHopper.Infrastructure.Managers.AIContext;
 using SmartHopper.Infrastructure.Models;
 

@@ -14,7 +14,7 @@ using Rhino;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AIContext;
 
-namespace SmartHopper.Core.AI
+namespace SmartHopper.Core.AIContext
 {
     /// <summary>
     /// Context provider that supplies the current time information to AI queries
@@ -40,33 +40,6 @@ namespace SmartHopper.Core.AI
             {
                 { "current-datetime", now.ToString("yyyy-MM-dd HH:mm:ss") },
                 { "current-timezone", $"UTC{(utcOffset.Hours >= 0 ? "+" : "")}{utcOffset.Hours:D2}:{utcOffset.Minutes:D2}" }
-            };
-        }
-    }
-
-    /// <summary>
-    /// Context provider that supplies environment information (OS, Rhino version) to AI queries
-    /// </summary>
-    public class EnvironmentContextProvider : IAIContextProvider
-    {
-        /// <summary>
-        /// Gets the provider identifier
-        /// </summary>
-        public string ProviderId => "environment";
-
-        /// <summary>
-        /// Gets the environment context for AI queries
-        /// </summary>
-        /// <returns>A dictionary containing environment information</returns>
-        public Dictionary<string, string> GetContext()
-        {
-            var rhinoVersion = RhinoApp.Version.ToString();
-
-            return new Dictionary<string, string>
-            {
-                { "operating-system", Environment.OSVersion.ToString() },
-                { "rhino-version", rhinoVersion },
-                { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" }
             };
         }
     }
