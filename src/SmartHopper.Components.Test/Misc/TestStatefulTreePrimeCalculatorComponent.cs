@@ -15,16 +15,16 @@
  * Copyright (c) 2021 Speckle Systems
  */
 
-using Grasshopper.Kernel;
-using SmartHopper.Core.ComponentBase;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using System.Collections.Generic;
-using System.Drawing;
+using SmartHopper.Core.ComponentBase;
 
 namespace SmartHopper.Components.Test.Misc
 {
@@ -115,7 +115,7 @@ namespace SmartHopper.Components.Test.Misc
 
                     long b = 2;
                     bool isPrime = true;
-                    
+
                     while (b * b <= a)
                     {
                         token.ThrowIfCancellationRequested();

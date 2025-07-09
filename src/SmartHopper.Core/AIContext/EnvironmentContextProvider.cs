@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using Rhino;
 using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIContext;
 
 namespace SmartHopper.Core.AIContext
 {

@@ -92,7 +92,7 @@ namespace SmartHopper.Providers.DeepSeek
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
             Debug.WriteLine($"[DeepSeek] ValidateSettings called. Settings null? {settings == null}");
-            
+
             if (settings == null)
             {
                 return false;

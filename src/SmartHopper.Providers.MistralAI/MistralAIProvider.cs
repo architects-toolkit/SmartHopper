@@ -30,7 +30,7 @@ namespace SmartHopper.Providers.MistralAI
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
         private const string DefaultModelValue = "mistral-small-latest";
 
-        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
+        private static readonly Lazy<MistralAIProvider> InstanceValue = new(() => new MistralAIProvider());
 
         public static MistralAIProvider Instance => InstanceValue.Value;
 

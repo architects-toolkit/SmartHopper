@@ -19,7 +19,6 @@ using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Rhino;
 using SmartHopper.Infrastructure.Configuration;
 using SmartHopper.Infrastructure.Dialogs;

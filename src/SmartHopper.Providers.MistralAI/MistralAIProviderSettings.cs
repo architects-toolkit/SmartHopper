@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 
@@ -155,7 +154,7 @@ namespace SmartHopper.Providers.MistralAI
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError(
-                            "Temperature for MistralAI models must be between 0.0 and 3.0.", 
+                            "Temperature for MistralAI models must be between 0.0 and 3.0.",
                             "Validation Error");
                     }
 

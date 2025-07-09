@@ -11,24 +11,18 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Grasshopper.GUI.Script;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using Rhino;
-using RhinoCodePlatform.GH;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
-
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
-
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {

@@ -134,10 +134,10 @@ namespace SmartHopper.Infrastructure.Dialogs
             {
                 var yesButton = new Button { Text = "Yes", MinimumSize = new Size(80, 30) };
                 var noButton = new Button { Text = "No", MinimumSize = new Size(80, 30) };
-                
+
                 yesButton.Click += (sender, e) => { _result = true; Close(); };
                 noButton.Click += (sender, e) => { _result = false; Close(); };
-                
+
                 buttonLayout.Items.Add(yesButton);
                 buttonLayout.Items.Add(noButton);
                 DefaultButton = yesButton;
@@ -160,8 +160,8 @@ namespace SmartHopper.Infrastructure.Dialogs
                     // Header row centered
                     new TableRow(
                         new TableCell(
-                            new StackLayout 
-                            { 
+                            new StackLayout
+                            {
                                 HorizontalContentAlignment = HorizontalAlignment.Center,
                                 Items = { headerLayout }
                             }

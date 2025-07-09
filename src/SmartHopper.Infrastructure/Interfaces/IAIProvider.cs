@@ -8,15 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Interfaces

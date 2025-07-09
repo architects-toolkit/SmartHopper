@@ -25,10 +25,10 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Messaging;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -252,7 +252,7 @@ namespace SmartHopper.Core.ComponentBase
             try
             {
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] This method is being deprecated. Use CallAiToolAsync instead.");
-                
+
                 // Get the actual provider name to use
                 string actualProvider = GetActualProviderName();
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {actualProvider} (Selected: {_aiProvider})");
@@ -300,7 +300,7 @@ namespace SmartHopper.Core.ComponentBase
             parameters ??= new JObject();
             // Inject provider and model
             parameters["provider"] = GetActualProviderName();
-            parameters["model"]    = GetModel();
+            parameters["model"] = GetModel();
             parameters["reuseCount"] = reuseCount;
 
             JObject result;
@@ -321,7 +321,7 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"]   = ex.Message
+                    ["error"] = ex.Message
                 };
             }
 

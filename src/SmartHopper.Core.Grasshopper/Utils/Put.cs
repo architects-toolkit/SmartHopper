@@ -34,7 +34,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             var startPoint = GHCanvasUtils.StartPoint(span);
             return PutObjectsOnCanvas(document, startPoint);
         }
-        
+
         /// <summary>
         /// Core placement logic; returns mapping from template InstanceGuid to placed component InstanceGuid.
         /// </summary>

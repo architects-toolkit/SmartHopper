@@ -72,6 +72,6 @@ namespace SmartHopper.Components.AI
             return new Dictionary<string, string> { { "file-context", this.context } };
         }
 
-        public override Guid ComponentGuid => new ("A7F5D347-9F4E-4A75-B6A9-115C06B6115D");
+        public override Guid ComponentGuid => new("A7F5D347-9F4E-4A75-B6A9-115C06B6115D");
     }
 }

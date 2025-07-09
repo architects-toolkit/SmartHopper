@@ -14,10 +14,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {

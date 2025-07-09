@@ -9,8 +9,8 @@
  */
 
 using System.Windows.Forms;
-using SmartHopper.Infrastructure.Initialization;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Initialization;
 
 namespace SmartHopper.Menu.Items
 {
@@ -26,7 +26,7 @@ namespace SmartHopper.Menu.Items
             {
                 // Use the new initializer to safely refresh everything
                 SmartHopperInitializer.Reinitialize();
-                
+
                 StyledMessageDialog.ShowInfo("AI provider discovery and settings refresh has been triggered.", "SmartHopper");
             };
             return item;
