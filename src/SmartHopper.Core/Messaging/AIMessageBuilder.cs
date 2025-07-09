@@ -12,15 +12,15 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Core.AI
+namespace SmartHopper.Core.Messaging
 {
-    public static class AIMessageBuilder
+    internal static class AIMessageBuilder
     {
         /// <summary>
         /// Creates a message array from a list of key-value pairs.
         /// </summary>
         /// <returns></returns>
-        public static JArray CreateMessage(List<KeyValuePair<string, string>> kvp)
+        internal static JArray CreateMessage(List<KeyValuePair<string, string>> kvp)
         {
             var messages = new JArray();
             foreach (KeyValuePair<string, string> element in kvp)
@@ -39,7 +39,7 @@ namespace SmartHopper.Core.AI
         /// Creates a message array from a list of ChatMessageModel.
         /// </summary>
         /// <returns></returns>
-        public static JArray CreateMessage(List<ChatMessageModel> chatMessages)
+        internal static JArray CreateMessage(List<ChatMessageModel> chatMessages)
         {
             var messages = new JArray();
             foreach (ChatMessageModel element in chatMessages)

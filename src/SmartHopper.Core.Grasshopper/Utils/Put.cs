@@ -27,7 +27,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// <summary>
     /// Utility to place deserialized Grasshopper objects onto the canvas.
     /// </summary>
-    public static class Put
+    internal static class Put
     {
         public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, int span = 100)
         {

@@ -146,8 +146,8 @@ namespace SmartHopper.Infrastructure.Managers.AITools
 
                 Debug.WriteLine($"[AIToolManager] Successfully loaded Core.Grasshopper assembly: {coreGrasshopperAssembly.GetName().Version}");
 
-                // Find all types in the SmartHopper.Core.Grasshopper.Tools namespace
-                var toolsNamespace = "SmartHopper.Core.Grasshopper.Tools";
+                // Find all types in the SmartHopper.Core.Grasshopper.AITools namespace
+                var toolsNamespace = "SmartHopper.Core.Grasshopper.AITools";
                 Debug.WriteLine($"[AIToolManager] Searching for tool providers in namespace: {toolsNamespace}");
 
                 // Get all types in the Tools namespace

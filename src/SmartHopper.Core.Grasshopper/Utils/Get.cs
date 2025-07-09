@@ -20,14 +20,13 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Graph;
-using SmartHopper.Core.Grasshopper.Utils;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.Utils
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
     /// </summary>
-    public class GhGetTools
+    internal class Get
     {
         /// <summary>
         /// Synonyms for filter tags.

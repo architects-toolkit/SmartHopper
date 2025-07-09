@@ -27,12 +27,12 @@ using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Properties;
 
-namespace SmartHopper.Core.AI.Chat
+namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
     /// Dialog-based chat interface using WebView for rendering HTML content.
     /// </summary>
-    public class WebChatDialog : Form
+    internal class WebChatDialog : Form
     {
         // UI Components
         private readonly WebView _webView;

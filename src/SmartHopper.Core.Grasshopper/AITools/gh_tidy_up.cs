@@ -22,7 +22,7 @@ using System.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using Grasshopper.Kernel;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for toggling Grasshopper component preview by GUID.

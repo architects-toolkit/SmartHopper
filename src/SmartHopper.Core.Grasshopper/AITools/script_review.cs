@@ -17,11 +17,11 @@ using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
-using SmartHopper.Core.AI;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Messaging;
 
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Provides the "script_review" AI tool for code reviewing script components.

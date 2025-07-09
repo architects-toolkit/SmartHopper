@@ -19,7 +19,7 @@ using SmartHopper.Infrastructure.Managers.AIContext;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Core.AI
+namespace SmartHopper.Core.Messaging
 {
     public static class AIUtils
     {

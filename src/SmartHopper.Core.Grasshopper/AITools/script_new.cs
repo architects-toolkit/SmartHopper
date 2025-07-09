@@ -21,16 +21,16 @@ using Rhino;
 using RhinoCodePlatform.GH;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
-using SmartHopper.Core.AI;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
 
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Provides the "script_new" AI tool for generating new script components based on user instructions.

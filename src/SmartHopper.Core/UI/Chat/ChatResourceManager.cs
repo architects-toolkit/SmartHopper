@@ -23,12 +23,12 @@ using System.Text.RegularExpressions;
 using Markdig;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Core.AI.Chat
+namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
     /// Manages resources for the chat interface, including HTML templates, CSS, and JavaScript.
     /// </summary>
-    public class ChatResourceManager
+    internal class ChatResourceManager
     {
         private string _cachedChatTemplate;
         private string _cachedMessageTemplate;
@@ -38,11 +38,11 @@ namespace SmartHopper.Core.AI.Chat
         private readonly MarkdownPipeline _markdownPipeline;
 
         // Resource names
-        private const string CSS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.css.chat-styles.css";
-        private const string JS_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.js.chat-script.js";
-        private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.chat-template.html";
-        private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.message-template.html";
-        private const string ERROR_TEMPLATE_RESOURCE = "SmartHopper.Core.AI.Chat.Resources.templates.error-template.html";
+        private const string CSS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.css.chat-styles.css";
+        private const string JS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.chat-script.js";
+        private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.chat-template.html";
+        private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.message-template.html";
+        private const string ERROR_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.error-template.html";
 
         /// <summary>
         /// Initializes a new instance of the ChatResourceManager class.

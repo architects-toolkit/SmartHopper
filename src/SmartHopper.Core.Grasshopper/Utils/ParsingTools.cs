@@ -15,7 +15,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace SmartHopper.Core.Grasshopper.Tools
+namespace SmartHopper.Core.Grasshopper.Utils
 {
     /// <summary>
     /// Helper methods for parsing AI responses into specific data types.

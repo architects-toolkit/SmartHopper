@@ -22,9 +22,10 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
+using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Core.AI.Chat
+namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
     /// Utility functions for the AI Chat component.
