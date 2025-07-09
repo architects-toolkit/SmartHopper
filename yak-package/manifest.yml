@@ -7,12 +7,7 @@ description: >
 
   WARNING: THIS IS AN ALPHA VERSION, SOME FEATURES MIGHT NOT WORK AS EXPECTED.
 
-  Do everything you can do with AI, directly within Grasshopper:
-  - New AI-powered components to make things that were impossible before
-  - Program code directly from natural language to script components
-  - Get help with an integrated chat
-  - Let SmartHopper search on the Rhino forum for you
-  - And many more...
+  This release includes a new context input for AI powered components.
 
 authors:
   - Marc Roca Musach

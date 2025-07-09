@@ -31,8 +31,38 @@ namespace SmartHopper.Components.AI
     /// </summary>
     public class AIChatComponent : AIStatefulAsyncComponentBase
     {
-        private TimeContextProvider timeProvider;
-        private EnvironmentContextProvider environmentProvider;
+        private readonly TimeContextProvider timeProvider;
+        private readonly EnvironmentContextProvider environmentProvider;
+        private string _systemPrompt;
+
+        private readonly string _defaultSystemPrompt = """
+            You are a helpful AI assistant specialized in Grasshopper 3D and computational design. Follow these guidelines:
+
+            - Be concise and technical in your responses
+            - Explain complex concepts in simple terms
+            - Avoid exposing Guids to the user
+            - When providing code, include brief comments explaining key parts
+            - If a question is unclear, ask for clarification
+            - Admit when you don't know something rather than guessing
+            - Respect the user's skill level and adjust explanations accordingly
+
+            Focus on:
+            1. Parametric design principles
+            2. Algorithmic problem-solving
+            3. Performance optimization
+            4. Best practices in computational design
+
+            Examples of tool calls:
+            - gh_get: read the current canvas to know about the user's current structure of components
+              - gh_get[attrFilters="selected"]: get only selected components
+              - gh_get[attrFilters="selected +error"]: get only selected components with errors
+              - gh_get[attrFilters="+error +warning"]: get all components with errors or warnings
+              - gh_get[guidFilter="guid1"]: get all info about a specific component by its GUID
+            - gh_list_components: list installed components to know about the user's available tools
+            - web_rhino_forum_search: look up Rhino forum discussions to try to find answers to the user's question
+            - web_rhino_forum_read_post: read a specific post from the Rhino forum
+            - generic_page_read: read a web page by providing the URL
+            """;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIChatComponent"/> class.
@@ -73,18 +103,61 @@ namespace SmartHopper.Components.AI
         /// Registers additional input parameters for the component.
         /// </summary>
         /// <param name="pManager">The parameter manager.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            // No additional inputs needed - uses the base inputs (Model and Run)
+            pManager.AddTextParameter(
+                "Instructions",
+                "I",
+                "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.",
+                GH_ParamAccess.item,
+                this._defaultSystemPrompt);
         }
 
         /// <summary>
         /// Registers additional output parameters for the component.
         /// </summary>
         /// <param name="pManager">The parameter manager.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Last Response", "R", "The last response from the AI assistant", GH_ParamAccess.item);
+            pManager.AddTextParameter(
+                "Last Response",
+                "R",
+                "The last response from the AI assistant",
+                GH_ParamAccess.item);
+        }
+
+        /// <summary>
+        /// Gets the system prompt from the component.
+        /// </summary>
+        /// <returns>The system prompt.</returns>
+        /// <inheritdoc/>
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            string systemPrompt = null;
+            DA.GetData("Instructions", ref systemPrompt);
+            SetSystemPrompt(systemPrompt);
+
+            base.SolveInstance(DA);
+        }
+
+        /// <summary>
+        /// Sets the system prompt for the AI chat.
+        /// </summary>
+        /// <param name="systemPrompt">The system prompt to use.</param>
+        private void SetSystemPrompt(string systemPrompt)
+        {
+            this._systemPrompt = systemPrompt ?? throw new ArgumentNullException(nameof(systemPrompt));
+        }
+
+        /// <summary>
+        /// Gets the current system prompt.
+        /// </summary>
+        /// <returns>The current system prompt.</returns>
+        protected string GetSystemPrompt()
+        {
+            return this._systemPrompt;
         }
 
         /// <summary>
@@ -162,6 +235,7 @@ namespace SmartHopper.Components.AI
                         actualProvider,
                         this.component.GetModel(),
                         "chat",
+                        this.component.GetSystemPrompt(),
                         this.progressReporter,
                         this.component.InstanceGuid); // Pass the component's instance GUID
 
