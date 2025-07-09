@@ -18,7 +18,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
@@ -51,6 +50,7 @@ namespace SmartHopper.Core.AI.Chat
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
         private readonly Action<string>? _progressReporter;
+        private readonly string? _systemPrompt;
 
         /// <summary>
         /// Event raised when a new AI response is received.
@@ -64,18 +64,20 @@ namespace SmartHopper.Core.AI.Chat
         /// Creates a new web chat dialog.
         /// </summary>
         /// <param name="getResponse">Function to get responses from the AI provider</param>
+        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant</param>
         /// <param name="progressReporter">Optional callback to report progress updates</param>
-        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, Action<string>? progressReporter = null)
+        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, string? systemPrompt = null, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
-            _progressReporter = progressReporter;
+            this._progressReporter = progressReporter;
+            this._systemPrompt = systemPrompt;
 
-            Title = "SmartHopper AI Chat";
-            MinimumSize = new Size(600, 700);
-            Size = new Size(700, 800);
-            Resizable = true;
-            ShowInTaskbar = true;
-            Owner = null; // Ensure we don't block the parent window
+            this.Title = "SmartHopper AI Chat";
+            this.MinimumSize = new Size(600, 700);
+            this.Size = new Size(700, 800);
+            this.Resizable = true;
+            this.ShowInTaskbar = true;
+            this.Owner = null; // Ensure we don't block the parent window
 
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
@@ -804,7 +806,14 @@ namespace SmartHopper.Core.AI.Chat
         /// </summary>
         private void InitializeNewConversation()
         {
-            AddSystemMessage("I'm an AI assistant. How can I help you today?");
+            if (!string.IsNullOrEmpty(_systemPrompt))
+            {
+                AddSystemMessage(_systemPrompt);
+            }
+            else
+            {
+                AddSystemMessage("I'm an AI assistant. How can I help you today?");
+            }
             Application.Instance.AsyncInvoke(() =>
             {
                 _statusLabel.Text = "Ready";
