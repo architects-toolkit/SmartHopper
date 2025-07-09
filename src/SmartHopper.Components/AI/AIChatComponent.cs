@@ -54,7 +54,11 @@ namespace SmartHopper.Components.AI
             4. Best practices in computational design
 
             Examples of tool calls:
-            - gh_get: read the current canvas (filter by selection, errors, types) to know about the user's current structure of components
+            - gh_get: read the current canvas to know about the user's current structure of components
+              - gh_get[attrFilters="selected"]: get only selected components
+              - gh_get[attrFilters="selected +error"]: get only selected components with errors
+              - gh_get[attrFilters="+error +warning"]: get all components with errors or warnings
+              - gh_get[guidFilter="guid1"]: get all info about a specific component by its GUID
             - gh_list_components: list installed components to know about the user's available tools
             - web_rhino_forum_search: look up Rhino forum discussions to try to find answers to the user's question
             - web_rhino_forum_read_post: read a specific post from the Rhino forum
