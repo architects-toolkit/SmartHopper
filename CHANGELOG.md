@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated WebChatDialog to use provided system prompt or fall back to default
+- Several improvements to AI Chat Component:
+  - Updated WebChatDialog to use provided system prompt or fall back to default
+  - Improved default system prompt for AI Chat to focus on a Grasshopper assistant, including tool call examples
 - Modified manifest to reflect new context input feature
 
 ## [0.3.3-alpha] - 2025-06-23

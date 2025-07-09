@@ -36,6 +36,31 @@ namespace SmartHopper.Components.AI
 
         private string _systemPrompt;
 
+        private readonly string _defaultSystemPrompt = """
+            You are a helpful AI assistant specialized in Grasshopper 3D and computational design. Follow these guidelines:
+
+            - Be concise and technical in your responses
+            - Explain complex concepts in simple terms
+            - Avoid exposing Guids to the user
+            - When providing code, include brief comments explaining key parts
+            - If a question is unclear, ask for clarification
+            - Admit when you don't know something rather than guessing
+            - Respect the user's skill level and adjust explanations accordingly
+
+            Focus on:
+            1. Parametric design principles
+            2. Algorithmic problem-solving
+            3. Performance optimization
+            4. Best practices in computational design
+
+            Examples of tool calls:
+            - gh_get: read the current canvas (filter by selection, errors, types) to know about the user's current structure of components
+            - gh_list_components: list installed components to know about the user's available tools
+            - web_rhino_forum_search: look up Rhino forum discussions to try to find answers to the user's question
+            - web_rhino_forum_read_post: read a specific post from the Rhino forum
+            - generic_page_read: read a web page by providing the URL
+            """;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="AIChatComponent"/> class.
         /// </summary>
@@ -77,7 +102,7 @@ namespace SmartHopper.Components.AI
         /// <param name="pManager">The parameter manager.</param>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Instructions", "I", "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.", GH_ParamAccess.item, "You are an AI assistant on Grasshopper.");
+            pManager.AddTextParameter("Instructions", "I", "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.", GH_ParamAccess.item, this._defaultSystemPrompt);
         }
 
         /// <summary>
