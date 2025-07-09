@@ -81,7 +81,7 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
         /// <summary>
         /// Gets the combined context from all registered providers, with optional filtering
         /// </summary>
-        /// <param name="providerFilter">Optional provider ID filter. If specified, only context from providers with matching IDs will be included. 
+        /// <param name="providerFilter">Optional provider ID filter. If specified, only context from providers with matching IDs will be included.
         /// Multiple providers can be specified as a comma-separated list. Prefix a provider ID with '-' to exclude it (e.g., "-time" excludes the time provider).</param>
         /// <param name="contextFilter">Optional context key filter. If specified, only context with matching keys will be included. Multiple context keys can be specified as a comma-separated list.
         /// Prefix a context key with '-' to exclude it (e.g., "-time_current-datetime" excludes that specific context key).</param>
