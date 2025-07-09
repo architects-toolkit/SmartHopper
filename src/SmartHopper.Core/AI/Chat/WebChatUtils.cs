@@ -43,10 +43,11 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="modelName">The model to use for AI processing.</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string? endpoint = null, Guid componentId = default, Action<string>? progressReporter = null)
+        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string? endpoint = null, string? systemPrompt = null, Guid componentId = default, Action<string>? progressReporter = null)
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse? lastResponse = null;
@@ -86,7 +87,7 @@ namespace SmartHopper.Core.AI.Chat
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-                        var dialog = new WebChatDialog(getResponse, progressReporter);
+                        var dialog = new WebChatDialog(getResponse, systemPrompt, progressReporter);
 
                         // If component ID is provided, store the dialog
                         if (componentId != default)
@@ -153,6 +154,7 @@ namespace SmartHopper.Core.AI.Chat
             private readonly string providerName;
             private readonly string modelName;
             private readonly string endpoint;
+            private readonly string systemPrompt;
             private readonly Guid componentId;
             private AIResponse lastResponse;
 
@@ -162,18 +164,21 @@ namespace SmartHopper.Core.AI.Chat
             /// <param name="providerName">The name of the AI provider to use.</param>
             /// <param name="modelName">The model to use for AI processing.</param>
             /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+            /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
             /// <param name="progressReporter">Action to report progress.</param>
             /// <param name="componentId">The unique ID of the component instance.</param>
             public WebChatWorker(
                 string providerName,
                 string modelName,
                 string endpoint,
+                string systemPrompt,
                 Action<string> progressReporter,
                 Guid componentId = default)
             {
                 this.providerName = providerName;
                 this.modelName = modelName;
                 this.endpoint = endpoint;
+                this.systemPrompt = systemPrompt;
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
             }
@@ -206,7 +211,7 @@ namespace SmartHopper.Core.AI.Chat
 
                 try
                 {
-                    this.lastResponse = await ShowWebChatDialog(this.providerName, this.modelName, this.endpoint, this.componentId, reporter).ConfigureAwait(false);
+                    this.lastResponse = await ShowWebChatDialog(this.providerName, this.modelName, this.endpoint, this.systemPrompt, this.componentId, reporter).ConfigureAwait(false);
                     reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)
@@ -232,6 +237,7 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="modelName">The model to use for AI processing.</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="progressReporter">Action to report progress.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <returns>A new web chat worker.</returns>
@@ -239,10 +245,17 @@ namespace SmartHopper.Core.AI.Chat
             string providerName,
             string modelName,
             string endpoint,
+            string systemPrompt,
             Action<string> progressReporter,
             Guid componentId = default)
         {
-            return new WebChatWorker(providerName, modelName, endpoint, progressReporter, componentId);
+            return new WebChatWorker(
+                providerName,
+                modelName,
+                endpoint,
+                systemPrompt,
+                progressReporter,
+                componentId);
         }
     }
 }
