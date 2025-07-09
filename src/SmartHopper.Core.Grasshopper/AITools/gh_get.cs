@@ -11,16 +11,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {

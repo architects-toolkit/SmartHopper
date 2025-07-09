@@ -440,7 +440,7 @@ namespace SmartHopper.Core.UI.Chat
                 Read = false,
                 Time = DateTime.Now,
             });
-            
+
             this.AddMessageToWebView("user", response);
         }
 
@@ -474,7 +474,7 @@ namespace SmartHopper.Core.UI.Chat
                 Time = DateTime.Now,
                 ToolCalls = new List<AIToolCall>(response.ToolCalls),
             });
-            
+
             this.AddMessageToWebView("assistant", response);
         }
 
@@ -693,7 +693,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     // Add the assistant response with tool calls to chat history
                     AddAssistantMessage(response);
-                    
+
                     foreach (var toolCall in response.ToolCalls)
                     {
                         Debug.WriteLine($"[WebChatDialog] Tool call detected: {toolCall.Name}");
@@ -752,12 +752,13 @@ namespace SmartHopper.Core.UI.Chat
                 var result = await AIToolManager.ExecuteTool(
                     toolCall.Name,
                     JObject.Parse(toolCall.Arguments),
-                    new JObject { ["provider"]=parentResponse.Provider, ["model"]=parentResponse.Model }
+                    new JObject { ["provider"] = parentResponse.Provider, ["model"] = parentResponse.Model }
                 );
                 var resultJson = JsonConvert.SerializeObject(result, Formatting.Indented);
 
                 // wrap the tool result in an AIResponse
-                var toolResponse = new AIResponse {
+                var toolResponse = new AIResponse
+                {
                     Response = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```",
                     Provider = parentResponse.Provider,
                     Model = parentResponse.Model,
@@ -782,7 +783,8 @@ namespace SmartHopper.Core.UI.Chat
                 // Get a new response from the AI with the tool result
                 await GetAIResponseAndProcessToolCalls();
             }
-            catch (Exception ex)            {
+            catch (Exception ex)
+            {
                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
                 AddSystemMessage($"Error executing tool '{toolCall.Name}': {ex.Message}", "error");
             }

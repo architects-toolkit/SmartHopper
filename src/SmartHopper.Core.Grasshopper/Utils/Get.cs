@@ -10,16 +10,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Grasshopper;
-using Grasshopper.Kernel;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
-using SmartHopper.Core.Grasshopper.Graph;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
@@ -45,7 +35,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         ///   visible → previewon
         ///   hidden → previewoff.
         /// </summary>
-        public static readonly Dictionary<string, string> FilterSynonyms = new ()
+        public static readonly Dictionary<string, string> FilterSynonyms = new()
         {
             { "LOCKED", "DISABLED" },
             { "UNLOCKED", "ENABLED" },
@@ -75,7 +65,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         ///   processingcomponents, intermediate, middle, middlecomponents → processing
         ///   isolatedcomponents → isolated.
         /// </summary>
-        public static readonly Dictionary<string, string> TypeSynonyms = new ()
+        public static readonly Dictionary<string, string> TypeSynonyms = new()
         {
             { "PARAM", "PARAMS" },
             { "PARAMETER", "PARAMS" },
@@ -97,7 +87,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// Available Grasshopper component categories (e.g. Params, Maths, Vector, Curve, Surface, Mesh, etc.).
         /// Maps common abbreviations or alternate names to canonical category tokens.
         /// </summary>
-        public static readonly Dictionary<string, string> CategorySynonyms = new ()
+        public static readonly Dictionary<string, string> CategorySynonyms = new()
         {
             { "PARAM", "PARAMS" },
             { "PARAMETERS", "PARAMS" },

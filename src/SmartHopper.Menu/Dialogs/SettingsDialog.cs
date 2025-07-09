@@ -9,7 +9,6 @@
  */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -278,7 +277,8 @@ namespace SmartHopper.Menu.Dialogs
                     // Add label and control
                     var settingRow = new TableLayout { Spacing = new Size(5, 5) };
                     settingRow.Rows.Add(new TableRow(
-                        new TableCell(new Label {
+                        new TableCell(new Label
+                        {
                             Text = descriptor.DisplayName + ":",
                             VerticalAlignment = VerticalAlignment.Center,
                         }),
@@ -395,7 +395,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 updatedSettings[provider.Name] = new Dictionary<string, object>();
             }
-            
+
             // Update with new values from the UI
             foreach (var provider in _providers)
             {
@@ -406,7 +406,7 @@ namespace SmartHopper.Menu.Dialogs
                 foreach (var descriptor in provider.GetSettingDescriptors())
                 {
                     var control = controls[descriptor.Name];
-                    
+
                     // Get new value from control
                     object newValue = null;
                     if (control is TextBox textBox)
@@ -422,7 +422,7 @@ namespace SmartHopper.Menu.Dialogs
                         if (dropDown.SelectedIndex >= 0)
                             newValue = dropDown.Items[dropDown.SelectedIndex].Text;
                     }
-                    
+
                     // For sensitive data, only update if changed and not empty
                     if (descriptor.IsSecret && newValue is string strValue)
                     {
@@ -430,7 +430,7 @@ namespace SmartHopper.Menu.Dialogs
                             strValue == _originalValues[provider.Name][descriptor.Name])
                             continue; // Skip unchanged values
                     }
-                    
+
                     // Update the setting
                     updatedSettings[provider.Name][descriptor.Name] = newValue;
                 }
@@ -444,11 +444,11 @@ namespace SmartHopper.Menu.Dialogs
 
             // Update settings
             _settings.DebounceTime = (int)_debounceControl.Value;
-            
+
             // Save default provider
             if (_defaultProviderComboBox.SelectedIndex >= 0)
                 _settings.DefaultAIProvider = _defaultProviderComboBox.Items[_defaultProviderComboBox.SelectedIndex].Text;
-            
+
             // Persist global settings
             _settings.Save();
             Close();

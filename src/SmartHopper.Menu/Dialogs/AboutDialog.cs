@@ -68,13 +68,13 @@ namespace SmartHopper.Menu.Dialogs
         {
             // Create an ImageView with the SmartHopper logo from the resources
             var imageView = new ImageView();
-            
+
             // Convert the byte array to an Eto.Drawing.Image
             using (var ms = new MemoryStream(providersResources.smarthopper_256))
             {
                 imageView.Image = new Bitmap(ms);
             }
-            
+
             // Set size to match the previous placeholder
             imageView.Size = new Size(200, 200);
 
@@ -134,7 +134,7 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
-            
+
             var communityLabel = new Label
             {
                 Text = "and the SmartHopper Community",

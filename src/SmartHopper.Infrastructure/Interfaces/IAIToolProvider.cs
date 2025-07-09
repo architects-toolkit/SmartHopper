@@ -8,8 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Infrastructure.Models;
 using System.Collections.Generic;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Interfaces
 {

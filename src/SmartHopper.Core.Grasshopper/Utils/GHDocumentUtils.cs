@@ -254,7 +254,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             Type type = obj.Attributes.DocObject.GetType();
             PropertyInfo[] properties = type.GetProperties();
-            Dictionary<string, object> propertyValues = new ();
+            Dictionary<string, object> propertyValues = new();
 
             foreach (PropertyInfo property in properties)
             {

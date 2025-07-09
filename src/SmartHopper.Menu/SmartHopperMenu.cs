@@ -8,13 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper;
-using Grasshopper.Kernel;
-using SmartHopper.Menu.Items;
-using SmartHopper.Infrastructure.Initialization;
 using System;
 using System.Diagnostics;
 using System.Windows.Forms;
+using Grasshopper;
+using Grasshopper.Kernel;
+using SmartHopper.Infrastructure.Initialization;
+using SmartHopper.Menu.Items;
 
 namespace SmartHopper.Menu
 {
@@ -34,7 +34,7 @@ namespace SmartHopper.Menu
             {
                 Debug.WriteLine($"Error initializing SmartHopper: {ex.Message}");
             }
-            
+
             // Start a timer to check for the editor
             _timer = new Timer();
             _timer.Interval = 1000; // Check every second

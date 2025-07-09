@@ -15,11 +15,10 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
-
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -99,7 +98,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     codedIssues.Add($"Script has {lineCount} lines; consider refactoring into smaller methods.");
 
                 // Language-specific debug checks
-                if (Regex.IsMatch(scriptCode, @"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase) 
+                if (Regex.IsMatch(scriptCode, @"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase)
                     || scriptCode.IndexOf("import ", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     // Python/IronPython

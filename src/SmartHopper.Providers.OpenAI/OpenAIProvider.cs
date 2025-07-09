@@ -33,7 +33,7 @@ namespace SmartHopper.Providers.OpenAI
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
         private const string DefaultModelValue = "gpt-4.1-mini";
 
-        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
+        private static readonly Lazy<OpenAIProvider> InstanceValue = new(() => new OpenAIProvider());
 
         public static OpenAIProvider Instance => InstanceValue.Value;
 
