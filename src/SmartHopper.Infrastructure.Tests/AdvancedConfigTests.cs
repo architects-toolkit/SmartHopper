@@ -15,10 +15,10 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.Configuration;
     using SmartHopper.Infrastructure.Interfaces;
     using SmartHopper.Infrastructure.Managers.AIProviders;
     using SmartHopper.Infrastructure.Models;
+    using SmartHopper.Infrastructure.Settings;
     using Xunit;
 
     public class AdvancedConfigTests

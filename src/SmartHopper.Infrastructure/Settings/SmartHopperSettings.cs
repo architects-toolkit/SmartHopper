@@ -18,7 +18,7 @@ using Newtonsoft.Json;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Infrastructure.Configuration
+namespace SmartHopper.Infrastructure.Settings
 {
     public class SmartHopperSettings
     {
