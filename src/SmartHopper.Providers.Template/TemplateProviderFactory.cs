@@ -8,14 +8,14 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Interfaces;
+using SmartHopper.Infrastructure.Interfaces;
 
 namespace SmartHopper.Providers.Template
 {
     /// <summary>
     /// Factory class for creating instances of the Template provider and its settings.
     /// This class is discovered by the ProviderManager through reflection.
-    /// 
+    ///
     /// IMPORTANT: Each provider must have a factory class that implements IAIProviderFactory.
     /// The factory is responsible for creating instances of the provider and its settings.
     /// </summary>

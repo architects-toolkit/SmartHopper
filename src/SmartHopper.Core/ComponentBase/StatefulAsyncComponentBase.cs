@@ -32,7 +32,7 @@ using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Config.Configuration;
+using SmartHopper.Infrastructure.Settings;
 using Timer = System.Threading.Timer;
 
 namespace SmartHopper.Core.ComponentBase
@@ -117,7 +117,7 @@ namespace SmartHopper.Core.ComponentBase
         // --------------------------------------------------
         //                COMPONENT DEFINITION
         // --------------------------------------------------
-        // 
+        //
         // This section of code is responsible for managing
         // the component's lifecycle and state transitions,
         // implementing the necessary methods for a
@@ -283,7 +283,7 @@ namespace SmartHopper.Core.ComponentBase
         // --------------------------------------------------
         //                  STATE MANAGEMENT
         // --------------------------------------------------
-        // 
+        //
         // Implement State Management
 
         #region STATE
@@ -649,7 +649,7 @@ namespace SmartHopper.Core.ComponentBase
         // --------------------------------------------------
         //             PERSISTENT DATA MANAGEMENT
         // --------------------------------------------------
-        // 
+        //
         // This section of code is responsible for storing
         // and retrieving persistent data for the component.
 

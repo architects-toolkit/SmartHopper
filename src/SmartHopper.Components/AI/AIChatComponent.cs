@@ -19,10 +19,11 @@ using System.Drawing;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
-using SmartHopper.Core.AI.Chat;
+using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.UI.Chat;
+using SmartHopper.Infrastructure.Managers.AIContext;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Components.AI
 {
@@ -274,7 +275,7 @@ namespace SmartHopper.Components.AI
                     // Store metrics for the base class to output
                     this.component.StoreResponseMetrics(this.lastResponse);
 
-                     message = $"Ready";
+                    message = $"Ready";
                 }
                 else
                 {

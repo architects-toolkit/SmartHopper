@@ -17,10 +17,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Utils;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -33,7 +33,7 @@ namespace SmartHopper.Providers.OpenAI
         private const string ApiURL = "https://api.openai.com/v1/chat/completions";
         private const string DefaultModelValue = "gpt-4.1-mini";
 
-        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
+        private static readonly Lazy<OpenAIProvider> InstanceValue = new(() => new OpenAIProvider());
 
         public static OpenAIProvider Instance => InstanceValue.Value;
 

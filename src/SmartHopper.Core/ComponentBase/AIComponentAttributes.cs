@@ -12,8 +12,8 @@ using System.Drawing;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
-using SmartHopper.Config.Configuration;
-using SmartHopper.Config.Managers;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
 {

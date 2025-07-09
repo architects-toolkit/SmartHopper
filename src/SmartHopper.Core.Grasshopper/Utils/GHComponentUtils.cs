@@ -13,7 +13,6 @@ using System.Diagnostics;
 using System.Drawing;
 using Grasshopper;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Undo;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
