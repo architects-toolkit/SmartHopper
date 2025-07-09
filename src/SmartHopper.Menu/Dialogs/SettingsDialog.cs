@@ -17,11 +17,11 @@ using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino;
-using SmartHopper.Config.Configuration;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Properties;
+using SmartHopper.Infrastructure.Configuration;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -31,7 +31,7 @@ namespace SmartHopper.Menu.Dialogs
     internal class SettingsDialog : Dialog
     {
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
-        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+        private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
 
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
         {

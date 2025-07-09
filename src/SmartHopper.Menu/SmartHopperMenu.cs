@@ -11,7 +11,7 @@
 using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Menu.Items;
-using SmartHopper.Config.Initialization;
+using SmartHopper.Infrastructure.Initialization;
 using System;
 using System.Diagnostics;
 using System.Windows.Forms;

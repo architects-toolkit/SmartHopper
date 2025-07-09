@@ -19,10 +19,10 @@ using System.Drawing;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Config.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Core.AI.Chat;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Components.AI
 {

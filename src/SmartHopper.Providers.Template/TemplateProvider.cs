@@ -9,8 +9,8 @@
  */
 
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

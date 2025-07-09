@@ -22,7 +22,7 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.AI.Chat
 {

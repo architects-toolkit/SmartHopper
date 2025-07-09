@@ -10,7 +10,7 @@
 
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.AI
 {

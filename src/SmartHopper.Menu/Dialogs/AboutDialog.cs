@@ -14,8 +14,8 @@ using System.IO;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
-using SmartHopper.Config.Dialogs;
-using SmartHopper.Config.Properties;
+using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -27,7 +27,7 @@ namespace SmartHopper.Menu.Dialogs
         private const string GitHubUrl = "https://github.com/architects-toolkit/SmartHopper";
         private const string RktkUrl = "https://rktk.tools";
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
-        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+        private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
 
         /// <summary>
         /// Initializes a new instance of the AboutDialog

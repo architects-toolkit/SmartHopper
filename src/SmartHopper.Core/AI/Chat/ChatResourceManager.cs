@@ -21,7 +21,7 @@ using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Markdig;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.AI.Chat
 {
