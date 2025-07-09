@@ -23,21 +23,4 @@ namespace SmartHopper.Infrastructure.Interfaces
 
         bool ValidateSettings(Dictionary<string, object> settings);
     }
-
-    /// <summary>
-    /// Base class for provider settings, encapsulating common UI building and persistence logic.
-    /// </summary>
-    public abstract class AIProviderSettings : IAIProviderSettings
-    {
-        protected readonly IAIProvider provider;
-
-        protected AIProviderSettings(IAIProvider provider)
-        {
-            this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
-        }
-
-        public abstract IEnumerable<SettingDescriptor> GetSettingDescriptors();
-
-        public abstract bool ValidateSettings(Dictionary<string, object> settings);
-    }
 }

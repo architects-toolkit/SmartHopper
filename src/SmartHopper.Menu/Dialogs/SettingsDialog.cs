@@ -19,7 +19,7 @@ using Eto.Forms;
 using Rhino;
 using SmartHopper.Infrastructure.Configuration;
 using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Properties;
 

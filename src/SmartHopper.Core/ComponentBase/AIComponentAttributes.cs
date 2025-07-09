@@ -13,7 +13,7 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Infrastructure.Configuration;
-using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Managers.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {

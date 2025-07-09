@@ -25,7 +25,7 @@ using SmartHopper.Infrastructure.Configuration;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Interfaces;
 
-namespace SmartHopper.Infrastructure.Managers
+namespace SmartHopper.Infrastructure.Managers.AIProviders
 {
     /// <summary>
     /// Manages the discovery and loading of AI providers.

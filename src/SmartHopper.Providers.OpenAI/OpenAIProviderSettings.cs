@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Linq;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Providers.OpenAI

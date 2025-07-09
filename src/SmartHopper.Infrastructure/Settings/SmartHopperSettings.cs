@@ -15,7 +15,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Configuration

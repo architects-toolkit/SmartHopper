@@ -15,7 +15,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers;
 using SmartHopper.Infrastructure.Models;
 using System.Text.RegularExpressions;
 
