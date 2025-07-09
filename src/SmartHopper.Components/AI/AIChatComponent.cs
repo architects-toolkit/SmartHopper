@@ -31,9 +31,8 @@ namespace SmartHopper.Components.AI
     /// </summary>
     public class AIChatComponent : AIStatefulAsyncComponentBase
     {
-        private TimeContextProvider timeProvider;
-        private EnvironmentContextProvider environmentProvider;
-
+        private readonly TimeContextProvider timeProvider;
+        private readonly EnvironmentContextProvider environmentProvider;
         private string _systemPrompt;
 
         private readonly string _defaultSystemPrompt = """
@@ -104,24 +103,36 @@ namespace SmartHopper.Components.AI
         /// Registers additional input parameters for the component.
         /// </summary>
         /// <param name="pManager">The parameter manager.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Instructions", "I", "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.", GH_ParamAccess.item, this._defaultSystemPrompt);
+            pManager.AddTextParameter(
+                "Instructions",
+                "I",
+                "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.",
+                GH_ParamAccess.item,
+                this._defaultSystemPrompt);
         }
 
         /// <summary>
         /// Registers additional output parameters for the component.
         /// </summary>
         /// <param name="pManager">The parameter manager.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Last Response", "R", "The last response from the AI assistant", GH_ParamAccess.item);
+            pManager.AddTextParameter(
+                "Last Response",
+                "R",
+                "The last response from the AI assistant",
+                GH_ParamAccess.item);
         }
 
         /// <summary>
         /// Gets the system prompt from the component.
         /// </summary>
         /// <returns>The system prompt.</returns>
+        /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string systemPrompt = null;
@@ -132,18 +143,18 @@ namespace SmartHopper.Components.AI
         }
 
         /// <summary>
-        /// Sets the system prompt for the component.
+        /// Sets the system prompt for the AI chat.
         /// </summary>
-        /// <param name="systemPrompt">The system prompt.</param>
+        /// <param name="systemPrompt">The system prompt to use.</param>
         private void SetSystemPrompt(string systemPrompt)
         {
-            this._systemPrompt = systemPrompt;
+            this._systemPrompt = systemPrompt ?? throw new ArgumentNullException(nameof(systemPrompt));
         }
 
         /// <summary>
-        /// Gets the system prompt for the component.
+        /// Gets the current system prompt.
         /// </summary>
-        /// <returns>The system prompt.</returns>
+        /// <returns>The current system prompt.</returns>
         protected string GetSystemPrompt()
         {
             return this._systemPrompt;

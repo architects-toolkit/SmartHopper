@@ -107,7 +107,7 @@ namespace SmartHopper.Core.AI.Chat
             // Initialize WebView
             _webView = new WebView
             {
-                Height = 500
+                Height = 500,
             };
 
             // Add WebView event handlers for debugging
@@ -145,7 +145,7 @@ namespace SmartHopper.Core.AI.Chat
                 Height = 60,
                 AcceptsReturn = true,
                 AcceptsTab = false,
-                Wrap = true
+                Wrap = true,
             };
             _userInputTextArea.KeyDown += UserInputTextArea_KeyDown;
 
@@ -280,7 +280,7 @@ namespace SmartHopper.Core.AI.Chat
                         EventHandler<WebViewLoadedEventArgs> loadHandler = null;
                         loadHandler = (s, e) =>
                         {
-                            Debug.WriteLine("[WebChatDialog] WebView document loaded event fired");
+                            Debug.WriteLine("[WebChatDialog] WebView document loaded");
                             _webView.DocumentLoaded -= loadHandler;
                             loadCompletionSource.TrySetResult(true);
                         };
@@ -363,6 +363,11 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
+        /// <summary>
+        /// Handles key down events in the user input text area.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The event arguments.</param>
         private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Keys.Enter && e.Modifiers.HasFlag(Keys.Shift))
@@ -379,6 +384,11 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
+        /// <summary>
+        /// Handles the send button click event.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The event arguments.</param>
         private void SendButton_Click(object sender, EventArgs e)
         {
             if (!_isProcessing)
@@ -387,6 +397,11 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
+        /// <summary>
+        /// Handles the clear button click event.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The event arguments.</param>
         private void ClearButton_Click(object sender, EventArgs e)
         {
             _chatHistory.Clear();
@@ -411,17 +426,28 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
+        /// <summary>
+        /// Adds a user message to the chat history and displays it in the WebView.
+        /// </summary>
+        /// <param name="response">The AI response object containing the message.</param>
         private void AddUserMessage(AIResponse response)
         {
-            _chatHistory.Add(new ChatMessageModel {
-                Author   = "user",
-                Body     = response.Response,
-                Inbound  = false,
-                Read     = false,
-                Time     = DateTime.Now
+            _chatHistory.Add(new ChatMessageModel
+            {
+                Author = "user",
+                Body = response.Response,
+                Inbound = false,
+                Read = false,
+                Time = DateTime.Now,
             });
+            
             this.AddMessageToWebView("user", response);
         }
+
+        /// <summary>
+        /// Adds a user message to the chat history and displays it in the WebView.
+        /// </summary>
+        /// <param name="message">The message text.</param>
         private void AddUserMessage(string message)
         {
             var response = new AIResponse()
@@ -439,18 +465,23 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="response">The AI response object containing metrics</param>
         private void AddAssistantMessage(AIResponse response)
         {
-            _chatHistory.Add(new ChatMessageModel {
-                Author    = "assistant",
-                Body      = response.Response,
-                Inbound   = true,
-                Read      = false,
-                Time      = DateTime.Now,
-                ToolCalls = new List<AIToolCall>(response.ToolCalls)
+            _chatHistory.Add(new ChatMessageModel
+            {
+                Author = "assistant",
+                Body = response.Response,
+                Inbound = true,
+                Read = false,
+                Time = DateTime.Now,
+                ToolCalls = new List<AIToolCall>(response.ToolCalls),
             });
             
             this.AddMessageToWebView("assistant", response);
         }
 
+        /// <summary>
+        /// Adds an assistant message to the chat history and displays it in the WebView.
+        /// </summary>
+        /// <param name="message">The message text.</param>
         private void AddAssistantMessage(string message)
         {
             var response = new AIResponse()
@@ -468,12 +499,13 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="type">Optional subtype for styling (e.g., "error").</param>
         private void AddSystemMessage(AIResponse response, string type = null)
         {
-            _chatHistory.Add(new ChatMessageModel {
-                Author   = "system",
-                Body     = response.Response,
-                Inbound  = true,
-                Read     = false,
-                Time     = DateTime.Now
+            _chatHistory.Add(new ChatMessageModel
+            {
+                Author = "system",
+                Body = response.Response,
+                Inbound = true,
+                Read = false,
+                Time = DateTime.Now,
             });
 
             // In the web view, use the combined role with optional type
@@ -491,11 +523,14 @@ namespace SmartHopper.Core.AI.Chat
             this.AddSystemMessage(response, type);
         }
 
+        /// <summary>
+        /// Adds a message to the WebView with the specified role.
+        /// </summary>
         /// <param name="role">The role of the message (e.g., "user", "assistant", "system").</param>
         /// <param name="response">The AI response object containing metrics.</param>
         private void AddMessageToWebView(string role, AIResponse response)
         {
-            if(string.IsNullOrEmpty(response.Response))
+            if (string.IsNullOrEmpty(response.Response))
             {
                 Debug.WriteLine($"[WebChatDialog] Skipping empty message for role: {role}");
                 return;
@@ -555,6 +590,9 @@ namespace SmartHopper.Core.AI.Chat
             }
         }
 
+        /// <summary>
+        /// Sends the user message to the AI provider and processes the response.
+        /// </summary>
         private async void SendMessage()
         {
             if (!_webViewInitialized)
@@ -653,8 +691,8 @@ namespace SmartHopper.Core.AI.Chat
                 // Check for tool calls in the response
                 if (response.ToolCalls != null && response.ToolCalls.Count > 0)
                 {
-                        // Add the assistant response with tool calls to chat history
-                        AddAssistantMessage(response);
+                    // Add the assistant response with tool calls to chat history
+                    AddAssistantMessage(response);
                     
                     foreach (var toolCall in response.ToolCalls)
                     {
@@ -720,32 +758,31 @@ namespace SmartHopper.Core.AI.Chat
 
                 // wrap the tool result in an AIResponse
                 var toolResponse = new AIResponse {
-                    Response    = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```",
-                    Provider    = parentResponse.Provider,
-                    Model       = parentResponse.Model,
-                    FinishReason= null,
-                    ToolCalls   = new List<AIToolCall> { toolCall },
-
+                    Response = $"⚙️ **Tool Result**:\n```json\n{resultJson}\n```",
+                    Provider = parentResponse.Provider,
+                    Model = parentResponse.Model,
+                    FinishReason = null,
+                    ToolCalls = new List<AIToolCall> { toolCall },
                 };
 
                 // Add tool result to chat history
                 AddToolResultMessage(toolResponse);
 
                 // Add tool result to chat history for the AI to see
-                _chatHistory.Add(new ChatMessageModel {
-                    Author    = "tool",
-                    Body      = resultJson,
-                    Inbound   = true,
-                    Read      = false,
-                    Time      = DateTime.Now,
-                    ToolCalls = new List<AIToolCall> { toolCall }
+                _chatHistory.Add(new ChatMessageModel
+                {
+                    Author = "tool",
+                    Body = resultJson,
+                    Inbound = true,
+                    Read = false,
+                    Time = DateTime.Now,
+                    ToolCalls = new List<AIToolCall> { toolCall },
                 });
 
                 // Get a new response from the AI with the tool result
                 await GetAIResponseAndProcessToolCalls();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex)            {
                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
                 AddSystemMessage($"Error executing tool '{toolCall.Name}': {ex.Message}", "error");
             }
@@ -766,13 +803,14 @@ namespace SmartHopper.Core.AI.Chat
                 Debug.WriteLine($"[WebChatDialog] Adding tool call {toolCall.Id}: {toolCall.Name} ({toolCall.Arguments})");
 
                 // Add to chat history
-                _chatHistory.Add(new ChatMessageModel {
-                    Author    = "tool_call",
-                    Body      = "Calling tool: " + toolCall.Name,
-                    Inbound   = true,
-                    Read      = false,
-                    Time      = DateTime.Now,
-                    ToolCalls = new List<AIToolCall> { toolCall }
+                _chatHistory.Add(new ChatMessageModel
+                {
+                    Author = "tool_call",
+                    Body = "Calling tool: " + toolCall.Name,
+                    Inbound = true,
+                    Read = false,
+                    Time = DateTime.Now,
+                    ToolCalls = new List<AIToolCall> { toolCall },
                 });
                 AddMessageToWebView("tool_call", parentResponse);
             }
