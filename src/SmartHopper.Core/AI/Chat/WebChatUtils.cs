@@ -237,6 +237,7 @@ namespace SmartHopper.Core.AI.Chat
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="modelName">The model to use for AI processing.</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="progressReporter">Action to report progress.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <returns>A new web chat worker.</returns>
@@ -248,7 +249,13 @@ namespace SmartHopper.Core.AI.Chat
             Action<string> progressReporter,
             Guid componentId = default)
         {
-            return new WebChatWorker(providerName, modelName, endpoint, systemPrompt, progressReporter, componentId);
+            return new WebChatWorker(
+                providerName,
+                modelName,
+                endpoint,
+                systemPrompt,
+                progressReporter,
+                componentId);
         }
     }
 }
