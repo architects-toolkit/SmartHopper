@@ -11,26 +11,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SmartHopper.Infrastructure.Interfaces;
 
-namespace SmartHopper.Infrastructure.Managers
+namespace SmartHopper.Infrastructure.Managers.AIContext
 {
-    /// <summary>
-    /// Interface for providing context to AI queries
-    /// </summary>
-    public interface IAIContextProvider
-    {
-        /// <summary>
-        /// Gets the provider identifier
-        /// </summary>
-        string ProviderId { get; }
-
-        /// <summary>
-        /// Gets the current context for AI queries
-        /// </summary>
-        /// <returns>A dictionary of context key-value pairs</returns>
-        Dictionary<string, string> GetContext();
-    }
-
     /// <summary>
     /// Static manager for handling AI context providers
     /// </summary>

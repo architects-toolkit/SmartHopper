@@ -9,8 +9,8 @@
  */
 
 namespace SmartHopper.Infrastructure.Tests
-{
-    using SmartHopper.Infrastructure.Managers;
+{    
+    using SmartHopper.Infrastructure.Managers.AIProviders;
     using Xunit;
 
     public class ProviderManagerTests

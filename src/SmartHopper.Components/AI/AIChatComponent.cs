@@ -22,7 +22,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.AI;
 using SmartHopper.Core.AI.Chat;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Managers.AIContext;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Components.AI

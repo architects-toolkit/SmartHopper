@@ -15,40 +15,12 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.Managers.AIProviders
 {
-    public interface IAIProvider
-    {
-        string Name { get; }
-
-        string DefaultModel { get; }
-
-        /// <summary>
-        /// Gets the provider's icon. Should return a 16x16 image suitable for display in the UI.
-        /// </summary>
-        Image Icon { get; }
-
-        /// <summary>
-        /// Gets or sets whether this provider is enabled and should be available for use.
-        /// This can be used to disable template or experimental providers.
-        /// </summary>
-        bool IsEnabled { get; }
-
-        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
-
-        string GetModel(Dictionary<string, object> settings, string requestedModel = "");
-
-        /// <summary>
-        /// Injects decrypted settings for this provider (called by ProviderManager).
-        /// </summary>
-        void InitializeSettings(Dictionary<string, object> settings);
-
-        IEnumerable<SettingDescriptor> GetSettingDescriptors();
-    }
-
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
