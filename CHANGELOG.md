@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved default system prompt for AI Chat to focus on a Grasshopper assistant, including tool call examples
 - Modified manifest to reflect new context input feature
 - Code cleanup in AI Chat Component, WebChatDialog and WebChatUtils
+- Renamed SmartHopper.Config to SmartHopper.Infrastructure
+- Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
 
 ## [0.3.3-alpha] - 2025-06-23
 

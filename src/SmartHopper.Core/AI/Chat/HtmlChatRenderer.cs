@@ -17,7 +17,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using Markdig;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.AI.Chat
 {

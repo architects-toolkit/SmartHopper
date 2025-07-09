@@ -15,8 +15,8 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.AI
 {

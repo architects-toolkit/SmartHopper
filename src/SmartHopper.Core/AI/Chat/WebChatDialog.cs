@@ -23,9 +23,9 @@ using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Properties;
+using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Core.AI.Chat
 {
@@ -58,7 +58,7 @@ namespace SmartHopper.Core.AI.Chat
         public event EventHandler<AIResponse> ResponseReceived;
 
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
-        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+        private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
 
         /// <summary>
         /// Creates a new web chat dialog.

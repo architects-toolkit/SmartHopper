@@ -17,10 +17,10 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Utils;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.MistralAI
 {

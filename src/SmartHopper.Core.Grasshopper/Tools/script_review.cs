@@ -15,8 +15,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
 using SmartHopper.Core.AI;
 using SmartHopper.Core.Grasshopper.Utils;
 
