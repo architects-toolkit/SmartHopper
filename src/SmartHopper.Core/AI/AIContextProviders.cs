@@ -10,7 +10,9 @@
 
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using Rhino;
+using SmartHopper.Config.Managers;
 
 namespace SmartHopper.Core.AI
 {
@@ -66,6 +68,32 @@ namespace SmartHopper.Core.AI
                 { "rhino-version", rhinoVersion },
                 { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" }
             };
+        }
+    }
+
+    public class AvailableComponentsContextProvider : IAIContextProvider
+    {
+        public string ProviderId => "available-components";
+
+        public Dictionary<string, string> GetContext()
+        {
+            // Call gh_list_components tool to retrieve available components
+            var result = AIToolManager.ExecuteTool("gh_list_components", new JObject(), null)
+                .GetAwaiter().GetResult() as JObject;
+            var components = new Dictionary<string, string>();
+            if (result != null)
+            {
+                components["count"] = result["count"]?.ToString();
+                var names = result["names"]?.ToObject<List<string>>() ?? new List<string>();
+                var guids = result["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var mapping = new JObject();
+                for (int i = 0; i < Math.Min(names.Count, guids.Count); i++)
+                {
+                    mapping[names[i]] = guids[i];
+                }
+                components["list"] = mapping.ToString(Newtonsoft.Json.Formatting.None);
+            }
+            return components;
         }
     }
 }

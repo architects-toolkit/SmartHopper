@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Instructions input to AI Chat Component ([#87](https://github.com/architects-toolkit/SmartHopper/issues/87)).
 - Added systemPrompt parameter to WebChatUtils.ShowWebChatDialog
+- New `AvailableComponentsContextProvider` to provide information about installed Grasshopper components
 
 ### Changed
 
