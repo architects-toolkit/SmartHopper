@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using Rhino;
+using SmartHopper.Infrastructure.Managers;
 
 namespace SmartHopper.Core.AI
 {

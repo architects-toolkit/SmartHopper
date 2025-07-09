@@ -12,7 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SmartHopper.Core.AI
+namespace SmartHopper.Infrastructure.Managers
 {
     /// <summary>
     /// Interface for providing context to AI queries
