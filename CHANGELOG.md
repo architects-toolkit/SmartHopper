@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added Instructions input to AI Chat Component.
+- Added systemPrompt parameter to WebChatUtils.ShowWebChatDialog
+
+### Changed
+
+- Updated WebChatDialog to use provided system prompt or fall back to default
+- Modified manifest to reflect new context input feature
+
 ## [0.3.3-alpha] - 2025-06-23
 
 ### WIP

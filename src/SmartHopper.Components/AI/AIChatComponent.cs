@@ -34,6 +34,8 @@ namespace SmartHopper.Components.AI
         private TimeContextProvider timeProvider;
         private EnvironmentContextProvider environmentProvider;
 
+        private string _systemPrompt;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="AIChatComponent"/> class.
         /// </summary>
@@ -75,7 +77,7 @@ namespace SmartHopper.Components.AI
         /// <param name="pManager">The parameter manager.</param>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            // No additional inputs needed - uses the base inputs (Model and Run)
+            pManager.AddTextParameter("Instructions", "I", "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.", GH_ParamAccess.item, "You are an AI assistant on Grasshopper.");
         }
 
         /// <summary>
@@ -85,6 +87,37 @@ namespace SmartHopper.Components.AI
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Last Response", "R", "The last response from the AI assistant", GH_ParamAccess.item);
+        }
+
+        /// <summary>
+        /// Gets the system prompt from the component.
+        /// </summary>
+        /// <returns>The system prompt.</returns>
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            string systemPrompt = null;
+            DA.GetData("Instructions", ref systemPrompt);
+            SetSystemPrompt(systemPrompt);
+
+            base.SolveInstance(DA);
+        }
+
+        /// <summary>
+        /// Sets the system prompt for the component.
+        /// </summary>
+        /// <param name="systemPrompt">The system prompt.</param>
+        private void SetSystemPrompt(string systemPrompt)
+        {
+            this._systemPrompt = systemPrompt;
+        }
+
+        /// <summary>
+        /// Gets the system prompt for the component.
+        /// </summary>
+        /// <returns>The system prompt.</returns>
+        protected string GetSystemPrompt()
+        {
+            return this._systemPrompt;
         }
 
         /// <summary>
@@ -162,6 +195,7 @@ namespace SmartHopper.Components.AI
                         actualProvider,
                         this.component.GetModel(),
                         "chat",
+                        this.component.GetSystemPrompt(),
                         this.progressReporter,
                         this.component.InstanceGuid); // Pass the component's instance GUID
 
