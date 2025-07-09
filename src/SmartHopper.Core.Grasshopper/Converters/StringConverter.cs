@@ -8,9 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
 using System;
 using System.Drawing;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {

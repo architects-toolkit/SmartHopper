@@ -12,9 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Config.Dialogs;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Providers.OpenAI
 {

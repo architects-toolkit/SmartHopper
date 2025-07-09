@@ -17,10 +17,10 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Utils;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -30,7 +30,7 @@ namespace SmartHopper.Providers.MistralAI
         private const string ApiURL = "https://api.mistral.ai/v1/chat/completions";
         private const string DefaultModelValue = "mistral-small-latest";
 
-        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
+        private static readonly Lazy<MistralAIProvider> InstanceValue = new(() => new MistralAIProvider());
 
         public static MistralAIProvider Instance => InstanceValue.Value;
 
