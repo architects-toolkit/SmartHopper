@@ -32,7 +32,7 @@ using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Infrastructure.Configuration;
+using SmartHopper.Infrastructure.Settings;
 using Timer = System.Threading.Timer;
 
 namespace SmartHopper.Core.ComponentBase

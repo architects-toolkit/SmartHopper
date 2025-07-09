@@ -12,8 +12,8 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Rhino;
-using SmartHopper.Infrastructure.Configuration;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.Initialization
 {

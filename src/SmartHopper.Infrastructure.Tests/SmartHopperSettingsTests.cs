@@ -11,7 +11,7 @@
 namespace SmartHopper.Infrastructure.Tests
 {
     using Newtonsoft.Json;
-    using SmartHopper.Infrastructure.Configuration;
+    using SmartHopper.Infrastructure.Settings;
     using Xunit;
 
     public class SmartHopperSettingsTests

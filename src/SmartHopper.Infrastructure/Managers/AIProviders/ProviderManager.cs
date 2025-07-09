@@ -20,9 +20,9 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Rhino;
-using SmartHopper.Infrastructure.Configuration;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.Managers.AIProviders
 {
