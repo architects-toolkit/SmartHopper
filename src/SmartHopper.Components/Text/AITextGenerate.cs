@@ -160,7 +160,7 @@ namespace SmartHopper.Components.Text
                     {
                         ["prompt"] = promptTree[i]?.Value,
                         ["instructions"] = instructionsTree[i]?.Value,
-                        ["contextProviderFilter"] = "-environment,-time"
+                        ["contextProviderFilter"] = "-*"
                     };
 
                     var toolResult = await parent.CallAiToolAsync(
