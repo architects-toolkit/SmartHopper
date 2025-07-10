@@ -106,7 +106,14 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
-        
+
+        internal static Bitmap textlistgenerate {
+            get {
+                object obj = ResourceManager.GetObject("textlistgenerate", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap aichat {
             get {
                 object obj = ResourceManager.GetObject("aichat", resourceCulture);
