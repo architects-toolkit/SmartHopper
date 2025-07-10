@@ -34,7 +34,7 @@ namespace SmartHopper.Components.Text
 
         public AITextListGenerate()
             : base(
-                  "AI Text List Generate", 
+                  "AI Text List Generate",
                   "AITextListGenerate",
                   "Generate a list of text items from a prompt and count using AI.\nIf a tree is provided, prompts and counts will match by branch path.",
                   "SmartHopper", "Text")
