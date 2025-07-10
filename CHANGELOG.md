@@ -29,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed SmartHopper.Config to SmartHopper.Infrastructure
   - Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
 
-
 ## [0.3.3-alpha] - 2025-06-23
 
 ### WIP
