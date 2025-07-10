@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Explicitly handle "*" wildcard to include all providers/context by default
 - Added gh_group AI tool for grouping components by GUID, with support to custom names and colors
 - Added list_generate AI tool for generating a list of items from a prompt and count
+- New AITextListGenerate component implementing list_generate AI tool with type 'text'
 
 ### Changed
 
