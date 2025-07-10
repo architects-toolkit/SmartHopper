@@ -81,14 +81,25 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
         /// <summary>
         /// Gets the combined context from all registered providers, with optional filtering
         /// </summary>
-        /// <param name="providerFilter">Optional provider ID filter. If specified, only context from providers with matching IDs will be included.
-        /// Multiple providers can be specified as a comma-separated list. Prefix a provider ID with '-' to exclude it (e.g., "-time" excludes the time provider).</param>
-        /// <param name="contextFilter">Optional context key filter. If specified, only context with matching keys will be included. Multiple context keys can be specified as a comma-separated list.
-        /// Prefix a context key with '-' to exclude it (e.g., "-time_current-datetime" excludes that specific context key).</param>
+        /// <param name="providerFilter">Optional provider ID filter. If specified, only context from providers with matching IDs will be included. Multiple providers can be specified as a comma-separated or space-separated list.
+        /// Prefix a provider ID with '-' to exclude it (e.g., "-time" excludes the time provider).
+        /// Use '*' to include all providers (default behavior).
+        /// Use '-*' to exclude all providers.</param>
+        /// <param name="contextFilter">Optional context key filter. If specified, only context with matching keys will be included. Multiple context keys can be specified as a comma-separated or space-separated list.
+        /// Prefix a context key with '-' to exclude it (e.g., "-time_current-datetime" excludes that specific context key).
+        /// Use '*' to include all context keys (default behavior).
+        /// Use '-*' to exclude all context keys.</param>
         /// <returns>A dictionary of context key-value pairs</returns>
         public static Dictionary<string, string> GetCurrentContext(string providerFilter = null, string contextFilter = null)
         {
             var result = new Dictionary<string, string>();
+
+            // if "-*" is specified in either filter, exclude all and return an empty dictionary
+            if ((providerFilter != null && providerFilter.Contains("-*")) ||
+                (contextFilter != null && contextFilter.Contains("-*")))
+            {
+                return result;
+            }
 
             // Parse provider filters
             HashSet<string> includeProviderFilters = null;
@@ -96,7 +107,7 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
 
             if (!string.IsNullOrEmpty(providerFilter))
             {
-                var filterParts = providerFilter.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                var filterParts = providerFilter.Split(new[] { ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(p => p.Trim())
                     .ToList();
 
@@ -107,9 +118,13 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
                     .Where(p => !string.IsNullOrEmpty(p))
                     .ToList();
 
-                if (includeFilters.Count > 0)
+                // Handle '*' wildcard: treat '*' as include-all (default behavior)
+                if (!includeFilters.Contains("*"))
                 {
-                    includeProviderFilters = new HashSet<string>(includeFilters);
+                    if (includeFilters.Count > 0)
+                    {
+                        includeProviderFilters = new HashSet<string>(includeFilters);
+                    }
                 }
 
                 if (excludeFilters.Count > 0)
@@ -124,7 +139,7 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
 
             if (!string.IsNullOrEmpty(contextFilter))
             {
-                var filterParts = contextFilter.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                var filterParts = contextFilter.Split(new[] { ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(c => c.Trim())
                     .ToList();
 
@@ -135,9 +150,13 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
                     .Where(c => !string.IsNullOrEmpty(c))
                     .ToList();
 
-                if (includeFilters.Count > 0)
+                // Handle '*' wildcard: treat '*' as include-all (default behavior)
+                if (!includeFilters.Contains("*"))
                 {
-                    includeContextFilters = new HashSet<string>(includeFilters);
+                    if (includeFilters.Count > 0)
+                    {
+                        includeContextFilters = new HashSet<string>(includeFilters);
+                    }
                 }
 
                 if (excludeFilters.Count > 0)
