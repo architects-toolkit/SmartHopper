@@ -15,12 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added support for "-*" to exclude all providers/context in one go
   - Added support for space, tab, and newline as additional delimiters in filter strings
   - Explicitly handle "*" wildcard to include all providers/context by default
+- Added gh_group AI tool for grouping components by GUID, with support to custom names and colors
 
 ### Changed
 
 - Several improvements to AI Chat Component:
   - Updated WebChatDialog to use provided system prompt or fall back to default
   - Improved default system prompt for AI Chat to focus on a Grasshopper assistant, including tool call examples
+  - Added gh_group mention to default system prompt
 - Modified manifest to reflect new instructions input feature in AI Chat Component
 - Modified AITextEvaluate, AITextGenerate, AIListEvaluate and AIListFilter to exclude all context using the new "-*" filter
 - Code reorganization:
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code cleanup in AI Chat Component, WebChatDialog and WebChatUtils
   - Renamed SmartHopper.Config to SmartHopper.Infrastructure
   - Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
+- Updated StringConverter.StringToColor to accept argb, rgb, html and known color names as input
 
 ## [0.3.3-alpha] - 2025-06-23
 
