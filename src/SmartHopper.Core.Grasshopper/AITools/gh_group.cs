@@ -84,7 +84,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!string.IsNullOrEmpty(groupName))
                 {
                     group.NickName = groupName;
-                    group.Colour = Color.FromArgb(255, 100, 100, 100);
+                    group.Colour = Color.FromArgb(255, 0, 200, 0);
                 }
                 if (!string.IsNullOrEmpty(colorStr))
                 {
