@@ -1,6 +1,6 @@
 ---
 trigger: glob
-globs: **/SmartHopper.Core.Grasshopper/Tools/*.cs
+globs: **/SmartHopper.Core.Grasshopper/AITools/*.cs
 ---
 
 # AI Tool conventions
