@@ -60,6 +60,7 @@ namespace SmartHopper.Components.AI
               - gh_get[attrFilters="+error +warning"]: get all components with errors or warnings
               - gh_get[guidFilter="guid1"]: get all info about a specific component by its GUID
             - gh_list_components: list installed components to know about the user's available tools
+            - gh_group: group components to highlight them to the user, or make notes about them
             - web_rhino_forum_search: look up Rhino forum discussions to try to find answers to the user's question
             - web_rhino_forum_read_post: read a specific post from the Rhino forum
             - generic_page_read: read a web page by providing the URL
