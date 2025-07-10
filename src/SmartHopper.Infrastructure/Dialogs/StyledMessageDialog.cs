@@ -48,24 +48,26 @@ namespace SmartHopper.Infrastructure.Dialogs
 
         private StyledMessageDialog(string title, string message, DialogType dialogType, bool isConfirmation)
         {
-            Title = title;
-            Resizable = true;
-            Padding = new Padding(20);
-            Size = new Size(400, 300);
-            MinimumSize = new Size(400, 300);
+            this.Title = title;
+            this.Resizable = true;
+            this.Padding = new Padding(20);
+            this.Size = new Size(400, 300);
+            this.MinimumSize = new Size(400, 300);
 
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
             {
                 if (stream != null)
-                    Icon = new Eto.Drawing.Icon(stream);
+                {
+                    this.Icon = new Eto.Drawing.Icon(stream);
+                }
             }
 
             // Create smaller logo
             var logoView = new ImageView
             {
                 Image = Logo,
-                Size = new Size(32, 32)
+                Size = new Size(32, 32),
             };
 
             // Create title label
@@ -73,7 +75,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             {
                 Text = "SmartHopper says...",
                 Font = new Font(SystemFont.Bold, 16),
-                TextAlignment = TextAlignment.Center
+                TextAlignment = TextAlignment.Center,
             };
 
             // Header with logo and title
@@ -82,7 +84,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Orientation = Orientation.Horizontal,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 Spacing = 10,
-                Items = { logoView, new StackLayoutItem(titleLabel, VerticalAlignment.Center) }
+                Items = { logoView, new StackLayoutItem(titleLabel, VerticalAlignment.Center) },
             };
 
             // Build prefix and body labels, coloring only the prefix
@@ -119,7 +121,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Rows =
                 {
                     new TableRow(new TableCell(bodyLabel, true))
-                }
+                },
             };
 
             // Button layout with right alignment
