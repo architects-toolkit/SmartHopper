@@ -169,7 +169,7 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["question"] = question.Value,
-                        ["contextProviderFilter"] = "-environment,-time"
+                        ["contextProviderFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync(
