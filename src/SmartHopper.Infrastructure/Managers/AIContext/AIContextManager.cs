@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 
@@ -35,6 +36,8 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
 
             // Add the new provider
             _contextProviders.Add(provider);
+
+            Debug.WriteLine($"[RegisterProvider] Registered provider: {provider.ProviderId}");
         }
 
         /// <summary>
@@ -46,6 +49,8 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
             if (string.IsNullOrEmpty(providerId)) return;
 
             _contextProviders.RemoveAll(p => p.ProviderId == providerId);
+
+            Debug.WriteLine($"[UnregisterProvider] Unregistered provider: {providerId}");
         }
 
         /// <summary>
@@ -95,11 +100,14 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
             var result = new Dictionary<string, string>();
 
             // if "-*" is specified in either filter, exclude all and return an empty dictionary
-            if ((providerFilter != null && providerFilter.Contains("-*")) ||
-                (contextFilter != null && contextFilter.Contains("-*")))
+            if ((!string.IsNullOrEmpty(providerFilter) && providerFilter.Contains("-*")) ||
+                (!string.IsNullOrEmpty(contextFilter) && contextFilter.Contains("-*")))
             {
+                Debug.WriteLine($"[GetCurrentContext] Excluding all providers and context");
                 return result;
             }
+
+            Debug.WriteLine($"[GetCurrentContext] Provider filter: '{providerFilter ?? "null"}', Context filter: '{contextFilter ?? "null"}'");
 
             // Parse provider filters
             HashSet<string> includeProviderFilters = null;
@@ -107,6 +115,7 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
 
             if (!string.IsNullOrEmpty(providerFilter))
             {
+                Debug.WriteLine($"[GetCurrentContext] Processing provider filter: {providerFilter}");
                 var filterParts = providerFilter.Split(new[] { ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(p => p.Trim())
                     .ToList();
@@ -119,12 +128,9 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
                     .ToList();
 
                 // Handle '*' wildcard: treat '*' as include-all (default behavior)
-                if (!includeFilters.Contains("*"))
+                if (!includeFilters.Contains("*") && includeFilters.Count > 0)
                 {
-                    if (includeFilters.Count > 0)
-                    {
-                        includeProviderFilters = new HashSet<string>(includeFilters);
-                    }
+                    includeProviderFilters = new HashSet<string>(includeFilters);
                 }
 
                 if (excludeFilters.Count > 0)
@@ -139,6 +145,7 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
 
             if (!string.IsNullOrEmpty(contextFilter))
             {
+                Debug.WriteLine($"[GetCurrentContext] Processing context filter: {contextFilter}");
                 var filterParts = contextFilter.Split(new[] { ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(c => c.Trim())
                     .ToList();
@@ -151,12 +158,9 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
                     .ToList();
 
                 // Handle '*' wildcard: treat '*' as include-all (default behavior)
-                if (!includeFilters.Contains("*"))
+                if (!includeFilters.Contains("*") && includeFilters.Count > 0)
                 {
-                    if (includeFilters.Count > 0)
-                    {
-                        includeContextFilters = new HashSet<string>(includeFilters);
-                    }
+                    includeContextFilters = new HashSet<string>(includeFilters);
                 }
 
                 if (excludeFilters.Count > 0)
