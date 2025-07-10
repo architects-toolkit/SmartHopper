@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
@@ -76,46 +77,61 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return Task.FromResult<object>(new { success = false, error = "No valid GUIDs provided for grouping." });
 
             var group = new GH_Group();
-
+            
             Rhino.RhinoApp.InvokeOnUiThread(() =>
             {
-                var doc = GHCanvasUtils.GetCurrentCanvas();
-
-                if (!string.IsNullOrEmpty(groupName))
-                {
-                    group.NickName = groupName;
-                    group.Colour = Color.FromArgb(255, 0, 200, 0);
-                }
+                // Parse color if provided
+                var groupColor = System.Drawing.Color.Empty;
                 if (!string.IsNullOrEmpty(colorStr))
                 {
                     try
                     {
-                        var argbColor = StringConverter.StringToColor(colorStr);
-                        group.Colour = argbColor;
+                        groupColor = StringConverter.StringToColor(colorStr);
+                        Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
                     }
                     catch
                     {
                         // Invalid color string, ignoring
                     }
                 }
-
-                foreach (var guid in validGuids)
+                else
                 {
-                    var obj = GHCanvasUtils.FindInstance(guid);
-                    if (obj != null)
-                        group.AddObject(guid);
+                    groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
+                    Debug.WriteLine("[gh_group] No color provided, using default color");
                 }
-
-                doc.AddObject(group, false);
+                
+                // Use GHDocumentUtils.GroupObjects to create the group with undo support
+                group = GHDocumentUtils.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
+                
+                // Make sure UI is updated
                 Instances.RedrawCanvas();
             });
 
-            return Task.FromResult<object>(new
+            // Create a task completion source to wait for UI thread to finish
+            var tcs = new TaskCompletionSource<object>();
+            
+            Rhino.RhinoApp.InvokeOnUiThread(() =>
             {
-                success = true,
-                group = group.InstanceGuid.ToString(),
-                grouped = validGuids.Select(g => g.ToString()).ToList()
+                if (group != null)
+                {
+                    tcs.SetResult(new
+                    {
+                        success = true,
+                        group = group.InstanceGuid.ToString(),
+                        grouped = validGuids.Select(g => g.ToString()).ToList()
+                    });
+                }
+                else
+                {
+                    tcs.SetResult(new
+                    {
+                        success = false,
+                        error = "Failed to create group."
+                    });
+                }
             });
+            
+            return tcs.Task;
         }
     }
 }
