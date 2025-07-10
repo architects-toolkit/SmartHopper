@@ -274,12 +274,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 switch (targetType.Name)
                 {
                     case "Color":
-                        if (value is string stringValue && stringValue.Contains(','))
+                        if (value is string stringValue)
                         {
+                            // Use centralized conversion for both comma-based and HTML/named colors
                             return StringConverter.StringToColor(stringValue);
                         }
-
-                        return ColorTranslator.FromHtml(value.ToString());
+                        // Fallback: attempt HTML translation for other formats
+                        try
+                        {
+                            return ColorTranslator.FromHtml(value.ToString());
+                        }
+                        catch
+                        {
+                            throw new ArgumentException($"Invalid color value: {value}");
+                        }
 
                     case "Font":
                         return StringConverter.StringToFont(value.ToString());
