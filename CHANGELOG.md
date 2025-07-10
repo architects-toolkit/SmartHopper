@@ -11,17 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Instructions input to AI Chat Component ([#87](https://github.com/architects-toolkit/SmartHopper/issues/87)).
 - Added systemPrompt parameter to WebChatUtils.ShowWebChatDialog
+- Context manager improvements:
+  - Added support for "-*" to exclude all providers/context in one go
+  - Added support for space, tab, and newline as additional delimiters in filter strings
+  - Explicitly handle "*" wildcard to include all providers/context by default
 
 ### Changed
 
 - Several improvements to AI Chat Component:
   - Updated WebChatDialog to use provided system prompt or fall back to default
   - Improved default system prompt for AI Chat to focus on a Grasshopper assistant, including tool call examples
-- Modified manifest to reflect new context input feature
-- Code cleanup in AI Chat Component, WebChatDialog and WebChatUtils
-- Renamed SmartHopper.Config to SmartHopper.Infrastructure
-- Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
-- Reorganized AIProvider, AIContext and AITool managers
+- Modified manifest to reflect new instructions input feature in AI Chat Component
+- Modified AITextEvaluate, AITextGenerate, AIListEvaluate and AIListFilter to exclude all context using the new "-*" filter
+- Code reorganization:
+  - Reorganized AIProvider, AIContext and AITool managers
+  - Code cleanup in AI Chat Component, WebChatDialog and WebChatUtils
+  - Renamed SmartHopper.Config to SmartHopper.Infrastructure
+  - Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
 
 ## [0.3.3-alpha] - 2025-06-23
 

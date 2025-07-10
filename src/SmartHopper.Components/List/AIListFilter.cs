@@ -174,7 +174,7 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["criteria"] = criterion.Value,
-                        ["contextProviderFilter"] = "-environment,-time"
+                        ["contextProviderFilter"] = "-*",
                     };
 
                     Debug.WriteLine($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
