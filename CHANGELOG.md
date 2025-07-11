@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed SmartHopper.Config to SmartHopper.Infrastructure
   - Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
 - Updated StringConverter.StringToColor to accept argb, rgb, html and known color names as input
+- Change GetResponse parameter from includeToolDefinitions to toolFilter
+
+### Removed
+
+- Removed unnecessary GetModel and GetFormattedTools methods in OpenAIProvider, MistralAIProvider and TemplateProvider
 
 ## [0.3.3-alpha] - 2025-06-23
 

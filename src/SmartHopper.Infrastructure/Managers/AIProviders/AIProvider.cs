@@ -36,7 +36,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
         public abstract Image Icon { get; }
 
-        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
+        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         /// <summary>
         /// Initializes the provider with the specified settings.
@@ -109,21 +109,40 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         }
 
         /// <summary>
-        /// Default model resolution logic.
+        /// Gets the model to use for AI processing.
         /// </summary>
+        /// <param name="settings">The provider settings.</param>
+        /// <param name="requestedModel">The requested model, or empty for default.</param>
+        /// <returns>The model to use.</returns>
         public virtual string GetModel(Dictionary<string, object> settings, string requestedModel = "")
         {
+            // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
                 return requestedModel;
-            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
-                return settings["Model"].ToString();
-            return DefaultModel;
+            }
+
+            // Use the model from settings if available
+            string modelFromSettings = this.GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
+                return modelFromSettings;
+            }
+
+            // Fall back to the default model
+            return this.DefaultModel;
         }
 
+        protected JArray GetFormattedTools()
+        {
+            // When no tool filter is specified, return all tools
+            return GetFormattedTools("*");
+        }
+        
         /// <summary>
         /// Common tool formatting for function definitions.
         /// </summary>
-        protected JArray GetFormattedTools()
+        protected JArray GetFormattedTools(string toolFilter)
         {
             try
             {
@@ -138,6 +157,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 var toolsArray = new JArray();
                 foreach (var tool in tools)
                 {
+                    // TODO: Enable tool filtering
+                    
                     var toolObject = new JObject
                     {
                         ["type"] = "function",
