@@ -1,10 +1,10 @@
 ---
 trigger: glob
-globs: **/SmartHopper.Core.Grasshopper/Tools/*.cs
+globs: **/SmartHopper.Core.Grasshopper/AITools/*.cs
 ---
 
 # AI Tool conventions
-- Implement IAIToolProvider in SmartHopper.Core.Grasshopper.Tools
+- Implement IAIToolProvider in SmartHopper.Core.Grasshopper.AITools
 - File name: scope_action.cs
 - Define AITool metadata (Name, Description, schema)
 - Auto-discover via AIToolManager

@@ -50,8 +50,8 @@ namespace SmartHopper.Core.Models.Document
         /// <returns>A list of all connections involving the specified component</returns>
         public List<ConnectionPairing> GetComponentConnections(Guid componentId)
         {
-            return Connections.Where(c => 
-                c.From.ComponentId == componentId || 
+            return Connections.Where(c =>
+                c.From.ComponentId == componentId ||
                 c.To.ComponentId == componentId
             ).ToList();
         }

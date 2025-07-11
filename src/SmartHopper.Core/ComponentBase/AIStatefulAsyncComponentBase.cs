@@ -25,9 +25,10 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
+using SmartHopper.Core.Messaging;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -232,60 +233,6 @@ namespace SmartHopper.Core.ComponentBase
 
         #region AI
 
-        //TODO: deprecate GetResponse, replace with CallAiTool to handle provider and model selection, as well as metrics output
-
-        /// <summary>
-        /// Gets a response from the AI provider using the provided messages and cancellation token.
-        /// </summary>
-        /// <param name="messages">The messages to send to the AI provider.</param>
-        /// <param name="contextProviderFilter">Optional filter for context providers (comma-separated list).</param>
-        /// <param name="contextKeyFilter">Optional filter for context keys (comma-separated list).</param>
-        /// <param name="reuseCount">Optional. The number of times this response will be reused across different branches. Default is 1.</param>
-        /// <returns>The AI response from the provider.</returns>
-        protected async Task<AIResponse> GetResponse(
-            List<KeyValuePair<string, string>> messages,
-            string contextProviderFilter = null,
-            string contextKeyFilter = null,
-            int reuseCount = 1)
-        {
-            try
-            {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] This method is being deprecated. Use CallAiToolAsync instead.");
-                
-                // Get the actual provider name to use
-                string actualProvider = GetActualProviderName();
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {actualProvider} (Selected: {_aiProvider})");
-
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Number of messages: " + messages.Count);
-
-                if (messages == null || !messages.Any())
-                {
-                    return null;
-                }
-
-                var response = await AIUtils.GetResponse(
-                    actualProvider,
-                    model: GetModel(),
-                    messages,
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter);
-
-                // Store response metrics with the provided reuse count
-                StoreResponseMetrics(response, reuseCount);
-
-                return response;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] GetResponse - Exception: {ex.Message}");
-                return new AIResponse
-                {
-                    Response = ex.Message,
-                    FinishReason = "error"
-                };
-            }
-        }
-
         /// <summary>
         /// Executes an AI tool via AIToolManager, auto-injecting provider/model
         /// and storing returned metrics.
@@ -299,7 +246,7 @@ namespace SmartHopper.Core.ComponentBase
             parameters ??= new JObject();
             // Inject provider and model
             parameters["provider"] = GetActualProviderName();
-            parameters["model"]    = GetModel();
+            parameters["model"] = GetModel();
             parameters["reuseCount"] = reuseCount;
 
             JObject result;
@@ -320,7 +267,7 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"]   = ex.Message
+                    ["error"] = ex.Message
                 };
             }
 

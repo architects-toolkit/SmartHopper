@@ -19,10 +19,8 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Tools;
 using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
@@ -162,7 +160,7 @@ namespace SmartHopper.Components.Text
                     {
                         ["text"] = textTree[i]?.Value,
                         ["question"] = questionTree[i]?.Value,
-                        ["contextProviderFilter"] = "-environment,-time"
+                        ["contextProviderFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)
