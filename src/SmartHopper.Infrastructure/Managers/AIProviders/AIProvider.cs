@@ -18,6 +18,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.Managers.AIProviders
 {
@@ -167,7 +168,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// <summary>
         /// Common tool formatting for function definitions.
         /// </summary>
-        /// <param name="toolFilter">The filter to apply to tool names.</param>
+        /// <param name="toolFilter">The filter to apply to tool categories.</param>
         /// <returns>A JArray of formatted tool function definitions matching the filter, or null if an error occurs.</returns>
         protected JArray GetFormattedTools(string toolFilter)
         {
@@ -182,10 +183,15 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 }
 
                 var toolsArray = new JArray();
+                var toolFilterObj = Filtering.Parse(toolFilter);
                 foreach (var tool in tools)
                 {
-                    // TODO: Enable tool filtering
-                    
+                    if (!toolFilterObj.ShouldInclude(tool.Value.Category))
+                    {
+                        // Skip tools that don't match the filter
+                        continue;
+                    }
+
                     var toolObject = new JObject
                     {
                         ["type"] = "function",
@@ -196,8 +202,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                             ["parameters"] = JObject.Parse(tool.Value.ParametersSchema)
                         }
                     };
+
                     toolsArray.Add(toolObject);
                 }
+
                 return toolsArray;
             }
             catch (Exception ex)
