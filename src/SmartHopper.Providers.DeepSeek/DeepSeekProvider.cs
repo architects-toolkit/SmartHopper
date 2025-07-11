@@ -311,24 +311,5 @@ namespace SmartHopper.Providers.DeepSeek
                 throw new Exception($"Error communicating with DeepSeek API: {ex.Message}", ex);
             }
         }
-
-        // public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
-        // {
-        //     // Use the requested model if provided
-        //     if (!string.IsNullOrWhiteSpace(requestedModel))
-        //     {
-        //         return requestedModel;
-        //     }
-
-        //     // Use the model from settings if available
-        //     string modelFromSettings = this.GetSetting<string>("Model");
-        //     if (!string.IsNullOrWhiteSpace(modelFromSettings))
-        //     {
-        //         return modelFromSettings;
-        //     }
-
-        //     // Fall back to the default model
-        //     return this.DefaultModel;
-        // }
     }
 }
