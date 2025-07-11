@@ -39,6 +39,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "script_new",
                 description: "Generate a script component in the specified language (default python) based on user instructions and place it on the canvas.",
+                category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -62,6 +63,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var providerName = parameters["provider"]?.ToString() ?? string.Empty;
                 var modelName = parameters["model"]?.ToString() ?? string.Empty;
                 var endpoint = "script_new";
+                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
+                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -170,7 +173,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     modelName,
                     messages,
                     jsonSchema,
-                    endpoint: endpoint).ConfigureAwait(false);
+                    endpoint: endpoint,
+                    contextProviderFilter: contextProviderFilter,
+                    contextKeyFilter: contextKeyFilter).ConfigureAwait(false);
                 var responseJson = JObject.Parse(aiResponse.Response);
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();

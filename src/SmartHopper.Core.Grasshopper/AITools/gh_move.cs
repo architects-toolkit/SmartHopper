@@ -35,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_move",
                 description: "Move Grasshopper components by GUID with specific targets and optional relative offset.",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

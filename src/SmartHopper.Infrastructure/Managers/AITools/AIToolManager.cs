@@ -39,7 +39,6 @@ namespace SmartHopper.Infrastructure.Managers.AITools
         /// <param name="tool">The tool to register</param>
         public static void RegisterTool(AITool tool)
         {
-            Debug.WriteLine($"[AIToolManager] Registering tool: {tool.Name}");
             _tools[tool.Name] = tool;
         }
 
@@ -169,7 +168,6 @@ namespace SmartHopper.Infrastructure.Managers.AITools
                 {
                     try
                     {
-                        Debug.WriteLine($"[AIToolManager] Creating instance of tool provider: {providerType.FullName}");
                         var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
                         var tools = provider.GetTools().ToList();
 
@@ -194,90 +192,6 @@ namespace SmartHopper.Infrastructure.Managers.AITools
             {
                 Debug.WriteLine($"[AIToolManager] Error during tool discovery: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Generate tool definitions for AI providers
-        /// </summary>
-        /// <returns>JSON string of tool definitions in OpenAI format</returns>
-        public static string GenerateToolDefinitionsForAI()
-        {
-            // Ensure tools are discovered
-            DiscoverTools();
-
-            // Build JSON array of tool definitions
-            var toolDefinitions = new JArray();
-
-            foreach (var tool in _tools.Values)
-            {
-                var toolDef = new JObject
-                {
-                    ["name"] = tool.Name,
-                    ["description"] = tool.Description,
-                    ["parameters"] = JObject.Parse(tool.ParametersSchema)
-                };
-
-                toolDefinitions.Add(toolDef);
-            }
-
-            return toolDefinitions.ToString();
-        }
-
-        /// <summary>
-        /// Generate human-readable list of available tools for documentation
-        /// </summary>
-        /// <returns>Markdown formatted string describing available tools</returns>
-        public static string GenerateToolDocumentation()
-        {
-            // Ensure tools are discovered
-            DiscoverTools();
-
-            if (_tools.Count == 0)
-                return "No tools available.";
-
-            var docs = new List<string>
-            {
-                "# Available Tools\n"
-            };
-
-            foreach (var tool in _tools.Values)
-            {
-                docs.Add($"## {tool.Name}\n");
-                docs.Add($"{tool.Description}\n");
-                docs.Add("### Parameters\n");
-
-                // Parse parameters schema
-                try
-                {
-                    var schema = JObject.Parse(tool.ParametersSchema);
-                    var properties = schema["properties"] as JObject;
-                    var required = schema["required"] as JArray;
-
-                    if (properties != null)
-                    {
-                        foreach (var prop in properties)
-                        {
-                            var name = prop.Key;
-                            var details = prop.Value as JObject;
-                            var type = details?["type"]?.ToString() ?? "any";
-                            var description = details?["description"]?.ToString() ?? "";
-                            var isRequired = required?.Contains(name) ?? false;
-
-                            docs.Add($"- **{name}** ({type}){(isRequired ? " (required)" : "")}");
-                            if (!string.IsNullOrEmpty(description))
-                                docs.Add($"  - {description}");
-                        }
-                    }
-                }
-                catch
-                {
-                    docs.Add("Error parsing parameters schema.");
-                }
-
-                docs.Add("\n");
-            }
-
-            return string.Join("\n", docs);
         }
     }
 }

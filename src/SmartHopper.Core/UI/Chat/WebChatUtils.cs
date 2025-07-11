@@ -59,7 +59,12 @@ namespace SmartHopper.Core.UI.Chat
             {
                 // Create a function to get responses from the AI provider
                 Func<List<ChatMessageModel>, Task<AIResponse>> getResponse =
-                    messages => AIUtils.GetResponse(providerName, modelName, messages, endpoint: endpoint, includeToolDefinitions: true);
+                    messages => AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        endpoint: endpoint,
+                        toolFilter: "Knowledge, Components, Scripting");
 
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
@@ -212,7 +217,13 @@ namespace SmartHopper.Core.UI.Chat
 
                 try
                 {
-                    this.lastResponse = await ShowWebChatDialog(this.providerName, this.modelName, this.endpoint, this.systemPrompt, this.componentId, reporter).ConfigureAwait(false);
+                    this.lastResponse = await ShowWebChatDialog(
+                        this.providerName,
+                        this.modelName,
+                        this.endpoint,
+                        this.systemPrompt,
+                        this.componentId,
+                        reporter).ConfigureAwait(false);
                     reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)

@@ -38,6 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "generic_page_read",
                 description: "Retrieve plain text content of a webpage at the given URL, excluding HTML, scripts, styles, and images. Respects robots.txt.",
+                category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

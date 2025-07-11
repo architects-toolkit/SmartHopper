@@ -32,7 +32,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "web_rhino_forum_read_post",
-                description: "Retrieve full JSON of a Rhino Discourse forum post by ID.",
+                description: "Retrieve a full Rhino Discourse forum post by ID.",
+                category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -47,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Retrieves full JSON of a Rhino Discourse forum post by ID.
+        /// Retrieves a full Rhino Discourse forum post by ID.
         /// </summary>
         /// <param name="parameters">A JObject containing the ID parameter.</param>
         private async Task<object> WebRhinoForumReadPostAsync(JObject parameters)
