@@ -83,7 +83,8 @@ namespace SmartHopper.Core.Messaging
             try
             {
                 // Add context from all registered context providers, applying filters if specified
-                Debug.WriteLine($"[AIUtils] Adding context from providers: {contextProviderFilter ?? "null"}, keys: {contextKeyFilter ?? "null"}");
+                Debug.WriteLine($"[AIUtils] Adding context from providers: {contextProviderFilter ?? "not defined"}, keys: {contextKeyFilter ?? "not defined"}");
+
                 var contextData = AIContextManager.GetCurrentContext(contextProviderFilter, contextKeyFilter);
                 if (contextData.Count > 0)
                 {

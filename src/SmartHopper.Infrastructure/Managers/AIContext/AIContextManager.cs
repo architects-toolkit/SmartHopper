@@ -119,10 +119,18 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
 
                     if (ctxFilter.ShouldInclude(key))
                     {
+                        Debug.WriteLine($"[GetCurrentContext] Adding context key: {key}");
+
                         result[key] = kv.Value;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GetCurrentContext] Skipping context key: {key}");
                     }
                 }
             }
+
+            Debug.WriteLine($"[GetCurrentContext] {result.Count} context keys added");
 
             return result;
         }

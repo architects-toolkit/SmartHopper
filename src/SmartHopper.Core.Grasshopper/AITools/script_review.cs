@@ -71,6 +71,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var modelName = parameters["model"]?.ToString() ?? string.Empty;
                 var endpoint = "script_review";
                 var question = parameters["question"]?.ToString();
+                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
+                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
                 var objects = GHCanvasUtils.GetCurrentObjects();
@@ -141,7 +143,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 else
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
                 messages.Add(new("user", userPrompt));
-                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(providerName, modelName, msgs, endpoint: endpoint);
+                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(
+                    providerName,
+                    modelName,
+                    msgs,
+                    endpoint: endpoint,
+                    contextProviderFilter: contextProviderFilter,
+                    contextKeyFilter: contextKeyFilter);
                 var aiResponse = await getResponse(messages).ConfigureAwait(false);
 
                 return new JObject

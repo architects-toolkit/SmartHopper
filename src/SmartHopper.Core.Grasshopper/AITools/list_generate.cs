@@ -109,6 +109,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string prompt = parameters["prompt"]?.ToString() ?? string.Empty;
                 int count = parameters["count"]?.ToObject<int>() ?? 0;
                 string type = parameters["type"]?.ToString() ?? string.Empty;
+                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
+                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
                 {
@@ -136,7 +138,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         modelName,
                         messages,
                         jsonSchema: ListJsonSchema,
-                        endpoint: endpoint)
+                        endpoint: endpoint,
+                        contextProviderFilter: contextProviderFilter,
+                        contextKeyFilter: contextKeyFilter)
                 ).ConfigureAwait(false);
 
                 // Build standardized result

@@ -39,7 +39,6 @@ namespace SmartHopper.Infrastructure.Managers.AITools
         /// <param name="tool">The tool to register</param>
         public static void RegisterTool(AITool tool)
         {
-            Debug.WriteLine($"[AIToolManager] Registering tool: {tool.Name}");
             _tools[tool.Name] = tool;
         }
 
@@ -169,7 +168,6 @@ namespace SmartHopper.Infrastructure.Managers.AITools
                 {
                     try
                     {
-                        Debug.WriteLine($"[AIToolManager] Creating instance of tool provider: {providerType.FullName}");
                         var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
                         var tools = provider.GetTools().ToList();
 
