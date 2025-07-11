@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `systemPrompt` parameter to `WebChatUtils.ShowWebChatDialog`
 - Context manager improvements:
   - Added support for "-*" to exclude all providers/context in one go
-  - Added support for space, tab, and newline as additional delimiters in filter strings
+  - Added support for space as additional delimiters in filter strings
   - Explicitly handle "*" wildcard to include all providers/context by default
 - Added `gh_group` AI tool for grouping components by GUID, with support to custom names and colors
 - Added `list_generate` AI tool for generating a list of items from a prompt and count ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
