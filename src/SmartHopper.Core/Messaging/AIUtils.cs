@@ -49,11 +49,11 @@ namespace SmartHopper.Core.Messaging
             List<KeyValuePair<string, string>> messages,
             string jsonSchema = "",
             string endpoint = "",
-            bool includeToolDefinitions = false,
+            string? toolFilter = null,
             string? contextProviderFilter = null,
             string? contextKeyFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
         }
 
         public static async Task<AIResponse> GetResponse(
@@ -62,11 +62,11 @@ namespace SmartHopper.Core.Messaging
             List<ChatMessageModel> messages,
             string jsonSchema = "",
             string endpoint = "",
-            bool includeToolDefinitions = false,
+            string? toolFilter = null,
             string? contextProviderFilter = null,
             string? contextKeyFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, includeToolDefinitions, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
         }
 
         private static async Task<AIResponse> GetResponse(
@@ -75,7 +75,7 @@ namespace SmartHopper.Core.Messaging
             JArray messages,
             string jsonSchema = "",
             string endpoint = "",
-            bool includeToolDefinitions = false,
+            string? toolFilter = null,
             string? contextProviderFilter = null,
             string? contextKeyFilter = null)
         {
@@ -132,9 +132,9 @@ namespace SmartHopper.Core.Messaging
                     };
                 }
 
-                Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} {(includeToolDefinitions ? "with" : "without")} tools");
+                Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} with tools filtered by {toolFilter ?? "null"}");
 
-                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, includeToolDefinitions).ConfigureAwait(false);
+                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, toolFilter).ConfigureAwait(false);
                 stopwatch.Stop();
                 response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
                 return response;

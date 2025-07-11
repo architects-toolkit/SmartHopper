@@ -62,7 +62,7 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
         {
             // Get settings from the secure settings store
             string apiKey = this.GetSetting<string>("ApiKey");
@@ -179,9 +179,9 @@ namespace SmartHopper.Providers.MistralAI
                 }
 
                 // Add tools if requested
-                if (includeToolDefinitions)
+                if (!string.IsNullOrWhiteSpace(toolFilter))
                 {
-                    var tools = GetFormattedTools();
+                    var tools = this.GetFormattedTools(toolFilter);
                     if (tools != null && tools.Count > 0)
                     {
                         requestBody["tools"] = tools;
@@ -259,71 +259,71 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
-        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-            {
-                return requestedModel;
-            }
+        // public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
+        // {
+        //     // Use the requested model if provided
+        //     if (!string.IsNullOrWhiteSpace(requestedModel))
+        //     {
+        //         return requestedModel;
+        //     }
 
-            // Use the model from settings if available
-            string modelFromSettings = this.GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-            {
-                return modelFromSettings;
-            }
+        //     // Use the model from settings if available
+        //     string modelFromSettings = this.GetSetting<string>("Model");
+        //     if (!string.IsNullOrWhiteSpace(modelFromSettings))
+        //     {
+        //         return modelFromSettings;
+        //     }
 
-            // Fall back to the default model
-            return this.DefaultModel;
-        }
+        //     // Fall back to the default model
+        //     return this.DefaultModel;
+        // }
 
-        /// <summary>
-        /// Gets the tools formatted for the MistralAI API.
-        /// </summary>
-        /// <returns>JArray of formatted tools.</returns>
-        private static new JArray? GetFormattedTools()
-        {
-            try
-            {
-                // Ensure tools are discovered
-                AIToolManager.DiscoverTools();
+        // /// <summary>
+        // /// Gets the tools formatted for the MistralAI API.
+        // /// </summary>
+        // /// <returns>JArray of formatted tools.</returns>
+        // private static new JArray? GetFormattedTools()
+        // {
+        //     try
+        //     {
+        //         // Ensure tools are discovered
+        //         AIToolManager.DiscoverTools();
 
-                // Get all available tools
-                var tools = AIToolManager.GetTools();
-                if (tools.Count == 0)
-                {
-                    Debug.WriteLine("No tools available.");
-                    return null;
-                }
+        //         // Get all available tools
+        //         var tools = AIToolManager.GetTools();
+        //         if (tools.Count == 0)
+        //         {
+        //             Debug.WriteLine("No tools available.");
+        //             return null;
+        //         }
 
-                var toolsArray = new JArray();
+        //         var toolsArray = new JArray();
 
-                foreach (var tool in tools)
-                {
-                    // Format each tool according to MistralAI's requirements
-                    var toolObject = new JObject
-                    {
-                        ["type"] = "function",
-                        ["function"] = new JObject
-                        {
-                            ["name"] = tool.Value.Name,
-                            ["description"] = tool.Value.Description,
-                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
-                        },
-                    };
+        //         foreach (var tool in tools)
+        //         {
+        //             // Format each tool according to MistralAI's requirements
+        //             var toolObject = new JObject
+        //             {
+        //                 ["type"] = "function",
+        //                 ["function"] = new JObject
+        //                 {
+        //                     ["name"] = tool.Value.Name,
+        //                     ["description"] = tool.Value.Description,
+        //                     ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
+        //                 },
+        //             };
 
-                    toolsArray.Add(toolObject);
-                }
+        //             toolsArray.Add(toolObject);
+        //         }
 
-                Debug.WriteLine($"Formatted {toolsArray.Count} tools for MistralAI");
-                return toolsArray;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error formatting tools: {ex.Message}");
-                return null;
-            }
-        }
+        //         Debug.WriteLine($"Formatted {toolsArray.Count} tools for MistralAI");
+        //         return toolsArray;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Debug.WriteLine($"Error formatting tools: {ex.Message}");
+        //         return null;
+        //     }
+        // }
     }
 }
