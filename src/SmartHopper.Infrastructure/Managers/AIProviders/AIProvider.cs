@@ -28,14 +28,35 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     {
         private Dictionary<string, object> _injectedSettings;
 
+        /// <summary>
+        /// Gets the name of the provider.
+        /// </summary>
         public abstract string Name { get; }
 
+        /// <summary>
+        /// Gets the default model name for the provider.
+        /// </summary>
         public abstract string DefaultModel { get; }
 
+        /// <summary>
+        /// Gets a value indicating whether the provider is enabled.
+        /// </summary>
         public abstract bool IsEnabled { get; }
 
+        /// <summary>
+        /// Gets the icon representing the provider.
+        /// </summary>
         public abstract Image Icon { get; }
 
+        /// <summary>
+        /// Retrieves a response from the AI model based on provided messages and parameters.
+        /// </summary>
+        /// <param name="messages">The conversation messages to send.</param>
+        /// <param name="model">The model to use.</param>
+        /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
+        /// <param name="endpoint">Optional endpoint to send the request to.</param>
+        /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
+        /// <returns>An AIResponse containing the result.</returns>
         public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         /// <summary>
@@ -133,6 +154,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             return this.DefaultModel;
         }
 
+        /// <summary>
+        /// Gets all formatted tools with the default filter.
+        /// </summary>
+        /// <returns>A JArray of formatted tool function definitions.</returns>
         protected JArray GetFormattedTools()
         {
             // When no tool filter is specified, return all tools
@@ -142,6 +167,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// <summary>
         /// Common tool formatting for function definitions.
         /// </summary>
+        /// <param name="toolFilter">The filter to apply to tool names.</param>
+        /// <returns>A JArray of formatted tool function definitions matching the filter, or null if an error occurs.</returns>
         protected JArray GetFormattedTools(string toolFilter)
         {
             try
@@ -184,6 +211,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// Returns the SettingDescriptors for this provider by
         /// fetching its IAIProviderSettings instance from ProviderManager.
         /// </summary>
+        /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             var ui = ProviderManager.Instance.GetProviderSettings(Name);
