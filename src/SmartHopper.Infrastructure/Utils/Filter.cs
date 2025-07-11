@@ -46,8 +46,6 @@ namespace SmartHopper.Infrastructure.Utils
         /// </summary>
         public static Filter Parse(string raw)
         {
-            Debug.WriteLine($"[Filter.Parse] raw='{raw}'");
-
             if (string.IsNullOrWhiteSpace(raw))
             {
                 return new Filter(false, true, new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase));

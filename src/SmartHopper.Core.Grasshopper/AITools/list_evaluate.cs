@@ -178,6 +178,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string endpoint = "list_evaluate";
                 string? rawList = parameters["list"]?.ToString();
                 string? question = parameters["question"]?.ToString();
+                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
+                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
                 {
@@ -203,7 +205,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         providerName,
                         modelName,
                         messages,
-                        endpoint: endpoint)
+                        endpoint: endpoint,
+                        contextProviderFilter: contextProviderFilter,
+                        contextKeyFilter: contextKeyFilter)
                 ).ConfigureAwait(false);
 
                 // Return standardized result

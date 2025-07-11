@@ -206,6 +206,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     toolsArray.Add(toolObject);
                 }
 
+                Debug.WriteLine($"[GetFormattedTools] {toolsArray.Count} tools formatted");
+
                 return toolsArray;
             }
             catch (Exception ex)
