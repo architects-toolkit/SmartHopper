@@ -33,7 +33,7 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// </summary>
         bool IsEnabled { get; }
 
-        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
+        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         string GetModel(Dictionary<string, object> settings, string requestedModel = "");
 

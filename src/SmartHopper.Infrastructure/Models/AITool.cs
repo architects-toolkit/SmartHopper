@@ -30,6 +30,11 @@ namespace SmartHopper.Infrastructure.Models
         public string Description { get; }
 
         /// <summary>
+        /// Category of the tool
+        /// </summary>
+        public string Category { get; } = "General";
+
+        /// <summary>
         /// JSON schema describing the tool's parameters
         /// </summary>
         public string ParametersSchema { get; }
@@ -44,12 +49,14 @@ namespace SmartHopper.Infrastructure.Models
         /// </summary>
         /// <param name="name">Name of the tool (used for tool calls)</param>
         /// <param name="description">Description of what the tool does</param>
+        /// <param name="category">Category of the tool</param>
         /// <param name="parametersSchema">JSON schema describing the tool's parameters</param>
         /// <param name="execute">Function to execute the tool with given parameters</param>
-        public AITool(string name, string description, string parametersSchema, Func<JObject, Task<object>> execute)
+        public AITool(string name, string description, string category, string parametersSchema, Func<JObject, Task<object>> execute)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Description = description ?? throw new ArgumentNullException(nameof(description));
+            Category = category ?? throw new ArgumentNullException(nameof(category));
             ParametersSchema = parametersSchema ?? throw new ArgumentNullException(nameof(parametersSchema));
             Execute = execute ?? throw new ArgumentNullException(nameof(execute));
         }

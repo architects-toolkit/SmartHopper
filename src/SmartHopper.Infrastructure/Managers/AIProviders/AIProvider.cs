@@ -18,6 +18,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.Managers.AIProviders
 {
@@ -28,15 +29,36 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     {
         private Dictionary<string, object> _injectedSettings;
 
+        /// <summary>
+        /// Gets the name of the provider.
+        /// </summary>
         public abstract string Name { get; }
 
+        /// <summary>
+        /// Gets the default model name for the provider.
+        /// </summary>
         public abstract string DefaultModel { get; }
 
+        /// <summary>
+        /// Gets a value indicating whether the provider is enabled.
+        /// </summary>
         public abstract bool IsEnabled { get; }
 
+        /// <summary>
+        /// Gets the icon representing the provider.
+        /// </summary>
         public abstract Image Icon { get; }
 
-        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false);
+        /// <summary>
+        /// Retrieves a response from the AI model based on provided messages and parameters.
+        /// </summary>
+        /// <param name="messages">The conversation messages to send.</param>
+        /// <param name="model">The model to use.</param>
+        /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
+        /// <param name="endpoint">Optional endpoint to send the request to.</param>
+        /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
+        /// <returns>An AIResponse containing the result.</returns>
+        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         /// <summary>
         /// Initializes the provider with the specified settings.
@@ -109,21 +131,46 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         }
 
         /// <summary>
-        /// Default model resolution logic.
+        /// Gets the model to use for AI processing.
         /// </summary>
+        /// <param name="settings">The provider settings.</param>
+        /// <param name="requestedModel">The requested model, or empty for default.</param>
+        /// <returns>The model to use.</returns>
         public virtual string GetModel(Dictionary<string, object> settings, string requestedModel = "")
         {
+            // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
                 return requestedModel;
-            if (settings != null && settings.ContainsKey("Model") && !string.IsNullOrWhiteSpace(settings["Model"]?.ToString()))
-                return settings["Model"].ToString();
-            return DefaultModel;
+            }
+
+            // Use the model from settings if available
+            string modelFromSettings = this.GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
+                return modelFromSettings;
+            }
+
+            // Fall back to the default model
+            return this.DefaultModel;
         }
 
         /// <summary>
+        /// Gets all formatted tools with the default filter.
+        /// </summary>
+        /// <returns>A JArray of formatted tool function definitions.</returns>
+        protected JArray GetFormattedTools()
+        {
+            // When no tool filter is specified, return all tools
+            return GetFormattedTools("*");
+        }
+        
+        /// <summary>
         /// Common tool formatting for function definitions.
         /// </summary>
-        protected JArray GetFormattedTools()
+        /// <param name="toolFilter">The filter to apply to tool categories.</param>
+        /// <returns>A JArray of formatted tool function definitions matching the filter, or null if an error occurs.</returns>
+        protected JArray GetFormattedTools(string toolFilter)
         {
             try
             {
@@ -136,8 +183,15 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 }
 
                 var toolsArray = new JArray();
+                var toolFilterObj = Filtering.Parse(toolFilter);
                 foreach (var tool in tools)
                 {
+                    if (!toolFilterObj.ShouldInclude(tool.Value.Category))
+                    {
+                        // Skip tools that don't match the filter
+                        continue;
+                    }
+
                     var toolObject = new JObject
                     {
                         ["type"] = "function",
@@ -148,8 +202,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                             ["parameters"] = JObject.Parse(tool.Value.ParametersSchema)
                         }
                     };
+
                     toolsArray.Add(toolObject);
                 }
+
+                Debug.WriteLine($"[GetFormattedTools] {toolsArray.Count} tools formatted");
+
                 return toolsArray;
             }
             catch (Exception ex)
@@ -163,6 +221,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// Returns the SettingDescriptors for this provider by
         /// fetching its IAIProviderSettings instance from ProviderManager.
         /// </summary>
+        /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             var ui = ProviderManager.Instance.GetProviderSettings(Name);

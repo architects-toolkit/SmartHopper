@@ -100,9 +100,9 @@ namespace SmartHopper.Providers.Template
         /// <param name="model">The model to use, or empty for default.</param>
         /// <param name="jsonSchema">Optional JSON schema for response formatting.</param>
         /// <param name="endpoint">Optional custom endpoint URL.</param>
-        /// <param name="includeToolDefinitions">Optional flag to include tool definitions in the response.</param>
+        /// <param name="toolFilter">Optional flag to include tool definitions in the response.</param>
         /// <returns>The AI response.</returns>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
         {
             try
             {
@@ -140,27 +140,6 @@ namespace SmartHopper.Providers.Template
                 Debug.WriteLine($"Error in TemplateProvider.GetResponse: {ex.Message}");
                 throw new Exception($"Error getting response from Template provider: {ex.Message}", ex);
             }
-        }
-
-        /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="settings">The provider settings.</param>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-                return requestedModel;
-
-            // Use the model from settings if available
-            string modelFromSettings = GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-                return modelFromSettings;
-
-            // Fall back to the default model
-            return DefaultModel;
         }
     }
 }

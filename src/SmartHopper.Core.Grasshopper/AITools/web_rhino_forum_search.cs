@@ -34,6 +34,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "web_rhino_forum_search",
                 description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
+                category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

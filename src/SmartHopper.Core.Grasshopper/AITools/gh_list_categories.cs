@@ -34,6 +34,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_list_categories",
                 description: "List all available categories and subcategories for components in the current environment with optional soft string filter.",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

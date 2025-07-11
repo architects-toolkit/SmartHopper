@@ -33,6 +33,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_toggle_preview",
                 description: "Toggle Grasshopper component preview on or off by GUID.",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
