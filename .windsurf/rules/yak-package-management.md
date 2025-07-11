@@ -1,6 +1,6 @@
 ---
 trigger: glob
-globs: .github/workflows/release-**.yml
+globs: {.github/workflows/release-*.yml,yak-package}
 ---
 
 # Yak Package Management for Rhino/Grasshopper

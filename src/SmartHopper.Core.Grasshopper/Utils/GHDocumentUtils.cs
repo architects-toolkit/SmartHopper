@@ -26,29 +26,42 @@ namespace SmartHopper.Core.Grasshopper.Utils
 {
     public static class GHDocumentUtils
     {
-        // public static IGH_DocumentObject GroupObjects(Guid[] guids, string groupName = null)
-        // {
-        //    GH_Document doc = GHCanvasUtils.GetCurrentCanvas();
-        //    GH_Group group = new GH_Group();
+        /// <summary>
+        /// Groups Grasshopper objects by GUID with undo support.
+        /// </summary>
+        /// <param name="guids">List of GUIDs to include in the group.</param>
+        /// <param name="groupName">Optional name for the group.</param>
+        /// <param name="color">Optional color for the group.</param>
+        /// <returns>The created group object.</returns>
+        public static IGH_DocumentObject GroupObjects(IList<Guid> guids, string groupName = null, System.Drawing.Color? color = null)
+        {
+            GH_Document doc = GHCanvasUtils.GetCurrentCanvas();
+            GH_Group group = new GH_Group();
 
-        // if (!string.IsNullOrEmpty(groupName))
-        //    {
-        //        group.NickName = groupName;
-        //        group.Colour = Color.FromArgb(255, 100, 100, 100);
-        //    }
+            if (!string.IsNullOrEmpty(groupName))
+            {
+                group.NickName = groupName;
+                group.Colour = color ?? System.Drawing.Color.FromArgb(255, 0, 200, 0);
+            }
 
-        // foreach (var guid in guids)
-        //    {
-        //        IGH_DocumentObject obj = doc.FindObject(guid, true);
-        //        if (obj != null)
-        //        {
-        //            group.AddObject(obj.InstanceGuid);
-        //        }
-        //    }
+            // Add objects to group
+            foreach (var guid in guids)
+            {
+                var obj = GHCanvasUtils.FindInstance(guid);
+                if (obj != null)
+                {
+                    group.AddObject(guid);
+                }
+            }
 
-        // doc.AddObject(group, false);
-        //    return group;
-        // }
+            // Record undo event before adding the group
+            group.RecordUndoEvent("[SH] Group");
+            
+            // Add the group to the document with undo support enabled
+            doc.AddObject(group, true);
+            
+            return group;
+        }
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects)
         {
             var document = new GrasshopperDocument
@@ -254,7 +267,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             Type type = obj.Attributes.DocObject.GetType();
             PropertyInfo[] properties = type.GetProperties();
-            Dictionary<string, object> propertyValues = new ();
+            Dictionary<string, object> propertyValues = new();
 
             foreach (PropertyInfo property in properties)
             {

@@ -8,7 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 

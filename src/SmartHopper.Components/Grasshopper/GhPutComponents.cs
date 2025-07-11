@@ -14,7 +14,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Managers;
+using SmartHopper.Infrastructure.Managers.AITools;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddTextParameter("Components", "C", "List of components", GH_ParamAccess.list);
         }
 
-       protected override void SolveInstance(IGH_DataAccess DA)
+        protected override void SolveInstance(IGH_DataAccess DA)
         {
             // 1. Read “Run?” switch
             bool run = false;
@@ -77,7 +77,7 @@ namespace SmartHopper.Components.Grasshopper
                 if (!string.IsNullOrEmpty(analysis))
                 {
                     GH_RuntimeMessageLevel currentLevel = GH_RuntimeMessageLevel.Remark;
-                    foreach (var line in analysis.Split(new[]{'\r','\n'}, StringSplitOptions.RemoveEmptyEntries))
+                    foreach (var line in analysis.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
                     {
                         var trimmed = line.Trim();
                         if (trimmed == "Errors:") currentLevel = GH_RuntimeMessageLevel.Error;

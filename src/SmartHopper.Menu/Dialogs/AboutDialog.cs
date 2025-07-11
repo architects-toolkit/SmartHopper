@@ -14,8 +14,8 @@ using System.IO;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
-using SmartHopper.Config.Dialogs;
-using SmartHopper.Config.Properties;
+using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -27,7 +27,7 @@ namespace SmartHopper.Menu.Dialogs
         private const string GitHubUrl = "https://github.com/architects-toolkit/SmartHopper";
         private const string RktkUrl = "https://rktk.tools";
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
-        private const string IconResourceName = "SmartHopper.Config.Resources.smarthopper.ico";
+        private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
 
         /// <summary>
         /// Initializes a new instance of the AboutDialog
@@ -68,13 +68,13 @@ namespace SmartHopper.Menu.Dialogs
         {
             // Create an ImageView with the SmartHopper logo from the resources
             var imageView = new ImageView();
-            
+
             // Convert the byte array to an Eto.Drawing.Image
             using (var ms = new MemoryStream(providersResources.smarthopper_256))
             {
                 imageView.Image = new Bitmap(ms);
             }
-            
+
             // Set size to match the previous placeholder
             imageView.Size = new Size(200, 200);
 
@@ -134,7 +134,7 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
-            
+
             var communityLabel = new Label
             {
                 Text = "and the SmartHopper Community",

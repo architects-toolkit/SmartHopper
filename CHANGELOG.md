@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4-alpha] - 2025-07-11
+
+### Added
+
+- Added `Instructions` input to `AIChatComponent` ([#87](https://github.com/architects-toolkit/SmartHopper/issues/87))
+- Added `systemPrompt` parameter to `WebChatUtils.ShowWebChatDialog`
+- Context manager improvements:
+  - Added support for "-*" to exclude all providers/context in one go
+  - Added support for space as additional delimiters in filter strings
+  - Explicitly handle "*" wildcard to include all providers/context by default
+- Added `gh_group` AI tool for grouping components by GUID, with support to custom names and colors
+- Added `list_generate` AI tool for generating a list of items from a prompt and count ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
+- New `AITextListGenerate` component implementing `list_generate` AI tool with type 'text' ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
+- Added `Category` property to `AITool` with default value "General"
+- New `Filter` class for common include/exclude patterns processing
+
+### Changed
+
+- Several improvements to `AIChatComponent`:
+  - Updated `WebChatDialog` to use provided system prompt or fall back to default
+  - Improved default system prompt for AI Chat to focus on a Grasshopper assistant, including tool call examples
+  - Added `gh_group` mention to default system prompt
+- Modified manifest to reflect new instructions input feature in AI Chat Component
+- Modified `AITextEvaluate`, `AITextGenerate`, `AIListEvaluate` and `AIListFilter` to exclude all context using the new "-*" filter
+- Code reorganization:
+  - Reorganized `AIProvider`, `AIContext` and `AITool` managers
+  - Code cleanup in `AIChatComponent`, `WebChatDialog` and `WebChatUtils`
+  - Renamed `SmartHopper.Config` to `SmartHopper.Infrastructure`
+  - Renamed `SmartHopper.Config.Tests` to `SmartHopper.Infrastructure.Tests`
+- Updated `StringConverter.StringToColor` to accept argb, rgb, html and known color names as input
+- Change `GetResponse` parameter from `includeToolDefinitions` to `toolFilter`
+- Updated AITool constructor to require category parameter
+- Categorized existing tools with DataProcessing, Components, Knowledge and Scripting categories
+- Updated unit tests to include category parameter
+- Integrated the new `Filter` class in `GetFormattedTools` and `GetCurrentContext`
+
+### Removed
+
+- Removed unnecessary `GetModel` and `GetFormattedTools` methods in `OpenAIProvider`, `MistralAIProvider` and `TemplateProvider`
+- Removed `GetResponse` method from `AIStatefulAsyncComponentBase` in favor of `CallAiToolAsync`
+
 ## [0.3.3-alpha] - 2025-06-23
 
 ### WIP
