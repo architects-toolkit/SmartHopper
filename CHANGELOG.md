@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added list_generate AI tool for generating a list of items from a prompt and count ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
 - New AITextListGenerate component implementing list_generate AI tool with type 'text' ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
 - Added Category property to AITool with default value "General"
+- New Filtering classes for common include/exclude patterns processing
 
 ### Changed
 
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated AITool constructor to require category parameter
 - Categorized existing tools with DataProcessing, Components, Knowledge and Scripting categories
 - Updated unit tests to include category parameter
+- Integrated the new Filtering classes in `GetFormattedTools` and `GetCurrentContext`
 
 ### Removed
 
