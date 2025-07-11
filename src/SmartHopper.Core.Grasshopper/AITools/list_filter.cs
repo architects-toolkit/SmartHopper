@@ -38,6 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "list_filter",
                 description: "Filters a list based on natural language criteria",
+                category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

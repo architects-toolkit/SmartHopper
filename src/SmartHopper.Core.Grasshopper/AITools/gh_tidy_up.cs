@@ -35,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_tidy_up",
                 description: "Organize selected components into a tidy grid layout. Call `gh_get` first to get the list of GUIDs.",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

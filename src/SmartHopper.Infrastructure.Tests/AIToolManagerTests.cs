@@ -38,11 +38,12 @@ namespace SmartHopper.Infrastructure.Tests
         public void RegisterTool_ShouldAddTool()
         {
             ResetManager();
-            var tool = new AITool("TestTool", "Test Description", "{}", _ => Task.FromResult((object)"dummy"));
+            var tool = new AITool("TestTool", "Test Description", "Test Category", "{}", _ => Task.FromResult((object)"dummy"));
             AIToolManager.RegisterTool(tool);
             var tools = AIToolManager.GetTools();
             Assert.Contains("TestTool", tools.Keys);
             Assert.Equal("Test Description", tools["TestTool"].Description);
+            Assert.Equal("Test Category", tools["TestTool"].Category);
         }
 
 #if NET7_WINDOWS
@@ -68,7 +69,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             ResetManager();
             JObject captured = null;
-            var tool = new AITool("Compute", "Computes value", "{}", p =>
+            var tool = new AITool("Compute", "Computes value", "Test Category", "{}", p =>
             {
                 captured = p;
                 int value = p["value"].Value<int>();

@@ -33,6 +33,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_toggle_lock",
                 description: "Toggle Grasshopper component locked state (enable/disable) by GUID.",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

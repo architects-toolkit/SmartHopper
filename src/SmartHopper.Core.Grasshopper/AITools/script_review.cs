@@ -35,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "script_review",
                 description: "Return a code review for the script component specified by its GUID.",
+                category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

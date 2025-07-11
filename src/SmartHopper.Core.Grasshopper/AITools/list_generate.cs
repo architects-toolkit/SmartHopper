@@ -38,6 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "list_generate",
                 description: "Generates a list of items based on a prompt, count and type",
+                category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
