@@ -10,8 +10,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Diagnostics;
+using System.Linq;
 
 namespace SmartHopper.Infrastructure.Utils
 {
@@ -22,8 +22,11 @@ namespace SmartHopper.Infrastructure.Utils
     public sealed class Filter
     {
         public bool ExcludeAll { get; }
+
         public bool IncludeAll { get; }
+
         public IReadOnlySet<string> IncludeSet { get; }
+
         public IReadOnlySet<string> ExcludeSet { get; }
 
         private Filter(
@@ -32,10 +35,10 @@ namespace SmartHopper.Infrastructure.Utils
             HashSet<string> includeSet,
             HashSet<string> excludeSet)
         {
-            ExcludeAll = excludeAll;
-            IncludeAll = includeAll;
-            IncludeSet = includeSet;
-            ExcludeSet = excludeSet;
+            this.ExcludeAll = excludeAll;
+            this.IncludeAll = includeAll;
+            this.IncludeSet = includeSet;
+            this.ExcludeSet = excludeSet;
         }
 
         /// <summary>
@@ -43,18 +46,26 @@ namespace SmartHopper.Infrastructure.Utils
         /// </summary>
         public static Filter Parse(string raw)
         {
+            Debug.WriteLine($"[Filter.Parse] raw='{raw}'");
+
             if (string.IsNullOrWhiteSpace(raw))
+            {
                 return new Filter(false, true, new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+            }
 
             var parts = raw
-                .Split(new[] { ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => p.Trim())
                 .ToList();
 
             if (parts.Any(p => p == "-*"))
-                return new Filter(excludeAll: true, includeAll: false,
+            {
+                return new Filter(
+                    excludeAll: true,
+                    includeAll: false,
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+            }
 
             var includes = parts.Where(p => !p.StartsWith("-")).ToList();
             var excludes = parts.Where(p => p.StartsWith("-")).Select(p => p.Substring(1)).Where(p => p != "*").ToList();
@@ -73,19 +84,32 @@ namespace SmartHopper.Infrastructure.Utils
         /// </summary>
         public bool ShouldInclude(string key)
         {
-            if (ExcludeAll)                    return false;
-            if (ExcludeSet.Contains(key))      return false;
-            if (IncludeAll)                    return true;
-            return IncludeSet.Contains(key);
+            if (this.ExcludeAll)
+            {
+                return false;
+            }
+
+            if (this.ExcludeSet.Contains(key))
+            {
+                return false;
+            }
+
+            if (this.IncludeAll)
+            {
+                return true;
+            }
+
+            return this.IncludeSet.Contains(key);
         }
     }
 
     /// <summary>
-    /// Optional façade if you prefer static helpers.
+    /// Static helper methods for filtering.
     /// </summary>
     public static class Filtering
     {
         public static Filter Parse(string raw) => Filter.Parse(raw);
+
         public static bool ShouldInclude(string key, Filter f) => f.ShouldInclude(key);
     }
 }
