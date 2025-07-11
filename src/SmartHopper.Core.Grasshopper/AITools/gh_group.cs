@@ -37,6 +37,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_group",
                 description: "Group Grasshopper components by GUID into a single Grasshopper group.",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

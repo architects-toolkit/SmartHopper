@@ -37,6 +37,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "text_evaluate",
                 description: "Evaluates a text against a true/false question",
+                category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

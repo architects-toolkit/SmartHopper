@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added gh_group AI tool for grouping components by GUID, with support to custom names and colors
 - Added list_generate AI tool for generating a list of items from a prompt and count ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
 - New AITextListGenerate component implementing list_generate AI tool with type 'text' ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
+- Added Category property to AITool with default value "General"
 
 ### Changed
 
@@ -34,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed SmartHopper.Config.Tests to SmartHopper.Infrastructure.Tests
 - Updated StringConverter.StringToColor to accept argb, rgb, html and known color names as input
 - Change GetResponse parameter from includeToolDefinitions to toolFilter
+- Updated AITool constructor to require category parameter
+- Categorized existing tools with DataProcessing, Components, Knowledge and Scripting categories
+- Updated unit tests to include category parameter
 
 ### Removed
 

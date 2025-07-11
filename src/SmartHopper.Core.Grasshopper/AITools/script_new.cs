@@ -39,6 +39,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "script_new",
                 description: "Generate a script component in the specified language (default python) based on user instructions and place it on the canvas.",
+                category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -35,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_put",
                 description: "Place Grasshopper components on the canvas from GhJSON format",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

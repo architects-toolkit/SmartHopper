@@ -38,6 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "list_evaluate",
                 description: "Evaluates a list based on a natural language question",
+                category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

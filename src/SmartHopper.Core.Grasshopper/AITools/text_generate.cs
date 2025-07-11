@@ -36,6 +36,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "text_generate",
                 description: "Generates text based on a prompt and optional instructions",
+                category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
