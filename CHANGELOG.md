@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update providersResources access modifiers from public to internal
+- Clean up AboutDialog by removing MathJax attribution
+
+### Removed
+
+- Removed MathJax support from chat UI since it was not properly implemented and was generating security warnings on GitHub.
+
 ## [0.3.4-alpha] - 2025-07-11
 
 ### Added
