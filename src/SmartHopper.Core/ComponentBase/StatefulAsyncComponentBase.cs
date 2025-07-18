@@ -194,30 +194,30 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[{GetType().Name}] SolveInstance - Current State: {_currentState}, InPreSolve: {InPreSolve}, State: {_state}, SetData: {_setData}, Workers: {Workers.Count}, Changes during debounce: {_inputChangedDuringDebounce}, Run: {_run}, IsTransitioning: {_isTransitioning}, Pending Transitions: {_pendingTransitions.Count}");
 
             // Execute the appropriate state handler
-            switch (_currentState)
+            switch (this._currentState)
             {
                 case ComponentState.Completed:
-                    OnStateCompleted(DA);
+                    this.OnStateCompleted(DA);
                     break;
                 case ComponentState.Waiting:
-                    OnStateWaiting(DA);
+                    this.OnStateWaiting(DA);
                     break;
                 case ComponentState.NeedsRun:
-                    OnStateNeedsRun(DA);
+                    this.OnStateNeedsRun(DA);
                     break;
                 case ComponentState.Processing:
-                    OnStateProcessing(DA);
+                    this.OnStateProcessing(DA);
                     break;
                 case ComponentState.Cancelled:
-                    OnStateCancelled(DA);
+                    this.OnStateCancelled(DA);
                     break;
                 case ComponentState.Error:
-                    OnStateError(DA);
+                    this.OnStateError(DA);
                     break;
             }
 
             // If inputs changed...
-            switch (_currentState)
+            switch (this._currentState)
             {
                 case ComponentState.Completed:
                 case ComponentState.Waiting:
@@ -226,55 +226,55 @@ namespace SmartHopper.Core.ComponentBase
                     // Check if inputs changed
                     var changedInputs = InputsChanged();
                     // If only the Run parameter changed to false, stay in Completed state
-                    if (InputsChanged("Run?", true) && !_run)
+                    if (this.InputsChanged("Run?", true) && !_run)
                     {
-                        Debug.WriteLine($"[{GetType().Name}] Only Run parameter changed to false, staying in Completed state");
+                        Debug.WriteLine($"[{this.GetType().Name}] Only Run parameter changed to false, staying in Completed state");
                     }
                     // If only the Run parameter changed to true, restart debounce timer with target to the Waiting state to output the results again
-                    else if (InputsChanged("Run?", true) && _run)
+                    else if (this.InputsChanged("Run?", true) && this._run)
                     {
-                        Debug.WriteLine($"[{GetType().Name}] Only Run parameter changed to true, restarting debounce timer with target state Waiting");
+                        Debug.WriteLine($"[{this.GetType().Name}] Only Run parameter changed to true, restarting debounce timer with target state Waiting");
 
-                        if (!RunOnlyOnInputChanges)
+                        if (!this.RunOnlyOnInputChanges)
                         {
                             // Always transition to Processing state regardless of input changes
-                            Debug.WriteLine($"[{GetType().Name}] Component set to always run when Run is true, transitioning to Processing state");
-                            TransitionTo(ComponentState.Processing, DA);
+                            Debug.WriteLine($"[{this.GetType().Name}] Component set to always run when Run is true, transitioning to Processing state");
+                            this.TransitionTo(ComponentState.Processing, DA);
                         }
                         else
                         {
                             // Default behavior - transition to Waiting state
-                            TransitionTo(ComponentState.Waiting, DA);
+                            this.TransitionTo(ComponentState.Waiting, DA);
                         }
                     }
                     // If any other input changed, and run is false
-                    else if (changedInputs.Any() && !_run)
+                    else if (changedInputs.Any() && !this._run)
                     {
                         Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer with target state NeedsRun");
-                        RestartDebounceTimer(ComponentState.NeedsRun);
+                        this.RestartDebounceTimer(ComponentState.NeedsRun);
                     }
                     // If any other input changed, and run is true
-                    else if (changedInputs.Any() && _run)
+                    else if (changedInputs.Any() && this._run)
                     {
                         Debug.WriteLine($"[{GetType().Name}] Inputs changed, restarting debounce timer");
-                        RestartDebounceTimer(ComponentState.Processing);
+                        this.RestartDebounceTimer(ComponentState.Processing);
                     }
                     break;
                 default:
                     break;
             }
 
-            ResetInputChanged();
+            this.ResetInputChanged();
         }
 
         protected override void OnWorkerCompleted()
         {
             // Update input hashes before transitioning to prevent false input changes
-            CalculatePersistentDataHashes();
-            TransitionTo(ComponentState.Completed, _lastDA);
+            this.CalculatePersistentDataHashes();
+            this.TransitionTo(ComponentState.Completed, _lastDA);
             base.OnWorkerCompleted();
             Debug.WriteLine("[StatefulAsyncComponentBase] Worker completed, expiring solution");
-            ExpireSolution(true);
+            this.ExpireSolution(true);
         }
 
         #endregion
@@ -290,7 +290,7 @@ namespace SmartHopper.Core.ComponentBase
 
         // PRIVATE FIELDS
 
-        //Default state, field to store the current state
+        // Default state, field to store the current state
         private ComponentState _currentState = ComponentState.Completed;
         private readonly object _stateLock = new object();
         private bool _isTransitioning;
@@ -307,7 +307,7 @@ namespace SmartHopper.Core.ComponentBase
 
         private async Task ProcessTransition(ComponentState newState, IGH_DataAccess DA = null)
         {
-            var oldState = _currentState;
+            var oldState = this._currentState;
             Debug.WriteLine($"[{GetType().Name}] Attempting transition from {oldState} to {newState}");
 
             if (!IsValidTransition(newState))
@@ -316,17 +316,17 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            _currentState = newState;
+            this._currentState = newState;
             Debug.WriteLine($"[{GetType().Name}] State transition: {oldState} -> {newState}");
-            Message = newState.ToMessageString();
+            this.Message = newState.ToMessageString();
 
-            _stateCompletionSource = new TaskCompletionSource<bool>();
+            this._stateCompletionSource = new TaskCompletionSource<bool>();
 
             // Clear messages only when entering NeedsRun or Processing from a different state
             if ((newState == ComponentState.NeedsRun || newState == ComponentState.Processing) &&
                 oldState != ComponentState.NeedsRun && oldState != ComponentState.Processing)
             {
-                ClearPersistentRuntimeMessages();
+                this.ClearPersistentRuntimeMessages();
             }
 
             // Actions here only happen when transitioning
@@ -334,36 +334,36 @@ namespace SmartHopper.Core.ComponentBase
             switch (newState)
             {
                 case ComponentState.Completed:
-                    OnStateCompleted(DA);
+                    this.OnStateCompleted(DA);
                     break;
                 case ComponentState.Waiting:
                     //// OnStateWaiting is only called in SolveInstance
                     //OnStateWaiting(DA);
                     break;
                 case ComponentState.NeedsRun:
-                    OnStateNeedsRun(DA);
-                    OnDisplayExpired(true);
+                    this.OnStateNeedsRun(DA);
+                    this.OnDisplayExpired(true);
                     break;
                 case ComponentState.Processing:
                     // OnStateProcessing(DA);
                     break;
                 case ComponentState.Cancelled:
-                    OnStateCancelled(DA);
-                    OnDisplayExpired(true);
+                    this.OnStateCancelled(DA);
+                    this.OnDisplayExpired(true);
                     break;
                 case ComponentState.Error:
-                    OnStateError(DA);
+                    this.OnStateError(DA);
                     break;
             }
 
-            await _stateCompletionSource.Task;
+            await this._stateCompletionSource.Task;
             Debug.WriteLine($"[{GetType().Name}] Completed transition {oldState} -> {newState}");
             return;
         }
 
         protected void CompleteStateTransition()
         {
-            _stateCompletionSource?.TrySetResult(true);
+            this._stateCompletionSource?.TrySetResult(true);
         }
 
         private async void TransitionTo(ComponentState newState, IGH_DataAccess DA = null)
@@ -373,31 +373,32 @@ namespace SmartHopper.Core.ComponentBase
                 DA = _lastDA;
             }
 
-            lock (_stateLock)
+            lock (this._stateLock)
             {
-                if (_isTransitioning && newState == ComponentState.Completed)
+                if (this._isTransitioning && newState == ComponentState.Completed)
                 {
-                    Debug.WriteLine($"[{GetType().Name}] Queuing transition to {newState} while in {_currentState}");
-                    _pendingTransitions.Enqueue(newState);
+                    Debug.WriteLine($"[{GetType().Name}] Queuing transition to {newState} while in {this._currentState}");
+                    this._pendingTransitions.Enqueue(newState);
                     return;
                 }
-                _isTransitioning = true;
+
+                this._isTransitioning = true;
             }
 
             try
             {
-                await ProcessTransition(newState, DA);
+                await this.ProcessTransition(newState, DA);
             }
             finally
             {
-                lock (_stateLock)
+                lock (this._stateLock)
                 {
-                    _isTransitioning = false;
-                    if (_pendingTransitions.Count > 0)
+                    this._isTransitioning = false;
+                    if (this._pendingTransitions.Count > 0)
                     {
-                        var nextState = _pendingTransitions.Dequeue();
+                        var nextState = this._pendingTransitions.Dequeue();
                         Debug.WriteLine($"[{GetType().Name}] Processing queued transition to {nextState}");
-                        TransitionTo(nextState, DA);
+                        this.TransitionTo(nextState, DA);
                     }
                 }
             }
@@ -405,15 +406,15 @@ namespace SmartHopper.Core.ComponentBase
 
         private void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{GetType().Name}] OnStateCompleted, _state: {_state}, InPreSolve: {InPreSolve}, SetData: {_setData}, Workers: {Workers.Count}, Changes during debounce: {_inputChangedDuringDebounce}");
+            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this._state}, InPreSolve: {this.InPreSolve}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this._inputChangedDuringDebounce}");
 
             // Reapply runtime messages in completed state
-            ApplyPersistentRuntimeMessages();
+            this.ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
-            RestorePersistentOutputs(DA);
+            this.RestorePersistentOutputs(DA);
 
-            CompleteStateTransition();
+            this.CompleteStateTransition();
         }
 
         private void OnStateWaiting(IGH_DataAccess DA)
@@ -421,17 +422,17 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[{GetType().Name}] OnStateWaiting");
 
             // Reapply runtime messages in completed state
-            ApplyPersistentRuntimeMessages();
+            this.ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
-            RestorePersistentOutputs(DA);
+            this.RestorePersistentOutputs(DA);
 
-            CompleteStateTransition();
+            this.CompleteStateTransition();
         }
 
         private void OnStateNeedsRun(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{GetType().Name}] OnStateNeedsRun");
+            Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
 
             // Check Run parameter
             bool run = false;
@@ -440,29 +441,29 @@ namespace SmartHopper.Core.ComponentBase
             if (run)
             {
                 // Transition to Processing and let base class handle async work
-                TransitionTo(ComponentState.Processing, DA);
+                this.TransitionTo(ComponentState.Processing, DA);
 
                 // Clear the "needs_run" message if it exists
-                ClearOnePersistentRuntimeMessage("needs_run");
+                this.ClearOnePersistentRuntimeMessage("needs_run");
             }
             else
             {
-                SetPersistentRuntimeMessage("needs_run", GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!", false);
-                ClearDataOnly();
+                this.SetPersistentRuntimeMessage("needs_run", GH_RuntimeMessageLevel.Warning, "The component needs to recalculate. Set Run to true!", false);
+                this.ClearDataOnly();
             }
 
-            CompleteStateTransition();
+            this.CompleteStateTransition();
         }
 
         private void OnStateProcessing(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{GetType().Name}] OnStateProcessing");
+            Debug.WriteLine($"[{this.GetType().Name}] OnStateProcessing");
 
             // The base AsyncComponentBase handles the actual processing
             // When done it will call OnWorkerCompleted which transitions to Completed
             base.SolveInstance(DA);
 
-            CompleteStateTransition();
+            this.CompleteStateTransition();
         }
 
         private void OnStateCancelled(IGH_DataAccess DA)
@@ -470,11 +471,11 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[{GetType().Name}] OnStateCancelled");
 
             // Reapply runtime messages in cancelled state
-            ApplyPersistentRuntimeMessages();
-            SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
+            this.ApplyPersistentRuntimeMessages();
+            this.SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
 
             // Check if inputs changed
-            var changedInputs = InputsChanged();
+            var changedInputs = this.InputsChanged();
 
             // Check Run parameter
             bool run = false;
@@ -489,11 +490,11 @@ namespace SmartHopper.Core.ComponentBase
             // Else, if "Run?" changed and run is True, directly transition to Processing
             else if (changedInputs.Any(input => input == "Run?") && run)
             {
-                TransitionTo(ComponentState.Processing, DA);
-                ExpireSolution(true);
+                this.TransitionTo(ComponentState.Processing, DA);
+                this.ExpireSolution(true);
             }
 
-            CompleteStateTransition();
+            this.CompleteStateTransition();
         }
 
         private void OnStateError(IGH_DataAccess DA)
@@ -501,10 +502,10 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[{GetType().Name}] OnStateError");
 
             // Reapply runtime messages in error state
-            ApplyPersistentRuntimeMessages();
+            this.ApplyPersistentRuntimeMessages();
 
             // TransitionTo(ComponentState.Waiting, DA);
-            CompleteStateTransition();
+            this.CompleteStateTransition();
         }
 
         private bool IsValidTransition(ComponentState newState)
@@ -516,7 +517,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Normal flow validation
-            switch (_currentState)
+            switch (this._currentState)
             {
                 case ComponentState.Completed:
                     return newState == ComponentState.Waiting || newState == ComponentState.NeedsRun || newState == ComponentState.Processing;
@@ -872,22 +873,22 @@ namespace SmartHopper.Core.ComponentBase
 
         private void LogStructureDetails(IGH_Structure structure)
         {
-            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
-            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
-            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
-            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
-            foreach (var path in structure.Paths)
-            {
-                var branch = structure.get_Branch(path);
-                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
-                if (branch != null)
-                {
-                    foreach (var item in branch)
-                    {
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
-                    }
-                }
-            }
+            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
+            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
+            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
+            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
+            // foreach (var path in structure.Paths)
+            // {
+            //     var branch = structure.get_Branch(path);
+            //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
+            //     if (branch != null)
+            //     {
+            //         foreach (var item in branch)
+            //         {
+            //             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
+            //         }
+            //     }
+            // }
         }
 
         /// <summary>

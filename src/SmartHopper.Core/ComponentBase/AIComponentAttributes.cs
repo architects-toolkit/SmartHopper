@@ -23,7 +23,7 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public class AIComponentAttributes : GH_ComponentAttributes
     {
-        private readonly AIStatefulAsyncComponentBase _owner;
+        private readonly AIProviderComponentBase _owner;
         private const int BADGE_SIZE = 16; // Size of the provider logo badge
         private const float MIN_ZOOM_THRESHOLD = 0.5f; // Minimum zoom level to show the badge
         private const int PROVIDER_STRIP_HEIGHT = 20; // Height of the provider strip
@@ -32,9 +32,9 @@ namespace SmartHopper.Core.ComponentBase
         /// Creates a new instance of AIComponentAttributes
         /// </summary>
         /// <param name="owner">The AI component that owns these attributes</param>
-        public AIComponentAttributes(AIStatefulAsyncComponentBase owner) : base(owner)
+        public AIComponentAttributes(AIProviderComponentBase owner) : base(owner)
         {
-            _owner = owner;
+            this._owner = owner;
         }
 
         /// <summary>
@@ -45,7 +45,7 @@ namespace SmartHopper.Core.ComponentBase
             base.Layout();
 
             // Only extend bounds if we have a valid provider
-            if (!string.IsNullOrEmpty(_owner._aiProvider))
+            if (!string.IsNullOrEmpty(this._owner.GetActualProviderName()))
             {
                 var bounds = Bounds;
                 bounds.Height += PROVIDER_STRIP_HEIGHT;
@@ -66,12 +66,12 @@ namespace SmartHopper.Core.ComponentBase
             if (channel == GH_CanvasChannel.Objects)
             {
                 // Only render the provider strip if we have a valid provider and we're zoomed in enough
-                if (string.IsNullOrEmpty(_owner._aiProvider) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
+                if (string.IsNullOrEmpty(_owner.GetActualProviderName()) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
                     return;
 
                 // Get the actual provider name (resolving Default to the actual provider)
-                string actualProviderName = _owner._aiProvider;
-                if (_owner._aiProvider == AIStatefulAsyncComponentBase.DEFAULT_PROVIDER)
+                string actualProviderName = _owner.GetActualProviderName();
+                if (_owner.GetActualProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
                 {
                     actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
@@ -82,7 +82,7 @@ namespace SmartHopper.Core.ComponentBase
                     return;
 
                 // Get the bounds of the component
-                var bounds = Bounds;
+                var bounds = this.Bounds;
 
                 // Calculate strip position at the bottom of the component
                 var stripRect = new RectangleF(
