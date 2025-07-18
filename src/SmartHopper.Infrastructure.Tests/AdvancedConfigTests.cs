@@ -29,6 +29,8 @@ namespace SmartHopper.Infrastructure.Tests
 
             public string DefaultModel => "Model";
 
+            public string DefaultServerUrl => "https://example.com";
+
             public bool IsEnabled => true;
 
             public System.Drawing.Image? Icon => null;
