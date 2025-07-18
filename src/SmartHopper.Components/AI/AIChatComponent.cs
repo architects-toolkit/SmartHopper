@@ -230,7 +230,7 @@ namespace SmartHopper.Components.AI
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualProviderName();
-                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component._aiProvider})");
+                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualProviderName()})");
 
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
