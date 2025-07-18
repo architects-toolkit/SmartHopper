@@ -53,6 +53,7 @@ namespace SmartHopper.Providers.Template
         /// The default model to use if none is specified.
         /// </summary>
         private const string _defaultModel = "template-model";
+        private const string DefaultServerUrlValue = "https://api.example.com/v1";
 
         /// <summary>
         /// Private constructor to enforce singleton pattern.
@@ -71,6 +72,11 @@ namespace SmartHopper.Providers.Template
         /// Gets the default model for this provider.
         /// </summary>
         public override string DefaultModel => _defaultModel;
+
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public override string DefaultServerUrl => DefaultServerUrlValue;
 
         /// <summary>
         /// Gets whether this provider is enabled and should be available for use.
