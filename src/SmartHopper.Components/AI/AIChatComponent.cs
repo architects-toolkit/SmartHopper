@@ -133,13 +133,12 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the system prompt from the component.
         /// </summary>
-        /// <returns>The system prompt.</returns>
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string systemPrompt = null;
             DA.GetData("Instructions", ref systemPrompt);
-            SetSystemPrompt(systemPrompt);
+            this.SetSystemPrompt(systemPrompt);
 
             base.SolveInstance(DA);
         }

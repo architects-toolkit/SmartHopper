@@ -132,18 +132,6 @@ namespace SmartHopper.Core.ComponentBase
             return _model ?? ""; // "" means that the provider will use the default model
         }
 
-        protected override List<string> InputsChanged()
-        {
-            List<string> changedInputs = base.InputsChanged();
-
-            if (HasProviderChanged())
-            {
-                changedInputs.Add("AIProvider");
-            }
-
-            return changedInputs;
-        }
-
         #endregion
 
         #region AI

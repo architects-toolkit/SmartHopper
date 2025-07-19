@@ -69,26 +69,26 @@ namespace SmartHopper.Core.ComponentBase
             string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            _persistentOutputs = new Dictionary<string, object>();
-            _persistentDataTypes = new Dictionary<string, Type>();
-            _previousInputHashes = new Dictionary<string, int>();
-            _previousInputBranchCounts = new Dictionary<string, int>();
+            this._persistentOutputs = new Dictionary<string, object>();
+            this._persistentDataTypes = new Dictionary<string, Type>();
+            this._previousInputHashes = new Dictionary<string, int>();
+            this._previousInputBranchCounts = new Dictionary<string, int>();
 
             // Initialize timer
             // Actions defined here will happen after the debounce time
-            _debounceTimer = new Timer((state) =>
+            this._debounceTimer = new Timer((state) =>
             {
-                lock (_timerLock)
+                lock (this._timerLock)
                 {
-                    var targetState = _debounceTargetState;
+                    var targetState = this._debounceTargetState;
 
                     // if (!_run)
                     // {
                     //     targetState = ComponentState.NeedsRun;
                     // }
 
-                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to {targetState}");
-                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Changes during debounce: {_inputChangedDuringDebounce}");
+                    Debug.WriteLine($"[{this.GetType().Name}] Debounce timer elapsed - Inputs stable, transitioning to {targetState}");
+                    Debug.WriteLine($"[{this.GetType().Name}] Debounce timer elapsed - Changes during debounce: {this._inputChangedDuringDebounce}");
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         TransitionTo(targetState, _lastDA);
@@ -103,11 +103,11 @@ namespace SmartHopper.Core.ComponentBase
                     }
 
                     // Reset default values after debounce
-                    Debug.WriteLine($"[{GetType().Name}] Debounce timer elapsed - Resetting debounce values");
+                    Debug.WriteLine($"[{this.GetType().Name}] Debounce timer elapsed - Resetting debounce values");
 
                     // Reset debounce values
-                    _inputChangedDuringDebounce = 0;
-                    _debounceTargetState = ComponentState.Waiting;
+                    this._inputChangedDuringDebounce = 0;
+                    this._debounceTargetState = ComponentState.Waiting;
                 }
             }, null, Timeout.Infinite, Timeout.Infinite); // Initially disabled
         }
@@ -303,7 +303,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets the current state of the component.
         /// </summary>
-        public ComponentState CurrentState => _currentState;
+        public ComponentState CurrentState => this._currentState;
 
         private async Task ProcessTransition(ComponentState newState, IGH_DataAccess DA = null)
         {
@@ -630,17 +630,17 @@ namespace SmartHopper.Core.ComponentBase
 
         protected void RestartDebounceTimer()
         {
-            lock (_timerLock)
+            lock (this._timerLock)
             {
-                _inputChangedDuringDebounce++;
-                _debounceTimer.Change(GetDebounceTime(), Timeout.Infinite);
-                Debug.WriteLine($"[{GetType().Name}] Restarting debounce timer - Will transition to {_debounceTargetState}");
+                this._inputChangedDuringDebounce++;
+                this._debounceTimer.Change(GetDebounceTime(), Timeout.Infinite);
+                Debug.WriteLine($"[{this.GetType().Name}] Restarting debounce timer - Will transition to {this._debounceTargetState}");
             }
         }
 
         protected void RestartDebounceTimer(ComponentState targetState)
         {
-            _debounceTargetState = targetState;
+            this._debounceTargetState = targetState;
             RestartDebounceTimer();
         }
 

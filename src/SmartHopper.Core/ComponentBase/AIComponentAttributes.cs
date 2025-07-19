@@ -29,16 +29,16 @@ namespace SmartHopper.Core.ComponentBase
         private const int PROVIDER_STRIP_HEIGHT = 20; // Height of the provider strip
 
         /// <summary>
-        /// Creates a new instance of AIComponentAttributes
+        /// Creates a new instance of AIComponentAttributes.
         /// </summary>
-        /// <param name="owner">The AI component that owns these attributes</param>
+        /// <param name="owner">The AI component that owns these attributes.</param>
         public AIComponentAttributes(AIProviderComponentBase owner) : base(owner)
         {
             this._owner = owner;
         }
 
         /// <summary>
-        /// Layout the component with additional space for the provider strip
+        /// Layout the component with additional space for the provider strip.
         /// </summary>
         protected override void Layout()
         {
@@ -47,18 +47,18 @@ namespace SmartHopper.Core.ComponentBase
             // Only extend bounds if we have a valid provider
             if (!string.IsNullOrEmpty(this._owner.GetActualProviderName()))
             {
-                var bounds = Bounds;
+                var bounds = this.Bounds;
                 bounds.Height += PROVIDER_STRIP_HEIGHT;
-                Bounds = bounds;
+                this.Bounds = bounds;
             }
         }
 
         /// <summary>
-        /// Renders the component with an additional provider strip
+        /// Renders the component with an additional provider strip.
         /// </summary>
-        /// <param name="canvas">The canvas being rendered to</param>
-        /// <param name="graphics">The graphics object to use for drawing</param>
-        /// <param name="channel">The current render channel</param>
+        /// <param name="canvas">The canvas being rendered to.</param>
+        /// <param name="graphics">The graphics object to use for drawing.</param>
+        /// <param name="channel">The current render channel.</param>
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
             base.Render(canvas, graphics, channel);
@@ -66,12 +66,12 @@ namespace SmartHopper.Core.ComponentBase
             if (channel == GH_CanvasChannel.Objects)
             {
                 // Only render the provider strip if we have a valid provider and we're zoomed in enough
-                if (string.IsNullOrEmpty(_owner.GetActualProviderName()) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
+                if (string.IsNullOrEmpty(this._owner.GetActualProviderName()) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
                     return;
 
                 // Get the actual provider name (resolving Default to the actual provider)
-                string actualProviderName = _owner.GetActualProviderName();
-                if (_owner.GetActualProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
+                string actualProviderName = this._owner.GetActualProviderName();
+                if (this._owner.GetActualProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
                 {
                     actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
