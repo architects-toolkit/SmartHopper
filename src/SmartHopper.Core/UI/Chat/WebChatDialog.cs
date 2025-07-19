@@ -842,23 +842,74 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Initializes a new conversation with a welcome message.
+        /// Initializes a new conversation with a collapsible system message and an AI-generated greeting message.
         /// </summary>
-        private void InitializeNewConversation()
+        private async void InitializeNewConversation()
         {
-            if (!string.IsNullOrEmpty(_systemPrompt))
+            try
             {
-                AddSystemMessage(_systemPrompt);
+                // Display system message as collapsible if provided
+                // Generate AI greeting message using a context-aware custom prompt
+                string greetingPrompt;
+                if (!string.IsNullOrEmpty(_systemPrompt))
+                {
+                    AddSystemMessage(_systemPrompt);
+
+                    greetingPrompt = $"You are a chat assistant with specialized knowledge and capabilities. The user has provided the following system instructions that define your role and expertise:\n\n{_systemPrompt}\n\nBased on these instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging.";
+                }
+                else
+                {
+                    greetingPrompt = "You are SmartHopper AI, an AI assistant for Grasshopper3D and computational design. Generate a brief, friendly greeting message that welcomes the user and offers assistance. Keep it concise, professional, and inviting.";
+                }
+
+                // Update UI to show we're generating greeting
+                Application.Instance.AsyncInvoke(() =>
+                {
+                    _statusLabel.Text = "Generating greeting...";
+                    _progressReporter?.Invoke("Generating greeting...");
+                });
+
+                var greetingMessages = new List<ChatMessageModel>
+                {
+                    new ChatMessageModel
+                    {
+                        Author = "system",
+                        Body = greetingPrompt,
+                        Inbound = true,
+                        Read = false,
+                        Time = DateTime.Now,
+                    }
+                };
+                var greetingResponse = await _getResponse(greetingMessages);
+
+                if (greetingResponse != null && !string.IsNullOrEmpty(greetingResponse.Response))
+                {
+                    // Add the AI-generated greeting as an assistant message
+                    AddAssistantMessage(greetingResponse);
+                }
+                else
+                {
+                    // Fallback to default greeting if AI generation fails
+                    AddAssistantMessage("Hello! I'm your AI assistant. How can I help you today?");
+                }
+
+                Application.Instance.AsyncInvoke(() =>
+                {
+                    _statusLabel.Text = "Ready";
+                    _progressReporter?.Invoke("Ready");
+                });
             }
-            else
+            catch (Exception ex)
             {
-                AddSystemMessage("I'm an AI assistant. How can I help you today?");
+                Debug.WriteLine($"[WebChatDialog] Error generating greeting: {ex.Message}");
+                // Fallback to default greeting on error
+                AddAssistantMessage("Hello! I'm your AI assistant. How can I help you today?");
+                Application.Instance.AsyncInvoke(() =>
+                {
+                    _statusLabel.Text = "Ready";
+                    _progressReporter?.Invoke("Ready");
+                });
             }
-            Application.Instance.AsyncInvoke(() =>
-            {
-                _statusLabel.Text = "Ready";
-                _progressReporter?.Invoke("Ready");
-            });
         }
     }
 }
