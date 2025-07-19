@@ -23,18 +23,20 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public class AIComponentAttributes : GH_ComponentAttributes
     {
-        private readonly AIProviderComponentBase _owner;
-        private const int BADGE_SIZE = 16; // Size of the provider logo badge
-        private const float MIN_ZOOM_THRESHOLD = 0.5f; // Minimum zoom level to show the badge
-        private const int PROVIDER_STRIP_HEIGHT = 20; // Height of the provider strip
+        private readonly AIProviderComponentBase owner;
+        private const int BADGESIZE = 16; // Size of the provider logo badge
+        private const float MINZOOMTHRESHOLD = 0.5f; // Minimum zoom level to show the badge
+        private const int PROVIDERSTRIPHEIGHT = 20; // Height of the provider strip
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="AIComponentAttributes"/> class.
         /// Creates a new instance of AIComponentAttributes.
         /// </summary>
         /// <param name="owner">The AI component that owns these attributes.</param>
-        public AIComponentAttributes(AIProviderComponentBase owner) : base(owner)
+        public AIComponentAttributes(AIProviderComponentBase owner)
+            : base(owner)
         {
-            this._owner = owner;
+            this.owner = owner;
         }
 
         /// <summary>
@@ -45,10 +47,10 @@ namespace SmartHopper.Core.ComponentBase
             base.Layout();
 
             // Only extend bounds if we have a valid provider
-            if (!string.IsNullOrEmpty(this._owner.GetActualProviderName()))
+            if (!string.IsNullOrEmpty(this.owner.GetActualProviderName()))
             {
                 var bounds = this.Bounds;
-                bounds.Height += PROVIDER_STRIP_HEIGHT;
+                bounds.Height += PROVIDERSTRIPHEIGHT;
                 this.Bounds = bounds;
             }
         }
@@ -66,12 +68,14 @@ namespace SmartHopper.Core.ComponentBase
             if (channel == GH_CanvasChannel.Objects)
             {
                 // Only render the provider strip if we have a valid provider and we're zoomed in enough
-                if (string.IsNullOrEmpty(this._owner.GetActualProviderName()) || canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
+                if (string.IsNullOrEmpty(this.owner.GetActualProviderName()) || canvas.Viewport.Zoom < MINZOOMTHRESHOLD)
+                {
                     return;
+                }
 
                 // Get the actual provider name (resolving Default to the actual provider)
-                string actualProviderName = this._owner.GetActualProviderName();
-                if (this._owner.GetActualProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
+                string actualProviderName = this.owner.GetActualProviderName();
+                if (this.owner.GetActualProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
                 {
                     actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
@@ -79,7 +83,9 @@ namespace SmartHopper.Core.ComponentBase
                 // Get the provider icon
                 var providerIcon = ProviderManager.Instance.GetProvider(actualProviderName)?.Icon;
                 if (providerIcon == null)
+                {
                     return;
+                }
 
                 // Get the bounds of the component
                 var bounds = this.Bounds;
@@ -87,19 +93,19 @@ namespace SmartHopper.Core.ComponentBase
                 // Calculate strip position at the bottom of the component
                 var stripRect = new RectangleF(
                     bounds.Left,
-                    bounds.Bottom - PROVIDER_STRIP_HEIGHT,
+                    bounds.Bottom - PROVIDERSTRIPHEIGHT,
                     bounds.Width,
-                    PROVIDER_STRIP_HEIGHT);
+                    PROVIDERSTRIPHEIGHT);
 
                 // Calculate starting X position to center the pack
-                var startX = bounds.Left + (bounds.Width - BADGE_SIZE) / 2;
+                var startX = bounds.Left + ((bounds.Width - BADGESIZE) / 2);
 
                 // Calculate icon position within strip
                 var iconRect = new RectangleF(
                     startX,
-                    bounds.Bottom - PROVIDER_STRIP_HEIGHT + (PROVIDER_STRIP_HEIGHT - BADGE_SIZE) / 2,
-                    BADGE_SIZE,
-                    BADGE_SIZE);
+                    bounds.Bottom - PROVIDERSTRIPHEIGHT + ((PROVIDERSTRIPHEIGHT - BADGESIZE) / 2),
+                    BADGESIZE,
+                    BADGESIZE);
 
                 // Draw the provider icon using GH methods
                 if (providerIcon != null)
