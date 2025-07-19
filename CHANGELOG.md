@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5-alpha] - 2025-07-19
+
+### Added
+
+- New methods in AIProvider base class:
+  - Add DefaultServerUrl property
+  - Added CallApi method to AIProvider base class supporting GET/POST/DELETE/PATCH
+  - Added RetrieveAvailableModels method to AIProvider base class with default to empty list
+- Implemented RetrieveAvailableModels, CallApi and DefaultServerUrl to existing providers (MistralAIProvider, OpenAIProvider, and DeepSeekProvider).
+- New AIModelsComponent component under SmartHopper > AI categories that uses provider's RetrieveAvailableModels() to fetch model list.
+
+### Changed
+
+- Update providersResources access modifiers from public to internal
+- Clean up AboutDialog by removing MathJax attribution
+- Moved provider selection logic from AIProviderComponentBase to AIProviderComponentBase
+- Moved InputsChanged method with override for including HasProviderChanged from AIStatefulAsyncComponentBase to AIProviderComponentBase
+
+### Removed
+
+- Removed MathJax support from chat UI since it was not properly implemented and was generating security warnings on GitHub.
+
 ## [0.3.4-alpha] - 2025-07-11
 
 ### Added

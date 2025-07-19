@@ -12,13 +12,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Net.Http;
-using System.Text;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -30,8 +28,8 @@ namespace SmartHopper.Providers.OpenAI
     public sealed class OpenAIProvider : AIProvider
     {
         private const string NameValue = "OpenAI";
-        private const string ApiURL = "https://api.openai.com/v1/chat/completions";
         private const string DefaultModelValue = "gpt-4.1-mini";
+        private const string DefaultServerUrlValue = "https://api.openai.com/v1";
 
         private static readonly Lazy<OpenAIProvider> InstanceValue = new(() => new OpenAIProvider());
 
@@ -44,6 +42,11 @@ namespace SmartHopper.Providers.OpenAI
         public override string Name => NameValue;
 
         public override string DefaultModel => DefaultModelValue;
+
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public override string DefaultServerUrl => DefaultServerUrlValue;
 
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
@@ -76,12 +79,9 @@ namespace SmartHopper.Providers.OpenAI
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
         {
             // Get settings from the secure settings store
-            string apiKey = this.GetSetting<string>("ApiKey");
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
-
-            // Skip API key validation since any value is valid
 
             // Use default model if none specified
             if (string.IsNullOrWhiteSpace(modelName))
@@ -90,11 +90,6 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             Debug.WriteLine($"[OpenAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
-
-            using (var httpClient = new HttpClient())
-            {
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-                httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
                 // Format messages for OpenAI API
                 var convertedMessages = new JArray();
@@ -196,80 +191,103 @@ namespace SmartHopper.Providers.OpenAI
                     }
                 }
 
-                var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-                Debug.WriteLine($"[OpenAI] Request: {requestBody}");
+            Debug.WriteLine($"[OpenAI] Request: {requestBody}");
 
-                try
+            try
+            {
+                // Use the new Call method for HTTP request
+                var responseContent = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
+
+                var responseJson = JObject.Parse(responseContent);
+                Debug.WriteLine($"[OpenAI] Response parsed successfully");
+
+                // Extract response content
+                var choices = responseJson["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var message = firstChoice?["message"] as JObject;
+                var usage = responseJson["usage"] as JObject;
+
+                if (message == null)
                 {
-                    var response = await httpClient.PostAsync(ApiURL, requestContent).ConfigureAwait(false);
-                    var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    Debug.WriteLine($"[OpenAI] Response status: {response.StatusCode}");
+                    Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
+                    throw new Exception("Invalid response from OpenAI API: No message found");
+                }
 
-                    if (!response.IsSuccessStatusCode)
+                var content = message["content"]?.ToString() ?? string.Empty;
+                var reasoningSummary = message["reasoning_summary"]?.ToString();
+
+                // If we have a reasoning summary, wrap it in <think> tags before the actual content
+                if (!string.IsNullOrWhiteSpace(reasoningSummary))
+                {
+                    content = $"<think>{reasoningSummary}</think>\n\n{content}";
+                }
+
+                var aiResponse = new AIResponse
+                {
+                    Response = content,
+                    Provider = "OpenAI",
+                    Model = modelName,
+                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
+                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                };
+
+                // Handle tool calls if any
+                if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                {
+                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    foreach (JObject toolCall in toolCalls)
                     {
-                        Debug.WriteLine($"[OpenAI] Error response: {responseContent}");
-                        var errorObj = JObject.Parse(responseContent);
-                        var errorMessage = errorObj["error"]?["message"]?.ToString() ?? responseContent;
-                        throw new Exception($"Error from OpenAI API: {response.StatusCode} - {errorMessage}");
-                    }
-
-                    var responseJson = JObject.Parse(responseContent);
-                    Debug.WriteLine($"[OpenAI] Response parsed successfully");
-
-                    // Extract response content from the Chat Completions API format
-                    var message = responseJson["choices"]?[0]?["message"] as JObject;
-                    var usage = responseJson["usage"] as JObject;
-
-                    if (message == null)
-                    {
-                        Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
-                        throw new Exception("Invalid response from OpenAI API: No message found");
-                    }
-
-
-                    // extract reasoning_summary and wrap in <think> if present
-                    var content = message?["content"]?.ToString() ?? string.Empty;
-                    var summary = responseJson["choices"]?[0]?["reasoning_summary"]?.ToString();
-                    var combined = !string.IsNullOrWhiteSpace(summary)
-                        ? $"<think>{summary}</think>{content}"
-                        : content;
-                    var aiResponse = new AIResponse
-                    {
-                        Response = combined,
-                        Provider = "OpenAI",
-                        Model = modelName,
-                        FinishReason = responseJson["choices"]?[0]?["finish_reason"]?.ToString() ?? "unknown",
-                        InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                        OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                    };
-
-                    // Handle tool calls if any
-                    if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
-                    {
-                        aiResponse.ToolCalls = new List<AIToolCall>();
-                        foreach (JObject toolCall in toolCalls)
+                        var function = toolCall["function"] as JObject;
+                        if (function != null)
                         {
-                            var function = toolCall["function"] as JObject;
-                            if (function != null)
+                            aiResponse.ToolCalls.Add(new AIToolCall
                             {
-                                aiResponse.ToolCalls.Add(new AIToolCall
-                                {
-                                    Id = toolCall["id"]?.ToString(),
-                                    Name = function["name"]?.ToString(),
-                                    Arguments = function["arguments"]?.ToString(),
-                                });
-                            }
+                                Id = toolCall["id"]?.ToString(),
+                                Name = function["name"]?.ToString(),
+                                Arguments = function["arguments"]?.ToString(),
+                            });
                         }
                     }
+                }
 
-                    Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
-                    return aiResponse;
-                }
-                catch (Exception ex)
+                Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
+                return aiResponse;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
+                throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the list of available model IDs from OpenAI.
+        /// </summary>
+        public override async Task<List<string>> RetrieveAvailableModels()
+        {
+            Debug.WriteLine("[OpenAI] Retrieving available models");
+            try
+            {
+                var content = await CallApi("/models").ConfigureAwait(false);
+                var json = JObject.Parse(content);
+                var data = json["data"] as JArray;
+                var modelIds = new List<string>();
+                if (data != null)
                 {
-                    Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
-                    throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
+                    foreach (var item in data.OfType<JObject>())
+                    {
+                        var id = item["id"]?.ToString();
+                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                    }
                 }
+
+                return modelIds;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Exception retrieving models: {ex.Message}");
+                throw new Exception($"Error retrieving models from OpenAI API: {ex.Message}", ex);
             }
         }
     }
