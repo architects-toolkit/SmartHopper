@@ -133,13 +133,12 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the system prompt from the component.
         /// </summary>
-        /// <returns>The system prompt.</returns>
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string systemPrompt = null;
             DA.GetData("Instructions", ref systemPrompt);
-            SetSystemPrompt(systemPrompt);
+            this.SetSystemPrompt(systemPrompt);
 
             base.SolveInstance(DA);
         }
@@ -230,7 +229,7 @@ namespace SmartHopper.Components.AI
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualProviderName();
-                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component._aiProvider})");
+                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualProviderName()})");
 
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
