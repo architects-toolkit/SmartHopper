@@ -34,9 +34,9 @@ function addMessage(messageHtml) {
     // Scroll to the bottom of the chat
     scrollToBottom();
     
-    // Enable collapsible for tool messages
+    // Enable collapsible for tool messages and system messages
     const lastMsg = chatContainer.lastElementChild;
-    if (lastMsg && lastMsg.classList.contains('tool')) {
+    if (lastMsg && (lastMsg.classList.contains('tool') || lastMsg.classList.contains('system'))) {
         lastMsg.addEventListener('click', () => lastMsg.classList.toggle('expanded'));
     }
 }
