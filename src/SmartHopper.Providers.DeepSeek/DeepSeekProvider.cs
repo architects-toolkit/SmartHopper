@@ -14,9 +14,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -49,7 +46,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// The default model to use if none is specified.
         /// </summary>
         private const string _defaultModel = "deepseek-chat";
-        private const string ApiURL = "https://api.deepseek.com/chat/completions";
+        private const string DefaultServerUrlValue = "https://api.deepseek.com";
 
         /// <summary>
         /// Private constructor to enforce singleton pattern.
@@ -68,6 +65,11 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets the default model for this provider.
         /// </summary>
         public override string DefaultModel => _defaultModel;
+
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public override string DefaultServerUrl => DefaultServerUrlValue;
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
@@ -103,21 +105,12 @@ namespace SmartHopper.Providers.DeepSeek
         {
             try
             {
-                string apiKey = GetSetting<string>("ApiKey");
                 int maxTokens = GetSetting<int>("MaxTokens");
                 string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    throw new Exception("DeepSeek API key is not configured or is invalid.");
-                }
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
                     modelName = this.DefaultModel;
                 }
-
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                 // Format messages for DeepSeek API
                 var convertedMessages = new JArray();
@@ -242,20 +235,10 @@ namespace SmartHopper.Providers.DeepSeek
                     }
                 }
 
-                var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-                string url = ApiURL;
                 Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
 
-                var response = await httpClient.PostAsync(url, requestContent).ConfigureAwait(false);
-                var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Debug.WriteLine($"[DeepSeek] Response status: {response.StatusCode}");
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    Debug.WriteLine($"[DeepSeek] Error response: {responseString}");
-                    throw new Exception($"Error from DeepSeek API: {response.StatusCode} - {responseString}");
-                }
-
+                // Use the new Call method for HTTP request
+                var responseString = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
                 var responseJson = JObject.Parse(responseString);
                 Debug.WriteLine($"[DeepSeek] Response parsed successfully");
 
@@ -309,6 +292,36 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 Debug.WriteLine($"[DeepSeek] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with DeepSeek API: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the list of available model IDs from DeepSeek.
+        /// </summary>
+        public override async Task<List<string>> RetrieveAvailableModels()
+        {
+            Debug.WriteLine("[DeepSeek] Retrieving available models");
+            try
+            {
+                var content = await CallApi("/models").ConfigureAwait(false);
+                var json = JObject.Parse(content);
+                var data = json["data"] as JArray;
+                var modelIds = new List<string>();
+                if (data != null)
+                {
+                    foreach (var item in data.OfType<JObject>())
+                    {
+                        var id = item["id"]?.ToString();
+                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                    }
+                }
+
+                return modelIds;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
+                throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
             }
         }
     }

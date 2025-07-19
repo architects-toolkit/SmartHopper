@@ -211,21 +211,9 @@ namespace SmartHopper.Menu.Dialogs
                 }
             };
 
-            var MathJaxLink = new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 5,
-                Items =
-                {
-                    new Label { Text = "- MathJax for the", Font = new Font(SystemFont.Default, 10) },
-                    CreateLinkButton("MathJax library", "https://github.com/mathjax/MathJax"),
-                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
-                }
-            };
-
             var logoDesignThanksLabel = new Label
             {
-                Text = "Thanks to Jordina Roca Musach for the SmartHopper logo design.",
+                Text = "Acknowledgement to Jordina Roca Musach for the SmartHopper logo design.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
@@ -284,7 +272,6 @@ namespace SmartHopper.Menu.Dialogs
                         speckleLink,
                         ghptLink,
                         materialIconsLink,
-                        MathJaxLink,
                         null, // spacing
                         logoDesignThanksLabel,
                         null, // spacing

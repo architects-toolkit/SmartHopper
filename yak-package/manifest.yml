@@ -3,11 +3,14 @@
 name: SmartHopper
 version: {{VERSION}}
 description: >
-  SmartHopper brings AI-powered components to Grasshopper.
+  SmartHopper supercharges your Grasshopper workflow with AI-powered components.
 
-  WARNING: THIS IS AN ALPHA VERSION, SOME FEATURES MIGHT NOT WORK AS EXPECTED.
+  NOTE: This is an alpha release. We're actively developing and improving SmartHopper. Your feedback is valuable in shaping future updates!
 
-  This release includes a new context input for AI powered components.
+  REQUIREMENTS:
+  - Internet connection
+  - Valid API key from a supported AI provider
+  - Rhino 8.19 or later
 
 authors:
   - Marc Roca Musach
@@ -21,7 +24,7 @@ keywords:
   - scripting
   - assistant
   - help
-  - openai
-  - mistralai
+  - open-ai
+  - mistral-ai
   - deepseek
 icon: icon.png
