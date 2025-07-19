@@ -32,15 +32,15 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// The currently selected AI provider.
         /// </summary>
-        private string _aiProvider = DEFAULT_PROVIDER;
+        private string aiProvider = DEFAULT_PROVIDER;
 
         /// <summary>
         /// The previously selected AI provider, used for change detection.
         /// </summary>
-        private string _previousSelectedProvider = DEFAULT_PROVIDER;
+        private string previousSelectedProvider = DEFAULT_PROVIDER;
 
         /// <summary>
-        /// Initializes a new instance of the AIProviderComponentBase class.
+        /// Initializes a new instance of the <see cref="AIProviderComponentBase"/> class.
         /// </summary>
         /// <param name="name">The name of the component.</param>
         /// <param name="nickname">The nickname of the component.</param>
@@ -67,7 +67,7 @@ namespace SmartHopper.Core.ComponentBase
             // Add the Default option first
             var defaultItem = new ToolStripMenuItem(DEFAULT_PROVIDER)
             {
-                Checked = this._aiProvider == DEFAULT_PROVIDER,
+                Checked = this.aiProvider == DEFAULT_PROVIDER,
                 CheckOnClick = true,
                 Tag = DEFAULT_PROVIDER,
             };
@@ -81,10 +81,12 @@ namespace SmartHopper.Core.ComponentBase
                     foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
                     {
                         if (otherItem != menuItem)
+                        {
                             otherItem.Checked = false;
+                        }
                     }
 
-                    this._aiProvider = DEFAULT_PROVIDER;
+                    this.aiProvider = DEFAULT_PROVIDER;
                     this.ExpireSolution(true);
                 }
             };
@@ -97,7 +99,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var item = new ToolStripMenuItem(provider.Name)
                 {
-                    Checked = provider.Name == this._aiProvider,
+                    Checked = provider.Name == this.aiProvider,
                     CheckOnClick = true,
                     Tag = provider.Name,
                 };
@@ -116,7 +118,7 @@ namespace SmartHopper.Core.ComponentBase
                             }
                         }
 
-                        this._aiProvider = menuItem.Tag.ToString();
+                        this.aiProvider = menuItem.Tag.ToString();
                         this.ExpireSolution(true);
                     }
                 };
@@ -132,20 +134,20 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The actual provider name to use.</returns>
         public string GetActualProviderName()
         {
-            if (this._aiProvider == DEFAULT_PROVIDER)
+            if (this.aiProvider == DEFAULT_PROVIDER)
             {
                 // Use the ProviderManager to get the default provider
                 return ProviderManager.Instance.GetDefaultAIProvider();
             }
 
-            return this._aiProvider;
+            return this.aiProvider;
         }
 
         /// <summary>
         /// Gets the currently selected AI provider instance.
         /// </summary>
         /// <returns>The AI provider instance, or null if not available.</returns>
-        protected AIProvider GetCurrentAIProvider()
+        protected AIProvider? GetCurrentAIProvider()
         {
             string actualProviderName = this.GetActualProviderName();
             var provider = ProviderManager.Instance.GetProvider(actualProviderName);
@@ -181,8 +183,8 @@ namespace SmartHopper.Core.ComponentBase
             try
             {
                 // Store the selected AI provider
-                writer.SetString("AIProvider", this._aiProvider);
-                Debug.WriteLine($"[AIProviderComponentBase] [Write] Stored AI provider: {this._aiProvider}");
+                writer.SetString("AIProvider", this.aiProvider);
+                Debug.WriteLine($"[AIProviderComponentBase] [Write] Stored AI provider: {this.aiProvider}");
 
                 return true;
             }
@@ -217,22 +219,22 @@ namespace SmartHopper.Core.ComponentBase
                     var providers = ProviderManager.Instance.GetProviders();
                     if (providers.Any(p => p.Name == storedProvider))
                     {
-                        this._aiProvider = storedProvider;
-                        this._previousSelectedProvider = storedProvider;
-                        Debug.WriteLine($"[AIProviderComponentBase] [Read] Successfully restored AI provider: {this._aiProvider}");
+                        this.aiProvider = storedProvider;
+                        this.previousSelectedProvider = storedProvider;
+                        Debug.WriteLine($"[AIProviderComponentBase] [Read] Successfully restored AI provider: {this.aiProvider}");
                     }
                     else
                     {
                         Debug.WriteLine($"[AIProviderComponentBase] [Read] Stored provider '{storedProvider}' not found, using default");
-                        this._aiProvider = DEFAULT_PROVIDER;
-                        this._previousSelectedProvider = DEFAULT_PROVIDER;
+                        this.aiProvider = DEFAULT_PROVIDER;
+                        this.previousSelectedProvider = DEFAULT_PROVIDER;
                     }
                 }
                 else
                 {
                     Debug.WriteLine("[AIProviderComponentBase] [Read] No stored AI provider found, using default");
-                    this._aiProvider = DEFAULT_PROVIDER;
-                    this._previousSelectedProvider = DEFAULT_PROVIDER;
+                    this.aiProvider = DEFAULT_PROVIDER;
+                    this.previousSelectedProvider = DEFAULT_PROVIDER;
                 }
 
                 return true;
@@ -250,7 +252,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The selected AI provider name.</returns>
         protected string GetSelectedProviderName()
         {
-            return this._aiProvider;
+            return this.aiProvider;
         }
 
         /// <summary>
@@ -259,7 +261,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="providerName">The provider name to set.</param>
         protected void SetSelectedProviderName(string providerName)
         {
-            this._aiProvider = providerName;
+            this.aiProvider = providerName;
         }
 
         /// <summary>
@@ -268,11 +270,12 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>True if the provider selection has changed.</returns>
         protected bool HasProviderChanged()
         {
-            if (this._aiProvider != this._previousSelectedProvider)
+            if (this.aiProvider != this.previousSelectedProvider)
             {
-                this._previousSelectedProvider = this._aiProvider;
+                this.previousSelectedProvider = this.aiProvider;
                 return true;
             }
+
             return false;
         }
 

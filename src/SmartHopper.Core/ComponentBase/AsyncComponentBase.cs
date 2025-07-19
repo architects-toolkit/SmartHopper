@@ -64,95 +64,98 @@ namespace SmartHopper.Core.ComponentBase
         protected bool _inPreSolve;
 
         protected List<AsyncWorkerBase> Workers { get; private set; }
+
         protected AsyncWorkerBase CurrentWorker { get; private set; }
 
         // public bool ITaskCapable => true;
         // public virtual bool UseTasks { get; set; } = true;
 
         /// <summary>
-        /// Gets whether the component is in pre-solve phase.
+        /// Gets or sets a value indicating whether gets the component is in pre-solve phase.
         /// Inherited from IGH_TaskCapableComponent.
         /// </summary>
         public bool InPreSolve
         {
-            get => _inPreSolve;
-            set => _inPreSolve = value;
+            get => this._inPreSolve;
+            set => this._inPreSolve = value;
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="AsyncComponentBase"/> class.
         /// Constructor for AsyncComponentBase.
         /// </summary>
-        /// <param name="name">The display name of the component</param>
-        /// <param name="nickname">The shortened display name</param>
-        /// <param name="description">Description of the component's function</param>
-        /// <param name="category">The tab category where the component appears</param>
-        /// <param name="subCategory">The sub-category within the tab</param>
+        /// <param name="name">The display name of the component.</param>
+        /// <param name="nickname">The shortened display name.</param>
+        /// <param name="description">Description of the component's function.</param>
+        /// <param name="category">The tab category where the component appears.</param>
+        /// <param name="subCategory">The sub-category within the tab.</param>
         protected AsyncComponentBase(string name, string nickname, string description, string category, string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            _tasks = new List<Task>();
-            _cancellationSources = new List<CancellationTokenSource>();
-            Workers = new List<AsyncWorkerBase>();
+            this._tasks = new List<Task>();
+            this._cancellationSources = new List<CancellationTokenSource>();
+            this.Workers = new List<AsyncWorkerBase>();
         }
 
         /// <summary>
         /// Creates a new worker instance for this component.
         /// </summary>
+        /// <returns></returns>
         protected abstract AsyncWorkerBase CreateWorker(Action<string> progressReporter);
 
         protected override void BeforeSolveInstance()
         {
-            if (_state > 0 && _setData == 1)
+            if (this._state > 0 && this._setData == 1)
             {
                 // Skip BeforeSolveInstance and jump to SolveInstance
                 return;
             }
 
             Debug.WriteLine("[AsyncComponentBase] BeforeSolveInstance - Cleaning up previous run");
-            foreach (var source in _cancellationSources)
+            foreach (var source in this._cancellationSources)
             {
                 source.Cancel();
             }
 
-            _cancellationSources.Clear();
-            _tasks.Clear();
-            Workers.Clear();
-            _state = 0;
-            _setData = 0;
+            this._cancellationSources.Clear();
+            this._tasks.Clear();
+            this.Workers.Clear();
+            this._state = 0;
+            this._setData = 0;
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[AsyncComponentBase] SolveInstance - State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
+            Debug.WriteLine($"[AsyncComponentBase] SolveInstance - State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
 
             // Initial run
-            if (_state == 0 && _tasks.Count == 0)
+            if (this._state == 0 && this._tasks.Count == 0)
             {
-                Debug.WriteLine($"[AsyncComponentBase] Creating a new worker, State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}, Workers: {Workers.Count}, CancellationSources: {_cancellationSources.Count}, CurrentWorker: {CurrentWorker != null}, Message: {Message}");
+                Debug.WriteLine($"[AsyncComponentBase] Creating a new worker, State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}, Workers: {this.Workers.Count}, CancellationSources: {this._cancellationSources.Count}, CurrentWorker: {this.CurrentWorker != null}, Message: {this.Message}");
 
                 // First pass - Pre-solve
-                InPreSolve = true;
+                this.InPreSolve = true;
 
                 // Create a new worker and add it to the list
-                var worker = CreateWorker(s => Message = s);
-                Workers.Add(worker);
+                var worker = this.CreateWorker(s => this.Message = s);
+                this.Workers.Add(worker);
 
                 Debug.WriteLine("[AsyncComponentBase] Gathering input");
 
                 // Gather input before starting the task
                 worker.GatherInput(DA);
-                CurrentWorker = worker;
+                this.CurrentWorker = worker;
 
                 // Create cancellation token source
                 var source = new CancellationTokenSource();
-                _cancellationSources.Add(source);
+                this._cancellationSources.Add(source);
 
                 // Create task that properly awaits the async work
                 var task = Task.Run(async () =>
                 {
                     try
                     {
-                        await worker.DoWorkAsync(source.Token);
+                        await worker.DoWorkAsync(source.Token).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -162,66 +165,69 @@ namespace SmartHopper.Core.ComponentBase
                 });
 
                 // Add task to the list
-                _tasks.Add(task);
+                this._tasks.Add(task);
 
-                OnSolveInstancePreSolve(DA);
+                this.OnSolveInstancePreSolve(DA);
                 return; // Jump to AfterSolveInstance to execute tasks
             }
 
             /* _state != 0 || _tasks.Count != 0 */
 
             // Second pass - Post-solve - Setting output
-            InPreSolve = false;
+            this.InPreSolve = false;
 
-            Debug.WriteLine($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {InPreSolve}, State: {_state}, SetData: {_setData}, Workers.Count: {Workers.Count}");
+            Debug.WriteLine($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers.Count: {this.Workers.Count}");
 
-            if (Workers.Count > 0)
+            if (this.Workers.Count > 0)
             {
                 // Call SetOutput for each worker in reverse order
-                for (int i = Workers.Count - 1; i >= 0; i--)
+                for (int i = this.Workers.Count - 1; i >= 0; i--)
                 {
-                    Debug.WriteLine($"[AsyncComponentBase] Setting output for worker {i + 1}/{Workers.Count}");
-                    string outMessage = null;
+                    Debug.WriteLine($"[AsyncComponentBase] Setting output for worker {i + 1}/{this.Workers.Count}");
+                    string? outMessage = null;
 
                     // Ensure SetOutput runs on UI thread
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
-                        Workers[i].SetOutput(DA, out outMessage);
-                        Message = outMessage;
+                        this.Workers[i].SetOutput(DA, out outMessage);
+                        this.Message = outMessage;
                         Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
                     });
 
-                    Interlocked.Decrement(ref _state);
+                    Interlocked.Decrement(ref this._state);
                 }
 
-                Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {_state}");
-                OnSolveInstancePostSolve(DA);
+                Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {this._state}");
+                this.OnSolveInstancePostSolve(DA);
             }
 
-            if (_state != 0)
+            if (this._state != 0)
+            {
                 return; // Call SolveInstanve again until state is 0
+            }
 
             // Clean up
-            _cancellationSources.Clear();
-            Workers.Clear();
-            _tasks.Clear();
+            this._cancellationSources.Clear();
+            this.Workers.Clear();
+            this._tasks.Clear();
 
-            Interlocked.Exchange(ref _setData, 0);
+            Interlocked.Exchange(ref this._setData, 0);
 
-            OnWorkerCompleted();
+            this.OnWorkerCompleted();
         }
 
         protected override void AfterSolveInstance()
         {
-            Debug.WriteLine($"[AsyncComponentBase] AfterSolveInstance - State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
+            Debug.WriteLine($"[AsyncComponentBase] AfterSolveInstance - State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
 
-            if (_state == 0 && _tasks.Count > 0 && _setData == 0)
+            if (this._state == 0 && this._tasks.Count > 0 && this._setData == 0)
             {
-                Debug.WriteLine($"[AsyncComponentBase] Starting {_tasks.Count} tasks");
+                Debug.WriteLine($"[AsyncComponentBase] Starting {this._tasks.Count} tasks");
 
                 // Create a continuation task that will handle completion of all tasks
-                Task.WhenAll(_tasks)
-                    .ContinueWith(t =>
+                Task.WhenAll(this._tasks)
+                    .ContinueWith(
+                        t =>
                     {
                         if (t.IsFaulted)
                         {
@@ -230,35 +236,36 @@ namespace SmartHopper.Core.ComponentBase
                             foreach (var ex in ae.InnerExceptions)
                             {
                                 Debug.WriteLine($"[AsyncComponentBase] - {ex.Message}");
-                                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Task error: {ex.Message}");
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Task error: {ex.Message}");
                             }
+
                             // Ensure state is valid even on error
-                            if (_state == 0)
+                            if (this._state == 0)
                             {
-                                _state = Workers.Count;
-                                _setData = 1;
+                                this._state = this.Workers.Count;
+                                this._setData = 1;
                             }
                         }
                         else
                         {
                             // Only increment state and set data if we haven't already
-                            if (_state == 0 && _setData == 0)
+                            if (this._state == 0 && this._setData == 0)
                             {
-                                Interlocked.Increment(ref _state);
-                                if (_state == Workers.Count)
+                                Interlocked.Increment(ref this._state);
+                                if (this._state == this.Workers.Count)
                                 {
-                                    Interlocked.Exchange(ref _setData, 1);
-                                    Workers.Reverse();
+                                    Interlocked.Exchange(ref this._setData, 1);
+                                    this.Workers.Reverse();
                                 }
                             }
 
-                            Debug.WriteLine($"[AsyncComponentBase] All tasks completed successfully. State: {_state}, SetData: {_setData}, Workers: {Workers.Count}");
+                            Debug.WriteLine($"[AsyncComponentBase] All tasks completed successfully. State: {this._state}, SetData: {this._setData}, Workers: {this.Workers.Count}");
                         }
 
                         // Schedule component update on UI thread
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
                         {
-                            ExpireSolution(true);
+                            this.ExpireSolution(true);
                         });
                     }, TaskScheduler.Default);
             }
@@ -266,7 +273,7 @@ namespace SmartHopper.Core.ComponentBase
 
         public virtual void RequestTaskCancellation()
         {
-            foreach (var source in _cancellationSources)
+            foreach (var source in this._cancellationSources)
             {
                 source.Cancel();
             }
@@ -278,38 +285,42 @@ namespace SmartHopper.Core.ComponentBase
             Menu_AppendSeparator(menu);
             Menu_AppendItem(menu, "Cancel current process", (s, e) =>
             {
-                RequestTaskCancellation();
+                this.RequestTaskCancellation();
             });
         }
 
         protected virtual void OnWorkerCompleted()
         {
-            Debug.WriteLine($"[{GetType().Name}] All workers completed. State: {_state}, Tasks: {_tasks.Count}, SetData: {_setData}");
+            Debug.WriteLine($"[{this.GetType().Name}] All workers completed. State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
         }
 
         /// <summary>
         /// Override this method to implement custom solve logic.
         /// This will be called for pre-solve.
         /// </summary>
-        protected virtual void OnSolveInstancePreSolve(IGH_DataAccess DA) { }
+        protected virtual void OnSolveInstancePreSolve(IGH_DataAccess DA)
+        {
+        }
 
         /// <summary>
         /// Override this method to implement custom solve logic.
         /// This will be called for post-solve.
         /// </summary>
-        protected virtual void OnSolveInstancePostSolve(IGH_DataAccess DA) { }
+        protected virtual void OnSolveInstancePostSolve(IGH_DataAccess DA)
+        {
+        }
 
         /// <summary>
-        /// Clears only the data from all outputs while preserving runtime messages
+        /// Clears only the data from all outputs while preserving runtime messages.
         /// </summary>
         protected virtual void ClearDataOnly()
         {
             Debug.WriteLine($"[AsyncComponentBase] Cleaning Output Data Only");
 
             // Clear output data
-            for (int i = 0; i < Params.Output.Count; i++)
+            for (int i = 0; i < this.Params.Output.Count; i++)
             {
-                Params.Output[i].ClearData();
+                this.Params.Output[i].ClearData();
             }
         }
     }
