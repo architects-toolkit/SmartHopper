@@ -30,8 +30,8 @@ namespace SmartHopper.Core.ComponentBase
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
         {
             //ReportProgress = progressReporter;
-            Parent = parent;
-            AddRuntimeMessage = addRuntimeMessage;
+            this.Parent = parent;
+            this.AddRuntimeMessage = addRuntimeMessage;
         }
 
         /// <summary>

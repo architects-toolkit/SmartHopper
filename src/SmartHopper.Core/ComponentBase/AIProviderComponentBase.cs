@@ -9,10 +9,10 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
-using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
@@ -67,7 +67,7 @@ namespace SmartHopper.Core.ComponentBase
             // Add the Default option first
             var defaultItem = new ToolStripMenuItem(DEFAULT_PROVIDER)
             {
-                Checked = _aiProvider == DEFAULT_PROVIDER,
+                Checked = this._aiProvider == DEFAULT_PROVIDER,
                 CheckOnClick = true,
                 Tag = DEFAULT_PROVIDER,
             };
@@ -97,7 +97,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var item = new ToolStripMenuItem(provider.Name)
                 {
-                    Checked = provider.Name == _aiProvider,
+                    Checked = provider.Name == this._aiProvider,
                     CheckOnClick = true,
                     Tag = provider.Name,
                 };
@@ -117,7 +117,7 @@ namespace SmartHopper.Core.ComponentBase
                         }
 
                         this._aiProvider = menuItem.Tag.ToString();
-                        ExpireSolution(true);
+                        this.ExpireSolution(true);
                     }
                 };
 
@@ -129,7 +129,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets the actual provider name to use for AI processing.
         /// If the selected provider is "Default", returns the default provider from settings.
         /// </summary>
-        /// <returns>The actual provider name to use</returns>
+        /// <returns>The actual provider name to use.</returns>
         public string GetActualProviderName()
         {
             if (this._aiProvider == DEFAULT_PROVIDER)
@@ -144,10 +144,10 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets the currently selected AI provider instance.
         /// </summary>
-        /// <returns>The AI provider instance, or null if not available</returns>
+        /// <returns>The AI provider instance, or null if not available.</returns>
         protected AIProvider GetCurrentAIProvider()
         {
-            string actualProviderName = GetActualProviderName();
+            string actualProviderName = this.GetActualProviderName();
             var provider = ProviderManager.Instance.GetProvider(actualProviderName);
 
             if (provider is AIProvider concreteProvider)
@@ -169,8 +169,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Writes the component's persistent data to the Grasshopper file.
         /// </summary>
-        /// <param name="writer">The writer to use for serialization</param>
-        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs</returns>
+        /// <param name="writer">The writer to use for serialization.</param>
+        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs.</returns>
         public override bool Write(GH_IO.Serialization.GH_IWriter writer)
         {
             if (!base.Write(writer))
@@ -182,7 +182,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // Store the selected AI provider
                 writer.SetString("AIProvider", this._aiProvider);
-                Debug.WriteLine($"[AIProviderComponentBase] [Write] Stored AI provider: {_aiProvider}");
+                Debug.WriteLine($"[AIProviderComponentBase] [Write] Stored AI provider: {this._aiProvider}");
 
                 return true;
             }
@@ -196,8 +196,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Reads the component's persistent data from the Grasshopper file.
         /// </summary>
-        /// <param name="reader">The reader to use for deserialization</param>
-        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs</returns>
+        /// <param name="reader">The reader to use for deserialization.</param>
+        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs.</returns>
         public override bool Read(GH_IO.Serialization.GH_IReader reader)
         {
             if (!base.Read(reader))
@@ -247,7 +247,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets the selected AI provider name.
         /// </summary>
-        /// <returns>The selected AI provider name</returns>
+        /// <returns>The selected AI provider name.</returns>
         protected string GetSelectedProviderName()
         {
             return this._aiProvider;
@@ -256,7 +256,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Sets the selected AI provider name.
         /// </summary>
-        /// <param name="providerName">The provider name to set</param>
+        /// <param name="providerName">The provider name to set.</param>
         protected void SetSelectedProviderName(string providerName)
         {
             this._aiProvider = providerName;
@@ -265,7 +265,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Checks if the provider selection has changed since last time.
         /// </summary>
-        /// <returns>True if the provider selection has changed</returns>
+        /// <returns>True if the provider selection has changed.</returns>
         protected bool HasProviderChanged()
         {
             if (this._aiProvider != this._previousSelectedProvider)
@@ -274,6 +274,18 @@ namespace SmartHopper.Core.ComponentBase
                 return true;
             }
             return false;
+        }
+
+        protected override List<string> InputsChanged()
+        {
+            List<string> changedInputs = base.InputsChanged();
+
+            if (this.HasProviderChanged())
+            {
+                changedInputs.Add("AIProvider");
+            }
+
+            return changedInputs;
         }
     }
 }

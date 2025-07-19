@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update providersResources access modifiers from public to internal
 - Clean up AboutDialog by removing MathJax attribution
 - Moved provider selection logic from AIProviderComponentBase to AIProviderComponentBase
+- Moved InputsChanged method with override for including HasProviderChanged from AIStatefulAsyncComponentBase to AIProviderComponentBase
 
 ### Removed
 

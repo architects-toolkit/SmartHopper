@@ -52,7 +52,7 @@ namespace SmartHopper.Components.AI
                   "Retrieve the list of available models from the selected AI provider.",
                   "SmartHopper", "AI")
         {
-            RunOnlyOnInputChanges = false;
+            this.RunOnlyOnInputChanges = false;
         }
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Registers additional input parameters (required by StatefulAsyncComponentBase).
         /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with</param>
+        /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             // No additional input parameters needed for this component
@@ -77,7 +77,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Registers additional output parameters (required by StatefulAsyncComponentBase).
         /// </summary>
-        /// <param name="pManager">The parameter manager to register outputs with</param>
+        /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             // No additional output parameters needed for this component
@@ -86,8 +86,8 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Creates the async worker for this component.
         /// </summary>
-        /// <param name="progressReporter">Progress reporter callback</param>
-        /// <returns>The async worker instance</returns>
+        /// <param name="progressReporter">Progress reporter callback.</param>
+        /// <returns>The async worker instance.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIModelsWorker(this, this.AddRuntimeMessage);
@@ -110,8 +110,8 @@ namespace SmartHopper.Components.AI
             /// <summary>
             /// Gathers input from the component.
             /// </summary>
-            /// <param name="DA">Data access object</param>
-            /// <param name="message">Output message</param>
+            /// <param name="DA">Data access object.</param>
+            /// <param name="message">Output message.</param>
             public override void GatherInput(IGH_DataAccess DA)
             {
                 // No inputs to gather for this component
@@ -120,8 +120,8 @@ namespace SmartHopper.Components.AI
             /// <summary>
             /// Performs the async work to retrieve available models.
             /// </summary>
-            /// <param name="message">Output message</param>
-            /// <returns>Async task</returns>
+            /// <param name="message">Output message.</param>
+            /// <returns>Async task.</returns>
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 try
@@ -165,8 +165,8 @@ namespace SmartHopper.Components.AI
             /// <summary>
             /// Sets the output from the async work.
             /// </summary>
-            /// <param name="DA">Data access object</param>
-            /// <param name="message">Output message</param>
+            /// <param name="DA">Data access object.</param>
+            /// <param name="message">Output message.</param>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 if (this._result.TryGetValue("Success", out var success) && (bool)success)
