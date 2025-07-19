@@ -309,8 +309,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                             response = await httpClient.GetAsync(fullUrl).ConfigureAwait(false);
                             break;
                         case "POST":
-                            var postContent = !string.IsNullOrEmpty(requestBody) 
-                                ? new StringContent(requestBody, Encoding.UTF8, contentType) 
+                            var postContent = !string.IsNullOrEmpty(requestBody)
+                                ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
                             response = await httpClient.PostAsync(fullUrl, postContent).ConfigureAwait(false);
                             break;
@@ -318,8 +318,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                             response = await httpClient.DeleteAsync(fullUrl).ConfigureAwait(false);
                             break;
                         case "PATCH":
-                            var patchContent = !string.IsNullOrEmpty(requestBody) 
-                                ? new StringContent(requestBody, Encoding.UTF8, contentType) 
+                            var patchContent = !string.IsNullOrEmpty(requestBody)
+                                ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
                             response = await httpClient.PatchAsync(fullUrl, patchContent).ConfigureAwait(false);
                             break;
