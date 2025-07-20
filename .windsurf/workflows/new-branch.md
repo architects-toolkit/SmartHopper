@@ -46,6 +46,8 @@ Where:
    | New features (backward compatible) | Minor | 1.0.1 → 1.1.0 |
    | Breaking changes | Major | 1.1.0 → 2.0.0 |
 
+If the current X.Y.Z-dev version in `dev` branch already reflects the appropriate bump for your change type, use that version number. For example, if Solutions.props has 0.4.1-dev and the previous release was 0.4.0-alpha, this means the current `dev` branch already includes a patch bump. In this case, create the new branch as 0.4.1 for patch changes. Only bump to 0.5.0 for minor changes or 1.0.0 for major changes.
+
 3. **Detailed Decision Criteria**:
 
    **Patch (0.0.X) when:**
@@ -83,3 +85,7 @@ Where:
    git checkout -b prefix/X.Y.Z-descriptive-title
 
 4. Tell the user that the new branch was created, and explain why you chose the target version number.
+
+Stop here, do not implement any change in files.
+
+Stop the workflow here.
