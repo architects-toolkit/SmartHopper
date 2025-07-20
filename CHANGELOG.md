@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `RemoveLastMessage` method to `WebChatDialog` to remove messages from the chat history.
+
+### Changed
+
+- New loading message while generating the greeting in `InitializeNewConversation`.
+- Update `chat-script.js` with new function to remove messages.
+
+### Fixed
+
+- Fix code formatting and line endings.
+
 ## [0.3.5-alpha] - 2025-07-19
 
 ### Added
