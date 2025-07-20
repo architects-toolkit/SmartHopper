@@ -119,12 +119,18 @@ jobs:
           
           // Move item to new milestone
           async function moveItemToMilestone(itemNumber, newMilestoneNumber) {
-            await github.rest.issues.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: itemNumber,
-            milestone: newMilestoneNumber
-            });
+            try {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: itemNumber,
+                milestone: newMilestoneNumber
+              });
+              console.log(`Successfully moved item #${itemNumber} to milestone #${newMilestoneNumber}`);
+            } catch (error) {
+              console.error(`Failed to move item #${itemNumber} to milestone #${newMilestoneNumber}:`, error.message);
+              // Optionally rethrow the error or handle it gracefully
+            }
           }
           
           // Main logic
