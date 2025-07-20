@@ -89,7 +89,7 @@ namespace SmartHopper.Infrastructure.Tests
             // Skip if certificate creation is not supported (e.g., in CI environments)
             if (!IsCertificateCreationSupported())
             {
-                this.output.WriteLine("Skipping certificate creation test - not supported in current environment (likely CI/restricted permissions)");
+                this.output.WriteLine("Skipping certificate creation test - not supported in current environment");
                 return;
             }
 
