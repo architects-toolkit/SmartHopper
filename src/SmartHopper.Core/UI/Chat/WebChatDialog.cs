@@ -18,7 +18,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
@@ -979,55 +978,46 @@ namespace SmartHopper.Core.UI.Chat
                     },
                 };
 
-                // Create cancellation token for 30-second timeout
-                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+                AIResponse greetingResponse = null;
+
+                try
                 {
-                    AIResponse greetingResponse = null;
-
-                    try
-                    {
-                        // Use AIUtils.GetResponse with the specific provider name and no model (defaults to provider's default model)
-                        greetingResponse = await AIUtils.GetResponse(
-                            this._providerName,
-                            "", // Empty model string will trigger default model usage (a fast and cheap model for general purpose)
-                            greetingMessages,
-                            jsonSchema: "",
-                            endpoint: "",
-                            toolFilter: "-*").ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Debug.WriteLine("[WebChatDialog] Greeting generation timed out after 30 seconds");
-                        greetingResponse = null;
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[WebChatDialog] Error generating greeting: {ex.Message}");
-                        greetingResponse = null;
-                    }
-
-                    // Replace loading message with actual greeting or fallback
-                    await Application.Instance.InvokeAsync(() =>
-                    {
-                        // Remove loading message from both history and UI
-                        this.RemoveLastAssistantMessage();
-
-                        // Add the actual greeting message
-                        if (greetingResponse != null && !string.IsNullOrEmpty(greetingResponse.Response))
-                        {
-                            // Add the AI-generated greeting as an assistant message
-                            this.AddAssistantMessage(greetingResponse);
-                        }
-                        else
-                        {
-                            // Fallback to default greeting if AI generation fails or times out
-                            this.AddAssistantMessage(defaultGreeting);
-                        }
-
-                        this._statusLabel.Text = "Ready";
-                        this._progressReporter?.Invoke("Ready");
-                    });
+                    // Use AIUtils.GetResponse with the specific provider name and no model (defaults to provider's default model)
+                    greetingResponse = await AIUtils.GetResponse(
+                        this._providerName,
+                        "", // Empty model string will trigger default model usage (a fast and cheap model for general purpose)
+                        greetingMessages,
+                        jsonSchema: "",
+                        endpoint: "",
+                        toolFilter: "-*").ConfigureAwait(false);
                 }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Error generating greeting: {ex.Message}");
+                    greetingResponse = null;
+                }
+
+                // Replace loading message with actual greeting or fallback
+                await Application.Instance.InvokeAsync(() =>
+                {
+                    // Remove loading message from both history and UI
+                    this.RemoveLastAssistantMessage();
+
+                    // Add the actual greeting message
+                    if (greetingResponse != null && !string.IsNullOrEmpty(greetingResponse.Response))
+                    {
+                        // Add the AI-generated greeting as an assistant message
+                        this.AddAssistantMessage(greetingResponse);
+                    }
+                    else
+                    {
+                        // Fallback to default greeting if AI generation fails or times out
+                        this.AddAssistantMessage(defaultGreeting);
+                    }
+
+                    this._statusLabel.Text = "Ready";
+                    this._progressReporter?.Invoke("Ready");
+                });
             }
             catch (Exception ex)
             {
