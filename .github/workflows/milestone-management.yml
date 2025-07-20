@@ -1,0 +1,217 @@
+name: move-open-issues-and-pr-to-next-milestone
+
+# Milestone Management Workflow
+# Automatically moves open issues and PRs from closed milestones to the next appropriate milestone
+
+on:
+  milestone:
+    types: [closed]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  move-open-items:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Move open issues and PRs to next milestone
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Parse semantic version from milestone title
+          function parseVersion(versionStr) {
+            const match = versionStr.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+            if (!match) return null;
+            
+            return {
+              major: parseInt(match[1]),
+              minor: parseInt(match[2]),
+              patch: parseInt(match[3]),
+              prerelease: match[4] || null,
+              original: versionStr
+            };
+          }
+          
+          // Compare versions to determine next MINOR or PATCH
+          function getNextVersions(closedVersion) {
+            const nextMinor = {
+              major: closedVersion.major,
+              minor: closedVersion.minor + 1,
+              patch: 0,
+              prerelease: 'alpha'
+            };
+            
+            const nextPatch = {
+              major: closedVersion.major,
+              minor: closedVersion.minor,
+              patch: closedVersion.patch + 1,
+              prerelease: closedVersion.prerelease
+            };
+            
+            return { nextMinor, nextPatch };
+          }
+          
+          // Format version object back to string
+          function formatVersion(version) {
+            let versionStr = `${version.major}.${version.minor}.${version.patch}`;
+            if (version.prerelease) {
+              versionStr += `-${version.prerelease}`;
+            }
+            return versionStr;
+          }
+          
+          // Find milestone by title
+          async function findMilestone(title) {
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            return milestones.data.find(m => m.title === title);
+          }
+          
+          // Create new milestone
+          async function createMilestone(title, description) {
+            const response = await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              description: description || `Auto-created milestone for version ${title}`
+            });
+            
+            console.log(`Created new milestone: ${title}`);
+            return response.data;
+          }
+          
+          // Get open issues and PRs for a milestone
+          async function getOpenItemsInMilestone(milestoneNumber) {
+            const [issues, pulls] = await Promise.all([
+              github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone: milestoneNumber,
+                state: 'open'
+              }),
+              github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open'
+              })
+            ]);
+            
+            // Filter PRs that belong to the milestone
+            const prsInMilestone = pulls.data.filter(pr => 
+              pr.milestone && pr.milestone.number === milestoneNumber
+            );
+            
+            return {
+              issues: issues.data.filter(issue => !issue.pull_request), // Exclude PRs from issues
+              prs: prsInMilestone
+            };
+          }
+          
+          // Move item to new milestone
+          async function moveItemToMilestone(itemNumber, newMilestoneNumber, isPr = false) {
+            if (isPr) {
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: itemNumber,
+                milestone: newMilestoneNumber
+              });
+            } else {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: itemNumber,
+                milestone: newMilestoneNumber
+              });
+            }
+          }
+          
+          // Main logic
+          const closedMilestone = context.payload.milestone;
+          console.log(`Processing closed milestone: ${closedMilestone.title}`);
+          
+          // Parse the closed milestone version
+          const closedVersion = parseVersion(closedMilestone.title);
+          if (!closedVersion) {
+            console.log('Milestone title is not a valid semantic version, skipping.');
+            return;
+          }
+          
+          console.log(`Parsed closed version: ${JSON.stringify(closedVersion)}`);
+          
+          // Get open items in the closed milestone
+          const openItems = await getOpenItemsInMilestone(closedMilestone.number);
+          const totalItems = openItems.issues.length + openItems.prs.length;
+          
+          console.log(`Found ${openItems.issues.length} open issues and ${openItems.prs.length} open PRs in milestone`);
+          
+          if (totalItems === 0) {
+            console.log('No open items to move, exiting.');
+            return;
+          }
+          
+          // Determine next versions
+          const { nextMinor, nextPatch } = getNextVersions(closedVersion);
+          const nextMinorTitle = formatVersion(nextMinor);
+          const nextPatchTitle = formatVersion(nextPatch);
+          
+          console.log(`Looking for next milestones: MINOR=${nextMinorTitle}, PATCH=${nextPatchTitle}`);
+          
+          // Try to find next MINOR milestone first
+          let targetMilestone = await findMilestone(nextMinorTitle);
+          let milestoneType = 'MINOR';
+          
+          if (!targetMilestone) {
+            // Try to find next PATCH milestone
+            targetMilestone = await findMilestone(nextPatchTitle);
+            milestoneType = 'PATCH';
+            
+            if (!targetMilestone) {
+              // Create new MINOR milestone
+              targetMilestone = await createMilestone(nextMinorTitle);
+              milestoneType = 'MINOR (created)';
+            }
+          }
+          
+          console.log(`Target milestone: ${targetMilestone.title} (${milestoneType})`);
+          
+          // Move all open issues and PRs to the target milestone
+          const movePromises = [];
+          
+          for (const issue of openItems.issues) {
+            console.log(`Moving issue #${issue.number}: ${issue.title}`);
+            movePromises.push(moveItemToMilestone(issue.number, targetMilestone.number, false));
+          }
+          
+          for (const pr of openItems.prs) {
+            console.log(`Moving PR #${pr.number}: ${pr.title}`);
+            movePromises.push(moveItemToMilestone(pr.number, targetMilestone.number, true));
+          }
+          
+          await Promise.all(movePromises);
+          
+          console.log(`Successfully moved ${totalItems} items to milestone "${targetMilestone.title}"`);
+          
+          // Create a summary comment on a representative issue if any exist
+          if (openItems.issues.length > 0 || openItems.prs.length > 0) {
+            const summaryText = [
+              `🚀 **Milestone Management**: Moved ${totalItems} open items from closed milestone "${closedMilestone.title}" to "${targetMilestone.title}"`,
+              '',
+              `**Details:**`,
+              `- Issues moved: ${openItems.issues.length}`,
+              `- PRs moved: ${openItems.prs.length}`,
+              `- Target milestone type: ${milestoneType}`,
+              '',
+              `This was done automatically by the milestone management workflow.`
+            ].join('\n');
+          }
