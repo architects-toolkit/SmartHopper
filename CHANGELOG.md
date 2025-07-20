@@ -20,10 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modified `InitializeNewConversation` to use the default model for greeting generation (a fast and cheap model).
 - Modified `WebChatDialog` constructor to pass the provider name to the base class.
 - Modified the construction of `WebChatDialog` in `WebChatUtils.ShowWebChatDialog` to pass the provider name.
+- Modified `GetModel` in `AIStatefulAsyncComponentBase` to use the provider's global model defined in settings if none is specified.
 
 ### Fixed
 
 - Fix code formatting and line endings.
+- Fix incorrect model handling in `AIStatefulAsyncComponentBase`.
 
 ## [0.3.5-alpha] - 2025-07-19
 
