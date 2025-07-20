@@ -87,10 +87,3 @@ jobs:
             --body $'This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Assign PR to milestone
-        run: |
-          gh issue edit ${{ steps.create-pr.outputs.number }} \
-            --milestone "${{ github.event.milestone.title }}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

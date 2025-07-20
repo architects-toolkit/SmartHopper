@@ -1,0 +1,111 @@
+name: pr-milestone
+
+# PR Milestone Assignment Workflow
+# Automatically assigns PRs to milestones based on version in Solution.props
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  assign-pr-to-milestone:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout PR source branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+      
+    - name: Read version from Solution.props and assign to milestone
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read Solution.props file
+          const solutionPropsPath = 'Solution.props';
+          
+          if (!fs.existsSync(solutionPropsPath)) {
+            console.log('Solution.props file not found');
+            return;
+          }
+          
+          const content = fs.readFileSync(solutionPropsPath, 'utf8');
+          console.log('Solution.props content:', content);
+          
+          // Extract version from Solution.props
+          const versionMatch = content.match(/<SolutionVersion>(.*?)<\/SolutionVersion>/);
+          if (!versionMatch) {
+            console.log('Could not find SolutionVersion in Solution.props');
+            return;
+          }
+          
+          const fullVersion = versionMatch[1];
+          console.log('Found full version:', fullVersion);
+          
+          // Parse and process version
+          // Examples: "0.4.0-dev.250720" -> "0.4.0-alpha"
+          //           "0.4.1-alpha" -> "0.4.1-alpha"  
+          //           "0.4.2-beta.250123" -> "0.4.2-beta"
+          
+          // Remove everything after the last dot (suppress build number)
+          let processedVersion = fullVersion;
+          const lastDotIndex = processedVersion.lastIndexOf('.');
+          if (lastDotIndex > processedVersion.indexOf('-')) {
+            // Only remove if the dot is after the dash (part of build number)
+            processedVersion = processedVersion.substring(0, lastDotIndex);
+          }
+          
+          // Replace -dev with -alpha (there are no dev milestones)
+          processedVersion = processedVersion.replace('-dev', '-alpha');
+          
+          console.log('Processed version for milestone:', processedVersion);
+          
+          // Find milestone with matching title
+          const { data: milestones } = await github.rest.issues.listMilestones({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'all' // Include both open and closed milestones
+          });
+          
+          const targetMilestone = milestones.find(milestone => milestone.title === processedVersion);
+          
+          if (!targetMilestone) {
+            console.log(`No milestone found with title: ${processedVersion}`);
+            console.log('Available milestones:', milestones.map(m => m.title));
+            return;
+          }
+          
+          console.log(`Found milestone: ${targetMilestone.title} (${targetMilestone.state})`);
+          
+          // Assign PR to milestone
+          try {
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              milestone: targetMilestone.number
+            });
+            
+            console.log(`Successfully assigned PR #${context.payload.pull_request.number} to milestone "${targetMilestone.title}"`);
+            
+            // Add a comment to the PR
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `🏷️ This PR has been automatically assigned to milestone **${targetMilestone.title}** based on the version in \`Solution.props\`.`
+            });
+            
+          } catch (error) {
+            console.error('Error assigning PR to milestone:', error);
+            core.setFailed(`Failed to assign PR to milestone: ${error.message}`);
+          }
