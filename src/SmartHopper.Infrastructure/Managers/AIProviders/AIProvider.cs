@@ -142,10 +142,9 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// <summary>
         /// Gets the model to use for AI processing.
         /// </summary>
-        /// <param name="settings">The provider settings.</param>
         /// <param name="requestedModel">The requested model, or empty for default.</param>
         /// <returns>The model to use.</returns>
-        public virtual string GetModel(Dictionary<string, object> settings, string requestedModel = "")
+        public virtual string GetModel(string requestedModel = "")
         {
             // Use the requested model if provided
             if (!string.IsNullOrWhiteSpace(requestedModel))

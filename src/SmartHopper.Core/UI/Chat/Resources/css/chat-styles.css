@@ -72,6 +72,30 @@ body {
     border: 1px solid #f44336;
 }
 
+/* Loading message styles */
+.message.loading {
+    opacity: 0.5;
+}
+
+/* Spinner using ::before pseudo-element */
+.message.loading .message-content::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .message-sender {
     font-size: 0.8em;
     color: #666;
@@ -221,15 +245,17 @@ hr {
     margin: 1em 0;
 }
 
-/* Collapsible tool messages */
-.message.tool .message-content {
+/* Collapsible tool and system messages */
+.message.tool .message-content,
+.message.system .message-content {
     max-height: 30px;
     overflow: hidden;
     position: relative;
 }
 
-/* Expand tool message on toggle */
-.message.tool.expanded .message-content {
+/* Expand tool and system messages on toggle */
+.message.tool.expanded .message-content,
+.message.system.expanded .message-content {
     max-height: none;
     overflow: visible;
 }
@@ -240,7 +266,8 @@ hr {
 }
 
 /* Arrow styling inside tool messages */
-.message.tool .toggle-arrow {
+.message.tool .toggle-arrow,
+.message.system .toggle-arrow {
     display: block;
     position: absolute;
     top: 10px;
@@ -255,7 +282,8 @@ hr {
 }
 
 /* Rotate arrow when expanded */
-.message.tool.expanded .toggle-arrow {
+.message.tool.expanded .toggle-arrow,
+.message.system.expanded .toggle-arrow {
     transform: rotate(90deg);
     display: block;
 }

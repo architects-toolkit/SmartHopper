@@ -53,10 +53,9 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <summary>
         /// Gets the model to use for AI processing.
         /// </summary>
-        /// <param name="settings">The provider settings.</param>
         /// <param name="requestedModel">The requested model, or empty for default.</param>
         /// <returns>The model to use.</returns>
-        string GetModel(Dictionary<string, object> settings, string requestedModel = "");
+        string GetModel(string requestedModel = "");
 
         /// <summary>
         /// Injects decrypted settings for this provider (called by ProviderManager).

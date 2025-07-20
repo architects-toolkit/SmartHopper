@@ -23,6 +23,8 @@ using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Messaging;
+using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Properties;
@@ -47,6 +49,7 @@ namespace SmartHopper.Core.UI.Chat
         private bool _isProcessing;
         private readonly Func<List<ChatMessageModel>, Task<AIResponse>> _getResponse;
         private readonly HtmlChatRenderer _htmlRenderer;
+        private readonly string _providerName;
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
         private readonly Action<string>? _progressReporter;
@@ -63,14 +66,16 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Creates a new web chat dialog.
         /// </summary>
-        /// <param name="getResponse">Function to get responses from the AI provider</param>
-        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant</param>
-        /// <param name="progressReporter">Optional callback to report progress updates</param>
-        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, string? systemPrompt = null, Action<string>? progressReporter = null)
+        /// <param name="getResponse">Function to get responses from the AI provider.</param>
+        /// <param name="providerName">The name of the AI provider to use for default model operations.</param>
+        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
+        /// <param name="progressReporter">Optional callback to report progress updates.</param>
+        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, string providerName, string? systemPrompt = null, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             this._progressReporter = progressReporter;
             this._systemPrompt = systemPrompt;
+            this._providerName = providerName ?? throw new ArgumentNullException(nameof(providerName));
 
             this.Title = "SmartHopper AI Chat";
             this.MinimumSize = new Size(600, 700);
@@ -84,7 +89,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 if (stream != null)
                 {
-                    Icon = new Eto.Drawing.Icon(stream);
+                    this.Icon = new Eto.Drawing.Icon(stream);
                 }
             }
 
@@ -92,7 +97,7 @@ namespace SmartHopper.Core.UI.Chat
             if (getResponse == null) throw new ArgumentNullException(nameof(getResponse));
             Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {getResponse.Method.DeclaringType.FullName}.{getResponse.Method.Name}");
             var originalGetResponse = getResponse;
-            _getResponse = async messages =>
+            this._getResponse = async messages =>
             {
                 Debug.WriteLine($"[WebChatDialog] Calling getResponse delegate ({originalGetResponse.Method.DeclaringType.FullName}.{originalGetResponse.Method.Name}) with {messages.Count} messages");
                 var resp = await originalGetResponse(messages);
@@ -100,21 +105,21 @@ namespace SmartHopper.Core.UI.Chat
                 return resp;
             };
 
-            _chatHistory = new List<ChatMessageModel>();
-            _htmlRenderer = new HtmlChatRenderer();
+            this._chatHistory = new List<ChatMessageModel>();
+            this._htmlRenderer = new HtmlChatRenderer();
 
             Debug.WriteLine("[WebChatDialog] Creating WebView");
             // Initialize WebView
-            _webView = new WebView
+            this._webView = new WebView
             {
                 Height = 500,
             };
 
             // Add WebView event handlers for debugging
-            _webView.DocumentLoaded += (sender, e) => Debug.WriteLine("[WebChatDialog] WebView document loaded");
-            _webView.DocumentLoading += (sender, e) => Debug.WriteLine("[WebChatDialog] WebView document loading");
+            this._webView.DocumentLoaded += (sender, e) => Debug.WriteLine("[WebChatDialog] WebView document loaded");
+            this._webView.DocumentLoading += (sender, e) => Debug.WriteLine("[WebChatDialog] WebView document loading");
             // Intercept custom clipboard URIs to copy via host and show toast
-            _webView.DocumentLoading += (sender, e) =>
+            this._webView.DocumentLoading += (sender, e) =>
             {
                 try
                 {
@@ -131,7 +136,7 @@ namespace SmartHopper.Core.UI.Chat
                         Clipboard.Instance.Text = text;
                         Debug.WriteLine($"[WebChatDialog] Copied to clipboard via host: {text}");
                         // Trigger JS toast
-                        _webView.ExecuteScriptAsync("showToast('Code copied to clipboard :)');");
+                        this._webView.ExecuteScriptAsync("showToast('Code copied to clipboard :)');");
                     }
                 }
                 catch (Exception ex)
@@ -140,36 +145,36 @@ namespace SmartHopper.Core.UI.Chat
                 }
             };
 
-            _userInputTextArea = new TextArea
+            this._userInputTextArea = new TextArea
             {
                 Height = 60,
                 AcceptsReturn = true,
                 AcceptsTab = false,
                 Wrap = true,
             };
-            _userInputTextArea.KeyDown += UserInputTextArea_KeyDown;
+            this._userInputTextArea.KeyDown += this.UserInputTextArea_KeyDown;
 
-            _sendButton = new Button
+            this._sendButton = new Button
             {
                 Text = "Send",
-                Enabled = true
+                Enabled = true,
             };
-            _sendButton.Click += SendButton_Click;
+            this._sendButton.Click += this.SendButton_Click;
 
-            _clearButton = new Button
+            this._clearButton = new Button
             {
                 Text = "Clear Chat",
-                Enabled = true
+                Enabled = true,
             };
-            _clearButton.Click += ClearButton_Click;
+            this._clearButton.Click += this.ClearButton_Click;
 
-            _progressBar = new ProgressBar
+            this._progressBar = new ProgressBar
             {
                 Indeterminate = true,
-                Visible = false
+                Visible = false,
             };
 
-            _statusLabel = new Label
+            this._statusLabel = new Label
             {
                 Text = "Initializing WebView...",
                 TextAlignment = TextAlignment.Center
@@ -179,23 +184,23 @@ namespace SmartHopper.Core.UI.Chat
             var mainLayout = new DynamicLayout();
 
             // WebView area
-            mainLayout.Add(_webView, yscale: true);
+            mainLayout.Add(this._webView, yscale: true);
 
             // Input area
             var inputLayout = new DynamicLayout();
             inputLayout.BeginHorizontal();
-            inputLayout.Add(_userInputTextArea, xscale: true);
-            inputLayout.Add(_sendButton);
+            inputLayout.Add(this._userInputTextArea, xscale: true);
+            inputLayout.Add(this._sendButton);
             inputLayout.EndHorizontal();
             mainLayout.Add(inputLayout);
 
             // Controls area
-            mainLayout.Add(_clearButton);
-            mainLayout.Add(_progressBar);
-            mainLayout.Add(_statusLabel);
+            mainLayout.Add(this._clearButton);
+            mainLayout.Add(this._progressBar);
+            mainLayout.Add(this._statusLabel);
 
-            Content = mainLayout;
-            Padding = new Padding(10);
+            this.Content = mainLayout;
+            this.Padding = new Padding(10);
 
             Debug.WriteLine("[WebChatDialog] WebChatDialog initialized, starting WebView initialization");
 
@@ -205,7 +210,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine("[WebChatDialog] Dialog shown, starting WebView initialization");
 
                 // Start initialization in a background thread to avoid UI blocking
-                Task.Run(() => InitializeWebViewAsync())
+                Task.Run(() => this.InitializeWebViewAsync())
                     .ContinueWith(t =>
                     {
                         if (t.IsFaulted)
@@ -219,14 +224,14 @@ namespace SmartHopper.Core.UI.Chat
             this.GotFocus += (sender, e) =>
             {
                 Debug.WriteLine("[WebChatDialog] Window got focus");
-                EnsureVisibility();
+                this.EnsureVisibility();
             };
 
             // Also ensure visibility when the window is shown
             this.Shown += (sender, e) =>
             {
                 Debug.WriteLine("[WebChatDialog] Window shown");
-                EnsureVisibility();
+                this.EnsureVisibility();
             };
         }
 
@@ -240,14 +245,14 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine("[WebChatDialog] Ensuring window visibility");
 
                 // Restore window if minimized
-                if (WindowState == WindowState.Minimized)
+                if (this.WindowState == WindowState.Minimized)
                 {
-                    WindowState = WindowState.Normal;
+                    this.WindowState = WindowState.Normal;
                 }
 
                 // Use Eto's built-in methods to bring window to front
-                BringToFront();
-                Focus();
+                this.BringToFront();
+                this.Focus();
 
                 Debug.WriteLine("[WebChatDialog] Window visibility ensured");
             });
@@ -263,7 +268,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine("[WebChatDialog] Starting WebView initialization from background thread");
 
                 // Get the HTML content on the background thread
-                string html = _htmlRenderer.GetInitialHtml();
+                string html = this._htmlRenderer.GetInitialHtml();
                 Debug.WriteLine($"[WebChatDialog] HTML prepared, length: {html?.Length ?? 0}");
 
                 // Create a task completion source for tracking document loading
@@ -281,14 +286,14 @@ namespace SmartHopper.Core.UI.Chat
                         loadHandler = (s, e) =>
                         {
                             Debug.WriteLine("[WebChatDialog] WebView document loaded");
-                            _webView.DocumentLoaded -= loadHandler;
+                            this._webView.DocumentLoaded -= loadHandler;
                             loadCompletionSource.TrySetResult(true);
                         };
 
-                        _webView.DocumentLoaded += loadHandler;
+                        this._webView.DocumentLoaded += loadHandler;
 
                         // Load the HTML content
-                        _webView.LoadHtml(html);
+                        this._webView.LoadHtml(html);
 
                         Debug.WriteLine("[WebChatDialog] HTML loaded into WebView, waiting for load completion");
                     }
@@ -316,8 +321,8 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // Mark initialization as complete
-                _webViewInitialized = true;
-                _webViewInitializedTcs.TrySetResult(true);
+                this._webViewInitialized = true;
+                this._webViewInitializedTcs.TrySetResult(true);
 
                 // Add the welcome message on a background thread
                 await Task.Run(async () =>
@@ -326,7 +331,7 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         await Application.Instance.InvokeAsync(() =>
                         {
-                            InitializeNewConversation();
+                            this.InitializeNewConversation();
                         }).ConfigureAwait(false);
                     }
                     catch (Exception ex)
@@ -349,16 +354,16 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // Ensure we don't leave initialization hanging
-                if (!_webViewInitialized)
+                if (!this._webViewInitialized)
                 {
-                    _webViewInitialized = true;
-                    _webViewInitializedTcs.TrySetException(ex);
+                    this._webViewInitialized = true;
+                    this._webViewInitializedTcs.TrySetException(ex);
                 }
 
                 // Update the status label on the UI thread
                 await Application.Instance.InvokeAsync(() =>
                 {
-                    _statusLabel.Text = $"Error initializing WebView: {ex.Message}";
+                    this._statusLabel.Text = $"Error initializing WebView: {ex.Message}";
                 }).ConfigureAwait(false);
             }
         }
@@ -373,13 +378,13 @@ namespace SmartHopper.Core.UI.Chat
             if (e.Key == Keys.Enter && e.Modifiers.HasFlag(Keys.Shift))
             {
                 // Shift+Enter adds a new line
-                _userInputTextArea.Text += Environment.NewLine;
+                this._userInputTextArea.Text += Environment.NewLine;
                 e.Handled = true;
             }
-            else if (e.Key == Keys.Enter && !_isProcessing && !e.Modifiers.HasFlag(Keys.Shift))
+            else if (e.Key == Keys.Enter && !this._isProcessing && !e.Modifiers.HasFlag(Keys.Shift))
             {
                 // Enter sends the message
-                SendMessage();
+                this.SendMessage();
                 e.Handled = true;
             }
         }
@@ -391,9 +396,9 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="e">The event arguments.</param>
         private void SendButton_Click(object sender, EventArgs e)
         {
-            if (!_isProcessing)
+            if (!this._isProcessing)
             {
-                SendMessage();
+                this.SendMessage();
             }
         }
 
@@ -404,7 +409,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="e">The event arguments.</param>
         private void ClearButton_Click(object sender, EventArgs e)
         {
-            _chatHistory.Clear();
+            this._chatHistory.Clear();
 
             // Reset the WebView with initial HTML
             try
@@ -412,13 +417,13 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine("[WebChatDialog] Clearing chat and reloading HTML");
 
                 // Get the HTML content directly
-                string html = _htmlRenderer.GetInitialHtml();
+                string html = this._htmlRenderer.GetInitialHtml();
 
                 // Load HTML into WebView
-                _webView.LoadHtml(html);
+                this._webView.LoadHtml(html);
 
                 // Add system message to start the conversation
-                InitializeNewConversation();
+                this.InitializeNewConversation();
             }
             catch (Exception ex)
             {
@@ -432,7 +437,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="response">The AI response object containing the message.</param>
         private void AddUserMessage(AIResponse response)
         {
-            _chatHistory.Add(new ChatMessageModel
+            this._chatHistory.Add(new ChatMessageModel
             {
                 Author = "user",
                 Body = response.Response,
@@ -461,11 +466,11 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Adds an assistant (AI) message with metrics information.
         /// </summary>
-        /// <param name="message">The message text</param>
-        /// <param name="response">The AI response object containing metrics</param>
+        /// <param name="message">The message text.</param>
+        /// <param name="response">The AI response object containing metrics.</param>
         private void AddAssistantMessage(AIResponse response)
         {
-            _chatHistory.Add(new ChatMessageModel
+            this._chatHistory.Add(new ChatMessageModel
             {
                 Author = "assistant",
                 Body = response.Response,
@@ -476,6 +481,68 @@ namespace SmartHopper.Core.UI.Chat
             });
 
             this.AddMessageToWebView("assistant", response);
+        }
+
+        /// <summary>
+        /// Removes the last message of a specific role from both chat history and WebView.
+        /// </summary>
+        /// <param name="role">The role of the message to remove (user, assistant, system).</param>
+        /// <returns>True if a message was removed, false otherwise.</returns>
+        private bool RemoveLastMessage(string role)
+        {
+            if (string.IsNullOrEmpty(role))
+            {
+                Debug.WriteLine("[WebChatDialog] Cannot remove message with empty role");
+                return false;
+            }
+
+            try
+            {
+                // Find the last message of the specified role in chat history
+                var lastMessage = this._chatHistory.LastOrDefault(m => m.Author == role);
+                if (lastMessage == null)
+                {
+                    Debug.WriteLine($"[WebChatDialog] No {role} messages found to remove");
+                    return false;
+                }
+
+                // Remove from chat history
+                bool removedFromHistory = this._chatHistory.Remove(lastMessage);
+
+                // Remove from WebView using JavaScript
+                bool removedFromUI = false;
+                if (this._webViewInitialized)
+                {
+                    try
+                    {
+                        string sanitizedRole = JsonConvert.SerializeObject(role);
+                        string script = $"if (typeof removeLastMessageByRole === 'function') {{ return removeLastMessageByRole({sanitizedRole}); }} else {{ return false; }}";
+                        string result = this._webView.ExecuteScript(script);
+                        removedFromUI = bool.TryParse(result, out bool jsResult) && jsResult;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Error removing {role} message from UI: {ex.Message}");
+                    }
+                }
+
+                Debug.WriteLine($"[WebChatDialog] Removed last {role} message - History: {removedFromHistory}, UI: {removedFromUI}");
+                return removedFromHistory; // Return true if removed from history, even if UI removal failed
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error removing last {role} message: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Removes the last assistant message from both chat history and WebView.
+        /// </summary>
+        /// <returns>True if a message was removed, false otherwise.</returns>
+        private bool RemoveLastAssistantMessage()
+        {
+            return this.RemoveLastMessage("assistant");
         }
 
         /// <summary>
@@ -499,7 +566,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="type">Optional subtype for styling (e.g., "error").</param>
         private void AddSystemMessage(AIResponse response, string type = null)
         {
-            _chatHistory.Add(new ChatMessageModel
+            this._chatHistory.Add(new ChatMessageModel
             {
                 Author = "system",
                 Body = response.Response,
@@ -536,7 +603,7 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
-            if (!_webViewInitialized)
+            if (!this._webViewInitialized)
             {
                 // Queue the message to be added after initialization
                 Debug.WriteLine($"[WebChatDialog] WebView not initialized yet, queueing message: {role}");
@@ -544,9 +611,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        await _webViewInitializedTcs.Task;
+                        await this._webViewInitializedTcs.Task;
                         Debug.WriteLine($"[WebChatDialog] WebView now initialized, adding queued message: {role}");
-                        Application.Instance.AsyncInvoke(() => AddMessageToWebView(role, response));
+                        Application.Instance.AsyncInvoke(() => this.AddMessageToWebView(role, response));
                     }
                     catch (Exception ex)
                     {
@@ -558,9 +625,16 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
+                // Automatically add loading class for loading messages (any role)
+                string finalRole = role;
+                if (response?.FinishReason == "loading")
+                {
+                    finalRole = role + " loading";
+                }
+
                 // Generate HTML for the message
-                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {role}");
-                string messageHtml = _htmlRenderer.GenerateMessageHtml(role, response);
+                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {finalRole}");
+                string messageHtml = this._htmlRenderer.GenerateMessageHtml(finalRole, response);
 
                 // Execute JavaScript to add the message to the WebView
                 Debug.WriteLine("[WebChatDialog] Executing JavaScript to add message");
@@ -575,12 +649,12 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Try a different approach for executing JavaScript
                 string script = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
-                string result = _webView.ExecuteScript(script);
+                string result = this._webView.ExecuteScript(script);
 
                 Debug.WriteLine($"[WebChatDialog] JavaScript execution result: {result}");
 
                 // Scroll to bottom
-                _webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
+                this._webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
                 Debug.WriteLine("[WebChatDialog] Message added successfully");
             }
             catch (Exception ex)
@@ -595,17 +669,17 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private async void SendMessage()
         {
-            if (!_webViewInitialized)
+            if (!this._webViewInitialized)
             {
                 Debug.WriteLine("[WebChatDialog] Cannot send message, WebView not initialized");
                 Application.Instance.AsyncInvoke(() =>
                 {
-                    _statusLabel.Text = "WebView is still initializing. Please wait...";
+                    this._statusLabel.Text = "WebView is still initializing. Please wait...";
                 });
                 return;
             }
 
-            string userMessage = _userInputTextArea.Text.Trim();
+            string userMessage = this._userInputTextArea.Text.Trim();
             if (string.IsNullOrEmpty(userMessage))
             {
                 Debug.WriteLine("[WebChatDialog] Empty message, not sending");
@@ -613,39 +687,39 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Clear input and add message to history
-            _userInputTextArea.Text = string.Empty;
-            AddUserMessage(userMessage);
+            this._userInputTextArea.Text = string.Empty;
+            this.AddUserMessage(userMessage);
 
             // Update UI state
-            _isProcessing = true;
-            _sendButton.Enabled = false;
-            _progressBar.Visible = true;
+            this._isProcessing = true;
+            this._sendButton.Enabled = false;
+            this._progressBar.Visible = true;
             Application.Instance.AsyncInvoke(() =>
             {
-                _statusLabel.Text = "Thinking...";
-                _progressReporter?.Invoke("Thinking...");
+                this._statusLabel.Text = "Thinking...";
+                this._progressReporter?.Invoke("Thinking...");
             });
 
             try
             {
-                await GetAIResponseAndProcessToolCalls();
+                await this.GetAIResponseAndProcessToolCalls();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error getting response: {ex.Message}");
-                AddSystemMessage($"Error: {ex.Message}", "error");
+                this.AddSystemMessage($"Error: {ex.Message}", "error");
                 Application.Instance.AsyncInvoke(() =>
                 {
-                    _statusLabel.Text = "Error occurred";
-                    _progressReporter?.Invoke("Error :(");
+                    this._statusLabel.Text = "Error occurred";
+                    this._progressReporter?.Invoke("Error :(");
                 });
             }
             finally
             {
                 // Restore UI state
-                _isProcessing = false;
-                _sendButton.Enabled = true;
-                _progressBar.Visible = false;
+                this._isProcessing = false;
+                this._sendButton.Enabled = true;
+                this._progressBar.Visible = false;
             }
         }
 
@@ -657,20 +731,20 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Create a copy of the chat history for the API call
-                var messages = _chatHistory.ToList();
+                var messages = this._chatHistory.ToList();
 
                 Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
                 // Get response from AI provider using the provided function
-                var response = await _getResponse(messages);
+                var response = await this._getResponse(messages);
 
                 if (response == null)
                 {
                     Debug.WriteLine("[WebChatDialog] No response received from AI provider");
-                    AddSystemMessage("Error: Failed to get response from AI provider.", "error");
+                    this.AddSystemMessage("Error: Failed to get response from AI provider.", "error");
                     Application.Instance.AsyncInvoke(() =>
                     {
-                        _statusLabel.Text = "Error: No response received";
-                        _progressReporter?.Invoke("Error :(");
+                        this._statusLabel.Text = "Error: No response received";
+                        this._progressReporter?.Invoke("Error :(");
                     });
                     return;
                 }
@@ -679,11 +753,11 @@ namespace SmartHopper.Core.UI.Chat
                 if (!string.IsNullOrEmpty(response.FinishReason) && response.FinishReason.Equals("error", StringComparison.OrdinalIgnoreCase))
                 {
                     Debug.WriteLine("[WebChatDialog] Response finishReason is error; showing error message");
-                    AddSystemMessage(response.Response, "error");
+                    this.AddSystemMessage(response.Response, "error");
                     Application.Instance.AsyncInvoke(() =>
                     {
-                        _statusLabel.Text = "Error in response";
-                        _progressReporter?.Invoke("Error :(");
+                        this._statusLabel.Text = "Error in response";
+                        this._progressReporter?.Invoke("Error :(");
                     });
                     return;
                 }
@@ -692,7 +766,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (response.ToolCalls != null && response.ToolCalls.Count > 0)
                 {
                     // Add the assistant response with tool calls to chat history
-                    AddAssistantMessage(response);
+                    this.AddAssistantMessage(response);
 
                     foreach (var toolCall in response.ToolCalls)
                     {
@@ -702,23 +776,23 @@ namespace SmartHopper.Core.UI.Chat
                         // AddToolCallMessage(response, toolCall);
 
                         // Process the tool call (pass along toolCallId)
-                        await ProcessToolCall(response, toolCall);
+                        await this.ProcessToolCall(response, toolCall);
                     }
                 }
                 else
                 {
                     Debug.WriteLine("[WebChatDialog] Regular response received, adding to chat");
                     // Add response to chat history as a regular message
-                    AddAssistantMessage(response);
+                    this.AddAssistantMessage(response);
 
                     // Notify listeners
-                    ResponseReceived?.Invoke(this, response);
+                    this.ResponseReceived?.Invoke(this, response);
 
                     Application.Instance.AsyncInvoke(() =>
                     {
                         // _statusLabel.Text = $"Response received ({response.InTokens} in, {response.OutTokens} out)";
-                        _statusLabel.Text = $"Ready";
-                        _progressReporter?.Invoke("Ready");
+                        this._statusLabel.Text = $"Ready";
+                        this._progressReporter?.Invoke("Ready");
                     });
                 }
             }
@@ -744,8 +818,8 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[WebChatDialog] Processing tool call: {toolCall.Name}");
                 Application.Instance.AsyncInvoke(() =>
                 {
-                    _statusLabel.Text = $"Executing tool: {toolCall.Name}...";
-                    _progressReporter?.Invoke("Executing a tool...");
+                    this._statusLabel.Text = $"Executing tool: {toolCall.Name}...";
+                    this._progressReporter?.Invoke("Executing a tool...");
                 });
 
                 // Execute the tool
@@ -767,10 +841,10 @@ namespace SmartHopper.Core.UI.Chat
                 };
 
                 // Add tool result to chat history
-                AddToolResultMessage(toolResponse);
+                this.AddToolResultMessage(toolResponse);
 
                 // Add tool result to chat history for the AI to see
-                _chatHistory.Add(new ChatMessageModel
+                this._chatHistory.Add(new ChatMessageModel
                 {
                     Author = "tool",
                     Body = resultJson,
@@ -781,12 +855,12 @@ namespace SmartHopper.Core.UI.Chat
                 });
 
                 // Get a new response from the AI with the tool result
-                await GetAIResponseAndProcessToolCalls();
+                await this.GetAIResponseAndProcessToolCalls();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
-                AddSystemMessage($"Error executing tool '{toolCall.Name}': {ex.Message}", "error");
+                this.AddSystemMessage($"Error executing tool '{toolCall.Name}': {ex.Message}", "error");
             }
         }
 
@@ -805,7 +879,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[WebChatDialog] Adding tool call {toolCall.Id}: {toolCall.Name} ({toolCall.Arguments})");
 
                 // Add to chat history
-                _chatHistory.Add(new ChatMessageModel
+                this._chatHistory.Add(new ChatMessageModel
                 {
                     Author = "tool_call",
                     Body = "Calling tool: " + toolCall.Name,
@@ -814,51 +888,151 @@ namespace SmartHopper.Core.UI.Chat
                     Time = DateTime.Now,
                     ToolCalls = new List<AIToolCall> { toolCall },
                 });
-                AddMessageToWebView("tool_call", parentResponse);
+                this.AddMessageToWebView("tool_call", parentResponse);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error formatting tool call: {ex.Message}");
-                AddSystemMessage($"Tool Call: {toolCall.Name} (Error formatting arguments: {ex.Message})", "error");
+                this.AddSystemMessage($"Tool Call: {toolCall.Name} (Error formatting arguments: {ex.Message})", "error");
             }
         }
 
         /// <summary>
-        /// Adds a tool result message to the chat display
+        /// Adds a tool result message to the chat display.
         /// </summary>
-        /// <param name="toolResponse">Result from the tool execution</param>
+        /// <param name="toolResponse">Result from the tool execution.</param>
         private void AddToolResultMessage(AIResponse toolResponse)
         {
             try
             {
                 // Pretty-print JSON and render a tool bubble
-                AddMessageToWebView("tool", toolResponse);
+                this.AddMessageToWebView("tool", toolResponse);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error formatting tool result: {ex.Message}");
-                AddSystemMessage($"Tool Result: (Error formatting result: {ex.Message})", "error");
+                this.AddSystemMessage($"Tool Result: (Error formatting result: {ex.Message})", "error");
             }
         }
 
         /// <summary>
-        /// Initializes a new conversation with a welcome message.
+        /// Initializes a new conversation with a collapsible system message and an AI-generated greeting message.
+        /// Keeps the chat in loading state until greeting is received or 30s timeout occurs.
         /// </summary>
-        private void InitializeNewConversation()
+        private async void InitializeNewConversation()
         {
-            if (!string.IsNullOrEmpty(_systemPrompt))
+            var defaultGreeting = "Hello! I'm your AI assistant. How can I help you today?";
+
+            try
             {
-                AddSystemMessage(_systemPrompt);
+                // Display system message as collapsible if provided
+                if (!string.IsNullOrEmpty(this._systemPrompt))
+                {
+                    this.AddSystemMessage(this._systemPrompt);
+                }
+
+                // Show loading message immediately in the chat
+                var loadingMessage = new ChatMessageModel
+                {
+                    Author = "assistant",
+                    Body = "💬 Loading message...",
+                    Inbound = true,
+                    Read = false,
+                    Time = DateTime.Now,
+                };
+
+                // Display the loading message immediately
+                var loadingResponse = new AIResponse
+                {
+                    Response = loadingMessage.Body,
+                    FinishReason = "loading",
+                };
+
+                await Application.Instance.InvokeAsync(() =>
+                {
+                    this.AddAssistantMessage(loadingResponse);
+                    this._statusLabel.Text = "Generating greeting...";
+                    this._progressReporter?.Invoke("Generating greeting...");
+                });
+
+                // Generate AI greeting message using a context-aware custom prompt
+                string greetingPrompt;
+                if (!string.IsNullOrEmpty(this._systemPrompt))
+                {
+                    greetingPrompt = $"You are a chat assistant with specialized knowledge and capabilities. The user has provided the following system instructions that define your role and expertise:\n\n{this._systemPrompt}\n\nBased on these instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
+                }
+                else
+                {
+                    greetingPrompt = "You are SmartHopper AI, an AI assistant for Grasshopper3D and computational design. Generate a brief, friendly greeting message that welcomes the user and offers assistance. Keep it concise, professional, and inviting.";
+                }
+
+                var greetingMessages = new List<ChatMessageModel>
+                {
+                    new ChatMessageModel
+                    {
+                        Author = "system",
+                        Body = greetingPrompt,
+                        Inbound = true,
+                        Read = false,
+                        Time = DateTime.Now,
+                    },
+                };
+
+                AIResponse greetingResponse = null;
+
+                try
+                {
+                    // Use AIUtils.GetResponse with the specific provider name and no model (defaults to provider's default model)
+                    greetingResponse = await AIUtils.GetResponse(
+                        this._providerName,
+                        "", // Empty model string will trigger default model usage (a fast and cheap model for general purpose)
+                        greetingMessages,
+                        jsonSchema: "",
+                        endpoint: "",
+                        toolFilter: "-*").ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Error generating greeting: {ex.Message}");
+                    greetingResponse = null;
+                }
+
+                // Replace loading message with actual greeting or fallback
+                await Application.Instance.InvokeAsync(() =>
+                {
+                    // Remove loading message from both history and UI
+                    this.RemoveLastAssistantMessage();
+
+                    // Add the actual greeting message
+                    if (greetingResponse != null && !string.IsNullOrEmpty(greetingResponse.Response))
+                    {
+                        // Add the AI-generated greeting as an assistant message
+                        this.AddAssistantMessage(greetingResponse);
+                    }
+                    else
+                    {
+                        // Fallback to default greeting if AI generation fails or times out
+                        this.AddAssistantMessage(defaultGreeting);
+                    }
+
+                    this._statusLabel.Text = "Ready";
+                    this._progressReporter?.Invoke("Ready");
+                });
             }
-            else
+            catch (Exception ex)
             {
-                AddSystemMessage("I'm an AI assistant. How can I help you today?");
+                Debug.WriteLine($"[WebChatDialog] Error in InitializeNewConversation: {ex.Message}");
+
+                // Ensure we clean up and show fallback greeting on any error
+                await Application.Instance.InvokeAsync(() =>
+                {
+                    // Clear any loading messages and add fallback greeting
+                    this.RemoveLastAssistantMessage();
+                    this.AddAssistantMessage(defaultGreeting);
+                    this._statusLabel.Text = "Ready";
+                    this._progressReporter?.Invoke("Ready");
+                });
             }
-            Application.Instance.AsyncInvoke(() =>
-            {
-                _statusLabel.Text = "Ready";
-                _progressReporter?.Invoke("Ready");
-            });
         }
     }
 }

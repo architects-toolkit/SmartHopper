@@ -129,7 +129,17 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The model to use, or empty string for default model</returns>
         protected string GetModel()
         {
-            return _model ?? ""; // "" means that the provider will use the default model
+            // Get the model, using provider settings default if empty
+            string model = this._model;
+            var provider = this.GetCurrentAIProvider();
+            if (provider == null)
+            {
+                // Handle null provider scenario, return default model
+                return string.Empty;
+            }
+            string actualModel = provider.GetModel(model);
+
+            return actualModel;
         }
 
         #endregion
@@ -149,7 +159,7 @@ namespace SmartHopper.Core.ComponentBase
             parameters ??= new JObject();
             // Inject provider and model
             parameters["provider"] = GetActualProviderName();
-            parameters["model"] = GetModel();
+            parameters["model"] = this.GetModel();
             parameters["reuseCount"] = reuseCount;
 
             JObject result;
