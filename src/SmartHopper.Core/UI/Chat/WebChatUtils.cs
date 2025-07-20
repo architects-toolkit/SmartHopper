@@ -93,7 +93,7 @@ namespace SmartHopper.Core.UI.Chat
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-                        var dialog = new WebChatDialog(getResponse, systemPrompt, progressReporter);
+                        var dialog = new WebChatDialog(getResponse, providerName, systemPrompt, progressReporter);
 
                         // If component ID is provided, store the dialog
                         if (componentId != default)
