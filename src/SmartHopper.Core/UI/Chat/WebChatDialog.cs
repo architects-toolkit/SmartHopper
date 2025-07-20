@@ -986,17 +986,13 @@ namespace SmartHopper.Core.UI.Chat
                     try
                     {
                         // Use AIUtils.GetResponse with the specific provider name and no model (defaults to provider's default model)
-                        var greetingTask = AIUtils.GetResponse(
+                        greetingResponse = await AIUtils.GetResponse(
                             this._providerName,
                             "", // Empty model string will trigger default model usage (a fast and cheap model for general purpose)
                             greetingMessages,
                             jsonSchema: "",
                             endpoint: "",
-                            toolFilter: "-*");
-
-                        // Wait for either completion or timeout
-                        await greetingTask.ConfigureAwait(false);
-                        greetingResponse = greetingTask.Result;
+                            toolFilter: "-*").ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
