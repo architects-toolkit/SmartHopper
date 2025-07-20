@@ -86,4 +86,6 @@ If the current X.Y.Z-dev version in `dev` branch already reflects the appropriat
 
 4. Tell the user that the new branch was created, and explain why you chose the target version number.
 
+Stop here, do not implement any change in files.
+
 Stop the workflow here.
