@@ -516,7 +516,8 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        string script = $"if (typeof removeLastMessageByRole === 'function') {{ return removeLastMessageByRole('{role}'); }} else {{ return false; }}";
+                        string sanitizedRole = JsonConvert.SerializeObject(role);
+                        string script = $"if (typeof removeLastMessageByRole === 'function') {{ return removeLastMessageByRole({sanitizedRole}); }} else {{ return false; }}";
                         string result = this._webView.ExecuteScript(script);
                         removedFromUI = bool.TryParse(result, out bool jsResult) && jsResult;
                     }
