@@ -118,22 +118,13 @@ jobs:
           }
           
           // Move item to new milestone
-          async function moveItemToMilestone(itemNumber, newMilestoneNumber, isPr = false) {
-            if (isPr) {
-              await github.rest.pulls.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: itemNumber,
-                milestone: newMilestoneNumber
-              });
-            } else {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: itemNumber,
-                milestone: newMilestoneNumber
-              });
-            }
+          async function moveItemToMilestone(itemNumber, newMilestoneNumber) {
+            await github.rest.issues.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: itemNumber,
+            milestone: newMilestoneNumber
+            });
           }
           
           // Main logic
@@ -190,28 +181,14 @@ jobs:
           
           for (const issue of openItems.issues) {
             console.log(`Moving issue #${issue.number}: ${issue.title}`);
-            movePromises.push(moveItemToMilestone(issue.number, targetMilestone.number, false));
+            movePromises.push(moveItemToMilestone(issue.number, targetMilestone.number));
           }
           
           for (const pr of openItems.prs) {
             console.log(`Moving PR #${pr.number}: ${pr.title}`);
-            movePromises.push(moveItemToMilestone(pr.number, targetMilestone.number, true));
+            movePromises.push(moveItemToMilestone(pr.number, targetMilestone.number));
           }
           
           await Promise.all(movePromises);
           
           console.log(`Successfully moved ${totalItems} items to milestone "${targetMilestone.title}"`);
-          
-          // Create a summary comment on a representative issue if any exist
-          if (openItems.issues.length > 0 || openItems.prs.length > 0) {
-            const summaryText = [
-              `🚀 **Milestone Management**: Moved ${totalItems} open items from closed milestone "${closedMilestone.title}" to "${targetMilestone.title}"`,
-              '',
-              `**Details:**`,
-              `- Issues moved: ${openItems.issues.length}`,
-              `- PRs moved: ${openItems.prs.length}`,
-              `- Target milestone type: ${milestoneType}`,
-              '',
-              `This was done automatically by the milestone management workflow.`
-            ].join('\n');
-          }
