@@ -52,6 +52,10 @@ jobs:
           console.log('Found full version:', fullVersion);
           
           // Parse and process version
+          // The following logic processes the version string to make it suitable for milestone assignment:
+          // - Build numbers (e.g., ".250720") are removed because they are not relevant for milestone assignment.
+          // - The suffix "-dev" is replaced with "-alpha" because there are no milestones for development versions, 
+          //   and development versions are treated as alpha releases.
           // Examples: "0.4.0-dev.250720" -> "0.4.0-alpha"
           //           "0.4.1-alpha" -> "0.4.1-alpha"  
           //           "0.4.2-beta.250123" -> "0.4.2-beta"
