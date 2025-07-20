@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added GitHub Actions workflow for automatic milestone management, moves open issues/PRs to next appropriate milestone when a milestone is closed
+
+### Changed
+
+- Updated release workflow to automatically assign PRs to milestones
+- Enhanced new-branch workflow with versioning guidance
+
+### Fixed
+
+- Fixed certificate creation tests to handle CI environment constraints
+
 ## [0.3.6-alpha] - 2025-07-20
 
 ### Added
