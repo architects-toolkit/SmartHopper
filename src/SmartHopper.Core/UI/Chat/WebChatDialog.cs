@@ -620,9 +620,16 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
+                // Automatically add loading class for loading messages (any role)
+                string finalRole = role;
+                if (response?.FinishReason == "loading")
+                {
+                    finalRole = role + " loading";
+                }
+
                 // Generate HTML for the message
-                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {role}");
-                string messageHtml = this._htmlRenderer.GenerateMessageHtml(role, response);
+                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {finalRole}");
+                string messageHtml = this._htmlRenderer.GenerateMessageHtml(finalRole, response);
 
                 // Execute JavaScript to add the message to the WebView
                 Debug.WriteLine("[WebChatDialog] Executing JavaScript to add message");
@@ -928,7 +935,6 @@ namespace SmartHopper.Core.UI.Chat
                     Read = false,
                     Time = DateTime.Now,
                 };
-                this._chatHistory.Add(loadingMessage);
 
                 // Display the loading message immediately
                 var loadingResponse = new AIResponse
@@ -1023,7 +1029,7 @@ namespace SmartHopper.Core.UI.Chat
                 await Application.Instance.InvokeAsync(() =>
                 {
                     // Clear any loading messages and add fallback greeting
-                    this._chatHistory.RemoveAll(m => m.Body.Contains("Loading message"));
+                    this.RemoveLastAssistantMessage();
                     this.AddAssistantMessage(defaultGreeting);
                     this._statusLabel.Text = "Ready";
                     this._progressReporter?.Invoke("Ready");
