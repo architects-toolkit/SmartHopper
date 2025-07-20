@@ -131,7 +131,13 @@ namespace SmartHopper.Core.ComponentBase
         {
             // Get the model, using provider settings default if empty
             string model = this._model;
-            string actualModel = this.GetCurrentAIProvider().GetModel(model);
+            var provider = this.GetCurrentAIProvider();
+            if (provider == null)
+            {
+                // Handle null provider scenario, return default model
+                return string.Empty;
+            }
+            string actualModel = provider.GetModel(model);
 
             return actualModel;
         }
