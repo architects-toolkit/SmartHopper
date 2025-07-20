@@ -121,6 +121,13 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
+        internal static Bitmap aimodels {
+            get {
+                object obj = ResourceManager.GetObject("aimodels", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap smarthopper {
             get {
                 object obj = ResourceManager.GetObject("smarthopper", resourceCulture);
