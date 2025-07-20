@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- New loading message while generating the greeting in `InitializeNewConversation`.
+- New loading message while generating the greeting in `InitializeNewConversation`, with spinning animation.
 - Update `chat-script.js` with new function to remove messages.
+- Modified `AddMessageToWebView` to automatically add the loading class when finish reason from responses is "loading".
 
 ### Fixed
 
