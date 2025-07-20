@@ -24,6 +24,8 @@ using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Messaging;
+using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Properties;
@@ -48,6 +50,7 @@ namespace SmartHopper.Core.UI.Chat
         private bool _isProcessing;
         private readonly Func<List<ChatMessageModel>, Task<AIResponse>> _getResponse;
         private readonly HtmlChatRenderer _htmlRenderer;
+        private readonly string _providerName;
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
         private readonly Action<string>? _progressReporter;
@@ -64,14 +67,16 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Creates a new web chat dialog.
         /// </summary>
-        /// <param name="getResponse">Function to get responses from the AI provider</param>
-        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant</param>
-        /// <param name="progressReporter">Optional callback to report progress updates</param>
-        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, string? systemPrompt = null, Action<string>? progressReporter = null)
+        /// <param name="getResponse">Function to get responses from the AI provider.</param>
+        /// <param name="providerName">The name of the AI provider to use for default model operations.</param>
+        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
+        /// <param name="progressReporter">Optional callback to report progress updates.</param>
+        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, string providerName, string? systemPrompt = null, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             this._progressReporter = progressReporter;
             this._systemPrompt = systemPrompt;
+            this._providerName = providerName ?? throw new ArgumentNullException(nameof(providerName));
 
             this.Title = "SmartHopper AI Chat";
             this.MinimumSize = new Size(600, 700);
@@ -153,21 +158,21 @@ namespace SmartHopper.Core.UI.Chat
             this._sendButton = new Button
             {
                 Text = "Send",
-                Enabled = true
+                Enabled = true,
             };
             this._sendButton.Click += this.SendButton_Click;
 
             this._clearButton = new Button
             {
                 Text = "Clear Chat",
-                Enabled = true
+                Enabled = true,
             };
             this._clearButton.Click += this.ClearButton_Click;
 
             this._progressBar = new ProgressBar
             {
                 Indeterminate = true,
-                Visible = false
+                Visible = false,
             };
 
             this._statusLabel = new Label
@@ -462,8 +467,8 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Adds an assistant (AI) message with metrics information.
         /// </summary>
-        /// <param name="message">The message text</param>
-        /// <param name="response">The AI response object containing metrics</param>
+        /// <param name="message">The message text.</param>
+        /// <param name="response">The AI response object containing metrics.</param>
         private void AddAssistantMessage(AIResponse response)
         {
             this._chatHistory.Add(new ChatMessageModel
@@ -482,8 +487,8 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Removes the last message of a specific role from both chat history and WebView.
         /// </summary>
-        /// <param name="role">The role of the message to remove (user, assistant, system)</param>
-        /// <returns>True if a message was removed, false otherwise</returns>
+        /// <param name="role">The role of the message to remove (user, assistant, system).</param>
+        /// <returns>True if a message was removed, false otherwise.</returns>
         private bool RemoveLastMessage(string role)
         {
             if (string.IsNullOrEmpty(role))
@@ -534,7 +539,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Removes the last assistant message from both chat history and WebView.
         /// </summary>
-        /// <returns>True if a message was removed, false otherwise</returns>
+        /// <returns>True if a message was removed, false otherwise.</returns>
         private bool RemoveLastAssistantMessage()
         {
             return this.RemoveLastMessage("assistant");
@@ -893,9 +898,9 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Adds a tool result message to the chat display
+        /// Adds a tool result message to the chat display.
         /// </summary>
-        /// <param name="toolResponse">Result from the tool execution</param>
+        /// <param name="toolResponse">Result from the tool execution.</param>
         private void AddToolResultMessage(AIResponse toolResponse)
         {
             try
@@ -940,7 +945,7 @@ namespace SmartHopper.Core.UI.Chat
                 var loadingResponse = new AIResponse
                 {
                     Response = loadingMessage.Body,
-                    FinishReason = "loading"
+                    FinishReason = "loading",
                 };
 
                 await Application.Instance.InvokeAsync(() =>
@@ -980,8 +985,14 @@ namespace SmartHopper.Core.UI.Chat
 
                     try
                     {
-                        // Start greeting generation task
-                        var greetingTask = this._getResponse(greetingMessages);
+                        // Use AIUtils.GetResponse with the specific provider name and no model (defaults to provider's default model)
+                        var greetingTask = AIUtils.GetResponse(
+                            this._providerName,
+                            "", // Empty model string will trigger default model usage (a fast and cheap model for general purpose)
+                            greetingMessages,
+                            jsonSchema: "",
+                            endpoint: "",
+                            toolFilter: "-*");
 
                         // Wait for either completion or timeout
                         await greetingTask.ConfigureAwait(false);

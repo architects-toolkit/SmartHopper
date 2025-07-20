@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update `chat-script.js` with new function to remove messages.
 - Modified `AddMessageToWebView` to automatically add the loading class when finish reason from responses is "loading".
 - Modified `AIUtils.GetResponse` to use the default model if none is specified.
+- Modified `InitializeNewConversation` to use the default model for greeting generation (a fast and cheap model).
+- Modified `WebChatDialog` constructor to pass the provider name to the base class.
+- Modified the construction of `WebChatDialog` in `WebChatUtils.ShowWebChatDialog` to pass the provider name.
 
 ### Fixed
 
