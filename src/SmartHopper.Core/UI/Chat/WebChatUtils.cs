@@ -35,7 +35,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Dictionary to track open chat dialogs by component instance ID.
         /// </summary>
-        private static readonly Dictionary<Guid, WebChatDialog> OpenDialogs = new();
+        private static readonly Dictionary<Guid, WebChatDialog> OpenDialogs = new ();
 
         /// <summary>
         /// Shows a web-based chat dialog for the specified AI provider and model.

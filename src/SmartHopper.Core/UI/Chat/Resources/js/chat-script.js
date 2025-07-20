@@ -42,6 +42,24 @@ function addMessage(messageHtml) {
 }
 
 /**
+ * Removes the last message of a specific role from the chat container
+ * @param {string} role - The role of the message to remove (user, assistant, system)
+ * @returns {boolean} True if a message was removed, false otherwise
+ */
+function removeLastMessageByRole(role) {
+    const chatContainer = document.getElementById('chat-container');
+    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
+    
+    if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        lastMessage.remove();
+        return true;
+    }
+    
+    return false;
+}
+
+/**
  * Processes code blocks for potential syntax highlighting
  */
 function processCodeBlocks() {
