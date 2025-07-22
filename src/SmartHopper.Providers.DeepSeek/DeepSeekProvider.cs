@@ -254,6 +254,10 @@ namespace SmartHopper.Providers.DeepSeek
                 var usage = responseJson["usage"] as JObject;
                 var reasoning = message["reasoning_content"]?.ToString();
                 var content = message["content"]?.ToString() ?? string.Empty;
+                
+                // Clean up DeepSeek's malformed JSON responses for array schemas
+                content = CleanUpDeepSeekArrayResponse(content);
+                
                 var combined = !string.IsNullOrWhiteSpace(reasoning)
                     ? $"<think>{reasoning}</think>{content}"
                     : content;
@@ -323,6 +327,64 @@ namespace SmartHopper.Providers.DeepSeek
                 Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
                 throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
             }
+        }
+
+        /// <summary>
+        /// Cleans up DeepSeek's malformed JSON responses where array data is incorrectly placed in an "enum" property.
+        /// DeepSeek sometimes returns malformed JSON like: {"type":"array, items":{"type":"string"}, "enum":["item1", "item2", ...]}
+        /// This method extracts the actual array from the "enum" property and returns it as a proper JSON array.
+        /// </summary>
+        /// <param name="content">The raw response content from DeepSeek</param>
+        /// <returns>Cleaned content with proper JSON array format</returns>
+        private static string CleanUpDeepSeekArrayResponse(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return content;
+            }
+
+            try
+            {
+                // Check if this looks like a malformed DeepSeek array response
+                if (content.Contains("enum") && content.Contains("["))
+                {
+                    // Try to parse as JObject first
+                    try
+                    {
+                        var responseObj = JObject.Parse(content);
+                        var enumArray = responseObj["enum"] as JArray;
+                        
+                        if (enumArray != null)
+                        {
+                            // Extract the array from the enum property and return as JSON array
+                            var cleanedArray = enumArray.ToString(Newtonsoft.Json.Formatting.None);
+                            Debug.WriteLine($"[DeepSeek] Cleaned enum array: {cleanedArray}");
+                            return cleanedArray;
+                        }
+                    }
+                    catch
+                    {
+                        // If JSON parsing fails, try regex extraction as fallback
+                        // Look for pattern like: enum":["item1", "item2", ...]
+                        var enumMatch = Regex.Match(content, @"enum[""']?:\s*\[([^\]]+)\]");
+                        if (enumMatch.Success)
+                        {
+                            var enumContent = enumMatch.Groups[1].Value;
+                            // Construct a proper JSON array
+                            var cleanedArray = $"[{enumContent}]";
+                            Debug.WriteLine($"[DeepSeek] Regex extracted enum array: {cleanedArray}");
+                            return cleanedArray;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Error cleaning response: {ex.Message}");
+                // Return original content if cleaning fails
+            }
+
+            return content;
         }
     }
 }

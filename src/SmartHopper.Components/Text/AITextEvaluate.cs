@@ -42,8 +42,8 @@ namespace SmartHopper.Components.Text
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Text", "T", "The text to evaluate", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question.\nThe AI will answer this question based on the input text", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Text", "T", "REQUIRED text to evaluate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Question", "Q", "REQUIRED true or false question.\nAI will answer this question based on the input text", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
