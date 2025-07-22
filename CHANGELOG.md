@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated release workflow to automatically assign PRs to milestones
 - Enhanced new-branch workflow with versioning guidance
 - Using the `StripThinkTags` in all `DataProcessing` tools to avoid including reasoning text in the processed data.
+- Enhanced chat greeting with loading animation and improved model handling ([#255](https://github.com/architects-toolkit/SmartHopper/issues/255))
 
 ### Fixed
 
