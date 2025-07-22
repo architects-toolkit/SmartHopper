@@ -20,6 +20,7 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -90,8 +91,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         response);
                 }
 
+                // Strip thinking tags from response before parsing
+                var cleanedResponse = AI.StripThinkTags(response.Response);
+                
                 // Parse the response
-                var parsedResult = ParsingTools.ParseBooleanFromResponse(response.Response);
+                var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
                 if (parsedResult == null)
                 {
                     return AIEvaluationResult<GH_Boolean>.CreateError(
