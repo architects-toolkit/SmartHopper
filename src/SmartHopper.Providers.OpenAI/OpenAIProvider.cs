@@ -159,17 +159,27 @@ namespace SmartHopper.Providers.OpenAI
                     requestBody["reasoning_effort"] = reasoningEffort;
                 }
 
+                // Store wrapper info for response unwrapping
+                SchemaWrapperInfo wrapperInfo = new SchemaWrapperInfo { IsWrapped = false };
+                
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
                 {
                     try
                     {
                         var schemaObj = JObject.Parse(jsonSchema);
+                        var wrappedSchema = WrapSchemaForOpenAI(schemaObj);
+                        wrapperInfo = wrappedSchema.wrapperInfo;
+                        
                         requestBody["response_format"] = new JObject
                         {
                             ["type"] = "json_schema",
-                            ["schema"] = schemaObj,
-                            ["strict"] = true
+                            ["json_schema"] = new JObject
+                            {
+                                ["name"] = "response_schema",
+                                ["schema"] = wrappedSchema.schema,
+                                ["strict"] = true
+                            }
                         };
                     }
                     catch (Exception ex)
@@ -215,6 +225,9 @@ namespace SmartHopper.Providers.OpenAI
 
                 var content = message["content"]?.ToString() ?? string.Empty;
                 var reasoningSummary = message["reasoning_summary"]?.ToString();
+
+                // Unwrap response content if it was wrapped for schema compatibility
+                content = UnwrapResponseContent(content, wrapperInfo);
 
                 // If we have a reasoning summary, wrap it in <think> tags before the actual content
                 if (!string.IsNullOrWhiteSpace(reasoningSummary))
@@ -289,6 +302,120 @@ namespace SmartHopper.Providers.OpenAI
                 Debug.WriteLine($"[OpenAI] Exception retrieving models: {ex.Message}");
                 throw new Exception($"Error retrieving models from OpenAI API: {ex.Message}", ex);
             }
+        }
+
+        /// <summary>
+        /// Wraps non-object root schemas to meet OpenAI Structured Outputs requirements.
+        /// OpenAI requires root schemas to be objects, so we wrap arrays and other types.
+        /// </summary>
+        /// <param name="originalSchema">The original JSON schema</param>
+        /// <returns>Tuple with wrapped schema and wrapper info for response unwrapping</returns>
+        private static (JObject schema, SchemaWrapperInfo wrapperInfo) WrapSchemaForOpenAI(JObject originalSchema)
+        {
+            var schemaType = originalSchema["type"]?.ToString();
+            
+            // If it's already an object, return as-is
+            if ("object".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return (originalSchema, new SchemaWrapperInfo { IsWrapped = false });
+            }
+
+            // For arrays, wrap in an object with "items" property
+            if ("array".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
+            {
+                var wrappedSchema = new JObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JObject
+                    {
+                        ["items"] = originalSchema
+                    },
+                    ["required"] = new JArray { "items" },
+                    ["additionalProperties"] = false
+                };
+
+                return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items" });
+            }
+
+            // For other primitive types (string, number, integer, boolean), wrap them
+            if (new[] { "string", "number", "integer", "boolean" }.Contains(schemaType))
+            {
+                var wrappedSchema = new JObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JObject
+                    {
+                        ["value"] = originalSchema
+                    },
+                    ["required"] = new JArray { "value" },
+                    ["additionalProperties"] = false
+                };
+
+                return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType, PropertyName = "value" });
+            }
+
+            // For unknown types, wrap generically
+            var genericWrappedSchema = new JObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JObject
+                {
+                    ["data"] = originalSchema
+                },
+                ["required"] = new JArray { "data" },
+                ["additionalProperties"] = false
+            };
+
+            return (genericWrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data" });
+        }
+
+        /// <summary>
+        /// Unwraps OpenAI responses that were wrapped due to schema transformation.
+        /// </summary>
+        /// <param name="content">The response content from OpenAI</param>
+        /// <param name="wrapperInfo">Information about how the schema was wrapped</param>
+        /// <returns>The unwrapped content in original format</returns>
+        private static string UnwrapResponseContent(string content, SchemaWrapperInfo wrapperInfo)
+        {
+            if (!wrapperInfo.IsWrapped || string.IsNullOrWhiteSpace(content))
+            {
+                return content;
+            }
+
+            try
+            {
+                var responseObj = JObject.Parse(content);
+                var unwrappedValue = responseObj[wrapperInfo.PropertyName];
+                
+                if (unwrappedValue != null)
+                {
+                    // For arrays and objects, return as JSON string
+                    if (unwrappedValue.Type == JTokenType.Array || unwrappedValue.Type == JTokenType.Object)
+                    {
+                        return unwrappedValue.ToString(Newtonsoft.Json.Formatting.None);
+                    }
+                    
+                    // For primitive values, return the value directly
+                    return unwrappedValue.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Failed to unwrap response: {ex.Message}");
+                // Return original content if unwrapping fails
+            }
+
+            return content;
+        }
+
+        /// <summary>
+        /// Information about schema wrapping for response unwrapping.
+        /// </summary>
+        private class SchemaWrapperInfo
+        {
+            public bool IsWrapped { get; set; }
+            public string WrapperType { get; set; } = string.Empty;
+            public string PropertyName { get; set; } = string.Empty;
         }
     }
 }
