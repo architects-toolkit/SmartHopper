@@ -21,6 +21,7 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -121,8 +122,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         response);
                 }
 
+                // Strip thinking tags from response before parsing
+                var cleanedResponse = AI.StripThinkTags(response.Response);
+                
                 // Parse the boolean from the response
-                var result = ParsingTools.ParseBooleanFromResponse(response.Response);
+                var result = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
 
                 if (result == null)
                 {

@@ -19,6 +19,7 @@ using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -93,10 +94,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         response);
                 }
 
+                // Strip thinking tags from response before using
+                var cleanedResponse = AI.StripThinkTags(response.Response);
+                
                 // Success case
                 return AIEvaluationResult<GH_String>.CreateSuccess(
                     response,
-                    new GH_String(response.Response));
+                    new GH_String(cleanedResponse));
             }
             catch (Exception ex)
             {

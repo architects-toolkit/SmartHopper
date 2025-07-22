@@ -45,7 +45,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIResponse));
 
-            public string GetModel(Dictionary<string, object> settings, string requestedModel = "") => this.DefaultModel;
+            public string GetModel(string requestedModel = "") => this.DefaultModel;
 
             public void InitializeSettings(Dictionary<string, object> settings)
             {

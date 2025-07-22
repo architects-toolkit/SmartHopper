@@ -133,7 +133,14 @@ namespace SmartHopper.Core.Messaging
                     };
                 }
 
-                Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} with tools filtered by {toolFilter ?? "null"}");
+                // If no model is specified, use the provider's default model
+                if (string.IsNullOrWhiteSpace(model))
+                {
+                    model = selectedProvider.DefaultModel;
+                    Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
+                }
+
+                Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} with model '{model}' and tools filtered by {toolFilter ?? "null"}");
 
                 var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, toolFilter).ConfigureAwait(false);
                 stopwatch.Stop();
