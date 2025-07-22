@@ -20,6 +20,7 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -78,8 +79,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         response);
                 }
 
+                // Strip thinking tags from response before parsing
+                var cleanedResponse = AI.StripThinkTags(response.Response);
+                
                 // Parse JSON array of strings
-                var items = ParsingTools.ParseStringArrayFromResponse(response.Response);
+                var items = ParsingTools.ParseStringArrayFromResponse(cleanedResponse);
                 Debug.WriteLine($"[ListTools] Generated items: {string.Join(", ", items)}");
 
                 return AIEvaluationResult<List<string>>.CreateSuccess(response, items);
