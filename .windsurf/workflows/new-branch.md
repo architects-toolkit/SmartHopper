@@ -6,17 +6,19 @@ description: Add a new git branch based on the description provided by the user
 
 ## Prerequisites
 
-If no description of the purpose of the branch is provided, ask for it and stop the workflow.
+The user should provide a description of the purpose of the new branch. If no description is provided, ask for it and stop the workflow.
+
+Check that current branch is `dev`. If not, switch to `dev` before continuing.
 
 ## Branch Naming Convention
 
 Use the following pattern for branch names:
 
-`prefix/0.0.0-descriptive-title`
+`prefix/X.Y.Z-descriptive-title`
 
 Where:
 - `prefix`: Type of change (see available prefixes below)
-- `0.0.0`: Target version for the changes
+- `X.Y.Z`: Target version for the changes
 - `descriptive-title`: 1-4 words describing the branch purpose (kebab-case)
 
 ### Available Prefixes
@@ -33,41 +35,32 @@ Where:
 
 ### Determining the Target Version
 
-1. **Check Current Versions**:
+1. **Check Current Base Version**:
 
-   - Check `Solutions.props` for the current `dev` version
-   - Check `CHANGELOG.md` for the previous release version
+   - Read the `<SolutionVersion>` entry in `Solution.props` to determine the current BASE VERSION (e.g., `0.4.0-alpha`).
+   - Do not derive the current BASE VERSION from `CHANGELOG.md`; always base on the `<SolutionVersion>` in `Solution.props`.
 
-2. **Version Bump Rules**:
+2. **Check Previous Release Version**:
 
-   | Type of Change | Release Type | Example Version Bump |
-   |----------------|--------------|----------------------|
-   | Bug fixes, minor corrections | Patch | 1.0.0 → 1.0.1 |
-   | New features (backward compatible) | Minor | 1.0.1 → 1.1.0 |
-   | Breaking changes | Major | 1.1.0 → 2.0.0 |
+   - Read the `CHANGELOG.md`.
+   - The first section should be [Unreleased], listing all changes for the current development.
+   - The second section should be the Previous Release. Extract the PREVIOUS RELEASE VERSION (e.g. "## [0.3.6-alpha] - 2025-07-20" → "0.3.6-alpha").
 
-3. **Detailed Decision Criteria**:
+3. **Determining Current Development Status**
 
-   **Patch (0.0.X) when:**
-   - Fixing bugs
-   - Updating documentation
-   - Adding/updating tests
-   - Code refactoring with no behavior changes
-   - Build/CI configuration changes
-   - Dependency updates (patch/minor versions)
+   Compare the CURRENT BASE VERSION and the PREVIOUS RELEASE VERSION to identify the release level being developed in `dev`. Compare only numbers, skip suffixes. The result can be a PATCH release (`0.0.X`), a MINOR release (`0.X.0`), MAJOR release (`X.0.0`) or NONE (all digits remain equal, version unchanged, `0.0.0`). 
 
-   **Minor (0.X.0) when:**
-   - Adding new backward-compatible features
-   - Adding new API endpoints/methods
-   - Deprecating features (without removing them)
-   - Significant performance improvements
-   - Adding new optional configuration
+4. **Determining New Branch Release Level**
 
-   **Major (X.0.0) when:**
-   - Making breaking API changes
-   - Removing deprecated features
-   - Changing existing behavior in non-backward-compatible ways
-   - Major architectural changes
+   Identify the logical release level for the suggested changes in the new branch, based on the description provided by the user. It can be:
+
+   - **Patch** (`0.0.X`): for bug fixes, documentation updates, tests, refactors, and CI changes). 
+   - **Minor** (`0.X.0`): for new backward-compatible features.
+   - **Major** (`X.0.0`): for breaking changes.
+
+5. **Determine Target Version**
+
+   Compare the Required release level (step 4) vs. Current Development Status (step 3). If they match, keep the BASE VERSION as the TARGET VERSION. If they do not match, set the TARGET VERSION in the new branch's name by increasing the patch, minor or major number.
 
 ## Workflow Steps
 
@@ -78,8 +71,10 @@ Where:
    git checkout dev
    git pull public dev
 
-3. Create a new local branch from `dev`. Replace prefix, X.Y.Z, and descriptive-title as appropriate.
+3. Create a new local branch from `dev`. Replace prefix, X.Y.Z, and descriptive-title as appropriate. Ask for confirmation if you doubt.
 
    git checkout -b prefix/X.Y.Z-descriptive-title
 
 4. Tell the user that the new branch was created, and explain why you chose the target version number.
+
+Stop here, do not implement any change in files.

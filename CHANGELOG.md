@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0-alpha] - 2025-07-22
+
+### Added
+
+- New `RemoveLastMessage` method to `WebChatDialog` to remove messages from the chat history.
+- Added GitHub Actions workflow for automatic milestone management, moves open issues/PRs to next appropriate milestone when a milestone is closed
+- JSON wrapper in `OpenAI provider` to prevent passing incorrect JSON schemas to the API.
+- JSON cleaner in `DeepSeek provider` to extract data from malformed responses with `enum` property.
+
+### Changed
+
+- Enhanced chat greeting with loading animation and improved model handling ([#255](https://github.com/architects-toolkit/SmartHopper/issues/255)), including:
+  - New loading message while generating the greeting in `InitializeNewConversation`, with spinning animation.
+  - Update `chat-script.js` with new function to remove messages.
+  - Modified `AddMessageToWebView` to automatically add the loading class when finish reason from responses is "loading".
+  - Modified `AIUtils.GetResponse` to use the default model if none is specified.
+  - Modified `InitializeNewConversation` to use the default model for greeting generation (a fast and cheap model).
+- Modified `WebChatDialog` constructor to pass the provider name to the base class.
+- Modified the construction of `WebChatDialog` in `WebChatUtils.ShowWebChatDialog` to pass the provider name.
+- Modified `GetModel` in `AIStatefulAsyncComponentBase` to use the provider's global model defined in settings if none is specified.
+- Updated release workflow to automatically assign PRs to milestones
+- Enhanced new-branch workflow with versioning guidance
+- Using the `StripThinkTags` in all `DataProcessing` tools to avoid including reasoning text in the processed data.
+
+### Fixed
+
+- Fix incorrect model handling in `AIStatefulAsyncComponentBase`.
+- Fixed certificate creation tests to handle CI environment constraints
+- Updated `GhRetrieveComponents` to use the correct ai tool `gh_list_components` instead of `gh_get_available_components`
+- Fixes ""Missing required parameter: ‘response_format.json_schema" in text-list-generate with OpenAI provider" ([#259](https://github.com/architects-toolkit/SmartHopper/issues/259)).
+
 ## [0.3.6-alpha] - 2025-07-20
 
 ### Added
