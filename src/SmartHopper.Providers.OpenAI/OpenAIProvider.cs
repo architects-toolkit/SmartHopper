@@ -413,8 +413,20 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private class SchemaWrapperInfo
         {
+            /// <summary>
+            /// Indicates whether the response content is wrapped.
+            /// </summary>
             public bool IsWrapped { get; set; }
+
+            /// <summary>
+            /// Specifies the type of wrapper applied to the response content.
+            /// Expected values could include "array", "object", or other schema-related types.
+            /// </summary>
             public string WrapperType { get; set; } = string.Empty;
+
+            /// <summary>
+            /// The name of the property in the wrapped response that contains the actual data.
+            /// </summary>
             public string PropertyName { get; set; } = string.Empty;
         }
     }
