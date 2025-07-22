@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Calculate changed inputs based on actual values, not on object instances, to prevent false positives when connecting new sources with same values in `StatefulAsyncComponentBase`.
+
 ## [0.4.0-alpha] - 2025-07-22
 
 ### Added
