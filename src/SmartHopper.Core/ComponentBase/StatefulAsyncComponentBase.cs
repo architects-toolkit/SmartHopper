@@ -1071,12 +1071,31 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     if (item != null)
                     {
-                        int itemHash = item.GetHashCode();
+                        // Use value-based hashing instead of object-instance hashing
+                        // to prevent false-positive changes when connecting new sources with same values
+                        int itemHash;
+                        
+                        // Try to get the actual value for common Grasshopper types
+                        if (item is IGH_Goo goo && goo.IsValid)
+                        {
+                            var value = goo.ScriptVariable();
+                            itemHash = value?.GetHashCode() ?? 0;
+                        }
+                        else
+                        {
+                            // Fallback to string representation for consistent value-based hashing
+                            itemHash = item.GetHashCode();
+                        }
+                        
                         branchHash = CombineHashCodes(branchHash, itemHash);
                     }
                 }
 
+                // Combine the branch data hash (captures the VALUES in this branch)
                 currentHash = CombineHashCodes(currentHash, branchHash);
+                
+                // Combine the branch path hash (captures the STRUCTURE/PATH of this branch)
+                // This is crucial because branches {0} and {1} with identical data should have different hashes
                 currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
             }
 
