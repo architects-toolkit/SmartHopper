@@ -11,12 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added GitHub Actions workflow for automatic milestone management, moves open issues/PRs to next appropriate milestone when a milestone is closed
 - JSON wrapper in `OpenAI provider` to prevent passing incorrect JSON schemas to the API.
-- JSON cleaner in `DeepSeek provider` to extract data from malformed responses.
+- JSON cleaner in `DeepSeek provider` to extract data from malformed responses with `enum` property.
 
 ### Changed
 
 - Updated release workflow to automatically assign PRs to milestones
 - Enhanced new-branch workflow with versioning guidance
+- Using the `StripThinkTags` in all `DataProcessing` tools to avoid including reasoning text in the processed data.
 
 ### Fixed
 

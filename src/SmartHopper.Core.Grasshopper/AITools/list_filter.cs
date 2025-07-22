@@ -21,6 +21,7 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -127,8 +128,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         response);
                 }
 
+                // Strip thinking tags from response before parsing
+                var cleanedResponse = AI.StripThinkTags(response.Response);
+                
                 // Parse indices from response
-                var indices = ParsingTools.ParseIndicesFromResponse(response.Response);
+                var indices = ParsingTools.ParseIndicesFromResponse(cleanedResponse);
                 Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
 
                 // Success case - return the indices directly
