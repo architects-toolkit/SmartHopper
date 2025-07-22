@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Calculate changed inputs based on actual values, not on object instances, to prevent false positives when connecting new sources with same values in `StatefulAsyncComponentBase`.
 
+### Fixed
+
+- Fixed AI components transitioning to "Run me!" state instead of "Done" when opening files with existing results ([#113](https://github.com/architects-toolkit/SmartHopper/issues/113))
+
 ## [0.4.0-alpha] - 2025-07-22
 
 ### Added

@@ -185,6 +185,15 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            // If we just restored from file, and no outputs were restored,
+            // transition to NeedsRun state
+            if (this.justRestoredFromFile && this.persistentOutputs.Count == 0)
+            {
+                this.justRestoredFromFile = false;
+                this.TransitionTo(ComponentState.NeedsRun, DA);
+                return;
+            }
+            
             this.lastDA = DA;
 
             // Store Run parameter
@@ -301,6 +310,9 @@ namespace SmartHopper.Core.ComponentBase
         private TaskCompletionSource<bool> stateCompletionSource;
         private Queue<ComponentState> pendingTransitions = new ();
         private IGH_DataAccess lastDA;
+        
+        // Flag to track if component was just restored from file with existing outputs
+        private bool justRestoredFromFile = false;
 
         // PUBLIC PROPERTIES
 
@@ -411,6 +423,10 @@ namespace SmartHopper.Core.ComponentBase
         private void OnStateCompleted(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this._state}, InPreSolve: {this.InPreSolve}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}");
+
+            // Ensure message is set correctly for Completed state
+            // This is especially important after file restoration when ProcessTransition might not be called
+            this.Message = ComponentState.Completed.ToMessageString();
 
             // Reapply runtime messages in completed state
             this.ApplyPersistentRuntimeMessages();
@@ -754,7 +770,7 @@ namespace SmartHopper.Core.ComponentBase
                         var chunk = new GH_LooseChunk($"Value_{paramName}");
                         if (paramValue is IGH_Structure structure)
                         {
-                            LogStructureDetails(structure);
+                            // LogStructureDetails(structure);
 
                             // Use reflection to call Write method
                             var writeMethod = structure.GetType().GetMethod("Write");
@@ -856,6 +872,10 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
+            // Outputs restored flag
+            this.justRestoredFromFile = true;
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored from file with {this.persistentOutputs.Count} existing outputs, staying in Completed state");
+
             return true;
         }
 
@@ -880,25 +900,25 @@ namespace SmartHopper.Core.ComponentBase
             return value;
         }
 
-        private static void LogStructureDetails(IGH_Structure structure)
-        {
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
-            // foreach (var path in structure.Paths)
-            // {
-            //     var branch = structure.get_Branch(path);
-            //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
-            //     if (branch != null)
-            //     {
-            //         foreach (var item in branch)
-            //         {
-            //             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
-            //         }
-            //     }
-            // }
-        }
+        // private static void LogStructureDetails(IGH_Structure structure)
+        // {
+        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
+        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
+        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
+        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
+        //     foreach (var path in structure.Paths)
+        //     {
+        //         var branch = structure.get_Branch(path);
+        //         Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
+        //         if (branch != null)
+        //         {
+        //             foreach (var item in branch)
+        //             {
+        //                 Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
+        //             }
+        //         }
+        //     }
+        // }
 
         /// <summary>
         /// Stores a value in the persistent storage.
