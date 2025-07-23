@@ -4,7 +4,7 @@ name: 🧪 .NET CI
 # 
 # Triggers:
 # - push to main branch
-# - pull_request targeting main branch
+# - pull_request targeting main, dev and release branches
 # 
 # Permissions:
 # - contents: read - Required to read repository content
@@ -14,7 +14,6 @@ on:
   push:
     branches:
       - main
-      - dev
   pull_request:
     branches:
       - main
