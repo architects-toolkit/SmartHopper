@@ -81,18 +81,6 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     Debug.WriteLine("[GHComponentUtils] IGH_Param does not implement IGH_PreviewObject");
                 }
             }
-            // else if (obj is IGH_PreviewObject preview)
-            // {
-            //     Debug.WriteLine($"[GHComponentUtils] IGH_PreviewObject.Hidden={preview.Hidden}");
-            //     obj.RecordUndoEvent("[SH] Set Component Preview");
-            //     preview.Hidden = !previewOn;
-            //     Debug.WriteLine($"[GHComponentUtils] New Hidden={preview.Hidden}");
-            //     if (redraw)
-            //     {
-            //         Instances.RedrawCanvas();
-            //         Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
-            //     }
-            // }
             else
             {
                 Debug.WriteLine("[GHComponentUtils] Object is not previewable (not a GH_DocumentObject)");
