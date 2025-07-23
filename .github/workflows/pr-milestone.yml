@@ -80,15 +80,34 @@ jobs:
             state: 'all' // Include both open and closed milestones
           });
           
-          const targetMilestone = milestones.find(milestone => milestone.title === processedVersion);
+          let targetMilestone = milestones.find(milestone => milestone.title === processedVersion);
           
           if (!targetMilestone) {
             console.log(`No milestone found with title: ${processedVersion}`);
             console.log('Available milestones:', milestones.map(m => m.title));
-            return;
+            
+            // Create the milestone if it doesn't exist
+            console.log(`Creating new milestone: ${processedVersion}`);
+            try {
+              const { data: newMilestone } = await github.rest.issues.createMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: processedVersion,
+                description: `Milestone for version ${processedVersion}`,
+                state: 'open'
+              });
+              
+              targetMilestone = newMilestone;
+              console.log(`Successfully created milestone: ${targetMilestone.title}`);
+              
+            } catch (error) {
+              console.error('Error creating milestone:', error);
+              core.setFailed(`Failed to create milestone: ${error.message}`);
+              return;
+            }
+          } else {
+            console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
           }
-          
-          console.log(`Found milestone: ${targetMilestone.title} (${targetMilestone.state})`);
           
           // Assign PR to milestone
           try {
