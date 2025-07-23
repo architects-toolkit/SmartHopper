@@ -28,6 +28,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+#if DEBUG
+using System.Windows.Forms;
+#endif
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
@@ -185,6 +188,15 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            // If we just restored from file, and no outputs were restored,
+            // transition to NeedsRun state
+            if (this.justRestoredFromFile && this.persistentOutputs.Count == 0)
+            {
+                this.justRestoredFromFile = false;
+                this.TransitionTo(ComponentState.NeedsRun, DA);
+                return;
+            }
+            
             this.lastDA = DA;
 
             // Store Run parameter
@@ -301,6 +313,9 @@ namespace SmartHopper.Core.ComponentBase
         private TaskCompletionSource<bool> stateCompletionSource;
         private Queue<ComponentState> pendingTransitions = new ();
         private IGH_DataAccess lastDA;
+        
+        // Flag to track if component was just restored from file with existing outputs
+        private bool justRestoredFromFile = false;
 
         // PUBLIC PROPERTIES
 
@@ -349,7 +364,14 @@ namespace SmartHopper.Core.ComponentBase
                     this.OnDisplayExpired(true);
                     break;
                 case ComponentState.Processing:
-                    // OnStateProcessing(DA);
+                    // Fix for Issue #260: Reset async state only when transitioning from non-Processing states
+                    // This prevents interference with ongoing async state counting mechanism
+                    if (oldState != ComponentState.Processing)
+                    {
+                        Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition from {oldState}");
+                        this.ResetAsyncState();
+                    }
+                    // OnStateProcessing(DA) is called in SolveInstance, not during transition
                     break;
                 case ComponentState.Cancelled:
                     this.OnStateCancelled(DA);
@@ -411,6 +433,10 @@ namespace SmartHopper.Core.ComponentBase
         private void OnStateCompleted(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this._state}, InPreSolve: {this.InPreSolve}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}");
+
+            // Ensure message is set correctly for Completed state
+            // This is especially important after file restoration when ProcessTransition might not be called
+            this.Message = ComponentState.Completed.ToMessageString();
 
             // Reapply runtime messages in completed state
             this.ApplyPersistentRuntimeMessages();
@@ -754,8 +780,9 @@ namespace SmartHopper.Core.ComponentBase
                         var chunk = new GH_LooseChunk($"Value_{paramName}");
                         if (paramValue is IGH_Structure structure)
                         {
+#if DEBUG
                             LogStructureDetails(structure);
-
+#endif
                             // Use reflection to call Write method
                             var writeMethod = structure.GetType().GetMethod("Write");
                             writeMethod?.Invoke(structure, new object[] { chunk });
@@ -856,6 +883,10 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
+            // Outputs restored flag
+            this.justRestoredFromFile = true;
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored from file with {this.persistentOutputs.Count} existing outputs, staying in Completed state");
+
             return true;
         }
 
@@ -880,25 +911,27 @@ namespace SmartHopper.Core.ComponentBase
             return value;
         }
 
+#if DEBUG
         private static void LogStructureDetails(IGH_Structure structure)
         {
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
-            // Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
-            // foreach (var path in structure.Paths)
-            // {
-            //     var branch = structure.get_Branch(path);
-            //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
-            //     if (branch != null)
-            //     {
-            //         foreach (var item in branch)
-            //         {
-            //             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
-            //         }
-            //     }
-            // }
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
+            foreach (var path in structure.Paths)
+            {
+                var branch = structure.get_Branch(path);
+                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
+                if (branch != null)
+                {
+                    foreach (var item in branch)
+                    {
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
+                    }
+                }
+            }
         }
+#endif
 
         /// <summary>
         /// Stores a value in the persistent storage.
@@ -1071,12 +1104,31 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     if (item != null)
                     {
-                        int itemHash = item.GetHashCode();
+                        // Use value-based hashing instead of object-instance hashing
+                        // to prevent false-positive changes when connecting new sources with same values
+                        int itemHash;
+                        
+                        // Try to get the actual value for common Grasshopper types
+                        if (item is IGH_Goo goo && goo.IsValid)
+                        {
+                            var value = goo.ScriptVariable();
+                            itemHash = value?.GetHashCode() ?? 0;
+                        }
+                        else
+                        {
+                            // Fallback to string representation for consistent value-based hashing
+                            itemHash = item.GetHashCode();
+                        }
+                        
                         branchHash = CombineHashCodes(branchHash, itemHash);
                     }
                 }
 
+                // Combine the branch data hash (captures the VALUES in this branch)
                 currentHash = CombineHashCodes(currentHash, branchHash);
+                
+                // Combine the branch path hash (captures the STRUCTURE/PATH of this branch)
+                // This is crucial because branches {0} and {1} with identical data should have different hashes
                 currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
             }
 
@@ -1256,58 +1308,59 @@ namespace SmartHopper.Core.ComponentBase
             return;
         }
 
-        // JUST FOR DEBUG PURPOSES
+#if DEBUG
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Debug: OnDisplayExpired(true)", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
+                OnDisplayExpired(true);
+            });
+            Menu_AppendItem(menu, "Debug: OnDisplayExpired(false)", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
+                OnDisplayExpired(false);
+            });
+            Menu_AppendItem(menu, "Debug: ExpireSolution", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireSolution");
+                ExpireSolution(true);
+            });
+            Menu_AppendItem(menu, "Debug: ExpireDownStreamObjects", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
+                ExpireDownStreamObjects();
+            });
+            Menu_AppendItem(menu, "Debug: ClearData", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearData");
+                ClearData();
+            });
+            Menu_AppendItem(menu, "Debug: ClearDataOnly", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
+                ClearDataOnly();
+            });
+            Menu_AppendItem(menu, "Debug: Add Error", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Error");
+                SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
+            });
+            Menu_AppendItem(menu, "Debug: Add Warning", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Warning");
+                SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
+            });
+            Menu_AppendItem(menu, "Debug: Add Remark", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Remark");
+                SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
+            });
+        }
+#endif
 
-        // public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-        // {
-        //     base.AppendAdditionalMenuItems(menu);
-        //     Menu_AppendSeparator(menu);
-        //     Menu_AppendItem(menu, "Debug: OnDisplayExpired(true)", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
-        //         OnDisplayExpired(true);
-        //     });
-        //     Menu_AppendItem(menu, "Debug: OnDisplayExpired(false)", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
-        //         OnDisplayExpired(false);
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ExpireSolution", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireSolution");
-        //         ExpireSolution(true);
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ExpireDownStreamObjects", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
-        //         ExpireDownStreamObjects();
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ClearData", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearData");
-        //         ClearData();
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ClearDataOnly", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
-        //         ClearDataOnly();
-        //     });
-        //     Menu_AppendItem(menu, "Debug: Add Error", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Error");
-        //         SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
-        //     });
-        //     Menu_AppendItem(menu, "Debug: Add Warning", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Warning");
-        //         SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
-        //     });
-        //     Menu_AppendItem(menu, "Debug: Add Remark", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Remark");
-        //         SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
-        //     });
-        // }
         public override void RequestTaskCancellation()
         {
             base.RequestTaskCancellation();

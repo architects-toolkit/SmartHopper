@@ -112,16 +112,12 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             Debug.WriteLine("[AsyncComponentBase] BeforeSolveInstance - Cleaning up previous run");
-            foreach (var source in this._cancellationSources)
-            {
-                source.Cancel();
-            }
+            
+            // Cancel any running tasks before reset
+            this.TaskCancellation();
 
-            this._cancellationSources.Clear();
-            this._tasks.Clear();
-            this.Workers.Clear();
-            this._state = 0;
-            this._setData = 0;
+            // Use the centralized reset method
+            this.ResetAsyncState();
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -271,12 +267,41 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        public virtual void RequestTaskCancellation()
+        private void TaskCancellation()
         {
             foreach (var source in this._cancellationSources)
             {
                 source.Cancel();
             }
+        }
+
+        public virtual void RequestTaskCancellation()
+        {
+            this.TaskCancellation();
+        }
+
+        /// <summary>
+        /// Resets the AsyncComponentBase state variables to allow fresh worker creation.
+        /// This is needed when transitioning to Processing state from other states,
+        /// especially for boolean toggle scenarios where async state needs to be reset.
+        /// </summary>
+        protected void ResetAsyncState()
+        {
+            Debug.WriteLine($"[{this.GetType().Name}] ResetAsyncState - Before: State={this._state}, Tasks={this._tasks?.Count ?? 0}, SetData={this._setData}");
+
+            // Clear cancellation sources from previous runs
+            this._cancellationSources?.Clear();
+
+            // Clear any existing tasks and workers from previous runs
+            this._tasks?.Clear();
+            this.Workers?.Clear();
+
+            // Reset the async component state variables to initial values
+            // This ensures that AsyncComponentBase.SolveInstance() will create new workers
+            this._state = 0;
+            this._setData = 0;
+
+            Debug.WriteLine($"[{this.GetType().Name}] ResetAsyncState - After: State={this._state}, Tasks={this._tasks?.Count ?? 0}, SetData={this._setData}");
         }
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)

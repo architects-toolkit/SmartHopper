@@ -24,7 +24,8 @@ Where:
 ### Available Prefixes
 
 - `feature`: New functionality
-- `fix`: Bug fixes
+- `bugfix`: Bug fixes
+- `hotfix`: Bugs that need to be fixed urgently in production
 - `docs`: Documentation changes
 - `refactor`: Code changes that neither fix bugs nor add features
 - `test`: Adding missing tests or correcting tests
