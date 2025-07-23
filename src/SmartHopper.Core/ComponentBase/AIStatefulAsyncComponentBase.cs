@@ -311,11 +311,11 @@ namespace SmartHopper.Core.ComponentBase
             base.BeforeSolveInstance();
 
             // Clear previous response metrics only when starting a new run
-            if (this.CurrentState == ComponentState.Processing && this.Run)
+            // Fix for boolean toggle issue: Only clear when Run is true AND we have no active workers
+            // This ensures we're truly starting a new processing run, not in the middle of one
+            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0)
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics");
-
-                // Clear the stored metrics on start a new run
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
                 _responseMetrics.Clear();
             }
         }

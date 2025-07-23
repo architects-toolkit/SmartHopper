@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Multiple fixes to `StatefulAsyncComponentBase`:
+  - Fixed issue: Components now transition to "Done" state when opening files with existing results instead of "Run me!" ([#113](https://github.com/architects-toolkit/SmartHopper/issues/113))
+  - Calculate changed inputs based on actual values, not on object instances, to prevent false positives when connecting new sources with same values.
+  - Fixed issue: Stuck components when using Boolean toggle ([#260](https://github.com/architects-toolkit/SmartHopper/issues/260)).
+  - Fixed issue: Output metrics not being set when using Boolean toggle.
+
 ## [0.4.0-alpha] - 2025-07-22
 
 ### Added
