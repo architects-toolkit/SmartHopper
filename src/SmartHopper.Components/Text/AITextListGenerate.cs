@@ -94,7 +94,7 @@ namespace SmartHopper.Components.Text
                 try
                 {
                     Debug.WriteLine($"[AITextListGenerate] Starting DoWorkAsync");
-                    this.result = await DataTreeProcessor.RunFunctionAsync(
+                    this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
                         async (branches, reuseCount) =>
                         {
