@@ -21,18 +21,30 @@ namespace SmartHopper.Core.ComponentBase
         NeedsRun, // When running with a button, Run = False. On input changes && Run = True, transition to Processing
         Processing, // Run async work, transition to Completed when all workers finish
         Cancelled, // Manually cancelled, add error and transition to Waiting
-        Error // An error occurred, add error and transition to Waiting
+        Error, // An error occurred, add error and transition to Waiting
     }
 
     /// <summary>
-    /// Extension methods for ComponentState enum
+    /// Extension methods for ComponentState enum.
     /// </summary>
     public static class ComponentStateExtensions
     {
         /// <summary>
-        /// Gets a user-friendly string representation of the ComponentState
+        /// Gets a user-friendly string representation of the ComponentState.
         /// </summary>
+        /// <returns></returns>
         public static string ToMessageString(this ComponentState state)
+        {
+            return ToMessageString(state, null);
+        }
+
+        /// <summary>
+        /// Gets a user-friendly string representation of the ComponentState with optional progress information.
+        /// </summary>
+        /// <param name="state">The component state.</param>
+        /// <param name="progressInfo">Optional progress information for dynamic messages.</param>
+        /// <returns>A formatted state message string.</returns>
+        public static string ToMessageString(this ComponentState state, ProgressInfo progressInfo)
         {
             switch (state)
             {
@@ -41,6 +53,10 @@ namespace SmartHopper.Core.ComponentBase
                 case ComponentState.NeedsRun:
                     return "Run me!";
                 case ComponentState.Processing:
+                    if (progressInfo?.IsActive == true)
+                    {
+                        return $"Process {progressInfo.GetProgressString()}...";
+                    }
                     return "Processing...";
                 case ComponentState.Completed:
                     return "Done";

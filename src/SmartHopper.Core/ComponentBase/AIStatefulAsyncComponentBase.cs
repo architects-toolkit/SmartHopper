@@ -20,38 +20,26 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
+using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
     /// Base class for stateful asynchronous Grasshopper components.
-    /// Provides integrated state management, parallel processing, messaging, and persistence capabilities.
+    /// Provides integrated state management, parallel processing, messaging, and persistence capabilities
+    /// with AI provider selection functionality.
     /// </summary>
-    public abstract class AIStatefulAsyncComponentBase : StatefulAsyncComponentBase
+    public abstract class AIStatefulAsyncComponentBase : AIProviderComponentBase
     {
-        /// <summary>
-        /// Special value used to indicate that the default provider from settings should be used.
-        /// </summary>
-        public const string DEFAULT_PROVIDER = "Default";
-
         /// <summary>
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
         private string _model;
-
-        /// <summary>
-        /// The selected AI provider. Set up from the component's dropdown menu.
-        /// </summary>
-        public string _aiProvider { get; private set; }
-        private string _previousSelectedProvider;
 
         /// <summary>
         /// Creates a new instance of the AI-powered stateful asynchronous component.
@@ -69,8 +57,6 @@ namespace SmartHopper.Core.ComponentBase
             string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            // Set the default provider option
-            _aiProvider = DEFAULT_PROVIDER;
         }
 
         #region PARAMS
@@ -126,76 +112,7 @@ namespace SmartHopper.Core.ComponentBase
 
         #region PROVIDER
 
-        /// <summary>
-        /// Appends additional menu items to the component's context menu.
-        /// </summary>
-        /// <param name="menu">The menu to append to.</param>
-        protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
-        {
-            base.AppendAdditionalComponentMenuItems(menu);
-
-            // Add provider selection submenu
-            var providersMenu = new ToolStripMenuItem("Select AI Provider");
-            menu.Items.Add(providersMenu);
-
-            // Add the Default option first
-            var defaultItem = new ToolStripMenuItem(DEFAULT_PROVIDER)
-            {
-                Checked = _aiProvider == DEFAULT_PROVIDER,
-                CheckOnClick = true,
-                Tag = DEFAULT_PROVIDER
-            };
-
-            defaultItem.Click += (s, e) =>
-            {
-                var menuItem = s as ToolStripMenuItem;
-                if (menuItem != null)
-                {
-                    // Uncheck all other items
-                    foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
-                    {
-                        if (otherItem != menuItem)
-                            otherItem.Checked = false;
-                    }
-
-                    _aiProvider = DEFAULT_PROVIDER;
-                    ExpireSolution(true);
-                }
-            };
-
-            providersMenu.DropDownItems.Add(defaultItem);
-
-            // Get all available providers
-            var providers = ProviderManager.Instance.GetProviders();
-            foreach (var provider in providers)
-            {
-                var item = new ToolStripMenuItem(provider.Name)
-                {
-                    Checked = provider.Name == _aiProvider,
-                    CheckOnClick = true,
-                    Tag = provider.Name
-                };
-
-                item.Click += (s, e) =>
-                {
-                    var menuItem = s as ToolStripMenuItem;
-                    if (menuItem != null)
-                    {
-                        // Uncheck all other items
-                        foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
-                        {
-                            if (otherItem != menuItem)
-                                otherItem.Checked = false;
-                        }
-
-                        _aiProvider = menuItem.Tag.ToString();
-                        ExpireSolution(true);
-                    }
-                };
-
-                providersMenu.DropDownItems.Add(item);
-            }
-        }
+        // Provider selection functionality is now inherited from AIProviderComponentBase
 
         /// <summary>
         /// Sets the model to use for AI processing.
@@ -212,79 +129,22 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The model to use, or empty string for default model</returns>
         protected string GetModel()
         {
-            return _model ?? ""; // "" means that the provider will use the default model
-        }
-
-        protected override List<string> InputsChanged()
-        {
-            List<string> changedInputs = base.InputsChanged();
-
-            if (_aiProvider != _previousSelectedProvider)
+            // Get the model, using provider settings default if empty
+            string model = this._model;
+            var provider = this.GetCurrentAIProvider();
+            if (provider == null)
             {
-                changedInputs.Add("AIProvider");
-                _previousSelectedProvider = _aiProvider;
+                // Handle null provider scenario, return default model
+                return string.Empty;
             }
+            string actualModel = provider.GetModel(model);
 
-            return changedInputs;
+            return actualModel;
         }
 
         #endregion
 
         #region AI
-
-        //TODO: deprecate GetResponse, replace with CallAiTool to handle provider and model selection, as well as metrics output
-
-        /// <summary>
-        /// Gets a response from the AI provider using the provided messages and cancellation token.
-        /// </summary>
-        /// <param name="messages">The messages to send to the AI provider.</param>
-        /// <param name="contextProviderFilter">Optional filter for context providers (comma-separated list).</param>
-        /// <param name="contextKeyFilter">Optional filter for context keys (comma-separated list).</param>
-        /// <param name="reuseCount">Optional. The number of times this response will be reused across different branches. Default is 1.</param>
-        /// <returns>The AI response from the provider.</returns>
-        protected async Task<AIResponse> GetResponse(
-            List<KeyValuePair<string, string>> messages,
-            string contextProviderFilter = null,
-            string contextKeyFilter = null,
-            int reuseCount = 1)
-        {
-            try
-            {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] This method is being deprecated. Use CallAiToolAsync instead.");
-                
-                // Get the actual provider name to use
-                string actualProvider = GetActualProviderName();
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [GetResponse] Using Provider: {actualProvider} (Selected: {_aiProvider})");
-
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Number of messages: " + messages.Count);
-
-                if (messages == null || !messages.Any())
-                {
-                    return null;
-                }
-
-                var response = await AIUtils.GetResponse(
-                    actualProvider,
-                    model: GetModel(),
-                    messages,
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter);
-
-                // Store response metrics with the provided reuse count
-                StoreResponseMetrics(response, reuseCount);
-
-                return response;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] GetResponse - Exception: {ex.Message}");
-                return new AIResponse
-                {
-                    Response = ex.Message,
-                    FinishReason = "error"
-                };
-            }
-        }
 
         /// <summary>
         /// Executes an AI tool via AIToolManager, auto-injecting provider/model
@@ -299,7 +159,7 @@ namespace SmartHopper.Core.ComponentBase
             parameters ??= new JObject();
             // Inject provider and model
             parameters["provider"] = GetActualProviderName();
-            parameters["model"]    = GetModel();
+            parameters["model"] = this.GetModel();
             parameters["reuseCount"] = reuseCount;
 
             JObject result;
@@ -320,7 +180,7 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"]   = ex.Message
+                    ["error"] = ex.Message
                 };
             }
 
@@ -451,11 +311,11 @@ namespace SmartHopper.Core.ComponentBase
             base.BeforeSolveInstance();
 
             // Clear previous response metrics only when starting a new run
-            if (this.CurrentState == ComponentState.Processing && this.Run)
+            // Fix for boolean toggle issue: Only clear when Run is true AND we have no active workers
+            // This ensures we're truly starting a new processing run, not in the middle of one
+            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0)
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics");
-
-                // Clear the stored metrics on start a new run
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
                 _responseMetrics.Clear();
             }
         }
@@ -463,18 +323,6 @@ namespace SmartHopper.Core.ComponentBase
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
             SetMetricsOutput(DA);
-        }
-
-        #endregion
-
-        #region DESIGN
-
-        /// <summary>
-        /// Creates the custom attributes for this component, which includes the provider logo badge.
-        /// </summary>
-        public override void CreateAttributes()
-        {
-            m_attributes = new AIComponentAttributes(this);
         }
 
         #endregion
@@ -500,94 +348,5 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
-        #region PERSISTENCE
-
-        /// <summary>
-        /// Writes the component's persistent data to the Grasshopper file.
-        /// </summary>
-        /// <param name="writer">The writer to use for serialization</param>
-        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs</returns>
-        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
-        {
-            if (!base.Write(writer))
-                return false;
-
-            try
-            {
-                // Store the selected AI provider
-                writer.SetString("AIProvider", _aiProvider);
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Write] Stored AI provider: {_aiProvider}");
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Write] Exception: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Reads the component's persistent data from the Grasshopper file.
-        /// </summary>
-        /// <param name="reader">The reader to use for deserialization</param>
-        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs</returns>
-        public override bool Read(GH_IO.Serialization.GH_IReader reader)
-        {
-            if (!base.Read(reader))
-                return false;
-
-            try
-            {
-                // Read the stored AI provider if available
-                if (reader.ItemExists("AIProvider"))
-                {
-                    string storedProvider = reader.GetString("AIProvider");
-                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Read stored AI provider: {storedProvider}");
-
-                    // Check if the provider exists in the available providers
-                    var providers = ProviderManager.Instance.GetProviders();
-                    if (providers.Any(p => p.Name == storedProvider))
-                    {
-                        _aiProvider = storedProvider;
-                        _previousSelectedProvider = storedProvider;
-                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Restored AI provider: {_aiProvider}");
-                    }
-                    else
-                    {
-                        // If the provider doesn't exist, use the first available provider
-                        var availableProviders = ProviderManager.Instance.GetProviders();
-                        _aiProvider = availableProviders.Any() ? availableProviders.First().Name : "Default";
-                        _previousSelectedProvider = _aiProvider;
-                        Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Provider not found, using default: {_aiProvider}");
-                    }
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [Read] Exception: {ex.Message}");
-                return false;
-            }
-        }
-
-        #endregion
-
-        /// <summary>
-        /// Gets the actual provider name to use for AI processing.
-        /// If the selected provider is "Default", returns the default provider from settings.
-        /// </summary>
-        /// <returns>The actual provider name to use</returns>
-        protected string GetActualProviderName()
-        {
-            if (_aiProvider == DEFAULT_PROVIDER)
-            {
-                // Use the ProviderManager to get the default provider
-                return ProviderManager.Instance.GetDefaultAIProvider();
-            }
-
-            return _aiProvider;
-        }
     }
 }

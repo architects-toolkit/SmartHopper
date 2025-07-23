@@ -165,7 +165,7 @@ if ($Generate) {
     } elseif (Test-Path $Sign -PathType Container) {
         Write-Host "Signing assemblies under directory: $Sign"
         $items = Get-ChildItem -Path $Sign -Recurse -Filter "*.dll" |
-            Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Config.dll" }
+            Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Infrastructure.dll" }
     } else {
         Write-Error "Path '$Sign' is not a .dll file or directory"
         exit 1

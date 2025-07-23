@@ -68,7 +68,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         /// <summary>
         /// Determines if the specified type is a supported primitive type
         /// </summary>
-        public static bool IsPrimitiveType(string type) => 
+        public static bool IsPrimitiveType(string type) =>
             PrimitiveTypes.Contains(type);
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         /// <summary>
         /// Determines if the specified type is numeric (Number or Integer)
         /// </summary>
-        public static bool IsNumeric(string type) => 
+        public static bool IsNumeric(string type) =>
             type == Number || type == Integer;
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         /// </summary>
         public static bool IsCollection(string type) =>
             type == List || type == Tree;
-        
+
         /// <summary>
         /// Determines if the specified type is valid (supported primitive, data structure or special type)
         /// </summary>

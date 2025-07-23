@@ -129,7 +129,7 @@ jobs:
           echo "Checking PR title: $PR_TITLE"
           
           # Valid types based on conventional commits
-          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security"
+          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|release"
           
           # Check if PR title follows conventional commits format
           if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]]; then
@@ -150,6 +150,7 @@ jobs:
             echo "  chore:    Other changes that don't modify src or test files"
             echo "  revert:   Revert a previous commit"
             echo "  security: Security-related changes"
+            echo "  release:  Release PR"
             echo ""
             echo "Examples:"
             echo "  feat: add new grasshopper component"

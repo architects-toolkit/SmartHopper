@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
+    <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

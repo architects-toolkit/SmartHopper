@@ -9,17 +9,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added Instructions input to AI Chat Component ([#87](https://github.com/architects-toolkit/SmartHopper/issues/87)).
-- Added systemPrompt parameter to WebChatUtils.ShowWebChatDialog
 - New `AvailableComponentsContextProvider` to provide information about installed Grasshopper components
+
+## [0.4.1-alpha] - 2025-07-23
+
+### Added
+
+- New `ProgressInfo` class to `StatefulAsyncComponentBase` to provide progress information to the UI. It allows to display a dynamic progress reporting which branch is being processed.
+
+### Fixed
+
+- Multiple fixes to `StatefulAsyncComponentBase`:
+  - Fixed issue: Components now transition to "Done" state when opening files with existing results instead of "Run me!" ([#113](https://github.com/architects-toolkit/SmartHopper/issues/113))
+  - Calculate changed inputs based on actual values, not on object instances, to prevent false positives when connecting new sources with same values.
+  - Fixed issue: Stuck components when using Boolean toggle ([#260](https://github.com/architects-toolkit/SmartHopper/issues/260)).
+  - Fixed issue: Output metrics not being set when using Boolean toggle.
+- Fixed issue ([#208](https://github.com/architects-toolkit/SmartHopper/issues/208)): enabled compatibility with params in `gh_toggle_preview` tool.
+- Fixed WebChatDialog not automatically closing when Rhino is closed.
+
+## [0.4.0-alpha] - 2025-07-22
+
+### Added
+
+- New `RemoveLastMessage` method to `WebChatDialog` to remove messages from the chat history.
+- Added GitHub Actions workflow for automatic milestone management, moves open issues/PRs to next appropriate milestone when a milestone is closed
+- JSON wrapper in `OpenAI provider` to prevent passing incorrect JSON schemas to the API.
+- JSON cleaner in `DeepSeek provider` to extract data from malformed responses with `enum` property.
 
 ### Changed
 
-- Several improvements to AI Chat Component:
-  - Updated WebChatDialog to use provided system prompt or fall back to default
+- Enhanced chat greeting with loading animation and improved model handling ([#255](https://github.com/architects-toolkit/SmartHopper/issues/255)), including:
+  - New loading message while generating the greeting in `InitializeNewConversation`, with spinning animation.
+  - Update `chat-script.js` with new function to remove messages.
+  - Modified `AddMessageToWebView` to automatically add the loading class when finish reason from responses is "loading".
+  - Modified `AIUtils.GetResponse` to use the default model if none is specified.
+  - Modified `InitializeNewConversation` to use the default model for greeting generation (a fast and cheap model).
+- Modified `WebChatDialog` constructor to pass the provider name to the base class.
+- Modified the construction of `WebChatDialog` in `WebChatUtils.ShowWebChatDialog` to pass the provider name.
+- Modified `GetModel` in `AIStatefulAsyncComponentBase` to use the provider's global model defined in settings if none is specified.
+- Updated release workflow to automatically assign PRs to milestones
+- Enhanced new-branch workflow with versioning guidance
+- Using the `StripThinkTags` in all `DataProcessing` tools to avoid including reasoning text in the processed data.
+
+### Fixed
+
+- Fix incorrect model handling in `AIStatefulAsyncComponentBase`.
+- Fixed certificate creation tests to handle CI environment constraints
+- Updated `GhRetrieveComponents` to use the correct ai tool `gh_list_components` instead of `gh_get_available_components`
+- Fixes "Missing required parameter: ‘response_format.json_schema' in text-list-generate with OpenAI provider" ([#259](https://github.com/architects-toolkit/SmartHopper/issues/259)).
+
+## [0.3.6-alpha] - 2025-07-20
+
+### Added
+
+- Added icon to `AIModelsComponent`
+
+## [0.3.5-alpha] - 2025-07-19
+
+### Added
+
+- New methods in AIProvider base class:
+  - Add DefaultServerUrl property
+  - Added CallApi method to AIProvider base class supporting GET/POST/DELETE/PATCH
+  - Added RetrieveAvailableModels method to AIProvider base class with default to empty list
+- Implemented RetrieveAvailableModels, CallApi and DefaultServerUrl to existing providers (MistralAIProvider, OpenAIProvider, and DeepSeekProvider).
+- New AIModelsComponent component under SmartHopper > AI categories that uses provider's RetrieveAvailableModels() to fetch model list.
+
+### Changed
+
+- Update providersResources access modifiers from public to internal
+- Clean up AboutDialog by removing MathJax attribution
+- Moved provider selection logic from AIProviderComponentBase to AIProviderComponentBase
+- Moved InputsChanged method with override for including HasProviderChanged from AIStatefulAsyncComponentBase to AIProviderComponentBase
+
+### Removed
+
+- Removed MathJax support from chat UI since it was not properly implemented and was generating security warnings on GitHub.
+
+## [0.3.4-alpha] - 2025-07-11
+
+### Added
+
+- Added `Instructions` input to `AIChatComponent` ([#87](https://github.com/architects-toolkit/SmartHopper/issues/87))
+- Added `systemPrompt` parameter to `WebChatUtils.ShowWebChatDialog`
+- Context manager improvements:
+  - Added support for "-*" to exclude all providers/context in one go
+  - Added support for space as additional delimiters in filter strings
+  - Explicitly handle "*" wildcard to include all providers/context by default
+- Added `gh_group` AI tool for grouping components by GUID, with support to custom names and colors
+- Added `list_generate` AI tool for generating a list of items from a prompt and count ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
+- New `AITextListGenerate` component implementing `list_generate` AI tool with type 'text' ([#6](https://github.com/architects-toolkit/SmartHopper/issues/6))
+- Added `Category` property to `AITool` with default value "General"
+- New `Filter` class for common include/exclude patterns processing
+
+### Changed
+
+- Several improvements to `AIChatComponent`:
+  - Updated `WebChatDialog` to use provided system prompt or fall back to default
   - Improved default system prompt for AI Chat to focus on a Grasshopper assistant, including tool call examples
-- Modified manifest to reflect new context input feature
-- Code cleanup in AI Chat Component, WebChatDialog and WebChatUtils
+  - Added `gh_group` mention to default system prompt
+- Modified manifest to reflect new instructions input feature in AI Chat Component
+- Modified `AITextEvaluate`, `AITextGenerate`, `AIListEvaluate` and `AIListFilter` to exclude all context using the new "-*" filter
+- Code reorganization:
+  - Reorganized `AIProvider`, `AIContext` and `AITool` managers
+  - Code cleanup in `AIChatComponent`, `WebChatDialog` and `WebChatUtils`
+  - Renamed `SmartHopper.Config` to `SmartHopper.Infrastructure`
+  - Renamed `SmartHopper.Config.Tests` to `SmartHopper.Infrastructure.Tests`
+- Updated `StringConverter.StringToColor` to accept argb, rgb, html and known color names as input
+- Change `GetResponse` parameter from `includeToolDefinitions` to `toolFilter`
+- Updated AITool constructor to require category parameter
+- Categorized existing tools with DataProcessing, Components, Knowledge and Scripting categories
+- Updated unit tests to include category parameter
+- Integrated the new `Filter` class in `GetFormattedTools` and `GetCurrentContext`
+
+### Removed
+
+- Removed unnecessary `GetModel` and `GetFormattedTools` methods in `OpenAIProvider`, `MistralAIProvider` and `TemplateProvider`
+- Removed `GetResponse` method from `AIStatefulAsyncComponentBase` in favor of `CallAiToolAsync`
 
 ## [0.3.3-alpha] - 2025-06-23
 

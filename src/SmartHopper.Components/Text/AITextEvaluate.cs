@@ -19,10 +19,8 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Tools;
 using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
@@ -44,8 +42,8 @@ namespace SmartHopper.Components.Text
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Text", "T", "The text to evaluate", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question.\nThe AI will answer this question based on the input text", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Text", "T", "REQUIRED text to evaluate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Question", "Q", "REQUIRED true or false question.\nAI will answer this question based on the input text", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -100,7 +98,7 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await DataTreeProcessor.RunFunctionAsync(
+                    this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
                         async (branches, reuseCount) =>
                         {
@@ -162,7 +160,7 @@ namespace SmartHopper.Components.Text
                     {
                         ["text"] = textTree[i]?.Value,
                         ["question"] = questionTree[i]?.Value,
-                        ["contextProviderFilter"] = "-environment,-time"
+                        ["contextProviderFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)

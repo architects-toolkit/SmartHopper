@@ -9,8 +9,8 @@
  */
 
 using System.Reflection;
-using SmartHopper.Menu.Dialogs;
 using System.Windows.Forms;
+using SmartHopper.Menu.Dialogs;
 
 namespace SmartHopper.Menu.Items
 {

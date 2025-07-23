@@ -357,9 +357,22 @@ namespace SmartHopper.Core.DataTree
 
         #region EXEC
 
+        /// <summary>
+        /// Runs a function on all branches of multiple data trees with progress reporting.
+        /// </summary>
+        /// <typeparam name="T">Type of input tree items</typeparam>
+        /// <typeparam name="U">Type of output tree items</typeparam>
+        /// <param name="trees">Dictionary of input data trees</param>
+        /// <param name="function">Function to run on each branch</param>
+        /// <param name="progressCallback">Optional callback to report progress (current, total)</param>
+        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing</param>
+        /// <param name="token">Cancellation token</param>
+        /// <returns>Dictionary of output data trees</returns>
         public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
             Func<Dictionary<string, List<T>>, int, Task<Dictionary<string, List<U>>>> function,
+            Action<int, int> progressCallback = null,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false,
             CancellationToken token = default)
@@ -379,6 +392,12 @@ namespace SmartHopper.Core.DataTree
             }
 
             var (allPaths, pathsToApplyMap) = GetProcessingPaths(trees, onlyMatchingPaths, groupIdenticalBranches);
+
+            // Initialize progress tracking
+            int totalPaths = pathsToApplyMap.Count;
+            int currentPathIndex = 1;
+            Debug.WriteLine($"[DataTreeProcessor] Progress tracking initialized: {currentPathIndex}/{totalPaths} (unique processing operations)");
+            progressCallback?.Invoke(currentPathIndex, totalPaths);
 
             foreach (var path in allPaths)
             {
@@ -445,6 +464,12 @@ namespace SmartHopper.Core.DataTree
                 {
                     Debug.WriteLine($"[DataTreeProcessor] Error processing path {path}: {ex.Message}");
                     throw;
+                }
+                finally
+                {
+                    // Update progress after processing each path
+                    currentPathIndex++;
+                    progressCallback?.Invoke(currentPathIndex, totalPaths);
                 }
             }
 

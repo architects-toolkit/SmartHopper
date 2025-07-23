@@ -9,7 +9,7 @@
  */
 
 using Grasshopper.Kernel;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Grasshopper.Models
 {

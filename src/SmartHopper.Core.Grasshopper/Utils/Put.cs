@@ -27,14 +27,14 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// <summary>
     /// Utility to place deserialized Grasshopper objects onto the canvas.
     /// </summary>
-    public static class Put
+    internal static class Put
     {
         public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, int span = 100)
         {
             var startPoint = GHCanvasUtils.StartPoint(span);
             return PutObjectsOnCanvas(document, startPoint);
         }
-        
+
         /// <summary>
         /// Core placement logic; returns mapping from template InstanceGuid to placed component InstanceGuid.
         /// </summary>

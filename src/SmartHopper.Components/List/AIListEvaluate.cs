@@ -20,10 +20,9 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Config.Managers;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Tools;
+using SmartHopper.Core.Grasshopper.Utils;
 
 namespace SmartHopper.Components.List
 {
@@ -103,7 +102,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await DataTreeProcessor.RunFunctionAsync(
+                    this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
                         async (branches, reuseCount) =>
                         {
@@ -170,7 +169,7 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["question"] = question.Value,
-                        ["contextProviderFilter"] = "-environment,-time"
+                        ["contextProviderFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync(

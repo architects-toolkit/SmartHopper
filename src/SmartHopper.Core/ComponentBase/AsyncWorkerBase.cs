@@ -25,13 +25,14 @@ namespace SmartHopper.Core.ComponentBase
         protected readonly Action<GH_RuntimeMessageLevel, string> AddRuntimeMessage;
 
         protected AsyncWorkerBase(
-            //Action<string> progressReporter,
+
+            // Action<string> progressReporter,
             GH_Component parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
         {
-            //ReportProgress = progressReporter;
-            Parent = parent;
-            AddRuntimeMessage = addRuntimeMessage;
+            // ReportProgress = progressReporter;
+            this.Parent = parent;
+            this.AddRuntimeMessage = addRuntimeMessage;
         }
 
         /// <summary>
@@ -42,6 +43,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Perform the asynchronous computation.
         /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public abstract Task DoWorkAsync(CancellationToken token);
 
         /// <summary>

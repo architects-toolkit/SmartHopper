@@ -8,10 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
 using System.Collections.Generic;
 using System.Linq;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {

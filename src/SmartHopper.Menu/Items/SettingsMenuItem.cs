@@ -8,8 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Menu.Dialogs;
 using System.Windows.Forms;
+using SmartHopper.Menu.Dialogs;
 
 namespace SmartHopper.Menu.Items
 {
@@ -22,13 +22,13 @@ namespace SmartHopper.Menu.Items
 
         public static ToolStripMenuItem Create()
         {
-        var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
-        item.Click += (sender, e) =>
-        {
+            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
+            item.Click += (sender, e) =>
+            {
                 var dialog = new SettingsDialog();
                 dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow);
-        };
-        return item;
+            };
+            return item;
         }
     }
 }

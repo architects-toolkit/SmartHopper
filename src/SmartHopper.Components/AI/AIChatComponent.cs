@@ -19,10 +19,11 @@ using System.Drawing;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Config.Models;
-using SmartHopper.Core.AI;
-using SmartHopper.Core.AI.Chat;
+using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.UI.Chat;
+using SmartHopper.Infrastructure.Managers.AIContext;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Components.AI
 {
@@ -59,6 +60,7 @@ namespace SmartHopper.Components.AI
               - gh_get[attrFilters="+error +warning"]: get all components with errors or warnings
               - gh_get[guidFilter="guid1"]: get all info about a specific component by its GUID
             - gh_list_components: list installed components to know about the user's available tools
+            - gh_group: group components to highlight them to the user, or make notes about them
             - web_rhino_forum_search: look up Rhino forum discussions to try to find answers to the user's question
             - web_rhino_forum_read_post: read a specific post from the Rhino forum
             - generic_page_read: read a web page by providing the URL
@@ -131,13 +133,12 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the system prompt from the component.
         /// </summary>
-        /// <returns>The system prompt.</returns>
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string systemPrompt = null;
             DA.GetData("Instructions", ref systemPrompt);
-            SetSystemPrompt(systemPrompt);
+            this.SetSystemPrompt(systemPrompt);
 
             base.SolveInstance(DA);
         }
@@ -228,7 +229,7 @@ namespace SmartHopper.Components.AI
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualProviderName();
-                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component._aiProvider})");
+                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualProviderName()})");
 
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
@@ -274,7 +275,7 @@ namespace SmartHopper.Components.AI
                     // Store metrics for the base class to output
                     this.component.StoreResponseMetrics(this.lastResponse);
 
-                     message = $"Ready";
+                    message = $"Ready";
                 }
                 else
                 {

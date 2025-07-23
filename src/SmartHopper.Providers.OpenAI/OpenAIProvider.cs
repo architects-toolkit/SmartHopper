@@ -12,15 +12,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Net.Http;
-using System.Text;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Utils;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -30,10 +28,10 @@ namespace SmartHopper.Providers.OpenAI
     public sealed class OpenAIProvider : AIProvider
     {
         private const string NameValue = "OpenAI";
-        private const string ApiURL = "https://api.openai.com/v1/chat/completions";
         private const string DefaultModelValue = "gpt-4.1-mini";
+        private const string DefaultServerUrlValue = "https://api.openai.com/v1";
 
-        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
+        private static readonly Lazy<OpenAIProvider> InstanceValue = new(() => new OpenAIProvider());
 
         public static OpenAIProvider Instance => InstanceValue.Value;
 
@@ -44,6 +42,11 @@ namespace SmartHopper.Providers.OpenAI
         public override string Name => NameValue;
 
         public override string DefaultModel => DefaultModelValue;
+
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public override string DefaultServerUrl => DefaultServerUrlValue;
 
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
@@ -73,15 +76,12 @@ namespace SmartHopper.Providers.OpenAI
         /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a
         /// reasoning_summary field, we embed it as <think>…</think> immediately preceding the assistant's response.
         /// </remarks>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
         {
             // Get settings from the secure settings store
-            string apiKey = this.GetSetting<string>("ApiKey");
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
-
-            // Skip API key validation since any value is valid
 
             // Use default model if none specified
             if (string.IsNullOrWhiteSpace(modelName))
@@ -90,11 +90,6 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             Debug.WriteLine($"[OpenAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
-
-            using (var httpClient = new HttpClient())
-            {
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-                httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
                 // Format messages for OpenAI API
                 var convertedMessages = new JArray();
@@ -164,17 +159,27 @@ namespace SmartHopper.Providers.OpenAI
                     requestBody["reasoning_effort"] = reasoningEffort;
                 }
 
+                // Store wrapper info for response unwrapping
+                SchemaWrapperInfo wrapperInfo = new SchemaWrapperInfo { IsWrapped = false };
+                
                 // Add response format if JSON schema is provided
                 if (!string.IsNullOrEmpty(jsonSchema))
                 {
                     try
                     {
                         var schemaObj = JObject.Parse(jsonSchema);
+                        var wrappedSchema = WrapSchemaForOpenAI(schemaObj);
+                        wrapperInfo = wrappedSchema.wrapperInfo;
+                        
                         requestBody["response_format"] = new JObject
                         {
                             ["type"] = "json_schema",
-                            ["schema"] = schemaObj,
-                            ["strict"] = true
+                            ["json_schema"] = new JObject
+                            {
+                                ["name"] = "response_schema",
+                                ["schema"] = wrappedSchema.schema,
+                                ["strict"] = true
+                            }
                         };
                     }
                     catch (Exception ex)
@@ -186,9 +191,9 @@ namespace SmartHopper.Providers.OpenAI
 
 
                 // Add tools if requested
-                if (includeToolDefinitions)
+                if (!string.IsNullOrWhiteSpace(toolFilter))
                 {
-                    var tools = GetFormattedTools();
+                    var tools = this.GetFormattedTools();
                     if (tools != null && tools.Count > 0)
                     {
                         requestBody["tools"] = tools;
@@ -196,148 +201,233 @@ namespace SmartHopper.Providers.OpenAI
                     }
                 }
 
-                var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-                Debug.WriteLine($"[OpenAI] Request: {requestBody}");
+            Debug.WriteLine($"[OpenAI] Request: {requestBody}");
 
-                try
-                {
-                    var response = await httpClient.PostAsync(ApiURL, requestContent).ConfigureAwait(false);
-                    var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    Debug.WriteLine($"[OpenAI] Response status: {response.StatusCode}");
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        Debug.WriteLine($"[OpenAI] Error response: {responseContent}");
-                        var errorObj = JObject.Parse(responseContent);
-                        var errorMessage = errorObj["error"]?["message"]?.ToString() ?? responseContent;
-                        throw new Exception($"Error from OpenAI API: {response.StatusCode} - {errorMessage}");
-                    }
-
-                    var responseJson = JObject.Parse(responseContent);
-                    Debug.WriteLine($"[OpenAI] Response parsed successfully");
-
-                    // Extract response content from the Chat Completions API format
-                    var message = responseJson["choices"]?[0]?["message"] as JObject;
-                    var usage = responseJson["usage"] as JObject;
-
-                    if (message == null)
-                    {
-                        Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
-                        throw new Exception("Invalid response from OpenAI API: No message found");
-                    }
-
-
-                    // extract reasoning_summary and wrap in <think> if present
-                    var content = message?["content"]?.ToString() ?? string.Empty;
-                    var summary = responseJson["choices"]?[0]?["reasoning_summary"]?.ToString();
-                    var combined = !string.IsNullOrWhiteSpace(summary)
-                        ? $"<think>{summary}</think>{content}"
-                        : content;
-                    var aiResponse = new AIResponse
-                    {
-                        Response = combined,
-                        Provider = "OpenAI",
-                        Model = modelName,
-                        FinishReason = responseJson["choices"]?[0]?["finish_reason"]?.ToString() ?? "unknown",
-                        InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                        OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                    };
-
-                    // Handle tool calls if any
-                    if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
-                    {
-                        aiResponse.ToolCalls = new List<AIToolCall>();
-                        foreach (JObject toolCall in toolCalls)
-                        {
-                            var function = toolCall["function"] as JObject;
-                            if (function != null)
-                            {
-                                aiResponse.ToolCalls.Add(new AIToolCall
-                                {
-                                    Id = toolCall["id"]?.ToString(),
-                                    Name = function["name"]?.ToString(),
-                                    Arguments = function["arguments"]?.ToString(),
-                                });
-                            }
-                        }
-                    }
-
-                    Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
-                    return aiResponse;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
-                    throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
-                }
-            }
-        }
-
-        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-            {
-                return requestedModel;
-            }
-
-            // Use the model from settings if available
-            string modelFromSettings = this.GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-            {
-                return modelFromSettings;
-            }
-
-            // Fall back to the default model
-            return this.DefaultModel;
-        }
-
-        /// <summary>
-        /// Gets the tools formatted for the OpenAI API.
-        /// </summary>
-        /// <returns>JArray of formatted tools.</returns>
-        private static new JArray? GetFormattedTools()
-        {
             try
             {
-                // Ensure tools are discovered
-                AIToolManager.DiscoverTools();
+                // Use the new Call method for HTTP request
+                var responseContent = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
 
-                // Get all available tools
-                var tools = AIToolManager.GetTools();
-                if (tools.Count == 0)
+                var responseJson = JObject.Parse(responseContent);
+                Debug.WriteLine($"[OpenAI] Response parsed successfully");
+
+                // Extract response content
+                var choices = responseJson["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var message = firstChoice?["message"] as JObject;
+                var usage = responseJson["usage"] as JObject;
+
+                if (message == null)
                 {
-                    Debug.WriteLine("No tools available.");
-                    return null;
+                    Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
+                    throw new Exception("Invalid response from OpenAI API: No message found");
                 }
 
-                var toolsArray = new JArray();
+                var content = message["content"]?.ToString() ?? string.Empty;
+                var reasoningSummary = message["reasoning_summary"]?.ToString();
 
-                foreach (var tool in tools)
+                // Unwrap response content if it was wrapped for schema compatibility
+                content = UnwrapResponseContent(content, wrapperInfo);
+
+                // If we have a reasoning summary, wrap it in <think> tags before the actual content
+                if (!string.IsNullOrWhiteSpace(reasoningSummary))
                 {
-                    // Format each tool according to OpenAI's requirements
-                    var toolObject = new JObject
+                    content = $"<think>{reasoningSummary}</think>\n\n{content}";
+                }
+
+                var aiResponse = new AIResponse
+                {
+                    Response = content,
+                    Provider = "OpenAI",
+                    Model = modelName,
+                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
+                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                };
+
+                // Handle tool calls if any
+                if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                {
+                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    foreach (JObject toolCall in toolCalls)
                     {
-                        ["type"] = "function",
-                        ["function"] = new JObject
+                        var function = toolCall["function"] as JObject;
+                        if (function != null)
                         {
-                            ["name"] = tool.Value.Name,
-                            ["description"] = tool.Value.Description,
-                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
-                        },
-                    };
-
-                    toolsArray.Add(toolObject);
+                            aiResponse.ToolCalls.Add(new AIToolCall
+                            {
+                                Id = toolCall["id"]?.ToString(),
+                                Name = function["name"]?.ToString(),
+                                Arguments = function["arguments"]?.ToString(),
+                            });
+                        }
+                    }
                 }
 
-                Debug.WriteLine($"Formatted {toolsArray.Count} tools for OpenAI");
-                return toolsArray;
+                Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
+                return aiResponse;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error formatting tools: {ex.Message}");
-                return null;
+                Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
+                throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
             }
+        }
+
+        /// <summary>
+        /// Retrieves the list of available model IDs from OpenAI.
+        /// </summary>
+        public override async Task<List<string>> RetrieveAvailableModels()
+        {
+            Debug.WriteLine("[OpenAI] Retrieving available models");
+            try
+            {
+                var content = await CallApi("/models").ConfigureAwait(false);
+                var json = JObject.Parse(content);
+                var data = json["data"] as JArray;
+                var modelIds = new List<string>();
+                if (data != null)
+                {
+                    foreach (var item in data.OfType<JObject>())
+                    {
+                        var id = item["id"]?.ToString();
+                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                    }
+                }
+
+                return modelIds;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Exception retrieving models: {ex.Message}");
+                throw new Exception($"Error retrieving models from OpenAI API: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Wraps non-object root schemas to meet OpenAI Structured Outputs requirements.
+        /// OpenAI requires root schemas to be objects, so we wrap arrays and other types.
+        /// </summary>
+        /// <param name="originalSchema">The original JSON schema</param>
+        /// <returns>Tuple with wrapped schema and wrapper info for response unwrapping</returns>
+        private static (JObject schema, SchemaWrapperInfo wrapperInfo) WrapSchemaForOpenAI(JObject originalSchema)
+        {
+            var schemaType = originalSchema["type"]?.ToString();
+            
+            // If it's already an object, return as-is
+            if ("object".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
+            {
+                return (originalSchema, new SchemaWrapperInfo { IsWrapped = false });
+            }
+
+            // For arrays, wrap in an object with "items" property
+            if ("array".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
+            {
+                var wrappedSchema = new JObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JObject
+                    {
+                        ["items"] = originalSchema
+                    },
+                    ["required"] = new JArray { "items" },
+                    ["additionalProperties"] = false
+                };
+
+                return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items" });
+            }
+
+            // For other primitive types (string, number, integer, boolean), wrap them
+            if (new[] { "string", "number", "integer", "boolean" }.Contains(schemaType))
+            {
+                var wrappedSchema = new JObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JObject
+                    {
+                        ["value"] = originalSchema
+                    },
+                    ["required"] = new JArray { "value" },
+                    ["additionalProperties"] = false
+                };
+
+                return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType, PropertyName = "value" });
+            }
+
+            // For unknown types, wrap generically
+            var genericWrappedSchema = new JObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JObject
+                {
+                    ["data"] = originalSchema
+                },
+                ["required"] = new JArray { "data" },
+                ["additionalProperties"] = false
+            };
+
+            return (genericWrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data" });
+        }
+
+        /// <summary>
+        /// Unwraps OpenAI responses that were wrapped due to schema transformation.
+        /// </summary>
+        /// <param name="content">The response content from OpenAI</param>
+        /// <param name="wrapperInfo">Information about how the schema was wrapped</param>
+        /// <returns>The unwrapped content in original format</returns>
+        private static string UnwrapResponseContent(string content, SchemaWrapperInfo wrapperInfo)
+        {
+            if (!wrapperInfo.IsWrapped || string.IsNullOrWhiteSpace(content))
+            {
+                return content;
+            }
+
+            try
+            {
+                var responseObj = JObject.Parse(content);
+                var unwrappedValue = responseObj[wrapperInfo.PropertyName];
+                
+                if (unwrappedValue != null)
+                {
+                    // For arrays and objects, return as JSON string
+                    if (unwrappedValue.Type == JTokenType.Array || unwrappedValue.Type == JTokenType.Object)
+                    {
+                        return unwrappedValue.ToString(Newtonsoft.Json.Formatting.None);
+                    }
+                    
+                    // For primitive values, return the value directly
+                    return unwrappedValue.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Failed to unwrap response: {ex.Message}");
+                // Return original content if unwrapping fails
+            }
+
+            return content;
+        }
+
+        /// <summary>
+        /// Information about schema wrapping for response unwrapping.
+        /// </summary>
+        private class SchemaWrapperInfo
+        {
+            /// <summary>
+            /// Indicates whether the response content is wrapped.
+            /// </summary>
+            public bool IsWrapped { get; set; }
+
+            /// <summary>
+            /// Specifies the type of wrapper applied to the response content.
+            /// Expected values could include "array", "object", or other schema-related types.
+            /// </summary>
+            public string WrapperType { get; set; } = string.Empty;
+
+            /// <summary>
+            /// The name of the property in the wrapped response that contains the actual data.
+            /// </summary>
+            public string PropertyName { get; set; } = string.Empty;
         }
     }
 }

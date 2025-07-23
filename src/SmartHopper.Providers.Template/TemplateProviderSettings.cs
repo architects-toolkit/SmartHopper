@@ -8,12 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Managers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using SmartHopper.Config.Dialogs;
+using System.Linq;
+using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Providers.Template
 {

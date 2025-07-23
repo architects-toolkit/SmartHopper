@@ -8,9 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
 using System;
 using System.Drawing;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {
@@ -18,6 +18,15 @@ namespace SmartHopper.Core.Grasshopper.Converters
     {
         public static Color StringToColor(string colorString)
         {
+            // If the input is HTML hex or known color name (no commas), parse with full opacity
+            if (string.IsNullOrWhiteSpace(colorString))
+                throw new ArgumentException("Invalid color string format. Use 'R,G,B', 'A,R,G,B', '#RRGGBB', or known color name.");
+            if (!colorString.Contains(","))
+            {
+                var c = ColorTranslator.FromHtml(colorString);
+                return Color.FromArgb(255, c.R, c.G, c.B);
+            }
+
             // Split the input string by commas
             string[] parts = colorString.Split(',');
 

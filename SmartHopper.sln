@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Grasshoppe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Components", "src\SmartHopper.Components\SmartHopper.Components.csproj", "{60732624-037C-4D6D-BC4C-588A0C25C338}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Config", "src\SmartHopper.Config\SmartHopper.Config.csproj", "{A932CFFA-0C82-4A1F-92F2-003CDE1C94AC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Infrastructure", "src\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj", "{A932CFFA-0C82-4A1F-92F2-003CDE1C94AC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Menu", "src\SmartHopper.Menu\SmartHopper.Menu.csproj", "{B932CFFA-0C82-4A1F-92F2-003CDE1C94AD}"
 EndProject
@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.Mistr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.OpenAI", "src\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj", "{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Config.Tests", "src\SmartHopper.Config.Tests\SmartHopper.Config.Tests.csproj", "{469B4BA9-C2CB-4270-8896-0F04DAF67887}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Infrastructure.Tests", "src\SmartHopper.Infrastructure.Tests\SmartHopper.Infrastructure.Tests.csproj", "{469B4BA9-C2CB-4270-8896-0F04DAF67887}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject

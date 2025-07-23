@@ -14,16 +14,13 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
-using SmartHopper.Config.Utils;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -49,7 +46,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// The default model to use if none is specified.
         /// </summary>
         private const string _defaultModel = "deepseek-chat";
-        private const string ApiURL = "https://api.deepseek.com/chat/completions";
+        private const string DefaultServerUrlValue = "https://api.deepseek.com";
 
         /// <summary>
         /// Private constructor to enforce singleton pattern.
@@ -68,6 +65,11 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets the default model for this provider.
         /// </summary>
         public override string DefaultModel => _defaultModel;
+
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public override string DefaultServerUrl => DefaultServerUrlValue;
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
@@ -97,27 +99,18 @@ namespace SmartHopper.Providers.DeepSeek
         /// <param name="model">The model to use, or empty for default.</param>
         /// <param name="jsonSchema">Optional JSON schema for response formatting.</param>
         /// <param name="endpoint">Optional custom endpoint URL.</param>
-        /// <param name="includeToolDefinitions">Optional flag to include tool definitions in the response.</param>
+        /// <param name="toolFilter">Optional flag to include tool definitions in the response.</param>
         /// <returns>The AI response.</returns>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", bool includeToolDefinitions = false)
+        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
         {
             try
             {
-                string apiKey = GetSetting<string>("ApiKey");
                 int maxTokens = GetSetting<int>("MaxTokens");
                 string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    throw new Exception("DeepSeek API key is not configured or is invalid.");
-                }
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
                     modelName = this.DefaultModel;
                 }
-
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                 // Format messages for DeepSeek API
                 var convertedMessages = new JArray();
@@ -151,7 +144,7 @@ namespace SmartHopper.Providers.DeepSeek
                                 toolCalls[i]["function"]["arguments"] = JsonConvert.SerializeObject(toolCall["function"]["arguments"], Formatting.None);
                                 i++;
                             }
-                            
+
                             messageObj["tool_calls"] = toolCalls;
                         }
                     }
@@ -232,9 +225,9 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 // Add tools if requested
-                if (includeToolDefinitions)
+                if (!string.IsNullOrWhiteSpace(toolFilter))
                 {
-                    var tools = this.GetFormattedTools();
+                    var tools = this.GetFormattedTools(toolFilter);
                     if (tools != null && tools.Count > 0)
                     {
                         requestBody["tools"] = tools;
@@ -242,20 +235,10 @@ namespace SmartHopper.Providers.DeepSeek
                     }
                 }
 
-                var requestContent = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
-                string url = ApiURL;
                 Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
 
-                var response = await httpClient.PostAsync(url, requestContent).ConfigureAwait(false);
-                var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Debug.WriteLine($"[DeepSeek] Response status: {response.StatusCode}");
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    Debug.WriteLine($"[DeepSeek] Error response: {responseString}");
-                    throw new Exception($"Error from DeepSeek API: {response.StatusCode} - {responseString}");
-                }
-
+                // Use the new Call method for HTTP request
+                var responseString = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
                 var responseJson = JObject.Parse(responseString);
                 Debug.WriteLine($"[DeepSeek] Response parsed successfully");
 
@@ -271,6 +254,10 @@ namespace SmartHopper.Providers.DeepSeek
                 var usage = responseJson["usage"] as JObject;
                 var reasoning = message["reasoning_content"]?.ToString();
                 var content = message["content"]?.ToString() ?? string.Empty;
+                
+                // Clean up DeepSeek's malformed JSON responses for array schemas
+                content = CleanUpDeepSeekArrayResponse(content);
+                
                 var combined = !string.IsNullOrWhiteSpace(reasoning)
                     ? $"<think>{reasoning}</think>{content}"
                     : content;
@@ -313,28 +300,91 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Gets the model to use for AI processing.
+        /// Retrieves the list of available model IDs from DeepSeek.
         /// </summary>
-        /// <param name="settings">The provider settings.</param>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        public override string GetModel(Dictionary<string, object> settings, string requestedModel = "")
+        public override async Task<List<string>> RetrieveAvailableModels()
         {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
+            Debug.WriteLine("[DeepSeek] Retrieving available models");
+            try
             {
-                return requestedModel;
+                var content = await CallApi("/models").ConfigureAwait(false);
+                var json = JObject.Parse(content);
+                var data = json["data"] as JArray;
+                var modelIds = new List<string>();
+                if (data != null)
+                {
+                    foreach (var item in data.OfType<JObject>())
+                    {
+                        var id = item["id"]?.ToString();
+                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                    }
+                }
+
+                return modelIds;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
+                throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Cleans up DeepSeek's malformed JSON responses where array data is incorrectly placed in an "enum" property.
+        /// DeepSeek sometimes returns malformed JSON like: {"type":"array, items":{"type":"string"}, "enum":["item1", "item2", ...]}
+        /// This method extracts the actual array from the "enum" property and returns it as a proper JSON array.
+        /// </summary>
+        /// <param name="content">The raw response content from DeepSeek</param>
+        /// <returns>Cleaned content with proper JSON array format</returns>
+        private static string CleanUpDeepSeekArrayResponse(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return content;
             }
 
-            // Use the model from settings if available
-            string modelFromSettings = this.GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            try
             {
-                return modelFromSettings;
+                // Check if this looks like a malformed DeepSeek array response
+                if (content.Contains("enum") && content.Contains("["))
+                {
+                    // Try to parse as JObject first
+                    try
+                    {
+                        var responseObj = JObject.Parse(content);
+                        var enumArray = responseObj["enum"] as JArray;
+                        
+                        if (enumArray != null)
+                        {
+                            // Extract the array from the enum property and return as JSON array
+                            var cleanedArray = enumArray.ToString(Newtonsoft.Json.Formatting.None);
+                            Debug.WriteLine($"[DeepSeek] Cleaned enum array: {cleanedArray}");
+                            return cleanedArray;
+                        }
+                    }
+                    catch
+                    {
+                        // If JSON parsing fails, try regex extraction as fallback
+                        // Look for pattern like: enum":["item1", "item2", ...]
+                        var enumMatch = Regex.Match(content, @"enum[""']?:\s*\[([^\]]+)\]");
+                        if (enumMatch.Success)
+                        {
+                            var enumContent = enumMatch.Groups[1].Value;
+                            // Construct a proper JSON array
+                            var cleanedArray = $"[{enumContent}]";
+                            Debug.WriteLine($"[DeepSeek] Regex extracted enum array: {cleanedArray}");
+                            return cleanedArray;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Error cleaning response: {ex.Message}");
+                // Return original content if cleaning fails
             }
 
-            // Fall back to the default model
-            return this.DefaultModel;
+            return content;
         }
     }
 }

@@ -11,9 +11,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using SmartHopper.Config.Dialogs;
-using SmartHopper.Config.Interfaces;
-using SmartHopper.Config.Models;
+using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -91,7 +92,7 @@ namespace SmartHopper.Providers.DeepSeek
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
             Debug.WriteLine($"[DeepSeek] ValidateSettings called. Settings null? {settings == null}");
-            
+
             if (settings == null)
             {
                 return false;

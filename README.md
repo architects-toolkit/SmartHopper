@@ -1,7 +1,7 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E3%2E4--dev%2E250709-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E4%2E1--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
@@ -70,15 +70,16 @@ After installation, all SmartHopper components will be available in the Grasshop
 | AI Chat Output (AiChatOutput)<br><sub>Receive some data from the AI Chat to your Grasshopper</sub> | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Script Review (AiScriptReview)<br><sub>Make a review of a script, using AI</sub> | ⚪ | - | - | - |
 | AI Script Edit (AiScriptEdit)<br><sub>Modify an existing script using AI</sub> | ⚪ | - | - | - |
 | AI Script New (AiScriptNew)<br><sub>Generate a script using AI</sub> | ⚪ | - | - | - |
 | AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI List Generate (AiListGenerate)<br><sub>Generate lists dynamically using AI algorithms</sub> | ⚪ | - | - | - |
 | AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | ⚪ | - | - | - |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
 | AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Models (AiModels)<br><sub>Retrieve the list of available models for a specific provider</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | JSON schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | ⚪ | - | - | - |
 | JSON object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | ⚪ | - | - | - |
 | JSON array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | ⚪ | - | - | - |
@@ -97,6 +98,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_evaluate | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
+| list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
 | script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |

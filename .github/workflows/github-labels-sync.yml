@@ -15,6 +15,7 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - .github/labels.yml
   workflow_dispatch:
@@ -27,12 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT }}
       
       - uses: micnncim/action-label-syncer@v1.3.0
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           manifest: .github/labels.yml
           prune: false

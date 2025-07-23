@@ -8,7 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Config.Interfaces;
+using SmartHopper.Infrastructure.Interfaces;
 
 namespace SmartHopper.Providers.MistralAI
 {

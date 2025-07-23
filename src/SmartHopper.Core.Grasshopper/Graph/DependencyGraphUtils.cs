@@ -15,8 +15,6 @@ using System.Drawing;
 using System.Linq;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Models.Components;
-using SmartHopper.Core.Models.Connections;
 using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Graph
@@ -35,7 +33,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         public static List<NodeGridComponent> CreateComponentGrid(GrasshopperDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 80f)
         {
             Debug.WriteLine("[CreateComponentGrid] Initializing unified grid...");
-            
+
             // Initialize grid
             var grid = InitializeGrid(doc);
 
@@ -116,7 +114,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
             }
 
             DebugDumpGrid("Result", result);
-            
+
             return result;
         }
 
@@ -183,7 +181,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
             Debug.WriteLine($"[SugiyamaAlgorithm] Step 5: Multi-layer sweep");
             grid = Sugiyama05_MultiLayerSweep(grid);
             DebugDumpGrid("After MultiLayerSweep", grid);
-            
+
             return grid;
         }
 
@@ -217,8 +215,11 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 var left = byLayer[li].ToList();
                 var rightIds = new HashSet<Guid>(byLayer[li + 1].Select(n => n.ComponentId));
                 // group left nodes by identical set of targets in next layer
-                var groups = left.Select(n => new { Node = n,
-                                        Targets = n.Children.Keys.Where(id => rightIds.Contains(id)).OrderBy(id => id).ToList() })
+                var groups = left.Select(n => new
+                {
+                    Node = n,
+                    Targets = n.Children.Keys.Where(id => rightIds.Contains(id)).OrderBy(id => id).ToList()
+                })
                                 .GroupBy(x => string.Join(",", x.Targets))
                                 .Where(g => g.Count() > 1 && g.First().Targets.Count > 1);
                 foreach (var grp in groups)
@@ -457,7 +458,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         private static List<NodeGridComponent> AlignParamsToInputs(List<NodeGridComponent> grid, float spacingY)
         {
             spacingY = spacingY / 2;
-            
+
             Debug.WriteLine($"[AlignParamsToInputs] Starting alignment with spacingY={spacingY}");
             // Group nodes by actual X position (columns)
             var byColumn = grid.GroupBy(n => n.Pivot.X)
@@ -507,7 +508,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
             }
             return grid;
         }
-        
+
         /// <summary>
         /// Aligns parent components belonging to the same single child into a contiguous block above the child.
         /// </summary>
@@ -516,7 +517,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         private static List<NodeGridComponent> AlignParentsAndChildren(List<NodeGridComponent> grid, float spacingY)
         {
             spacingY = spacingY / 2;
-            
+
             Debug.WriteLine($"[AlignParentsAndChildren] Starting alignment with spacingY={spacingY}");
             // Group nodes by actual X position (columns)
             var byColumn = grid.GroupBy(n => n.Pivot.X)

@@ -39,7 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
+    <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
     <ProjectReference Include="..\SmartHopper.Core\SmartHopper.Core.csproj" />
     <ProjectReference Include="..\SmartHopper.Core.Grasshopper\SmartHopper.Core.Grasshopper.csproj" />
   </ItemGroup>

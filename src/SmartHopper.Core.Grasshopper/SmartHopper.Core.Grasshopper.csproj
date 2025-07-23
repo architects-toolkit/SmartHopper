@@ -45,7 +45,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SmartHopper.Config\SmartHopper.Config.csproj" />
+    <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
     <ProjectReference Include="..\SmartHopper.Core\SmartHopper.Core.csproj">
       <Project>{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}</Project>
       <Name>SmartHopper.Core</Name>
