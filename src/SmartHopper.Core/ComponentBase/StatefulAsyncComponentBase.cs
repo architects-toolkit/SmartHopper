@@ -54,6 +54,11 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public bool RunOnlyOnInputChanges { get; set; } = true;
 
+        /// <summary>
+        /// Progress information for tracking processing operations.
+        /// </summary>
+        protected ProgressInfo ProgressInfo { get; private set; } = new ProgressInfo();
+
         #region CONSTRUCTOR
 
         /// <summary>
@@ -337,7 +342,6 @@ namespace SmartHopper.Core.ComponentBase
 
             this.currentState = newState;
             Debug.WriteLine($"[{this.GetType().Name}] State transition: {oldState} -> {newState}");
-            this.Message = newState.ToMessageString();
 
             this.stateCompletionSource = new TaskCompletionSource<bool>();
 
@@ -353,13 +357,16 @@ namespace SmartHopper.Core.ComponentBase
             switch (newState)
             {
                 case ComponentState.Completed:
+                    this.Message = this.GetStateMessage();
                     this.OnStateCompleted(DA);
                     break;
                 case ComponentState.Waiting:
+                    this.Message = this.GetStateMessage();
                     //// OnStateWaiting is only called in SolveInstance
                     // OnStateWaiting(DA);
                     break;
                 case ComponentState.NeedsRun:
+                    this.Message = this.GetStateMessage();
                     this.OnStateNeedsRun(DA);
                     this.OnDisplayExpired(true);
                     break;
@@ -370,14 +377,19 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition from {oldState}");
                         this.ResetAsyncState();
+                        this.ResetProgress();
                     }
+                    // Set the message after Resetting the progress
+                    this.Message = this.GetStateMessage();
                     // OnStateProcessing(DA) is called in SolveInstance, not during transition
                     break;
                 case ComponentState.Cancelled:
+                    this.Message = this.GetStateMessage();
                     this.OnStateCancelled(DA);
                     this.OnDisplayExpired(true);
                     break;
                 case ComponentState.Error:
+                    this.Message = this.GetStateMessage();
                     this.OnStateError(DA);
                     break;
             }
@@ -631,6 +643,106 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        #endregion
+
+        #region PROGRESS TRACKING
+
+        /// <summary>
+        /// Initializes progress tracking with the specified total count.
+        /// </summary>
+        /// <param name="total">The total number of items to process.</param>
+        protected virtual void InitializeProgress(int total)
+        {
+            this.ProgressInfo.Total = total;
+            this.ProgressInfo.Current = 1;
+            Debug.WriteLine($"[{this.GetType().Name}] Progress initialized - Total: {total}");
+        }
+
+        /// <summary>
+        /// Updates the current progress and triggers a UI refresh.
+        /// </summary>
+        /// <param name="current">The current item being processed (1-based).</param>
+        protected virtual void UpdateProgress(int current)
+        {
+            this.ProgressInfo.UpdateCurrent(current);
+            Debug.WriteLine($"[{this.GetType().Name}] Progress updated - {current}/{this.ProgressInfo.Total}");
+            
+            // Update the message with current progress information
+            this.Message = this.GetStateMessage();
+            
+            // Trigger UI refresh to update the displayed message
+            Rhino.RhinoApp.InvokeOnUiThread(() =>
+            {
+                this.OnDisplayExpired(false);
+            });
+        }
+
+        /// <summary>
+        /// Resets progress tracking.
+        /// </summary>
+        protected virtual void ResetProgress()
+        {
+            this.ProgressInfo.Reset();
+            Debug.WriteLine($"[{this.GetType().Name}] Progress reset");
+        }
+
+        /// <summary>
+        /// Gets the current state message with progress information.
+        /// </summary>
+        /// <returns>A formatted state message string.</returns>
+        public virtual string GetStateMessage()
+        {
+            return this.currentState.ToMessageString(this.ProgressInfo);
+        }
+
+        /// <summary>
+        /// Runs a function on all branches of multiple data trees with automatic progress tracking.
+        /// This is a convenience wrapper around DataTreeProcessor.RunFunctionAsync that automatically
+        /// handles progress reporting for this component.
+        /// </summary>
+        /// <typeparam name="T">Type of input tree items</typeparam>
+        /// <typeparam name="U">Type of output tree items</typeparam>
+        /// <param name="trees">Dictionary of input data trees</param>
+        /// <param name="function">Function to run on each branch</param>
+        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing</param>
+        /// <param name="token">Cancellation token</param>
+        /// <returns>Dictionary of output data trees</returns>
+        protected async Task<Dictionary<string, GH_Structure<U>>> RunDataTreeFunctionAsync<T, U>(
+            Dictionary<string, GH_Structure<T>> trees,
+            Func<Dictionary<string, List<T>>, int, Task<Dictionary<string, List<U>>>> function,
+            bool onlyMatchingPaths = false,
+            bool groupIdenticalBranches = false,
+            CancellationToken token = default)
+            where T : IGH_Goo
+            where U : IGH_Goo
+        {
+            return await DataTree.DataTreeProcessor.RunFunctionAsync(
+                trees,
+                function,
+                progressCallback: (current, total) =>
+                {
+                    Debug.WriteLine($"[{this.GetType().Name}] Progress callback received: current={current}, total={total}");
+                    
+                    // Initialize progress on first call
+                    if (this.ProgressInfo.Total == 0)
+                    {
+                        Debug.WriteLine($"[{this.GetType().Name}] Initializing progress with total={total}");
+                        this.InitializeProgress(total);
+                        Debug.WriteLine($"[{this.GetType().Name}] After initialization: ProgressInfo.Total={this.ProgressInfo.Total}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[{this.GetType().Name}] Progress already initialized: ProgressInfo.Total={this.ProgressInfo.Total}");
+                    }
+                    
+                    // Update progress
+                    this.UpdateProgress(current);
+                },
+                onlyMatchingPaths: onlyMatchingPaths,
+                groupIdenticalBranches: groupIdenticalBranches,
+                token: token).ConfigureAwait(false);
+        }
         #endregion
 
         #region DEBOUNCE
