@@ -53,18 +53,46 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     Debug.WriteLine("[GHComponentUtils] Component is not preview capable");
                 }
             }
-            else if (obj is IGH_PreviewObject preview)
+            else if (obj is IGH_Param param)
             {
-                Debug.WriteLine($"[GHComponentUtils] IGH_PreviewObject.Hidden={preview.Hidden}");
-                obj.RecordUndoEvent("[SH] Set Component Preview");
-                preview.Hidden = !previewOn;
-                Debug.WriteLine($"[GHComponentUtils] New Hidden={preview.Hidden}");
-                if (redraw)
+                Debug.WriteLine($"[GHComponentUtils] IGH_Param found: {param.GetType().Name}");
+                // Check if the parameter implements IGH_PreviewObject for preview capabilities
+                if (param is IGH_PreviewObject paramPreview)
                 {
-                    Instances.RedrawCanvas();
-                    Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
+                    Debug.WriteLine($"[GHComponentUtils] IGH_Param.Hidden={paramPreview.Hidden}, IsPreviewCapable={paramPreview.IsPreviewCapable}");
+                    if (paramPreview.IsPreviewCapable)
+                    {
+                        obj.RecordUndoEvent("[SH] Set Parameter Preview");
+                        paramPreview.Hidden = !previewOn;
+                        Debug.WriteLine($"[GHComponentUtils] New Hidden={paramPreview.Hidden}");
+                        if (redraw)
+                        {
+                            Instances.RedrawCanvas();
+                            Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[GHComponentUtils] IGH_Param is not preview capable");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("[GHComponentUtils] IGH_Param does not implement IGH_PreviewObject");
                 }
             }
+            // else if (obj is IGH_PreviewObject preview)
+            // {
+            //     Debug.WriteLine($"[GHComponentUtils] IGH_PreviewObject.Hidden={preview.Hidden}");
+            //     obj.RecordUndoEvent("[SH] Set Component Preview");
+            //     preview.Hidden = !previewOn;
+            //     Debug.WriteLine($"[GHComponentUtils] New Hidden={preview.Hidden}");
+            //     if (redraw)
+            //     {
+            //         Instances.RedrawCanvas();
+            //         Debug.WriteLine("[GHComponentUtils] Canvas redrawn");
+            //     }
+            // }
             else
             {
                 Debug.WriteLine("[GHComponentUtils] Object is not previewable (not a GH_DocumentObject)");
