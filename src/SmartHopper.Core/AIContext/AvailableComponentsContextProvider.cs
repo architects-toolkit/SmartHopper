@@ -10,8 +10,9 @@
 
 using System;
 using System.Collections.Generic;
-using Rhino;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.AITools;
 
 namespace SmartHopper.Core.AIContext
 {
