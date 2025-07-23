@@ -361,7 +361,14 @@ namespace SmartHopper.Core.ComponentBase
                     this.OnDisplayExpired(true);
                     break;
                 case ComponentState.Processing:
-                    // OnStateProcessing(DA);
+                    // Fix for Issue #260: Reset async state only when transitioning from non-Processing states
+                    // This prevents interference with ongoing async state counting mechanism
+                    if (oldState != ComponentState.Processing)
+                    {
+                        Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition from {oldState}");
+                        this.ResetAsyncState();
+                    }
+                    // OnStateProcessing(DA) is called in SolveInstance, not during transition
                     break;
                 case ComponentState.Cancelled:
                     this.OnStateCancelled(DA);
