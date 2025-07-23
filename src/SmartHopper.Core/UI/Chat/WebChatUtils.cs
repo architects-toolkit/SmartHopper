@@ -38,6 +38,61 @@ namespace SmartHopper.Core.UI.Chat
         private static readonly Dictionary<Guid, WebChatDialog> OpenDialogs = new ();
 
         /// <summary>
+        /// Static constructor to set up application shutdown handling.
+        /// </summary>
+        static WebChatUtils()
+        {
+            // Subscribe to Rhino's closing event to clean up dialogs
+            Rhino.RhinoApp.Closing += OnRhinoClosing;
+        }
+
+        /// <summary>
+        /// Handles Rhino application closing by disposing all open chat dialogs.
+        /// </summary>
+        /// <param name="sender">The event sender.</param>
+        /// <param name="e">The event arguments.</param>
+        private static void OnRhinoClosing(object sender, EventArgs e)
+        {
+            Debug.WriteLine("[WebChatUtils] Rhino is closing, cleaning up open chat dialogs");
+
+            try
+            {
+                // Create a copy of the keys to avoid collection modification during iteration
+                var dialogIds = OpenDialogs.Keys.ToArray();
+
+                foreach (var dialogId in dialogIds)
+                {
+                    if (OpenDialogs.TryGetValue(dialogId, out WebChatDialog dialog))
+                    {
+                        Debug.WriteLine($"[WebChatUtils] Closing dialog for component {dialogId}");
+
+                        // Close the dialog on the UI thread to ensure proper cleanup
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            try
+                            {
+                                dialog?.Close();
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[WebChatUtils] Error closing dialog {dialogId}: {ex.Message}");
+                            }
+                        });
+
+                        // Remove from tracking dictionary
+                        OpenDialogs.Remove(dialogId);
+                    }
+                }
+
+                Debug.WriteLine($"[WebChatUtils] Cleanup complete. Closed {dialogIds.Length} dialogs");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatUtils] Error during dialog cleanup: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Shows a web-based chat dialog for the specified AI provider and model.
         /// If a dialog is already open for the specified component, it will be focused instead of creating a new one.
         /// </summary>

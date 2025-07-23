@@ -35,6 +35,17 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns></returns>
         public static string ToMessageString(this ComponentState state)
         {
+            return ToMessageString(state, null);
+        }
+
+        /// <summary>
+        /// Gets a user-friendly string representation of the ComponentState with optional progress information.
+        /// </summary>
+        /// <param name="state">The component state.</param>
+        /// <param name="progressInfo">Optional progress information for dynamic messages.</param>
+        /// <returns>A formatted state message string.</returns>
+        public static string ToMessageString(this ComponentState state, ProgressInfo progressInfo)
+        {
             switch (state)
             {
                 case ComponentState.Waiting:
@@ -42,6 +53,10 @@ namespace SmartHopper.Core.ComponentBase
                 case ComponentState.NeedsRun:
                     return "Run me!";
                 case ComponentState.Processing:
+                    if (progressInfo?.IsActive == true)
+                    {
+                        return $"Process {progressInfo.GetProgressString()}...";
+                    }
                     return "Processing...";
                 case ComponentState.Completed:
                     return "Done";

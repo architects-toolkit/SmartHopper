@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1-alpha] - 2025-07-23
+
+### Added
+
+- New `ProgressInfo` class to `StatefulAsyncComponentBase` to provide progress information to the UI. It allows to display a dynamic progress reporting which branch is being processed.
+
+### Fixed
+
+- Multiple fixes to `StatefulAsyncComponentBase`:
+  - Fixed issue: Components now transition to "Done" state when opening files with existing results instead of "Run me!" ([#113](https://github.com/architects-toolkit/SmartHopper/issues/113))
+  - Calculate changed inputs based on actual values, not on object instances, to prevent false positives when connecting new sources with same values.
+  - Fixed issue: Stuck components when using Boolean toggle ([#260](https://github.com/architects-toolkit/SmartHopper/issues/260)).
+  - Fixed issue: Output metrics not being set when using Boolean toggle.
+- Fixed issue ([#208](https://github.com/architects-toolkit/SmartHopper/issues/208)): enabled compatibility with params in `gh_toggle_preview` tool.
+- Fixed WebChatDialog not automatically closing when Rhino is closed.
+
 ## [0.4.0-alpha] - 2025-07-22
 
 ### Added
@@ -36,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix incorrect model handling in `AIStatefulAsyncComponentBase`.
 - Fixed certificate creation tests to handle CI environment constraints
 - Updated `GhRetrieveComponents` to use the correct ai tool `gh_list_components` instead of `gh_get_available_components`
-- Fixes ""Missing required parameter: ‘response_format.json_schema" in text-list-generate with OpenAI provider" ([#259](https://github.com/architects-toolkit/SmartHopper/issues/259)).
+- Fixes "Missing required parameter: ‘response_format.json_schema' in text-list-generate with OpenAI provider" ([#259](https://github.com/architects-toolkit/SmartHopper/issues/259)).
 
 ## [0.3.6-alpha] - 2025-07-20
 
