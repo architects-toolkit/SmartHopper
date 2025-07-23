@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed issue: Stuck components when using Boolean toggle ([#260](https://github.com/architects-toolkit/SmartHopper/issues/260)).
   - Fixed issue: Output metrics not being set when using Boolean toggle.
 - Fixed issue ([#208](https://github.com/architects-toolkit/SmartHopper/issues/208)): enabled compatibility with params in `gh_toggle_preview` tool.
+- Fixed WebChatDialog not automatically closing when Rhino is closed.
 
 ## [0.4.0-alpha] - 2025-07-22
 
