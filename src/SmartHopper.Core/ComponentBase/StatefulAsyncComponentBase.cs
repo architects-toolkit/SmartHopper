@@ -28,6 +28,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+#if DEBUG
+using System.Windows.Forms;
+#endif
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
@@ -777,8 +780,9 @@ namespace SmartHopper.Core.ComponentBase
                         var chunk = new GH_LooseChunk($"Value_{paramName}");
                         if (paramValue is IGH_Structure structure)
                         {
-                            // LogStructureDetails(structure);
-
+#if DEBUG
+                            LogStructureDetails(structure);
+#endif
                             // Use reflection to call Write method
                             var writeMethod = structure.GetType().GetMethod("Write");
                             writeMethod?.Invoke(structure, new object[] { chunk });
@@ -907,25 +911,27 @@ namespace SmartHopper.Core.ComponentBase
             return value;
         }
 
-        // private static void LogStructureDetails(IGH_Structure structure)
-        // {
-        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
-        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
-        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
-        //     Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
-        //     foreach (var path in structure.Paths)
-        //     {
-        //         var branch = structure.get_Branch(path);
-        //         Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
-        //         if (branch != null)
-        //         {
-        //             foreach (var item in branch)
-        //             {
-        //                 Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
-        //             }
-        //         }
-        //     }
-        // }
+#if DEBUG
+        private static void LogStructureDetails(IGH_Structure structure)
+        {
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Structure details:");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Path count: {structure.PathCount}");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Data count: {structure.DataCount}");
+            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] - Paths:");
+            foreach (var path in structure.Paths)
+            {
+                var branch = structure.get_Branch(path);
+                Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]   - Path {path}: {branch?.Count ?? 0} items");
+                if (branch != null)
+                {
+                    foreach (var item in branch)
+                    {
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData]     - {item?.ToString() ?? "null"} ({item?.GetType()?.FullName ?? "null"})");
+                    }
+                }
+            }
+        }
+#endif
 
         /// <summary>
         /// Stores a value in the persistent storage.
@@ -1302,58 +1308,59 @@ namespace SmartHopper.Core.ComponentBase
             return;
         }
 
-        // JUST FOR DEBUG PURPOSES
+#if DEBUG
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Debug: OnDisplayExpired(true)", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
+                OnDisplayExpired(true);
+            });
+            Menu_AppendItem(menu, "Debug: OnDisplayExpired(false)", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
+                OnDisplayExpired(false);
+            });
+            Menu_AppendItem(menu, "Debug: ExpireSolution", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireSolution");
+                ExpireSolution(true);
+            });
+            Menu_AppendItem(menu, "Debug: ExpireDownStreamObjects", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
+                ExpireDownStreamObjects();
+            });
+            Menu_AppendItem(menu, "Debug: ClearData", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearData");
+                ClearData();
+            });
+            Menu_AppendItem(menu, "Debug: ClearDataOnly", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
+                ClearDataOnly();
+            });
+            Menu_AppendItem(menu, "Debug: Add Error", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Error");
+                SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
+            });
+            Menu_AppendItem(menu, "Debug: Add Warning", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Warning");
+                SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
+            });
+            Menu_AppendItem(menu, "Debug: Add Remark", (s, e) =>
+            {
+                Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Remark");
+                SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
+            });
+        }
+#endif
 
-        // public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-        // {
-        //     base.AppendAdditionalMenuItems(menu);
-        //     Menu_AppendSeparator(menu);
-        //     Menu_AppendItem(menu, "Debug: OnDisplayExpired(true)", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
-        //         OnDisplayExpired(true);
-        //     });
-        //     Menu_AppendItem(menu, "Debug: OnDisplayExpired(false)", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
-        //         OnDisplayExpired(false);
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ExpireSolution", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireSolution");
-        //         ExpireSolution(true);
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ExpireDownStreamObjects", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
-        //         ExpireDownStreamObjects();
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ClearData", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearData");
-        //         ClearData();
-        //     });
-        //     Menu_AppendItem(menu, "Debug: ClearDataOnly", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
-        //         ClearDataOnly();
-        //     });
-        //     Menu_AppendItem(menu, "Debug: Add Error", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Error");
-        //         SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
-        //     });
-        //     Menu_AppendItem(menu, "Debug: Add Warning", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Warning");
-        //         SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
-        //     });
-        //     Menu_AppendItem(menu, "Debug: Add Remark", (s, e) =>
-        //     {
-        //         Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Remark");
-        //         SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
-        //     });
-        // }
         public override void RequestTaskCancellation()
         {
             base.RequestTaskCancellation();
