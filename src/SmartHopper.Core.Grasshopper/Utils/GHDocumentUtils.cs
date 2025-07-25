@@ -99,12 +99,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 {
                                     From = new Connection
                                     {
-                                        ComponentId = component.InstanceGuid,
+                                        InstanceId = component.InstanceGuid,
                                         ParamName = output.Name,
                                     },
                                     To = new Connection
                                     {
-                                        ComponentId = recipientGuid,
+                                        InstanceId = recipientGuid,
                                         ParamName = recipient.Name,
                                     },
                                 };
@@ -128,12 +128,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             {
                                 From = new Connection
                                 {
-                                    ComponentId = param.InstanceGuid,
+                                    InstanceId = param.InstanceGuid,
                                     ParamName = param.Name,
                                 },
                                 To = new Connection
                                 {
-                                    ComponentId = recipientGuid,
+                                    InstanceId = recipientGuid,
                                     ParamName = recipient.Name,
                                 },
                             };

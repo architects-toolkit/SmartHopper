@@ -32,21 +32,18 @@ namespace SmartHopper.Core.Models.Components
         /// The type of the component.
         /// </summary>
         [JsonProperty("type")]
-        [JsonRequired]
         public string Type { get; set; }
 
         /// <summary>
         /// The object type of the component.
         /// </summary>
         [JsonProperty("objectType")]
-        [JsonRequired]
         public string ObjectType { get; set; }
 
         /// <summary>
         /// The unique identifier for the component type.
         /// </summary>
         [JsonProperty("componentGuid")]
-        [JsonRequired]
         public Guid ComponentGuid { get; set; }
 
         /// <summary>

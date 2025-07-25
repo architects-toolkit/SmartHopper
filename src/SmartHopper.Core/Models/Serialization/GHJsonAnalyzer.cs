@@ -28,7 +28,7 @@ namespace SmartHopper.Core.Models.Serialization
         /// <param name="json">The JSON string to validate.</param>
         /// <param name="errorMessage">Aggregated error, warning and info messages; null if no issues.</param>
         /// <returns>True if no errors; otherwise false.</returns>
-        public static bool Analyze(string json, out string errorMessage)
+        public static bool Validate(string json, out string errorMessage)
         {
             var errors = new List<string>();
             var warnings = new List<string>();
@@ -89,7 +89,7 @@ namespace SmartHopper.Core.Models.Serialization
 
                         if (comp["componentGuid"] == null || comp["componentGuid"].Type == JTokenType.Null)
                         {
-                            errors.Add($"components[{i}].componentGuid is missing or null.");
+                            warnings.Add($"components[{i}].componentGuid is missing or null.");
                         }
                         else
                         {
@@ -119,7 +119,7 @@ namespace SmartHopper.Core.Models.Serialization
 
                 if (connections != null)
                 {
-                    // Verify connection 'componentId' references existing component instanceGuids
+                    // Verify connection 'instanceId' references existing component instanceGuids
                     var definedIds = new HashSet<string>();
                     foreach (var token in components)
                     {
@@ -147,17 +147,17 @@ namespace SmartHopper.Core.Models.Serialization
                                 continue;
                             }
 
-                            if (ep["componentId"] == null || ep["componentId"].Type == JTokenType.Null)
+                            if (ep["instanceId"] == null || ep["instanceId"].Type == JTokenType.Null)
                             {
-                                errors.Add($"connections[{i}].{endPoint}.componentId is missing or null.");
+                                errors.Add($"connections[{i}].{endPoint}.instanceId is missing or null.");
                             }
                             else
                             {
-                                var cid = ep["componentId"].ToString();
+                                var cid = ep["instanceId"].ToString();
                                 if (!Guid.TryParse(cid, out _))
-                                    warnings.Add($"connections[{i}].{endPoint}.componentId '{cid}' is not a valid GUID.");
+                                    warnings.Add($"connections[{i}].{endPoint}.instanceId '{cid}' is not a valid GUID.");
                                 if (!definedIds.Contains(cid))
-                                    errors.Add($"connections[{i}].{endPoint}.componentId '{cid}' is not defined in components[].instanceGuid.");
+                                    errors.Add($"connections[{i}].{endPoint}.instanceId '{cid}' is not defined in components[].instanceGuid.");
                             }
                         }
                     }

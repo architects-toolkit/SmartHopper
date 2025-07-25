@@ -134,10 +134,10 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
             foreach (var conn in doc.Connections)
             {
-                if (grid.Any(n => n.ComponentId == conn.To.ComponentId) && grid.Any(n => n.ComponentId == conn.From.ComponentId))
+                if (grid.Any(n => n.ComponentId == conn.To.InstanceId) && grid.Any(n => n.ComponentId == conn.From.InstanceId))
                 {
-                    var toNode = grid.First(n => n.ComponentId == conn.To.ComponentId);
-                    var fromNode = grid.First(n => n.ComponentId == conn.From.ComponentId);
+                    var toNode = grid.First(n => n.ComponentId == conn.To.InstanceId);
+                    var fromNode = grid.First(n => n.ComponentId == conn.From.InstanceId);
                     // compute input parameter index on child
                     int inputIndex = -1;
                     if (GHCanvasUtils.FindInstance(toNode.ComponentId) is IGH_Component childComp)
@@ -145,7 +145,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         var inputs = GHParameterUtils.GetAllInputs(childComp);
                         inputIndex = inputs.FindIndex(p => p.Name == conn.To.ParamName);
                     }
-                    toNode.Parents[conn.From.ComponentId] = inputIndex;
+                    toNode.Parents[conn.From.InstanceId] = inputIndex;
                     // compute output parameter index on parent
                     int outputIndex = -1;
                     if (GHCanvasUtils.FindInstance(fromNode.ComponentId) is IGH_Component parentComp)
@@ -153,7 +153,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         var outputs = GHParameterUtils.GetAllOutputs(parentComp);
                         outputIndex = outputs.FindIndex(p => p.Name == conn.From.ParamName);
                     }
-                    fromNode.Children[conn.To.ComponentId] = outputIndex;
+                    fromNode.Children[conn.To.InstanceId] = outputIndex;
                 }
             }
 

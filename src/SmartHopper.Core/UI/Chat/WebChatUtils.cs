@@ -119,7 +119,7 @@ namespace SmartHopper.Core.UI.Chat
                         modelName,
                         messages,
                         endpoint: endpoint,
-                        toolFilter: "Knowledge, Components, Scripting");
+                        toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval");
 
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread(() =>

@@ -13,21 +13,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Messaging;
+using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for generating Grasshopper definitions from natural language prompts.
-    /// Orchestrates multiple steps to select components and generate GhJSON.
+    /// Uses autonomous AI orchestration with available tools for intelligent component selection and GhJSON generation.
     /// </summary>
     public class gh_generate : IAIToolProvider
     {
-
         /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
@@ -35,7 +36,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_generate",
-                description: "Generate and place Grasshopper components on the canvas based on a natural language description of what you want to create.",
+                description: "Generate Grasshopper definitions from natural language descriptions using autonomous AI orchestration. Returns JSON with status (succeed/fail) and result (GhJSON or clarification request). Pass the GhJSON to the 'gh_put' tool to load it into the Grasshopper canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -52,18 +53,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Executes the gh_generate tool: orchestrates the complete workflow from prompt to placed components.
-        /// Following the exact 5-step approach with multiple targeted AI calls.
+        /// Executes the gh_generate tool using autonomous AI orchestration.
+        /// AI decides when and how to use available tools to generate GhJSON from natural language prompts.
         /// </summary>
         private async Task<object> GhGenerateToolAsync(JObject parameters)
         {
             try
             {
-                // Step 1: User prompt received
                 var userPrompt = parameters["prompt"]?.ToString();
                 if (string.IsNullOrWhiteSpace(userPrompt))
                 {
-                    return new { success = false, error = "Prompt is required" };
+                    return new { status = "fail", result = new { error = "Prompt is required" } };
                 }
 
                 var providerName = parameters["provider"]?.ToString() ?? string.Empty;
@@ -71,312 +71,404 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
                 var contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
 
-                Debug.WriteLine($"[gh_generate] Starting generation process for prompt: {userPrompt}");
+                Debug.WriteLine($"[gh_generate] Starting autonomous AI generation for prompt: {userPrompt}");
 
-                // Step 2: Get available categories using gh_list_categories AITool
-                Debug.WriteLine($"[gh_generate] Step 2: Getting available categories");
-                var categoriesResult = await GetAvailableCategoriesAsync();
-                if (!categoriesResult.success)
+                // Use autonomous AI orchestration with up to 3 attempts for GhJSON validation
+                for (int attempt = 1; attempt <= 3; attempt++)
                 {
-                    return new { success = false, error = "Failed to retrieve categories", details = categoriesResult.error };
+                    Debug.WriteLine($"[gh_generate] Attempt {attempt}/3");
+                    
+                    var result = await this.GenerateWithAutonomousAI(
+                        userPrompt,
+                        providerName,
+                        modelName,
+                        contextProviderFilter,
+                        contextKeyFilter,
+                        attempt);
+                    
+                    if (result.status == "succeed")
+                    {
+                        Debug.WriteLine($"[gh_generate] Success on attempt {attempt}");
+                        return result;
+                    }
+                    
+                    // If it's a clarification request, return immediately
+                    try
+                    {
+                        if (result.result.clarificationNeeded != null)
+                        {
+                            Debug.WriteLine($"[gh_generate] Clarification needed on attempt {attempt}");
+                            return result;
+                        }
+                    }
+                    catch
+                    {
+                        // Property doesn't exist, continue
+                    }
+                    
+                    // If it's the last attempt, return the error
+                    if (attempt == 3)
+                    {
+                        Debug.WriteLine($"[gh_generate] Failed after 3 attempts");
+                        return result;
+                    }
+                    
+                    try
+                    {
+                        Debug.WriteLine($"[gh_generate] Retrying... Error: {result.result.error}");
+                    }
+                    catch
+                    {
+                        Debug.WriteLine($"[gh_generate] Retrying... (Error details not available)");
+                    }
                 }
 
-                // Step 3: Use AI to select relevant categories based on user prompt
-                Debug.WriteLine($"[gh_generate] Step 3: Selecting relevant categories with AI");
-                var selectedCategories = await SelectRelevantCategoriesWithAIAsync(userPrompt, categoriesResult.categories, 
-                    providerName, modelName, contextProviderFilter, contextKeyFilter);
-
-                if (selectedCategories == null || !selectedCategories.Any())
-                {
-                    return new { success = false, error = "No relevant categories found for the given prompt" };
-                }
-
-                Debug.WriteLine($"[gh_generate] Selected categories: {string.Join(", ", selectedCategories)}");
-
-                // Step 4: Get components from selected categories using gh_list_components AITool
-                Debug.WriteLine($"[gh_generate] Step 4: Getting components from selected categories");
-                var componentsResult = await GetComponentsFromCategoriesAsync(selectedCategories);
-                if (!componentsResult.success)
-                {
-                    return new { success = false, error = "Failed to retrieve components", details = componentsResult.error };
-                }
-
-                // Step 5: Use AI to generate GhJSON script based on user prompt and available components
-                Debug.WriteLine($"[gh_generate] Step 5: Generating GhJSON script with AI");
-                var ghJsonResult = await GenerateGhJsonWithAIAsync(userPrompt, componentsResult.components, 
-                    providerName, modelName, contextProviderFilter, contextKeyFilter);
-
-                if (!ghJsonResult.success)
-                {
-                    return new { success = false, error = "Failed to generate GhJSON", details = ghJsonResult.error };
-                }
-
-                // Step 6: Place components on canvas using gh_put AITool
-                Debug.WriteLine($"[gh_generate] Step 6: Placing components on canvas");
-                var putResult = await PlaceComponentsOnCanvasAsync(ghJsonResult.ghjson);
-                if (!putResult.success)
-                {
-                    return new { success = false, error = "Failed to place components on canvas", details = putResult.error };
-                }
-
-                return new 
-                { 
-                    success = true, 
-                    message = "Successfully generated and placed Grasshopper components",
-                    selectedCategories = selectedCategories,
-                    componentsPlaced = putResult.componentsPlaced,
-                    analysis = putResult.analysis
-                };
+                return new { status = "fail", result = new { error = "Maximum attempts exceeded" } };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[gh_generate] Error: {ex.Message}");
-                return new { success = false, error = ex.Message };
+                return new { status = "fail", result = new { error = ex.Message } };
             }
         }
 
         /// <summary>
-        /// Step 2: Get all available categories using gh_list_categories AITool.
+        /// Generates GhJSON using autonomous AI orchestration with available tools.
         /// </summary>
-        private async Task<(bool success, string categories, string error)> GetAvailableCategoriesAsync()
+        private async Task<dynamic> GenerateWithAutonomousAI(string userPrompt, string providerName, string modelName, 
+            string contextProviderFilter, string contextKeyFilter, int attempt)
         {
             try
             {
-                var result = await AIToolManager.ExecuteTool(
-                    "gh_list_categories", 
-                    new JObject(), 
-                    new JObject());
-
-                if (result != null)
-                {
-                    return (true, result.ToString(), null);
-                }
-
-                return (false, null, "No result from gh_list_categories");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[gh_generate] Error getting categories: {ex.Message}");
-                return (false, null, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Step 3: Use AI to select relevant categories based on user prompt.
-        /// </summary>
-        private async Task<List<string>> SelectRelevantCategoriesWithAIAsync(
-            string userPrompt, string availableCategories, 
-            string providerName, string modelName, 
-            string contextProviderFilter, string contextKeyFilter)
-        {
-            try
-            {
-                var systemPrompt = @"You are an expert in Grasshopper 3D parametric design. Given a user's request and a list of available component categories, select the most relevant categories that would be needed to fulfill the request.
-
-Your task:
-1. Analyze the user's request to understand what they want to create
-2. From the provided categories, select only the ones that contain components likely needed for this task
-3. Be selective - only choose categories that are directly relevant
-4. Return your response as a JSON array of category names
-
-Example format: [""Maths"", ""Vector"", ""Curve""]";
-
-                var userMessage = $@"User Request: {userPrompt}
-
-Available Categories:
-{availableCategories}
-
-Please select the most relevant categories for this request and return them as a JSON array.";
-
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    new("system", systemPrompt),
-                    new("user", userMessage)
-                };
-
-                var aiResponse = await AIUtils.GetResponse(
-                    providerName,
-                    modelName,
-                    messages,
-                    jsonSchema: "",
-                    endpoint: "gh_generate_categories",
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter).ConfigureAwait(false);
-                    
-                var content = aiResponse.Response?.Trim();
-                if (string.IsNullOrEmpty(content))
-                {
-                    return new List<string>();
-                }
-
-                // Try to extract JSON array from response
-                var startIndex = content.IndexOf('[');
-                var endIndex = content.LastIndexOf(']');
+                Debug.WriteLine($"[gh_generate] Starting autonomous AI generation - Attempt {attempt}");
                 
-                if (startIndex >= 0 && endIndex > startIndex)
-                {
-                    var jsonArray = content.Substring(startIndex, endIndex - startIndex + 1);
-                    var categories = JArray.Parse(jsonArray).ToObject<List<string>>();
-                    return categories ?? new List<string>();
-                }
-
-                return new List<string>();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[gh_generate] Error selecting categories: {ex.Message}");
-                return new List<string>();
-            }
-        }
-
-        /// <summary>
-        /// Step 4: Get components from selected categories using gh_list_components AITool.
-        /// </summary>
-        private async Task<(bool success, string components, string error)> GetComponentsFromCategoriesAsync(List<string> categories)
-        {
-            try
-            {
-                // Format categories for the filter (with + prefix to include)
-                var categoryFilter = categories.Select(c => $"+{c}").ToArray();
+                // Get system prompt with tool descriptions
+                var systemPrompt = this.GetAutonomousSystemPrompt(attempt);
+                var baseUserMessage = $"User Request: {userPrompt}\n\nPlease analyze this request and generate a complete Grasshopper definition using the available tools.\n\nIMPORTANT: When you provide the final GhJSON response, return ONLY the formatted JSON, nothing else. Do not wrap it in markdown code blocks or add any explanatory text.";
                 
-                var parameters = new JObject
-                {
-                    ["categoryFilter"] = JArray.FromObject(categoryFilter)
-                };
-
-                var result = await AIToolManager.ExecuteTool(
-                    "gh_list_components", 
-                    parameters, 
-                    new JObject());
-                    
-                if (result != null)
-                {
-                    return (true, result.ToString(), null);
-                }
-                return (false, null, "No result from gh_list_components");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[gh_generate] Error getting components: {ex.Message}");
-                return (false, null, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Step 5: Use AI to generate GhJSON script based on user prompt and available components.
-        /// </summary>
-        private async Task<(bool success, string ghjson, string error)> GenerateGhJsonWithAIAsync(
-            string userPrompt, string availableComponents,
-            string providerName, string modelName, 
-            string contextProviderFilter, string contextKeyFilter)
-        {
-            try
-            {
-                var systemPrompt = @"You are an expert in Grasshopper 3D parametric design and GhJSON format. Given a user's request and available components, create a GhJSON script that fulfills their request.
-
-Key requirements:
-1. Use only the components provided in the available components list
-2. Create a valid GhJSON format with proper structure
-3. Position components logically on the canvas (use reasonable X, Y coordinates)
-4. Wire components together appropriately to create the desired functionality
-5. Include proper GUIDs for each component from the provided list
-6. Set appropriate parameter values where needed
-
-GhJSON structure:
-- Must have a 'components' array
-- Each component needs: 'guid', 'name', 'nickname', 'x', 'y', 'inputs', 'outputs'
-- Connections are defined in the inputs section with 'source_id' and 'source_output'
-
-Return only the GhJSON - no explanations or markdown formatting.";
-
-                var userMessage = $@"User Request: {userPrompt}
-
-Available Components:
-{availableComponents}
-
-Please create a GhJSON script that fulfills this request using only the available components.";
-
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    new("system", systemPrompt),
-                    new("user", userMessage)
-                };
-
-                var aiResponse = await AIUtils.GetResponse(
-                    providerName,
-                    modelName,
-                    messages,
-                    jsonSchema: "",
-                    endpoint: "gh_generate_ghjson",
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter).ConfigureAwait(false);
-                    
-                var content = aiResponse.Response?.Trim();
-                if (string.IsNullOrEmpty(content))
-                {
-                    return (false, null, "Empty response from AI");
-                }
-
-                // Try to extract JSON from response (in case it's wrapped in markdown)
-                var startIndex = content.IndexOf('{');
-                var lastIndex = content.LastIndexOf('}');
+                // Initialize conversation with system and user messages using ChatMessageModel
+                const int maxTurns = 10;
+                var userMessageWithTurnInfo = $"{baseUserMessage}\n\n**IMPORTANT: You have a maximum of {maxTurns-2} conversation turns to complete this task. Use your tools efficiently!**";
                 
-                if (startIndex >= 0 && lastIndex > startIndex)
+                var messages = new List<ChatMessageModel>
                 {
-                    var ghjson = content.Substring(startIndex, lastIndex - startIndex + 1);
-                    return (true, ghjson, null);
-                }
-
-                return (true, content, null);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[gh_generate] Error generating GhJSON: {ex.Message}");
-                return (false, null, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Step 6: Place components on canvas using gh_put AITool.
-        /// </summary>
-        private async Task<(bool success, int componentsPlaced, string analysis, string error)> PlaceComponentsOnCanvasAsync(string ghjson)
-        {
-            try
-            {
-                var parameters = new JObject
-                {
-                    ["json"] = ghjson
-                };
-
-                var result = await AIToolManager.ExecuteTool(
-                    "gh_put", 
-                    parameters, 
-                    new JObject()
-                );
-
-                if (result != null)
-                {
-                    var resultObj = JObject.Parse(result.ToString());
-                    var success = resultObj["success"]?.Value<bool>() ?? false;
-                    var components = resultObj["components"]?.Value<int>() ?? 0;
-                    var analysis = resultObj["analysis"]?.Value<string>() ?? "";
-
-                    if (success)
+                    new ChatMessageModel
                     {
-                        return (true, components, analysis, null);
-                    }
-                    else
+                        Author = "system",
+                        Body = systemPrompt,
+                        Time = DateTime.Now,
+                        Inbound = false,
+                        Read = true,
+                    },
+                    new ChatMessageModel
                     {
-                        return (false, 0, analysis, analysis);
+                        Author = "user",
+                        Body = userMessageWithTurnInfo,
+                        Time = DateTime.Now,
+                        Inbound = true,
+                        Read = true,
+                    },
+                };
+
+                Debug.WriteLine($"[gh_generate] System prompt length: {systemPrompt.Length}");
+                Debug.WriteLine($"[gh_generate] User message: {userMessageWithTurnInfo}");
+
+                // Multi-turn conversation loop
+                for (int turn = 1; turn <= maxTurns; turn++)
+                {
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - Sending request to AI");
+
+                    // Get AI response with tool filter to expose relevant tools
+                    var aiResponse = await AIUtils.GetResponse(
+                        providerName,
+                        modelName,
+                        messages,
+                        "", // no JSON schema
+                        "", // no endpoint
+                        "ComponentsRetrieval", // tool filter
+                        contextProviderFilter,
+                        contextKeyFilter
+                    );
+
+                    var content = aiResponse.Response ?? "";
+
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - AI Response Length: {content.Length}");
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - Tool Calls: {aiResponse.ToolCalls?.Count ?? 0}");
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - Finish Reason: {aiResponse.FinishReason}");
+
+                    // Check if AI made tool calls
+                    if (aiResponse.ToolCalls != null && aiResponse.ToolCalls.Any())
+                    {
+                        Debug.WriteLine($"[gh_generate] Turn {turn} - Processing {aiResponse.ToolCalls.Count} tool calls");
+
+                        // Add the assistant message with tool calls to the conversation
+                        // This is required for proper API message flow
+                        var assistantMessage = new ChatMessageModel
+                        {
+                            Author = "assistant",
+                            Body = content,
+                            Time = DateTime.Now,
+                            Inbound = false,
+                            Read = true,
+                            ToolCalls = aiResponse.ToolCalls.ToList() // Copy tool calls to message
+                        };
+                        messages.Add(assistantMessage);
+                        
+                        // Execute each tool call and add results to conversation
+                        foreach (var toolCall in aiResponse.ToolCalls)
+                        {
+                            Debug.WriteLine($"[gh_generate] Executing tool: {toolCall.Name} with args: {toolCall.Arguments}");
+                            
+                            try
+                            {
+                                // Parse tool arguments
+                                var toolArgs = JObject.Parse(toolCall.Arguments);
+                                
+                                // Execute the tool
+                                var toolResult = await AIToolManager.ExecuteTool(toolCall.Name, toolArgs, new JObject());
+                                
+                                // Convert result to JSON string
+                                var resultJson = JsonConvert.SerializeObject(toolResult, Formatting.Indented);
+                                
+                                Debug.WriteLine($"[gh_generate] Tool {toolCall.Name} result length: {resultJson.Length}");
+                                
+                                // Add tool result to conversation with proper tool_call_id linking
+                                var toolMessage = new ChatMessageModel
+                                {
+                                    Author = "tool",
+                                    Body = resultJson,
+                                    Time = DateTime.Now,
+                                    Inbound = false,
+                                    Read = true,
+                                    ToolCalls = new List<AIToolCall> { toolCall } // Link back to original tool call
+                                };
+                                messages.Add(toolMessage);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[gh_generate] Error executing tool {toolCall.Name}: {ex.Message}");
+                                
+                                // Add error as tool result
+                                var errorResult = new { error = $"Failed to execute {toolCall.Name}: {ex.Message}" };
+                                var errorJson = JsonConvert.SerializeObject(errorResult);
+                                
+                                var errorMessage = new ChatMessageModel
+                                {
+                                    Author = "tool",
+                                    Body = errorJson,
+                                    Time = DateTime.Now,
+                                    Inbound = false,
+                                    Read = true,
+                                    ToolCalls = new List<AIToolCall> { toolCall } // Link back to original tool call
+                                };
+                                messages.Add(errorMessage);
+                            }
+                        }
+                        
+                        // Continue to next turn to let AI process tool results
+                        continue;
                     }
+                    
+                    // No tool calls - AI provided final response
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - Final response received");
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - AI Response Content: {content}");
+                    
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        return new { status = "fail", result = new { error = "Empty response from AI" } };
+                    }
+                    
+                    // Process the final response (break out of conversation loop)
+                    // Extract and validate GhJSON from the AI response
+                    var extractedJson = this.ExtractGhJsonFromResponse(content);
+                    if (string.IsNullOrWhiteSpace(extractedJson))
+                    {
+                        Debug.WriteLine($"[gh_generate] Turn {turn} - Failed to extract valid JSON from response");
+                        return new { status = "fail", result = new { error = "Could not extract valid GhJSON from AI response", response = content } };
+                    }
+                    
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - Extracted JSON length: {extractedJson.Length}");
+                    
+                    // Validate the extracted GhJSON
+                    return await this.ValidateAndReturnGhJson(extractedJson, attempt);
                 }
-                return (false, 0, null, "No result from gh_put");
+                
+                // If we get here, we exceeded max turns
+                Debug.WriteLine($"[gh_generate] Exceeded maximum conversation turns ({maxTurns})");
+                return new { status = "fail", result = new { error = $"Exceeded maximum conversation turns ({maxTurns})" } };
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_generate] Error placing components: {ex.Message}");
-                return (false, 0, null, ex.Message);
+                Debug.WriteLine($"[gh_generate] Error in autonomous AI generation: {ex.Message}");
+                return new { status = "fail", result = new { error = ex.Message, attempt = attempt, maxAttempts = 3 } };
             }
+        }
+
+        /// <summary>
+        /// Gets the autonomous system prompt with instructions and tool availability based on attempt number.
+        /// </summary>
+        private string GetAutonomousSystemPrompt(int attempt)
+        {
+            var errorContext = attempt > 1 ? $"\n\nThis is attempt {attempt}/3. Previous attempts failed, so please be more careful with your analysis and component selection." : "";
+
+            return $@"You are an expert Grasshopper 3D parametric design assistant with access to specialized tools. Your task is to analyze user requests and autonomously generate complete Grasshopper definitions in GhJSON format.
+
+## AVAILABLE TOOLS:
+1. **gh_list_categories** - List all available component categories
+   Parameters: filter (optional), includeSubcategories (optional)
+   
+2. **gh_list_components** - List components from specific categories  
+   Parameters: categoryFilter (array), nameFilter (optional), includeDetails (array), maxResults (optional)
+   Use includeDetails to control what info is returned: [""name"", ""description"", ""inputs"", ""outputs""] are the most relevant details for GhJSON generation.
+
+## YOUR WORKFLOW:
+1. **Understand the Request**: Analyze what the user wants to create
+2. **Explore Categories**: Use gh_list_categories to find relevant component categories
+3. **Find Components**: Use gh_list_components strategically with filters to find the right components
+4. **Generate GhJSON**: Create a complete, valid GhJSON definition
+
+## GhJSON REQUIREMENTS:
+- Use consecutive integer IDs (1, 2, 3...) for instanceGuid, NOT actual GUIDs
+- Structure: {{""components"": [...], ""connections"": [...]}}
+- Each component needs strictly only: {{""instanceGuid"": ""1"", ""name"": ""Number Slider""}}
+- Connections need strictly only: {{""from"": {{""instanceId"": ""1"", ""paramName"": ""Number""}}, ""to"": {{""instanceId"": ""3"", ""paramName"": ""A""}}}} where instanceId refers to the instanceGuid of the component
+
+## GhJSON TEMPLATES FOR COMMON TASKS:
+
+**Simple Math (Add two numbers):**
+```json
+{{
+  ""components"": [
+    {{""instanceGuid"": ""1"", ""name"": ""Number Slider""}},
+    {{""instanceGuid"": ""2"", ""name"": ""Number Slider""}},
+    {{""instanceGuid"": ""3"", ""name"": ""Addition""}}
+  ],
+  ""connections"": [
+    {{""from"": {{""instanceId"": ""1"", ""paramName"": ""Number""}}, ""to"": {{""instanceId"": ""3"", ""paramName"": ""A""}}}},
+    {{""from"": {{""instanceId"": ""2"", ""paramName"": ""Number""}}, ""to"": {{""instanceId"": ""3"", ""paramName"": ""B""}}}}
+  ]
+}}
+```
+
+**Simple Curve (Circle):**
+```json
+{{
+  ""components"": [
+    {{""instanceGuid"": ""1"", ""name"": ""Point""}},
+    {{""instanceGuid"": ""2"", ""name"": ""Number Slider""}},
+    {{""instanceGuid"": ""3"", ""name"": ""Circle""}}
+  ],
+  ""connections"": [
+    {{""from"": {{""instanceId"": ""1"", ""paramName"": ""Point""}}, ""to"": {{""instanceId"": ""3"", ""paramName"": ""Center""}}}},
+    {{""from"": {{""instanceId"": ""2"", ""paramName"": ""Number""}}, ""to"": {{""instanceId"": ""3"", ""paramName"": ""Radius""}}}}
+  ]
+}}
+```
+
+## RESPONSE FORMAT:
+If you need clarification, respond with JSON: {{""clarificationNeeded"": ""Your detailed question here""}}
+If you can generate the definition, respond with valid GhJSON using consecutive IDs.
+
+## DECISION MAKING:
+- Ask for clarification ONLY if the request is genuinely ambiguous
+- Use tools strategically to minimize token usage
+- Prioritize common, well-documented Grasshopper components
+- Ensure proper component connections for functional definitions{errorContext}";
+        }
+
+        /// <summary>
+        /// Validates GhJSON using GHJsonAnalyzer and returns appropriate response.
+        /// </summary>
+        private async Task<dynamic> ValidateAndReturnGhJson(string ghjson, int attempt)
+        {
+            try
+            {
+                Debug.WriteLine($"[gh_generate] Raw GhJSON being validated: {ghjson?.Substring(0, Math.Min(100, ghjson?.Length ?? 0))}...");
+                
+                // Validate the GhJSON structure
+                var result = GHJsonAnalyzer.Validate(ghjson, out var errorMessage);
+
+                if (!result)
+                {
+                    return new { status = "fail", result = new { error = errorMessage } };
+                }
+
+                // If validation passes, return success
+                return new { status = "succeed", result = ghjson };
+            }
+            catch (Exception ex)
+            {
+                // Include validation error details for the AI to self-correct
+                return new 
+                { 
+                    status = "fail", 
+                    result = new 
+                    { 
+                        error = $"GhJSON validation failed: {ex.Message}",
+                        validationError = ex.Message,
+                        attempt = attempt,
+                        maxAttempts = 3
+                    }
+                };
+            }
+        }
+
+        /// <summary>
+        /// Extracts GhJSON content from AI response, handling markdown code blocks.
+        /// </summary>
+        private string ExtractGhJsonFromResponse(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+                return null;
+
+            // Try to find JSON in markdown code blocks
+            var jsonBlockStart = response.IndexOf("```json", StringComparison.OrdinalIgnoreCase);
+            if (jsonBlockStart >= 0)
+            {
+                var contentStart = response.IndexOf('\n', jsonBlockStart) + 1;
+                var jsonBlockEnd = response.IndexOf("```", contentStart);
+                if (jsonBlockEnd > contentStart)
+                {
+                    return response.Substring(contentStart, jsonBlockEnd - contentStart).Trim();
+                }
+            }
+
+            // Try to find any code block
+            var codeBlockStart = response.IndexOf("```");
+            if (codeBlockStart >= 0)
+            {
+                var contentStart = response.IndexOf('\n', codeBlockStart) + 1;
+                var codeBlockEnd = response.IndexOf("```", contentStart);
+                if (codeBlockEnd > contentStart)
+                {
+                    var content = response.Substring(contentStart, codeBlockEnd - contentStart).Trim();
+                    // Check if it looks like JSON
+                    if (content.StartsWith("{") && content.EndsWith("}"))
+                    {
+                        return content;
+                    }
+                }
+            }
+
+            // Try to find raw JSON (starts with { and ends with })
+            var firstBrace = response.IndexOf('{');
+            var lastBrace = response.LastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace)
+            {
+                var possibleJson = response.Substring(firstBrace, lastBrace - firstBrace + 1);
+                try
+                {
+                    // Quick validation that it's parseable JSON
+                    JObject.Parse(possibleJson);
+                    return possibleJson;
+                }
+                catch
+                {
+                    // Not valid JSON
+                }
+            }
+
+            return null;
         }
     }
 }
