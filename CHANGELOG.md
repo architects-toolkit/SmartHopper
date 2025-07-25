@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `includeSubcategories` parameter to `gh_list_categories` tool.
 - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
 
+### Fixed
+
+- `gh_put` now handles the case when pivot is not provided for some components.
+
 ## [0.4.1-alpha] - 2025-07-23
 
 ### Added
