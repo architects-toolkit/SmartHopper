@@ -42,22 +42,75 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             var guidMapping = new Dictionary<Guid, Guid>();
 
-            // Compute positions
+            // Compute positions with fallback mechanism
             try
             {
                 var nodes = DependencyGraphUtils.CreateComponentGrid(document);
                 var posMap = nodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
+                var positionedCount = 0;
+                
                 foreach (var component in document.Components)
                 {
                     if (posMap.TryGetValue(component.InstanceGuid, out var pivot))
                     {
                         component.Pivot = pivot;
+                        positionedCount++;
                     }
+                }
+                
+                // Fallback: If not all components got positions, use force layout like gh_tidy_up.cs
+                if (positionedCount < document.Components.Count)
+                {
+                    Debug.WriteLine($"[Put] Initial positioning incomplete ({positionedCount}/{document.Components.Count}). Using fallback with force layout.");
+                    
+                    try
+                    {
+                        var forceNodes = DependencyGraphUtils.CreateComponentGrid(document, force: true);
+                        var forcePosMap = forceNodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
+                        
+                        // Apply positions from force layout to components that don't have positions
+                        foreach (var component in document.Components)
+                        {
+                            if (component.Pivot.IsEmpty && forcePosMap.TryGetValue(component.InstanceGuid, out var forcePivot))
+                            {
+                                component.Pivot = forcePivot;
+                                Debug.WriteLine($"[Put] Applied fallback position to component {component.InstanceGuid}: ({forcePivot.X}, {forcePivot.Y})");
+                            }
+                        }
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        Debug.WriteLine($"[Put] Fallback position calculation also failed: {fallbackEx.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[Put] Successfully positioned all {positionedCount} components.");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error generating component positions: {ex.Message}");
+                Debug.WriteLine($"[Put] Error in initial position calculation: {ex.Message}. Attempting fallback.");
+                
+                // Complete fallback: Use force layout for all components
+                try
+                {
+                    var fallbackNodes = DependencyGraphUtils.CreateComponentGrid(document, force: true);
+                    var fallbackPosMap = fallbackNodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
+                    
+                    foreach (var component in document.Components)
+                    {
+                        if (fallbackPosMap.TryGetValue(component.InstanceGuid, out var fallbackPivot))
+                        {
+                            component.Pivot = fallbackPivot;
+                            Debug.WriteLine($"[Put] Applied complete fallback position to component {component.InstanceGuid}: ({fallbackPivot.X}, {fallbackPivot.Y})");
+                        }
+                    }
+                }
+                catch (Exception fallbackEx)
+                {
+                    Debug.WriteLine($"[Put] Complete fallback position calculation failed: {fallbackEx.Message}");
+                }
             }
 
             // Instantiate components and set up
