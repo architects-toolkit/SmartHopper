@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `AvailableComponentsContextProvider` to provide information about installed Grasshopper components
+- New `includeSubcategories` parameter to `gh_list_categories` tool.
 - New `gh_generate` ai tool.
 
 ## [0.4.1-alpha] - 2025-07-23
