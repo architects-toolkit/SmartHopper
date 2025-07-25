@@ -51,8 +51,8 @@ namespace SmartHopper.Core.Models.Document
         public List<ConnectionPairing> GetComponentConnections(Guid componentId)
         {
             return Connections.Where(c =>
-                c.From.ComponentId == componentId ||
-                c.To.ComponentId == componentId
+                c.From.InstanceId == componentId ||
+                c.To.InstanceId == componentId
             ).ToList();
         }
 
@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Models.Document
         /// <returns>A list of connections where the specified component is the target</returns>
         public List<ConnectionPairing> GetComponentInputs(Guid componentId)
         {
-            return Connections.Where(c => c.To.ComponentId == componentId).ToList();
+            return Connections.Where(c => c.To.InstanceId == componentId).ToList();
         }
 
         /// <summary>
@@ -73,7 +73,7 @@ namespace SmartHopper.Core.Models.Document
         /// <returns>A list of connections where the specified component is the source</returns>
         public List<ConnectionPairing> GetComponentOutputs(Guid componentId)
         {
-            return Connections.Where(c => c.From.ComponentId == componentId).ToList();
+            return Connections.Where(c => c.From.InstanceId == componentId).ToList();
         }
     }
 }

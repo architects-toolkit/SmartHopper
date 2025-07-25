@@ -112,8 +112,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var outd = new Dictionary<Guid, int>();
                     foreach (var conn in tempDoc.Connections)
                     {
-                        outd[conn.From.ComponentId] = (outd.TryGetValue(conn.From.ComponentId, out var ov) ? ov : 0) + 1;
-                        incd[conn.To.ComponentId] = (incd.TryGetValue(conn.To.ComponentId, out var iv) ? iv : 0) + 1;
+                        outd[conn.From.InstanceId] = (outd.TryGetValue(conn.From.InstanceId, out var ov) ? ov : 0) + 1;
+                        incd[conn.To.InstanceId] = (incd.TryGetValue(conn.To.InstanceId, out var iv) ? iv : 0) + 1;
                     }
 
                     if (includeTypes.Contains("INPUT"))
@@ -164,8 +164,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var outd = new Dictionary<Guid, int>();
                     foreach (var conn in tempDoc.Connections)
                     {
-                        outd[conn.From.ComponentId] = (outd.TryGetValue(conn.From.ComponentId, out var ov) ? ov : 0) + 1;
-                        incd[conn.To.ComponentId] = (incd.TryGetValue(conn.To.ComponentId, out var iv) ? iv : 0) + 1;
+                        outd[conn.From.InstanceId] = (outd.TryGetValue(conn.From.InstanceId, out var ov) ? ov : 0) + 1;
+                        incd[conn.To.InstanceId] = (incd.TryGetValue(conn.To.InstanceId, out var iv) ? iv : 0) + 1;
                     }
 
                     if (excludeTypes.Contains("INPUT"))
@@ -317,7 +317,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var allObjects = GHCanvasUtils.GetCurrentObjects();
                 var fullDoc = GHDocumentUtils.GetObjectsDetails(allObjects);
-                var edges = fullDoc.Connections.Select(c => (c.From.ComponentId, c.To.ComponentId));
+                var edges = fullDoc.Connections.Select(c => (c.From.InstanceId, c.To.InstanceId));
                 var initialIds = resultObjects.Select(o => o.InstanceGuid);
                 var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
                 var idMap = allObjects.ToDictionary(o => o.InstanceGuid, o => o);
@@ -332,8 +332,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // only keep connections where both components are in our filtered set
             var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
             document.Connections = document.Connections
-                .Where(c => allowed.Contains(c.From.ComponentId)
-                         && allowed.Contains(c.To.ComponentId))
+                .Where(c => allowed.Contains(c.From.InstanceId)
+                         && allowed.Contains(c.To.InstanceId))
                 .ToList();
 
             // Get names and guids

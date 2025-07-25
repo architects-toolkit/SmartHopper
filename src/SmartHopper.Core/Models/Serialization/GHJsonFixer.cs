@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Models.Serialization
         }
 
         /// <summary>
-        /// Fixes connection componentIds based on the provided ID mapping.
+        /// Fixes connection instanceIds based on the provided ID mapping.
         /// </summary>
         public static (JObject, Dictionary<string, Guid>) FixConnectionComponentIds(JObject json, Dictionary<string, Guid> idMapping)
         {
@@ -52,19 +52,19 @@ namespace SmartHopper.Core.Models.Serialization
             {
                 foreach (var conn in conns)
                 {
-                    var fromToken = conn["from"]?["componentId"];
+                    var fromToken = conn["from"]?["instanceId"];
                     if (fromToken != null)
                     {
                         var oldStrFrom = fromToken.ToString();
                         if (idMapping.TryGetValue(oldStrFrom, out var mappedFrom))
-                            conn["from"]["componentId"] = mappedFrom.ToString();
+                            conn["from"]["instanceId"] = mappedFrom.ToString();
                     }
-                    var toToken = conn["to"]?["componentId"];
+                    var toToken = conn["to"]?["instanceId"];
                     if (toToken != null)
                     {
                         var oldStrTo = toToken.ToString();
                         if (idMapping.TryGetValue(oldStrTo, out var mappedTo))
-                            conn["to"]["componentId"] = mappedTo.ToString();
+                            conn["to"]["instanceId"] = mappedTo.ToString();
                     }
                 }
             }
