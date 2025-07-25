@@ -34,15 +34,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_list_components",
-                description: "Retrieve a list of all installed components in this current environment. Returns a JSON dictionary with names, GUIDs, categories, subcategories, descriptions, and keywords.",
+                description: "Retrieve a list of all installed components in this current environment. Returns a JSON dictionary with names, GUIDs, categories, subcategories, descriptions, keywords, inputs and outputs.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""categoryFilter"": {
-                            ""type"": ""array"",
+                            ""type"": ""array"", 
                             ""items"": { ""type"": ""string"" },
                             ""description"": ""Optionally filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'gh_categories' to get the full list of available categories)""
+                        },
+                        ""nameFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Partial name matching filter. Returns components whose name or nickname contains this text (case-insensitive)""
+                        },
+                        ""includeDetails"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""enum"": [""name"", ""nickname"", ""category"", ""subCategory"", ""guid"", ""description"", ""keywords"", ""inputs"", ""outputs""],
+                            ""description"": ""Select which component details to include in response. If not specified, returns all details.""
+                        },
+                        ""maxResults"": {
+                            ""type"": ""integer"",
+                            ""description"": ""Maximum number of components to return. Defaults to 100 to prevent token overload."",
+                            ""default"": 100
                         }
                     }
                 }",
@@ -57,6 +72,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             var server = Instances.ComponentServer;
             var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
+            var nameFilter = parameters["nameFilter"]?.ToString() ?? string.Empty;
+            var includeDetails = parameters["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
+            var maxResults = parameters["maxResults"]?.ToObject<int>() ?? 100;
             var (includeCats, excludeCats) = Get.ParseIncludeExclude(categoryFilters, Get.CategorySynonyms);
 
             // Retrieve all component proxies in one call
@@ -72,6 +90,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
             if (excludeCats.Any())
             {
                 proxies = proxies.Where(p => p.Desc.Category == null || !excludeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
+            }
+
+            // Apply name filter if provided
+            if (!string.IsNullOrEmpty(nameFilter))
+            {
+                var filterLower = nameFilter.ToLowerInvariant();
+                proxies = proxies.Where(p => 
+                    p.Desc.Name.ToLowerInvariant().Contains(filterLower) ||
+                    p.Desc.NickName.ToLowerInvariant().Contains(filterLower)
+                ).ToList();
+            }
+
+            // Apply max results limit
+            if (maxResults > 0)
+            {
+                proxies = proxies.Take(maxResults).ToList();
             }
 
             var list = proxies.Select(p =>
@@ -122,21 +156,33 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     outputs = new List<object>();
                 }
 
-                return new
-                {
-                    name = p.Desc.Name,
-                    nickname = p.Desc.NickName,
-                    category = p.Desc.Category,
-                    subCategory = p.Desc.SubCategory,
-                    guid = p.Guid.ToString(),
-                    description = p.Desc.Description,
-                    keywords = p.Desc.Keywords,
-                    inputs,
-                    outputs,
-                };
+                // Build component object based on includeDetails selection
+                var componentData = new Dictionary<string, object>();
+
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("name"))
+                    componentData["name"] = p.Desc.Name;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("nickname"))
+                    componentData["nickname"] = p.Desc.NickName;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("category"))
+                    componentData["category"] = p.Desc.Category;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("subCategory"))
+                    componentData["subCategory"] = p.Desc.SubCategory;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("guid"))
+                    componentData["guid"] = p.Guid.ToString();
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("description"))
+                    componentData["description"] = p.Desc.Description;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("keywords"))
+                    componentData["keywords"] = p.Desc.Keywords;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("inputs"))
+                    componentData["inputs"] = inputs;
+                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("outputs"))
+                    componentData["outputs"] = outputs;
+
+                return componentData;
+
             }).ToList();
-            var names = list.Select(x => x.name).Distinct().ToList();
-            var guids = list.Select(x => x.guid).Distinct().ToList();
+            var names = list.Where(x => x.ContainsKey("name")).Select(x => x["name"].ToString()).Distinct().ToList();
+            var guids = list.Where(x => x.ContainsKey("guid")).Select(x => x["guid"].ToString()).Distinct().ToList();
             var json = JsonConvert.SerializeObject(list, Formatting.None);
             var result = new JObject
             {
@@ -145,6 +191,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ["guids"] = JArray.FromObject(guids),
                 ["json"] = json,
             };
+
             return Task.FromResult<object>(result);
         }
     }
