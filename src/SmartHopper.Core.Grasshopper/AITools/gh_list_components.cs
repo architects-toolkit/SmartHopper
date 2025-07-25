@@ -34,8 +34,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_list_components",
-                description: "Retrieve a list of all installed components in this current environment. Returns a JSON dictionary with names, GUIDs, categories, subcategories, descriptions, keywords, inputs and outputs.",
-                category: "Components",
+                description: "Retrieve a list of all installed components in this current environment. Returns a JSON dictionary with names, GUIDs, categories, subcategories, descriptions, keywords, inputs and outputs. Use filters wisely to target the results and avoid wasting tokens.",
+                category: "ComponentsRetrieval",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
                             ""enum"": [""name"", ""nickname"", ""category"", ""subCategory"", ""guid"", ""description"", ""keywords"", ""inputs"", ""outputs""],
-                            ""description"": ""Select which component details to include in response. If not specified, returns all details.""
+                            ""description"": ""Select which component details to include in response. If not specified, returns all details. Recommended 'name', 'description', 'inputs' and 'outputs' to avoid token overload.""
                         },
                         ""maxResults"": {
                             ""type"": ""integer"",
@@ -121,7 +121,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             name = param.Name,
                             description = param.Description,
                             dataType = param.GetType().Name,
-                            access = param.Access.ToString(),
+                            // access = param.Access.ToString(),
                         })
                         .Cast<object>()
                         .ToList();
@@ -131,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             name = param.Name,
                             description = param.Description,
                             dataType = param.GetType().Name,
-                            access = param.Access.ToString(),
+                            // access = param.Access.ToString(),
                         })
                         .Cast<object>()
                         .ToList();
@@ -146,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             name = param.Name,
                             description = param.Description,
                             dataType = param.GetType().Name,
-                            access = param.Access.ToString(),
+                            // access = param.Access.ToString(),
                         },
                     };
                 }
@@ -159,23 +159,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Build component object based on includeDetails selection
                 var componentData = new Dictionary<string, object>();
 
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("name"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("name"))
                     componentData["name"] = p.Desc.Name;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("nickname"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("nickname"))
                     componentData["nickname"] = p.Desc.NickName;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("category"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("category"))
                     componentData["category"] = p.Desc.Category;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("subCategory"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("subCategory"))
                     componentData["subCategory"] = p.Desc.SubCategory;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("guid"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("guid"))
                     componentData["guid"] = p.Guid.ToString();
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("description"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("description"))
                     componentData["description"] = p.Desc.Description;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("keywords"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("keywords"))
                     componentData["keywords"] = p.Desc.Keywords;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("inputs"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("inputs"))
                     componentData["inputs"] = inputs;
-                if (includeDetails.Count == 0 || includeDetails.ToLowerInvariant().Contains("outputs"))
+                if (includeDetails.Count == 0 || includeDetails.Contains("outputs"))
                     componentData["outputs"] = outputs;
 
                 return componentData;

@@ -22,9 +22,9 @@ namespace SmartHopper.Core.Models.Connections
         /// <summary>
         /// The ID of the component that this connection endpoint belongs to.
         /// </summary>
-        [JsonProperty("componentId")]
+        [JsonProperty("instanceId")]
         [JsonRequired]
-        public Guid ComponentId { get; set; }
+        public Guid InstanceId { get; set; }
 
         /// <summary>
         /// The name of the parameter on the component.
@@ -39,7 +39,7 @@ namespace SmartHopper.Core.Models.Connections
         /// <returns>True if the connection has a non-empty GUID and parameter name</returns>
         public bool IsValid()
         {
-            return ComponentId != Guid.Empty && !string.IsNullOrEmpty(ParamName);
+            return InstanceId != Guid.Empty && !string.IsNullOrEmpty(ParamName);
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Models.Connections
 
             return new Connection
             {
-                ComponentId = param.InstanceGuid,
+                InstanceId = param.InstanceGuid,
                 ParamName = param.Name
             };
         }
