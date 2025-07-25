@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
 - New `gh_generate` ai tool using an AI Orchestration approach.
 
+### Fixed
+
+- `gh_put` now handles the case when pivot is not provided for some components.
+
 ## [0.4.1-alpha] - 2025-07-23
 
 ### Added
