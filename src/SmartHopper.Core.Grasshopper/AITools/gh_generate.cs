@@ -73,57 +73,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Debug.WriteLine($"[gh_generate] Starting autonomous AI generation for prompt: {userPrompt}");
 
-                // Use autonomous AI orchestration with up to 3 attempts for GhJSON validation
-                for (int attempt = 1; attempt <= 3; attempt++)
-                {
-                    Debug.WriteLine($"[gh_generate] Attempt {attempt}/3");
-                    
-                    var result = await this.GenerateWithAutonomousAI(
-                        userPrompt,
-                        providerName,
-                        modelName,
-                        contextProviderFilter,
-                        contextKeyFilter,
-                        attempt);
-                    
-                    if (result.status == "succeed")
-                    {
-                        Debug.WriteLine($"[gh_generate] Success on attempt {attempt}");
-                        return result;
-                    }
-                    
-                    // If it's a clarification request, return immediately
-                    try
-                    {
-                        if (result.result.clarificationNeeded != null)
-                        {
-                            Debug.WriteLine($"[gh_generate] Clarification needed on attempt {attempt}");
-                            return result;
-                        }
-                    }
-                    catch
-                    {
-                        // Property doesn't exist, continue
-                    }
-                    
-                    // If it's the last attempt, return the error
-                    if (attempt == 3)
-                    {
-                        Debug.WriteLine($"[gh_generate] Failed after 3 attempts");
-                        return result;
-                    }
-                    
-                    try
-                    {
-                        Debug.WriteLine($"[gh_generate] Retrying... Error: {result.result.error}");
-                    }
-                    catch
-                    {
-                        Debug.WriteLine($"[gh_generate] Retrying... (Error details not available)");
-                    }
-                }
-
-                return new { status = "fail", result = new { error = "Maximum attempts exceeded" } };
+                // Use autonomous AI orchestration with continuous conversation
+                Debug.WriteLine($"[gh_generate] Starting generation with continuous conversation");
+                
+                var result = await this.GenerateWithAutonomousAI(
+                    userPrompt,
+                    providerName,
+                    modelName,
+                    contextProviderFilter,
+                    contextKeyFilter);
+                
+                Debug.WriteLine($"[gh_generate] Generation completed with status: {result.status}");
+                return result;
             }
             catch (Exception ex)
             {
@@ -136,18 +97,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Generates GhJSON using autonomous AI orchestration with available tools.
         /// </summary>
         private async Task<dynamic> GenerateWithAutonomousAI(string userPrompt, string providerName, string modelName, 
-            string contextProviderFilter, string contextKeyFilter, int attempt)
+            string contextProviderFilter, string contextKeyFilter)
         {
             try
             {
-                Debug.WriteLine($"[gh_generate] Starting autonomous AI generation - Attempt {attempt}");
+                Debug.WriteLine($"[gh_generate] Starting autonomous AI generation with continuous conversation");
                 
                 // Get system prompt with tool descriptions
-                var systemPrompt = this.GetAutonomousSystemPrompt(attempt);
+                var systemPrompt = this.GetAutonomousSystemPrompt();
                 var baseUserMessage = $"User Request: {userPrompt}\n\nPlease analyze this request and generate a complete Grasshopper definition using the available tools.\n\nIMPORTANT: When you provide the final GhJSON response, return ONLY the formatted JSON, nothing else. Do not wrap it in markdown code blocks or add any explanatory text.";
                 
                 // Initialize conversation with system and user messages using ChatMessageModel
-                const int maxTurns = 10;
+                const int maxTurns = 15; // Increased to allow for validation and correction
                 var userMessageWithTurnInfo = $"{baseUserMessage}\n\n**IMPORTANT: You have a maximum of {maxTurns-2} conversation turns to complete this task. Use your tools efficiently!**";
                 
                 var messages = new List<ChatMessageModel>
@@ -278,19 +239,50 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         return new { status = "fail", result = new { error = "Empty response from AI" } };
                     }
                     
-                    // Process the final response (break out of conversation loop)
-                    // Extract and validate GhJSON from the AI response
+                    // Process the final response - check if it contains GhJSON
                     var extractedJson = this.ExtractGhJsonFromResponse(content);
-                    if (string.IsNullOrWhiteSpace(extractedJson))
+                    if (!string.IsNullOrWhiteSpace(extractedJson))
                     {
-                        Debug.WriteLine($"[gh_generate] Turn {turn} - Failed to extract valid JSON from response");
-                        return new { status = "fail", result = new { error = "Could not extract valid GhJSON from AI response", response = content } };
+                        Debug.WriteLine($"[gh_generate] Turn {turn} - Extracted JSON length: {extractedJson.Length}");
+                        
+                        // Validate the extracted GhJSON
+                        var validationResult = this.ValidateGhJson(extractedJson);
+                        
+                        if (validationResult.isValid)
+                        {
+                            Debug.WriteLine($"[gh_generate] Turn {turn} - Validation successful, returning GhJSON");
+                            return new { status = "succeed", result = extractedJson };
+                        }
+                        else
+                        {
+                            // Extract only errors for correction (exclude warnings and info)
+                            var errorMessages = this.ExtractErrorsOnly(validationResult.errorMessage);
+                            
+                            if (!string.IsNullOrEmpty(errorMessages))
+                            {
+                                Debug.WriteLine($"[gh_generate] Turn {turn} - Validation failed, adding error correction message");
+                                
+                                // Add error correction message to continue the conversation
+                                var errorCorrectionMessage = new ChatMessageModel
+                                {
+                                    Author = "user",
+                                    Body = $"The GhJSON you provided has validation errors. Please fix these specific issues and provide a corrected GhJSON:\n\n{errorMessages}\n\nRemember to return ONLY the corrected JSON, nothing else.",
+                                    Time = DateTime.Now,
+                                    Inbound = true,
+                                    Read = true,
+                                };
+                                messages.Add(errorCorrectionMessage);
+                                
+                                Debug.WriteLine($"[gh_generate] Turn {turn} - Error correction message added, continuing conversation");
+                                continue; // Continue the conversation loop
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"[gh_generate] Turn {turn} - Validation failed but no specific errors to correct");
+                                return new { status = "fail", result = new { error = validationResult.errorMessage } };
+                            }
+                        }
                     }
-                    
-                    Debug.WriteLine($"[gh_generate] Turn {turn} - Extracted JSON length: {extractedJson.Length}");
-                    
-                    // Validate the extracted GhJSON
-                    return await this.ValidateAndReturnGhJson(extractedJson, attempt);
                 }
                 
                 // If we get here, we exceeded max turns
@@ -305,12 +297,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Gets the autonomous system prompt with instructions and tool availability based on attempt number.
+        /// Gets the autonomous system prompt with instructions and tool availability.
         /// </summary>
-        private string GetAutonomousSystemPrompt(int attempt)
+        private string GetAutonomousSystemPrompt()
         {
-            var errorContext = attempt > 1 ? $"\n\nThis is attempt {attempt}/3. Previous attempts failed, so please be more careful with your analysis and component selection." : "";
-
             return $@"You are an expert Grasshopper 3D parametric design assistant with access to specialized tools. Your task is to analyze user requests and autonomously generate complete Grasshopper definitions in GhJSON format.
 
 ## AVAILABLE TOOLS:
@@ -373,13 +363,13 @@ If you can generate the definition, respond with valid GhJSON using consecutive 
 - Ask for clarification ONLY if the request is genuinely ambiguous
 - Use tools strategically to minimize token usage
 - Prioritize common, well-documented Grasshopper components
-- Ensure proper component connections for functional definitions{errorContext}";
+- Ensure proper component connections for functional definitions";
         }
 
         /// <summary>
-        /// Validates GhJSON using GHJsonAnalyzer and returns appropriate response.
+        /// Validates GhJSON using GHJsonAnalyzer and returns structured validation result.
         /// </summary>
-        private async Task<dynamic> ValidateAndReturnGhJson(string ghjson, int attempt)
+        private (bool isValid, string errorMessage) ValidateGhJson(string ghjson)
         {
             try
             {
@@ -387,30 +377,56 @@ If you can generate the definition, respond with valid GhJSON using consecutive 
                 
                 // Validate the GhJSON structure
                 var result = GHJsonAnalyzer.Validate(ghjson, out var errorMessage);
-
-                if (!result)
-                {
-                    return new { status = "fail", result = new { error = errorMessage } };
-                }
-
-                // If validation passes, return success
-                return new { status = "succeed", result = ghjson };
+                
+                Debug.WriteLine($"[gh_generate] Validation result: {result}, ErrorMessage: {errorMessage?.Substring(0, Math.Min(200, errorMessage?.Length ?? 0))}...");
+                
+                return (result, errorMessage);
             }
             catch (Exception ex)
             {
-                // Include validation error details for the AI to self-correct
-                return new 
-                { 
-                    status = "fail", 
-                    result = new 
-                    { 
-                        error = $"GhJSON validation failed: {ex.Message}",
-                        validationError = ex.Message,
-                        attempt = attempt,
-                        maxAttempts = 3
-                    }
-                };
+                Debug.WriteLine($"[gh_generate] Validation exception: {ex.Message}");
+                return (false, $"GhJSON validation failed: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Extracts only error messages from validation output, excluding warnings and info messages.
+        /// Parses the structured validation output that has "Errors:", "Warnings:", and "Information:" sections.
+        /// </summary>
+        private string ExtractErrorsOnly(string validationMessage)
+        {
+            if (string.IsNullOrWhiteSpace(validationMessage))
+                return string.Empty;
+
+            var lines = validationMessage.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            var errorLines = new List<string>();
+            bool inErrorsSection = false;
+
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                
+                // Check for section headings
+                if (trimmedLine.Equals("Errors:", StringComparison.OrdinalIgnoreCase))
+                {
+                    inErrorsSection = true;
+                    continue; // Skip the heading itself
+                }
+                else if (trimmedLine.Equals("Warnings:", StringComparison.OrdinalIgnoreCase) ||
+                         trimmedLine.Equals("Information:", StringComparison.OrdinalIgnoreCase))
+                {
+                    inErrorsSection = false;
+                    continue;
+                }
+                
+                // If we're in the errors section, collect the content
+                if (inErrorsSection && !string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    errorLines.Add(trimmedLine);
+                }
+            }
+
+            return string.Join("\n", errorLines);
         }
 
         /// <summary>
