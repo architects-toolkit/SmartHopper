@@ -101,6 +101,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ? response.ImageUrl 
                     : response.ImageData;
                 
+                // Check if we have valid image data
+                if (string.IsNullOrEmpty(imageResult))
+                {
+                    return AIEvaluationResult<GH_String>.CreateError(
+                        "No image data received from AI provider",
+                        GH_RuntimeMessageLevel.Error,
+                        response);
+                }
+                
                 // Success case
                 return AIEvaluationResult<GH_String>.CreateSuccess(
                     response, // Now using AIResponse which is compatible with AIEvaluationResult
@@ -163,7 +172,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var responseObj = new JObject
                 {
                     ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
+                    ["result"] = result.Success && result.Result != null ? new JValue(result.Result.Value) : JValue.CreateNull(),
                     ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
                     ["rawResponse"] = result.Response != null ? JToken.FromObject(result.Response) : JValue.CreateNull(),
                 };

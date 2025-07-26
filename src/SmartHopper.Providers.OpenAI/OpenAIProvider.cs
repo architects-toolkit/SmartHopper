@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Gets the default image generation model for this provider.
         /// </summary>
-        public override string DefaultImgModel => "gpt-image-1";
+        public override string DefaultImgModel => "dall-e-3";
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -298,7 +298,7 @@ namespace SmartHopper.Providers.OpenAI
                 string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("ImageModel") : model;
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = "dall-e-3"; // Default to DALL-E 3
+                    modelName = this.DefaultImgModel;
                 }
 
                 Debug.WriteLine($"[OpenAI] GenerateImage - Model: {modelName}, Size: {size}, Quality: {quality}, Style: {style}");
@@ -310,8 +310,9 @@ namespace SmartHopper.Providers.OpenAI
                     ["model"] = modelName,
                     ["prompt"] = prompt,
                     ["n"] = 1, // Number of images to generate
-                    ["size"] = size,
-                    ["response_format"] = "url" // Can be "url" or "b64_json"
+                    ["size"] = size
+                    // Note: response_format parameter is not supported by OpenAI Images API
+                    // Images are returned as URLs by default
                 };
 
                 // Add quality and style for DALL-E 3 models
