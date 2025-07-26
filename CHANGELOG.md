@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Image Generation Support**: Comprehensive AI image generation capabilities using OpenAI DALL-E models.
+  - New `DefaultImgModel` property in `IAIProvider` interface for provider capability detection.
+  - New `img_generate` AI tool with support for prompt, size, quality, and style parameters.
+  - Enhanced `AIUtils.GenerateImage()` method with provider-agnostic image generation.
 - New `includeSubcategories` parameter to `gh_list_categories` tool.
 - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
 - Added component existence and connection type validation to `GHJsonLocal`.
