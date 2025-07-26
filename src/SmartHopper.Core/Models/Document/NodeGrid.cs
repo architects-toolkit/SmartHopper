@@ -19,16 +19,16 @@ namespace SmartHopper.Core.Models.Document
     /// </summary>
     public class NodeGridComponent
     {
-        /// <summary>Component's GUID.</summary>
+        /// <summary>Gets or sets component's GUID.</summary>
         public Guid ComponentId { get; set; }
 
-        /// <summary>Calculated pivot position.</summary>
+        /// <summary>Gets or sets calculated pivot position.</summary>
         public PointF Pivot { get; set; }
 
-        /// <summary>Mapping of parent component IDs to the input parameter index (incoming edges) on this component.</summary>
+        /// <summary>Gets or sets mapping of parent component IDs to the input parameter index (incoming edges) on this component.</summary>
         public Dictionary<Guid, int> Parents { get; set; } = new Dictionary<Guid, int>();
 
-        /// <summary>Mapping of child component IDs to the output parameter index (outgoing edges) from this component.</summary>
+        /// <summary>Gets or sets mapping of child component IDs to the output parameter index (outgoing edges) from this component.</summary>
         public Dictionary<Guid, int> Children { get; set; } = new Dictionary<Guid, int>();
     }
 }
