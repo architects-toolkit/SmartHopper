@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `gh_put` now automatically fixes GhJSON.
+- OpenAI tool filter not being applied properly.
 
 ## [0.4.1-alpha] - 2025-07-23
 
