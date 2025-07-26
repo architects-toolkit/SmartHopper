@@ -44,6 +44,11 @@ namespace SmartHopper.Providers.OpenAI
         public override string DefaultModel => DefaultModelValue;
 
         /// <summary>
+        /// Gets the default image generation model for this provider.
+        /// </summary>
+        public override string DefaultImgModel => "gpt-image-1";
+
+        /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
         public override string DefaultServerUrl => DefaultServerUrlValue;
@@ -271,6 +276,115 @@ namespace SmartHopper.Providers.OpenAI
             {
                 Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Generates an image based on a text prompt using OpenAI's DALL-E models.
+        /// </summary>
+        /// <param name="prompt">The text prompt describing the desired image.</param>
+        /// <param name="model">The model to use for image generation (e.g., "dall-e-3", "dall-e-2").</param>
+        /// <param name="size">The size of the generated image (e.g., "1024x1024", "1792x1024", "1024x1792").</param>
+        /// <param name="quality">The quality of the generated image ("standard" or "hd").</param>
+        /// <param name="style">The style of the generated image ("vivid" or "natural").</param>
+        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
+        public override async Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
+            try
+            {
+                // Use default model if none specified
+                string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("ImageModel") : model;
+                if (string.IsNullOrWhiteSpace(modelName))
+                {
+                    modelName = "dall-e-3"; // Default to DALL-E 3
+                }
+
+                Debug.WriteLine($"[OpenAI] GenerateImage - Model: {modelName}, Size: {size}, Quality: {quality}, Style: {style}");
+                Debug.WriteLine($"[OpenAI] GenerateImage - Prompt: {prompt}");
+
+                // Build request payload
+                var requestPayload = new JObject
+                {
+                    ["model"] = modelName,
+                    ["prompt"] = prompt,
+                    ["n"] = 1, // Number of images to generate
+                    ["size"] = size,
+                    ["response_format"] = "url" // Can be "url" or "b64_json"
+                };
+
+                // Add quality and style for DALL-E 3 models
+                if (modelName.Contains("dall-e-3", StringComparison.OrdinalIgnoreCase))
+                {
+                    requestPayload["quality"] = quality;
+                    requestPayload["style"] = style;
+                }
+
+                var jsonRequest = requestPayload.ToString(Newtonsoft.Json.Formatting.None);
+                Debug.WriteLine($"[OpenAI] GenerateImage - Request: {jsonRequest}");
+
+                // Make API call to image generation endpoint
+                var content = await CallApi("/images/generations", "POST", jsonRequest).ConfigureAwait(false);
+                Debug.WriteLine($"[OpenAI] GenerateImage - Response: {content}");
+
+                stopwatch.Stop();
+
+                // Parse response
+                var responseObj = JObject.Parse(content);
+                var dataArray = responseObj["data"] as JArray;
+
+                if (dataArray == null || dataArray.Count == 0)
+                {
+                    return new AIResponse
+                    {
+                        FinishReason = "error",
+                        ErrorMessage = "No image data returned from OpenAI",
+                        OriginalPrompt = prompt,
+                        ImageSize = size,
+                        ImageQuality = quality,
+                        ImageStyle = style,
+                        Provider = this.Name,
+                        Model = modelName,
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds
+                    };
+                }
+
+                var imageData = dataArray[0];
+                var imageUrl = imageData["url"]?.ToString() ?? string.Empty;
+                var revisedPrompt = imageData["revised_prompt"]?.ToString() ?? prompt;
+
+                return new AIResponse
+                {
+                    ImageUrl = imageUrl,
+                    RevisedPrompt = revisedPrompt,
+                    OriginalPrompt = prompt,
+                    ImageSize = size,
+                    ImageQuality = quality,
+                    ImageStyle = style,
+                    FinishReason = "success",
+                    Provider = this.Name,
+                    Model = modelName,
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds
+                };
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                Debug.WriteLine($"[OpenAI] GenerateImage - Exception: {ex.Message}");
+                
+                return new AIResponse
+                {
+                    FinishReason = "error",
+                    ErrorMessage = $"Error generating image: {ex.Message}",
+                    OriginalPrompt = prompt,
+                    ImageSize = size,
+                    ImageQuality = quality,
+                    ImageStyle = style,
+                    Provider = this.Name,
+                    Model = model,
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds
+                };
             }
         }
 

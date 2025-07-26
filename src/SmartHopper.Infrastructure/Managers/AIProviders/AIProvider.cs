@@ -43,6 +43,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         public abstract string DefaultModel { get; }
 
         /// <summary>
+        /// Gets the default image generation model name for the provider.
+        /// Returns null or empty string if the provider doesn't support image generation.
+        /// </summary>
+        public abstract string DefaultImgModel { get; }
+
+        /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
         public abstract string DefaultServerUrl { get; }
@@ -67,6 +73,20 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
         /// <returns>An AIResponse containing the result.</returns>
         public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
+
+        /// <summary>
+        /// Generates an image based on a text prompt.
+        /// </summary>
+        /// <param name="prompt">The text prompt describing the desired image.</param>
+        /// <param name="model">The model to use for image generation.</param>
+        /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
+        /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
+        /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
+        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
+        public virtual Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        {
+            throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
+        }
 
         /// <summary>
         /// Initializes the provider with the specified settings.
