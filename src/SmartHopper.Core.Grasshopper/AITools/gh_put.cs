@@ -53,8 +53,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 var json = parameters["json"]?.ToString() ?? string.Empty;
-                GHJsonAnalyzer.Analyze(json, out analysisMsg);
-                var document = GHJsonConverter.DeserializeFromJson(json);
+
+                GHJsonAnalyzer.Validate(json, out analysisMsg);
+                var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
+
                 if (document?.Components == null || !document.Components.Any())
                 {
                     var msg = analysisMsg ?? "JSON must contain a non-empty components array";
