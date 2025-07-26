@@ -15,7 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Models.Serialization;
+ using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
 
@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var json = parameters["json"]?.ToString() ?? string.Empty;
 
-                GHJsonAnalyzer.Validate(json, out analysisMsg);
+                GHJsonLocal.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
 
                 if (document?.Components == null || !document.Components.Any())
