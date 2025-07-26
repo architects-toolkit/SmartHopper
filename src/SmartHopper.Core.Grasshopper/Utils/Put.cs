@@ -41,8 +41,8 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// </summary>
         private static Dictionary<Guid, Guid> InternalPutObjects(GrasshopperDocument document, PointF startPoint)
         {
-            // Replace integer IDs with proper GUIDs before processing
-            document = ReplaceIntegerIdsInGhJson(document);
+            // // Replace integer IDs with proper GUIDs before processing
+            // document = ReplaceIntegerIdsInGhJson(document);
 
             var guidMapping = new Dictionary<Guid, Guid>();
 
@@ -312,86 +312,86 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// </summary>
         /// <param name="ghjsonString">The GhJSON string to process</param>
         /// <returns>A processed GhJSON string with GUIDs replacing integer IDs</returns>
-        public static string ReplaceIntegerIdsInGhJson(string ghjsonString)
-        {
-            if (string.IsNullOrWhiteSpace(ghjsonString))
-                return ghjsonString;
+        // public static string ReplaceIntegerIdsInGhJson(string ghjsonString)
+        // {
+        //     if (string.IsNullOrWhiteSpace(ghjsonString))
+        //         return ghjsonString;
 
-            try
-            {
-                var idToGuidMap = new Dictionary<string, string>();
+        //     try
+        //     {
+        //         var idToGuidMap = new Dictionary<string, string>();
 
-                // Helper to get or create GUID string for an ID
-                string GetOrCreateGuidString(string id)
-                {
-                    if (string.IsNullOrWhiteSpace(id))
-                        return id;
+        //         // Helper to get or create GUID string for an ID
+        //         string GetOrCreateGuidString(string id)
+        //         {
+        //             if (string.IsNullOrWhiteSpace(id))
+        //                 return id;
 
-                    // If it's already a valid GUID, return it unchanged
-                    if (Guid.TryParse(id, out _))
-                        return id;
+        //             // If it's already a valid GUID, return it unchanged
+        //             if (Guid.TryParse(id, out _))
+        //                 return id;
 
-                    // Otherwise, map integer IDs to consistent GUIDs
-                    if (!idToGuidMap.TryGetValue(id, out var mappedGuid))
-                    {
-                        mappedGuid = Guid.NewGuid().ToString();
-                        idToGuidMap[id] = mappedGuid;
-                        Debug.WriteLine($"[Put] Mapped ID '{id}' to GUID '{mappedGuid}'");
-                    }
-                    return mappedGuid;
-                }
+        //             // Otherwise, map integer IDs to consistent GUIDs
+        //             if (!idToGuidMap.TryGetValue(id, out var mappedGuid))
+        //             {
+        //                 mappedGuid = Guid.NewGuid().ToString();
+        //                 idToGuidMap[id] = mappedGuid;
+        //                 Debug.WriteLine($"[Put] Mapped ID '{id}' to GUID '{mappedGuid}'");
+        //             }
+        //             return mappedGuid;
+        //         }
 
-                // Parse JSON to work with the structure flexibly
-                var jsonObject = JObject.Parse(ghjsonString);
+        //         // Parse JSON to work with the structure flexibly
+        //         var jsonObject = JObject.Parse(ghjsonString);
 
-                // Process all components array
-                var components = jsonObject["components"] as JArray;
-                if (components != null)
-                {
-                    foreach (var component in components)
-                    {
-                        // Replace instanceGuid if it exists
-                        if (component["instanceGuid"] != null)
-                        {
-                            var currentId = component["instanceGuid"].ToString();
-                            component["instanceGuid"] = GetOrCreateGuidString(currentId);
-                        }
-                    }
-                }
+        //         // Process all components array
+        //         var components = jsonObject["components"] as JArray;
+        //         if (components != null)
+        //         {
+        //             foreach (var component in components)
+        //             {
+        //                 // Replace instanceGuid if it exists
+        //                 if (component["instanceGuid"] != null)
+        //                 {
+        //                     var currentId = component["instanceGuid"].ToString();
+        //                     component["instanceGuid"] = GetOrCreateGuidString(currentId);
+        //                 }
+        //             }
+        //         }
 
-                // Process all connections array
-                var connections = jsonObject["connections"] as JArray;
-                if (connections != null)
-                {
-                    foreach (var connection in connections)
-                    {
-                        // Replace from.instanceId if it exists
-                        var fromObj = connection["from"];
-                        if (fromObj?["instanceId"] != null)
-                        {
-                            var currentId = fromObj["instanceId"].ToString();
-                            fromObj["instanceId"] = GetOrCreateGuidString(currentId);
-                        }
+        //         // Process all connections array
+        //         var connections = jsonObject["connections"] as JArray;
+        //         if (connections != null)
+        //         {
+        //             foreach (var connection in connections)
+        //             {
+        //                 // Replace from.instanceId if it exists
+        //                 var fromObj = connection["from"];
+        //                 if (fromObj?["instanceId"] != null)
+        //                 {
+        //                     var currentId = fromObj["instanceId"].ToString();
+        //                     fromObj["instanceId"] = GetOrCreateGuidString(currentId);
+        //                 }
 
-                        // Replace to.instanceId if it exists
-                        var toObj = connection["to"];
-                        if (toObj?["instanceId"] != null)
-                        {
-                            var currentId = toObj["instanceId"].ToString();
-                            toObj["instanceId"] = GetOrCreateGuidString(currentId);
-                        }
-                    }
-                }
+        //                 // Replace to.instanceId if it exists
+        //                 var toObj = connection["to"];
+        //                 if (toObj?["instanceId"] != null)
+        //                 {
+        //                     var currentId = toObj["instanceId"].ToString();
+        //                     toObj["instanceId"] = GetOrCreateGuidString(currentId);
+        //                 }
+        //             }
+        //         }
 
-                Debug.WriteLine($"[Put] ID replacement completed. Mapped {idToGuidMap.Count} integer IDs to GUIDs.");
-                return jsonObject.ToString();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Put] Error in JSON ID replacement: {ex.Message}");
-                return ghjsonString; // Return original JSON if replacement fails
-            }
-        }
+        //         Debug.WriteLine($"[Put] ID replacement completed. Mapped {idToGuidMap.Count} integer IDs to GUIDs.");
+        //         return jsonObject.ToString();
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Debug.WriteLine($"[Put] Error in JSON ID replacement: {ex.Message}");
+        //         return ghjsonString; // Return original JSON if replacement fails
+        //     }
+        // }
 
         /// <summary>
         /// Processes a GrasshopperDocument to replace integer-based IDs with proper GUIDs.
@@ -399,26 +399,26 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// </summary>
         /// <param name="document">The GrasshopperDocument to process</param>
         /// <returns>A processed GrasshopperDocument with GUIDs replacing integer IDs</returns>
-        public static GrasshopperDocument ReplaceIntegerIdsInGhJson(GrasshopperDocument document)
-        {
-            if (document == null)
-                return document;
+        // public static GrasshopperDocument ReplaceIntegerIdsInGhJson(GrasshopperDocument document)
+        // {
+        //     if (document == null)
+        //         return document;
 
-            try
-            {
-                // Serialize to JSON, process, then deserialize back
-                var jsonString = JsonConvert.SerializeObject(document, Formatting.None);
-                var processedJsonString = ReplaceIntegerIdsInGhJson(jsonString);
-                var processedDocument = JsonConvert.DeserializeObject<GrasshopperDocument>(processedJsonString);
+        //     try
+        //     {
+        //         // Serialize to JSON, process, then deserialize back
+        //         var jsonString = JsonConvert.SerializeObject(document, Formatting.None);
+        //         var processedJsonString = ReplaceIntegerIdsInGhJson(jsonString);
+        //         var processedDocument = JsonConvert.DeserializeObject<GrasshopperDocument>(processedJsonString);
 
-                return processedDocument ?? document;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Put] Error in GrasshopperDocument ID replacement: {ex.Message}");
-                return document; // Return original document if replacement fails
-            }
-        }
+        //         return processedDocument ?? document;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Debug.WriteLine($"[Put] Error in GrasshopperDocument ID replacement: {ex.Message}");
+        //         return document; // Return original document if replacement fails
+        //     }
+        // }
 
         /// <summary>
         /// Places components and returns their names.

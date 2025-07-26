@@ -54,11 +54,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var json = parameters["json"]?.ToString() ?? string.Empty;
                 
-                // Replace integer IDs with proper GUIDs BEFORE validation
-                json = Put.ReplaceIntegerIdsInGhJson(json);
+                // // Replace integer IDs with proper GUIDs BEFORE validation
+                // json = Put.ReplaceIntegerIdsInGhJson(json);
                 
                 GHJsonAnalyzer.Validate(json, out analysisMsg);
-                var document = GHJsonConverter.DeserializeFromJson(json);
+                var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
                 if (document?.Components == null || !document.Components.Any())
                 {
                     var msg = analysisMsg ?? "JSON must contain a non-empty components array";
