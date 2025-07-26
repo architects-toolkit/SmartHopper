@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New `includeSubcategories` parameter to `gh_list_categories` tool.
 - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
+- Added component existence and connection type validation to `GHJsonAnalyzer`.
 
 ### Fixed
 
