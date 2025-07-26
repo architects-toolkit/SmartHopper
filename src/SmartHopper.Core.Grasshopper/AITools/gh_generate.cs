@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Core.Models.Serialization;
+using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
@@ -108,7 +108,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var baseUserMessage = $"User Request: {userPrompt}\n\nPlease analyze this request and generate a complete Grasshopper definition using the available tools.\n\nIMPORTANT: When you provide the final GhJSON response, return ONLY the formatted JSON, nothing else. Do not wrap it in markdown code blocks or add any explanatory text.";
                 
                 // Initialize conversation with system and user messages using ChatMessageModel
-                const int maxTurns = 15; // Increased to allow for validation and correction
+                const int maxTurns = 20;
                 var userMessageWithTurnInfo = $"{baseUserMessage}\n\n**IMPORTANT: You have a maximum of {maxTurns-2} conversation turns to complete this task. Use your tools efficiently!**";
                 
                 var messages = new List<ChatMessageModel>
@@ -230,8 +230,45 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         continue;
                     }
                     
-                    // No tool calls - AI provided final response
-                    Debug.WriteLine($"[gh_generate] Turn {turn} - Final response received");
+                    // Check if finish reason indicates tool calls but no tool calls were parsed
+                    // This can happen with some providers - continue conversation to let AI retry
+                    if (aiResponse.FinishReason == "tool_calls")
+                    {
+                        Debug.WriteLine($"[gh_generate] Turn {turn} - Finish reason is tool_calls but no tool calls found, continuing conversation");
+                        
+                        // Add the assistant message and continue - let AI orchestration handle this
+                        var assistantMessage = new ChatMessageModel
+                        {
+                            Author = "assistant",
+                            Body = content,
+                            Time = DateTime.Now,
+                            Inbound = false,
+                            Read = true
+                        };
+                        messages.Add(assistantMessage);
+                        continue;
+                    }
+                    
+                    // Only treat as final response when finish reason is "stop" or "length"
+                    if (aiResponse.FinishReason != "stop" && aiResponse.FinishReason != "length")
+                    {
+                        Debug.WriteLine($"[gh_generate] Turn {turn} - Finish reason '{aiResponse.FinishReason}' is not 'stop' or 'length', continuing conversation");
+                        
+                        // Add the assistant message and continue
+                        var assistantMessage = new ChatMessageModel
+                        {
+                            Author = "assistant",
+                            Body = content,
+                            Time = DateTime.Now,
+                            Inbound = false,
+                            Read = true
+                        };
+                        messages.Add(assistantMessage);
+                        continue;
+                    }
+                    
+                    // Finish reason is "stop" or "length" - AI provided final response (may be truncated)
+                    Debug.WriteLine($"[gh_generate] Turn {turn} - Final response received (finish reason: {aiResponse.FinishReason})");
                     Debug.WriteLine($"[gh_generate] Turn {turn} - AI Response Content: {content}");
                     
                     if (string.IsNullOrEmpty(content))
@@ -292,7 +329,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[gh_generate] Error in autonomous AI generation: {ex.Message}");
-                return new { status = "fail", result = new { error = ex.Message, attempt = attempt, maxAttempts = 3 } };
+                return new { status = "fail", result = new { error = ex.Message } };
             }
         }
 
@@ -374,12 +411,13 @@ If you can generate the definition, respond with valid GhJSON using consecutive 
             try
             {
                 Debug.WriteLine($"[gh_generate] Raw GhJSON being validated: {ghjson?.Substring(0, Math.Min(100, ghjson?.Length ?? 0))}...");
-                
+
                 // Validate the GhJSON structure
-                var result = GHJsonAnalyzer.Validate(ghjson, out var errorMessage);
-                
-                Debug.WriteLine($"[gh_generate] Validation result: {result}, ErrorMessage: {errorMessage?.Substring(0, Math.Min(200, errorMessage?.Length ?? 0))}...");
-                
+                var result = GHJsonLocal.Validate(ghjson, out var errorMessage);
+
+                // Debug.WriteLine($"[gh_generate] Validation result: {result}, ErrorMessage: {errorMessage?.Substring(0, Math.Min(200, errorMessage?.Length ?? 0))}...");
+                Debug.WriteLine($"[gh_generate] Validation result: {result}, ErrorMessage: {errorMessage}...");
+
                 return (result, errorMessage);
             }
             catch (Exception ex)
