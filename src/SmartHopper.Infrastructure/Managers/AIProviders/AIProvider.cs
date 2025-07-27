@@ -114,6 +114,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             if (this._injectedSettings == null)
             {
                 this.ResetCachedSettings(settings);
+                return;
             }
 
             if (settings != null)
