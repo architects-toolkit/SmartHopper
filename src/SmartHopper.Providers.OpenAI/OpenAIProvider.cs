@@ -385,7 +385,7 @@ namespace SmartHopper.Providers.OpenAI
                     ImageStyle = style,
                     Provider = this.Name,
                     Model = model,
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
             }
         }

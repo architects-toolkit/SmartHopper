@@ -158,9 +158,42 @@ namespace SmartHopper.Core.ComponentBase
         {
             parameters ??= new JObject();
             // Inject provider and model
-            parameters["provider"] = GetActualProviderName();
-            parameters["model"] = this.GetModel();
+            var providerName = GetActualProviderName();
+            var model = this.GetModel();
+            parameters["provider"] = providerName;
+            parameters["model"] = model;
             parameters["reuseCount"] = reuseCount;
+
+            // Validate capability requirements before execution
+            try
+            {
+                var currentProvider = this.GetCurrentAIProvider();
+                if (currentProvider != null)
+                {
+                    var validationResult = currentProvider.Models.ValidateToolExecution(toolName, model);
+                    if (!validationResult.IsValid)
+                    {
+                        SetPersistentRuntimeMessage(
+                            "capability_error",
+                            GH_RuntimeMessageLevel.Warning,
+                            $"Model compatibility issue: {validationResult.ErrorMessage}",
+                            false);
+                        
+                        // Return early with capability error
+                        return new JObject
+                        {
+                            ["success"] = false,
+                            ["error"] = validationResult.ErrorMessage,
+                            ["errorType"] = "capability_mismatch"
+                        };
+                    }
+                }
+            }
+            catch (Exception capEx)
+            {
+                // Log capability check error but don't fail execution
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Capability validation error: {capEx.Message}");
+            }
 
             JObject result;
             try

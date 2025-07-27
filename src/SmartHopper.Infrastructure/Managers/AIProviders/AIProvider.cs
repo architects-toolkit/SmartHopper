@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -325,6 +326,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             return ui?.GetSettingDescriptors()
                 ?? Enumerable.Empty<SettingDescriptor>();
         }
+
+        /// <summary>
+        /// Gets the models manager for this provider.
+        /// Provides access to model-related operations including capability management.
+        /// </summary>
+        public ModelsManager Models => new ModelsManager(this);
 
         /// <summary>
         /// Retrieves the list of available model names for this provider.

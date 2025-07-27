@@ -14,8 +14,11 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -272,6 +275,93 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine($"[MistralAI] Exception retrieving models: {ex.Message}");
                 throw new Exception($"Error retrieving models from MistralAI API: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Gets the models manager for MistralAI with specialized capability management.
+        /// </summary>
+        public new MistralModelsManager Models => new MistralModelsManager(this);
+
+        /// <summary>
+        /// Specialized ModelsManager for MistralAI with API-based capability updates.
+        /// </summary>
+        public class MistralModelsManager : ModelsManager
+        {
+            private readonly MistralAIProvider _mistralProvider;
+
+            public MistralModelsManager(MistralAIProvider provider) : base(provider)
+            {
+                _mistralProvider = provider;
+            }
+
+            /// <summary>
+            /// Updates the capability information for MistralAI models using their API.
+            /// </summary>
+            /// <returns>True if capabilities were successfully updated.</returns>
+            public override async Task<bool> UpdateCapabilities()
+            {
+                try
+                {
+                    Debug.WriteLine("[MistralAI] Updating model capabilities via API");
+                    
+                    // Get list of available models first
+                    var models = await _mistralProvider.RetrieveAvailableModels();
+                    var updatedCount = 0;
+
+                    foreach (var modelName in models)
+                    {
+                        try
+                        {
+                            // Call the Mistral models/{model_id} endpoint
+                            var response = await _mistralProvider.CallApi($"/v1/models/{modelName}", "GET", "", "application/json", "bearer");
+                            var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
+
+                            var capabilities = ModelCapability.None;
+                            
+                            // Map Mistral capabilities to our enum
+                            if (modelInfo?.capabilities?.completion_chat == true)
+                            {
+                                capabilities |= ModelCapability.BasicChat;
+                            }
+                            if (modelInfo?.capabilities?.function_calling == true)
+                            {
+                                capabilities |= ModelCapability.FunctionCalling;
+                            }
+                            if (modelInfo?.capabilities?.vision == true)
+                            {
+                                capabilities |= ModelCapability.ImageInput;
+                            }
+
+                            // Register capabilities using the base Models API
+                            RegisterCapabilities(
+                                modelName,
+                                capabilities,
+                                modelInfo?.max_context_length ?? 32768,
+                                modelInfo?.deprecation != null,
+                                modelInfo?.deprecation?.replacement_model);
+
+                            updatedCount++;
+                            Debug.WriteLine($"[MistralAI] Updated capabilities for {modelName}: {capabilities}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[MistralAI] Error updating capabilities for {modelName}: {ex.Message}");
+                        }
+                    }
+
+                    if (updatedCount > 0)
+                    {
+                        Debug.WriteLine($"[MistralAI] Updated capabilities for {updatedCount} models");
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[MistralAI] Error in UpdateCapabilities: {ex.Message}");
+                }
+
+                return false;
             }
         }
     }
