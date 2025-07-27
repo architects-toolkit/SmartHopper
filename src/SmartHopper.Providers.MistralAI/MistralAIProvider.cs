@@ -40,6 +40,12 @@ namespace SmartHopper.Providers.MistralAI
         public override string DefaultModel => DefaultModelValue;
 
         /// <summary>
+        /// Gets the default image generation model for this provider.
+        /// MistralAI does not support image generation, so this returns an empty string.
+        /// </summary>
+        public override string DefaultImgModel => string.Empty;
+
+        /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
         public override string DefaultServerUrl => DefaultServerUrlValue;

@@ -43,6 +43,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         public abstract string DefaultModel { get; }
 
         /// <summary>
+        /// Gets the default image generation model name for the provider.
+        /// Returns null or empty string if the provider doesn't support image generation.
+        /// </summary>
+        public abstract string DefaultImgModel { get; }
+
+        /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
         public abstract string DefaultServerUrl { get; }
@@ -69,12 +75,55 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         /// <summary>
-        /// Initializes the provider with the specified settings.
+        /// Generates an image based on a text prompt.
+        /// </summary>
+        /// <param name="prompt">The text prompt describing the desired image.</param>
+        /// <param name="model">The model to use for image generation.</param>
+        /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
+        /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
+        /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
+        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
+        public virtual Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        {
+            throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
+        }
+
+        /// <summary>
+        /// Resets the provider's cached settings, completely replacing them with the specified settings.
         /// </summary>
         /// <param name="settings">The decrypted settings to use.</param>
-        public void InitializeSettings(Dictionary<string, object> settings)
+        /// <remarks>
+        /// This method completely replaces the cached settings. Use RefreshCachedSettings if you want to merge settings instead.
+        /// </remarks>
+        private void ResetCachedSettings(Dictionary<string, object> settings)
         {
             this._injectedSettings = settings ?? new Dictionary<string, object>();
+        }
+
+        /// <summary>
+        /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
+        /// </summary>
+        /// <param name="settings">The new settings to merge with existing cached settings.</param>
+        /// <remarks>
+        /// This method preserves any settings that were added by the provider itself (e.g., via SetSetting)
+        /// while updating settings from external sources like the UI or configuration files.
+        /// Input settings take precedence over existing cached settings for matching keys.
+        /// </remarks>
+        public void RefreshCachedSettings(Dictionary<string, object> settings)
+        {
+            if (this._injectedSettings == null)
+            {
+                this.ResetCachedSettings(settings);
+                return;
+            }
+
+            if (settings != null)
+            {
+                foreach (var kvp in settings)
+                {
+                    this._injectedSettings[kvp.Key] = kvp.Value;
+                }
+            }
         }
 
         /// <summary>
@@ -136,6 +185,46 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 Debug.WriteLine($"Error getting setting {key} for provider {this.Name}: {ex.Message}");
                 return default;
+            }
+        }
+
+        /// <summary>
+        /// Sets a setting value for this provider with automatic provider scoping and persistence.
+        /// </summary>
+        /// <param name="key">The setting key.</param>
+        /// <param name="value">The setting value to store.</param>
+        /// <remarks>
+        /// This method automatically scopes the setting to the current provider (using this.Name)
+        /// and integrates with the existing encryption system for secret settings.
+        /// The setting is both updated in the local cache and persisted to disk.
+        /// </remarks>
+        protected void SetSetting(string key, object value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                Debug.WriteLine($"Warning: Cannot set setting with empty key for provider {this.Name}");
+                return;
+            }
+
+            try
+            {
+                // Update the local injected settings cache
+                if (this._injectedSettings == null)
+                {
+                    this._injectedSettings = new Dictionary<string, object>();
+                }
+                this._injectedSettings[key] = value;
+
+                // Persist to the global settings with provider scoping
+                var settings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance;
+                settings.SetSetting(this.Name, key, value);
+                settings.Save();
+
+                Debug.WriteLine($"[{this.Name}] Setting '{key}' updated and persisted");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting '{key}' for provider {this.Name}: {ex.Message}");
             }
         }
 

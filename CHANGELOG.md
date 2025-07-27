@@ -9,9 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- New `includeSubcategories` parameter to `gh_list_categories` tool.
-- New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
+- Image Generation Support: Comprehensive AI image generation capabilities using OpenAI DALL-E models.
+  - New `DefaultImgModel` property in `IAIProvider` interface for provider capability detection.
+  - New `img_generate` AI tool with support for prompt, size, quality, and style parameters.
+  - Enhanced `AIUtils.GenerateImage()` method with provider-agnostic image generation.
+  - New `AIImgGenerateComponent` UI component in SmartHopper > Img category.
+- Improvements in `AITools`:
+  - New `includeSubcategories` parameter to `gh_list_categories` tool.
+  - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
 - Added component existence and connection type validation to `GHJsonLocal`.
+- Settings management in AI Providers:
+  - Added `prompt_cache_key` parameter to `OpenAIProvider`.
+  - New `SetSetting` method in `AIProvider` that let's providers set custom settings within the provider key.
+  - New `RefreshCachedSettings` method in `AIProvider` to refresh their cached settings.
+
+### Changed
+
+- Renamed `AIProvider.InitializeSettgins` to `AIProvider.ResetCachedSettings`. Set visibility to `private`.
 
 ### Fixed
 

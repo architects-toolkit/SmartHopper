@@ -166,5 +166,112 @@ namespace SmartHopper.Core.Messaging
                 };
             }
         }
+
+        /// <summary>
+        /// Generates an image using the specified provider and parameters.
+        /// </summary>
+        /// <param name="providerName">The name of the AI provider to use.</param>
+        /// <param name="prompt">The text prompt describing the desired image.</param>
+        /// <param name="model">The model to use for image generation.</param>
+        /// <param name="size">The size of the generated image.</param>
+        /// <param name="quality">The quality of the generated image.</param>
+        /// <param name="style">The style of the generated image.</param>
+        /// <returns>An AIImageResponse containing the generated image data.</returns>
+        public static async Task<AIResponse> GenerateImage(
+            string providerName,
+            string prompt,
+            string model = "",
+            string size = "1024x1024",
+            string quality = "standard",
+            string style = "vivid")
+        {
+            try
+            {
+                var stopwatch = new System.Diagnostics.Stopwatch();
+                stopwatch.Start();
+
+                var providers = ProviderManager.Instance.GetProviders().ToList();
+                var selectedProvider = providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+
+                if (selectedProvider == null)
+                {
+                    stopwatch.Stop();
+                    return new AIResponse
+                    {
+                        FinishReason = "error",
+                        Response = $"Error: Provider '{providerName}' not found. Available providers: {string.Join(", ", providers.Select(p => p.Name))}",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                        OriginalPrompt = prompt,
+                        ImageSize = size,
+                        ImageQuality = quality,
+                        ImageStyle = style
+                    };
+                }
+
+                // Check if the provider supports image generation (indicated by non-empty DefaultImgModel)
+                if (string.IsNullOrEmpty(selectedProvider.DefaultImgModel))
+                {
+                    stopwatch.Stop();
+                    return new AIResponse
+                    {
+                        FinishReason = "error",
+                        Response = $"Error: The {selectedProvider.Name} provider does not support image generation. Please select a provider that supports image generation (e.g., OpenAI).",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                        OriginalPrompt = prompt,
+                        ImageSize = size,
+                        ImageQuality = quality,
+                        ImageStyle = style
+                    };
+                }
+
+                // If no model is specified, use the provider's default image model
+                if (string.IsNullOrWhiteSpace(model))
+                {
+                    model = selectedProvider.DefaultImgModel;
+
+                    // Fallback to regular default model if no image model is specified
+                    if (string.IsNullOrWhiteSpace(model))
+                    {
+                        model = selectedProvider.DefaultModel;
+                    }
+
+                    Debug.WriteLine($"[AIUtils] No model specified for image generation, using: {model}");
+                }
+
+                Debug.WriteLine($"[AIUtils] Generating image with {selectedProvider.Name} using model '{model}'");
+                Debug.WriteLine($"[AIUtils] Image parameters - Size: {size}, Quality: {quality}, Style: {style}");
+
+                var response = await selectedProvider.GenerateImage(prompt, model, size, quality, style).ConfigureAwait(false);
+                stopwatch.Stop();
+                response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+                return response;
+            }
+            catch (HttpRequestException ex)
+            {
+                return new AIResponse
+                {
+                    FinishReason = "error",
+                    Response = $"Error: API request failed - {ex.Message}",
+                    CompletionTime = 0,
+                    OriginalPrompt = prompt,
+                    ImageSize = size,
+                    ImageQuality = quality,
+                    ImageStyle = style
+                };
+            }
+            catch (Exception ex)
+            {
+                return new AIResponse
+                {
+                    FinishReason = "error",
+                    Response = $"Error: {ex.Message}",
+                    CompletionTime = 0,
+                    OriginalPrompt = prompt,
+                    ImageSize = size,
+                    ImageQuality = quality,
+                    ImageStyle = style
+                };
+            }
+        }
     }
 }
