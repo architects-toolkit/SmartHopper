@@ -212,7 +212,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
             if (settingsDict != null)
             {
-                provider.InitializeSettings(settingsDict);
+                provider.RefreshCachedSettings(settingsDict);
             }
         }
 
@@ -286,7 +286,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     if (settingsDict != null)
                     {
                         Debug.WriteLine($"[ProviderManager] Refreshing provider {provider.Name} with current settings");
-                        provider.InitializeSettings(settingsDict);
+                        provider.RefreshCachedSettings(settingsDict);
                     }
                 }
             }
@@ -396,10 +396,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             Debug.WriteLine($"[ProviderManager] Saving settings to disk");
             SmartHopperSettings.Instance.Save();
 
-            // Re-initialize the provider with new settings
+            // Refresh the provider's cached settings (merge with existing to preserve provider-set values)
             var updatedSettings = SmartHopperSettings.Instance.GetProviderSettings(providerName);
-            provider.InitializeSettings(updatedSettings);
-            Debug.WriteLine($"[ProviderManager] Provider {providerName} reinitialized with updated settings");
+            provider.RefreshCachedSettings(updatedSettings);
+            Debug.WriteLine($"[ProviderManager] Provider {providerName} settings refreshed with updated values");
         }
 
         // Implement Authenticode verification using X509Certificate

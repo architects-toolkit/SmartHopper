@@ -13,6 +13,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -47,6 +49,52 @@ namespace SmartHopper.Providers.OpenAI
         /// Gets the default image generation model for this provider.
         /// </summary>
         public override string DefaultImgModel => "dall-e-3";
+
+        /// <summary>
+        /// Gets or creates a persistent base key for prompt caching.
+        /// </summary>
+        private string GetPromptCacheBaseKey()
+        {
+            string baseKey = this.GetSetting<string>("PromptCacheBaseKey");
+            if (string.IsNullOrEmpty(baseKey))
+            {
+                // Generate a new 16-character base key
+                baseKey = Guid.NewGuid().ToString("N")[..16];
+                // Store it persistently using the secure, provider-scoped SetSetting method
+                this.SetSetting("PromptCacheBaseKey", baseKey);
+            }
+            return baseKey;
+        }
+
+        /// <summary>
+        /// Generates a prompt cache key from base key, model name, and system message content.
+        /// </summary>
+        /// <param name="messages">The messages array to extract system message from</param>
+        /// <param name="modelName">The model name to include in the key</param>
+        /// <returns>A unique cache key for the prompt</returns>
+        private string GeneratePromptCacheKey(JArray messages, string modelName)
+        {
+            string baseKey = GetPromptCacheBaseKey();
+            
+            // Extract system message content
+            string systemContent = string.Empty;
+            var systemMessage = messages.FirstOrDefault(m => m["role"]?.ToString() == "system");
+            if (systemMessage != null)
+            {
+                systemContent = systemMessage["content"]?.ToString() ?? string.Empty;
+            }
+            
+            // Create hash input from base key + model name + system message
+            string hashInput = $"{baseKey}|{modelName}|{systemContent}";
+            
+            // Generate SHA256 hash and take first 16 characters
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(hashInput));
+                string hash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+                return hash[..16]; // Take first 16 characters
+            }
+        }
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -149,6 +197,9 @@ namespace SmartHopper.Providers.OpenAI
                     convertedMessages.Add(messageObj);
                 }
 
+                // Generate prompt cache key for this request
+                string promptCacheKey = GeneratePromptCacheKey(convertedMessages, modelName);
+                
                 // Build request body for the new Responses API
                 var requestBody = new JObject
                 {
@@ -156,6 +207,7 @@ namespace SmartHopper.Providers.OpenAI
                     ["messages"] = convertedMessages,
                     ["max_completion_tokens"] = maxTokens,
                     ["temperature"] = this.GetSetting<double>("Temperature"),
+                    ["prompt_cache_key"] = promptCacheKey,
                 };
 
                 // Add reasoning effort if model starts with "(0-9)o"
