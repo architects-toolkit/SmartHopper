@@ -313,8 +313,8 @@ namespace SmartHopper.Providers.OpenAI
                     ["prompt"] = prompt,
                     ["n"] = 1, // Number of images to generate
                     ["size"] = size
-                    // Note: response_format parameter is not supported by OpenAI Images API
-                    // Images are returned as URLs by default
+                    // Note: The OpenAI Images API supports the response_format parameter with values 'url' or 'b64_json'.
+                    // This implementation does not use the parameter, and images are returned as URLs by default.
                 };
 
                 // Add quality and style for DALL-E 3 models
