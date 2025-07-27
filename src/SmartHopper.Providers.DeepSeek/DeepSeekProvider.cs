@@ -67,6 +67,12 @@ namespace SmartHopper.Providers.DeepSeek
         public override string DefaultModel => _defaultModel;
 
         /// <summary>
+        /// Gets the default image generation model for this provider.
+        /// DeepSeek does not support image generation, so this returns an empty string.
+        /// </summary>
+        public override string DefaultImgModel => string.Empty;
+
+        /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
         public override string DefaultServerUrl => DefaultServerUrlValue;
