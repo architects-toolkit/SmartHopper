@@ -75,7 +75,7 @@ namespace SmartHopper.Providers.OpenAI
         private string GeneratePromptCacheKey(JArray messages, string modelName)
         {
             string baseKey = GetPromptCacheBaseKey();
-            
+
             // Extract system message content
             string systemContent = string.Empty;
             var systemMessage = messages.FirstOrDefault(m => m["role"]?.ToString() == "system");
@@ -83,10 +83,10 @@ namespace SmartHopper.Providers.OpenAI
             {
                 systemContent = systemMessage["content"]?.ToString() ?? string.Empty;
             }
-            
+
             // Create hash input from base key + model name + system message
             string hashInput = $"{baseKey}|{modelName}|{systemContent}";
-            
+
             // Generate SHA256 hash and take first 16 characters
             using (var sha256 = SHA256.Create())
             {
@@ -144,119 +144,120 @@ namespace SmartHopper.Providers.OpenAI
 
             Debug.WriteLine($"[OpenAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
 
-                // Format messages for OpenAI API
-                var convertedMessages = new JArray();
-                foreach (var msg in messages)
+            // Format messages for OpenAI API
+            var convertedMessages = new JArray();
+
+            foreach (var msg in messages)
+            {
+                string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
+                string msgContent = msg["content"]?.ToString() ?? string.Empty;
+                msgContent = AI.StripThinkTags(msgContent);
+
+                var messageObj = new JObject
                 {
-                    string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
-                    msgContent = AI.StripThinkTags(msgContent);
-
-                    var messageObj = new JObject
-                    {
-                        ["content"] = msgContent,
-                    };
-
-                    if (role == "assistant")
-                    {
-                        // Pass tool_calls if available
-                        if (msg["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
-                        {
-                            foreach (JObject toolCall in toolCalls)
-                            {
-                                var function = toolCall["function"] as JObject;
-                                if (function != null)
-                                {
-                                    // Ensure 'arguments' is serialized as a JSON string
-                                    if (function["arguments"] is JObject argumentsObject)
-                                    {
-                                        function["arguments"] = argumentsObject.ToString(Newtonsoft.Json.Formatting.None);
-                                    }
-                                }
-                            }
-
-                            messageObj["tool_calls"] = toolCalls;
-                        }
-                    }
-                    else if (role == "tool")
-                    {
-                        var toolCallId = msg["tool_call_id"]?.ToString();
-                        var toolName = msg["name"]?.ToString();
-                        if (!string.IsNullOrEmpty(toolCallId))
-                        {
-                            messageObj["tool_call_id"] = toolCallId;
-                        }
-
-                        if (!string.IsNullOrEmpty(toolName))
-                        {
-                            messageObj["name"] = toolName;
-                        }
-                    }
-
-                    messageObj["role"] = role;
-                    convertedMessages.Add(messageObj);
-                }
-
-                // Generate prompt cache key for this request
-                string promptCacheKey = GeneratePromptCacheKey(convertedMessages, modelName);
-                
-                // Build request body for the new Responses API
-                var requestBody = new JObject
-                {
-                    ["model"] = modelName,
-                    ["messages"] = convertedMessages,
-                    ["max_completion_tokens"] = maxTokens,
-                    ["temperature"] = this.GetSetting<double>("Temperature"),
-                    ["prompt_cache_key"] = promptCacheKey,
+                    ["content"] = msgContent,
                 };
 
-                // Add reasoning effort if model starts with "(0-9)o"
-                if (Regex.IsMatch(modelName, @"^[0-9]o", RegexOptions.IgnoreCase))
+                if (role == "assistant")
                 {
-                    requestBody["reasoning_effort"] = reasoningEffort;
-                }
-
-                // Store wrapper info for response unwrapping
-                SchemaWrapperInfo wrapperInfo = new SchemaWrapperInfo { IsWrapped = false };
-                
-                // Add response format if JSON schema is provided
-                if (!string.IsNullOrEmpty(jsonSchema))
-                {
-                    try
+                    // Pass tool_calls if available
+                    if (msg["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
                     {
-                        var schemaObj = JObject.Parse(jsonSchema);
-                        var wrappedSchema = WrapSchemaForOpenAI(schemaObj);
-                        wrapperInfo = wrappedSchema.wrapperInfo;
-                        
-                        requestBody["response_format"] = new JObject
+                        foreach (JObject toolCall in toolCalls)
                         {
-                            ["type"] = "json_schema",
-                            ["json_schema"] = new JObject
+                            var function = toolCall["function"] as JObject;
+                            if (function != null)
                             {
-                                ["name"] = "response_schema",
-                                ["schema"] = wrappedSchema.schema,
-                                ["strict"] = true
+                                // Ensure 'arguments' is serialized as a JSON string
+                                if (function["arguments"] is JObject argumentsObject)
+                                {
+                                    function["arguments"] = argumentsObject.ToString(Newtonsoft.Json.Formatting.None);
+                                }
                             }
-                        };
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
-                        // Continue without schema if parsing fails
+                        }
+
+                        messageObj["tool_calls"] = toolCalls;
                     }
                 }
-
-
-                // Add tools if requested
-                if (!string.IsNullOrWhiteSpace(toolFilter))
+                else if (role == "tool")
                 {
-                    var tools = this.GetFormattedTools(toolFilter);
-                    if (tools != null && tools.Count > 0)
+                    var toolCallId = msg["tool_call_id"]?.ToString();
+                    var toolName = msg["name"]?.ToString();
+                    if (!string.IsNullOrEmpty(toolCallId))
                     {
-                        requestBody["tools"] = tools;
-                        requestBody["tool_choice"] = "auto";
+                        messageObj["tool_call_id"] = toolCallId;
+                    }
+
+                    if (!string.IsNullOrEmpty(toolName))
+                    {
+                        messageObj["name"] = toolName;
                     }
                 }
+
+                messageObj["role"] = role;
+                convertedMessages.Add(messageObj);
+            }
+
+            // Generate prompt cache key for this request
+            string promptCacheKey = this.GeneratePromptCacheKey(convertedMessages, modelName);
+
+            // Build request body for the new Responses API
+            var requestBody = new JObject
+            {
+                ["model"] = modelName,
+                ["messages"] = convertedMessages,
+                ["max_completion_tokens"] = maxTokens,
+                ["temperature"] = this.GetSetting<double>("Temperature"),
+                ["prompt_cache_key"] = promptCacheKey,
+            };
+
+            // Add reasoning effort if model starts with "(0-9)o"
+            if (Regex.IsMatch(modelName, @"^[0-9]o", RegexOptions.IgnoreCase))
+            {
+                requestBody["reasoning_effort"] = reasoningEffort;
+            }
+
+            // Store wrapper info for response unwrapping
+            SchemaWrapperInfo wrapperInfo = new SchemaWrapperInfo { IsWrapped = false };
+
+            // Add response format if JSON schema is provided
+            if (!string.IsNullOrEmpty(jsonSchema))
+            {
+                try
+                {
+                    var schemaObj = JObject.Parse(jsonSchema);
+                    var wrappedSchema = WrapSchemaForOpenAI(schemaObj);
+                    wrapperInfo = wrappedSchema.wrapperInfo;
+
+                    requestBody["response_format"] = new JObject
+                    {
+                        ["type"] = "json_schema",
+                        ["json_schema"] = new JObject
+                        {
+                            ["name"] = "response_schema",
+                            ["schema"] = wrappedSchema.schema,
+                            ["strict"] = true
+                        }
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
+                    // Continue without schema if parsing fails
+                }
+            }
+
+
+            // Add tools if requested
+            if (!string.IsNullOrWhiteSpace(toolFilter))
+            {
+                var tools = this.GetFormattedTools(toolFilter);
+                if (tools != null && tools.Count > 0)
+                {
+                    requestBody["tools"] = tools;
+                    requestBody["tool_choice"] = "auto";
+                }
+            }
 
             Debug.WriteLine($"[OpenAI] Request: {requestBody}");
 
