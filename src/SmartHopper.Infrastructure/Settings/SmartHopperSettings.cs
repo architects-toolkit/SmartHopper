@@ -260,7 +260,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                         // Initialize the provider with the settings
                         Debug.WriteLine($"Initializing provider {provider.Name} with {providerSettings.Count} settings");
-                        provider.InitializeSettings(providerSettings);
+                        provider.RefreshCachedSettings(providerSettings);
                     }
                     catch (Exception ex)
                     {

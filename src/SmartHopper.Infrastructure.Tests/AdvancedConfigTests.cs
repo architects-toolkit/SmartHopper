@@ -49,7 +49,11 @@ namespace SmartHopper.Infrastructure.Tests
 
             public string GetModel(string requestedModel = "") => this.DefaultModel;
 
-            public void InitializeSettings(Dictionary<string, object> settings)
+            public void RefreshCachedSettings(Dictionary<string, object> settings)
+            {
+            }
+
+            public void ResetCachedSettings(Dictionary<string, object> settings)
             {
             }
 

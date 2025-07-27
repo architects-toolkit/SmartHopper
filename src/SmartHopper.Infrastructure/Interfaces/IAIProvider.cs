@@ -75,10 +75,10 @@ namespace SmartHopper.Infrastructure.Interfaces
         string GetModel(string requestedModel = "");
 
         /// <summary>
-        /// Injects decrypted settings for this provider (called by ProviderManager).
+        /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
         /// </summary>
-        /// <param name="settings">The provider settings.</param>
-        void InitializeSettings(Dictionary<string, object> settings);
+        /// <param name="settings">The new settings to merge with existing cached settings.</param>
+        void RefreshCachedSettings(Dictionary<string, object> settings);
 
         /// <summary>
         /// Returns the SettingDescriptors for this provider by
