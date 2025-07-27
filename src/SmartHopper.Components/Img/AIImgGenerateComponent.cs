@@ -240,8 +240,8 @@ namespace SmartHopper.Components.Img
                                     var rawResponse = toolResult["rawResponse"];
                                     if (rawResponse != null)
                                     {
-                                        revisedPrompt = rawResponse["RevisedPrompt"]?.ToString() ?? 
-                                                       rawResponse["revisedPrompt"]?.ToString() ?? prompt;
+                                        revisedPrompt = rawResponse["RevisedPrompt"]?.ToString() ??
+                                                       rawResponse["revisedPrompt"]?.ToString() ??prompt;
                                     }
                                     
                                     // Process the image result (URL or base64)
@@ -263,8 +263,8 @@ namespace SmartHopper.Components.Img
                                              else
                                              {
                                                  // Convert from base64
-                                                 var base64Data = imageResult.StartsWith("data:image/") 
-                                                     ? imageResult.Substring(imageResult.IndexOf(",") + 1) 
+                                                 var base64Data = imageResult.StartsWith("data:image/")
+                                                     ? imageResult.Substring(imageResult.IndexOf(",") + 1)
                                                      : imageResult;
                                                  var imageBytes = Convert.FromBase64String(base64Data);
                                                  using var stream = new MemoryStream(imageBytes);

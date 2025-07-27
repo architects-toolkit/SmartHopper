@@ -59,8 +59,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
-            public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => 
-                Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
+            public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
         }
 
         private class DummySettings : IAIProviderSettings
