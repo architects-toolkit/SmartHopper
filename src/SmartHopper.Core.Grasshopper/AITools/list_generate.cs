@@ -49,7 +49,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
-                execute: this.GenerateListToolWrapper);
+                execute: this.GenerateListToolWrapper,
+                requiredCapabilities: new[] { ModelCapability.TextInput, ModelCapability.TextOutput, ModelCapability.StructuredOutput });
         }
 
         /// <summary>

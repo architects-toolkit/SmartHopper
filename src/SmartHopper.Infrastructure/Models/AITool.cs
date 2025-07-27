@@ -45,6 +45,11 @@ namespace SmartHopper.Infrastructure.Models
         public Func<JObject, Task<object>> Execute { get; }
 
         /// <summary>
+        /// Required capabilities for this tool to function properly
+        /// </summary>
+        public ModelCapability[] RequiredCapabilities { get; }
+
+        /// <summary>
         /// Creates a new AI tool
         /// </summary>
         /// <param name="name">Name of the tool (used for tool calls)</param>
@@ -52,13 +57,16 @@ namespace SmartHopper.Infrastructure.Models
         /// <param name="category">Category of the tool</param>
         /// <param name="parametersSchema">JSON schema describing the tool's parameters</param>
         /// <param name="execute">Function to execute the tool with given parameters</param>
-        public AITool(string name, string description, string category, string parametersSchema, Func<JObject, Task<object>> execute)
+        /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements)</param>
+        public AITool(string name, string description, string category, string parametersSchema, 
+            Func<JObject, Task<object>> execute, ModelCapability[] requiredCapabilities = null)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Description = description ?? throw new ArgumentNullException(nameof(description));
             Category = category ?? throw new ArgumentNullException(nameof(category));
             ParametersSchema = parametersSchema ?? throw new ArgumentNullException(nameof(parametersSchema));
             Execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            RequiredCapabilities = requiredCapabilities ?? new ModelCapability[0];
         }
     }
 }
