@@ -20,7 +20,9 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.Managers.AIProviders
@@ -31,6 +33,15 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;
+        private IAIProviderModels _models;
+
+        /// <summary>
+        /// Gets the models manager for this provider.
+        /// Provides access to model-related operations including capability management.
+        /// </summary>
+        public IAIProviderModels Models { get; set; }
+
+        // TODO: Register model capabilites at Provider registration
 
         /// <summary>
         /// Gets the name of the provider.
@@ -62,6 +73,46 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// Gets the icon representing the provider.
         /// </summary>
         public abstract Image Icon { get; }
+
+        /// <summary>
+        /// Initializes the provider.
+        /// </summary>
+        public virtual async Task InitializeProviderAsync()
+        {
+            // Initialize the provider with its settings from SmartHopperSettings
+            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
+            if (settingsDict != null)
+            {
+                this.RefreshCachedSettings(settingsDict);
+            }
+
+            try
+            {
+                // Prevent reloading capabilities if already initialized
+                if (ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
+                {
+                    Debug.WriteLine($"[{this.Name}] Capabilities already initialized, skipping reload");
+                    return;
+                }
+
+                // Initialize the models manager asynchronously
+                var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
+
+                // Store capabilities to ModelManager
+                foreach (var capability in capabilitiesDict)
+                {
+                    ModelManager.ModelManager.Instance.RegisterCapabilities(
+                        this.Name,
+                        capability.Key,
+                        capability.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Error during async initialization: {ex.Message}");
+                // Continue initialization even if capability retrieval fails
+            }
+        }
 
         /// <summary>
         /// Retrieves a response from the AI model based on provided messages and parameters.
@@ -188,6 +239,19 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
         }
 
+        public string GetDefaultModel()
+        {
+            // Use the model from settings if available
+            string modelFromSettings = this.GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
+                return modelFromSettings;
+            }
+
+            // Fall back to the default model
+            return this.DefaultModel;
+        }
+
         /// <summary>
         /// Sets a setting value for this provider with automatic provider scoping and persistence.
         /// </summary>
@@ -226,30 +290,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 Debug.WriteLine($"Error setting '{key}' for provider {this.Name}: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        public virtual string GetModel(string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-            {
-                return requestedModel;
-            }
-
-            // Use the model from settings if available
-            string modelFromSettings = this.GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-            {
-                return modelFromSettings;
-            }
-
-            // Fall back to the default model
-            return this.DefaultModel;
         }
 
         /// <summary>
@@ -324,15 +364,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             var ui = ProviderManager.Instance.GetProviderSettings(this.Name);
             return ui?.GetSettingDescriptors()
                 ?? Enumerable.Empty<SettingDescriptor>();
-        }
-
-        /// <summary>
-        /// Retrieves the list of available model names for this provider.
-        /// </summary>
-        /// <returns>A list of available model names.</returns>
-        public virtual Task<List<string>> RetrieveAvailableModels()
-        {
-            return Task.FromResult(new List<string>());
         }
 
         /// <summary>

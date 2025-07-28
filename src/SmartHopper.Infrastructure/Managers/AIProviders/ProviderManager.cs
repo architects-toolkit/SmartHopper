@@ -62,10 +62,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 foreach (string providerFile in providerFiles)
                 {
                     var asmName = Path.GetFileNameWithoutExtension(providerFile);
-                    // Skip providers the user has previously rejected
+                    // Skip providers the user has rejected
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
-                        Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
+                        Debug.WriteLine($"Provider '{asmName}' rejected, skipping.");
                         continue;
                     }
 
@@ -208,12 +208,19 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 _providerAssemblies[provider.Name] = assembly;
             }
 
-            // Initialize the provider with its settings from SmartHopperSettings
-            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-            if (settingsDict != null)
+            // Initialize provider asynchronously without blocking
+            _ = Task.Run(async () =>
             {
-                provider.RefreshCachedSettings(settingsDict);
-            }
+                try
+                {
+                    await provider.InitializeProviderAsync().ConfigureAwait(false);
+                    Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
+                }
+            });
         }
 
         /// <summary>
@@ -279,15 +286,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 if (provider == null) return;
 
-                // Check if settings are available before calling GetProviderSettings
-                if (SmartHopperSettings.Instance != null)
+                var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
+                if (settingsDict != null)
                 {
-                    var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-                    if (settingsDict != null)
-                    {
-                        Debug.WriteLine($"[ProviderManager] Refreshing provider {provider.Name} with current settings");
-                        provider.RefreshCachedSettings(settingsDict);
-                    }
+                    provider.RefreshCachedSettings(settingsDict);
                 }
             }
             catch (Exception ex)

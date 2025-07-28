@@ -53,7 +53,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private DeepSeekProvider()
         {
-            // Initialization code if needed
+            Models = new DeepSeekProviderModels(this, this.CallApi);
         }
 
         /// <summary>
@@ -302,36 +302,6 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 Debug.WriteLine($"[DeepSeek] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with DeepSeek API: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Retrieves the list of available model IDs from DeepSeek.
-        /// </summary>
-        public override async Task<List<string>> RetrieveAvailableModels()
-        {
-            Debug.WriteLine("[DeepSeek] Retrieving available models");
-            try
-            {
-                var content = await CallApi("/models").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelIds = new List<string>();
-                if (data != null)
-                {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
-                    }
-                }
-
-                return modelIds;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
             }
         }
 
