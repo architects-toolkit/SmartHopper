@@ -88,6 +88,13 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
             try
             {
+                // Prevent reloading capabilities if already initialized
+                if (ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
+                {
+                    Debug.WriteLine($"[{this.Name}] Capabilities already initialized, skipping reload");
+                    return;
+                }
+
                 // Initialize the models manager asynchronously
                 var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
 
