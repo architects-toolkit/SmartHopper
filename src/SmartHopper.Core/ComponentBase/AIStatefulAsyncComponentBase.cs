@@ -172,22 +172,34 @@ namespace SmartHopper.Core.ComponentBase
                 var currentProvider = this.GetCurrentAIProvider();
                 if (currentProvider != null)
                 {
-                    var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
-                    if (!validationResult)
+                    var capabilities = ModelManager.Instance.GetCapabilities(currentProvider.Name, model);
+                    if (capabilities == null)
                     {
                         this.SetPersistentRuntimeMessage(
+                            "model_not_registered",
+                            GH_RuntimeMessageLevel.Remark,
+                            $"The selected model is not registered in the compatibility matrix. It could generate unexpected results",
+                            false);
+                    }
+                    else
+                    {
+                        var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
+                        if (!validationResult)
+                        {
+                            this.SetPersistentRuntimeMessage(
                             "capability_error",
                             GH_RuntimeMessageLevel.Error,
                             $"The selected model is not compatible with this tool",
                             false);
 
-                        // Return early with capability error
-                        return new JObject
-                        {
-                            ["success"] = false,
-                            ["error"] = $"The selected model is not compatible with this tool",
-                            ["errorType"] = "capability_mismatch",
-                        };
+                            // Return early with capability error
+                            return new JObject
+                            {
+                                ["success"] = false,
+                                ["error"] = $"The selected model is not compatible with this tool",
+                                ["errorType"] = "capability_mismatch",
+                            };
+                        }
                     }
                 }
             }
