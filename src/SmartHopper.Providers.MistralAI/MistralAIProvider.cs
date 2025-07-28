@@ -35,7 +35,7 @@ namespace SmartHopper.Providers.MistralAI
 
         private MistralAIProvider()
         {
-            Models = new MistralAIProviderModels(this);
+            Models = new MistralAIProviderModels(this, this.CallApi);
         }
 
         public override string Name => NameValue;

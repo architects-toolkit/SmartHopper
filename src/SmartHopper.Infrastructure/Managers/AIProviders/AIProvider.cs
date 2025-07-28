@@ -20,7 +20,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -195,6 +194,19 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
         }
 
+        public string GetDefaultModel()
+        {
+            // Use the model from settings if available
+            string modelFromSettings = this.GetSetting<string>("Model");
+            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            {
+                return modelFromSettings;
+            }
+
+            // Fall back to the default model
+            return this.DefaultModel;
+        }
+
         /// <summary>
         /// Sets a setting value for this provider with automatic provider scoping and persistence.
         /// </summary>
@@ -233,30 +245,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 Debug.WriteLine($"Error setting '{key}' for provider {this.Name}: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        public virtual string GetModel(string requestedModel = "")
-        {
-            // Use the requested model if provided
-            if (!string.IsNullOrWhiteSpace(requestedModel))
-            {
-                return requestedModel;
-            }
-
-            // Use the model from settings if available
-            string modelFromSettings = this.GetSetting<string>("Model");
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
-            {
-                return modelFromSettings;
-            }
-
-            // Fall back to the default model
-            return this.DefaultModel;
         }
 
         /// <summary>

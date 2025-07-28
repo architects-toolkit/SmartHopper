@@ -306,36 +306,6 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Retrieves the list of available model IDs from DeepSeek.
-        /// </summary>
-        public override async Task<List<string>> RetrieveAvailableModels()
-        {
-            Debug.WriteLine("[DeepSeek] Retrieving available models");
-            try
-            {
-                var content = await CallApi("/models").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelIds = new List<string>();
-                if (data != null)
-                {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
-                    }
-                }
-
-                return modelIds;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
         /// Cleans up DeepSeek's malformed JSON responses where array data is incorrectly placed in an "enum" property.
         /// DeepSeek sometimes returns malformed JSON like: {"type":"array, items":{"type":"string"}, "enum":["item1", "item2", ...]}
         /// This method extracts the actual array from the "enum" property and returns it as a proper JSON array.

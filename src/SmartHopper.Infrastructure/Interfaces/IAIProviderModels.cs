@@ -11,7 +11,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Interfaces
 {
@@ -20,6 +19,13 @@ namespace SmartHopper.Infrastructure.Interfaces
     /// </summary>
     public interface IAIProviderModels
     {
+        /// <summary>
+        /// Gets the model to use for AI processing.
+        /// </summary>
+        /// <param name="requestedModel">The requested model, or empty for default.</param>
+        /// <returns>The model to use.</returns>
+        string GetModel(string requestedModel = "");
+
         /// <summary>
         /// Retrieves the list of available model names for this provider.
         /// </summary>
@@ -30,28 +36,13 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// Gets all models and their capabilities supported by this provider.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        Task<Dictionary<string, ModelCapabilities>> ModelsCapabilities();
-
-        /// <summary>
-        /// Checks if a specific model supports the required capabilities.
-        /// </summary>
-        /// <param name="model">The model name to check.</param>
-        /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>True if the model supports all required capabilities.</returns>
-        bool SupportsCapabilities(string model, params ModelCapability[] requiredCapabilities);
+        Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities();
 
         /// <summary>
         /// Gets the capability information for a specific model.
         /// </summary>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
-        ModelCapabilities GetCapabilities(string model);
-
-        /// <summary>
-        /// Gets all models from this provider that support the specified capabilities.
-        /// </summary>
-        /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>List of compatible models from this provider.</returns>
-        List<ModelCapabilities> GetCompatible(params ModelCapability[] requiredCapabilities);
+        AIModelCapabilities RetrieveCapabilities(string model);
     }
 }

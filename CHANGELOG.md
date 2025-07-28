@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Model Capability Management System**
-  - Introduced `ModelCapabilities` and `ModelCapabilityRegistry` for centralized, persistent model capability tracking.
+  - Introduced `AIModelCapabilities` and `AIModelCapabilityRegistry` for centralized, persistent model capability tracking.
   - Added capability checking and filtering methods for models (e.g., `GetCapabilities`, `SetCapabilities`, `FindModelsWithCapabilities`).
   - Tool-specific capability validation now prevents execution with incompatible models.
 - **Provider-Specific Capability Management**
