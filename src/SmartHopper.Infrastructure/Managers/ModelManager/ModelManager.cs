@@ -34,6 +34,8 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// </summary>
         private ModelManager()
         {
+            this._registry = new AIModelCapabilityRegistry();
+            Debug.WriteLine("[ModelManager] Initialized with new capability registry");
         }
 
         /// <summary>
