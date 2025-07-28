@@ -34,6 +34,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         private Dictionary<string, object> _injectedSettings;
 
         /// <summary>
+        /// Gets the models manager for this provider.
+        /// Provides access to model-related operations including capability management.
+        /// </summary>
+        public IAIProviderModels Models { get; protected set; }
+
+        /// <summary>
         /// Gets the name of the provider.
         /// </summary>
         public abstract string Name { get; }
@@ -325,21 +331,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             var ui = ProviderManager.Instance.GetProviderSettings(this.Name);
             return ui?.GetSettingDescriptors()
                 ?? Enumerable.Empty<SettingDescriptor>();
-        }
-
-        /// <summary>
-        /// Gets the models manager for this provider.
-        /// Provides access to model-related operations including capability management.
-        /// </summary>
-        public ModelsManager Models => new ModelsManager(this);
-
-        /// <summary>
-        /// Retrieves the list of available model names for this provider.
-        /// </summary>
-        /// <returns>A list of available model names.</returns>
-        public virtual Task<List<string>> RetrieveAvailableModels()
-        {
-            return Task.FromResult(new List<string>());
         }
 
         /// <summary>

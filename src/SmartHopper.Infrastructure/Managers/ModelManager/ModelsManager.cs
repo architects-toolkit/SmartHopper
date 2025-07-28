@@ -12,118 +12,157 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
-using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Managers.ModelManager
 {
     /// <summary>
-    /// Manager class for model-related operations including capability management.
+    /// In-memory manager for model capabilities across all AI providers.
+    /// Data is lost when the application closes.
     /// </summary>
     public class ModelsManager
     {
-        private readonly IAIProvider _provider;
+        private static readonly Lazy<ModelsManager> _instance = new Lazy<ModelsManager>(() => new ModelsManager());
+        private ModelCapabilityRegistry _registry;
+
+        /// <summary>
+        /// Gets the singleton instance of the ModelsManager.
+        /// </summary>
+        public static ModelsManager Instance => _instance.Value;
 
         /// <summary>
         /// Initializes a new instance of the ModelsManager.
         /// </summary>
-        /// <param name="provider">The AI provider this manager belongs to.</param>
-        public ModelsManager(IAIProvider provider)
+        private ModelsManager()
         {
-            _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            _registry = new ModelCapabilityRegistry();
+            Debug.WriteLine("[ModelsManager] Initialized in-memory model capability registry");
         }
 
         /// <summary>
-        /// Retrieves the list of available model names for this provider.
+        /// Sets the capability information for a specific model.
         /// </summary>
-        /// <returns>A list of available model names.</returns>
-        public virtual async Task<List<string>> RetrieveAvailable()
+        /// <param name="modelCapabilities">The model capabilities to store.</param>
+        public void SetCapabilities(ModelCapabilities modelCapabilities)
         {
-            // Default implementation returns empty list
-            // Concrete providers should override this method
-            Debug.WriteLine($"[ModelsManager] No model retrieval implementation for {_provider.Name}");
-            return await Task.FromResult(new List<string>());
-        }
-
-        /// <summary>
-        /// Updates the capability information for this provider's models.
-        /// Base implementation does nothing - models remain unregistered (unknown capabilities).
-        /// Concrete providers should override this to register their model capabilities.
-        /// </summary>
-        /// <returns>True if capabilities were successfully updated.</returns>
-        public virtual async Task<bool> UpdateCapabilities()
-        {
-            Debug.WriteLine($"[ModelsManager] No capability registration for {_provider.Name} - models remain unregistered");
-            return await Task.FromResult(true);
-        }
-
-        /// <summary>
-        /// Registers model capabilities for a specific model.
-        /// </summary>
-        /// <param name="modelName">The model name.</param>
-        /// <param name="capabilities">The model capabilities.</param>
-        /// <param name="maxContextLength">Maximum context length in tokens.</param>
-        /// <param name="isDeprecated">Whether the model is deprecated.</param>
-        /// <param name="replacementModel">Replacement model if deprecated.</param>
-        public virtual void RegisterCapabilities(string modelName, ModelCapability capabilities, 
-            int maxContextLength = 4096, bool isDeprecated = false, string replacementModel = null)
-        {
-            var modelCapabilities = new ModelCapabilities
-            {
-                Provider = _provider.Name.ToLower(),
-                Model = modelName,
-                Capabilities = capabilities,
-                MaxContextLength = maxContextLength,
-                IsDeprecated = isDeprecated,
-                ReplacementModel = replacementModel
-            };
-
-            ModelCapabilityManager.Instance.Registry.SetCapabilities(modelCapabilities);
-            ModelCapabilityManager.Instance.SaveCapabilities();
+            if (modelCapabilities == null) return;
+            
+            _registry.SetCapabilities(modelCapabilities);
+            Debug.WriteLine($"[ModelsManager] Stored capabilities for {modelCapabilities.Provider}.{modelCapabilities.Model}");
         }
 
         /// <summary>
         /// Checks if a specific model supports the required capabilities.
         /// </summary>
+        /// <param name="provider">The provider name.</param>
         /// <param name="model">The model name to check.</param>
         /// <param name="requiredCapabilities">The required capabilities.</param>
         /// <returns>True if the model supports all required capabilities.</returns>
-        public virtual bool SupportsCapabilities(string model, params ModelCapability[] requiredCapabilities)
+        public bool SupportsCapabilities(string provider, string model, params ModelCapability[] requiredCapabilities)
         {
-            return ModelCapabilityManager.Instance.SupportsCapabilities(_provider.Name, model, requiredCapabilities);
+            var capabilities = GetCapabilities(provider, model);
+            return capabilities?.HasAllCapabilities(requiredCapabilities) ?? false;
         }
 
         /// <summary>
         /// Gets the capability information for a specific model.
         /// </summary>
+        /// <param name="provider">The provider name.</param>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
-        public virtual ModelCapabilities GetCapabilities(string model)
+        public ModelCapabilities GetCapabilities(string provider, string model)
         {
-            return ModelCapabilityManager.Instance.GetCapabilities(_provider.Name, model);
+            return _registry.GetCapabilities(provider, model);
         }
 
         /// <summary>
-        /// Validates if a tool can be executed with the given model.
+        /// Validates if a tool can be executed with the given model using soft validation.
+        /// Only blocks execution if model is registered but lacks required capabilities.
+        /// Unregistered models are allowed to proceed (unknown capabilities).
         /// </summary>
-        /// <param name="toolName">The name of the tool to validate.</param>
-        /// <param name="model">The model to use for execution.</param>
+        /// <param name="toolName">The name of the tool.</param>
+        /// <param name="provider">The provider name.</param>
+        /// <param name="model">The model name.</param>
         /// <returns>Validation result with error message if invalid.</returns>
-        public virtual ToolCapabilityValidationResult ValidateToolExecution(string toolName, string model)
+        public ToolCapabilityValidationResult ValidateToolExecution(string toolName, string provider, string model)
         {
-            return ModelCapabilityManager.Instance.ValidateToolExecution(toolName, _provider.Name, model);
+            var capabilities = GetCapabilities(provider, model);
+            if (capabilities == null)
+            {
+                // Soft validation: Allow unregistered models to proceed
+                Debug.WriteLine($"[ModelsManager] Model '{model}' from '{provider}' not registered - allowing execution (soft validation)");
+                return new ToolCapabilityValidationResult(true, "");
+            }
+
+            var requiredCapabilities = GetRequiredCapabilitiesForTool(toolName);
+            if (requiredCapabilities.Length == 0)
+            {
+                return new ToolCapabilityValidationResult(true, ""); // No specific requirements
+            }
+
+            var missingCapabilities = new List<string>();
+            foreach (var required in requiredCapabilities)
+            {
+                if (!capabilities.HasCapability(required))
+                {
+                    missingCapabilities.Add(required.ToString());
+                }
+            }
+
+            if (missingCapabilities.Count > 0)
+            {
+                return new ToolCapabilityValidationResult(false, 
+                    $"Model '{model}' does not support required capabilities for tool '{toolName}': {string.Join(", ", missingCapabilities)}");
+            }
+
+            return new ToolCapabilityValidationResult(true, "");
         }
 
         /// <summary>
-        /// Gets all models from this provider that support the specified capabilities.
+        /// Gets all models that support the specified capabilities.
         /// </summary>
         /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>List of compatible models from this provider.</returns>
-        public virtual List<ModelCapabilities> GetCompatible(params ModelCapability[] requiredCapabilities)
+        /// <returns>List of compatible models.</returns>
+        public List<ModelCapabilities> FindCompatibleModels(params ModelCapability[] requiredCapabilities)
         {
-            var allCompatible = ModelCapabilityManager.Instance.FindCompatibleModels(requiredCapabilities);
-            return allCompatible.Where(m => m.Provider.Equals(_provider.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            return _registry.FindModelsWithCapabilities(requiredCapabilities);
+        }
+
+        /// <summary>
+        /// Gets the required capabilities for a specific tool from the tool registry.
+        /// </summary>
+        private ModelCapability[] GetRequiredCapabilitiesForTool(string toolName)
+        {
+            try
+            {
+                var tools = AITools.AIToolManager.GetTools();
+                if (tools.TryGetValue(toolName, out var tool))
+                {
+                    return tool.RequiredCapabilities;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ModelsManager] Error getting tool capabilities for {toolName}: {ex.Message}");
+            }
+
+            // Default: no specific requirements if tool not found
+            return new ModelCapability[0];
+        }
+    }
+
+    /// <summary>
+    /// Result of tool capability validation.
+    /// </summary>
+    public class ToolCapabilityValidationResult
+    {
+        public bool IsValid { get; }
+        public string ErrorMessage { get; }
+
+        public ToolCapabilityValidationResult(bool isValid, string errorMessage)
+        {
+            IsValid = isValid;
+            ErrorMessage = errorMessage ?? "";
         }
     }
 }

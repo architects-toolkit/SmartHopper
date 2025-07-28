@@ -11,6 +11,7 @@
 using System;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 
 namespace SmartHopper.Infrastructure.Models
 {

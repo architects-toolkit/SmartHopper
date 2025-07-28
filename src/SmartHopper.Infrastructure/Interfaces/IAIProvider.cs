@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Interfaces
@@ -92,6 +91,6 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// Gets the models manager for this provider.
         /// Provides access to model-related operations including capability management.
         /// </summary>
-        ModelsManager Models { get; }
+        IAIProviderModels Models { get; }
     }
 }
