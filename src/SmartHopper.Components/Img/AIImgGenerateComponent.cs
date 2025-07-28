@@ -170,7 +170,7 @@ namespace SmartHopper.Components.Img
                 {
                     // Get the current AI provider settings
                     var providerName = this._parent.GetActualProviderName();
-                    var model = this._parent.Models.GetModel();
+                    var model = this._parent.GetModel();
 
                     if (string.IsNullOrEmpty(providerName))
                     {
