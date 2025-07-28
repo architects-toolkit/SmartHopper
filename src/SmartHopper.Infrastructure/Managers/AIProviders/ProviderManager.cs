@@ -286,22 +286,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 if (provider == null) return;
 
-                // Check if settings are available before calling GetProviderSettings
-                if (SmartHopperSettings.Instance != null)
+                var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
+                if (settingsDict != null)
                 {
-                    // Initialize provider asynchronously without blocking
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await provider.InitializeProviderAsync().ConfigureAwait(false);
-                            Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
-                        }
-                    });
+                    provider.RefreshCachedSettings(settingsDict);
                 }
             }
             catch (Exception ex)

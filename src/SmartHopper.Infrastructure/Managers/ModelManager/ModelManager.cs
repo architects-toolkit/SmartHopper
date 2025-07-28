@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 
 namespace SmartHopper.Infrastructure.Managers.ModelManager
@@ -97,6 +98,19 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public AIModelCapabilities GetCapabilities(string provider, string model)
         {
             return this._registry.GetCapabilities(provider, model);
+        }
+
+        /// <summary>
+        /// Checks if a provider has any registered model capabilities.
+        /// </summary>
+        /// <param name="provider">The provider name to check.</param>
+        /// <returns>True if the provider has any registered capabilities.</returns>
+        public bool HasProviderCapabilities(string provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                return false;
+
+            return this._registry.Models.Keys.Any(key => key.StartsWith($"{provider}.", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

@@ -177,15 +177,15 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         this.SetPersistentRuntimeMessage(
                             "capability_error",
-                            GH_RuntimeMessageLevel.Warning,
-                            $"Model compatibility issue",
+                            GH_RuntimeMessageLevel.Error,
+                            $"The selected model is not compatible with this tool",
                             false);
 
                         // Return early with capability error
                         return new JObject
                         {
                             ["success"] = false,
-                            ["error"] = $"Model compatibility issue",
+                            ["error"] = $"The selected model is not compatible with this tool",
                             ["errorType"] = "capability_mismatch",
                         };
                     }
