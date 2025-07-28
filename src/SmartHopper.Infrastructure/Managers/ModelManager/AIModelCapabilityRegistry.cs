@@ -25,6 +25,8 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
 
         /// <summary>
         /// Gets capabilities for a specific model.
+        /// Supports wildcard matching where models stored with '*' suffix can match more specific model names.
+        /// For example, 'o4-mini*' matches 'o4-mini-2025-04-16' and 'o4-mini'.
         /// </summary>
         /// <param name="provider">The provider name.</param>
         /// <param name="model">The model name.</param>
@@ -32,7 +34,36 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public AIModelCapabilities GetCapabilities(string provider, string model)
         {
             var key = $"{provider?.ToLower()}.{model?.ToLower()}";
-            return this.Models.TryGetValue(key, out var capabilities) ? capabilities : null;
+            
+            // Try exact match first (fastest path)
+            if (this.Models.TryGetValue(key, out var capabilities))
+            {
+                return capabilities;
+            }
+            
+            // Try wildcard matching - look for stored keys ending with '*' that match our model prefix
+            var providerPrefix = $"{provider?.ToLower()}.";
+            var modelLower = model?.ToLower();
+            
+            foreach (var kvp in this.Models)
+            {
+                var storedKey = kvp.Key;
+                
+                // Check if stored key is for same provider and ends with wildcard
+                if (storedKey.StartsWith(providerPrefix) && storedKey.EndsWith("*"))
+                {
+                    // Extract the model part without provider prefix and wildcard suffix
+                    var storedModelPrefix = storedKey.Substring(providerPrefix.Length, storedKey.Length - providerPrefix.Length - 1);
+                    
+                    // Check if our model name starts with the stored prefix
+                    if (modelLower != null && modelLower.StartsWith(storedModelPrefix))
+                    {
+                        return kvp.Value;
+                    }
+                }
+            }
+            
+            return null;
         }
 
         /// <summary>

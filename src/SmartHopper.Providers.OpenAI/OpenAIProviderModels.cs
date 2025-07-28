@@ -73,7 +73,32 @@ namespace SmartHopper.Providers.OpenAI
         {
             var result = new Dictionary<string, AIModelCapability>();
 
-            // TODO: Implement list of capabilities
+            // GPT-4.1 models - text input/output, image input, structured output, function calling
+            result["gpt-4.1*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // O4-mini models - text input/output, image input, structured output, function calling
+            result["o4-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // O3-mini models - text input/output, structured output, function calling
+            result["o3-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // GPT-4o models - text input/output, image input, structured output, function calling
+            result["gpt-4o*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // GPT-image-1 - text input, image input and output
+            result["gpt-image-1"] = AIModelCapability.TextInput | AIModelCapability.ImageInput | AIModelCapability.ImageOutput;
+
+            // DALL-E 3 - text input, image output
+            result["dall-e-3"] = AIModelCapability.TextInput | AIModelCapability.ImageOutput;
+
+            // DALL-E 2 - text input, image output
+            result["dall-e-2"] = AIModelCapability.TextInput | AIModelCapability.ImageOutput;
+
+            // GPT-3.5 models - text input and output
+            result["gpt-3.5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
+
+            // GPT-4 models (general) - text input and output
+            result["gpt-4*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
 
             return result;
         }

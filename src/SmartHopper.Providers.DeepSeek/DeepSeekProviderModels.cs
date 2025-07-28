@@ -73,7 +73,11 @@ namespace SmartHopper.Providers.DeepSeek
         {
             var result = new Dictionary<string, AIModelCapability>();
 
-            // TODO: Implement list of capabilities
+            // Add deepseek-reasoner model
+            result["deepseek-reasoner"] = AIModelCapability.TextInput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+
+            // Add deepseek-chat model
+            result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
 
             return result;
         }
