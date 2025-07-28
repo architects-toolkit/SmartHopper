@@ -234,7 +234,7 @@ namespace SmartHopper.Components.AI
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
                         actualProvider,
-                        this.component.Models.GetModel(),
+                        this.component.GetModel(),
                         "chat",
                         this.component.GetSystemPrompt(),
                         this.progressReporter,
