@@ -99,6 +99,6 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <summary>
         /// Initializes the provider.
         /// </summary>
-        void InitializeProvider();
+        Task InitializeProviderAsync();
     }
 }

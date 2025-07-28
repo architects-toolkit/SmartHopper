@@ -92,7 +92,7 @@ namespace SmartHopper.Providers.MistralAI
                     try
                     {
                         // Call the Mistral models/{model_id} endpoint
-                        var response = await this._apiCaller($"/v1/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                        var response = await this._apiCaller($"/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                         var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
 
                         var capabilities = AIModelCapability.None;
@@ -110,6 +110,9 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             capabilities |= AIModelCapability.ImageInput;
                         }
+
+                        // Currently Mistral offers json_mode for all models
+                        capabilities |= AIModelCapability.StructuredOutput;
 
                         result[modelName] = capabilities;
                         processedCount++;

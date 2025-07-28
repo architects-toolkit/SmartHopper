@@ -208,7 +208,19 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 _providerAssemblies[provider.Name] = assembly;
             }
 
-            provider.InitializeProvider();
+            // Initialize provider asynchronously without blocking
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await provider.InitializeProviderAsync().ConfigureAwait(false);
+                    Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
+                }
+            });
         }
 
         /// <summary>
@@ -277,7 +289,19 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 // Check if settings are available before calling GetProviderSettings
                 if (SmartHopperSettings.Instance != null)
                 {
-                    provider.InitializeProvider();
+                    // Initialize provider asynchronously without blocking
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await provider.InitializeProviderAsync().ConfigureAwait(false);
+                            Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
+                        }
+                    });
                 }
             }
             catch (Exception ex)

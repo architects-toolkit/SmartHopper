@@ -77,7 +77,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// <summary>
         /// Initializes the provider.
         /// </summary>
-        public virtual void InitializeProvider()
+        public virtual async Task InitializeProviderAsync()
         {
             // Initialize the provider with its settings from SmartHopperSettings
             var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
@@ -86,17 +86,24 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 this.RefreshCachedSettings(settingsDict);
             }
 
-            // Initialize the models manager
-            var capabilitiesDict = new Dictionary<string, AIModelCapability>();
-            capabilitiesDict = this.Models.RetrieveCapabilities().Result;
-
-            // Store capabilities to ModelManager
-            foreach (var capability in capabilitiesDict)
+            try
             {
-                ModelManager.ModelManager.Instance.RegisterCapabilities(
-                    this.Name,
-                    capability.Key,
-                    capability.Value);
+                // Initialize the models manager asynchronously
+                var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
+
+                // Store capabilities to ModelManager
+                foreach (var capability in capabilitiesDict)
+                {
+                    ModelManager.ModelManager.Instance.RegisterCapabilities(
+                        this.Name,
+                        capability.Key,
+                        capability.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Error during async initialization: {ex.Message}");
+                // Continue initialization even if capability retrieval fails
             }
         }
 
