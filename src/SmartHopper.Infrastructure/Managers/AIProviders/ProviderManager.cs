@@ -96,6 +96,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             // After discovery, refresh settings for all providers
             Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
             SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+
+            // TODO: Maybe here we should call InitializeProvider() for all providers??
         }
 
         /// <summary>

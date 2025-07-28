@@ -39,6 +39,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// </summary>
         public IAIProviderModels Models { get; set; }
 
+        // TODO: Register model capabilites at Provider registration
+
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
