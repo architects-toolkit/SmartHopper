@@ -74,10 +74,10 @@ namespace SmartHopper.Providers.DeepSeek
             var result = new Dictionary<string, AIModelCapability>();
 
             // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.TextInput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+            result["deepseek-reasoner"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
 
             // Add deepseek-chat model
-            result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+            result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
 
             return result;
         }

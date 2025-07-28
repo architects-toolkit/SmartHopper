@@ -41,28 +41,21 @@ namespace SmartHopper.Providers.MistralAI
             try
             {
                 Debug.WriteLine("[MistralAI] Retrieving available models");
-                try
-                {
-                    var content = await this._apiCaller("/models","GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                    var json = JObject.Parse(content);
-                    var data = json["data"] as JArray;
-                    var modelNames = new List<string>();
-                    if (data != null)
-                    {
-                        foreach (var item in data.OfType<JObject>())
-                        {
-                            var name = item["id"]?.ToString();
-                            if (!string.IsNullOrEmpty(name)) modelNames.Add(name);
-                        }
-                    }
 
-                    return modelNames;
-                }
-                catch (Exception ex)
+                var content = await this._apiCaller("/models","GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                var json = JObject.Parse(content);
+                var data = json["data"] as JArray;
+                var modelNames = new List<string>();
+                if (data != null)
                 {
-                    Debug.WriteLine($"[MistralAI] Exception retrieving models: {ex.Message}");
-                    throw new Exception($"Error retrieving models from MistralAI API: {ex.Message}", ex);
+                    foreach (var item in data.OfType<JObject>())
+                    {
+                        var name = item["id"]?.ToString();
+                        if (!string.IsNullOrEmpty(name)) modelNames.Add(name);
+                    }
                 }
+
+                return modelNames;
             }
             catch (Exception ex)
             {
@@ -89,39 +82,32 @@ namespace SmartHopper.Providers.MistralAI
 
                 foreach (var modelName in models)
                 {
-                    try
+                    // Call the Mistral models/{model_id} endpoint
+                    var response = await this._apiCaller($"/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                    var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
+
+                    var capabilities = AIModelCapability.None;
+
+                    // Map Mistral capabilities to our enum
+                    if (modelInfo?.capabilities?.completion_chat == true)
                     {
-                        // Call the Mistral models/{model_id} endpoint
-                        var response = await this._apiCaller($"/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                        var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
-
-                        var capabilities = AIModelCapability.None;
-
-                        // Map Mistral capabilities to our enum
-                        if (modelInfo?.capabilities?.completion_chat == true)
-                        {
-                            capabilities |= AIModelCapability.BasicChat;
-                        }
-                        if (modelInfo?.capabilities?.function_calling == true)
-                        {
-                            capabilities |= AIModelCapability.FunctionCalling;
-                        }
-                        if (modelInfo?.capabilities?.vision == true)
-                        {
-                            capabilities |= AIModelCapability.ImageInput;
-                        }
-
-                        // Currently Mistral offers json_mode for all models
-                        capabilities |= AIModelCapability.StructuredOutput;
-
-                        result[modelName] = capabilities;
-                        processedCount++;
-                        Debug.WriteLine($"[MistralAI] Processed capabilities for {modelName}: {capabilities}");
+                        capabilities |= AIModelCapability.BasicChat;
                     }
-                    catch (Exception ex)
+                    if (modelInfo?.capabilities?.function_calling == true)
                     {
-                        Debug.WriteLine($"[MistralAI] Error processing capabilities for {modelName}: {ex.Message}");
+                        capabilities |= AIModelCapability.FunctionCalling;
                     }
+                    if (modelInfo?.capabilities?.vision == true)
+                    {
+                        capabilities |= AIModelCapability.ImageInput;
+                    }
+
+                    // Currently Mistral offers json_mode for all models
+                    capabilities |= AIModelCapability.StructuredOutput;
+
+                    result[modelName] = capabilities;
+                    processedCount++;
+                    Debug.WriteLine($"[MistralAI] Processed capabilities for {modelName}: {capabilities}");
                 }
 
                 Debug.WriteLine($"[MistralAI] Processed {processedCount} models with capabilities");
