@@ -12,7 +12,7 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace SmartHopper.Infrastructure.Models
+namespace SmartHopper.Infrastructure.Managers.ModelManager
 {
     /// <summary>
     /// Defines the capabilities that an AI model can support.

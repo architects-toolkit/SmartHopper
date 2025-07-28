@@ -15,10 +15,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
