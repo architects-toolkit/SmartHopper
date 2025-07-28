@@ -20,6 +20,7 @@ using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -48,7 +49,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""list"", ""question""]
                 }",
-                execute: this.EvaluateListToolWrapper);
+                execute: this.EvaluateListToolWrapper,
+                requiredCapabilities: new[] { AIModelCapability.TextInput, AIModelCapability.TextOutput }
+            );
         }
 
         /// <summary>

@@ -37,6 +37,7 @@ namespace SmartHopper.Providers.OpenAI
 
         private OpenAIProvider()
         {
+            Models = new OpenAIProviderModels(this, this.CallApi);
         }
 
         public override string Name => NameValue;
@@ -385,38 +386,8 @@ namespace SmartHopper.Providers.OpenAI
                     ImageStyle = style,
                     Provider = this.Name,
                     Model = model,
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
-            }
-        }
-
-        /// <summary>
-        /// Retrieves the list of available model IDs from OpenAI.
-        /// </summary>
-        public override async Task<List<string>> RetrieveAvailableModels()
-        {
-            Debug.WriteLine("[OpenAI] Retrieving available models");
-            try
-            {
-                var content = await CallApi("/models").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelIds = new List<string>();
-                if (data != null)
-                {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
-                    }
-                }
-
-                return modelIds;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OpenAI] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from OpenAI API: {ex.Message}", ex);
             }
         }
 

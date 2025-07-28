@@ -25,6 +25,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.ComponentBase
@@ -137,7 +138,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Handle null provider scenario, return default model
                 return string.Empty;
             }
-            string actualModel = provider.GetModel(model);
+            string actualModel = provider.Models.GetModel(model);
 
             return actualModel;
         }
@@ -157,10 +158,56 @@ namespace SmartHopper.Core.ComponentBase
         protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
         {
             parameters ??= new JObject();
+
             // Inject provider and model
-            parameters["provider"] = GetActualProviderName();
-            parameters["model"] = this.GetModel();
+            var providerName = this.GetActualProviderName();
+            var model = this.GetModel();
+            parameters["provider"] = providerName;
+            parameters["model"] = model;
             parameters["reuseCount"] = reuseCount;
+
+            // Validate capability requirements before execution
+            try
+            {
+                var currentProvider = this.GetCurrentAIProvider();
+                if (currentProvider != null)
+                {
+                    var capabilities = ModelManager.Instance.GetCapabilities(currentProvider.Name, model);
+                    if (capabilities == null)
+                    {
+                        this.SetPersistentRuntimeMessage(
+                            "model_not_registered",
+                            GH_RuntimeMessageLevel.Remark,
+                            $"The selected model is not registered in the compatibility matrix. It could generate unexpected results",
+                            false);
+                    }
+                    else
+                    {
+                        var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
+                        if (!validationResult)
+                        {
+                            this.SetPersistentRuntimeMessage(
+                            "capability_error",
+                            GH_RuntimeMessageLevel.Error,
+                            $"The selected model is not compatible with this tool",
+                            false);
+
+                            // Return early with capability error
+                            return new JObject
+                            {
+                                ["success"] = false,
+                                ["error"] = $"The selected model is not compatible with this tool",
+                                ["errorType"] = "capability_mismatch",
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception capEx)
+            {
+                // Log capability check error but don't fail execution
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Capability validation error: {capEx.Message}");
+            }
 
             JObject result;
             try

@@ -35,6 +35,11 @@ namespace SmartHopper.Infrastructure.Interfaces
         string DefaultImgModel { get; }
 
         /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        string DefaultServerUrl { get; }
+
+        /// <summary>
         /// Gets the provider's icon. Should return a 16x16 image suitable for display in the UI.
         /// </summary>
         Image Icon { get; }
@@ -44,6 +49,17 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// This can be used to disable template or experimental providers.
         /// </summary>
         bool IsEnabled { get; }
+
+        /// <summary>
+        /// Gets the models manager for this provider.
+        /// Provides access to model-related operations including capability management.
+        /// </summary>
+        IAIProviderModels Models { get; }
+
+        /// <summary>
+        /// Gets the default model name for the provider.
+        /// </summary>
+        string GetDefaultModel();
 
         /// <summary>
         /// Gets a response from the AI provider.
@@ -68,13 +84,6 @@ namespace SmartHopper.Infrastructure.Interfaces
         Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
 
         /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        string GetModel(string requestedModel = "");
-
-        /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
         /// </summary>
         /// <param name="settings">The new settings to merge with existing cached settings.</param>
@@ -86,5 +95,10 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// </summary>
         /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        /// <summary>
+        /// Initializes the provider.
+        /// </summary>
+        Task InitializeProviderAsync();
     }
 }

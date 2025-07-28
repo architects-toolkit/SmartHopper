@@ -136,7 +136,7 @@ namespace SmartHopper.Components.AI
                     }
 
                     // Retrieve available models
-                    var models = await provider.RetrieveAvailableModels();
+                    var models = await provider.Models.RetrieveAvailable().ConfigureAwait(false);
                     if (models == null || !models.Any())
                     {
                         this._result["Success"] = false;

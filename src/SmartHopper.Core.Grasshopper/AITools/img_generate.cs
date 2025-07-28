@@ -18,8 +18,8 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -63,7 +63,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""prompt""]
                 }",
-                execute: this.GenerateImageToolWrapper);
+                execute: this.GenerateImageToolWrapper,
+                requiredCapabilities: new[] { AIModelCapability.TextInput, AIModelCapability.ImageOutput });
         }
 
         /// <summary>

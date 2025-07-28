@@ -14,8 +14,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -33,6 +35,7 @@ namespace SmartHopper.Providers.MistralAI
 
         private MistralAIProvider()
         {
+            Models = new MistralAIProviderModels(this, this.CallApi);
         }
 
         public override string Name => NameValue;
@@ -242,36 +245,6 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine($"[MistralAI] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with MistralAI API: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Retrieves the list of available model ids from MistralAI.
-        /// </summary>
-        public override async Task<List<string>> RetrieveAvailableModels()
-        {
-            Debug.WriteLine("[MistralAI] Retrieving available models");
-            try
-            {
-                var content = await CallApi("/models").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelNames = new List<string>();
-                if (data != null)
-                {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var name = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(name)) modelNames.Add(name);
-                    }
-                }
-
-                return modelNames;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[MistralAI] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from MistralAI API: {ex.Message}", ex);
             }
         }
     }

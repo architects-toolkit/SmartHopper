@@ -17,6 +17,7 @@ namespace SmartHopper.Infrastructure.Tests
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.Interfaces;
     using SmartHopper.Infrastructure.Managers.AIProviders;
+    using SmartHopper.Infrastructure.Managers.ModelManager;
     using SmartHopper.Infrastructure.Models;
     using SmartHopper.Infrastructure.Settings;
     using Xunit;
@@ -37,6 +38,13 @@ namespace SmartHopper.Infrastructure.Tests
 
             public System.Drawing.Image? Icon => null;
 
+            public IAIProviderModels Models { get; protected set; }
+
+            public async Task InitializeProviderAsync()
+            {
+                await Task.CompletedTask;
+            }
+
             public DummyProvider()
             {
             }
@@ -46,8 +54,6 @@ namespace SmartHopper.Infrastructure.Tests
             }
 
             public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIResponse));
-
-            public string GetModel(string requestedModel = "") => this.DefaultModel;
 
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
@@ -60,6 +66,8 @@ namespace SmartHopper.Infrastructure.Tests
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
             public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
+
+            public string GetDefaultModel() { return this.DefaultModel; }
         }
 
         private class DummySettings : IAIProviderSettings

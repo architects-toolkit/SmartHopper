@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Model Capability Management System**
+  - Introduced `AIModelCapabilities` and `AIModelCapabilityRegistry` for centralized, persistent model capability tracking.
+  - Added capability checking and filtering methods for models (e.g., `GetCapabilities`, `SetCapabilities`, `FindModelsWithCapabilities`).
+  - Tool-specific capability validation now prevents execution with incompatible models.
+- **Provider-Specific Capability Management**
+  - **MistralAI**:
+    - Added `MistralModelManager` for dynamic API-based capability detection and registration.
+    - Models now update their capabilities by querying the `/v1/models/{model_id}` endpoint.
+    - Automatic mapping of Mistral model features (chat, function calling, vision) to internal capability flags.
+  - **OpenAI & DeepSeek**:
+    - Static mapping for capabilities, with support for function calling, structured output, and image generation.
 - Image Generation Support: Comprehensive AI image generation capabilities using OpenAI DALL-E models.
   - New `DefaultImgModel` property in `IAIProvider` interface for provider capability detection.
   - New `img_generate` AI tool with support for prompt, size, quality, and style parameters.
@@ -78,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed certificate creation tests to handle CI environment constraints
 - Updated `GhRetrieveComponents` to use the correct ai tool `gh_list_components` instead of `gh_get_available_components`
 - Fixes "Missing required parameter: ‘response_format.json_schema' in text-list-generate with OpenAI provider" ([#259](https://github.com/architects-toolkit/SmartHopper/issues/259)).
+- Fixes "Check structured output compatibility with models" ([#273](https://github.com/architects-toolkit/SmartHopper/issues/273)).
 
 ## [0.3.6-alpha] - 2025-07-20
 
