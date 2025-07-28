@@ -31,12 +31,13 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;
+        private IAIProviderModels _models;
 
         /// <summary>
         /// Gets the models manager for this provider.
         /// Provides access to model-related operations including capability management.
         /// </summary>
-        public IAIProviderModels Models { get; protected set; }
+        public IAIProviderModels Models { get; set; }
 
         /// <summary>
         /// Gets the name of the provider.

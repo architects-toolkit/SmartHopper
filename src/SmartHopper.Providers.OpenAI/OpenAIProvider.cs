@@ -37,6 +37,7 @@ namespace SmartHopper.Providers.OpenAI
 
         private OpenAIProvider()
         {
+            Models = new OpenAIProviderModels(this, this.CallApi);
         }
 
         public override string Name => NameValue;

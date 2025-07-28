@@ -74,10 +74,10 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 Capabilities = capabilities,
                 MaxContextLength = maxContextLength,
                 IsDeprecated = isDeprecated,
-                ReplacementModel = replacementModel
+                ReplacementModel = replacementModel,
             };
 
-            SetCapabilities(AIModelCapabilities);
+            this.SetCapabilities(AIModelCapabilities);
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         {
             if (AIModelCapabilities == null) return;
 
-            _registry.SetCapabilities(AIModelCapabilities);
+            this._registry.SetCapabilities(AIModelCapabilities);
             Debug.WriteLine($"[ModelManager] Registered capabilities for {AIModelCapabilities.Provider}.{AIModelCapabilities.Model}");
         }
 
@@ -100,7 +100,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <returns>Model capabilities or null if not found.</returns>
         public AIModelCapabilities GetCapabilities(string provider, string model)
         {
-            return _registry.GetCapabilities(provider, model);
+            return this._registry.GetCapabilities(provider, model);
         }
 
         /// <summary>
@@ -123,7 +123,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <returns>List of compatible models.</returns>
         public List<AIModelCapabilities> FindCompatibleModels(params AIModelCapability[] requiredCapabilities)
         {
-            return _registry.FindModelsWithCapabilities(requiredCapabilities);
+            return this._registry.FindModelsWithCapabilities(requiredCapabilities);
         }
 
         #endregion
@@ -149,7 +149,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 return true;
             }
 
-            var requiredCapabilities = GetRequiredCapabilitiesForTool(toolName);
+            var requiredCapabilities = this.GetRequiredCapabilitiesForTool(toolName);
             if (requiredCapabilities.Length == 0)
             {
                 return true; // No specific requirements

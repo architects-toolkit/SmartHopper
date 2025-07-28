@@ -61,17 +61,6 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// </summary>
         string GetDefaultModel();
 
-        // /// <summary>
-        // /// Makes an HTTP request to the AI provider's API.
-        // /// </summary>
-        // /// <param name="endpoint">The endpoint to call. Can be a full URL or a relative path.</param>
-        // /// <param name="httpMethod">The HTTP method to use (GET, POST, DELETE, PATCH). Defaults to GET.</param>
-        // /// <param name="requestBody">The request body content for POST and PATCH requests.</param>
-        // /// <param name="contentType">The content type for the request body. Defaults to "application/json".</param>
-        // /// <param name="authentication">The authentication method to use. Currently only "bearer" is supported.</param>
-        // /// <returns>The HTTP response content as a string.</returns>
-        // Task<string> CallApi(string endpoint, string httpMethod = "GET", string requestBody = null, string contentType = "application/json", string authentication = "bearer");
-
         /// <summary>
         /// Gets a response from the AI provider.
         /// </summary>
