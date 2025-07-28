@@ -95,5 +95,10 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// </summary>
         /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        /// <summary>
+        /// Initializes the provider.
+        /// </summary>
+        void InitializeProvider();
     }
 }

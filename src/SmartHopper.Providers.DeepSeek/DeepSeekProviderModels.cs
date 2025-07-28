@@ -69,9 +69,11 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets all models and their capabilities supported by DeepSeek, fetching fresh data from API.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
+        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapabilities>();
+            var result = new Dictionary<string, AIModelCapability>();
+
+            // TODO: Implement list of capabilities
 
             return result;
         }

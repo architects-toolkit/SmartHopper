@@ -70,9 +70,9 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// Concrete providers should override this to provide provider-specific capability discovery.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public virtual async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
+        public virtual async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapabilities>();
+            var result = new Dictionary<string, AIModelCapability>();
 
             try
             {
@@ -104,17 +104,9 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// </summary>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
-        public virtual AIModelCapabilities RetrieveCapabilities(string model)
+        public virtual AIModelCapability RetrieveCapabilities(string model)
         {
-            return new AIModelCapabilities()
-            {
-                Provider = this._provider.Name,
-                Model = model,
-                Capabilities = AIModelCapability.None,
-                MaxContextLength = 4096,
-                IsDeprecated = false,
-                ReplacementModel = string.Empty,
-            };
+            return AIModelCapability.None;
         }
     }
 }

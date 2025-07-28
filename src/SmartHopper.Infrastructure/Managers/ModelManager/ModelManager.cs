@@ -56,10 +56,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public void RegisterCapabilities(
             string provider,
             string modelName,
-            AIModelCapability capabilities,
-            int maxContextLength = 4096,
-            bool isDeprecated = false,
-            string replacementModel = null)
+            AIModelCapability capabilities)
         {
             if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(modelName))
             {
@@ -72,9 +69,6 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 Provider = provider.ToLower(),
                 Model = modelName,
                 Capabilities = capabilities,
-                MaxContextLength = maxContextLength,
-                IsDeprecated = isDeprecated,
-                ReplacementModel = replacementModel,
             };
 
             this.SetCapabilities(AIModelCapabilities);
