@@ -25,6 +25,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.ComponentBase
@@ -137,7 +138,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Handle null provider scenario, return default model
                 return string.Empty;
             }
-            string actualModel = provider.GetModel(model);
+            string actualModel = provider.Models.GetModel(model);
 
             return actualModel;
         }
@@ -157,8 +158,9 @@ namespace SmartHopper.Core.ComponentBase
         protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
         {
             parameters ??= new JObject();
+
             // Inject provider and model
-            var providerName = GetActualProviderName();
+            var providerName = this.GetActualProviderName();
             var model = this.GetModel();
             parameters["provider"] = providerName;
             parameters["model"] = model;
@@ -170,21 +172,21 @@ namespace SmartHopper.Core.ComponentBase
                 var currentProvider = this.GetCurrentAIProvider();
                 if (currentProvider != null)
                 {
-                    var validationResult = currentProvider.Models.ValidateToolExecution(toolName, model);
-                    if (!validationResult.IsValid)
+                    var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
+                    if (!validationResult)
                     {
-                        SetPersistentRuntimeMessage(
+                        this.SetPersistentRuntimeMessage(
                             "capability_error",
                             GH_RuntimeMessageLevel.Warning,
-                            $"Model compatibility issue: {validationResult.ErrorMessage}",
+                            $"Model compatibility issue",
                             false);
-                        
+
                         // Return early with capability error
                         return new JObject
                         {
                             ["success"] = false,
-                            ["error"] = validationResult.ErrorMessage,
-                            ["errorType"] = "capability_mismatch"
+                            ["error"] = $"Model compatibility issue",
+                            ["errorType"] = "capability_mismatch",
                         };
                     }
                 }

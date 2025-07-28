@@ -11,11 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Managers.AIProviders
 {
@@ -25,14 +23,33 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProviderModels : IAIProviderModels
     {
         protected readonly IAIProvider _provider;
+        protected readonly Func<string, string, string, string, string, Task<string>> _apiCaller;
 
         /// <summary>
         /// Initializes a new instance of the AIProviderModels.
         /// </summary>
         /// <param name="provider">The AI provider this model manager belongs to.</param>
-        protected AIProviderModels(IAIProvider provider)
+        protected AIProviderModels(IAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            _apiCaller = apiCaller ?? throw new ArgumentNullException(nameof(apiCaller));
+        }
+
+        /// <summary>
+        /// Gets the model to use for AI processing.
+        /// </summary>
+        /// <param name="requestedModel">The requested model, or empty for default.</param>
+        /// <returns>The model to use.</returns>
+        public virtual string GetModel(string requestedModel = "")
+        {
+            // Use the requested model if provided
+            if (!string.IsNullOrWhiteSpace(requestedModel))
+            {
+                return requestedModel;
+            }
+
+            // Use the model from settings if available
+            return this._provider.GetDefaultModel();
         }
 
         /// <summary>
@@ -47,77 +64,39 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             return await Task.FromResult(new List<string>());
         }
 
-
-
         /// <summary>
         /// Gets all models and their capabilities supported by this provider.
         /// Base implementation returns available models with their registered capabilities.
         /// Concrete providers should override this to provide provider-specific capability discovery.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public virtual async Task<Dictionary<string, ModelCapabilities>> ModelsCapabilities()
+        public virtual async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, ModelCapabilities>();
-            
+            var result = new Dictionary<string, AIModelCapabilities>();
+
             try
             {
                 // Get available models
-                var models = await RetrieveAvailable();
-                
+                var models = await this.RetrieveAvailable();
+
                 // Get capabilities for each model
                 foreach (var model in models)
                 {
-                    var capabilities = GetCapabilities(model);
+                    var capabilities = this.RetrieveCapabilities(model);
                     if (capabilities != null)
                     {
                         result[model] = capabilities;
                     }
                 }
-                
+
                 Debug.WriteLine($"[AIProviderModels] Retrieved {result.Count} models with capabilities for {_provider.Name}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIProviderModels] Error retrieving models capabilities for {_provider.Name}: {ex.Message}");
             }
-            
+
             return result;
-        }
-
-        /// <summary>
-        /// Registers model capabilities for a specific model.
-        /// </summary>
-        /// <param name="modelName">The model name.</param>
-        /// <param name="capabilities">The model capabilities.</param>
-        /// <param name="maxContextLength">Maximum context length in tokens.</param>
-        /// <param name="isDeprecated">Whether the model is deprecated.</param>
-        /// <param name="replacementModel">Replacement model if deprecated.</param>
-        protected virtual void RegisterCapabilities(string modelName, ModelCapability capabilities, 
-            int maxContextLength = 4096, bool isDeprecated = false, string replacementModel = null)
-        {
-            var modelCapabilities = new ModelCapabilities
-            {
-                Provider = _provider.Name.ToLower(),
-                Model = modelName,
-                Capabilities = capabilities,
-                MaxContextLength = maxContextLength,
-                IsDeprecated = isDeprecated,
-                ReplacementModel = replacementModel
-            };
-
-            // Use the in-memory ModelsManager to store capabilities
-            ModelsManager.Instance.SetCapabilities(modelCapabilities);
-        }
-
-        /// <summary>
-        /// Checks if a specific model supports the required capabilities.
-        /// </summary>
-        /// <param name="model">The model name to check.</param>
-        /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>True if the model supports all required capabilities.</returns>
-        public virtual bool SupportsCapabilities(string model, params ModelCapability[] requiredCapabilities)
-        {
-            return ModelsManager.Instance.SupportsCapabilities(_provider.Name, model, requiredCapabilities);
         }
 
         /// <summary>
@@ -125,22 +104,17 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// </summary>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
-        public virtual ModelCapabilities GetCapabilities(string model)
+        public virtual AIModelCapabilities RetrieveCapabilities(string model)
         {
-            return ModelsManager.Instance.GetCapabilities(_provider.Name, model);
-        }
-
-
-
-        /// <summary>
-        /// Gets all models from this provider that support the specified capabilities.
-        /// </summary>
-        /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>List of compatible models from this provider.</returns>
-        public virtual List<ModelCapabilities> GetCompatible(params ModelCapability[] requiredCapabilities)
-        {
-            var allCompatible = ModelsManager.Instance.FindCompatibleModels(requiredCapabilities);
-            return allCompatible.Where(m => m.Provider.Equals(_provider.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            return new AIModelCapabilities()
+            {
+                Provider = _provider.Name,
+                Model = model,
+                Capabilities = AIModelCapability.None,
+                MaxContextLength = 4096,
+                IsDeprecated = false,
+                ReplacementModel = "",
+            };
         }
     }
 }

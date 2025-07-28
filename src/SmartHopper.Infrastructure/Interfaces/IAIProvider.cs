@@ -35,6 +35,11 @@ namespace SmartHopper.Infrastructure.Interfaces
         string DefaultImgModel { get; }
 
         /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        string DefaultServerUrl { get; }
+
+        /// <summary>
         /// Gets the provider's icon. Should return a 16x16 image suitable for display in the UI.
         /// </summary>
         Image Icon { get; }
@@ -44,6 +49,28 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// This can be used to disable template or experimental providers.
         /// </summary>
         bool IsEnabled { get; }
+
+        /// <summary>
+        /// Gets the models manager for this provider.
+        /// Provides access to model-related operations including capability management.
+        /// </summary>
+        IAIProviderModels Models { get; }
+
+        /// <summary>
+        /// Gets the default model name for the provider.
+        /// </summary>
+        string GetDefaultModel();
+
+        // /// <summary>
+        // /// Makes an HTTP request to the AI provider's API.
+        // /// </summary>
+        // /// <param name="endpoint">The endpoint to call. Can be a full URL or a relative path.</param>
+        // /// <param name="httpMethod">The HTTP method to use (GET, POST, DELETE, PATCH). Defaults to GET.</param>
+        // /// <param name="requestBody">The request body content for POST and PATCH requests.</param>
+        // /// <param name="contentType">The content type for the request body. Defaults to "application/json".</param>
+        // /// <param name="authentication">The authentication method to use. Currently only "bearer" is supported.</param>
+        // /// <returns>The HTTP response content as a string.</returns>
+        // Task<string> CallApi(string endpoint, string httpMethod = "GET", string requestBody = null, string contentType = "application/json", string authentication = "bearer");
 
         /// <summary>
         /// Gets a response from the AI provider.
@@ -68,13 +95,6 @@ namespace SmartHopper.Infrastructure.Interfaces
         Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
 
         /// <summary>
-        /// Gets the model to use for AI processing.
-        /// </summary>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        string GetModel(string requestedModel = "");
-
-        /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
         /// </summary>
         /// <param name="settings">The new settings to merge with existing cached settings.</param>
@@ -86,11 +106,5 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// </summary>
         /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
-
-        /// <summary>
-        /// Gets the models manager for this provider.
-        /// Provides access to model-related operations including capability management.
-        /// </summary>
-        IAIProviderModels Models { get; }
     }
 }

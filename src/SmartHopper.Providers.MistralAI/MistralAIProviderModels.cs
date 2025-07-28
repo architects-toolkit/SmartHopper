@@ -11,8 +11,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.ModelManager;
@@ -27,9 +29,9 @@ namespace SmartHopper.Providers.MistralAI
     {
         private readonly MistralAIProvider _mistralProvider;
 
-        public MistralAIProviderModels(MistralAIProvider provider) : base(provider)
+        public MistralAIProviderModels(MistralAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
         {
-            _mistralProvider = provider;
+            this._mistralProvider = provider;
         }
 
         /// <summary>
@@ -43,7 +45,7 @@ namespace SmartHopper.Providers.MistralAI
                 Debug.WriteLine("[MistralAI] Retrieving available models");
                 try
                 {
-                    var content = await CallApi("/models").ConfigureAwait(false);
+                    var content = await this._apiCaller("/models","GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                     var json = JObject.Parse(content);
                     var data = json["data"] as JArray;
                     var modelNames = new List<string>();
@@ -75,16 +77,16 @@ namespace SmartHopper.Providers.MistralAI
         /// Gets all models and their capabilities supported by MistralAI, fetching fresh data from API.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, ModelCapabilities>> ModelsCapabilities()
+        public override async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, ModelCapabilities>();
-            
+            var result = new Dictionary<string, AIModelCapabilities>();
+
             try
             {
                 Debug.WriteLine("[MistralAI] Fetching models and capabilities via API");
-                
+
                 // Get list of available models
-                var models = await RetrieveAvailable();
+                var models = await this.RetrieveAvailable();
                 var processedCount = 0;
 
                 foreach (var modelName in models)
@@ -92,27 +94,27 @@ namespace SmartHopper.Providers.MistralAI
                     try
                     {
                         // Call the Mistral models/{model_id} endpoint
-                        var response = await _mistralProvider.CallApi($"/v1/models/{modelName}", "GET", "", "application/json", "bearer");
+                        var response = await this._apiCaller($"/v1/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                         var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
 
-                        var capabilities = ModelCapability.None;
-                        
+                        var capabilities = AIModelCapability.None;
+
                         // Map Mistral capabilities to our enum
                         if (modelInfo?.capabilities?.completion_chat == true)
                         {
-                            capabilities |= ModelCapability.BasicChat;
+                            capabilities |= AIModelCapability.BasicChat;
                         }
                         if (modelInfo?.capabilities?.function_calling == true)
                         {
-                            capabilities |= ModelCapability.FunctionCalling;
+                            capabilities |= AIModelCapability.FunctionCalling;
                         }
                         if (modelInfo?.capabilities?.vision == true)
                         {
-                            capabilities |= ModelCapability.ImageInput;
+                            capabilities |= AIModelCapability.ImageInput;
                         }
 
                         // Create model capabilities object
-                        var modelCapabilities = new ModelCapabilities
+                        var AIModelCapabilities = new AIModelCapabilities
                         {
                             Provider = _provider.Name.ToLower(),
                             Model = modelName,
@@ -122,15 +124,7 @@ namespace SmartHopper.Providers.MistralAI
                             ReplacementModel = modelInfo?.deprecation?.replacement_model
                         };
 
-                        // Register capabilities and add to result
-                        RegisterCapabilities(
-                            modelName,
-                            capabilities,
-                            modelCapabilities.MaxContextLength,
-                            modelCapabilities.IsDeprecated,
-                            modelCapabilities.ReplacementModel);
-                        
-                        result[modelName] = modelCapabilities;
+                        result[modelName] = AIModelCapabilities;
                         processedCount++;
                         Debug.WriteLine($"[MistralAI] Processed capabilities for {modelName}: {capabilities}");
                     }
@@ -144,7 +138,7 @@ namespace SmartHopper.Providers.MistralAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAI] Error in ModelsCapabilities: {ex.Message}");
+                Debug.WriteLine($"[MistralAI] Error in RetrieveCapabilities: {ex.Message}");
             }
 
             return result;
