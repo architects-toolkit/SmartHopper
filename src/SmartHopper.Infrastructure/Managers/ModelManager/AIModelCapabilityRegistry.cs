@@ -8,15 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Managers.ModelManager
 {
@@ -28,7 +21,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <summary>
         /// Dictionary of model capabilities keyed by "provider.model".
         /// </summary>
-        public Dictionary<string, AIModelCapabilities> Models { get; set; } = new Dictionary<string, AIModelCapabilities>();
+        public Dictionary<string, AIModelCapabilities> Models { get; } = new Dictionary<string, AIModelCapabilities>();
 
         /// <summary>
         /// Gets capabilities for a specific model.
@@ -39,7 +32,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public AIModelCapabilities GetCapabilities(string provider, string model)
         {
             var key = $"{provider?.ToLower()}.{model?.ToLower()}";
-            return Models.TryGetValue(key, out var capabilities) ? capabilities : null;
+            return this.Models.TryGetValue(key, out var capabilities) ? capabilities : null;
         }
 
         /// <summary>
@@ -49,9 +42,9 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public void SetCapabilities(AIModelCapabilities capabilities)
         {
             if (capabilities == null) return;
-            
+
             var key = capabilities.GetKey();
-            Models[key] = capabilities;
+            this.Models[key] = capabilities;
         }
 
         /// <summary>
@@ -62,9 +55,9 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public List<AIModelCapabilities> FindModelsWithCapabilities(params AIModelCapability[] requiredCapabilities)
         {
             if (requiredCapabilities == null || requiredCapabilities.Length == 0)
-                return Models.Values.ToList();
+                return this.Models.Values.ToList();
 
-            return Models.Values
+            return this.Models.Values
                 .Where(model => model.HasAllCapabilities(requiredCapabilities))
                 .ToList();
         }

@@ -31,8 +31,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// <param name="provider">The AI provider this model manager belongs to.</param>
         protected AIProviderModels(IAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
         {
-            _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-            _apiCaller = apiCaller ?? throw new ArgumentNullException(nameof(apiCaller));
+            this._provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            this._apiCaller = apiCaller ?? throw new ArgumentNullException(nameof(apiCaller));
         }
 
         /// <summary>
@@ -108,12 +108,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         {
             return new AIModelCapabilities()
             {
-                Provider = _provider.Name,
+                Provider = this._provider.Name,
                 Model = model,
                 Capabilities = AIModelCapability.None,
                 MaxContextLength = 4096,
                 IsDeprecated = false,
-                ReplacementModel = "",
+                ReplacementModel = string.Empty,
             };
         }
     }

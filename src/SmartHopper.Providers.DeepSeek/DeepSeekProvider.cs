@@ -53,7 +53,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private DeepSeekProvider()
         {
-            // Initialization code if needed
+            Models = new DeepSeekProviderModels(this, this.CallApi);
         }
 
         /// <summary>
