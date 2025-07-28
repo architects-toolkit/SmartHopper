@@ -62,10 +62,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 foreach (string providerFile in providerFiles)
                 {
                     var asmName = Path.GetFileNameWithoutExtension(providerFile);
-                    // Skip providers the user has previously rejected
+                    // Skip providers the user has rejected
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
-                        Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
+                        Debug.WriteLine($"Provider '{asmName}' rejected, skipping.");
                         continue;
                     }
 
@@ -96,8 +96,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             // After discovery, refresh settings for all providers
             Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
             SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
-
-            // TODO: Maybe here we should call InitializeProvider() for all providers??
         }
 
         /// <summary>
@@ -210,12 +208,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 _providerAssemblies[provider.Name] = assembly;
             }
 
-            // Initialize the provider with its settings from SmartHopperSettings
-            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-            if (settingsDict != null)
-            {
-                provider.RefreshCachedSettings(settingsDict);
-            }
+            provider.InitializeProvider();
         }
 
         /// <summary>
@@ -284,12 +277,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 // Check if settings are available before calling GetProviderSettings
                 if (SmartHopperSettings.Instance != null)
                 {
-                    var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-                    if (settingsDict != null)
-                    {
-                        Debug.WriteLine($"[ProviderManager] Refreshing provider {provider.Name} with current settings");
-                        provider.RefreshCachedSettings(settingsDict);
-                    }
+                    provider.InitializeProvider();
                 }
             }
             catch (Exception ex)

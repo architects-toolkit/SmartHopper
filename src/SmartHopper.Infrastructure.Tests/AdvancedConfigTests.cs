@@ -40,7 +40,9 @@ namespace SmartHopper.Infrastructure.Tests
 
             public IAIProviderModels Models { get; protected set; }
 
-
+            public void InitializeProvider()
+            {
+            }
 
             public DummyProvider()
             {

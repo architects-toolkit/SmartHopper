@@ -20,7 +20,9 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.Managers.AIProviders
@@ -71,6 +73,32 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// Gets the icon representing the provider.
         /// </summary>
         public abstract Image Icon { get; }
+
+        /// <summary>
+        /// Initializes the provider.
+        /// </summary>
+        public virtual void InitializeProvider()
+        {
+            // Initialize the provider with its settings from SmartHopperSettings
+            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
+            if (settingsDict != null)
+            {
+                this.RefreshCachedSettings(settingsDict);
+            }
+
+            // Initialize the models manager
+            var capabilitiesDict = new Dictionary<string, AIModelCapability>();
+            capabilitiesDict = this.Models.RetrieveCapabilities().Result;
+
+            // Store capabilities to ModelManager
+            foreach (var capability in capabilitiesDict)
+            {
+                ModelManager.ModelManager.Instance.RegisterCapabilities(
+                    this.Name,
+                    capability.Key,
+                    capability.Value);
+            }
+        }
 
         /// <summary>
         /// Retrieves a response from the AI model based on provided messages and parameters.

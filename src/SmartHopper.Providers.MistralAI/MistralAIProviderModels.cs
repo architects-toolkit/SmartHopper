@@ -75,9 +75,9 @@ namespace SmartHopper.Providers.MistralAI
         /// Gets all models and their capabilities supported by MistralAI, fetching fresh data from API.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
+        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapabilities>();
+            var result = new Dictionary<string, AIModelCapability>();
 
             try
             {
@@ -111,18 +111,7 @@ namespace SmartHopper.Providers.MistralAI
                             capabilities |= AIModelCapability.ImageInput;
                         }
 
-                        // Create model capabilities object
-                        var AIModelCapabilities = new AIModelCapabilities
-                        {
-                            Provider = _provider.Name.ToLower(),
-                            Model = modelName,
-                            Capabilities = capabilities,
-                            MaxContextLength = modelInfo?.max_context_length ?? 32768,
-                            IsDeprecated = modelInfo?.deprecation != null,
-                            ReplacementModel = modelInfo?.deprecation?.replacement_model
-                        };
-
-                        result[modelName] = AIModelCapabilities;
+                        result[modelName] = capabilities;
                         processedCount++;
                         Debug.WriteLine($"[MistralAI] Processed capabilities for {modelName}: {capabilities}");
                     }

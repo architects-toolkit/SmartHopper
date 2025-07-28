@@ -36,13 +36,13 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// Gets all models and their capabilities supported by this provider.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities();
+        Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities();
 
         /// <summary>
         /// Gets the capability information for a specific model.
         /// </summary>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
-        AIModelCapabilities RetrieveCapabilities(string model);
+        AIModelCapability RetrieveCapabilities(string model);
     }
 }

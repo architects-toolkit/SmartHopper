@@ -41,21 +41,6 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public AIModelCapability Capabilities { get; set; } = AIModelCapability.None;
 
         /// <summary>
-        /// Maximum context length in tokens.
-        /// </summary>
-        public int MaxContextLength { get; set; } = 4096;
-
-        /// <summary>
-        /// Whether this model is deprecated.
-        /// </summary>
-        public bool IsDeprecated { get; set; } = false;
-
-        /// <summary>
-        /// Replacement model if this model is deprecated.
-        /// </summary>
-        public string ReplacementModel { get; set; } = "";
-
-        /// <summary>
         /// Checks if this model supports all the specified capabilities.
         /// </summary>
         /// <param name="requiredCapabilities">The capabilities to check for.</param>

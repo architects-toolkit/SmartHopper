@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tool-specific capability validation now prevents execution with incompatible models.
 - **Provider-Specific Capability Management**
   - **MistralAI**:
-    - Added `MistralModelsManager` for dynamic API-based capability detection and registration.
+    - Added `MistralModelManager` for dynamic API-based capability detection and registration.
     - Models now update their capabilities by querying the `/v1/models/{model_id}` endpoint.
     - Automatic mapping of Mistral model features (chat, function calling, vision) to internal capability flags.
   - **OpenAI & DeepSeek**:
