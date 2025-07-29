@@ -49,10 +49,6 @@ namespace SmartHopper.Providers.Template
         /// </summary>
         public static readonly string _name = "Template";
 
-        /// <summary>
-        /// The default model to use if none is specified. This should be a cheap and fast model for general purpose.
-        /// </summary>
-        private const string _defaultModel = "template-model";
         private const string DefaultServerUrlValue = "https://api.example.com/v1";
 
         /// <summary>
@@ -67,11 +63,6 @@ namespace SmartHopper.Providers.Template
         /// Gets the name of the provider.
         /// </summary>
         public override string Name => _name;
-
-        /// <summary>
-        /// Gets the default model for this provider.
-        /// </summary>
-        public override string DefaultModel => _defaultModel;
 
         /// <summary>
         /// Gets the default server URL for the provider.

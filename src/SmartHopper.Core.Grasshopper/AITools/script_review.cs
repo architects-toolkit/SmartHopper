@@ -18,6 +18,7 @@ using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -50,7 +51,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guid""]
                 }",
-                execute: this.ScriptReviewToolAsync
+                execute: this.ScriptReviewToolAsync,
+                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
             );
         }
 

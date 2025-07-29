@@ -31,5 +31,46 @@ namespace SmartHopper.Infrastructure.Models
         /// Default is 1 (used once).
         /// </summary>
         public int ReuseCount { get; set; } = 1;
+
+        // Image generation fields (optional, used only for image generation responses)
+        /// <summary>
+        /// Gets or sets the URL of the generated image (if hosted remotely).
+        /// </summary>
+        public string ImageUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the base64-encoded image data (if returned directly).
+        /// </summary>
+        public string ImageData { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the revised prompt used by the AI for image generation (may be cleaned or enhanced).
+        /// </summary>
+        public string RevisedPrompt { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the original prompt provided by the user for image generation.
+        /// </summary>
+        public string OriginalPrompt { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the size of the generated image (e.g., "1024x1024").
+        /// </summary>
+        public string ImageSize { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the quality setting used for image generation (e.g., "standard", "hd").
+        /// </summary>
+        public string ImageQuality { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the style setting used for image generation (e.g., "vivid", "natural").
+        /// </summary>
+        public string ImageStyle { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets any error message if the generation failed.
+        /// </summary>
+        public string ErrorMessage { get; set; } = string.Empty;
     }
 }

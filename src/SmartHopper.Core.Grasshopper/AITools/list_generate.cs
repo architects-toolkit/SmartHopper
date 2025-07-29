@@ -19,6 +19,7 @@ using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -29,7 +30,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// </summary>
     public class list_generate : IAIToolProvider
     {
-        private const string ListJsonSchema = "{\"type\":\"array\",\"items\":{\"type\":\"string\"}}";
+        private const string ListJsonSchema = "['item1', 'item2', 'item3', ...]";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -49,7 +50,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
-                execute: this.GenerateListToolWrapper);
+                execute: this.GenerateListToolWrapper,
+                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.StructuredOutput
+            );
         }
 
         /// <summary>
@@ -64,7 +67,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var messages = new List<KeyValuePair<string, string>>
                 {
-                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY a valid JSON array of strings matching this schema: {ListJsonSchema}. Include no extra text or formatting."),
+                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY the JSON array. Include no extra text or formatting. Do not wrap the output in quotes or in a code block.\n\nIMPORTANT: Each item must be a quoted string in the JSON array, even if it contains commas or special characters.\n\nOUTPUT EXAMPLES: ['item1', 'item2', 'item3'] or ['{{1,0,0}}', '{{0.707,0.707,0}}', '{{0,1,0}}']"),
                     new("user", prompt.Value)
                 };
 
@@ -81,7 +84,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Strip thinking tags from response before parsing
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Parse JSON array of strings
                 var items = ParsingTools.ParseStringArrayFromResponse(cleanedResponse);
                 Debug.WriteLine($"[ListTools] Generated items: {string.Join(", ", items)}");

@@ -25,6 +25,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.ComponentBase
@@ -131,13 +132,13 @@ namespace SmartHopper.Core.ComponentBase
         {
             // Get the model, using provider settings default if empty
             string model = this._model;
-            var provider = this.GetCurrentAIProvider();
+            var provider = this.GetActualAIProvider();
             if (provider == null)
             {
                 // Handle null provider scenario, return default model
                 return string.Empty;
             }
-            string actualModel = provider.GetModel(model);
+            string actualModel = provider.Models.GetModel(model);
 
             return actualModel;
         }
@@ -157,12 +158,72 @@ namespace SmartHopper.Core.ComponentBase
         protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
         {
             parameters ??= new JObject();
+
             // Inject provider and model
-            parameters["provider"] = GetActualProviderName();
-            parameters["model"] = this.GetModel();
-            parameters["reuseCount"] = reuseCount;
+            var providerName = this.GetActualAIProviderName();
+            var model = this.GetModel();
 
             JObject result;
+
+            // Validate capability requirements before execution
+            try
+            {
+                var currentProvider = this.GetActualAIProvider();
+                if (currentProvider != null)
+                {
+                    var capabilities = ModelManager.Instance.GetCapabilities(currentProvider.Name, model);
+                    if (capabilities == null)
+                    {
+                        this.SetPersistentRuntimeMessage(
+                            "model_not_registered",
+                            GH_RuntimeMessageLevel.Remark,
+                            $"The selected model is not registered in the compatibility matrix. It could generate unexpected results",
+                            false);
+                    }
+                    else
+                    {
+                        var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
+                        if (!validationResult)
+                        {
+                            model = ModelManager.Instance.GetDefaultModelForTool(currentProvider.Name, toolName);
+
+                            if (model == null)
+                            {
+                                this.SetPersistentRuntimeMessage(
+                                    "provider_not_compatible",
+                                    GH_RuntimeMessageLevel.Error,
+                                    $"The selected provider does not have any model compatible with this component.",
+                                    false);
+
+                                result = new JObject
+                                {
+                                    ["success"] = false,
+                                    ["error"] = "The selected provider does not have any model compatible with this component.\nPlease, choose another AI provider.",
+                                };
+
+                                return result;
+                            }
+
+                            this.SetPersistentRuntimeMessage(
+                                "model_replaced",
+                                GH_RuntimeMessageLevel.Remark,
+                                $"The selected model was not found compatible with this component.\nIt was automatically replaced with the default model for this function: {model}",
+                                false);
+                        }
+                    }
+                }
+            }
+            catch (Exception capEx)
+            {
+                // Log capability check error but don't fail execution
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Capability validation error: {capEx.Message}");
+            }
+
+            // Inject provider and model
+            parameters["provider"] = providerName;
+            parameters["model"] = model;
+            parameters["reuseCount"] = reuseCount;
+
             try
             {
                 result = await AIToolManager
@@ -172,7 +233,7 @@ namespace SmartHopper.Core.ComponentBase
             catch (Exception ex)
             {
                 // Execution error
-                SetPersistentRuntimeMessage(
+                this.SetPersistentRuntimeMessage(
                     "ai_error",
                     GH_RuntimeMessageLevel.Error,
                     ex.Message,
@@ -180,7 +241,7 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"] = ex.Message
+                    ["error"] = ex.Message,
                 };
             }
 
@@ -273,7 +334,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Get the actual provider name
-            string actualProvider = GetActualProviderName();
+            string actualProvider = GetActualAIProviderName();
 
             // Aggregate metrics
             int totalInTokens = _responseMetrics.Sum(r => r.InTokens);

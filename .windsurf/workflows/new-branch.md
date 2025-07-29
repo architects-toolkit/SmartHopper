@@ -19,7 +19,7 @@ Use the following pattern for branch names:
 Where:
 - `prefix`: Type of change (see available prefixes below)
 - `X.Y.Z`: Target version for the changes
-- `descriptive-title`: 1-4 words describing the branch purpose (kebab-case)
+- `descriptive-title`: 1-3 words describing the branch purpose (kebab-case)
 
 ### Available Prefixes
 

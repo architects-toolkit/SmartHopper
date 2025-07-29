@@ -19,40 +19,40 @@ namespace SmartHopper.Core.Models.Connections
     public class ConnectionPairing
     {
         /// <summary>
-        /// The source endpoint of the connection.
+        /// Gets or sets the source endpoint of the connection.
         /// </summary>
         [JsonProperty("from")]
         [JsonRequired]
-        public Connection From { get; set; }
+        public required Connection From { get; set; }
 
         /// <summary>
-        /// The target endpoint of the connection.
+        /// Gets or sets the target endpoint of the connection.
         /// </summary>
         [JsonProperty("to")]
         [JsonRequired]
-        public Connection To { get; set; }
+        public required Connection To { get; set; }
 
         /// <summary>
         /// Checks if both endpoints of the connection are valid.
         /// </summary>
-        /// <returns>True if both the source and target endpoints are valid</returns>
+        /// <returns>True if both the source and target endpoints are valid.</returns>
         public bool IsValid()
         {
-            return To.IsValid() && From.IsValid();
+            return this.To.IsValid() && this.From.IsValid();
         }
 
         /// <summary>
         /// Creates a new ConnectionPairing from source and target parameters.
         /// </summary>
-        /// <param name="source">The source parameter</param>
-        /// <param name="target">The target parameter</param>
-        /// <returns>A new ConnectionPairing connecting the specified parameters</returns>
+        /// <param name="source">The source parameter.</param>
+        /// <param name="target">The target parameter.</param>
+        /// <returns>A new ConnectionPairing connecting the specified parameters.</returns>
         public static ConnectionPairing Create(IGH_Param source, IGH_Param target)
         {
             return new ConnectionPairing
             {
                 From = Connection.FromParameter(source),
-                To = Connection.FromParameter(target)
+                To = Connection.FromParameter(target),
             };
         }
     }

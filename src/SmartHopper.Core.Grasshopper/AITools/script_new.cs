@@ -21,8 +21,10 @@ using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
 using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
+
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -48,7 +50,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""prompt""]
                 }",
-                execute: this.ScriptNewToolAsync);
+                execute: this.ScriptNewToolAsync,
+                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput
+            );
         }
 
         /// <summary>

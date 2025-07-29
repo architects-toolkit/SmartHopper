@@ -25,19 +25,19 @@ namespace SmartHopper.Core.Models.Serialization
         /// <summary>
         /// Default JSON serialization settings with formatting.
         /// </summary>
-        private static readonly JsonSerializerSettings DefaultSettings = new JsonSerializerSettings
+        private static readonly JsonSerializerSettings DefaultSettings = new ()
         {
             Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Ignore
+            NullValueHandling = NullValueHandling.Ignore,
         };
 
         /// <summary>
         /// Serialize a Grasshopper document to JSON string.
         /// </summary>
-        /// <param name="document">The Grasshopper document to serialize</param>
-        /// <param name="settings">Optional JSON serializer settings</param>
-        /// <returns>A JSON string representation of the document</returns>
-        public static string SerializeToJson(GrasshopperDocument document, JsonSerializerSettings settings = null)
+        /// <param name="document">The Grasshopper document to serialize.</param>
+        /// <param name="settings">Optional JSON serializer settings.</param>
+        /// <returns>A JSON string representation of the document.</returns>
+        public static string SerializeToJson(GrasshopperDocument document, JsonSerializerSettings? settings = null)
         {
             return JsonConvert.SerializeObject(document, settings ?? DefaultSettings);
         }
@@ -45,10 +45,10 @@ namespace SmartHopper.Core.Models.Serialization
         /// <summary>
         /// Deserialize a JSON string to a Grasshopper document.
         /// </summary>
-        /// <param name="json">The JSON string to deserialize</param>
-        /// <param name="settings">Optional JSON serializer settings</param>
-        /// <returns>A Grasshopper document object</returns>
-        public static GrasshopperDocument DeserializeFromJson(string json, bool fixJson = true, JsonSerializerSettings settings = null)
+        /// <param name="json">The JSON string to deserialize.</param>
+        /// <param name="settings">Optional JSON serializer settings.</param>
+        /// <returns>A Grasshopper document object.</returns>
+        public static GrasshopperDocument DeserializeFromJson(string json, bool fixJson = true, JsonSerializerSettings? settings = null)
         {
             var jroot = JObject.Parse(json);
 
@@ -67,10 +67,10 @@ namespace SmartHopper.Core.Models.Serialization
         /// <summary>
         /// Save a Grasshopper document to a JSON file.
         /// </summary>
-        /// <param name="document">The Grasshopper document to save</param>
-        /// <param name="filePath">The file path to save to</param>
-        /// <param name="settings">Optional JSON serializer settings</param>
-        public static void SaveToFile(GrasshopperDocument document, string filePath, JsonSerializerSettings settings = null)
+        /// <param name="document">The Grasshopper document to save.</param>
+        /// <param name="filePath">The file path to save to.</param>
+        /// <param name="settings">Optional JSON serializer settings.</param>
+        public static void SaveToFile(GrasshopperDocument document, string filePath, JsonSerializerSettings? settings = null)
         {
             string json = SerializeToJson(document, settings);
             File.WriteAllText(filePath, json);
@@ -79,10 +79,10 @@ namespace SmartHopper.Core.Models.Serialization
         /// <summary>
         /// Load a Grasshopper document from a JSON file.
         /// </summary>
-        /// <param name="filePath">The file path to load from</param>
-        /// <param name="settings">Optional JSON serializer settings</param>
-        /// <returns>A Grasshopper document object</returns>
-        public static GrasshopperDocument LoadFromFile(string filePath, JsonSerializerSettings settings = null)
+        /// <param name="filePath">The file path to load from.</param>
+        /// <param name="settings">Optional JSON serializer settings.</param>
+        /// <returns>A Grasshopper document object.</returns>
+        public static GrasshopperDocument LoadFromFile(string filePath, JsonSerializerSettings? settings = null)
         {
             string json = File.ReadAllText(filePath);
             return DeserializeFromJson(json, settings: settings);

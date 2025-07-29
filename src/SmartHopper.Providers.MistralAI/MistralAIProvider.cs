@@ -14,8 +14,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -24,7 +26,6 @@ namespace SmartHopper.Providers.MistralAI
     public sealed class MistralAIProvider : AIProvider
     {
         private const string NameValue = "MistralAI";
-        private const string DefaultModelValue = "mistral-small-latest";
         private const string DefaultServerUrlValue = "https://api.mistral.ai/v1";
 
         private static readonly Lazy<MistralAIProvider> InstanceValue = new(() => new MistralAIProvider());
@@ -33,11 +34,10 @@ namespace SmartHopper.Providers.MistralAI
 
         private MistralAIProvider()
         {
+            Models = new MistralAIProviderModels(this, this.CallApi);
         }
 
         public override string Name => NameValue;
-
-        public override string DefaultModel => DefaultModelValue;
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -68,15 +68,8 @@ namespace SmartHopper.Providers.MistralAI
         {
             // Get settings from the secure settings store
             int maxTokens = this.GetSetting<int>("MaxTokens");
-            string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
 
-            // Use default model if none specified
-            if (string.IsNullOrWhiteSpace(modelName))
-            {
-                modelName = DefaultModelValue;
-            }
-
-            Debug.WriteLine($"[MistralAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[MistralAI] GetResponse - Model: {model}, MaxTokens: {maxTokens}");
 
             // Format messages for Mistral API
             var convertedMessages = new JArray();
@@ -142,7 +135,7 @@ namespace SmartHopper.Providers.MistralAI
             // Build request body
             var requestBody = new JObject
             {
-                ["model"] = modelName,
+                ["model"] = model,
                 ["messages"] = convertedMessages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = this.GetSetting<double>("Temperature"),
@@ -161,9 +154,7 @@ namespace SmartHopper.Providers.MistralAI
                 var systemMessage = new JObject
                 {
                     ["role"] = "system",
-                    ["content"] = "You are a helpful assistant that returns responses in JSON format. " +
-                                  "The response must be a valid JSON object that follows this schema exactly: " +
-                                  jsonSchema
+                    ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema
                 };
                 convertedMessages.Insert(0, systemMessage);
             }
@@ -204,7 +195,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Response = message["content"]?.ToString() ?? string.Empty,
                     Provider = "MistralAI",
-                    Model = modelName,
+                    Model = model,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
@@ -236,36 +227,6 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine($"[MistralAI] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with MistralAI API: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Retrieves the list of available model ids from MistralAI.
-        /// </summary>
-        public override async Task<List<string>> RetrieveAvailableModels()
-        {
-            Debug.WriteLine("[MistralAI] Retrieving available models");
-            try
-            {
-                var content = await CallApi("/models").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelNames = new List<string>();
-                if (data != null)
-                {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var name = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(name)) modelNames.Add(name);
-                    }
-                }
-
-                return modelNames;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[MistralAI] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from MistralAI API: {ex.Message}", ex);
             }
         }
     }

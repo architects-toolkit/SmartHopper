@@ -127,7 +127,7 @@ namespace SmartHopper.Components.AI
                 try
                 {
                     // Get the current AI provider
-                    var provider = this._parent.GetCurrentAIProvider();
+                    var provider = this._parent.GetActualAIProvider();
                     if (provider == null)
                     {
                         this._result["Success"] = false;
@@ -136,7 +136,7 @@ namespace SmartHopper.Components.AI
                     }
 
                     // Retrieve available models
-                    var models = await provider.RetrieveAvailableModels();
+                    var models = await provider.Models.RetrieveAvailable().ConfigureAwait(false);
                     if (models == null || !models.Any())
                     {
                         this._result["Success"] = false;

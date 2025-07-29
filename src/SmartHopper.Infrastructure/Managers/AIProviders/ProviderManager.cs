@@ -62,10 +62,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 foreach (string providerFile in providerFiles)
                 {
                     var asmName = Path.GetFileNameWithoutExtension(providerFile);
-                    // Skip providers the user has previously rejected
+                    // Skip providers the user has rejected
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
-                        Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
+                        Debug.WriteLine($"Provider '{asmName}' rejected, skipping.");
                         continue;
                     }
 
@@ -208,12 +208,19 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 _providerAssemblies[provider.Name] = assembly;
             }
 
-            // Initialize the provider with its settings from SmartHopperSettings
-            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-            if (settingsDict != null)
+            // Initialize provider asynchronously without blocking
+            _ = Task.Run(async () =>
             {
-                provider.InitializeSettings(settingsDict);
-            }
+                try
+                {
+                    await provider.InitializeProviderAsync().ConfigureAwait(false);
+                    Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
+                }
+            });
         }
 
         /// <summary>
@@ -279,15 +286,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 if (provider == null) return;
 
-                // Check if settings are available before calling GetProviderSettings
-                if (SmartHopperSettings.Instance != null)
+                var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
+                if (settingsDict != null)
                 {
-                    var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-                    if (settingsDict != null)
-                    {
-                        Debug.WriteLine($"[ProviderManager] Refreshing provider {provider.Name} with current settings");
-                        provider.InitializeSettings(settingsDict);
-                    }
+                    provider.RefreshCachedSettings(settingsDict);
                 }
             }
             catch (Exception ex)
@@ -396,10 +398,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             Debug.WriteLine($"[ProviderManager] Saving settings to disk");
             SmartHopperSettings.Instance.Save();
 
-            // Re-initialize the provider with new settings
+            // Refresh the provider's cached settings (merge with existing to preserve provider-set values)
             var updatedSettings = SmartHopperSettings.Instance.GetProviderSettings(providerName);
-            provider.InitializeSettings(updatedSettings);
-            Debug.WriteLine($"[ProviderManager] Provider {providerName} reinitialized with updated settings");
+            provider.RefreshCachedSettings(updatedSettings);
+            Debug.WriteLine($"[ProviderManager] Provider {providerName} settings refreshed with updated values");
         }
 
         // Implement Authenticode verification using X509Certificate

@@ -18,19 +18,19 @@ namespace SmartHopper.Core.Models.Components
     public class ComponentProperty
     {
         /// <summary>
-        /// The actual value of the property.
+        /// Gets or sets the actual value of the property.
         /// </summary>
         [JsonProperty("value")]
         public object Value { get; set; }
 
         /// <summary>
-        /// The type name of the property.
+        /// Gets or sets the type name of the property.
         /// </summary>
         [JsonProperty("type")]
         public string Type { get; set; }
 
         /// <summary>
-        /// A human-readable representation of the property value.
+        /// Gets or sets a human-readable representation of the property value.
         /// </summary>
         [JsonProperty("humanReadable", NullValueHandling = NullValueHandling.Ignore)]
         public string HumanReadable { get; set; }
