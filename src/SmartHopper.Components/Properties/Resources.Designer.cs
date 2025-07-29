@@ -162,5 +162,19 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
+
+        internal static Bitmap imggenerate {
+            get {
+                object obj = ResourceManager.GetObject("imggenerate", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap imgviewer {
+            get {
+                object obj = ResourceManager.GetObject("imgviewer", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
     }
 }
