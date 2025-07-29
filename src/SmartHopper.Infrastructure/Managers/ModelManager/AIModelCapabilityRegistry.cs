@@ -9,6 +9,7 @@
  */
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace SmartHopper.Infrastructure.Managers.ModelManager
@@ -110,6 +111,8 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 .Where(m => string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
+            Debug.WriteLine($"[ModelManager] Getting the default model among {providerModels.Count} models for {provider} with capability {requiredCapability}");
+
             if (!providerModels.Any())
                 return null;
 
@@ -118,12 +121,29 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 .FirstOrDefault(m => (m.Default & requiredCapability) == requiredCapability);
 
             if (exactDefaultModel != null)
+            {
+                Debug.WriteLine($"[ModelManager] Found exact default model {exactDefaultModel.Model} for {provider} with capability {requiredCapability}");
+
                 return exactDefaultModel.Model;
+            }
 
             // Fallback: look for any model marked as default that supports the capability
-            var compatibleDefaultModel = providerModels
-                .Where(m => m.Default != AIModelCapability.None && m.HasCapability(requiredCapability))
+            Debug.WriteLine($"[ModelManager] Checking fallback models for {provider} with capability {requiredCapability}");
+            var candidateModels = providerModels
+                .Where(m => m.Default != AIModelCapability.None)
+                .ToList();
+
+            Debug.WriteLine($"[ModelManager] Found {candidateModels.Count} models marked as default (not None)");
+            foreach (var candidate in candidateModels)
+            {
+                Debug.WriteLine($"[ModelManager]   - {candidate.Model}: Default={candidate.Default}, HasCapability({requiredCapability})={candidate.HasCapability(requiredCapability)}");
+            }
+
+            var compatibleDefaultModel = candidateModels
+                .Where(m => m.HasCapability(requiredCapability))
                 .FirstOrDefault();
+
+            Debug.WriteLine($"[ModelManager] Found compatible default model {compatibleDefaultModel?.Model} for {provider} with capability {requiredCapability}");
 
             return compatibleDefaultModel?.Model;
         }

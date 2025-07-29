@@ -44,5 +44,11 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
         AIModelCapability RetrieveCapabilities(string model);
+
+        /// <summary>
+        /// Gets all default models supported by this provider.
+        /// </summary>
+        /// <returns>Dictionary of model names and their capabilities.</returns>
+        Dictionary<string, AIModelCapability> RetrieveDefault();
     }
 }
