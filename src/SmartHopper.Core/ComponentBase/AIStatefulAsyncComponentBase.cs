@@ -132,7 +132,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             // Get the model, using provider settings default if empty
             string model = this._model;
-            var provider = this.GetCurrentAIProvider();
+            var provider = this.GetActualAIProvider();
             if (provider == null)
             {
                 // Handle null provider scenario, return default model
@@ -160,16 +160,13 @@ namespace SmartHopper.Core.ComponentBase
             parameters ??= new JObject();
 
             // Inject provider and model
-            var providerName = this.GetActualProviderName();
+            var providerName = this.GetActualAIProviderName();
             var model = this.GetModel();
-            parameters["provider"] = providerName;
-            parameters["model"] = model;
-            parameters["reuseCount"] = reuseCount;
 
             // Validate capability requirements before execution
             try
             {
-                var currentProvider = this.GetCurrentAIProvider();
+                var currentProvider = this.GetActualAIProvider();
                 if (currentProvider != null)
                 {
                     var capabilities = ModelManager.Instance.GetCapabilities(currentProvider.Name, model);
@@ -186,19 +183,13 @@ namespace SmartHopper.Core.ComponentBase
                         var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
                         if (!validationResult)
                         {
-                            this.SetPersistentRuntimeMessage(
-                            "capability_error",
-                            GH_RuntimeMessageLevel.Error,
-                            $"The selected model is not compatible with this tool",
-                            false);
+                            model = this.GetActualAIProvider()?.GetDefaultModel(AIModelCapability.ImageGenerator);
 
-                            // Return early with capability error
-                            return new JObject
-                            {
-                                ["success"] = false,
-                                ["error"] = $"The selected model is not compatible with this tool",
-                                ["errorType"] = "capability_mismatch",
-                            };
+                            this.SetPersistentRuntimeMessage(
+                            "model_replaced",
+                            GH_RuntimeMessageLevel.Warning,
+                            $"The selected model is not compatible with this tool.\nIt was replaced with the default model for this capability: {model}",
+                            false);
                         }
                     }
                 }
@@ -208,6 +199,11 @@ namespace SmartHopper.Core.ComponentBase
                 // Log capability check error but don't fail execution
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] Capability validation error: {capEx.Message}");
             }
+
+            // Inject provider and model
+            parameters["provider"] = providerName;
+            parameters["model"] = model;
+            parameters["reuseCount"] = reuseCount;
 
             JObject result;
             try
@@ -219,7 +215,7 @@ namespace SmartHopper.Core.ComponentBase
             catch (Exception ex)
             {
                 // Execution error
-                SetPersistentRuntimeMessage(
+                this.SetPersistentRuntimeMessage(
                     "ai_error",
                     GH_RuntimeMessageLevel.Error,
                     ex.Message,
@@ -227,7 +223,7 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"] = ex.Message
+                    ["error"] = ex.Message,
                 };
             }
 
@@ -320,7 +316,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Get the actual provider name
-            string actualProvider = GetActualProviderName();
+            string actualProvider = GetActualAIProviderName();
 
             // Aggregate metrics
             int totalInTokens = _responseMetrics.Sum(r => r.InTokens);

@@ -223,12 +223,12 @@ namespace SmartHopper.Core.Messaging
                     };
                 }
 
-                // If no model is specified, use the provider's default image model
-                if (string.IsNullOrWhiteSpace(model))
+                // If no model is specified or the specified model is not compatible with image generation, use the provider's default image model
+                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, [AIModelCapability.ImageGenerator]))
                 {
                     model = selectedProvider.GetDefaultModel(AIModelCapability.ImageGenerator);
 
-                    // If no image model is specified, early exit
+                    // If no image model is found, early exit
                     if (string.IsNullOrWhiteSpace(model))
                     {
                         stopwatch.Stop();
@@ -245,22 +245,6 @@ namespace SmartHopper.Core.Messaging
                     }
 
                     Debug.WriteLine($"[AIUtils] No model specified for image generation, using: {model}");
-                }
-
-                // Check if the requested model supports image generation
-                if (!ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, [AIModelCapability.ImageGenerator]))
-                {
-                    stopwatch.Stop();
-                    return new AIResponse
-                    {
-                        FinishReason = "error",
-                        Response = $"Error: Model '{model}' does not support image generation. Please select annother model that supports image generation (e.g., Dall-E-3 from OpenAI).",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                        OriginalPrompt = prompt,
-                        ImageSize = size,
-                        ImageQuality = quality,
-                        ImageStyle = style,
-                    };
                 }
 
                 Debug.WriteLine($"[AIUtils] Generating image with {selectedProvider.Name} using model '{model}'");
