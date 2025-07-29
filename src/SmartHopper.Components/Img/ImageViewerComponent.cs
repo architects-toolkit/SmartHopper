@@ -12,7 +12,6 @@ using System;
 using System.Drawing;
 using System.IO;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Attributes;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 
@@ -68,7 +67,7 @@ namespace SmartHopper.Components.Img
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Image", "I", "Bitmap image to display", GH_ParamAccess.item);
-            pManager.AddTextParameter("File Path", "F", "File path to save the image (optional)", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("File Path", "F", "File path to save the image.\nAdd one of the compatible extensions to the file name: .png, .jpg, .bmp, .gif or .tiff", GH_ParamAccess.item, string.Empty);
             pManager.AddBooleanParameter("Save?", "S", "Trigger to save the image to the specified file path", GH_ParamAccess.item, false);
 
             // Make parameters optional
@@ -82,8 +81,6 @@ namespace SmartHopper.Components.Img
         /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Status", "St", "Status of the image viewer and save operations", GH_ParamAccess.item);
-            pManager.AddTextParameter("Saved Path", "SP", "Path where the image was saved (if applicable)", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -102,8 +99,6 @@ namespace SmartHopper.Components.Img
             DA.GetData(2, ref run);
 
             Bitmap bitmap = null;
-            string status = "No image";
-            string savedPath = string.Empty;
 
             // Extract bitmap from input
             if (imageGoo != null)
@@ -124,7 +119,6 @@ namespace SmartHopper.Components.Img
             {
                 // Always update display bitmap
                 this.SetDisplayBitmap(bitmap);
-                status = $"Displaying image ({bitmap.Width}x{bitmap.Height})";
 
                 // Handle saving if requested and path is provided
                 if (run && !string.IsNullOrWhiteSpace(filePath))
@@ -148,26 +142,21 @@ namespace SmartHopper.Components.Img
                             clone?.Save(filePath, format);
                         }
 
-                        savedPath = filePath;
-                        status += $" - Saved to: {Path.GetFileName(filePath)}";
                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Image saved successfully to: {filePath}");
                     }
                     catch (Exception saveEx)
                     {
                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to save image: {saveEx.Message}");
-                        status += " - Save failed";
                     }
                 }
                 else if (run && string.IsNullOrWhiteSpace(filePath))
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Run triggered but no file path provided");
-                    status += " - No save path";
                 }
             }
             else if (imageGoo != null)
             {
                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Input is not a valid bitmap image");
-                status = "Invalid image format";
                 this.SetDisplayBitmap(null);
             }
             else
@@ -176,8 +165,6 @@ namespace SmartHopper.Components.Img
             }
 
             // Set outputs
-            DA.SetData(0, status);
-            DA.SetData(1, savedPath);
         }
 
         /// <summary>
