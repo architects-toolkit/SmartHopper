@@ -47,7 +47,7 @@ namespace SmartHopper.Core.ComponentBase
             base.Layout();
 
             // Only extend bounds if we have a valid provider
-            if (!string.IsNullOrEmpty(this.owner.GetActualProviderName()))
+            if (!string.IsNullOrEmpty(this.owner.GetActualAIProviderName()))
             {
                 var bounds = this.Bounds;
                 bounds.Height += PROVIDERSTRIPHEIGHT;
@@ -68,14 +68,14 @@ namespace SmartHopper.Core.ComponentBase
             if (channel == GH_CanvasChannel.Objects)
             {
                 // Only render the provider strip if we have a valid provider and we're zoomed in enough
-                if (string.IsNullOrEmpty(this.owner.GetActualProviderName()) || canvas.Viewport.Zoom < MINZOOMTHRESHOLD)
+                if (string.IsNullOrEmpty(this.owner.GetActualAIProviderName()) || canvas.Viewport.Zoom < MINZOOMTHRESHOLD)
                 {
                     return;
                 }
 
                 // Get the actual provider name (resolving Default to the actual provider)
-                string actualProviderName = this.owner.GetActualProviderName();
-                if (this.owner.GetActualProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
+                string actualProviderName = this.owner.GetActualAIProviderName();
+                if (this.owner.GetActualAIProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
                 {
                     actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }

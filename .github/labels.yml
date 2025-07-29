@@ -68,6 +68,9 @@
 - name: "component: AI TextListGenerate"
   color: "000"
   description: "Issues related to the AI Text List Generate component"
+- name: "component: AI ImgGenerate"
+  color: "000"
+  description: "Issues related to the AI Image Generate component"
 - name: "component: AI ScriptReview"
   color: "000"
   description: "Issues related to the AI Script Review component"
@@ -113,6 +116,9 @@
 - name: "component: LoadGhJSON"
   color: "000"
   description: "Issues related to the Load GhJSON file component"
+- name: "component: ImageViewer"
+  color: "000"
+  description: "Issues related to the Image Viewer component"
 
 # Provider Labels
 - name: "provider: MistralAI"

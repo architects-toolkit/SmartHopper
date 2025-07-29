@@ -132,7 +132,7 @@ namespace SmartHopper.Core.ComponentBase
         /// If the selected provider is "Default", returns the default provider from settings.
         /// </summary>
         /// <returns>The actual provider name to use.</returns>
-        public string GetActualProviderName()
+        public string GetActualAIProviderName()
         {
             if (this.aiProvider == DEFAULT_PROVIDER)
             {
@@ -147,9 +147,9 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets the currently selected AI provider instance.
         /// </summary>
         /// <returns>The AI provider instance, or null if not available.</returns>
-        protected AIProvider? GetCurrentAIProvider()
+        protected AIProvider? GetActualAIProvider()
         {
-            string actualProviderName = this.GetActualProviderName();
+            string actualProviderName = this.GetActualAIProviderName();
             var provider = ProviderManager.Instance.GetProvider(actualProviderName);
 
             if (provider is AIProvider concreteProvider)

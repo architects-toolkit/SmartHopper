@@ -5,12 +5,9 @@ version: {{VERSION}}
 description: >
   SmartHopper supercharges your Grasshopper workflow with AI-powered components.
 
-  NOTE: This is an alpha release. We're actively developing and improving SmartHopper. Your feedback is valuable in shaping future updates!
+  NOTE: This is an alpha release and you might (will) find some bugs :/ Please, report them at https://github.com/architects-toolkit/SmartHopper/issues. Your feedback is essential in shaping future updates!
 
-  REQUIREMENTS:
-  - Internet connection
-  - Valid API key from a supported AI provider
-  - Rhino 8.19 or later
+  REQUIREMENTS: (1) Internet connection (2) Valid API key from a supported AI provider (3) Rhino 8.19 or later
 
 authors:
   - Marc Roca Musach

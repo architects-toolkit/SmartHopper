@@ -20,42 +20,44 @@ namespace SmartHopper.Core.Models.Connections
     public class Connection
     {
         /// <summary>
-        /// The ID of the component that this connection endpoint belongs to.
+        /// Gets or sets the ID of the component that this connection endpoint belongs to.
         /// </summary>
-        [JsonProperty("componentId")]
+        [JsonProperty("instanceId")]
         [JsonRequired]
-        public Guid ComponentId { get; set; }
+        public Guid InstanceId { get; set; }
 
         /// <summary>
-        /// The name of the parameter on the component.
+        /// Gets or sets the name of the parameter on the component.
         /// </summary>
         [JsonProperty("paramName")]
         [JsonRequired]
-        public string ParamName { get; set; }
+        public required string ParamName { get; set; }
 
         /// <summary>
         /// Checks if the connection has valid component ID and parameter name.
         /// </summary>
-        /// <returns>True if the connection has a non-empty GUID and parameter name</returns>
+        /// <returns>True if the connection has a non-empty GUID and parameter name.</returns>
         public bool IsValid()
         {
-            return ComponentId != Guid.Empty && !string.IsNullOrEmpty(ParamName);
+            return this.InstanceId != Guid.Empty && !string.IsNullOrEmpty(this.ParamName);
         }
 
         /// <summary>
         /// Creates a new Connection from a Grasshopper parameter.
         /// </summary>
-        /// <param name="param">The Grasshopper parameter to create the connection from</param>
-        /// <returns>A new Connection object representing the parameter</returns>
-        public static Connection FromParameter(IGH_Param param)
+        /// <param name="param">The Grasshopper parameter to create the connection from.</param>
+        /// <returns>A new Connection object representing the parameter.</returns>
+        public static Connection? FromParameter(IGH_Param param)
         {
             if (param == null)
+            {
                 return null;
+            }
 
             return new Connection
             {
-                ComponentId = param.InstanceGuid,
-                ParamName = param.Name
+                InstanceId = param.InstanceGuid,
+                ParamName = param.Name,
             };
         }
     }

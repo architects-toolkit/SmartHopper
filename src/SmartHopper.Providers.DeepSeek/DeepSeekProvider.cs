@@ -42,10 +42,6 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         public static readonly string _name = "DeepSeek";
 
-        /// <summary>
-        /// The default model to use if none is specified.
-        /// </summary>
-        private const string _defaultModel = "deepseek-chat";
         private const string DefaultServerUrlValue = "https://api.deepseek.com";
 
         /// <summary>
@@ -53,18 +49,13 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private DeepSeekProvider()
         {
-            // Initialization code if needed
+            Models = new DeepSeekProviderModels(this, this.CallApi);
         }
 
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
         public override string Name => _name;
-
-        /// <summary>
-        /// Gets the default model for this provider.
-        /// </summary>
-        public override string DefaultModel => _defaultModel;
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -106,11 +97,6 @@ namespace SmartHopper.Providers.DeepSeek
             try
             {
                 int maxTokens = GetSetting<int>("MaxTokens");
-                string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
-                if (string.IsNullOrWhiteSpace(modelName))
-                {
-                    modelName = this.DefaultModel;
-                }
 
                 // Format messages for DeepSeek API
                 var convertedMessages = new JArray();
@@ -194,7 +180,7 @@ namespace SmartHopper.Providers.DeepSeek
                 // Build request body
                 var requestBody = new JObject
                 {
-                    ["model"] = modelName,
+                    ["model"] = model,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
                     ["temperature"] = this.GetSetting<double>("Temperature"),
@@ -213,9 +199,7 @@ namespace SmartHopper.Providers.DeepSeek
                     var systemMessage = new JObject
                     {
                         ["role"] = "system",
-                        ["content"] = "You are a helpful assistant that returns responses in JSON format. " +
-                                      "The response must be a valid JSON object that follows this schema exactly: " +
-                                      jsonSchema
+                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema
                     };
                     convertedMessages.Insert(0, systemMessage);
                 }
@@ -266,7 +250,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Response = combined,
                     Provider = this.Name,
-                    Model = modelName,
+                    Model = model,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
@@ -296,36 +280,6 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 Debug.WriteLine($"[DeepSeek] Exception: {ex.Message}");
                 throw new Exception($"Error communicating with DeepSeek API: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Retrieves the list of available model IDs from DeepSeek.
-        /// </summary>
-        public override async Task<List<string>> RetrieveAvailableModels()
-        {
-            Debug.WriteLine("[DeepSeek] Retrieving available models");
-            try
-            {
-                var content = await CallApi("/models").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelIds = new List<string>();
-                if (data != null)
-                {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
-                    }
-                }
-
-                return modelIds;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
             }
         }
 

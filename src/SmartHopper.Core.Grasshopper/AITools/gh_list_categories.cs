@@ -33,14 +33,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_list_categories",
-                description: "List all available categories and subcategories for components in the current environment with optional soft string filter.",
-                category: "Components",
+                description: "List all available categories and subcategories for components in the current environment with optional soft string filter. Use filters wisely to target the results and avoid wasting tokens.",
+                category: "ComponentsRetrieval",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""filter"": {
                             ""type"": ""string"",
                             ""description"": ""Soft filter: return categories or subcategories containing the search tokens (split by space).""
+                        },
+                        ""includeSubcategories"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to include subcategories in the response. When false, only returns category names. Defaults to false."",
+                            ""default"": false
                         }
                     }
                 }",
@@ -55,6 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             var server = Instances.ComponentServer;
             var filterString = parameters["filter"]?.ToObject<string>() ?? string.Empty;
+            var includeSubcategories = parameters["includeSubcategories"]?.ToObject<bool>() ?? false;
             var tokens = Regex.Replace(filterString, @"[,;\-_]", " ")
                 .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.ToLowerInvariant())
@@ -83,21 +89,37 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var cat = kv.Key;
                 var subs = kv.Value;
-                if (!tokens.Any())
-                {
-                    result.Add(new { category = cat, subCategories = subs.ToList() });
-                }
-                else
+                
+                // Skip if filtering and no matches
+                if (tokens.Any())
                 {
                     bool catMatch = tokens.Any(tok => cat.ToLowerInvariant().Contains(tok));
                     var matchingSubs = subs.Where(s => tokens.Any(tok => s.ToLowerInvariant().Contains(tok))).ToList();
-                    if (catMatch)
+                    
+                    if (!catMatch && !matchingSubs.Any())
+                        continue;
+                    
+                    // Use filtered subcategories if includeSubcategories is true
+                    if (includeSubcategories)
+                    {
+                        var filteredSubs = catMatch ? subs.ToList() : matchingSubs;
+                        result.Add(new { category = cat, subCategories = filteredSubs });
+                    }
+                    else
+                    {
+                        result.Add(new { category = cat });
+                    }
+                }
+                else
+                {
+                    // No filter applied
+                    if (includeSubcategories)
                     {
                         result.Add(new { category = cat, subCategories = subs.ToList() });
                     }
-                    else if (matchingSubs.Any())
+                    else
                     {
-                        result.Add(new { category = cat, subCategories = matchingSubs });
+                        result.Add(new { category = cat });
                     }
                 }
             }

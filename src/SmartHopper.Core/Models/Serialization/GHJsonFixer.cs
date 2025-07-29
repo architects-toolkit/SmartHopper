@@ -22,6 +22,7 @@ namespace SmartHopper.Core.Models.Serialization
         /// <summary>
         /// Fixes invalid component instanceGuids by assigning new GUIDs and recording mappings.
         /// </summary>
+        /// <returns></returns>
         public static (JObject, Dictionary<string, Guid>) FixComponentInstanceGuids(JObject json, Dictionary<string, Guid> idMapping)
         {
             if (json["components"] is JArray comps)
@@ -40,40 +41,49 @@ namespace SmartHopper.Core.Models.Serialization
                     }
                 }
             }
+
             return (json, idMapping);
         }
 
         /// <summary>
-        /// Fixes connection componentIds based on the provided ID mapping.
+        /// Fixes connection instanceIds based on the provided ID mapping.
         /// </summary>
+        /// <returns></returns>
         public static (JObject, Dictionary<string, Guid>) FixConnectionComponentIds(JObject json, Dictionary<string, Guid> idMapping)
         {
             if (json["connections"] is JArray conns)
             {
                 foreach (var conn in conns)
                 {
-                    var fromToken = conn["from"]?["componentId"];
+                    var fromToken = conn["from"]?["instanceId"];
                     if (fromToken != null)
                     {
                         var oldStrFrom = fromToken.ToString();
                         if (idMapping.TryGetValue(oldStrFrom, out var mappedFrom))
-                            conn["from"]["componentId"] = mappedFrom.ToString();
+                        {
+                            conn["from"]["instanceId"] = mappedFrom.ToString();
+                        }
                     }
-                    var toToken = conn["to"]?["componentId"];
+
+                    var toToken = conn["to"]?["instanceId"];
                     if (toToken != null)
                     {
                         var oldStrTo = toToken.ToString();
                         if (idMapping.TryGetValue(oldStrTo, out var mappedTo))
-                            conn["to"]["componentId"] = mappedTo.ToString();
+                        {
+                            conn["to"]["instanceId"] = mappedTo.ToString();
+                        }
                     }
                 }
             }
+
             return (json, idMapping);
         }
 
         /// <summary>
         /// Removes pivot properties if not all components define a pivot.
         /// </summary>
+        /// <returns></returns>
         public static JObject RemovePivotsIfIncomplete(JObject json)
         {
             if (json["components"] is JArray comps)
@@ -87,10 +97,13 @@ namespace SmartHopper.Core.Models.Serialization
                         break;
                     }
                 }
+
                 if (!allHavePivot)
                 {
                     foreach (var comp in comps)
+                    {
                         ((JObject)comp).Remove("pivot");
+                    }
                 }
             }
 

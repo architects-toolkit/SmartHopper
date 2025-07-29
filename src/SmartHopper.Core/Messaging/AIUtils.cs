@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIContext;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Messaging
@@ -116,7 +117,7 @@ namespace SmartHopper.Core.Messaging
 
             try
             {
-                var stopwatch = new System.Diagnostics.Stopwatch();
+                var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
                 var providers = ProviderManager.Instance.GetProviders().ToList();
@@ -133,10 +134,24 @@ namespace SmartHopper.Core.Messaging
                     };
                 }
 
-                // If no model is specified, use the provider's default model
+                // Use default model if none specified
                 if (string.IsNullOrWhiteSpace(model))
                 {
-                    model = selectedProvider.DefaultModel;
+                    // If jsonSchema is required -> use JsonOutput capability
+                    // If toolFilter is not null -> use FunctionCalling capability
+                    if (!string.IsNullOrWhiteSpace(jsonSchema))
+                    {
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(toolFilter))
+                    {
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat);
+                    }
+                    else
+                    {
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat);
+                    }
+
                     Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
                 }
 
@@ -163,6 +178,107 @@ namespace SmartHopper.Core.Messaging
                     Response = $"Error: {ex.Message}",
                     FinishReason = "error",
                     CompletionTime = 0,
+                };
+            }
+        }
+
+        /// <summary>
+        /// Generates an image using the specified provider and parameters.
+        /// </summary>
+        /// <param name="providerName">The name of the AI provider to use.</param>
+        /// <param name="prompt">The text prompt describing the desired image.</param>
+        /// <param name="model">The model to use for image generation.</param>
+        /// <param name="size">The size of the generated image.</param>
+        /// <param name="quality">The quality of the generated image.</param>
+        /// <param name="style">The style of the generated image.</param>
+        /// <returns>An AIImageResponse containing the generated image data.</returns>
+        public static async Task<AIResponse> GenerateImage(
+            string providerName,
+            string prompt,
+            string model = "",
+            string size = "1024x1024",
+            string quality = "standard",
+            string style = "vivid")
+        {
+            try
+            {
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                var providers = ProviderManager.Instance.GetProviders().ToList();
+                var selectedProvider = providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+
+                if (selectedProvider == null)
+                {
+                    stopwatch.Stop();
+                    return new AIResponse
+                    {
+                        FinishReason = "error",
+                        Response = $"Error: Provider '{providerName}' not found. Available providers: {string.Join(", ", providers.Select(p => p.Name))}",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                        OriginalPrompt = prompt,
+                        ImageSize = size,
+                        ImageQuality = quality,
+                        ImageStyle = style,
+                    };
+                }
+
+                // If no model is specified or the specified model is not compatible with image generation, use the provider's default image model
+                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, AIModelCapability.ImageGenerator))
+                {
+                    model = selectedProvider.GetDefaultModel(AIModelCapability.ImageGenerator);
+
+                    // If no image model is found, early exit
+                    if (string.IsNullOrWhiteSpace(model))
+                    {
+                        stopwatch.Stop();
+                        return new AIResponse
+                        {
+                            FinishReason = "error",
+                            Response = $"Error: The {selectedProvider.Name} provider does not support image generation. Please select a provider that supports image generation (e.g., OpenAI).",
+                            CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                            OriginalPrompt = prompt,
+                            ImageSize = size,
+                            ImageQuality = quality,
+                            ImageStyle = style,
+                        };
+                    }
+
+                    Debug.WriteLine($"[AIUtils] No model specified for image generation, using: {model}");
+                }
+
+                Debug.WriteLine($"[AIUtils] Generating image with {selectedProvider.Name} using model '{model}'");
+                Debug.WriteLine($"[AIUtils] Image parameters - Size: {size}, Quality: {quality}, Style: {style}");
+
+                var response = await selectedProvider.GenerateImage(prompt, model, size, quality, style).ConfigureAwait(false);
+                stopwatch.Stop();
+                response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+                return response;
+            }
+            catch (HttpRequestException ex)
+            {
+                return new AIResponse
+                {
+                    FinishReason = "error",
+                    Response = $"Error: API request failed - {ex.Message}",
+                    CompletionTime = 0,
+                    OriginalPrompt = prompt,
+                    ImageSize = size,
+                    ImageQuality = quality,
+                    ImageStyle = style
+                };
+            }
+            catch (Exception ex)
+            {
+                return new AIResponse
+                {
+                    FinishReason = "error",
+                    Response = $"Error: {ex.Message}",
+                    CompletionTime = 0,
+                    OriginalPrompt = prompt,
+                    ImageSize = size,
+                    ImageQuality = quality,
+                    ImageStyle = style
                 };
             }
         }

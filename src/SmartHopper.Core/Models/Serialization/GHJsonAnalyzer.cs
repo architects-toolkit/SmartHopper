@@ -28,7 +28,7 @@ namespace SmartHopper.Core.Models.Serialization
         /// <param name="json">The JSON string to validate.</param>
         /// <param name="errorMessage">Aggregated error, warning and info messages; null if no issues.</param>
         /// <returns>True if no errors; otherwise false.</returns>
-        public static bool Analyze(string json, out string errorMessage)
+        public static bool Validate(string json, out string errorMessage)
         {
             var errors = new List<string>();
             var warnings = new List<string>();
@@ -39,7 +39,7 @@ namespace SmartHopper.Core.Models.Serialization
                 errors.Add("JSON input is null or empty.");
             }
 
-            JObject root = null;
+            JObject? root = null;
             if (!errors.Any())
             {
                 try
@@ -52,8 +52,8 @@ namespace SmartHopper.Core.Models.Serialization
                 }
             }
 
-            JArray components = null;
-            JArray connections = null;
+            JArray? components = null;
+            JArray? connections = null;
             if (root != null)
             {
                 if (root["components"] is JArray comps)
@@ -85,17 +85,21 @@ namespace SmartHopper.Core.Models.Serialization
                         }
 
                         if (comp["name"] == null || comp["name"].Type == JTokenType.Null)
+                        {
                             errors.Add($"components[{i}].name is missing or null.");
+                        }
 
                         if (comp["componentGuid"] == null || comp["componentGuid"].Type == JTokenType.Null)
                         {
-                            errors.Add($"components[{i}].componentGuid is missing or null.");
+                            warnings.Add($"components[{i}].componentGuid is missing or null.");
                         }
                         else
                         {
                             var cg = comp["componentGuid"].ToString();
                             if (!Guid.TryParse(cg, out _))
+                            {
                                 warnings.Add($"components[{i}].componentGuid '{cg}' is not a valid GUID.");
+                            }
                         }
 
                         if (comp["instanceGuid"] == null || comp["instanceGuid"].Type == JTokenType.Null)
@@ -106,20 +110,26 @@ namespace SmartHopper.Core.Models.Serialization
                         {
                             var ig = comp["instanceGuid"].ToString();
                             if (!Guid.TryParse(ig, out _))
+                            {
                                 warnings.Add($"components[{i}].instanceGuid '{ig}' is not a valid GUID.");
+                            }
                         }
 
                         if (comp["type"] == null || comp["type"].Type == JTokenType.Null)
+                        {
                             infos.Add($"components[{i}].type is missing or null.");
+                        }
 
                         if (comp["objectType"] == null || comp["objectType"].Type == JTokenType.Null)
+                        {
                             infos.Add($"components[{i}].objectType is missing or null.");
+                        }
                     }
                 }
 
                 if (connections != null)
                 {
-                    // Verify connection 'componentId' references existing component instanceGuids
+                    // Verify connection 'instanceId' references existing component instanceGuids
                     var definedIds = new HashSet<string>();
                     foreach (var token in components)
                     {
@@ -127,7 +137,9 @@ namespace SmartHopper.Core.Models.Serialization
                         {
                             var inst = compObj["instanceGuid"]?.ToString();
                             if (!string.IsNullOrEmpty(inst))
+                            {
                                 definedIds.Add(inst);
+                            }
                         }
                     }
 
@@ -147,17 +159,22 @@ namespace SmartHopper.Core.Models.Serialization
                                 continue;
                             }
 
-                            if (ep["componentId"] == null || ep["componentId"].Type == JTokenType.Null)
+                            if (ep["instanceId"] == null || ep["instanceId"].Type == JTokenType.Null)
                             {
-                                errors.Add($"connections[{i}].{endPoint}.componentId is missing or null.");
+                                errors.Add($"connections[{i}].{endPoint}.instanceId is missing or null.");
                             }
                             else
                             {
-                                var cid = ep["componentId"].ToString();
+                                var cid = ep["instanceId"].ToString();
                                 if (!Guid.TryParse(cid, out _))
-                                    warnings.Add($"connections[{i}].{endPoint}.componentId '{cid}' is not a valid GUID.");
+                                {
+                                    warnings.Add($"connections[{i}].{endPoint}.instanceId '{cid}' is not a valid GUID.");
+                                }
+
                                 if (!definedIds.Contains(cid))
-                                    errors.Add($"connections[{i}].{endPoint}.componentId '{cid}' is not defined in components[].instanceGuid.");
+                                {
+                                    errors.Add($"connections[{i}].{endPoint}.instanceId '{cid}' is not defined in components[].instanceGuid.");
+                                }
                             }
                         }
                     }
@@ -168,17 +185,28 @@ namespace SmartHopper.Core.Models.Serialization
             if (errors.Any())
             {
                 sb.AppendLine("Errors:");
-                foreach (var e in errors) sb.AppendLine($"- {e}");
+                foreach (var e in errors)
+                {
+                    sb.AppendLine($"- {e}");
+                }
             }
+
             if (warnings.Any())
             {
                 sb.AppendLine("Warnings:");
-                foreach (var w in warnings) sb.AppendLine($"- {w}");
+                foreach (var w in warnings)
+                {
+                    sb.AppendLine($"- {w}");
+                }
             }
+
             if (infos.Any())
             {
                 sb.AppendLine("Information:");
-                foreach (var info in infos) sb.AppendLine($"- {info}");
+                foreach (var info in infos)
+                {
+                    sb.AppendLine($"- {info}");
+                }
             }
 
             var result = !errors.Any();
