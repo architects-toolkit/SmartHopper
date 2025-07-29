@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Img
         /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override Bitmap Icon => Resources.smarthopper;
+        protected override Bitmap Icon => Resources.imggenerate;
 
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
