@@ -92,5 +92,40 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 .Where(model => model.HasAllCapabilities(requiredCapabilities))
                 .ToList();
         }
+
+        /// <summary>
+        /// Gets the default model for a provider and specific capability.
+        /// First looks for models marked as default for the exact capability,
+        /// then falls back to models marked as default that support the required capability.
+        /// </summary>
+        /// <param name="provider">The provider name.</param>
+        /// <param name="requiredCapability">The required capability.</param>
+        /// <returns>The default model name or null if none found.</returns>
+        public string GetDefaultModel(string provider, AIModelCapability requiredCapability = AIModelCapability.BasicChat)
+        {
+            if (string.IsNullOrEmpty(provider))
+                return null;
+
+            var providerModels = this.Models.Values
+                .Where(m => string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (!providerModels.Any())
+                return null;
+
+            // First, look for models explicitly marked as default for this capability
+            var exactDefaultModel = providerModels
+                .FirstOrDefault(m => (m.Default & requiredCapability) == requiredCapability);
+
+            if (exactDefaultModel != null)
+                return exactDefaultModel.Model;
+
+            // Fallback: look for any model marked as default that supports the capability
+            var compatibleDefaultModel = providerModels
+                .Where(m => m.Default != AIModelCapability.None && m.HasCapability(requiredCapability))
+                .FirstOrDefault();
+
+            return compatibleDefaultModel?.Model;
+        }
     }
 }

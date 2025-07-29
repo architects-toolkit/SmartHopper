@@ -41,6 +41,13 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         public AIModelCapability Capabilities { get; set; } = AIModelCapability.None;
 
         /// <summary>
+        /// The capabilities for which this model is the default.
+        /// If a model is marked as default for BasicChat, it will be returned as the default
+        /// when requesting a model with BasicChat capabilities for this provider.
+        /// </summary>
+        public AIModelCapability Default { get; set; } = AIModelCapability.None;
+
+        /// <summary>
         /// Checks if this model supports all the specified capabilities.
         /// </summary>
         /// <param name="requiredCapabilities">The capabilities to check for.</param>

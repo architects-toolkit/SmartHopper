@@ -53,13 +53,12 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <param name="provider">The provider name.</param>
         /// <param name="modelName">The model name.</param>
         /// <param name="capabilities">The model capabilities.</param>
-        /// <param name="maxContextLength">Maximum context length in tokens.</param>
-        /// <param name="isDeprecated">Whether the model is deprecated.</param>
-        /// <param name="replacementModel">Replacement model if deprecated.</param>
+        /// <param name="defaultFor">The capabilities for which this model should be the default.</param>
         public void RegisterCapabilities(
             string provider,
             string modelName,
-            AIModelCapability capabilities)
+            AIModelCapability capabilities,
+            AIModelCapability defaultFor = AIModelCapability.None)
         {
             if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(modelName))
             {
@@ -72,6 +71,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 Provider = provider.ToLower(),
                 Model = modelName,
                 Capabilities = capabilities,
+                Default = defaultFor,
             };
 
             this.SetCapabilities(AIModelCapabilities);
@@ -101,6 +101,17 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         }
 
         /// <summary>
+        /// Gets the default model for a provider and specific capability.
+        /// </summary>
+        /// <param name="provider">The provider name.</param>
+        /// <param name="requiredCapability">The required capability.</param>
+        /// <returns>The default model name or null if none found.</returns>
+        public string GetDefaultModel(string provider, AIModelCapability requiredCapability)
+        {
+            return this._registry.GetDefaultModel(provider, requiredCapability);
+        }
+
+        /// <summary>
         /// Checks if a provider has any registered model capabilities.
         /// </summary>
         /// <param name="provider">The provider name to check.</param>
@@ -113,32 +124,43 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             return this._registry.Models.Keys.Any(key => key.StartsWith($"{provider}.", StringComparison.OrdinalIgnoreCase));
         }
 
-        /// <summary>
-        /// Checks if a specific model supports the required capabilities.
-        /// </summary>
-        /// <param name="provider">The provider name.</param>
-        /// <param name="model">The model name to check.</param>
-        /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>True if the model supports all required capabilities.</returns>
-        public bool SupportsCapabilities(string provider, string model, params AIModelCapability[] requiredCapabilities)
-        {
-            var capabilities = GetCapabilities(provider, model);
-            return capabilities?.HasAllCapabilities(requiredCapabilities) ?? false;
-        }
-
-        /// <summary>
-        /// Gets all models that support the specified capabilities.
-        /// </summary>
-        /// <param name="requiredCapabilities">The required capabilities.</param>
-        /// <returns>List of compatible models.</returns>
-        public List<AIModelCapabilities> FindCompatibleModels(params AIModelCapability[] requiredCapabilities)
-        {
-            return this._registry.FindModelsWithCapabilities(requiredCapabilities);
-        }
-
         #endregion
 
         #region Tool Validation
+
+        /// <summary>
+        /// Validates if a model has the required capabilities.
+        /// </summary>
+        /// <param name="provider">The provider name.</param>
+        /// <param name="model">The model name.</param>
+        /// <param name="requiredCapability">The required capability.</param>
+        /// <returns>True if the model has the required capabilities.</returns>
+        public bool ValidateCapabilities(string provider, string model, AIModelCapability[] requiredCapability)
+        {
+            var capabilities = this.GetCapabilities(provider, model);
+            if (capabilities == null)
+            {
+                // Do not pass validation if model is unregistered
+                Debug.WriteLine($"[ModelManager] Model '{model}' from '{provider}' not registered");
+                return false;
+            }
+
+            var missingCapabilities = new List<string>();
+            foreach (var required in requiredCapability)
+            {
+                if (!capabilities.HasCapability(required))
+                {
+                    missingCapabilities.Add(required.ToString());
+                }
+            }
+
+            if (missingCapabilities.Count > 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Validates if a tool can be executed with the given model using soft validation.
@@ -165,21 +187,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 return true; // No specific requirements
             }
 
-            var missingCapabilities = new List<string>();
-            foreach (var required in requiredCapabilities)
-            {
-                if (!capabilities.HasCapability(required))
-                {
-                    missingCapabilities.Add(required.ToString());
-                }
-            }
-
-            if (missingCapabilities.Count > 0)
-            {
-                return false;
-            }
-
-            return true;
+            return this.ValidateCapabilities(provider, model, requiredCapabilities);
         }
 
         /// <summary>

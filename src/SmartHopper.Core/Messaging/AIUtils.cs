@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIContext;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Messaging
@@ -116,7 +117,7 @@ namespace SmartHopper.Core.Messaging
 
             try
             {
-                var stopwatch = new System.Diagnostics.Stopwatch();
+                var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
                 var providers = ProviderManager.Instance.GetProviders().ToList();
@@ -133,10 +134,24 @@ namespace SmartHopper.Core.Messaging
                     };
                 }
 
-                // If no model is specified, use the provider's default model
+                // Use default model if none specified
                 if (string.IsNullOrWhiteSpace(model))
                 {
-                    model = selectedProvider.DefaultModel;
+                    // If jsonSchema is required -> use JsonOutput capability
+                    // If toolFilter is not null -> use FunctionCalling capability
+                    if (!string.IsNullOrWhiteSpace(jsonSchema))
+                    {
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(toolFilter))
+                    {
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat);
+                    }
+                    else
+                    {
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat);
+                    }
+
                     Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
                 }
 
@@ -187,7 +202,7 @@ namespace SmartHopper.Core.Messaging
         {
             try
             {
-                var stopwatch = new System.Diagnostics.Stopwatch();
+                var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
                 var providers = ProviderManager.Instance.GetProviders().ToList();
@@ -204,38 +219,48 @@ namespace SmartHopper.Core.Messaging
                         OriginalPrompt = prompt,
                         ImageSize = size,
                         ImageQuality = quality,
-                        ImageStyle = style
-                    };
-                }
-
-                // Check if the provider supports image generation (indicated by non-empty DefaultImgModel)
-                if (string.IsNullOrEmpty(selectedProvider.DefaultImgModel))
-                {
-                    stopwatch.Stop();
-                    return new AIResponse
-                    {
-                        FinishReason = "error",
-                        Response = $"Error: The {selectedProvider.Name} provider does not support image generation. Please select a provider that supports image generation (e.g., OpenAI).",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                        OriginalPrompt = prompt,
-                        ImageSize = size,
-                        ImageQuality = quality,
-                        ImageStyle = style
+                        ImageStyle = style,
                     };
                 }
 
                 // If no model is specified, use the provider's default image model
                 if (string.IsNullOrWhiteSpace(model))
                 {
-                    model = selectedProvider.DefaultImgModel;
+                    model = selectedProvider.GetDefaultModel(AIModelCapability.ImageGenerator);
 
-                    // Fallback to regular default model if no image model is specified
+                    // If no image model is specified, early exit
                     if (string.IsNullOrWhiteSpace(model))
                     {
-                        model = selectedProvider.DefaultModel;
+                        stopwatch.Stop();
+                        return new AIResponse
+                        {
+                            FinishReason = "error",
+                            Response = $"Error: The {selectedProvider.Name} provider does not support image generation. Please select a provider that supports image generation (e.g., OpenAI).",
+                            CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                            OriginalPrompt = prompt,
+                            ImageSize = size,
+                            ImageQuality = quality,
+                            ImageStyle = style,
+                        };
                     }
 
                     Debug.WriteLine($"[AIUtils] No model specified for image generation, using: {model}");
+                }
+
+                // Check if the requested model supports image generation
+                if (!ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, [AIModelCapability.ImageGenerator]))
+                {
+                    stopwatch.Stop();
+                    return new AIResponse
+                    {
+                        FinishReason = "error",
+                        Response = $"Error: Model '{model}' does not support image generation. Please select annother model that supports image generation (e.g., Dall-E-3 from OpenAI).",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                        OriginalPrompt = prompt,
+                        ImageSize = size,
+                        ImageQuality = quality,
+                        ImageStyle = style,
+                    };
                 }
 
                 Debug.WriteLine($"[AIUtils] Generating image with {selectedProvider.Name} using model '{model}'");

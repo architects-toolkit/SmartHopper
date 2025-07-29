@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Interfaces
@@ -22,17 +23,6 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// Gets the name of the provider.
         /// </summary>
         string Name { get; }
-
-        /// <summary>
-        /// Gets the default model name for the provider.
-        /// </summary>
-        string DefaultModel { get; }
-
-        /// <summary>
-        /// Gets the default image generation model name for the provider.
-        /// Returns null or empty string if the provider doesn't support image generation.
-        /// </summary>
-        string DefaultImgModel { get; }
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -59,7 +49,7 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <summary>
         /// Gets the default model name for the provider.
         /// </summary>
-        string GetDefaultModel();
+        string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat);
 
         /// <summary>
         /// Gets a response from the AI provider.
