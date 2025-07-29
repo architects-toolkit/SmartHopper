@@ -145,12 +145,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
             }
 
-            // Fallback to comma-separated parsing
+            // Fallback to comma-separated parsing with delimiter-aware splitting
             var clean = trimmed.TrimStart('[').TrimEnd(']');
-            var parts = clean.Split(',');
-            foreach (var part in parts)
+            var items = SplitRespectingDelimiters(clean);
+            foreach (var item in items)
             {
-                var val = part.Trim().Trim('"', '\'');
+                var val = item.Trim().Trim('"', '\'');
                 if (!string.IsNullOrEmpty(val))
                 {
                     result.Add(val);
@@ -158,6 +158,103 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Splits a string on commas while respecting any type of delimiters to avoid splitting structured strings.
+        /// Handles: {}, (), [], and any nested combinations.
+        /// Properly handles escaped quotes within strings.
+        /// </summary>
+        private static List<string> SplitRespectingDelimiters(string input)
+        {
+            var result = new List<string>();
+            var current = new System.Text.StringBuilder();
+            int depth = 0;
+            bool inQuotes = false;
+            char quoteChar = '\0';
+            
+            for (int i = 0; i < input.Length; i++)
+            {
+                char c = input[i];
+                
+                // Handle quotes to avoid splitting quoted strings
+                if ((c == '"' || c == '\'') && !inQuotes)
+                {
+                    // Check if this quote is escaped
+                    if (!IsEscaped(input, i))
+                    {
+                        inQuotes = true;
+                        quoteChar = c;
+                    }
+                    current.Append(c);
+                }
+                else if (c == quoteChar && inQuotes)
+                {
+                    // Check if this quote is escaped
+                    if (!IsEscaped(input, i))
+                    {
+                        inQuotes = false;
+                        quoteChar = '\0';
+                    }
+                    current.Append(c);
+                }
+                // Handle opening delimiters
+                else if (!inQuotes && (c == '{' || c == '(' || c == '['))
+                {
+                    depth++;
+                    current.Append(c);
+                }
+                // Handle closing delimiters
+                else if (!inQuotes && (c == '}' || c == ')' || c == ']'))
+                {
+                    depth--;
+                    current.Append(c);
+                }
+                // Handle comma separator only when not inside any delimiters or quotes
+                else if (c == ',' && depth == 0 && !inQuotes)
+                {
+                    var item = current.ToString().Trim();
+                    if (!string.IsNullOrEmpty(item))
+                    {
+                        result.Add(item);
+                    }
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            
+            // Add the last item
+            var lastItem = current.ToString().Trim();
+            if (!string.IsNullOrEmpty(lastItem))
+            {
+                result.Add(lastItem);
+            }
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Determines if a character at the given position is escaped by counting preceding backslashes.
+        /// Handles multiple consecutive backslashes correctly (e.g., \\" where \\" represents \+ escaped quote).
+        /// </summary>
+        /// <param name="input">The input string.</param>
+        /// <param name="position">The position of the character to check.</param>
+        /// <returns>True if the character is escaped, false otherwise.</returns>
+        private static bool IsEscaped(string input, int position)
+        {
+            if (position == 0) return false;
+            
+            int backslashCount = 0;
+            for (int i = position - 1; i >= 0 && input[i] == '\\'; i--)
+            {
+                backslashCount++;
+            }
+            
+            // If odd number of backslashes, the character is escaped
+            return backslashCount % 2 == 1;
         }
 
         /// <summary>

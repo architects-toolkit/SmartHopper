@@ -146,10 +146,11 @@ namespace SmartHopper.Providers.OpenAI
                 ["temperature"] = this.GetSetting<double>("Temperature"),
             };
 
-            // Add reasoning effort if model starts with "(0-9)o"
-            if (Regex.IsMatch(model, @"^[0-9]o", RegexOptions.IgnoreCase))
+            // Add reasoning effort if model starts with "o-series"
+            if (Regex.IsMatch(model, @"^o[0-9]", RegexOptions.IgnoreCase))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
+                requestBody["temperature"] = 1; // Only 1 is accepted for o-series models
             }
 
             // Store wrapper info for response unwrapping
