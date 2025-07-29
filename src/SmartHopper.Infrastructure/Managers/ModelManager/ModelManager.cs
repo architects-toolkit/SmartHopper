@@ -112,6 +112,29 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         }
 
         /// <summary>
+        /// Gets the default model for a provider and specific tool.
+        /// </summary>
+        /// <param name="provider">The provider name.</param>
+        /// <param name="toolName">The tool name.</param>
+        /// <returns>The default model name or null if none found.</returns>
+        public string GetDefaultModelForTool(string provider, string toolName)
+        {
+            var requiredCapabilities = this.GetRequiredCapabilitiesForTool(toolName);
+            if (requiredCapabilities == null)
+            {
+                return null;
+            }
+
+            var defaultModel = this.GetDefaultModel(provider, requiredCapabilities);
+            if (defaultModel == null)
+            {
+                return null;
+            }
+
+            return defaultModel;
+        }
+
+        /// <summary>
         /// Checks if a provider has any registered model capabilities.
         /// </summary>
         /// <param name="provider">The provider name to check.</param>
@@ -135,7 +158,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <param name="model">The model name.</param>
         /// <param name="requiredCapability">The required capability.</param>
         /// <returns>True if the model has the required capabilities.</returns>
-        public bool ValidateCapabilities(string provider, string model, AIModelCapability[] requiredCapability)
+        public bool ValidateCapabilities(string provider, string model, AIModelCapability requiredCapability)
         {
             var capabilities = this.GetCapabilities(provider, model);
             if (capabilities == null)
@@ -145,21 +168,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 return false;
             }
 
-            var missingCapabilities = new List<string>();
-            foreach (var required in requiredCapability)
-            {
-                if (!capabilities.HasCapability(required))
-                {
-                    missingCapabilities.Add(required.ToString());
-                }
-            }
-
-            if (missingCapabilities.Count > 0)
-            {
-                return false;
-            }
-
-            return true;
+            return capabilities.HasCapability(requiredCapability);
         }
 
         /// <summary>
@@ -182,7 +191,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             }
 
             var requiredCapabilities = this.GetRequiredCapabilitiesForTool(toolName);
-            if (requiredCapabilities.Length == 0)
+            if (requiredCapabilities == AIModelCapability.None)
             {
                 return true; // No specific requirements
             }
@@ -208,7 +217,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <summary>
         /// Gets the required capabilities for a specific tool from the tool registry.
         /// </summary>
-        private AIModelCapability[] GetRequiredCapabilitiesForTool(string toolName)
+        private AIModelCapability GetRequiredCapabilitiesForTool(string toolName)
         {
             try
             {
@@ -224,7 +233,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             }
 
             // Default: no specific requirements if tool not found
-            return new AIModelCapability[0];
+            return AIModelCapability.None;
         }
 
         #endregion

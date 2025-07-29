@@ -84,13 +84,15 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// </summary>
         /// <param name="requiredCapabilities">The required capabilities.</param>
         /// <returns>List of matching model capabilities.</returns>
-        public List<AIModelCapabilities> FindModelsWithCapabilities(params AIModelCapability[] requiredCapabilities)
+        public List<AIModelCapabilities> FindModelsWithCapabilities(AIModelCapability requiredCapabilities)
         {
-            if (requiredCapabilities == null || requiredCapabilities.Length == 0)
+            if (requiredCapabilities == AIModelCapability.None)
+            {
                 return this.Models.Values.ToList();
+            }
 
             return this.Models.Values
-                .Where(model => model.HasAllCapabilities(requiredCapabilities))
+                .Where(model => model.HasCapability(requiredCapabilities))
                 .ToList();
         }
 

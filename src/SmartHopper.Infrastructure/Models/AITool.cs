@@ -48,7 +48,7 @@ namespace SmartHopper.Infrastructure.Models
         /// <summary>
         /// Gets required capabilities for this tool to function properly.
         /// </summary>
-        public AIModelCapability[] RequiredCapabilities { get; }
+        public AIModelCapability RequiredCapabilities { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AITool"/> class.
@@ -61,14 +61,14 @@ namespace SmartHopper.Infrastructure.Models
         /// <param name="execute">Function to execute the tool with given parameters.</param>
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
         public AITool(string name, string description, string category, string parametersSchema,
-            Func<JObject, Task<object>> execute, AIModelCapability[] ? requiredCapabilities = null)
+            Func<JObject, Task<object>> execute, AIModelCapability requiredCapabilities = AIModelCapability.None)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
             this.Category = category ?? throw new ArgumentNullException(nameof(category));
             this.ParametersSchema = parametersSchema ?? throw new ArgumentNullException(nameof(parametersSchema));
             this.Execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            this.RequiredCapabilities = requiredCapabilities ?? Array.Empty<AIModelCapability>();
+            this.RequiredCapabilities = requiredCapabilities;
         }
     }
 }

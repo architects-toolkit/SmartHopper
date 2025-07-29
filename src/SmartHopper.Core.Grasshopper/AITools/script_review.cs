@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guid""]
                 }",
                 execute: this.ScriptReviewToolAsync,
-                requiredCapabilities: new[] { AIModelCapability.TextInput, AIModelCapability.TextOutput }
+                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
             );
         }
 
