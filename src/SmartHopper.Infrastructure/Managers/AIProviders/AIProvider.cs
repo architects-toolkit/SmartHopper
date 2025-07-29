@@ -33,7 +33,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;
-        private IAIProviderModels _models;
 
         /// <summary>
         /// Gets the models manager for this provider.
@@ -47,17 +46,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// Gets the name of the provider.
         /// </summary>
         public abstract string Name { get; }
-
-        /// <summary>
-        /// Gets the default model name for the provider.
-        /// </summary>
-        public abstract string DefaultModel { get; }
-
-        /// <summary>
-        /// Gets the default image generation model name for the provider.
-        /// Returns null or empty string if the provider doesn't support image generation.
-        /// </summary>
-        public abstract string DefaultImgModel { get; }
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -239,7 +227,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
         }
 
-        public string GetDefaultModel()
+        public string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat)
         {
             // Use the model from settings if available
             string modelFromSettings = this.GetSetting<string>("Model");
@@ -248,8 +236,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 return modelFromSettings;
             }
 
-            // Fall back to the default model
-            return this.DefaultModel;
+            // Fall back to the default model from ModelManager (BasicChat capability as default)
+            return ModelManager.ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
         }
 
         /// <summary>

@@ -42,10 +42,6 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         public static readonly string _name = "DeepSeek";
 
-        /// <summary>
-        /// The default model to use if none is specified.
-        /// </summary>
-        private const string _defaultModel = "deepseek-chat";
         private const string DefaultServerUrlValue = "https://api.deepseek.com";
 
         /// <summary>
@@ -60,17 +56,6 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets the name of the provider.
         /// </summary>
         public override string Name => _name;
-
-        /// <summary>
-        /// Gets the default model for this provider.
-        /// </summary>
-        public override string DefaultModel => _defaultModel;
-
-        /// <summary>
-        /// Gets the default image generation model for this provider.
-        /// DeepSeek does not support image generation, so this returns an empty string.
-        /// </summary>
-        public override string DefaultImgModel => string.Empty;
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -112,11 +97,6 @@ namespace SmartHopper.Providers.DeepSeek
             try
             {
                 int maxTokens = GetSetting<int>("MaxTokens");
-                string modelName = string.IsNullOrWhiteSpace(model) ? GetSetting<string>("Model") : model;
-                if (string.IsNullOrWhiteSpace(modelName))
-                {
-                    modelName = this.DefaultModel;
-                }
 
                 // Format messages for DeepSeek API
                 var convertedMessages = new JArray();
@@ -200,7 +180,7 @@ namespace SmartHopper.Providers.DeepSeek
                 // Build request body
                 var requestBody = new JObject
                 {
-                    ["model"] = modelName,
+                    ["model"] = model,
                     ["messages"] = convertedMessages,
                     ["max_tokens"] = maxTokens,
                     ["temperature"] = this.GetSetting<double>("Temperature"),
@@ -272,7 +252,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Response = combined,
                     Provider = this.Name,
-                    Model = modelName,
+                    Model = model,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
