@@ -119,5 +119,19 @@ namespace SmartHopper.Providers.MistralAI
 
             return result;
         }
+
+        /// <summary>
+        /// Gets all default models supported by MistralAI
+        /// </summary>
+        /// <returns>Dictionary of model names and their capabilities.</returns>
+        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        {
+            var result = new Dictionary<string, AIModelCapability>();
+
+            result["mistral-small-latest"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["magistral-small-latest"] = AIModelCapability.ReasoningChat;
+
+            return result;
+        }
     }
 }

@@ -66,7 +66,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Gets all models and their capabilities supported by DeepSeek, fetching fresh data from API.
+        /// Gets all models and their capabilities supported by DeepSeek
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
         public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
@@ -78,6 +78,23 @@ namespace SmartHopper.Providers.DeepSeek
 
             // Add deepseek-chat model
             result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets all default models supported by DeepSeek
+        /// </summary>
+        /// <returns>Dictionary of model names and their capabilities.</returns>
+        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        {
+            var result = new Dictionary<string, AIModelCapability>();
+
+            // Add deepseek-reasoner model
+            result["deepseek-reasoner"] = AIModelCapability.ReasoningChat;
+
+            // Add deepseek-chat model as default for both BasicChat and AdvancedChat
+            result["deepseek-chat"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat;
 
             return result;
         }

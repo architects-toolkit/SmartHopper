@@ -108,5 +108,16 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         {
             return AIModelCapability.None;
         }
+
+        /// <summary>
+        /// Gets all default models supported by this provider.
+        /// </summary>
+        /// <returns>Dictionary of model names and their capabilities.</returns>
+        public virtual Dictionary<string, AIModelCapability> RetrieveDefault()
+        {
+            var result = new Dictionary<string, AIModelCapability>();
+
+            return result;
+        }
     }
 }

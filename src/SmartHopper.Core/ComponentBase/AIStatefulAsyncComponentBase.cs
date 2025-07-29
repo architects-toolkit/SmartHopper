@@ -163,6 +163,8 @@ namespace SmartHopper.Core.ComponentBase
             var providerName = this.GetActualAIProviderName();
             var model = this.GetModel();
 
+            JObject result;
+
             // Validate capability requirements before execution
             try
             {
@@ -185,11 +187,28 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             model = this.GetActualAIProvider()?.GetDefaultModel(AIModelCapability.ImageGenerator);
 
+                            if (model == null)
+                            {
+                                this.SetPersistentRuntimeMessage(
+                                    "provider_not_compatible",
+                                    GH_RuntimeMessageLevel.Error,
+                                    $"The selected provider does not have any model compatible with this tool",
+                                    false);
+
+                                result = new JObject
+                                {
+                                    ["success"] = false,
+                                    ["error"] = "The selected provider does not have any model compatible with this tool",
+                                };
+
+                                return result;
+                            }
+
                             this.SetPersistentRuntimeMessage(
-                            "model_replaced",
-                            GH_RuntimeMessageLevel.Warning,
-                            $"The selected model is not compatible with this tool.\nIt was replaced with the default model for this capability: {model}",
-                            false);
+                                "model_replaced",
+                                GH_RuntimeMessageLevel.Remark,
+                                $"The selected model is not compatible with this tool.\nIt was replaced with the default model for this capability: {model}",
+                                false);
                         }
                     }
                 }
@@ -205,7 +224,6 @@ namespace SmartHopper.Core.ComponentBase
             parameters["model"] = model;
             parameters["reuseCount"] = reuseCount;
 
-            JObject result;
             try
             {
                 result = await AIToolManager
