@@ -56,7 +56,7 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Model",
                     Description = "The model to use for generating responses",
                     Type = typeof(string),
-                    DefaultValue = this.provider.DefaultModel,
+                    DefaultValue = this.provider.GetDefaultModel(),
                 },
                 new SettingDescriptor
                 {

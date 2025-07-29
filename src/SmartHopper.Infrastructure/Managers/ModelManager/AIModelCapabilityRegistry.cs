@@ -9,6 +9,7 @@
  */
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace SmartHopper.Infrastructure.Managers.ModelManager
@@ -83,14 +84,70 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// </summary>
         /// <param name="requiredCapabilities">The required capabilities.</param>
         /// <returns>List of matching model capabilities.</returns>
-        public List<AIModelCapabilities> FindModelsWithCapabilities(params AIModelCapability[] requiredCapabilities)
+        public List<AIModelCapabilities> FindModelsWithCapabilities(AIModelCapability requiredCapabilities)
         {
-            if (requiredCapabilities == null || requiredCapabilities.Length == 0)
+            if (requiredCapabilities == AIModelCapability.None)
+            {
                 return this.Models.Values.ToList();
+            }
 
             return this.Models.Values
-                .Where(model => model.HasAllCapabilities(requiredCapabilities))
+                .Where(model => model.HasCapability(requiredCapabilities))
                 .ToList();
+        }
+
+        /// <summary>
+        /// Gets the default model for a provider and specific capability.
+        /// First looks for models marked as default for the exact capability,
+        /// then falls back to models marked as default that support the required capability.
+        /// </summary>
+        /// <param name="provider">The provider name.</param>
+        /// <param name="requiredCapability">The required capability.</param>
+        /// <returns>The default model name or null if none found.</returns>
+        public string GetDefaultModel(string provider, AIModelCapability requiredCapability = AIModelCapability.BasicChat)
+        {
+            if (string.IsNullOrEmpty(provider))
+                return null;
+
+            var providerModels = this.Models.Values
+                .Where(m => string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            Debug.WriteLine($"[ModelManager] Getting the default model among {providerModels.Count} models for {provider} with capability {requiredCapability}");
+
+            if (!providerModels.Any())
+                return null;
+
+            // First, look for models explicitly marked as default for this capability
+            var exactDefaultModel = providerModels
+                .FirstOrDefault(m => (m.Default & requiredCapability) == requiredCapability);
+
+            if (exactDefaultModel != null)
+            {
+                Debug.WriteLine($"[ModelManager] Found exact default model {exactDefaultModel.Model} for {provider} with capability {requiredCapability}");
+
+                return exactDefaultModel.Model;
+            }
+
+            // Fallback: look for any model marked as default that supports the capability
+            Debug.WriteLine($"[ModelManager] Checking fallback models for {provider} with capability {requiredCapability}");
+            var candidateModels = providerModels
+                .Where(m => m.Default != AIModelCapability.None)
+                .ToList();
+
+            Debug.WriteLine($"[ModelManager] Found {candidateModels.Count} models marked as default (not None)");
+            foreach (var candidate in candidateModels)
+            {
+                Debug.WriteLine($"[ModelManager]   - {candidate.Model}: Default={candidate.Default}, HasCapability({requiredCapability})={candidate.HasCapability(requiredCapability)}");
+            }
+
+            var compatibleDefaultModel = candidateModels
+                .Where(m => m.HasCapability(requiredCapability))
+                .FirstOrDefault();
+
+            Debug.WriteLine($"[ModelManager] Found compatible default model {compatibleDefaultModel?.Model} for {provider} with capability {requiredCapability}");
+
+            return compatibleDefaultModel?.Model;
         }
     }
 }

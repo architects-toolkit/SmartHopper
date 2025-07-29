@@ -127,7 +127,7 @@ namespace SmartHopper.Components.AI
                 try
                 {
                     // Get the current AI provider
-                    var provider = this._parent.GetCurrentAIProvider();
+                    var provider = this._parent.GetActualAIProvider();
                     if (provider == null)
                     {
                         this._result["Success"] = false;

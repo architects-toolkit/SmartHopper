@@ -26,7 +26,6 @@ namespace SmartHopper.Providers.MistralAI
     public sealed class MistralAIProvider : AIProvider
     {
         private const string NameValue = "MistralAI";
-        private const string DefaultModelValue = "mistral-small-latest";
         private const string DefaultServerUrlValue = "https://api.mistral.ai/v1";
 
         private static readonly Lazy<MistralAIProvider> InstanceValue = new(() => new MistralAIProvider());
@@ -39,14 +38,6 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         public override string Name => NameValue;
-
-        public override string DefaultModel => DefaultModelValue;
-
-        /// <summary>
-        /// Gets the default image generation model for this provider.
-        /// MistralAI does not support image generation, so this returns an empty string.
-        /// </summary>
-        public override string DefaultImgModel => string.Empty;
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -77,15 +68,8 @@ namespace SmartHopper.Providers.MistralAI
         {
             // Get settings from the secure settings store
             int maxTokens = this.GetSetting<int>("MaxTokens");
-            string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
 
-            // Use default model if none specified
-            if (string.IsNullOrWhiteSpace(modelName))
-            {
-                modelName = DefaultModelValue;
-            }
-
-            Debug.WriteLine($"[MistralAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[MistralAI] GetResponse - Model: {model}, MaxTokens: {maxTokens}");
 
             // Format messages for Mistral API
             var convertedMessages = new JArray();
@@ -151,7 +135,7 @@ namespace SmartHopper.Providers.MistralAI
             // Build request body
             var requestBody = new JObject
             {
-                ["model"] = modelName,
+                ["model"] = model,
                 ["messages"] = convertedMessages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = this.GetSetting<double>("Temperature"),
@@ -213,7 +197,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Response = message["content"]?.ToString() ?? string.Empty,
                     Provider = "MistralAI",
-                    Model = modelName,
+                    Model = model,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
