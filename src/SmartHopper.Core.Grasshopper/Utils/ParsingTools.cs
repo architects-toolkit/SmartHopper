@@ -145,18 +145,85 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
             }
 
-            // Fallback to comma-separated parsing
+            // Fallback to comma-separated parsing with delimiter-aware splitting
             var clean = trimmed.TrimStart('[').TrimEnd(']');
-            var parts = clean.Split(',');
-            foreach (var part in parts)
+            var items = SplitRespectingDelimiters(clean);
+            foreach (var item in items)
             {
-                var val = part.Trim().Trim('"', '\'');
+                var val = item.Trim().Trim('"', '\'');
                 if (!string.IsNullOrEmpty(val))
                 {
                     result.Add(val);
                 }
             }
 
+            return result;
+        }
+
+        /// <summary>
+        /// Splits a string on commas while respecting any type of delimiters to avoid splitting structured strings.
+        /// Handles: {}, (), [], and any nested combinations.
+        /// </summary>
+        private static List<string> SplitRespectingDelimiters(string input)
+        {
+            var result = new List<string>();
+            var current = new System.Text.StringBuilder();
+            int depth = 0;
+            bool inQuotes = false;
+            char quoteChar = '\0';
+            
+            for (int i = 0; i < input.Length; i++)
+            {
+                char c = input[i];
+                
+                // Handle quotes to avoid splitting quoted strings
+                if ((c == '"' || c == '\'') && !inQuotes)
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    current.Append(c);
+                }
+                else if (c == quoteChar && inQuotes)
+                {
+                    inQuotes = false;
+                    quoteChar = '\0';
+                    current.Append(c);
+                }
+                // Handle opening delimiters
+                else if (!inQuotes && (c == '{' || c == '(' || c == '['))
+                {
+                    depth++;
+                    current.Append(c);
+                }
+                // Handle closing delimiters
+                else if (!inQuotes && (c == '}' || c == ')' || c == ']'))
+                {
+                    depth--;
+                    current.Append(c);
+                }
+                // Handle comma separator only when not inside any delimiters or quotes
+                else if (c == ',' && depth == 0 && !inQuotes)
+                {
+                    var item = current.ToString().Trim();
+                    if (!string.IsNullOrEmpty(item))
+                    {
+                        result.Add(item);
+                    }
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            
+            // Add the last item
+            var lastItem = current.ToString().Trim();
+            if (!string.IsNullOrEmpty(lastItem))
+            {
+                result.Add(lastItem);
+            }
+            
             return result;
         }
 

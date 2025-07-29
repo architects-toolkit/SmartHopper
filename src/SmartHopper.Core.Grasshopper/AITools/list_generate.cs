@@ -67,7 +67,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var messages = new List<KeyValuePair<string, string>>
                 {
-                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY the JSON array. Include no extra text or formatting. Do not wrap the output in quotes or in a code block.\n\nOUTPUT EXAMPLES: ['item1', 'item2', 'item3']"),
+                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY the JSON array. Include no extra text or formatting. Do not wrap the output in quotes or in a code block.\n\nIMPORTANT: Each item must be a quoted string in the JSON array, even if it contains commas or special characters.\n\nOUTPUT EXAMPLES: ['item1', 'item2', 'item3'] or ['{1,0,0}', '{0.707,0.707,0}', '{0,1,0}']"),
                     new("user", prompt.Value)
                 };
 
