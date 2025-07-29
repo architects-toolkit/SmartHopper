@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `gh_put` now automatically fixes GhJSON.
 - OpenAI tool filter not being applied properly.
+- Fixed "Parsing error when output contains { }" ([#276](https://github.com/architects-toolkit/SmartHopper/issues/276)).
 
 ## [0.4.1-alpha] - 2025-07-23
 
@@ -60,7 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed issue: Output metrics not being set when using Boolean toggle.
 - Fixed issue ([#208](https://github.com/architects-toolkit/SmartHopper/issues/208)): enabled compatibility with params in `gh_toggle_preview` tool.
 - Fixed WebChatDialog not automatically closing when Rhino is closed.
-- Fixed "Parsing error when output contains { }" ([#276](https://github.com/architects-toolkit/SmartHopper/issues/276)).
 
 ## [0.4.0-alpha] - 2025-07-22
 
