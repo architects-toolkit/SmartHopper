@@ -163,6 +163,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Splits a string on commas while respecting any type of delimiters to avoid splitting structured strings.
         /// Handles: {}, (), [], and any nested combinations.
+        /// Properly handles escaped quotes within strings.
         /// </summary>
         private static List<string> SplitRespectingDelimiters(string input)
         {
@@ -179,14 +180,22 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 // Handle quotes to avoid splitting quoted strings
                 if ((c == '"' || c == '\'') && !inQuotes)
                 {
-                    inQuotes = true;
-                    quoteChar = c;
+                    // Check if this quote is escaped
+                    if (!IsEscaped(input, i))
+                    {
+                        inQuotes = true;
+                        quoteChar = c;
+                    }
                     current.Append(c);
                 }
                 else if (c == quoteChar && inQuotes)
                 {
-                    inQuotes = false;
-                    quoteChar = '\0';
+                    // Check if this quote is escaped
+                    if (!IsEscaped(input, i))
+                    {
+                        inQuotes = false;
+                        quoteChar = '\0';
+                    }
                     current.Append(c);
                 }
                 // Handle opening delimiters
@@ -225,6 +234,27 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
             
             return result;
+        }
+
+        /// <summary>
+        /// Determines if a character at the given position is escaped by counting preceding backslashes.
+        /// Handles multiple consecutive backslashes correctly (e.g., \\" where \\" represents \+ escaped quote).
+        /// </summary>
+        /// <param name="input">The input string.</param>
+        /// <param name="position">The position of the character to check.</param>
+        /// <returns>True if the character is escaped, false otherwise.</returns>
+        private static bool IsEscaped(string input, int position)
+        {
+            if (position == 0) return false;
+            
+            int backslashCount = 0;
+            for (int i = position - 1; i >= 0 && input[i] == '\\'; i--)
+            {
+                backslashCount++;
+            }
+            
+            // If odd number of backslashes, the character is escaped
+            return backslashCount % 2 == 1;
         }
 
         /// <summary>
