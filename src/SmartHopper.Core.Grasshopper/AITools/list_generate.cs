@@ -30,7 +30,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// </summary>
     public class list_generate : IAIToolProvider
     {
-        private const string ListJsonSchema = "{\"type\":\"array\",\"items\":{\"type\":\"string\"}}";
+        private const string ListJsonSchema = "['item1', 'item2', 'item3', ...]";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
                 execute: this.GenerateListToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput
+                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.StructuredOutput
             );
         }
 
@@ -67,7 +67,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var messages = new List<KeyValuePair<string, string>>
                 {
-                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY a valid JSON array of strings matching this schema: {ListJsonSchema}. Include no extra text or formatting."),
+                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY the JSON array. Include no extra text or formatting. Do not wrap the output in quotes or in a code block.\n\nOUTPUT EXAMPLES: ['item1', 'item2', 'item3']"),
                     new("user", prompt.Value)
                 };
 
