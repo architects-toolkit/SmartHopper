@@ -43,12 +43,13 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         StructuredOutput = 1 << 7,
         Reasoning = 1 << 8,
         
-        // Composite capabilities for convenience
+        // Composite capabilities for default definition
         BasicChat = TextInput | TextOutput,
         AdvancedChat = BasicChat | FunctionCalling,
-        MultiModal = TextInput | TextOutput | ImageInput,
+        ReasoningChat = AdvancedChat | Reasoning,
+        JsonGenerator = TextInput | StructuredOutput,
+        ImageGenerator = TextInput | ImageOutput,
         TTS = TextInput | AudioOutput,
         STT = AudioInput | TextOutput,
-        All = TextInput | ImageInput | AudioInput | TextOutput | ImageOutput | AudioOutput | FunctionCalling | StructuredOutput | Reasoning
     }
 }

@@ -52,7 +52,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Name = "Model",
                     Type = typeof(string),
-                    DefaultValue = this.provider.DefaultModel,
+                    DefaultValue = this.provider.GetDefaultModel(),
                     DisplayName = "Model",
                     Description = "The model to use for completions",
                 },

@@ -33,7 +33,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;
-        private IAIProviderModels _models;
 
         /// <summary>
         /// Gets the models manager for this provider.
@@ -41,23 +40,10 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// </summary>
         public IAIProviderModels Models { get; set; }
 
-        // TODO: Register model capabilites at Provider registration
-
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
         public abstract string Name { get; }
-
-        /// <summary>
-        /// Gets the default model name for the provider.
-        /// </summary>
-        public abstract string DefaultModel { get; }
-
-        /// <summary>
-        /// Gets the default image generation model name for the provider.
-        /// Returns null or empty string if the provider doesn't support image generation.
-        /// </summary>
-        public abstract string DefaultImgModel { get; }
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -98,13 +84,18 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 // Initialize the models manager asynchronously
                 var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
 
+                var defaultModelsDict = this.Models.RetrieveDefault();
+
                 // Store capabilities to ModelManager
                 foreach (var capability in capabilitiesDict)
                 {
+                    var defaultFor = defaultModelsDict.ContainsKey(capability.Key) ? defaultModelsDict[capability.Key] : AIModelCapability.None;
+                    
                     ModelManager.ModelManager.Instance.RegisterCapabilities(
                         this.Name,
                         capability.Key,
-                        capability.Value);
+                        capability.Value,
+                        defaultFor);
                 }
             }
             catch (Exception ex)
@@ -239,17 +230,28 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
         }
 
-        public string GetDefaultModel()
+        public string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat)
         {
-            // Use the model from settings if available
+            // Use settings model if matches requiredCapabilites
             string modelFromSettings = this.GetSetting<string>("Model");
+
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
             {
-                return modelFromSettings;
+                if (ModelManager.ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                {
+                    return modelFromSettings;
+                }
             }
 
-            // Fall back to the default model
-            return this.DefaultModel;
+            // Else, try to get default model from ModelManager that matches the required capabilities
+            string modelFromModelManager = ModelManager.ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
+
+            if (!string.IsNullOrWhiteSpace(modelFromModelManager))
+            {
+                return modelFromModelManager;
+            }
+
+            return null;
         }
 
         /// <summary>

@@ -28,10 +28,6 @@ namespace SmartHopper.Infrastructure.Tests
         {
             public string Name => "DummyProvider";
 
-            public string DefaultModel => "Model";
-
-            public string DefaultImgModel => string.Empty; // Test provider doesn't support image generation
-
             public string DefaultServerUrl => "https://example.com";
 
             public bool IsEnabled => true;
@@ -67,7 +63,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
 
-            public string GetDefaultModel() { return this.DefaultModel; }
+            public string GetDefaultModel(AIModelCapability capability) { return "dummy_test_model"; }
         }
 
         private class DummySettings : IAIProviderSettings

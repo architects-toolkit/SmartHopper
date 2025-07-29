@@ -17,6 +17,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -28,7 +29,6 @@ namespace SmartHopper.Providers.OpenAI
     public sealed class OpenAIProvider : AIProvider
     {
         private const string NameValue = "OpenAI";
-        private const string DefaultModelValue = "gpt-4.1-mini";
         private const string DefaultServerUrlValue = "https://api.openai.com/v1";
 
         private static readonly Lazy<OpenAIProvider> InstanceValue = new(() => new OpenAIProvider());
@@ -41,13 +41,6 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         public override string Name => NameValue;
-
-        public override string DefaultModel => DefaultModelValue;
-
-        /// <summary>
-        /// Gets the default image generation model for this provider.
-        /// </summary>
-        public override string DefaultImgModel => "dall-e-3";
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -86,16 +79,9 @@ namespace SmartHopper.Providers.OpenAI
         {
             // Get settings from the secure settings store
             int maxTokens = this.GetSetting<int>("MaxTokens");
-            string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("Model") : model;
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
 
-            // Use default model if none specified
-            if (string.IsNullOrWhiteSpace(modelName))
-            {
-                modelName = DefaultModelValue;
-            }
-
-            Debug.WriteLine($"[OpenAI] GetResponse - Model: {modelName}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[OpenAI] GetResponse - Model: {model}, MaxTokens: {maxTokens}");
 
             // Format messages for OpenAI API
             var convertedMessages = new JArray();
@@ -154,14 +140,14 @@ namespace SmartHopper.Providers.OpenAI
             // Build request body for the new Responses API
             var requestBody = new JObject
             {
-                ["model"] = modelName,
+                ["model"] = model,
                 ["messages"] = convertedMessages,
                 ["max_completion_tokens"] = maxTokens,
                 ["temperature"] = this.GetSetting<double>("Temperature"),
             };
 
             // Add reasoning effort if model starts with "(0-9)o"
-            if (Regex.IsMatch(modelName, @"^[0-9]o", RegexOptions.IgnoreCase))
+            if (Regex.IsMatch(model, @"^[0-9]o", RegexOptions.IgnoreCase))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
             }
@@ -246,7 +232,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Response = content,
                     Provider = "OpenAI",
-                    Model = modelName,
+                    Model = model,
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
                     InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
                     OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
@@ -300,7 +286,7 @@ namespace SmartHopper.Providers.OpenAI
                 string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("ImageModel") : model;
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = this.DefaultImgModel;
+                    modelName = this.GetDefaultModel(AIModelCapability.ImageGenerator);
                 }
 
                 Debug.WriteLine($"[OpenAI] GenerateImage - Model: {modelName}, Size: {size}, Quality: {quality}, Style: {style}");

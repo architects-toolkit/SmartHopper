@@ -26,37 +26,26 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
     public class AIModelCapabilities
     {
         /// <summary>
-        /// The AI provider name (e.g., "openai", "anthropic").
+        /// Gets or sets the AI provider name (e.g., "openai", "anthropic").
         /// </summary>
         public string Provider { get; set; } = "";
 
         /// <summary>
-        /// The model name (e.g., "gpt-4", "claude-3-opus").
+        /// Gets or sets the model name (e.g., "gpt-4", "claude-3-opus").
         /// </summary>
         public string Model { get; set; } = "";
 
         /// <summary>
-        /// The capabilities supported by this model.
+        /// Gets or sets the capabilities supported by this model.
         /// </summary>
         public AIModelCapability Capabilities { get; set; } = AIModelCapability.None;
 
         /// <summary>
-        /// Checks if this model supports all the specified capabilities.
+        /// Gets or sets the capabilities for which this model is the default.
+        /// If a model is marked as default for BasicChat, it will be returned as the default
+        /// when requesting a model with BasicChat capabilities for this provider.
         /// </summary>
-        /// <param name="requiredCapabilities">The capabilities to check for.</param>
-        /// <returns>True if all capabilities are supported.</returns>
-        public bool HasAllCapabilities(params AIModelCapability[] requiredCapabilities)
-        {
-            if (requiredCapabilities == null || requiredCapabilities.Length == 0)
-                return true;
-
-            foreach (var required in requiredCapabilities)
-            {
-                if (!HasCapability(required))
-                    return false;
-            }
-            return true;
-        }
+        public AIModelCapability Default { get; set; } = AIModelCapability.None;
 
         /// <summary>
         /// Checks if this model supports a specific capability.
@@ -65,7 +54,12 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <returns>True if the capability is supported.</returns>
         public bool HasCapability(AIModelCapability capability)
         {
-            return (Capabilities & capability) == capability;
+            if (capability == AIModelCapability.None)
+            {
+                return true;
+            }
+
+            return (this.Capabilities & capability) == capability;
         }
 
         /// <summary>

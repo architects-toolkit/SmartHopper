@@ -13,14 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Introduced `AIModelCapabilities` and `AIModelCapabilityRegistry` for centralized, persistent model capability tracking.
   - Added capability checking and filtering methods for models (e.g., `GetCapabilities`, `SetCapabilities`, `FindModelsWithCapabilities`).
   - Tool-specific capability validation now prevents execution with incompatible models.
+  - Default model is now managed by the `AIModelCapabilityRegistry`. Multiple models can be defined as Default for a set of capabilities.
+  - `AIStatefulAsyncComponentBase` will now try to use the default model if the specified model is not compatible with the tool.
 - **Provider-Specific Capability Management**
-  - **MistralAI**:
+  - MistralAI:
     - Added `MistralModelManager` for dynamic API-based capability detection and registration.
     - Models now update their capabilities by querying the `/v1/models/{model_id}` endpoint.
     - Automatic mapping of Mistral model features (chat, function calling, vision) to internal capability flags.
-  - **OpenAI & DeepSeek**:
+  - OpenAI & DeepSeek:
     - Static mapping for capabilities, with support for function calling, structured output, and image generation.
-- Image Generation Support: Comprehensive AI image generation capabilities using OpenAI DALL-E models.
+- **Image Generation Support**: Comprehensive AI image generation capabilities using OpenAI DALL-E models.
   - New `DefaultImgModel` property in `IAIProvider` interface for provider capability detection.
   - New `img_generate` AI tool with support for prompt, size, quality, and style parameters.
   - Enhanced `AIUtils.GenerateImage()` method with provider-agnostic image generation.
@@ -29,8 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `includeSubcategories` parameter to `gh_list_categories` tool.
   - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
 - Added component existence and connection type validation to `GHJsonLocal`.
-- Settings management in AI Providers:
-  - Added `prompt_cache_key` parameter to `OpenAIProvider`.
+- **Settings management in AI Providers**:
   - New `SetSetting` method in `AIProvider` that let's providers set custom settings within the provider key.
   - New `RefreshCachedSettings` method in `AIProvider` to refresh their cached settings.
 

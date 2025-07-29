@@ -51,7 +51,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.ScriptNewToolAsync,
-                requiredCapabilities: new[] { AIModelCapability.TextInput, AIModelCapability.TextOutput, AIModelCapability.StructuredOutput });
+                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput
+            );
         }
 
         /// <summary>

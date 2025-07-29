@@ -77,10 +77,10 @@ namespace SmartHopper.Providers.OpenAI
             result["gpt-4.1*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
 
             // O4-mini models - text input/output, image input, structured output, function calling
-            result["o4-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["o4-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
 
-            // O3-mini models - text input/output, structured output, function calling
-            result["o3-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            // O3 models - text input/output, structured output, function calling
+            result["o3*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
 
             // GPT-4o models - text input/output, image input, structured output, function calling
             result["gpt-4o*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
@@ -101,6 +101,21 @@ namespace SmartHopper.Providers.OpenAI
             result["gpt-4"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
             result["gpt-4-0613"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
             result["gpt-4-0314"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets all default models supported by OpenAI
+        /// </summary>
+        /// <returns>Dictionary of model names and their capabilities.</returns>
+        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        {
+            var result = new Dictionary<string, AIModelCapability>();
+
+            result["gpt-4.1-mini"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["o4-mini"] = AIModelCapability.ReasoningChat;
+            result["dall-e-3"] = AIModelCapability.ImageGenerator;
 
             return result;
         }
