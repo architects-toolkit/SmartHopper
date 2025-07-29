@@ -224,7 +224,7 @@ namespace SmartHopper.Core.Messaging
                 }
 
                 // If no model is specified or the specified model is not compatible with image generation, use the provider's default image model
-                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, [AIModelCapability.ImageGenerator]))
+                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, AIModelCapability.ImageGenerator))
                 {
                     model = selectedProvider.GetDefaultModel(AIModelCapability.ImageGenerator);
 

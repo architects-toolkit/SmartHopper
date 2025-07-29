@@ -185,20 +185,20 @@ namespace SmartHopper.Core.ComponentBase
                         var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
                         if (!validationResult)
                         {
-                            model = this.GetActualAIProvider()?.GetDefaultModel(AIModelCapability.ImageGenerator);
+                            model = ModelManager.Instance.GetDefaultModelForTool(currentProvider.Name, toolName);
 
                             if (model == null)
                             {
                                 this.SetPersistentRuntimeMessage(
                                     "provider_not_compatible",
                                     GH_RuntimeMessageLevel.Error,
-                                    $"The selected provider does not have any model compatible with this tool",
+                                    $"The selected provider does not have any model compatible with this component.",
                                     false);
 
                                 result = new JObject
                                 {
                                     ["success"] = false,
-                                    ["error"] = "The selected provider does not have any model compatible with this tool",
+                                    ["error"] = "The selected provider does not have any model compatible with this component.\nPlease, choose another AI provider.",
                                 };
 
                                 return result;
@@ -207,7 +207,7 @@ namespace SmartHopper.Core.ComponentBase
                             this.SetPersistentRuntimeMessage(
                                 "model_replaced",
                                 GH_RuntimeMessageLevel.Remark,
-                                $"The selected model is not compatible with this tool.\nIt was replaced with the default model for this capability: {model}",
+                                $"The selected model was not found compatible with this component.\nIt was automatically replaced with the default model for this function: {model}",
                                 false);
                         }
                     }

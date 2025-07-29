@@ -234,18 +234,18 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         {
             // Use settings model if matches requiredCapabilites
             string modelFromSettings = this.GetSetting<string>("Model");
-            
+
             if (!string.IsNullOrWhiteSpace(modelFromSettings))
             {
-                if (ModelManager.ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, [requiredCapability]))
+                if (ModelManager.ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
                 {
                     return modelFromSettings;
                 }
             }
-            
+
             // Else, try to get default model from ModelManager that matches the required capabilities
             string modelFromModelManager = ModelManager.ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
-            
+
             if (!string.IsNullOrWhiteSpace(modelFromModelManager))
             {
                 return modelFromModelManager;
