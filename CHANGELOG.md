@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improvements in `AITools`:
   - New `includeSubcategories` parameter to `gh_list_categories` tool.
   - New `nameFilter`, `includeDetails` and `maxResults` parameters to `gh_list_components` tool.
+  - New `ImageViewer` component to visualize output images on canvas and save them to disk.
 - Added component existence and connection type validation to `GHJsonLocal`.
 - **Settings management in AI Providers**:
   - New `SetSetting` method in `AIProvider` that let's providers set custom settings within the provider key.

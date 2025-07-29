@@ -116,6 +116,9 @@
 - name: "component: LoadGhJSON"
   color: "000"
   description: "Issues related to the Load GhJSON file component"
+- name: "component: ImageViewer"
+  color: "000"
+  description: "Issues related to the Image Viewer component"
 
 # Provider Labels
 - name: "provider: MistralAI"
