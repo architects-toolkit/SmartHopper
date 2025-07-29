@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added capability checking and filtering methods for models (e.g., `GetCapabilities`, `SetCapabilities`, `FindModelsWithCapabilities`).
   - Tool-specific capability validation now prevents execution with incompatible models.
   - Default model is now managed by the `AIModelCapabilityRegistry`. Multiple models can be defined as Default for a set of capabilities.
+  - `AIStatefulAsyncComponentBase` will now try to use the default model if the specified model is not compatible with the tool.
 - **Provider-Specific Capability Management**
   - MistralAI:
     - Added `MistralModelManager` for dynamic API-based capability detection and registration.
