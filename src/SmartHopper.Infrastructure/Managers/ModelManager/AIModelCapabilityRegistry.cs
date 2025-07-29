@@ -50,6 +50,12 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             {
                 var storedKey = kvp.Key;
                 
+                // Skip null keys (shouldn't happen but defensive programming)
+                if (storedKey == null)
+                {
+                    continue;
+                }
+                
                 // Check if stored key is for same provider and ends with wildcard
                 if (storedKey.StartsWith(providerPrefix) && storedKey.EndsWith("*"))
                 {
