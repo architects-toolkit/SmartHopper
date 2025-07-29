@@ -188,7 +188,7 @@ namespace SmartHopper.Components.Img
 
                         // Update progress
                         processedPaths++;
-                        this._progressReporter?.Invoke($"Processing path {processedPaths}/{totalPaths}");
+                        this._progressReporter?.Invoke($"Process {processedPaths}/{totalPaths}");
 
                         var promptBranch = this._prompts.get_Branch(path);
                         var sizeBranch = this._sizes.PathExists(path) ? this._sizes.get_Branch(path) : this._sizes.get_Branch(new GH_Path(0));
