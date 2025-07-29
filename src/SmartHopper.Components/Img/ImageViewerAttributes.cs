@@ -11,13 +11,9 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Windows.Forms;
-using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
 
 namespace SmartHopper.Components.Img
 {
@@ -27,8 +23,7 @@ namespace SmartHopper.Components.Img
     public class ImageViewerAttributes : GH_ComponentAttributes
     {
         private const int ImageDisplaySize = 200; // Size of the square image display area
-        private const int Padding = 4;
-        private const int MinComponentWidth = 80;
+        private const int Padding = 8;
 
         private RectangleF _imageDisplayBounds;
 
@@ -50,34 +45,33 @@ namespace SmartHopper.Components.Img
         /// </summary>
         protected override void Layout()
         {
-            // Start with base layout
+            // First, calculate what the bounds should be after expansion
+            // Call base to get initial bounds calculation
             base.Layout();
+            var baseBounds = this.Bounds;
 
-            // Calculate the required width based on parameters
-            var inputCount = this.Owner.Params.Input.Count;
-            var outputCount = this.Owner.Params.Output.Count;
-            var maxParamCount = Math.Max(inputCount, outputCount);
-            var paramWidth = maxParamCount * 25; // Approximate width per parameter
-            var componentWidth = Math.Max(MinComponentWidth, Math.Max(paramWidth, ImageDisplaySize));
+            // Calculate expanded bounds to include image area
+            var expandedHeight = ImageDisplaySize + (Padding * 2);
+            var expandedWidth = Math.Max(baseBounds.Width, ImageDisplaySize + (Padding * 4));
 
-            // Set the main component bounds (just image display area + padding)
+            // Set the correct final bounds before any parameter layout
             this.Bounds = new RectangleF(
-                this.Pivot.X - componentWidth / 2,
-                this.Pivot.Y - (ImageDisplaySize + Padding * 2) / 2,
-                componentWidth,
-                ImageDisplaySize + Padding * 2);
+                baseBounds.X + (baseBounds.Width - expandedWidth) / 2, // Center horizontally
+                baseBounds.Y,
+                expandedWidth,
+                expandedHeight);
 
-            // Calculate image display bounds (centered, square)
-            var imageSize = Math.Min(ImageDisplaySize, componentWidth - Padding * 2);
+            // Position image display area below the original component area
+            var imageAreaY = baseBounds.Y + Padding;
             this._imageDisplayBounds = new RectangleF(
-                this.Bounds.X + (this.Bounds.Width - imageSize) / 2,
-                this.Bounds.Y + Padding,
-                imageSize,
-                imageSize);
+                this.Bounds.X + (this.Bounds.Width - ImageDisplaySize) / 2,
+                imageAreaY,
+                ImageDisplaySize,
+                ImageDisplaySize);
 
-            // Layout input and output parameters using static methods
-            GH_ComponentAttributes.LayoutInputParams(this.Owner, this.Bounds);
-            GH_ComponentAttributes.LayoutOutputParams(this.Owner, this.Bounds);
+            // Now layout parameters with the final bounds so grips align correctly
+            GH_ComponentAttributes.LayoutInputParams(this.Owner, this._imageDisplayBounds);
+            GH_ComponentAttributes.LayoutOutputParams(this.Owner, this._imageDisplayBounds);
         }
 
         /// <summary>
@@ -88,18 +82,20 @@ namespace SmartHopper.Components.Img
         /// <param name="channel">The render channel.</param>
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
-            if (channel != GH_CanvasChannel.Objects) return;
-            
-            // Render base component first
+            // Let base handle all default rendering (component box, inputs, outputs, etc.)
             base.Render(canvas, graphics, channel);
+            
+            // Only add our custom image display if rendering objects
+            if (channel == GH_CanvasChannel.Objects)
+            {
+                // Set high-quality rendering for image
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-            // Set high-quality rendering
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-
-            // Draw the image display area
-            this.RenderImageDisplay(graphics);
+                // Draw the image display area
+                this.RenderImageDisplay(graphics);
+            }
         }
 
         /// <summary>
