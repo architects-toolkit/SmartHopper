@@ -43,6 +43,9 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
+        [JsonProperty]
+        public bool EnableAIGreeting { get; set; }
+
         private static SmartHopperSettings _instance;
 
         public static SmartHopperSettings Instance => _instance ??= Load();
@@ -53,6 +56,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
+            this.EnableAIGreeting = true; // Default to enabled
         }
 
         /// <summary>
