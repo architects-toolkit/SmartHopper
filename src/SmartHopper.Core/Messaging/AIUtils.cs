@@ -141,15 +141,15 @@ namespace SmartHopper.Core.Messaging
                     // If toolFilter is not null -> use FunctionCalling capability
                     if (!string.IsNullOrWhiteSpace(jsonSchema))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator);
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator, false);
                     }
                     else if (!string.IsNullOrWhiteSpace(toolFilter))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat);
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat, false);
                     }
                     else
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat);
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat, false);
                     }
 
                     Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
