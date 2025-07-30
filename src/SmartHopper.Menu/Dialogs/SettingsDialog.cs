@@ -104,6 +104,7 @@ namespace SmartHopper.Menu.Dialogs
         private readonly Dictionary<string, Dictionary<string, string>> _originalValues = new Dictionary<string, Dictionary<string, string>>();
         private readonly DropDown _defaultProviderComboBox;
         private readonly NumericStepper _debounceControl;
+        private readonly CheckBox _enableAIGreetingCheckBox;
         private readonly SmartHopperSettings _settings;
         private readonly IEnumerable<IAIProvider> _providers;
 
@@ -131,14 +132,14 @@ namespace SmartHopper.Menu.Dialogs
             );
 
             // Load settings and synchronously discover providers on Rhino’s UI thread
-            _settings = SmartHopperSettings.Instance;
+            this._settings = SmartHopperSettings.Instance;
             IAIProvider[] providers = null;
             RhinoApp.InvokeOnUiThread(() =>
             {
                 ProviderManager.Instance.RefreshProviders();
                 providers = ProviderManager.Instance.GetProviders().ToArray();
             });
-            _providers = providers;
+            this._providers = providers;
 
             // Create the main layout
             var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
@@ -156,33 +157,33 @@ namespace SmartHopper.Menu.Dialogs
 
             // Add default provider selection
             var defaultProviderRow = new TableLayout { Spacing = new Size(5, 5) };
-            _defaultProviderComboBox = new DropDown();
+            this._defaultProviderComboBox = new DropDown();
 
             // Add all providers to the dropdown and select current default
             foreach (var provider in _providers)
             {
-                _defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
+                this._defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
             }
 
             if (!string.IsNullOrEmpty(_settings.DefaultAIProvider))
             {
-                for (int i = 0; i < _defaultProviderComboBox.Items.Count; i++)
+                for (int i = 0; i < this._defaultProviderComboBox.Items.Count; i++)
                 {
-                    if (_defaultProviderComboBox.Items[i].Text == _settings.DefaultAIProvider)
+                    if (this._defaultProviderComboBox.Items[i].Text == this._settings.DefaultAIProvider)
                     {
-                        _defaultProviderComboBox.SelectedIndex = i;
+                        this._defaultProviderComboBox.SelectedIndex = i;
                         break;
                     }
                 }
             }
-            else if (_defaultProviderComboBox.Items.Count > 0)
+            else if (this._defaultProviderComboBox.Items.Count > 0)
             {
-                _defaultProviderComboBox.SelectedIndex = 0;
+                this._defaultProviderComboBox.SelectedIndex = 0;
             }
 
             defaultProviderRow.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center }),
-                new TableCell(_defaultProviderComboBox)
+                new TableCell(this._defaultProviderComboBox)
             ));
             layout.Rows.Add(defaultProviderRow);
 
@@ -223,6 +224,31 @@ namespace SmartHopper.Menu.Dialogs
                 })
             ));
 
+            // Add AI greeting checkbox
+            var greetingRow = new TableLayout { Spacing = new Size(5, 5) };
+            _enableAIGreetingCheckBox = new CheckBox
+            {
+                Text = "Enable AI-generated greetings in chat",
+                Checked = _settings.EnableAIGreeting
+            };
+
+            greetingRow.Rows.Add(new TableRow(
+                new TableCell(_enableAIGreetingCheckBox)
+            ));
+            layout.Rows.Add(greetingRow);
+
+            // Add greeting description
+            layout.Rows.Add(new TableRow(
+                new TableCell(new Label
+                {
+                    Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation",
+                    TextColor = Colors.Gray,
+                    Font = new Font(SystemFont.Default, 10),
+                    Wrap = WrapMode.Word,
+                    Width = 400,
+                })
+            ));
+
             // Add provider settings
             foreach (var provider in _providers)
             {
@@ -236,7 +262,7 @@ namespace SmartHopper.Menu.Dialogs
                     Orientation = Orientation.Horizontal,
                     Spacing = 5,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new Padding(0, 15, 0, 10)
+                    Padding = new Padding(0, 15, 0, 10),
                 };
 
                 // Add provider icon if available
@@ -249,7 +275,7 @@ namespace SmartHopper.Menu.Dialogs
                         headerLayout.Items.Add(new ImageView
                         {
                             Image = new Bitmap(ms),
-                            Size = new Size(16, 16)
+                            Size = new Size(16, 16),
                         });
                     }
                 }
@@ -323,11 +349,17 @@ namespace SmartHopper.Menu.Dialogs
                     if (currentValue != null)
                     {
                         if (control is TextBox textBox)
+                        {
                             textBox.Text = currentValue;
+                        }
                         else if (control is PasswordBox passwordBox)
+                        {
                             passwordBox.Text = currentValue;
+                        }
                         else if (control is NumericStepper numericStepper)
+                        {
                             numericStepper.Value = Convert.ToDouble(currentValue);
+                        }
                         else if (control is Slider slider)
                         {
                             slider.Value = Convert.ToInt32(currentValue);
@@ -345,11 +377,11 @@ namespace SmartHopper.Menu.Dialogs
                         }
 
                         // Store original value for comparison
-                        _originalValues[provider.Name][descriptor.Name] = currentValue;
+                        this._originalValues[provider.Name][descriptor.Name] = currentValue;
                     }
                 }
 
-                _allControls[provider.Name] = controls;
+                this._allControls[provider.Name] = controls;
             }
 
             // Add a spacer row at the end
@@ -375,9 +407,9 @@ namespace SmartHopper.Menu.Dialogs
             content.Add(scrollable, yscale: true);
             content.Add(buttonLayout);
 
-            Content = content;
-            DefaultButton = saveButton;
-            AbortButton = cancelButton;
+            this.Content = content;
+            this.DefaultButton = saveButton;
+            this.AbortButton = cancelButton;
 
             // Handle button clicks
             saveButton.Click += (sender, e) => SaveSettings();
@@ -391,7 +423,7 @@ namespace SmartHopper.Menu.Dialogs
         {
             // Prepare containers for updated values (merge happens in ProviderManager)
             var updatedSettings = new Dictionary<string, Dictionary<string, object>>();
-            foreach (var provider in _providers)
+            foreach (var provider in this._providers)
             {
                 updatedSettings[provider.Name] = new Dictionary<string, object>();
             }
@@ -400,9 +432,11 @@ namespace SmartHopper.Menu.Dialogs
             foreach (var provider in _providers)
             {
                 if (!updatedSettings.ContainsKey(provider.Name))
+                {
                     updatedSettings[provider.Name] = new Dictionary<string, object>();
+                }
 
-                var controls = _allControls[provider.Name];
+                var controls = this._allControls[provider.Name];
                 foreach (var descriptor in provider.GetSettingDescriptors())
                 {
                     var control = controls[descriptor.Name];
@@ -410,25 +444,37 @@ namespace SmartHopper.Menu.Dialogs
                     // Get new value from control
                     object newValue = null;
                     if (control is TextBox textBox)
+                    {
                         newValue = textBox.Text;
+                    }
                     else if (control is PasswordBox passwordBox)
+                    {
                         newValue = passwordBox.Text;
+                    }
                     else if (control is NumericStepper numericStepper)
+                    {
                         newValue = (int)numericStepper.Value;
+                    }
                     else if (control is Slider slider)
+                    {
                         newValue = (double)slider.Value;
+                    }
                     else if (control is DropDown dropDown)
                     {
                         if (dropDown.SelectedIndex >= 0)
+                        {
                             newValue = dropDown.Items[dropDown.SelectedIndex].Text;
+                        }
                     }
 
                     // For sensitive data, only update if changed and not empty
                     if (descriptor.IsSecret && newValue is string strValue)
                     {
-                        if (_originalValues[provider.Name].ContainsKey(descriptor.Name) &&
-                            strValue == _originalValues[provider.Name][descriptor.Name])
+                        if (this._originalValues[provider.Name].ContainsKey(descriptor.Name) &&
+                            strValue == this._originalValues[provider.Name][descriptor.Name])
+                        {
                             continue; // Skip unchanged values
+                        }
                     }
 
                     // Update the setting
@@ -443,15 +489,18 @@ namespace SmartHopper.Menu.Dialogs
             }
 
             // Update settings
-            _settings.DebounceTime = (int)_debounceControl.Value;
+            this._settings.DebounceTime = (int)this._debounceControl.Value;
+            this._settings.EnableAIGreeting = this._enableAIGreetingCheckBox.Checked ?? false;
 
             // Save default provider
-            if (_defaultProviderComboBox.SelectedIndex >= 0)
-                _settings.DefaultAIProvider = _defaultProviderComboBox.Items[_defaultProviderComboBox.SelectedIndex].Text;
+            if (this._defaultProviderComboBox.SelectedIndex >= 0)
+            {
+                this._settings.DefaultAIProvider = this._defaultProviderComboBox.Items[this._defaultProviderComboBox.SelectedIndex].Text;
+            }
 
             // Persist global settings
-            _settings.Save();
-            Close();
+            this._settings.Save();
+            this.Close();
         }
     }
 }
