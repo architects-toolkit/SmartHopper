@@ -49,7 +49,7 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <summary>
         /// Gets the default model name for the provider.
         /// </summary>
-        string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat);
+        string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat, bool useSettings = true);
 
         /// <summary>
         /// Gets a response from the AI provider.
