@@ -230,25 +230,28 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
         }
 
-        public string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat)
+        public string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat, bool useSettings = true)
         {
             // Use settings model if matches requiredCapabilites
-            string modelFromSettings = this.GetSetting<string>("Model");
-
-            if (!string.IsNullOrWhiteSpace(modelFromSettings))
+            if (useSettings)
             {
-                if (ModelManager.ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                string modelFromSettings = this.GetSetting<string>("Model");
+
+                if (!string.IsNullOrWhiteSpace(modelFromSettings))
                 {
-                    return modelFromSettings;
+                    if (ModelManager.ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                    {
+                        return modelFromSettings;
+                    }
                 }
             }
 
             // Else, try to get default model from ModelManager that matches the required capabilities
-            string modelFromModelManager = ModelManager.ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
+            string modelFromProviderDefault = ModelManager.ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
 
-            if (!string.IsNullOrWhiteSpace(modelFromModelManager))
+            if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))
             {
-                return modelFromModelManager;
+                return modelFromProviderDefault;
             }
 
             return null;

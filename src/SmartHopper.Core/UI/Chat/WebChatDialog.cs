@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Properties;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -929,6 +930,19 @@ namespace SmartHopper.Core.UI.Chat
                 if (!string.IsNullOrEmpty(this._systemPrompt))
                 {
                     this.AddSystemMessage(this._systemPrompt);
+                }
+
+                // Check if AI greeting is enabled in settings
+                var settings = SmartHopperSettings.Instance;
+                if (!settings.EnableAIGreeting)
+                {
+                    // Skip greeting entirely if disabled
+                    await Application.Instance.InvokeAsync(() =>
+                    {
+                        this._statusLabel.Text = "Ready";
+                        this._progressReporter?.Invoke("Ready");
+                    });
+                    return;
                 }
 
                 // Show loading message immediately in the chat

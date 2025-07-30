@@ -116,7 +116,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 return null;
 
             var providerModels = this.Models.Values
-                .Where(m => string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase))
+                .Where(m => m != null && string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             Debug.WriteLine($"[ModelManager] Getting the default model among {providerModels.Count} models for {provider} with capability {requiredCapability}");
