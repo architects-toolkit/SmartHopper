@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1-alpha] - 2025-07-30
+
 ### Added
 
 - Settings parameter to enable/disable AI generated greeting in chat.
