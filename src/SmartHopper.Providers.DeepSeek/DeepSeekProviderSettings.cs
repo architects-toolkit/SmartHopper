@@ -56,8 +56,7 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Model",
                     Description = "The model to use for generating responses",
                     Type = typeof(string),
-                    DefaultValue = this.provider.GetDefaultModel(),
-                },
+                }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
                 new SettingDescriptor
                 {
                     Name = "MaxTokens",

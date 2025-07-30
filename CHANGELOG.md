@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Greeting generation was using stored settings models instead of the provider's default model. To solve it, now if `AIUtils.GetResponse` doesn't get a model, it will use the provider's default model.
+- Components triggered with a Boolean Toggle (permanent true value) weren't calculating when the toggle was turned to true.
+- Lazy default values in `AI Provider Settings` to prevent race conditions at initialization.
 
 ## [0.5.0-alpha] - 2025-07-29
 
