@@ -201,7 +201,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.TransitionTo(ComponentState.NeedsRun, DA);
                 return;
             }
-            
+
             this.lastDA = DA;
 
             // Store Run parameter
@@ -253,18 +253,18 @@ namespace SmartHopper.Core.ComponentBase
                     // If only the Run parameter changed to true, restart debounce timer with target to the Waiting state to output the results again
                     else if (this.InputsChanged("Run?", true) && this.run)
                     {
-                        Debug.WriteLine($"[{this.GetType().Name}] Only Run parameter changed to true, restarting debounce timer with target state Waiting");
+                        Debug.WriteLine($"[{this.GetType().Name}] Only the Run parameter changed to true, restarting debounce timer with target state " + (this.RunOnlyOnInputChanges ? "Waiting" : "Processing"));
 
-                        if (!this.RunOnlyOnInputChanges)
+                        if (this.RunOnlyOnInputChanges) // RunOnlyOnInputChanges default is true
+                        {
+                            // Default behavior - transition to Waiting state
+                            this.TransitionTo(ComponentState.Waiting, DA);
+                        }
+                        else
                         {
                             // Always transition to Processing state regardless of input changes
                             Debug.WriteLine($"[{this.GetType().Name}] Component set to always run when Run is true, transitioning to Processing state");
                             this.TransitionTo(ComponentState.Processing, DA);
-                        }
-                        else
-                        {
-                            // Default behavior - transition to Waiting state
-                            this.TransitionTo(ComponentState.Waiting, DA);
                         }
                     }
 
@@ -378,6 +378,23 @@ namespace SmartHopper.Core.ComponentBase
                         Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition from {oldState}");
                         this.ResetAsyncState();
                         this.ResetProgress();
+                        
+                        // Fix for Issue #260: Async mechanism to handle boolean toggle case
+                        // If component is still in Processing state without workers (didn't start processing) after debounce time, force execution
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(this.GetDebounceTime());
+                            
+                            // Check if we're still in Processing state but no workers are running
+                            if (this.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
+                            {
+                                Debug.WriteLine($"[{this.GetType().Name}] Processing state detected without workers after debounce delay, forcing ExpireSolution");
+                                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                                {
+                                    this.ExpireSolution(true);
+                                });
+                            }
+                        });
                     }
                     // Set the message after Resetting the progress
                     this.Message = this.GetStateMessage();
