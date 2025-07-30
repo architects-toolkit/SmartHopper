@@ -44,6 +44,18 @@ namespace SmartHopper.Core.Messaging
             }
         }
 
+        /// <summary>
+        /// Gets an AI response using the specified provider and parameters.
+        /// </summary>
+        /// <param name="providerName">The name of the AI provider to use.</param>
+        /// <param name="model">The model to use for the request. If empty, uses provider's default model.</param>
+        /// <param name="messages">The conversation messages as key-value pairs (role, content).</param>
+        /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
+        /// <param name="endpoint">Optional custom endpoint to use.</param>
+        /// <param name="toolFilter">Optional filter for available AI tools.</param>
+        /// <param name="contextProviderFilter">Optional filter for context providers.</param>
+        /// <param name="contextKeyFilter">Optional filter for context keys.</param>
+        /// <returns>An AIResponse containing the generated response and metadata.</returns>
         public static async Task<AIResponse> GetResponse(
             string providerName,
             string model,
@@ -57,6 +69,18 @@ namespace SmartHopper.Core.Messaging
             return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Gets an AI response using the specified provider and parameters.
+        /// </summary>
+        /// <param name="providerName">The name of the AI provider to use.</param>
+        /// <param name="model">The model to use for the request. If empty, uses provider's default model.</param>
+        /// <param name="messages">The conversation messages as ChatMessageModel objects.</param>
+        /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
+        /// <param name="endpoint">Optional custom endpoint to use.</param>
+        /// <param name="toolFilter">Optional filter for available AI tools.</param>
+        /// <param name="contextProviderFilter">Optional filter for context providers.</param>
+        /// <param name="contextKeyFilter">Optional filter for context keys.</param>
+        /// <returns>An AIResponse containing the generated response and metadata.</returns>
         public static async Task<AIResponse> GetResponse(
             string providerName,
             string model,
@@ -70,6 +94,18 @@ namespace SmartHopper.Core.Messaging
             return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Internal implementation for getting AI responses with full context management.
+        /// </summary>
+        /// <param name="providerName">The name of the AI provider to use.</param>
+        /// <param name="model">The model to use for the request. If empty, uses provider's default model.</param>
+        /// <param name="messages">The conversation messages as a JArray.</param>
+        /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
+        /// <param name="endpoint">Optional custom endpoint to use.</param>
+        /// <param name="toolFilter">Optional filter for available AI tools.</param>
+        /// <param name="contextProviderFilter">Optional filter for context providers.</param>
+        /// <param name="contextKeyFilter">Optional filter for context keys.</param>
+        /// <returns>An AIResponse containing the generated response and metadata.</returns>
         private static async Task<AIResponse> GetResponse(
             string providerName,
             string model,
@@ -141,15 +177,15 @@ namespace SmartHopper.Core.Messaging
                     // If toolFilter is not null -> use FunctionCalling capability
                     if (!string.IsNullOrWhiteSpace(jsonSchema))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator);
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator, false);
                     }
                     else if (!string.IsNullOrWhiteSpace(toolFilter))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat);
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat, false);
                     }
                     else
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat);
+                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat, false);
                     }
 
                     Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");

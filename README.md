@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E5%2E0--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-0%2E5%2E1--alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
@@ -81,6 +81,7 @@ After installation, all SmartHopper components will be available in the Grasshop
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
 | AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Models (AiModels)<br><sub>Retrieve the list of available models for a specific provider</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Image Viewer (ImageViewer)<br><sub>Display bitmap images on the canvas and save them to disk</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | JSON schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | ⚪ | - | - | - |
 | JSON object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | ⚪ | - | - | - |
 | JSON array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | ⚪ | - | - | - |

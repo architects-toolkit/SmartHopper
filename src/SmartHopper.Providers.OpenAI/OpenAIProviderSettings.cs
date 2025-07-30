@@ -55,10 +55,9 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Name = "Model",
                     Type = typeof(string),
-                    DefaultValue = this.provider.GetDefaultModel(),
                     DisplayName = "Model",
                     Description = "The model to use for completions",
-                },
+                }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
                 new SettingDescriptor
                 {
                     Name = "MaxTokens",
