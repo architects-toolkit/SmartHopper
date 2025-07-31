@@ -48,7 +48,7 @@ namespace SmartHopper.Infrastructure.Tests
             public string ProviderId { get; }
             public Dictionary<string, string> Context { get; }
 
-            public MockContextProvider(string providerId, Dictionary<string, string> context = null)
+            public MockContextProvider(string providerId, Dictionary<string, string>? context = null)
             {
                 ProviderId = providerId;
                 Context = context ?? new Dictionary<string, string>();
