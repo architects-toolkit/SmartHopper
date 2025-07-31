@@ -229,3 +229,16 @@ dotnet_naming_style.begins_with_i.required_prefix = I
 dotnet_naming_style.begins_with_i.required_suffix = 
 dotnet_naming_style.begins_with_i.word_separator = 
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
+
+#### StyleCop Analyzer Rules ####
+
+# SA1633: File should have header
+# Suppressed because we use a custom LGPL header format
+dotnet_diagnostic.SA1633.severity = none
+
+# CA1707: Remove underscore from member names
+dotnet_diagnostic.CA1707.severity = none
+
+# SA1124: Do not use regions
+# Suppressed because regions are used to group related methods
+dotnet_diagnostic.SA1124.severity = none
