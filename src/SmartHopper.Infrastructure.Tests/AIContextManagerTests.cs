@@ -28,7 +28,15 @@ namespace SmartHopper.Infrastructure.Tests
         {
             var managerType = typeof(AIContextManager);
             var providersField = managerType.GetField("_contextProviders", BindingFlags.NonPublic | BindingFlags.Static);
-            var providersList = (List<IAIContextProvider>)providersField.GetValue(null);
+            if (providersField == null)
+            {
+                throw new MissingFieldException("The field '_contextProviders' was not found in AIContextManager.");
+            }
+            var providersList = providersField.GetValue(null) as List<IAIContextProvider>;
+            if (providersList == null)
+            {
+                throw new InvalidCastException("The field '_contextProviders' is not of the expected type 'List<IAIContextProvider>'.");
+            }
             providersList.Clear();
         }
 
