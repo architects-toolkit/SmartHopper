@@ -85,7 +85,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "CustomModel_DefaultValues_AreSet [Core]")]
 #endif
-        public void CustomModelDefaultValuesAreSet()
+        public void CustomModel_DefaultValuesAreSet()
         {
             var settings = new SmartHopperSettings();
             Assert.Equal(1000, settings.DebounceTime);
@@ -98,7 +98,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetAvailableProviders_ReturnsAllDiscoveredFactories [Core]")]
 #endif
-        public void GetAvailableProvidersReturnsAllDiscoveredFactories()
+        public void GetAvailableProviders_ReturnsAllDiscoveredFactories()
         {
             var mgr = ProviderManager.Instance;
             var providers = mgr.GetProviders();
@@ -110,7 +110,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetProviderByName_ReturnsCorrectFactory [Core]")]
 #endif
-        public void GetProviderByNameReturnsCorrectFactory()
+        public void GetProviderByName_ReturnsCorrectFactory()
         {
             // Skip test for now
             Assert.True(true);
@@ -121,7 +121,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetProviderByName_ThrowsIfNotFound [Core]")]
 #endif
-        public void GetProviderByNameThrowsIfNotFound()
+        public void GetProviderByName_ThrowsIfNotFound()
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider("Nonexistent"));
@@ -132,7 +132,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ProviderSettings_SerializationRoundTrip [Core]")]
 #endif
-        public void ProviderSettingsSerializationRoundTrip()
+        public void ProviderSettings_SerializationRoundTrip()
         {
             var settings = new SmartHopperSettings { DebounceTime = 555, DefaultAIProvider = "ProvX" };
             var json = JsonConvert.SerializeObject(settings);
@@ -146,7 +146,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "IAIProviderSettings_SchemaValidation [Core]")]
 #endif
-        public void IAIProviderSettingsSchemaValidation()
+        public void IAIProviderSettings_SchemaValidation()
         {
             // Skip test for now
             Assert.True(true);
@@ -157,7 +157,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ConfigurationLoader_RegistersAllServices [Core]")]
 #endif
-        public void ConfigurationLoaderRegistersAllServices()
+        public void ConfigurationLoader_RegistersAllServices()
         {
             // Settings singleton and provider manager should be available
             var settings = SmartHopperSettings.Instance;
@@ -171,7 +171,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ProviderManager_LoadsFromServiceProvider [Core]")]
 #endif
-        public void ProviderManagerLoadsFromServiceProvider()
+        public void ProviderManager_LoadsFromServiceProvider()
         {
             // Singleton instance consistency
             var m1 = ProviderManager.Instance;
@@ -184,7 +184,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ProviderManager_HandlesInvalidAssemblyGracefully [Core]")]
 #endif
-        public void ProviderManagerHandlesInvalidAssemblyGracefully()
+        public void ProviderManager_HandlesInvalidAssemblyGracefully()
         {
             // Should not throw on refresh with no external providers
             var ex = Record.Exception(() => ProviderManager.Instance.RefreshProviders());
@@ -196,7 +196,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ConfigurationLoader_ThrowsOnMalformedJson [Core]")]
 #endif
-        public void ConfigurationLoaderThrowsOnMalformedJson()
+        public void ConfigurationLoader_ThrowsOnMalformedJson()
         {
             // Malformed JSON should throw JsonReaderException
             var bad = "{ \"DebounceTime\": , }";
