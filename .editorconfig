@@ -239,3 +239,6 @@ dotnet_diagnostic.SA1633.severity = none
 # CA1707: Remove underscore from member names
 dotnet_diagnostic.CA1707.severity = none
 
+# SA1124: Do not use regions
+# Suppressed because regions are used to group related methods
+dotnet_diagnostic.SA1124.severity = none
