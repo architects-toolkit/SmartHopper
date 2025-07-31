@@ -10,6 +10,7 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
+    using System;
     using System.Collections.Generic;
     using System.Reflection;
     using System.Threading.Tasks;
@@ -18,22 +19,34 @@ namespace SmartHopper.Infrastructure.Tests
     using SmartHopper.Infrastructure.Models;
     using Xunit;
 
+    /// <summary>
+    /// Tests for the AIToolManager functionality.
+    /// </summary>
     public class AIToolManagerTests
     {
-        private void ResetManager()
+        /// <summary>
+        /// Resets the AIToolManager to a clean state for testing.
+        /// </summary>
+        private static void ResetManager()
         {
             var managerType = typeof(AIToolManager);
             var toolsField = managerType.GetField("_tools", BindingFlags.NonPublic | BindingFlags.Static);
             var discoveredField = managerType.GetField("_toolsDiscovered", BindingFlags.NonPublic | BindingFlags.Static);
-            var toolsDict = (Dictionary<string, AITool>)toolsField.GetValue(null);
-            toolsDict.Clear();
-            discoveredField.SetValue(null, false);
+            var toolsDict = (Dictionary<string, AITool>?)toolsField?.GetValue(null);
+            toolsDict?.Clear();
+            discoveredField?.SetValue(null, false);
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "RegisterTool_ShouldAddTool [Windows]")]
+        /// <summary>
+        /// Tests that RegisterTool correctly adds a tool to the manager on Windows.
+        /// </summary>
+        [Fact(DisplayName = "RegisterTool ShouldAddTool [Windows]")]
 #else
-        [Fact(DisplayName = "RegisterTool_ShouldAddTool [Core]")]
+        /// <summary>
+        /// Tests that RegisterTool correctly adds a tool to the manager on Core.
+        /// </summary>
+        [Fact(DisplayName = "RegisterTool ShouldAddTool [Core]")]
 #endif
         public void RegisterTool_ShouldAddTool()
         {
@@ -47,47 +60,66 @@ namespace SmartHopper.Infrastructure.Tests
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ExecuteTool_ShouldReturnError_WhenToolNotFound [Windows]")]
+        /// <summary>
+        /// Tests that ExecuteTool returns an error when the tool is not found on Windows.
+        /// </summary>
+        [Fact(DisplayName = "ExecuteTool ShouldReturnError WhenToolNotFound [Windows]")]
 #else
-        [Fact(DisplayName = "ExecuteTool_ShouldReturnError_WhenToolNotFound [Core]")]
+        /// <summary>
+        /// Tests that ExecuteTool returns an error when the tool is not found on Core.
+        /// </summary>
+        [Fact(DisplayName = "ExecuteTool ShouldReturnError WhenToolNotFound [Core]")]
 #endif
         public async Task ExecuteTool_ShouldReturnError_WhenToolNotFound()
         {
             ResetManager();
-            var result = await AIToolManager.ExecuteTool("UnknownTool", new JObject(), null);
+            var result = await AIToolManager.ExecuteTool("UnknownTool", [], null!).ConfigureAwait(false);
             dynamic dyn = result;
             Assert.False(dyn.success);
-            Assert.Contains("UnknownTool", (string)dyn.error);
+            Assert.Contains("UnknownTool", (string)dyn.error, StringComparison.Ordinal);
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ExecuteTool_ShouldExecuteRegisteredTool_WithMergedParameters [Windows]")]
+        /// <summary>
+        /// Tests that ExecuteTool correctly executes a registered tool with merged parameters on Windows.
+        /// </summary>
+        [Fact(DisplayName = "ExecuteTool ShouldExecuteRegisteredTool WithMergedParameters [Windows]")]
 #else
-        [Fact(DisplayName = "ExecuteTool_ShouldExecuteRegisteredTool_WithMergedParameters [Core]")]
+        /// <summary>
+        /// Tests that ExecuteTool correctly executes a registered tool with merged parameters on Core.
+        /// </summary>
+        [Fact(DisplayName = "ExecuteTool ShouldExecuteRegisteredTool WithMergedParameters [Core]")]
 #endif
         public async Task ExecuteTool_ShouldExecuteRegisteredTool_WithMergedParameters()
         {
             ResetManager();
-            JObject captured = null;
+            JObject? captured = null;
             var tool = new AITool("Compute", "Computes value", "Test Category", "{}", p =>
             {
                 captured = p;
-                int value = p["value"].Value<int>();
+                int value = p["value"]?.Value<int>() ?? 0;
                 return Task.FromResult((object)(value * 2));
             });
             AIToolManager.RegisterTool(tool);
             var parameters = new JObject { ["value"] = 10 };
             var extra = new JObject { ["extra"] = 5 };
-            var result = await AIToolManager.ExecuteTool("Compute", (JObject)parameters.DeepClone(), extra);
+            var result = await AIToolManager.ExecuteTool("Compute", (JObject)parameters.DeepClone(), extra).ConfigureAwait(false);
             Assert.IsType<int>(result);
             Assert.Equal(20, (int)result);
-            Assert.Equal(5, captured["extra"].Value<int>());
+            Assert.NotNull(captured);
+            Assert.Equal(5, captured["extra"]?.Value<int>() ?? 0);
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "GetTools_ShouldBeEmpty_WhenNoToolsRegistered [Windows]")]
+        /// <summary>
+        /// Tests that GetTools returns an empty collection when no tools are registered on Windows.
+        /// </summary>
+        [Fact(DisplayName = "GetTools ShouldBeEmpty WhenNoToolsRegistered [Windows]")]
 #else
-        [Fact(DisplayName = "GetTools_ShouldBeEmpty_WhenNoToolsRegistered [Core]")]
+        /// <summary>
+        /// Tests that GetTools returns an empty collection when no tools are registered on Core.
+        /// </summary>
+        [Fact(DisplayName = "GetTools ShouldBeEmpty WhenNoToolsRegistered [Core]")]
 #endif
         public void GetTools_ShouldBeEmpty_WhenNoToolsRegistered()
         {

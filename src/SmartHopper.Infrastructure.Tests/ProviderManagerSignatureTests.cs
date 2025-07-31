@@ -37,7 +37,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "VerifySignature_UnsignedDll_ThrowsCryptographicException [Core]")]
 #endif
-        public void VerifySignatureUnsignedDllThrowsCryptographicException()
+        public void VerifySignature_UnsignedDll_ThrowsCryptographicException()
         {
             // Arrange: create an unsigned dummy assembly file
             var manager = ProviderManager.Instance;
@@ -77,7 +77,7 @@ namespace SmartHopper.Infrastructure.Tests
         /// The verification may fail with either SecurityException or CryptographicException
         /// depending on which validation check runs first.
         /// </summary>
-        public void VerifySignatureAuthenticodeSignedNoStrongNameFailsVerification()
+        public void VerifySignature_AuthenticodeSignedNoStrongName_FailsVerification()
         {
             // Skip on macOS where code signing is different
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -159,7 +159,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "VerifySignature_AuthenticodeUnsigned_StrongNameCorrect_ThrowsCryptographicException [Core]")]
 #endif
-        public void VerifySignatureAuthenticodeUnsignedStrongNameCorrectThrowsCryptographicException()
+        public void VerifySignature_AuthenticodeUnsigned_StrongNameCorrect_ThrowsCryptographicException()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {

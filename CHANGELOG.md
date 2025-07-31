@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New tests for Context Manager and Model Manager.
+
 ## [0.5.1-alpha] - 2025-07-30
 
 ### Added
