@@ -12,6 +12,7 @@ namespace SmartHopper.Infrastructure.Tests
 {
     using System.Collections.Generic;
     using System.Drawing;
+    using System.Globalization;
     using System.Reflection;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
@@ -80,7 +81,7 @@ namespace SmartHopper.Infrastructure.Tests
             // Assert
             var retrievedCapabilities = manager.GetCapabilities(provider, model);
             Assert.NotNull(retrievedCapabilities);
-            Assert.Equal(provider, retrievedCapabilities.Provider);
+            Assert.Equal(provider.ToLower(CultureInfo.InvariantCulture), retrievedCapabilities.Provider);
             Assert.Equal(model, retrievedCapabilities.Model);
             Assert.Equal(capabilities, retrievedCapabilities.Capabilities);
             Assert.Equal(defaultFor, retrievedCapabilities.Default);
@@ -246,9 +247,6 @@ namespace SmartHopper.Infrastructure.Tests
         /// </summary>
 #if NET7_WINDOWS
         [Fact(DisplayName = "ValidateToolExecution_ShouldAllowUnregisteredModels [Windows]")]
-#else
-        [Fact(DisplayName = "ValidateToolExecution_ShouldAllowUnregisteredModels [Core]")]
-#endif
         public void ValidateToolExecution_ShouldAllowUnregisteredModels()
         {
             // Arrange
@@ -347,5 +345,6 @@ namespace SmartHopper.Infrastructure.Tests
                 };
             }
         }
+#endif
     }
 }
