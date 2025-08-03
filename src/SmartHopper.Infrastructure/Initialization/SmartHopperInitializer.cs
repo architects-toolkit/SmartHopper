@@ -10,6 +10,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.Managers.AIProviders;
@@ -18,23 +19,30 @@ using SmartHopper.Infrastructure.Settings;
 namespace SmartHopper.Infrastructure.Initialization
 {
     /// <summary>
-    /// Handles safe initialization of SmartHopper components to avoid circular dependencies
+    /// Handles safe initialization of SmartHopper components to avoid circular dependencies.
     /// </summary>
     public static class SmartHopperInitializer
     {
-        private static bool _isInitialized = false;
-        private static readonly object _lockObject = new object();
+        private static readonly object LockObject = new object();
+        private static bool isInitialized;
 
         /// <summary>
-        /// Safely initializes the SmartHopper system in the correct order to avoid circular dependencies
+        /// Safely initializes the SmartHopper system in the correct order to avoid circular dependencies.
         /// </summary>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Prevent initializer from crashing Grasshopper")]
         public static void Initialize()
         {
-            if (_isInitialized) return;
-
-            lock (_lockObject)
+            if (isInitialized)
             {
-                if (_isInitialized) return;
+                return;
+            }
+
+            lock (LockObject)
+            {
+                if (isInitialized)
+                {
+                    return;
+                }
 
                 try
                 {
@@ -56,13 +64,13 @@ namespace SmartHopper.Infrastructure.Initialization
                         // RefreshProviders will internally refresh settings once as providers are registered
                         providerManager.RefreshProviders();
 
-                        // No need to call settings.RefreshProvidersLocalStorage() again here
-                        // as it's already done inside RefreshProviders
+                        /* No need to call settings.RefreshProvidersLocalStorage() again here
+                        as it's already done inside RefreshProviders */
 
                         Debug.WriteLine("[SmartHopperInitializer] Initialization complete");
                     });
 
-                    _isInitialized = true;
+                    isInitialized = true;
                 }
                 catch (Exception ex)
                 {
@@ -73,8 +81,9 @@ namespace SmartHopper.Infrastructure.Initialization
         }
 
         /// <summary>
-        /// Force a reload of all settings and providers
+        /// Force a reload of all settings and providers.
         /// </summary>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Prevent initializer from crashing Grasshopper")]
         public static void Reinitialize()
         {
             Task.Run(() =>
