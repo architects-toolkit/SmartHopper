@@ -18,12 +18,12 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Core.UI
@@ -478,8 +478,8 @@ namespace SmartHopper.Core.UI
 
                 // Get the current provider from settings
                 var providerManager = ProviderManager.Instance;
-                var providers = providerManager.GetProviders();
-                var currentProvider = providers?.FirstOrDefault(); // TODO: Replace with default provider in settings
+                var defaultProviderName = providerManager.GetDefaultAIProvider();
+                var currentProvider = providerManager.GetProvider(defaultProviderName);
 
                 if (currentProvider == null)
                 {
@@ -488,7 +488,7 @@ namespace SmartHopper.Core.UI
                 }
 
                 var providerName = currentProvider.Name;
-                var model = currentProvider.GetDefaultModel();
+                var model = currentProvider.GetDefaultModel(AIModelCapability.ReasoningChat);
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 
