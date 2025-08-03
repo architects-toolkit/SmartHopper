@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New tests for Context Manager and Model Manager.
+- New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
 
 ## [0.5.1-alpha] - 2025-07-30
 
