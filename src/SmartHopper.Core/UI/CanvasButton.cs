@@ -34,18 +34,11 @@ namespace SmartHopper.Core.UI
     /// </summary>
     public static class CanvasButton
     {
-        private static bool isInitialized = false;
-        private static Bitmap? buttonIcon;
-        private static readonly object lockObject = new object();
-
-        // Button properties
+        // Constants for button appearance and behavior
         private const int ButtonSize = 48;
         private const int ButtonMargin = 20;
-        private static RectangleF buttonBounds; // Window/client coordinates for both drawing and interaction
-        private static bool isHovering = false;
-        private static bool isPressed = false;
 
-        // Predefined system prompt (extracted from AIChatComponent)
+        // Predefined system prompt for SmartHopper assistant
         private const string DefaultSystemPrompt = """
             You are a helpful AI assistant specialized in Grasshopper 3D and computational design. Follow these guidelines:
 
@@ -77,6 +70,16 @@ namespace SmartHopper.Core.UI
             - generic_page_read: read a web page by providing the URL
             """;
 
+        // Private fields
+        private static readonly object LockObject = new object();
+        private static bool isInitialized;
+        private static Bitmap? buttonIcon;
+
+        // Button fields
+        private static RectangleF buttonBounds; // Window/client coordinates for both drawing and interaction
+        private static bool isHovering;
+        private static bool isPressed;
+
         /// <summary>
         /// Initializes static members of the <see cref="CanvasButton"/> class.
         /// Static constructor to auto-initialize when first accessed.
@@ -96,6 +99,37 @@ namespace SmartHopper.Core.UI
             // This method body is intentionally empty.
             // Just accessing this static class will trigger the static constructor
             // which starts the auto-initialization process.
+        }
+
+        /// <summary>
+        /// Manually disposes the canvas button system (if needed for cleanup).
+        /// </summary>
+        public static void Dispose()
+        {
+            lock (LockObject)
+            {
+                if (!isInitialized)
+                {
+                    return;
+                }
+
+                try
+                {
+                    // Unsubscribe from events
+                    Instances.CanvasCreated -= OnCanvasCreated;
+
+                    // Dispose resources
+                    buttonIcon?.Dispose();
+                    buttonIcon = null;
+
+                    isInitialized = false;
+                    Debug.WriteLine("[CanvasButton] Canvas button system disposed");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[CanvasButton] Error disposing canvas button: {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
@@ -156,7 +190,7 @@ namespace SmartHopper.Core.UI
         /// </summary>
         private static void Initialize()
         {
-            lock (lockObject)
+            lock (LockObject)
             {
                 if (isInitialized)
                 {
@@ -183,37 +217,6 @@ namespace SmartHopper.Core.UI
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[CanvasButton] Error initializing canvas button: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Manually disposes the canvas button system (if needed for cleanup).
-        /// </summary>
-        public static void Dispose()
-        {
-            lock (lockObject)
-            {
-                if (!isInitialized)
-                {
-                    return;
-                }
-
-                try
-                {
-                    // Unsubscribe from events
-                    Instances.CanvasCreated -= OnCanvasCreated;
-
-                    // Dispose resources
-                    buttonIcon?.Dispose();
-                    buttonIcon = null;
-
-                    isInitialized = false;
-                    Debug.WriteLine("[CanvasButton] Canvas button system disposed");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[CanvasButton] Error disposing canvas button: {ex.Message}");
                 }
             }
         }
@@ -392,8 +395,15 @@ namespace SmartHopper.Core.UI
                     scaledBounds.Width - (iconPadding * 2),
                     scaledBounds.Height - (iconPadding * 2));
 
-                graphics.DrawImage(buttonIcon, Rectangle.Round(iconBounds), 0, 0,
-                        buttonIcon.Width, buttonIcon.Height, GraphicsUnit.Pixel, iconAttribs);
+                graphics.DrawImage(
+                    buttonIcon,
+                    Rectangle.Round(iconBounds),
+                    0,
+                    0,
+                    buttonIcon.Width,
+                    buttonIcon.Height,
+                    GraphicsUnit.Pixel,
+                    iconAttribs);
             }
             catch (Exception ex)
             {
@@ -498,7 +508,7 @@ namespace SmartHopper.Core.UI
                     model,
                     string.Empty, // endpoint
                     DefaultSystemPrompt,
-                    null, // progress reporter
+                    (Action<string>)null!, // progress reporter
                     Guid.NewGuid()); // unique component ID for this button
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
