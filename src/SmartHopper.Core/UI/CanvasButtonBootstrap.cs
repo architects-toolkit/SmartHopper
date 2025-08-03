@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 namespace SmartHopper.Core.UI
 {
-    static class CanvasButtonBootstrap
+    internal static class CanvasButtonBootstrap
     {
         /// <summary>
         /// Module initializer to auto-run CanvasButton.EnsureInitialized at assembly load.
