@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
@@ -55,21 +56,60 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// </summary>
         private void CreateLayout()
         {
-            var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+            // Use DynamicLayout for better control over sizing
+            var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
             var descriptors = _provider.GetSettingDescriptors().ToList();
+
+            // Add provider title with logo
+            var titleLayout = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Padding = new Padding(0, 0, 0, 10)
+            };
+
+            // Add provider icon if available
+            if (_provider.Icon != null)
+            {
+                try
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        _provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                        ms.Position = 0;
+                        var iconView = new ImageView
+                        {
+                            Image = new Bitmap(ms),
+                            Size = new Size(24, 24)
+                        };
+                        titleLayout.Items.Add(iconView);
+                    }
+                }
+                catch
+                {
+                    // Ignore icon loading errors
+                }
+            }
+
+            // Add provider name title
+            titleLayout.Items.Add(new Label
+            {
+                Text = $"{_provider.Name} Settings",
+                Font = new Font(SystemFont.Bold, 12)
+            });
+
+            layout.Add(titleLayout);
 
             if (!descriptors.Any())
             {
                 // No settings available
-                layout.Rows.Add(new TableRow(
-                    new TableCell(new Label
-                    {
-                        Text = "No configurable settings available for this provider.",
-                        TextColor = Colors.Gray,
-                        Font = new Font(SystemFont.Default, 10),
-                        VerticalAlignment = VerticalAlignment.Center
-                    })
-                ));
+                layout.Add(new Label
+                {
+                    Text = "No configurable settings available for this provider.",
+                    TextColor = Colors.Gray,
+                    Font = new Font(SystemFont.Default, 10)
+                });
             }
             else
             {
@@ -87,35 +127,46 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                         // Load current value
                         LoadSettingValue(descriptor, control, providerSettings);
 
-                        // Create row with label and control
+                        // Create a horizontal layout for label and control
                         var labelText = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name;
-                        layout.Rows.Add(new TableRow(
-                            new TableCell(new Label { Text = labelText + ":", VerticalAlignment = VerticalAlignment.Center }),
-                            new TableCell(control)
+                        var label = new Label 
+                        { 
+                            Text = labelText + ":", 
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Width = 150  // Fixed width to prevent overflow
+                        };
+
+                        var rowLayout = new TableLayout
+                        {
+                            Spacing = new Size(10, 0)
+                        };
+                        
+                        // Create row with fixed label width and expandable control
+                        rowLayout.Rows.Add(new TableRow(
+                            new TableCell(label, false),  // Fixed size
+                            new TableCell(control, true)   // Expandable
                         ));
 
-                        // Add description if available
+                        layout.Add(rowLayout);
+
+                        // Add description if available - spans full width below the label+control
                         if (!string.IsNullOrEmpty(descriptor.Description))
                         {
-                            layout.Rows.Add(new TableRow(
-                                new TableCell(new Label
-                                {
-                                    Text = descriptor.Description,
-                                    TextColor = Colors.Gray,
-                                    Font = new Font(SystemFont.Default, 10),
-                                    Wrap = WrapMode.Word
-                                })
-                            ));
+                            layout.Add(new Label
+                            {
+                                Text = descriptor.Description,
+                                TextColor = Colors.Gray,
+                                Font = new Font(SystemFont.Default, 10),
+                                Wrap = WrapMode.Word,
+                                Width = 500  // Max width for better text wrapping
+                            });
                         }
 
                         // Add spacing between settings
-                        layout.Rows.Add(new TableRow { ScaleHeight = false });
+                        layout.Add(new Panel { Height = 10 });
                     }
                 }
             }
-
-            // Add flexible spacing at the bottom
-            layout.Rows.Add(new TableRow { ScaleHeight = true });
 
             Content = new Scrollable { Content = layout };
         }

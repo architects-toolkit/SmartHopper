@@ -36,29 +36,25 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             _providerCheckBoxes = new Dictionary<string, CheckBox>();
 
             // Create layout
-            var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+            var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
 
             // Add header
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "Trusted Providers",
-                    Font = new Font(SystemFont.Bold, 12),
-                    VerticalAlignment = VerticalAlignment.Center
-                })
-            ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "Configure which AI providers are trusted and can be used by SmartHopper components.",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(new Label
+            {
+                Text = "Trusted Providers",
+                Font = new Font(SystemFont.Bold, 12)
+            });
+            layout.Add(new Label
+            {
+                Text = "Configure which AI providers are trusted and can be used by SmartHopper components.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
             // Add spacing
-            layout.Rows.Add(new TableRow { ScaleHeight = false });
+            layout.Add(new Panel { Height = 10 });
 
             // Add provider checkboxes
             foreach (var provider in _providers)
@@ -105,12 +101,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 providerLayout.Items.Add(checkbox);
 
                 // Provider descriptions could be added here if needed in the future
-
-                layout.Rows.Add(new TableRow(new TableCell(providerLayout)));
+                layout.Add(providerLayout);
             }
 
-            // Add flexible spacing at the bottom
-            layout.Rows.Add(new TableRow { ScaleHeight = true });
+            // Add end spacing
+            layout.Add(new Panel { Height = 10 });
 
             Content = new Scrollable { Content = layout };
         }

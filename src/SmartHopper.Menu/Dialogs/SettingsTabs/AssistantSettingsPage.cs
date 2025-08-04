@@ -56,82 +56,85 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             }
 
             // Create layout
-            var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+            var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
 
             // Header
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "SmartHopper Assistant",
-                    Font = new Font(SystemFont.Bold, 12),
-                    VerticalAlignment = VerticalAlignment.Center
-                })
-            ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "Configure settings for the SmartHopper Assistant including the CanvasButton and chat behavior.",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(new Label
+            {
+                Text = "SmartHopper Assistant",
+                Font = new Font(SystemFont.Bold, 12)
+            });
+            layout.Add(new Label
+            {
+                Text = "Configure settings for the SmartHopper Assistant. Talk to it by clicking on the top-right button in the canvas.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
             // Add spacing
-            layout.Rows.Add(new TableRow { ScaleHeight = false });
+            layout.Add(new Panel { Height = 10 });
 
             // AI Greeting section
-            layout.Rows.Add(new TableRow(
-                new TableCell(_enableAIGreetingCheckBox)
-            ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation.",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(_enableAIGreetingCheckBox);
+            layout.Add(new Label
+            {
+                Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation. Disable it to prevent extra tokens being used.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
             // Add spacing
-            layout.Rows.Add(new TableRow { ScaleHeight = false });
+            layout.Add(new Panel { Height = 10 });
 
             // Assistant provider section
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Assistant Provider:", VerticalAlignment = VerticalAlignment.Center }),
-                new TableCell(_assistantProviderComboBox)
+            var providerRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0)
+            };
+            providerRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Assistant Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
+                new TableCell(_assistantProviderComboBox, true)
             ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "AI provider to use specifically for SmartHopper Assistant features like greetings and CanvasButton interactions.",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(providerRowLayout);
+            
+            layout.Add(new Label
+            {
+                Text = "AI provider to use specifically for SmartHopper Assistant.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
             // Add spacing
-            layout.Rows.Add(new TableRow { ScaleHeight = false });
+            layout.Add(new Panel { Height = 10 });
 
             // Assistant model section
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Assistant Model:" }),
-                new TableCell(_assistantModelTextBox)
+            var modelRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0)
+            };
+            modelRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Assistant Model:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
+                new TableCell(_assistantModelTextBox, true)
             ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "Specific AI model to use for assistant features. Leave empty to use the provider's default model.",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(modelRowLayout);
+            
+            layout.Add(new Label
+            {
+                Text = "Specific AI model to use for assistant features. Leave empty to use the provider's default model.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
-            // Add flexible spacing at the bottom
-            layout.Rows.Add(new TableRow { ScaleHeight = true });
+            // Add end spacing
+            layout.Add(new Panel { Height = 10 });
 
             Content = new Scrollable { Content = layout };
         }
