@@ -67,10 +67,32 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         {
             // Initialize the provider with its settings from SmartHopperSettings
             var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
-            if (settingsDict != null)
+            if (settingsDict == null)
             {
-                this.RefreshCachedSettings(settingsDict);
+                settingsDict = new Dictionary<string, object>();
             }
+
+            // Load default values for any missing settings to prevent circular dependencies during retrieval
+            try
+            {
+                var descriptors = this.GetSettingDescriptors();
+                foreach (var descriptor in descriptors)
+                {
+                    if (descriptor.DefaultValue != null && !settingsDict.ContainsKey(descriptor.Name))
+                    {
+                        settingsDict[descriptor.Name] = descriptor.DefaultValue;
+                        Debug.WriteLine($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Warning: Could not load default values during initialization: {ex.Message}");
+                // Continue initialization even if default value loading fails
+            }
+
+            // Apply all settings (stored + defaults) to the provider
+            this.RefreshCachedSettings(settingsDict);
 
             try
             {
@@ -184,13 +206,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
             if (!this._injectedSettings.TryGetValue(key, out var value) || value == null)
             {
-                // Try to get the default value from the descriptor
-                var descriptor = this.GetSettingDescriptors().FirstOrDefault(d => d.Name == key);
-                if (descriptor?.DefaultValue != null && descriptor.DefaultValue is T defaultValue)
-                {
-                    return defaultValue;
-                }
-
+                // Return default value without calling GetSettingDescriptors to avoid circular dependency
+                // Default values should be handled during provider initialization, not during setting retrieval
                 return default;
             }
 

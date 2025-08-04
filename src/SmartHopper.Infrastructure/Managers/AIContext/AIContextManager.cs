@@ -38,7 +38,7 @@ namespace SmartHopper.Infrastructure.Managers.AIContext
             // Add the new provider
             _contextProviders.Add(provider);
 
-            Debug.WriteLine($"[RegisterProvider] Registered provider: {provider.ProviderId}");
+            Debug.WriteLine($"[RegisterContextProvider] Registered provider: {provider.ProviderId}");
         }
 
         /// <summary>
