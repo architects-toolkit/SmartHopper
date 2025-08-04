@@ -33,6 +33,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;
+        private Dictionary<string, object> _defaultSettings;
 
         /// <summary>
         /// Gets the models manager for this provider.
@@ -65,6 +66,42 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// </summary>
         public virtual async Task InitializeProviderAsync()
         {
+            try
+            {
+                // STEP 1: Register models FIRST to make them available for default value resolution
+                // Prevent reloading capabilities if already initialized
+                if (!ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
+                {
+                    Debug.WriteLine($"[{this.Name}] Registering model capabilities");
+                    
+                    // Initialize the models manager asynchronously
+                    var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
+                    var defaultModelsDict = this.Models.RetrieveDefault();
+
+                    // Store capabilities to ModelManager
+                    foreach (var capability in capabilitiesDict)
+                    {
+                        var defaultFor = defaultModelsDict.ContainsKey(capability.Key) ? defaultModelsDict[capability.Key] : AIModelCapability.None;
+                        
+                        ModelManager.ModelManager.Instance.RegisterCapabilities(
+                            this.Name,
+                            capability.Key,
+                            capability.Value,
+                            defaultFor);
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[{this.Name}] Capabilities already initialized, skipping reload");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Error during model registration: {ex.Message}");
+                // Continue initialization even if model registration fails
+            }
+
+            // STEP 2: Now load settings with models available for lazy default resolution
             // Initialize the provider with its settings from SmartHopperSettings
             var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
             if (settingsDict == null)
@@ -72,16 +109,23 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 settingsDict = new Dictionary<string, object>();
             }
 
-            // Load default values for any missing settings to prevent circular dependencies during retrieval
+            // Load default values to a separate dictionary to prevent circular dependencies during retrieval
+            this._defaultSettings = new Dictionary<string, object>();
             try
             {
                 var descriptors = this.GetSettingDescriptors();
                 foreach (var descriptor in descriptors)
                 {
-                    if (descriptor.DefaultValue != null && !settingsDict.ContainsKey(descriptor.Name))
+                    if (descriptor.DefaultValue != null)
                     {
-                        settingsDict[descriptor.Name] = descriptor.DefaultValue;
-                        Debug.WriteLine($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
+                        this._defaultSettings[descriptor.Name] = descriptor.DefaultValue;
+                        
+                        // Also add to settingsDict if not already present
+                        if (!settingsDict.ContainsKey(descriptor.Name))
+                        {
+                            settingsDict[descriptor.Name] = descriptor.DefaultValue;
+                            Debug.WriteLine($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
+                        }
                     }
                 }
             }
@@ -93,38 +137,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
             // Apply all settings (stored + defaults) to the provider
             this.RefreshCachedSettings(settingsDict);
-
-            try
-            {
-                // Prevent reloading capabilities if already initialized
-                if (ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
-                {
-                    Debug.WriteLine($"[{this.Name}] Capabilities already initialized, skipping reload");
-                    return;
-                }
-
-                // Initialize the models manager asynchronously
-                var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
-
-                var defaultModelsDict = this.Models.RetrieveDefault();
-
-                // Store capabilities to ModelManager
-                foreach (var capability in capabilitiesDict)
-                {
-                    var defaultFor = defaultModelsDict.ContainsKey(capability.Key) ? defaultModelsDict[capability.Key] : AIModelCapability.None;
-                    
-                    ModelManager.ModelManager.Instance.RegisterCapabilities(
-                        this.Name,
-                        capability.Key,
-                        capability.Value,
-                        defaultFor);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[{this.Name}] Error during async initialization: {ex.Message}");
-                // Continue initialization even if capability retrieval fails
-            }
         }
 
         /// <summary>
@@ -206,9 +218,18 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
             if (!this._injectedSettings.TryGetValue(key, out var value) || value == null)
             {
-                // Return default value without calling GetSettingDescriptors to avoid circular dependency
-                // Default values should be handled during provider initialization, not during setting retrieval
-                return default;
+                // Check _defaultSettings field for default value (loaded during initialization)
+                if (this._defaultSettings != null && this._defaultSettings.TryGetValue(key, out var defaultValue) && defaultValue != null)
+                {
+                    value = defaultValue;
+                    Debug.WriteLine($"[{this.Name}] Using default value for setting '{key}': {defaultValue}");
+                }
+                else
+                {
+                    // No default value available, return type default
+                    Debug.WriteLine($"[{this.Name}] No value or default found for setting '{key}'");
+                    return default;
+                }
             }
 
             // Handle type conversion
