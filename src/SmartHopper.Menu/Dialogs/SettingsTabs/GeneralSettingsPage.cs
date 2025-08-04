@@ -49,43 +49,53 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             }
 
             // Create layout
-            var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+            var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
 
             // Default provider section
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center }),
-                new TableCell(_defaultProviderComboBox)
+            var providerRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0)
+            };
+            providerRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
+                new TableCell(_defaultProviderComboBox, true)
             ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "The default AI provider to use for new components",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(providerRowLayout);
+            
+            layout.Add(new Label
+            {
+                Text = "The default AI provider to use for new components",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
             // Add spacing
-            layout.Rows.Add(new TableRow { ScaleHeight = true });
+            layout.Add(new Panel { Height = 10 });
 
             // Debounce time section
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Debounce Time (ms):", VerticalAlignment = VerticalAlignment.Center }),
-                new TableCell(_debounceControl)
+            var debounceRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0)
+            };
+            debounceRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Debounce Time (ms):", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
+                new TableCell(_debounceControl, true)
             ));
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true.",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word
-                })
-            ));
+            layout.Add(debounceRowLayout);
+            
+            layout.Add(new Label
+            {
+                Text = "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
 
-            // Add flexible spacing at the bottom
-            layout.Rows.Add(new TableRow { ScaleHeight = true });
+            // Add end spacing
+            layout.Add(new Panel { Height = 10 });
 
             Content = new Scrollable { Content = layout };
         }
