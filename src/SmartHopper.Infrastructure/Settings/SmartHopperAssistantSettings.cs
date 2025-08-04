@@ -13,24 +13,24 @@ using Newtonsoft.Json;
 namespace SmartHopper.Infrastructure.Settings
 {
     /// <summary>
-    /// Settings for SmartHopper Assistant features including CanvasButton behavior, greeting generation, and provider/model selection
+    /// Settings for SmartHopper Assistant features including CanvasButton behavior, greeting generation, and provider/model selection.
     /// </summary>
     public class SmartHopperAssistantSettings
     {
         /// <summary>
-        /// Gets or sets whether AI-generated greetings are enabled in chat
+        /// Gets or sets a value indicating whether gets or sets whether AI-generated greetings are enabled in chat.
         /// </summary>
         [JsonProperty]
         public bool EnableAIGreeting { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets the AI provider to use for SmartHopper Assistant features
+        /// Gets or sets the AI provider to use for SmartHopper Assistant features.
         /// </summary>
         [JsonProperty]
         public string AssistantProvider { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the AI model to use for SmartHopper Assistant features
+        /// Gets or sets the AI model to use for SmartHopper Assistant features.
         /// </summary>
         [JsonProperty]
         public string AssistantModel { get; set; } = string.Empty;

@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -28,8 +29,8 @@ namespace SmartHopper.Infrastructure.Settings
             "SmartHopper.json");
 
         // Use a constant key and IV for encryption (TODO: in a production environment, these should be secured properly)
-        private static readonly byte[] _key = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
-        private static readonly byte[] _iv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
+        private static readonly byte[] key = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
+        private static readonly byte[] iv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
 
         [JsonProperty]
         internal Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
@@ -43,12 +44,12 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
-        [JsonProperty("SmartHopperAssistant")]
+        [JsonProperty(nameof(SmartHopperAssistant))]
         public SmartHopperAssistantSettings SmartHopperAssistant { get; set; }
 
-        private static SmartHopperSettings _instance;
+        private static SmartHopperSettings? instance;
 
-        public static SmartHopperSettings Instance => _instance ??= Load();
+        public static SmartHopperSettings Instance => instance ??= Load();
 
         public SmartHopperSettings()
         {
@@ -67,7 +68,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// <returns>The setting value, or null if not found.</returns>
         internal object GetSetting(string providerName, string settingName)
         {
-            if (ProviderSettings.TryGetValue(providerName, out var settings) &&
+            if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
                 settings.TryGetValue(settingName, out var value))
             {
                 var descriptors = GetProviderDescriptors(providerName);
@@ -78,6 +79,7 @@ namespace SmartHopper.Infrastructure.Settings
                     Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
                     return Decrypt(value.ToString());
                 }
+
                 Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
                 return value;
             }
@@ -104,9 +106,10 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="value">The setting value.</param>
         internal void SetSetting(string providerName, string settingName, object value)
         {
-            if (!this.ProviderSettings.ContainsKey(providerName))
+            if (!this.ProviderSettings.TryGetValue(providerName, out Dictionary<string, object>? settingsValue))
             {
-                this.ProviderSettings[providerName] = new Dictionary<string, object>();
+                settingsValue = new Dictionary<string, object>();
+                this.ProviderSettings[providerName] = settingsValue;
             }
 
             var descriptors = GetProviderDescriptors(providerName);
@@ -115,12 +118,12 @@ namespace SmartHopper.Infrastructure.Settings
             if (descriptor?.IsSecret == true && value != null)
             {
                 Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
-                this.ProviderSettings[providerName][settingName] = Encrypt(value.ToString());
+                settingsValue[settingName] = Encrypt(settingsValue.ToString());
             }
             else
             {
                 Debug.WriteLine($"[Settings] Storing value for {providerName}.{settingName} = {value}");
-                this.ProviderSettings[providerName][settingName] = value;
+                settingsValue[settingName] = value;
             }
         }
 
@@ -131,7 +134,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="settingName">The name of the setting.</param>
         internal void RemoveSetting(string providerName, string settingName)
         {
-            if (ProviderSettings.TryGetValue(providerName, out var settings))
+            if (this.ProviderSettings.TryGetValue(providerName, out var settings))
             {
                 settings.Remove(settingName);
             }
@@ -165,19 +168,23 @@ namespace SmartHopper.Infrastructure.Settings
         internal bool IntegrityCheck()
         {
             // Skip integrity check if no providers loaded yet
-            var providers = ProviderManager.Instance.GetProviders();
+            var providers = ProviderManager.Instance.GetProviders(includeUntrusted: true);
             if (providers == null || !providers.Any())
             {
                 Debug.WriteLine("[Settings] Skipping integrity check: no providers loaded yet.");
                 return true;
             }
+
             bool isValid = true;
             var invalidSettings = new List<(string Provider, string Setting)>();
 
             foreach (var provider in this.ProviderSettings.Keys.ToList())
             {
                 var descriptors = GetProviderDescriptors(provider);
-                if (descriptors == null || !descriptors.Any()) continue;
+                if (descriptors == null || !descriptors.Any())
+                {
+                    continue;
+                }
 
                 // Check for unknown settings
                 var knownSettingNames = descriptors.Select(d => d.Name).ToList();
@@ -223,7 +230,7 @@ namespace SmartHopper.Infrastructure.Settings
                 }
 
                 // Get providers safely, avoiding potential circular initialization
-                var providers = ProviderManager.Instance.GetProviders();
+                var providers = ProviderManager.Instance.GetProviders(includeUntrusted: true);
                 if (providers == null)
                 {
                     Debug.WriteLine("No providers available to refresh");
@@ -294,8 +301,8 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 using (Aes aes = Aes.Create())
                 {
-                    aes.Key = _key;
-                    aes.IV = _iv;
+                    aes.Key = key;
+                    aes.IV = iv;
 
                     using (var encryptor = aes.CreateEncryptor())
                     using (var msEncrypt = new MemoryStream())
@@ -326,7 +333,10 @@ namespace SmartHopper.Infrastructure.Settings
         /// <returns>The decrypted string.</returns>
         private static string Decrypt(string encryptedText)
         {
-            if (string.IsNullOrEmpty(encryptedText)) return encryptedText;
+            if (string.IsNullOrEmpty(encryptedText))
+            {
+                return encryptedText;
+            }
 
             try
             {
@@ -334,8 +344,8 @@ namespace SmartHopper.Infrastructure.Settings
 
                 using (Aes aes = Aes.Create())
                 {
-                    aes.Key = _key;
-                    aes.IV = _iv;
+                    aes.Key = key;
+                    aes.IV = iv;
 
                     using (var decryptor = aes.CreateDecryptor())
                     using (var msDecrypt = new MemoryStream(cipherText))
@@ -349,6 +359,7 @@ namespace SmartHopper.Infrastructure.Settings
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error decrypting string: {ex.Message}");
+
                 // If decryption fails, return the original string
                 return encryptedText;
             }
@@ -358,7 +369,10 @@ namespace SmartHopper.Infrastructure.Settings
         {
             var ui = ProviderManager.Instance.GetProviderSettings(providerName);
             if (ui == null)
+            {
                 return Enumerable.Empty<SettingDescriptor>();
+            }
+
             return ui.GetSettingDescriptors();
         }
 
@@ -377,12 +391,12 @@ namespace SmartHopper.Infrastructure.Settings
 
                     if (settings != null)
                     {
-                        // Force integrity check and ensure all settings are valid
-                        settings.IntegrityCheck();
-
-                        // Don't automatically refresh providers here to avoid circular dependency
+                        // Don't run IntegrityCheck during Load to avoid circular dependency with ProviderManager.
+                        // IntegrityCheck should be called explicitly after both SmartHopperSettings and ProviderManager
+                        // are fully initialized.
+                        // Don't automatically refresh providers here to avoid circular dependency.
                         // This should happen explicitly after both SmartHopperSettings and ProviderManager
-                        // are fully initialized
+                        // are fully initialized.
                         return settings;
                     }
                 }

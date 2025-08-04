@@ -46,49 +46,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         }
 
         /// <summary>
-        /// Removes providers that are no longer trusted according to current settings.
-        /// </summary>
-        private void RemoveUntrustedProviders()
-        {
-            try
-            {
-                var settings = SmartHopperSettings.Instance;
-                var providersToRemove = new List<string>();
-
-                foreach (var providerPair in _providers)
-                {
-                    var providerName = providerPair.Key;
-                    var provider = providerPair.Value;
-
-                    // Get assembly name for trust checking
-                    if (_providerAssemblies.TryGetValue(providerName, out var assembly))
-                    {
-                        var asmName = assembly.GetName().Name;
-                        // If provider is explicitly untrusted, mark for removal
-                        if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
-                        {
-                            providersToRemove.Add(providerName);
-                            Debug.WriteLine($"[ProviderManager] Marking untrusted provider '{providerName}' for removal.");
-                        }
-                    }
-                }
-
-                // Remove untrusted providers from all dictionaries
-                foreach (var providerName in providersToRemove)
-                {
-                    _providers.Remove(providerName);
-                    _providerSettings.Remove(providerName);
-                    _providerAssemblies.Remove(providerName);
-                    Debug.WriteLine($"[ProviderManager] Removed untrusted provider '{providerName}'.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ProviderManager] Error removing untrusted providers: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// Discovers and loads provider assemblies from the same directory as the main application.
         /// </summary>
         private void DiscoverProviders()
@@ -101,17 +58,8 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
                 // Find all external provider DLLs
                 string[] providerFiles = Directory.GetFiles(baseDirectory, "SmartHopper.Providers.*.dll");
-                var settings = SmartHopperSettings.Instance;
                 foreach (string providerFile in providerFiles)
                 {
-                    var asmName = Path.GetFileNameWithoutExtension(providerFile);
-                    // Skip providers the user has rejected
-                    if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
-                    {
-                        Debug.WriteLine($"Provider '{asmName}' rejected, skipping.");
-                        continue;
-                    }
-
                     try
                     {
                         LoadProviderAssembly(providerFile);
@@ -135,10 +83,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
             
-            // First, remove any providers that are no longer trusted
-            RemoveUntrustedProviders();
-            
-            // Then discover new providers
+            // Discover new providers
             DiscoverProviders();
 
             // After discovery, refresh settings for all providers
@@ -171,13 +116,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 var settings = SmartHopperSettings.Instance;
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
 
-                // Skip providers the user has previously rejected
-                if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
-                {
-                    Debug.WriteLine($"Provider '{asmName}' previously rejected, skipping.");
-                    return;
-                }
-
                 // Prompt user for providers with no trust entry
                 if (!settings.TrustedProviders.ContainsKey(asmName))
                 {
@@ -195,8 +133,6 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     {
                         settings.TrustedProviders[asmName] = false;
                         settings.Save();
-                        Debug.WriteLine($"Provider '{asmName}' not allowed by user, skipping.");
-                        return;
                     }
                 }
 
