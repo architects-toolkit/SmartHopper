@@ -73,7 +73,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     Text = provider.Name,
                     Font = new Font(SystemFont.Default, 11)
                 };
-                _providerCheckBoxes[provider.GetType().FullName] = checkbox;
+                _providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
 
                 // Add provider icon if available
                 if (provider.Icon != null)
