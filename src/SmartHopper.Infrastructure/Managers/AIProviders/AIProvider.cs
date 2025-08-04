@@ -81,7 +81,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     // Store capabilities to ModelManager
                     foreach (var capability in capabilitiesDict)
                     {
-                        var defaultFor = defaultModelsDict.ContainsKey(capability.Key) ? defaultModelsDict[capability.Key] : AIModelCapability.None;
+                        var defaultFor = FindDefaultCapabilityForModel(capability.Key, defaultModelsDict);
                         
                         ModelManager.ModelManager.Instance.RegisterCapabilities(
                             this.Name,
@@ -506,6 +506,44 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Finds the default capability for a model by checking exact matches first, then wildcard patterns.
+        /// Supports both directions: wildcard in capabilities matching specific in defaults, and vice versa.
+        /// </summary>
+        /// <param name="modelName">The model name from capabilities (may contain wildcards).</param>
+        /// <param name="defaultModelsDict">Dictionary of default models with their capabilities.</param>
+        /// <returns>The default capability for the model, or AIModelCapability.None if no match found.</returns>
+        private static AIModelCapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AIModelCapability> defaultModelsDict)
+        {
+            // First, try exact match (existing behavior)
+            if (defaultModelsDict.ContainsKey(modelName))
+            {
+                return defaultModelsDict[modelName];
+            }
+
+            // If modelName contains wildcard, match against specific names in defaults
+            if (modelName.Contains("*"))
+            {
+                var pattern = modelName.Replace("*", "");
+                var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
+                if (!matchingDefault.Equals(default(KeyValuePair<string, AIModelCapability>)))
+                {
+                    return matchingDefault.Value;
+                }
+            }
+            
+            // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
+            var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp => 
+                kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
+            if (!matchingWildcard.Equals(default(KeyValuePair<string, AIModelCapability>)))
+            {
+                return matchingWildcard.Value;
+            }
+
+            // No match found
+            return AIModelCapability.None;
         }
     }
 }
