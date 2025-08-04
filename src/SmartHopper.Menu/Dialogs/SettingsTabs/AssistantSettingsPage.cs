@@ -61,12 +61,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Header
             layout.Add(new Label
             {
-                Text = "SmartHopper Assistant",
+                Text = "SmartHopper Canvas Assistant",
                 Font = new Font(SystemFont.Bold, 12)
             });
             layout.Add(new Label
             {
-                Text = "Configure settings for the SmartHopper Assistant. Talk to it by clicking on the top-right button in the canvas.",
+                Text = "Configure settings for the SmartHopper Canvas Assistant. Talk to it by clicking on the top-right button in the canvas.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
