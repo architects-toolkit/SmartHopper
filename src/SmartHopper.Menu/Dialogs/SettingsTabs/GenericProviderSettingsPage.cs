@@ -1,0 +1,321 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Eto.Drawing;
+using Eto.Forms;
+using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.Models;
+
+namespace SmartHopper.Menu.Dialogs.SettingsTabs
+{
+    /// <summary>
+    /// Generic settings page that dynamically creates UI controls for any AI provider's settings based on their setting descriptors
+    /// </summary>
+    public class GenericProviderSettingsPage : Panel
+    {
+        private readonly IAIProvider _provider;
+        private readonly Dictionary<string, Control> _controls;
+        private readonly Dictionary<string, string> _originalValues;
+        private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories;
+
+        /// <summary>
+        /// Initializes a new instance of the GenericProviderSettingsPage class
+        /// </summary>
+        /// <param name="provider">The AI provider whose settings to display</param>
+        public GenericProviderSettingsPage(IAIProvider provider)
+        {
+            _provider = provider;
+            _controls = new Dictionary<string, Control>();
+            _originalValues = new Dictionary<string, string>();
+
+            // Initialize control factories
+            _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
+            {
+                [typeof(string)] = CreateStringControl,
+                [typeof(int)] = CreateNumericControl,
+                [typeof(double)] = CreateNumericControl,
+                [typeof(bool)] = CreateBooleanControl
+            };
+
+            CreateLayout();
+        }
+
+        /// <summary>
+        /// Creates the layout and controls for this provider's settings
+        /// </summary>
+        private void CreateLayout()
+        {
+            var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+            var descriptors = _provider.GetSettingDescriptors().ToList();
+
+            if (!descriptors.Any())
+            {
+                // No settings available
+                layout.Rows.Add(new TableRow(
+                    new TableCell(new Label
+                    {
+                        Text = "No configurable settings available for this provider.",
+                        TextColor = Colors.Gray,
+                        Font = new Font(SystemFont.Default, 10),
+                        VerticalAlignment = VerticalAlignment.Center
+                    })
+                ));
+            }
+            else
+            {
+                // Load current provider settings
+                var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(_provider.Name);
+
+                // Create controls for each setting
+                foreach (var descriptor in descriptors)
+                {
+                    var control = CreateControlForDescriptor(descriptor);
+                    if (control != null)
+                    {
+                        _controls[descriptor.Name] = control;
+
+                        // Load current value
+                        LoadSettingValue(descriptor, control, providerSettings);
+
+                        // Create row with label and control
+                        var labelText = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name;
+                        layout.Rows.Add(new TableRow(
+                            new TableCell(new Label { Text = labelText + ":", VerticalAlignment = VerticalAlignment.Center }),
+                            new TableCell(control)
+                        ));
+
+                        // Add description if available
+                        if (!string.IsNullOrEmpty(descriptor.Description))
+                        {
+                            layout.Rows.Add(new TableRow(
+                                new TableCell(new Label
+                                {
+                                    Text = descriptor.Description,
+                                    TextColor = Colors.Gray,
+                                    Font = new Font(SystemFont.Default, 10),
+                                    Wrap = WrapMode.Word
+                                })
+                            ));
+                        }
+
+                        // Add spacing between settings
+                        layout.Rows.Add(new TableRow { ScaleHeight = false });
+                    }
+                }
+            }
+
+            // Add flexible spacing at the bottom
+            layout.Rows.Add(new TableRow { ScaleHeight = true });
+
+            Content = new Scrollable { Content = layout };
+        }
+
+        /// <summary>
+        /// Creates a control for the specified setting descriptor
+        /// </summary>
+        /// <param name="descriptor">Setting descriptor</param>
+        /// <returns>Created control or null if type not supported</returns>
+        private Control CreateControlForDescriptor(SettingDescriptor descriptor)
+        {
+            if (_controlFactories.ContainsKey(descriptor.Type))
+            {
+                return _controlFactories[descriptor.Type](descriptor);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Creates a string control (TextBox, PasswordBox, or DropDown)
+        /// </summary>
+        /// <param name="descriptor">Setting descriptor</param>
+        /// <returns>Created control</returns>
+        private Control CreateStringControl(SettingDescriptor descriptor)
+        {
+            // If descriptor has allowed values, render a dropdown
+            if (descriptor.AllowedValues != null && descriptor.AllowedValues.Any())
+            {
+                var dropdown = new DropDown();
+                foreach (var val in descriptor.AllowedValues)
+                {
+                    dropdown.Items.Add(new ListItem { Text = val.ToString() });
+                }
+                return dropdown;
+            }
+
+            // If descriptor is secret, render a password box
+            if (descriptor.IsSecret)
+            {
+                return new PasswordBox();
+            }
+
+            // Default to text box
+            return new TextBox();
+        }
+
+        /// <summary>
+        /// Creates a numeric control (NumericStepper)
+        /// </summary>
+        /// <param name="descriptor">Setting descriptor</param>
+        /// <returns>Created control</returns>
+        private Control CreateNumericControl(SettingDescriptor descriptor)
+        {
+            var numericParams = descriptor.ControlParams as NumericSettingDescriptorControl;
+            return new NumericStepper
+            {
+                MinValue = numericParams?.Min ?? (descriptor.Type == typeof(int) ? int.MinValue : double.MinValue),
+                MaxValue = numericParams?.Max ?? (descriptor.Type == typeof(int) ? int.MaxValue : double.MaxValue),
+                Increment = numericParams?.Step ?? 1,
+                DecimalPlaces = descriptor.Type == typeof(double) ? 2 : 0
+            };
+        }
+
+        /// <summary>
+        /// Creates a boolean control (CheckBox)
+        /// </summary>
+        /// <param name="descriptor">Setting descriptor</param>
+        /// <returns>Created control</returns>
+        private Control CreateBooleanControl(SettingDescriptor descriptor)
+        {
+            return new CheckBox
+            {
+                Text = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name
+            };
+        }
+
+        /// <summary>
+        /// Loads the current setting value into the control
+        /// </summary>
+        /// <param name="descriptor">Setting descriptor</param>
+        /// <param name="control">Control to load value into</param>
+        /// <param name="providerSettings">Current provider settings</param>
+        private void LoadSettingValue(SettingDescriptor descriptor, Control control, Dictionary<string, object> providerSettings)
+        {
+            var currentValue = providerSettings.ContainsKey(descriptor.Name) 
+                ? providerSettings[descriptor.Name] 
+                : descriptor.DefaultValue;
+
+            var stringValue = currentValue?.ToString() ?? string.Empty;
+            _originalValues[descriptor.Name] = stringValue;
+
+            switch (control)
+            {
+                case TextBox textBox:
+                    textBox.Text = stringValue;
+                    break;
+                case PasswordBox passwordBox:
+                    passwordBox.Text = stringValue;
+                    break;
+                case NumericStepper numericStepper:
+                    if (double.TryParse(stringValue, out var numValue))
+                    {
+                        numericStepper.Value = numValue;
+                    }
+                    else if (descriptor.DefaultValue != null)
+                    {
+                        numericStepper.Value = Convert.ToDouble(descriptor.DefaultValue);
+                    }
+                    break;
+                case CheckBox checkBox:
+                    if (bool.TryParse(stringValue, out var boolValue))
+                    {
+                        checkBox.Checked = boolValue;
+                    }
+                    else if (descriptor.DefaultValue != null)
+                    {
+                        checkBox.Checked = Convert.ToBoolean(descriptor.DefaultValue);
+                    }
+                    break;
+                case DropDown dropDown:
+                    for (int i = 0; i < dropDown.Items.Count; i++)
+                    {
+                        if (dropDown.Items[i].Text == stringValue)
+                        {
+                            dropDown.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                    // If no match found and there's a default value, try that
+                    if (dropDown.SelectedIndex < 0 && descriptor.DefaultValue != null)
+                    {
+                        var defaultStr = descriptor.DefaultValue.ToString();
+                        for (int i = 0; i < dropDown.Items.Count; i++)
+                        {
+                            if (dropDown.Items[i].Text == defaultStr)
+                            {
+                                dropDown.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Saves the current UI control values back to the provider settings
+        /// </summary>
+        public void SaveSettings()
+        {
+            var updatedSettings = new Dictionary<string, object>();
+            var descriptors = _provider.GetSettingDescriptors().ToList();
+
+            foreach (var descriptor in descriptors)
+            {
+                if (!_controls.ContainsKey(descriptor.Name))
+                    continue;
+
+                var control = _controls[descriptor.Name];
+                object newValue = null;
+
+                switch (control)
+                {
+                    case TextBox textBox:
+                        newValue = textBox.Text;
+                        break;
+                    case PasswordBox passwordBox:
+                        newValue = passwordBox.Text;
+                        // For sensitive data, only update if changed and not empty
+                        if (descriptor.IsSecret && _originalValues.ContainsKey(descriptor.Name) && 
+                            passwordBox.Text == _originalValues[descriptor.Name])
+                        {
+                            continue; // Skip unchanged values
+                        }
+                        break;
+                    case NumericStepper numericStepper:
+                        newValue = descriptor.Type == typeof(int) ? (int)numericStepper.Value : numericStepper.Value;
+                        break;
+                    case CheckBox checkBox:
+                        newValue = checkBox.Checked ?? false;
+                        break;
+                    case DropDown dropDown:
+                        if (dropDown.SelectedIndex >= 0)
+                        {
+                            newValue = dropDown.Items[dropDown.SelectedIndex].Text;
+                        }
+                        break;
+                }
+
+                if (newValue != null)
+                {
+                    updatedSettings[descriptor.Name] = newValue;
+                }
+            }
+
+            // Update provider settings via ProviderManager
+            if (updatedSettings.Any())
+            {
+                SmartHopper.Infrastructure.Managers.AIProviders.ProviderManager.Instance.UpdateProviderSettings(_provider.Name, updatedSettings);
+            }
+        }
+    }
+}

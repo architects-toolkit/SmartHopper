@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New tests for Context Manager and Model Manager.
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
 
+### Changed
+
+- AI Chat component default system prompt to a generic one.
+- Settings dialog now organized in tabs.
+  - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
+  - Added tab for Trusted Providers configuration.
+
 ## [0.5.1-alpha] - 2025-07-30
 
 ### Added
