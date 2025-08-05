@@ -71,7 +71,7 @@ namespace SmartHopper.Providers.OpenAI
                         Min = 1,
                         Max = 100000,
                         Step = 1,
-                    }
+                    },
                 },
                 new SettingDescriptor
                 {
@@ -107,9 +107,9 @@ namespace SmartHopper.Providers.OpenAI
             var showErrorDialogs = true;
 
             // Extract values from settings dictionary
-            string apiKey = null;
-            string model = null;
-            string reasoningEffort = null;
+            string? apiKey = null;
+            string? model = null;
+            string? reasoningEffort = null;
             int? maxTokens = null;
             double? temperature = null;
 
@@ -146,6 +146,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
                     }
+
                     return false;
                 }
             }
@@ -166,6 +167,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
                     }
+
                     return false;
                 }
             }
@@ -185,6 +187,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
                     }
+
                     return false;
                 }
             }

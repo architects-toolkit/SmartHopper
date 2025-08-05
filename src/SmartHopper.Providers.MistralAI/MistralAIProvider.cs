@@ -14,10 +14,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Utils;
 
@@ -28,13 +26,13 @@ namespace SmartHopper.Providers.MistralAI
         private const string NameValue = "MistralAI";
         private const string DefaultServerUrlValue = "https://api.mistral.ai/v1";
 
-        private static readonly Lazy<MistralAIProvider> InstanceValue = new(() => new MistralAIProvider());
+        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
 
         public static MistralAIProvider Instance => InstanceValue.Value;
 
         private MistralAIProvider()
         {
-            Models = new MistralAIProviderModels(this, this.CallApi);
+            this.Models = new MistralAIProviderModels(this, this.CallApi);
         }
 
         public override string Name => NameValue;
@@ -147,14 +145,14 @@ namespace SmartHopper.Providers.MistralAI
                 // Add response format for structured output
                 requestBody["response_format"] = new JObject
                 {
-                    ["type"] = "json_object"
+                    ["type"] = "json_object",
                 };
 
                 // Add schema as a system message to guide the model
                 var systemMessage = new JObject
                 {
                     ["role"] = "system",
-                    ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema
+                    ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema,
                 };
                 convertedMessages.Insert(0, systemMessage);
             }
@@ -175,7 +173,7 @@ namespace SmartHopper.Providers.MistralAI
             try
             {
                 // Use the new Call method for HTTP request
-                var responseContent = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
+                var responseContent = await this.CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
                 var responseJson = JObject.Parse(responseContent);
                 Debug.WriteLine($"[MistralAI] Response parsed successfully");
 

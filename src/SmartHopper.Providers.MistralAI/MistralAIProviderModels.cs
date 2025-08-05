@@ -25,11 +25,17 @@ namespace SmartHopper.Providers.MistralAI
     /// </summary>
     public class MistralAIProviderModels : AIProviderModels
     {
-        private readonly MistralAIProvider _mistralProvider;
+        private readonly MistralAIProvider mistralProvider;
 
-        public MistralAIProviderModels(MistralAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MistralAIProviderModels"/> class.
+        /// </summary>
+        /// <param name="provider">The MistralAI provider instance.</param>
+        /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
+        public MistralAIProviderModels(MistralAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
+            : base(provider, apiCaller)
         {
-            this._mistralProvider = provider;
+            this.mistralProvider = provider;
         }
 
         /// <summary>
@@ -42,7 +48,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine("[MistralAI] Retrieving available models");
 
-                var content = await this._apiCaller("/models","GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;
                 var modelNames = new List<string>();
@@ -51,7 +57,10 @@ namespace SmartHopper.Providers.MistralAI
                     foreach (var item in data.OfType<JObject>())
                     {
                         var name = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(name)) modelNames.Add(name);
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            modelNames.Add(name);
+                        }
                     }
                 }
 
@@ -77,7 +86,7 @@ namespace SmartHopper.Providers.MistralAI
                 Debug.WriteLine("[MistralAI] Fetching models and capabilities via API");
 
                 // Get list of available models
-                var models = await this.RetrieveAvailable();
+                var models = await this.RetrieveAvailable().ConfigureAwait(false);
 
                 // If no models were retrieved (likely due to API key issue), return default capabilities
                 if (models == null || models.Count == 0)
@@ -101,10 +110,12 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         capabilities |= AIModelCapability.BasicChat;
                     }
+
                     if (modelInfo?.capabilities?.function_calling == true)
                     {
                         capabilities |= AIModelCapability.FunctionCalling;
                     }
+
                     if (modelInfo?.capabilities?.vision == true)
                     {
                         capabilities |= AIModelCapability.ImageInput;
@@ -123,6 +134,7 @@ namespace SmartHopper.Providers.MistralAI
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MistralAI] Error in RetrieveCapabilities: {ex.Message}");
+
                 // Return default capabilities on error
                 return GetDefaultCapabilities();
             }
@@ -131,7 +143,7 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <summary>
-        /// Gets all default models supported by MistralAI
+        /// Gets all default models supported by MistralAI.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
         public override Dictionary<string, AIModelCapability> RetrieveDefault()
@@ -149,7 +161,7 @@ namespace SmartHopper.Providers.MistralAI
         /// Used when API is not available (e.g., during initialization without API key).
         /// </summary>
         /// <returns>Dictionary of default model capabilities.</returns>
-        private Dictionary<string, AIModelCapability> GetDefaultCapabilities()
+        private static Dictionary<string, AIModelCapability> GetDefaultCapabilities()
         {
             var result = new Dictionary<string, AIModelCapability>();
 
