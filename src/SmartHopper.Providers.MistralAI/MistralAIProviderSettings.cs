@@ -95,8 +95,8 @@ namespace SmartHopper.Providers.MistralAI
             var showErrorDialogs = true;
 
             // Extract values from settings dictionary
-            string apiKey = null;
-            string model = null;
+            string? apiKey = null;
+            string? model = null;
             int? maxTokens = null;
             double? temperature = null;
 

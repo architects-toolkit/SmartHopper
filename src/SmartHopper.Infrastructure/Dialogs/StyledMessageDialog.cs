@@ -195,7 +195,7 @@ namespace SmartHopper.Infrastructure.Dialogs
         {
             Info,
             Warning,
-            Error
+            Error,
         }
 
         /// <summary>

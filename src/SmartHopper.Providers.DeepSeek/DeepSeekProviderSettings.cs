@@ -25,13 +25,14 @@ namespace SmartHopper.Providers.DeepSeek
     /// </summary>
     public class DeepSeekProviderSettings : AIProviderSettings
     {
-        private readonly IAIProvider provider;
+        private new readonly IAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public DeepSeekProviderSettings(IAIProvider provider) : base(provider)
+        public DeepSeekProviderSettings(IAIProvider provider)
+            : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
@@ -101,8 +102,8 @@ namespace SmartHopper.Providers.DeepSeek
             var showErrorDialogs = true;
 
             // Extract values from settings dictionary
-            string apiKey = null;
-            string model = null;
+            string? apiKey = null;
+            string? model = null;
             int? maxTokens = null;
             double? temperature = null;
 

@@ -33,6 +33,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;
+        private Dictionary<string, object> _defaultSettings;
 
         /// <summary>
         /// Gets the models manager for this provider.
@@ -65,44 +66,77 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
         /// </summary>
         public virtual async Task InitializeProviderAsync()
         {
-            // Initialize the provider with its settings from SmartHopperSettings
-            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
-            if (settingsDict != null)
-            {
-                this.RefreshCachedSettings(settingsDict);
-            }
-
             try
             {
+                // STEP 1: Register models FIRST to make them available for default value resolution
                 // Prevent reloading capabilities if already initialized
-                if (ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
+                if (!ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
+                {
+                    Debug.WriteLine($"[{this.Name}] Registering model capabilities");
+                    
+                    // Initialize the models manager asynchronously
+                    var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
+                    var defaultModelsDict = this.Models.RetrieveDefault();
+
+                    // Store capabilities to ModelManager
+                    foreach (var capability in capabilitiesDict)
+                    {
+                        var defaultFor = FindDefaultCapabilityForModel(capability.Key, defaultModelsDict);
+                        
+                        ModelManager.ModelManager.Instance.RegisterCapabilities(
+                            this.Name,
+                            capability.Key,
+                            capability.Value,
+                            defaultFor);
+                    }
+                }
+                else
                 {
                     Debug.WriteLine($"[{this.Name}] Capabilities already initialized, skipping reload");
-                    return;
-                }
-
-                // Initialize the models manager asynchronously
-                var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
-
-                var defaultModelsDict = this.Models.RetrieveDefault();
-
-                // Store capabilities to ModelManager
-                foreach (var capability in capabilitiesDict)
-                {
-                    var defaultFor = defaultModelsDict.ContainsKey(capability.Key) ? defaultModelsDict[capability.Key] : AIModelCapability.None;
-                    
-                    ModelManager.ModelManager.Instance.RegisterCapabilities(
-                        this.Name,
-                        capability.Key,
-                        capability.Value,
-                        defaultFor);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Error during async initialization: {ex.Message}");
-                // Continue initialization even if capability retrieval fails
+                Debug.WriteLine($"[{this.Name}] Error during model registration: {ex.Message}");
+                // Continue initialization even if model registration fails
             }
+
+            // STEP 2: Now load settings with models available for lazy default resolution
+            // Initialize the provider with its settings from SmartHopperSettings
+            var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(this.Name);
+            if (settingsDict == null)
+            {
+                settingsDict = new Dictionary<string, object>();
+            }
+
+            // Load default values to a separate dictionary to prevent circular dependencies during retrieval
+            this._defaultSettings = new Dictionary<string, object>();
+            try
+            {
+                var descriptors = this.GetSettingDescriptors();
+                foreach (var descriptor in descriptors)
+                {
+                    if (descriptor.DefaultValue != null)
+                    {
+                        this._defaultSettings[descriptor.Name] = descriptor.DefaultValue;
+                        
+                        // Also add to settingsDict if not already present
+                        if (!settingsDict.ContainsKey(descriptor.Name))
+                        {
+                            settingsDict[descriptor.Name] = descriptor.DefaultValue;
+                            Debug.WriteLine($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Warning: Could not load default values during initialization: {ex.Message}");
+                // Continue initialization even if default value loading fails
+            }
+
+            // Apply all settings (stored + defaults) to the provider
+            this.RefreshCachedSettings(settingsDict);
         }
 
         /// <summary>
@@ -184,14 +218,18 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
             if (!this._injectedSettings.TryGetValue(key, out var value) || value == null)
             {
-                // Try to get the default value from the descriptor
-                var descriptor = this.GetSettingDescriptors().FirstOrDefault(d => d.Name == key);
-                if (descriptor?.DefaultValue != null && descriptor.DefaultValue is T defaultValue)
+                // Check _defaultSettings field for default value (loaded during initialization)
+                if (this._defaultSettings != null && this._defaultSettings.TryGetValue(key, out var defaultValue) && defaultValue != null)
                 {
-                    return defaultValue;
+                    value = defaultValue;
+                    Debug.WriteLine($"[{this.Name}] Using default value for setting '{key}': {defaultValue}");
                 }
-
-                return default;
+                else
+                {
+                    // No default value available, return type default
+                    Debug.WriteLine($"[{this.Name}] No value or default found for setting '{key}'");
+                    return default;
+                }
             }
 
             // Handle type conversion
@@ -468,6 +506,44 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Finds the default capability for a model by checking exact matches first, then wildcard patterns.
+        /// Supports both directions: wildcard in capabilities matching specific in defaults, and vice versa.
+        /// </summary>
+        /// <param name="modelName">The model name from capabilities (may contain wildcards).</param>
+        /// <param name="defaultModelsDict">Dictionary of default models with their capabilities.</param>
+        /// <returns>The default capability for the model, or AIModelCapability.None if no match found.</returns>
+        private static AIModelCapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AIModelCapability> defaultModelsDict)
+        {
+            // First, try exact match (existing behavior)
+            if (defaultModelsDict.ContainsKey(modelName))
+            {
+                return defaultModelsDict[modelName];
+            }
+
+            // If modelName contains wildcard, match against specific names in defaults
+            if (modelName.Contains("*"))
+            {
+                var pattern = modelName.Replace("*", "");
+                var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
+                if (!matchingDefault.Equals(default(KeyValuePair<string, AIModelCapability>)))
+                {
+                    return matchingDefault.Value;
+                }
+            }
+            
+            // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
+            var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp =>
+                kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
+            if (!matchingWildcard.Equals(default(KeyValuePair<string, AIModelCapability>)))
+            {
+                return matchingWildcard.Value;
+            }
+
+            // No match found
+            return AIModelCapability.None;
         }
     }
 }

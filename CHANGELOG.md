@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New tests for Context Manager and Model Manager.
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
 
+### Changed
+
+- AI Chat component default system prompt to a generic one.
+- Settings dialog now organized in tabs.
+  - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
+  - Added tab for Trusted Providers configuration.
+- Improved API key encryption. Includes migration method.
+
 ## [0.5.1-alpha] - 2025-07-30
 
 ### Added
@@ -23,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Greeting generation was using stored settings models instead of the provider's default model. To solve it, now if `AIUtils.GetResponse` doesn't get a model, it will use the provider's default model.
 - Components triggered with a Boolean Toggle (permanent true value) weren't calculating when the toggle was turned to true.
 - Lazy default values in `AI Provider Settings` to prevent race conditions at initialization.
-- Fixed "List length in list_generate was not met for long requests" ([#277](https://github.com/architects-toolkit/SmartHopper/issues/277)
+- Fixed "List length in list_generate was not met for long requests" ([#277](https://github.com/architects-toolkit/SmartHopper/issues/277)).
 
 ## [0.5.0-alpha] - 2025-07-29
 

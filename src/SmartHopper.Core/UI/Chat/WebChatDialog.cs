@@ -934,7 +934,9 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Check if AI greeting is enabled in settings
                 var settings = SmartHopperSettings.Instance;
-                if (!settings.EnableAIGreeting)
+
+                // TODO: Generate greeting only for SmartHopper Assistant, not all chats
+                if (!settings.SmartHopperAssistant.EnableAIGreeting)
                 {
                     // Skip greeting entirely if disabled
                     await Application.Instance.InvokeAsync(() =>
