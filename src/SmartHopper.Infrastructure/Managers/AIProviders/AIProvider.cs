@@ -30,6 +30,28 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
+    /// <typeparam name="T">The type of the derived provider class.</typeparam>
+    public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
+    {
+        private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
+        
+        /// <summary>
+        /// Gets the singleton instance of the provider.
+        /// </summary>
+        public static T Instance => InstanceValue.Value;
+        
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
+        /// Protected constructor to enforce the singleton pattern.
+        /// </summary>
+        protected AIProvider()
+        {
+        }
+    }
+    
+    /// <summary>
+    /// Base class for AI providers, encapsulating common logic.
+    /// </summary>
     public abstract class AIProvider : IAIProvider
     {
         private Dictionary<string, object> _injectedSettings;

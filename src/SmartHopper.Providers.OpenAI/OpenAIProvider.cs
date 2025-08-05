@@ -26,18 +26,8 @@ namespace SmartHopper.Providers.OpenAI
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public sealed class OpenAIProvider : AIProvider
+    public sealed class OpenAIProvider : AIProvider<OpenAIProvider>
     {
-        private const string NameValue = "OpenAI";
-        private const string DefaultServerUrlValue = "https://api.openai.com/v1";
-
-        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
-
-        /// <summary>
-        /// Gets the singleton instance of the OpenAI provider.
-        /// </summary>
-        public static OpenAIProvider Instance => InstanceValue.Value;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenAIProvider"/> class.
         /// </summary>
@@ -49,15 +39,15 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
-        public override string Name => NameValue;
+        public override string Name => "OpenAI";
 
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => DefaultServerUrlValue;
+        public override string DefaultServerUrl => "https://api.openai.com/v1";
 
         /// <summary>
-        /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
+        /// Gets a value indicating whether this provider is enabled and should be available for use.
         /// </summary>
         public override bool IsEnabled => true;
 
