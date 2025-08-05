@@ -328,8 +328,7 @@ namespace SmartHopper.Components.Img
             catch (Exception ex)
             {
                 // Log cleanup failure but don't throw - this is cleanup code
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, 
-                    $"Failed to cleanup temp file {tempFilePath}: {ex.Message}");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to cleanup temp file {tempFilePath}: {ex.Message}");
             }
         }
 
