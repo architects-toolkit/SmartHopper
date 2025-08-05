@@ -59,9 +59,7 @@ namespace SmartHopper.Components.Grasshopper
         /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            /// <summary>
-            /// The list of component names output parameter.
-            /// </summary>
+            // The list of component names output parameter.
             pManager.AddTextParameter("Components", "C", "List of components", GH_ParamAccess.list);
         }
 
