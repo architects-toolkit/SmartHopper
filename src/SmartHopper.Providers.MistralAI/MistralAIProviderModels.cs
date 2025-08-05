@@ -150,7 +150,7 @@ namespace SmartHopper.Providers.MistralAI
         {
             var result = new Dictionary<string, AIModelCapability>();
 
-            result["mistral-small-latest"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ImageInput;
+            result["mistral-small-latest"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
             result["magistral-small-latest"] = AIModelCapability.ReasoningChat;
 
             return result;
