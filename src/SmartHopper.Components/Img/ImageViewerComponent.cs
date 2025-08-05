@@ -24,7 +24,7 @@ namespace SmartHopper.Components.Img
     {
         private Bitmap _displayBitmap;
         private readonly object _bitmapLock = new object();
-        
+
         // Execution throttling fields
         private DateTime _lastSaveTime = DateTime.MinValue;
         private string _lastSavedPath = string.Empty;
@@ -135,8 +135,7 @@ namespace SmartHopper.Components.Img
 
                     if (isSameFile && timeSinceLastSave < this._minSaveInterval)
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, 
-                            $"Save throttled. Wait {(this._minSaveInterval - timeSinceLastSave).TotalMilliseconds:F0}ms before next save.");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Save throttled. Wait {(this._minSaveInterval - timeSinceLastSave).TotalMilliseconds:F0}ms before next save.");
                         return;
                     }
 
@@ -144,16 +143,14 @@ namespace SmartHopper.Components.Img
                     var directory = Path.GetDirectoryName(filePath);
                     if (!EnsureDirectoryExists(directory))
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            $"Failed to create directory: {directory}");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to create directory: {directory}");
                         return;
                     }
 
                     // Check if target file is locked
                     if (IsFileLocked(filePath))
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, 
-                            $"File is currently locked by another process: {filePath}");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"File is currently locked by another process: {filePath}");
                         return;
                     }
 
@@ -187,38 +184,32 @@ namespace SmartHopper.Components.Img
                         this._lastSaveTime = currentTime;
                         this._lastSavedPath = filePath;
 
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, 
-                            $"Image saved successfully to: {filePath}");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Image saved successfully to: {filePath}");
                     }
                     catch (UnauthorizedAccessException ex)
                     {
                         this.CleanupTempFile(tempFilePath);
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            $"Access denied saving image: {ex.Message}. Check file permissions.");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Access denied saving image: {ex.Message}. Check file permissions.");
                     }
                     catch (DirectoryNotFoundException ex)
                     {
                         this.CleanupTempFile(tempFilePath);
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            $"Directory not found: {ex.Message}");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Directory not found: {ex.Message}");
                     }
                     catch (IOException ex)
                     {
                         this.CleanupTempFile(tempFilePath);
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            $"I/O error saving image: {ex.Message}. File may be in use.");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"I/O error saving image: {ex.Message}. File may be in use.");
                     }
                     catch (System.Runtime.InteropServices.ExternalException ex)
                     {
                         this.CleanupTempFile(tempFilePath);
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            $"GDI+ error saving image: {ex.Message}. Check image format and file path.");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"GDI+ error saving image: {ex.Message}. Check image format and file path.");
                     }
                     catch (Exception ex)
                     {
                         this.CleanupTempFile(tempFilePath);
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            $"Unexpected error saving image: {ex.Message}");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Unexpected error saving image: {ex.Message}");
                     }
                 }
                 else if (run && string.IsNullOrWhiteSpace(filePath))
@@ -251,14 +242,19 @@ namespace SmartHopper.Components.Img
 
             try
             {
-                using (var stream = File.OpenWrite(filePath))
+                // succeeded ⇒ not locked
+                using (var stream = File.Open(
+                    filePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.None))
                 {
-                    stream.Close();
+                    return false;
                 }
-                return false;
             }
             catch (IOException)
             {
+                // open failed ⇒ locked
                 return true;
             }
             catch (UnauthorizedAccessException)
@@ -277,7 +273,8 @@ namespace SmartHopper.Components.Img
             var directory = Path.GetDirectoryName(targetPath) ?? string.Empty;
             var fileName = Path.GetFileNameWithoutExtension(targetPath);
             var extension = Path.GetExtension(targetPath);
-            var tempFileName = $"{fileName}_temp_{Guid.NewGuid():N}{extension}";
+            var randomPart = Path.GetRandomFileName().Replace(".", "");
+            var tempFileName = $"{fileName}_temp_{randomPart}{extension}";
             return Path.Combine(directory, tempFileName);
         }
 
