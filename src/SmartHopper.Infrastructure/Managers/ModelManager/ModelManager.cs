@@ -168,6 +168,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 return false;
             }
 
+            Debug.WriteLine($"[ModelManager] Model '{model}' from '{provider}' has capabilities {capabilities.Capabilities.ToDetailedString()}");
             return capabilities.HasCapability(requiredCapability);
         }
 

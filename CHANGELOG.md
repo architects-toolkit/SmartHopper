@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
+- Fixed "Invalid model" when model manager was providing the wildcard instead of the actual default model name.
 
 ## [0.5.1-alpha] - 2025-07-30
 

@@ -78,16 +78,37 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
                     var defaultModelsDict = this.Models.RetrieveDefault();
 
-                    // Store capabilities to ModelManager
+                    // 1) Register every model the API knows about:
                     foreach (var capability in capabilitiesDict)
                     {
                         var defaultFor = FindDefaultCapabilityForModel(capability.Key, defaultModelsDict);
-                        
+
                         ModelManager.ModelManager.Instance.RegisterCapabilities(
                             this.Name,
                             capability.Key,
                             capability.Value,
                             defaultFor);
+
+                        Debug.WriteLine($"[{this.Name}] Registered model {capability.Key} with capabilities {capability.Value.ToDetailedString()} and default {defaultFor.ToDetailedString()}");
+                    }
+
+                    // 2) Ensure concrete defaults are in the registry:
+                    foreach (var (modelName, defaultCaps) in defaultModelsDict)
+                    {
+                        if (!capabilitiesDict.ContainsKey(modelName))
+                        {
+                            // Use RetrieveCapabilities which now handles wildcard resolution automatically
+                            var capabilities = this.Models.RetrieveCapabilities(modelName);
+
+                            ModelManager.ModelManager.Instance.RegisterCapabilities(
+                                this.Name,
+                                modelName,
+                                capabilities,
+                                defaultCaps
+                            );
+
+                            Debug.WriteLine($"[{this.Name}] Registered concrete default model {modelName} with capabilities {capabilities.ToDetailedString()} and default {defaultCaps.ToDetailedString()}");
+                        }
                     }
                 }
                 else
@@ -520,6 +541,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             // First, try exact match (existing behavior)
             if (defaultModelsDict.ContainsKey(modelName))
             {
+                Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found exact match for {modelName}: {defaultModelsDict[modelName]}");
                 return defaultModelsDict[modelName];
             }
 
@@ -530,6 +552,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
                 if (!matchingDefault.Equals(default(KeyValuePair<string, AIModelCapability>)))
                 {
+                    Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingDefault.Value}");
                     return matchingDefault.Value;
                 }
             }
@@ -539,10 +562,12 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                 kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
             if (!matchingWildcard.Equals(default(KeyValuePair<string, AIModelCapability>)))
             {
+                Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingWildcard.Value}");
                 return matchingWildcard.Value;
             }
 
             // No match found
+            Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] No match found for {modelName}");
             return AIModelCapability.None;
         }
     }
