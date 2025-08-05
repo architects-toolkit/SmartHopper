@@ -138,7 +138,7 @@ namespace SmartHopper.Infrastructure.Settings
             if (descriptor?.IsSecret == true && value != null)
             {
                 Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
-                settingsValue[settingName] = Encrypt(value.ToString()); // Fixed: encrypt the actual value, not settingsValue
+                settingsValue[settingName] = Encrypt(value.ToString());
             }
             else
             {
