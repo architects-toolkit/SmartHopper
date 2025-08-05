@@ -28,6 +28,9 @@ namespace SmartHopper.Providers.MistralAI
             this.Models = new MistralAIProviderModels(this, this.CallApi);
         }
 
+        /// <summary>
+        /// Gets the name of the provider.
+        /// </summary>
         public override string Name => "MistralAI";
 
         /// <summary>
