@@ -21,26 +21,19 @@ using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAIProvider : AIProvider
+    public sealed class MistralAIProvider : AIProvider<MistralAIProvider>
     {
-        private const string NameValue = "MistralAI";
-        private const string DefaultServerUrlValue = "https://api.mistral.ai/v1";
-
-        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
-
-        public static MistralAIProvider Instance => InstanceValue.Value;
-
         private MistralAIProvider()
         {
             this.Models = new MistralAIProviderModels(this, this.CallApi);
         }
 
-        public override string Name => NameValue;
+        public override string Name => "MistralAI";
 
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => DefaultServerUrlValue;
+        public override string DefaultServerUrl => "https://api.mistral.ai/v1";
 
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.

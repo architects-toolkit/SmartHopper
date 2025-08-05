@@ -27,16 +27,8 @@ namespace SmartHopper.Providers.DeepSeek
     /// <summary>
     /// DeepSeek AI provider implementation.
     /// </summary>
-    public class DeepSeekProvider : AIProvider
+    public class DeepSeekProvider : AIProvider<DeepSeekProvider>
     {
-        // Static instance for singleton pattern
-        private static readonly Lazy<DeepSeekProvider> InstanceValue = new(() => new DeepSeekProvider());
-
-        /// <summary>
-        /// Gets the singleton instance of the provider.
-        /// </summary>
-        public static DeepSeekProvider Instance => InstanceValue.Value;
-
         /// <summary>
         /// The name of the provider. This will be displayed in the UI and used for provider selection.
         /// </summary>
