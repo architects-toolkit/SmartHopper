@@ -113,7 +113,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
 
             // Get all wildcard capabilities (this calls the async version)
-            var capabilitiesDict = Task.Run(async () => await this.RetrieveCapabilities()).Result;
+            var capabilitiesDict = await this.RetrieveCapabilities();
             
             // First try exact match
             if (capabilitiesDict.ContainsKey(model))
