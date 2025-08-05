@@ -222,7 +222,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
             // Return only trusted providers (existing behavior)
             var settings = SmartHopperSettings.Instance;
-            return _providers.Values.Where(provider => 
+            return _providers.Values.Where(provider =>
             {
                 // Get assembly name for trust checking
                 if (_providerAssemblies.TryGetValue(provider.Name, out var assembly))
