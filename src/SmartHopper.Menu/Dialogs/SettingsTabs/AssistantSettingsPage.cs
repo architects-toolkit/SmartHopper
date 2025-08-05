@@ -24,8 +24,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     public class AssistantSettingsPage : Panel
     {
         private readonly CheckBox _enableAIGreetingCheckBox;
+
         private readonly DropDown _assistantProviderComboBox;
+
         private readonly TextBox _assistantModelTextBox;
+
         private readonly IAIProvider[] _providers;
 
         /// <summary>
@@ -93,7 +96,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Assistant provider section
             var providerRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
             providerRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Assistant Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
@@ -107,7 +110,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
@@ -130,7 +133,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add end spacing

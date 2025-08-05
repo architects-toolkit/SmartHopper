@@ -25,6 +25,11 @@ namespace SmartHopper.Components.Img
         private Bitmap _displayBitmap;
         private readonly object _bitmapLock = new object();
 
+        // Execution throttling fields
+        private DateTime _lastSaveTime = DateTime.MinValue;
+        private string _lastSavedPath = string.Empty;
+        private readonly TimeSpan _minSaveInterval = TimeSpan.FromMilliseconds(500); // Minimum 500ms between saves
+
         /// <summary>
         /// Gets the unique ID for this component. Do not change this ID after release.
         /// </summary>
@@ -123,30 +128,88 @@ namespace SmartHopper.Components.Img
                 // Handle saving if requested and path is provided
                 if (run && !string.IsNullOrWhiteSpace(filePath))
                 {
+                    // Execution throttling: prevent rapid successive saves
+                    var currentTime = DateTime.Now;
+                    var timeSinceLastSave = currentTime - this._lastSaveTime;
+                    var isSameFile = string.Equals(filePath, this._lastSavedPath, StringComparison.OrdinalIgnoreCase);
+
+                    if (isSameFile && timeSinceLastSave < this._minSaveInterval)
+                    {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Save throttled. Wait {(this._minSaveInterval - timeSinceLastSave).TotalMilliseconds:F0}ms before next save.");
+                        return;
+                    }
+
+                    // Ensure directory exists with race condition handling
+                    var directory = Path.GetDirectoryName(filePath);
+                    if (!EnsureDirectoryExists(directory))
+                    {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to create directory: {directory}");
+                        return;
+                    }
+
+                    // Check if target file is locked
+                    if (IsFileLocked(filePath))
+                    {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"File is currently locked by another process: {filePath}");
+                        return;
+                    }
+
+                    // Use temp file strategy for safe saving
+                    var tempFilePath = GetTempFilePath(filePath);
+                    var extension = Path.GetExtension(filePath).ToLowerInvariant();
+                    var format = GetImageFormat(extension);
+
                     try
                     {
-                        // Ensure directory exists
-                        var directory = Path.GetDirectoryName(filePath);
-                        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                        {
-                            Directory.CreateDirectory(directory);
-                        }
-
-                        // Determine format from extension
-                        var extension = Path.GetExtension(filePath).ToLowerInvariant();
-                        var format = GetImageFormat(extension);
-
-                        // Save the image
+                        // Save to temp file first
                         using (var clone = bitmap.Clone() as Bitmap)
                         {
-                            clone?.Save(filePath, format);
+                            if (clone == null)
+                            {
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to clone bitmap for saving");
+                                return;
+                            }
+
+                            clone.Save(tempFilePath, format);
                         }
+
+                        // Move temp file to final location (atomic operation)
+                        if (File.Exists(filePath))
+                        {
+                            File.Delete(filePath);
+                        }
+                        File.Move(tempFilePath, filePath);
+
+                        // Update throttling state
+                        this._lastSaveTime = currentTime;
+                        this._lastSavedPath = filePath;
 
                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Image saved successfully to: {filePath}");
                     }
-                    catch (Exception saveEx)
+                    catch (UnauthorizedAccessException ex)
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to save image: {saveEx.Message}");
+                        this.CleanupTempFile(tempFilePath);
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Access denied saving image: {ex.Message}. Check file permissions.");
+                    }
+                    catch (DirectoryNotFoundException ex)
+                    {
+                        this.CleanupTempFile(tempFilePath);
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Directory not found: {ex.Message}");
+                    }
+                    catch (IOException ex)
+                    {
+                        this.CleanupTempFile(tempFilePath);
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"I/O error saving image: {ex.Message}. File may be in use.");
+                    }
+                    catch (System.Runtime.InteropServices.ExternalException ex)
+                    {
+                        this.CleanupTempFile(tempFilePath);
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"GDI+ error saving image: {ex.Message}. Check image format and file path.");
+                    }
+                    catch (Exception ex)
+                    {
+                        this.CleanupTempFile(tempFilePath);
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Unexpected error saving image: {ex.Message}");
                     }
                 }
                 else if (run && string.IsNullOrWhiteSpace(filePath))
@@ -165,6 +228,108 @@ namespace SmartHopper.Components.Img
             }
 
             // Set outputs
+        }
+
+        /// <summary>
+        /// Checks if a file is currently locked by another process.
+        /// </summary>
+        /// <param name="filePath">Path to the file to check.</param>
+        /// <returns>True if file is locked, false otherwise.</returns>
+        private static bool IsFileLocked(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return false;
+
+            try
+            {
+                // succeeded ⇒ not locked
+                using (var stream = File.Open(
+                    filePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.None))
+                {
+                    return false;
+                }
+            }
+            catch (IOException)
+            {
+                // open failed ⇒ locked
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Generates a safe temporary file path in the same directory as the target file.
+        /// </summary>
+        /// <param name="targetPath">The final target file path.</param>
+        /// <returns>A temporary file path.</returns>
+        private static string GetTempFilePath(string targetPath)
+        {
+            var directory = Path.GetDirectoryName(targetPath) ?? string.Empty;
+            var fileName = Path.GetFileNameWithoutExtension(targetPath);
+            var extension = Path.GetExtension(targetPath);
+            var randomPart = Path.GetRandomFileName().Replace(".", "");
+            var tempFileName = $"{fileName}_temp_{randomPart}{extension}";
+            return Path.Combine(directory, tempFileName);
+        }
+
+        /// <summary>
+        /// Safely creates directory with proper error handling for race conditions.
+        /// </summary>
+        /// <param name="directoryPath">Directory path to create.</param>
+        /// <returns>True if directory exists or was created successfully.</returns>
+        private static bool EnsureDirectoryExists(string directoryPath)
+        {
+            if (string.IsNullOrEmpty(directoryPath))
+                return true;
+
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
+                return true;
+            }
+            catch (IOException)
+            {
+                // Directory might have been created by another thread
+                return Directory.Exists(directoryPath);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Safely cleans up a temporary file if it exists.
+        /// </summary>
+        /// <param name="tempFilePath">Path to the temporary file to clean up.</param>
+        private void CleanupTempFile(string tempFilePath)
+        {
+            if (string.IsNullOrEmpty(tempFilePath))
+            {
+                return;
+            }
+
+            try
+            {
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log cleanup failure but don't throw - this is cleanup code
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to cleanup temp file {tempFilePath}: {ex.Message}");
+            }
         }
 
         /// <summary>

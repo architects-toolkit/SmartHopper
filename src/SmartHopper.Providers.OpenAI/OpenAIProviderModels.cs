@@ -104,9 +104,7 @@ namespace SmartHopper.Providers.OpenAI
             result["gpt-3.5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
 
             // GPT-4 models - text input and output
-            result["gpt-4"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
-            result["gpt-4-0613"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
-            result["gpt-4-0314"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
+            result["gpt-4*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
 
             return result;
         }
