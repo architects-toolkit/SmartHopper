@@ -207,7 +207,7 @@ namespace SmartHopper.Core.ComponentBase
                             this.SetPersistentRuntimeMessage(
                                 "model_replaced",
                                 GH_RuntimeMessageLevel.Remark,
-                                $"The selected model was not found compatible with this component.\nIt was automatically replaced with the default model for this function: {model}",
+                                $"The selected or default model is not compatible with this component.\n\"{model}\" by \"{providerName}\" was used instead.",
                                 false);
                         }
                     }

@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added tab for Trusted Providers configuration.
 - Improved API key encryption. Includes migration method.
 
+### Fixed
+
+- Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
+
 ## [0.5.1-alpha] - 2025-07-30
 
 ### Added
