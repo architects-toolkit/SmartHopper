@@ -29,6 +29,9 @@ namespace SmartHopper.Components.Grasshopper
     {
         private List<string> LastErrors = new List<string>();
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GhTidyUpComponents"/> class.
+        /// </summary>
         public GhTidyUpComponents()
           : base("Tidy Up", "GhTidyUp",
                  "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
@@ -36,6 +39,9 @@ namespace SmartHopper.Components.Grasshopper
         {
         }
 
+        /// <summary>
+        /// Gets the unique identifier for this component.
+        /// </summary>
         public override Guid ComponentGuid => new Guid("D4C8A9E5-B123-4F67-8C90-1234567890AB");
 
         /// <summary>
@@ -43,6 +49,9 @@ namespace SmartHopper.Components.Grasshopper
         /// </summary>
         protected override Bitmap Icon => Properties.Resources.tidyup;
 
+        /// <summary>
+        /// Enables the selection mode for this component.
+        /// </summary>
         public void EnableSelectionMode()
         {
             base.EnableSelectionMode();
@@ -51,21 +60,37 @@ namespace SmartHopper.Components.Grasshopper
             canvas.ContextMenuStrip?.Hide();
         }
 
+        /// <summary>
+        /// Appends additional menu items to the component's context menu.
+        /// </summary>
+        /// <param name="menu">The menu to append items to.</param>
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
         }
 
+        /// <summary>
+        /// Registers the input parameters for this component.
+        /// </summary>
+        /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
         }
 
+        /// <summary>
+        /// Registers the output parameters for this component.
+        /// </summary>
+        /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Errors", "E", "List of errors during tidy up", GH_ParamAccess.list);
         }
 
+        /// <summary>
+        /// Solves the component for the given data access.
+        /// </summary>
+        /// <param name="DA">The data access object for input/output operations.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             object runObj = null;
@@ -93,8 +118,8 @@ namespace SmartHopper.Components.Grasshopper
             var guids = SelectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
             if (!guids.Any())
             {
-                LastErrors.Add("No components selected");
-                DA.SetDataList(0, LastErrors);
+                this.LastErrors.Add("No components selected");
+                DA.SetDataList(0, this.LastErrors);
                 return;
             }
             try
@@ -103,15 +128,21 @@ namespace SmartHopper.Components.Grasshopper
                 var result = AIToolManager.ExecuteTool("gh_tidy_up", parameters, null)
                                   .GetAwaiter().GetResult() as JObject;
                 if (result == null)
-                    LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
+                {
+                    this.LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
+                }
                 else if (result["success"]?.ToObject<bool>() == false)
-                    LastErrors.Add(result["error"]?.ToString() ?? "Unknown error");
+                {
+                    this.LastErrors.Add(result["error"]?.ToString() ?? "Unknown error");
+                }
                 else
                 {
                     var moved = result["moved"]?.ToObject<List<string>>() ?? new List<string>();
                     var failed = guids.Except(moved);
                     foreach (var g in failed)
-                        LastErrors.Add($"Component {g} not moved");
+                    {
+                        this.LastErrors.Add($"Component {g} not moved");
+                    }
                 }
             }
             catch (Exception ex)

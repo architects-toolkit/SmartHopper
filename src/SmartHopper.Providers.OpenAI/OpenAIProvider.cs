@@ -31,15 +31,24 @@ namespace SmartHopper.Providers.OpenAI
         private const string NameValue = "OpenAI";
         private const string DefaultServerUrlValue = "https://api.openai.com/v1";
 
-        private static readonly Lazy<OpenAIProvider> InstanceValue = new(() => new OpenAIProvider());
+        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
 
+        /// <summary>
+        /// Gets the singleton instance of the OpenAI provider.
+        /// </summary>
         public static OpenAIProvider Instance => InstanceValue.Value;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OpenAIProvider"/> class.
+        /// </summary>
         private OpenAIProvider()
         {
-            Models = new OpenAIProviderModels(this, this.CallApi);
+            this.Models = new OpenAIProviderModels(this, this.CallApi);
         }
 
+        /// <summary>
+        /// Gets the name of the provider.
+        /// </summary>
         public override string Name => NameValue;
 
         /// <summary>
@@ -69,11 +78,17 @@ namespace SmartHopper.Providers.OpenAI
 
         /// <summary>
         /// Sends messages to the OpenAI Chat Completions endpoint, injecting a reasoning summary parameter when supported
-        /// and wrapping any returned reasoning_summary in <think> tags before the actual content.
+        /// and wrapping any returned reasoning_summary in &lt;think&gt; tags before the actual content.
         /// </summary>
+        /// <param name="messages">The conversation messages to send.</param>
+        /// <param name="model">The model to use for the request.</param>
+        /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
+        /// <param name="endpoint">Optional endpoint override.</param>
+        /// <param name="toolFilter">Optional tool filter.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         /// <remarks>
         /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a
-        /// reasoning_summary field, we embed it as <think>…</think> immediately preceding the assistant's response.
+        /// reasoning_summary field, we embed it as &lt;think&gt;…&lt;/think&gt; immediately preceding the assistant's response.
         /// </remarks>
         public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
         {
@@ -154,7 +169,7 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Store wrapper info for response unwrapping
-            SchemaWrapperInfo wrapperInfo = new SchemaWrapperInfo { IsWrapped = false };
+            SchemaWrapperInfo wrapperInfo = new () { IsWrapped = false };
 
             // Add response format if JSON schema is provided
             if (!string.IsNullOrEmpty(jsonSchema))
@@ -172,17 +187,17 @@ namespace SmartHopper.Providers.OpenAI
                         {
                             ["name"] = "response_schema",
                             ["schema"] = wrappedSchema.schema,
-                            ["strict"] = true
-                        }
+                            ["strict"] = true,
+                        },
                     };
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
+
                     // Continue without schema if parsing fails
                 }
             }
-
 
             // Add tools if requested
             if (!string.IsNullOrWhiteSpace(toolFilter))
@@ -200,7 +215,7 @@ namespace SmartHopper.Providers.OpenAI
             try
             {
                 // Use the new Call method for HTTP request
-                var responseContent = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
+                var responseContent = await this.CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
 
                 var responseJson = JObject.Parse(responseContent);
                 Debug.WriteLine($"[OpenAI] Response parsed successfully");
@@ -280,7 +295,7 @@ namespace SmartHopper.Providers.OpenAI
         public override async Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
+
             try
             {
                 // Use default model if none specified
@@ -299,7 +314,8 @@ namespace SmartHopper.Providers.OpenAI
                     ["model"] = modelName,
                     ["prompt"] = prompt,
                     ["n"] = 1, // Number of images to generate
-                    ["size"] = size
+                    ["size"] = size,
+
                     // Note: The OpenAI Images API supports the response_format parameter with values 'url' or 'b64_json'.
                     // This implementation does not use the parameter, and images are returned as URLs by default.
                 };
@@ -315,7 +331,7 @@ namespace SmartHopper.Providers.OpenAI
                 Debug.WriteLine($"[OpenAI] GenerateImage - Request: {jsonRequest}");
 
                 // Make API call to image generation endpoint
-                var content = await CallApi("/images/generations", "POST", jsonRequest).ConfigureAwait(false);
+                var content = await this.CallApi("/images/generations", "POST", jsonRequest).ConfigureAwait(false);
                 Debug.WriteLine($"[OpenAI] GenerateImage - Response: {content}");
 
                 stopwatch.Stop();
@@ -336,7 +352,7 @@ namespace SmartHopper.Providers.OpenAI
                         ImageStyle = style,
                         Provider = this.Name,
                         Model = modelName,
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     };
                 }
 
@@ -355,14 +371,14 @@ namespace SmartHopper.Providers.OpenAI
                     FinishReason = "success",
                     Provider = this.Name,
                     Model = modelName,
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 Debug.WriteLine($"[OpenAI] GenerateImage - Exception: {ex.Message}");
-                
+
                 return new AIResponse
                 {
                     FinishReason = "error",
@@ -382,12 +398,12 @@ namespace SmartHopper.Providers.OpenAI
         /// Wraps non-object root schemas to meet OpenAI Structured Outputs requirements.
         /// OpenAI requires root schemas to be objects, so we wrap arrays and other types.
         /// </summary>
-        /// <param name="originalSchema">The original JSON schema</param>
-        /// <returns>Tuple with wrapped schema and wrapper info for response unwrapping</returns>
+        /// <param name="originalSchema">The original JSON schema.</param>
+        /// <returns>Tuple with wrapped schema and wrapper info for response unwrapping.</returns>
         private static (JObject schema, SchemaWrapperInfo wrapperInfo) WrapSchemaForOpenAI(JObject originalSchema)
         {
             var schemaType = originalSchema["type"]?.ToString();
-            
+
             // If it's already an object, return as-is
             if ("object".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
             {
@@ -402,10 +418,10 @@ namespace SmartHopper.Providers.OpenAI
                     ["type"] = "object",
                     ["properties"] = new JObject
                     {
-                        ["items"] = originalSchema
+                        ["items"] = originalSchema,
                     },
                     ["required"] = new JArray { "items" },
-                    ["additionalProperties"] = false
+                    ["additionalProperties"] = false,
                 };
 
                 return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items" });
@@ -419,10 +435,10 @@ namespace SmartHopper.Providers.OpenAI
                     ["type"] = "object",
                     ["properties"] = new JObject
                     {
-                        ["value"] = originalSchema
+                        ["value"] = originalSchema,
                     },
                     ["required"] = new JArray { "value" },
-                    ["additionalProperties"] = false
+                    ["additionalProperties"] = false,
                 };
 
                 return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType, PropertyName = "value" });
@@ -434,10 +450,10 @@ namespace SmartHopper.Providers.OpenAI
                 ["type"] = "object",
                 ["properties"] = new JObject
                 {
-                    ["data"] = originalSchema
+                    ["data"] = originalSchema,
                 },
                 ["required"] = new JArray { "data" },
-                ["additionalProperties"] = false
+                ["additionalProperties"] = false,
             };
 
             return (genericWrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data" });
@@ -446,9 +462,9 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Unwraps OpenAI responses that were wrapped due to schema transformation.
         /// </summary>
-        /// <param name="content">The response content from OpenAI</param>
-        /// <param name="wrapperInfo">Information about how the schema was wrapped</param>
-        /// <returns>The unwrapped content in original format</returns>
+        /// <param name="content">The response content from OpenAI.</param>
+        /// <param name="wrapperInfo">Information about how the schema was wrapped.</param>
+        /// <returns>The unwrapped content in original format.</returns>
         private static string UnwrapResponseContent(string content, SchemaWrapperInfo wrapperInfo)
         {
             if (!wrapperInfo.IsWrapped || string.IsNullOrWhiteSpace(content))
@@ -460,7 +476,7 @@ namespace SmartHopper.Providers.OpenAI
             {
                 var responseObj = JObject.Parse(content);
                 var unwrappedValue = responseObj[wrapperInfo.PropertyName];
-                
+
                 if (unwrappedValue != null)
                 {
                     // For arrays and objects, return as JSON string
@@ -468,7 +484,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         return unwrappedValue.ToString(Newtonsoft.Json.Formatting.None);
                     }
-                    
+
                     // For primitive values, return the value directly
                     return unwrappedValue.ToString();
                 }
@@ -476,6 +492,7 @@ namespace SmartHopper.Providers.OpenAI
             catch (Exception ex)
             {
                 Debug.WriteLine($"[OpenAI] Failed to unwrap response: {ex.Message}");
+
                 // Return original content if unwrapping fails
             }
 
@@ -488,18 +505,18 @@ namespace SmartHopper.Providers.OpenAI
         private class SchemaWrapperInfo
         {
             /// <summary>
-            /// Indicates whether the response content is wrapped.
+            /// Gets or sets a value indicating whether the response content is wrapped.
             /// </summary>
             public bool IsWrapped { get; set; }
 
             /// <summary>
-            /// Specifies the type of wrapper applied to the response content.
+            /// Gets or sets the type of wrapper applied to the response content.
             /// Expected values could include "array", "object", or other schema-related types.
             /// </summary>
             public string WrapperType { get; set; } = string.Empty;
 
             /// <summary>
-            /// The name of the property in the wrapped response that contains the actual data.
+            /// Gets or sets the name of the property in the wrapped response that contains the actual data.
             /// </summary>
             public string PropertyName { get; set; } = string.Empty;
         }

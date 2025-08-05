@@ -27,7 +27,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// Provides AI tools for fetching webpage text content,
     /// omitting HTML, scripts, styles, images, and respecting robots.txt rules.
     /// </summary>
-    public class generic_page_read : IAIToolProvider
+    public class web_generic_page_read : IAIToolProvider
     {
         /// <summary>
         /// Returns the list of tools provided by this class.
@@ -36,7 +36,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "generic_page_read",
+                name: "web_generic_page_read",
                 description: "Retrieve plain text content of a webpage at the given URL, excluding HTML, scripts, styles, and images. Respects robots.txt.",
                 category: "Knowledge",
                 parametersSchema: @"{

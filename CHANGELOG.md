@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings dialog now organized in tabs.
   - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
   - Added tab for Trusted Providers configuration.
-- Improved api key encryptation with migration method.
+- Improved API key encryption. Includes migration method.
 
 ## [0.5.1-alpha] - 2025-07-30
 
