@@ -52,4 +52,45 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         TTS = TextInput | AudioOutput,
         STT = AudioInput | TextOutput,
     }
+
+    /// <summary>
+    /// Extension methods for AIModelCapability enum.
+    /// </summary>
+    public static class AIModelCapabilityExtensions
+    {
+        /// <summary>
+        /// Formats AIModelCapability flags for clear logging, showing all individual flags.
+        /// </summary>
+        /// <param name="capabilities">The capabilities to format.</param>
+        /// <returns>A string listing all individual capability flags.</returns>
+        public static string ToDetailedString(this AIModelCapability capabilities)
+        {
+            if (capabilities == AIModelCapability.None)
+                return "None";
+
+            var flags = new List<string>();
+            
+            // Check each individual flag
+            if ((capabilities & AIModelCapability.TextInput) == AIModelCapability.TextInput)
+                flags.Add("TextInput");
+            if ((capabilities & AIModelCapability.ImageInput) == AIModelCapability.ImageInput)
+                flags.Add("ImageInput");
+            if ((capabilities & AIModelCapability.AudioInput) == AIModelCapability.AudioInput)
+                flags.Add("AudioInput");
+            if ((capabilities & AIModelCapability.TextOutput) == AIModelCapability.TextOutput)
+                flags.Add("TextOutput");
+            if ((capabilities & AIModelCapability.ImageOutput) == AIModelCapability.ImageOutput)
+                flags.Add("ImageOutput");
+            if ((capabilities & AIModelCapability.AudioOutput) == AIModelCapability.AudioOutput)
+                flags.Add("AudioOutput");
+            if ((capabilities & AIModelCapability.FunctionCalling) == AIModelCapability.FunctionCalling)
+                flags.Add("FunctionCalling");
+            if ((capabilities & AIModelCapability.StructuredOutput) == AIModelCapability.StructuredOutput)
+                flags.Add("StructuredOutput");
+            if ((capabilities & AIModelCapability.Reasoning) == AIModelCapability.Reasoning)
+                flags.Add("Reasoning");
+
+            return flags.Count > 0 ? string.Join(", ", flags) : "Unknown";
+        }
+    }
 }

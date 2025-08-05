@@ -101,11 +101,41 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
         /// <summary>
         /// Gets the capability information for a specific model.
+        /// This method automatically resolves concrete model names against wildcard patterns.
         /// </summary>
         /// <param name="model">The model name.</param>
-        /// <returns>Model capabilities or null if not found.</returns>
+        /// <returns>Model capabilities or None if not found.</returns>
         public virtual AIModelCapability RetrieveCapabilities(string model)
         {
+            if (string.IsNullOrEmpty(model))
+            {
+                return AIModelCapability.None;
+            }
+
+            // Get all wildcard capabilities (this calls the async version)
+            var capabilitiesDict = await this.RetrieveCapabilities();
+            
+            // First try exact match
+            if (capabilitiesDict.ContainsKey(model))
+            {
+                return capabilitiesDict[model];
+            }
+            
+            // Then try wildcard pattern matching
+            foreach (var (wildcardPattern, capabilities) in capabilitiesDict)
+            {
+                if (wildcardPattern.EndsWith("*"))
+                {
+                    var prefix = wildcardPattern.Substring(0, wildcardPattern.Length - 1);
+                    if (model.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Debug.WriteLine($"[{_provider.Name}] Resolved model '{model}' using wildcard pattern '{wildcardPattern}' -> {capabilities.ToDetailedString()}");
+                        return capabilities;
+                    }
+                }
+            }
+            
+            Debug.WriteLine($"[{_provider.Name}] No capability match found for model '{model}'");
             return AIModelCapability.None;
         }
 
