@@ -144,11 +144,11 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             
             // Find all non-wildcard models from the same provider that match the prefix
             var matchingModels = this.Models.Values
-                .Where(m => m != null && 
-                           string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase) &&
-                           !m.Model.Contains("*") &&  // Exclude wildcard patterns
-                           m.Model.ToLower().StartsWith(wildcardPrefix.ToLower()))
-                .OrderBy(m => m.Model)  // Consistent ordering
+                .Where(m => m != null &&
+                            string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase) &&
+                            !m.Model.Contains("*") && // Exclude wildcard patterns
+                            m.Model.ToLower().StartsWith(wildcardPrefix.ToLower()))
+                .OrderBy(m => m.Model) // Consistent ordering
                 .ToList();
 
             if (matchingModels.Any())
