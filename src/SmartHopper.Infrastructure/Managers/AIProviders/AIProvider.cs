@@ -535,7 +535,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
             
             // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
-            var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp => 
+            var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp =>
                 kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
             if (!matchingWildcard.Equals(default(KeyValuePair<string, AIModelCapability>)))
             {

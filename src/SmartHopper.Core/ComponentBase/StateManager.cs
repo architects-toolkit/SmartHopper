@@ -20,27 +20,27 @@ namespace SmartHopper.Core.ComponentBase
         /// Initial state. All workers finished, output the previous results, if any.
         /// </summary>
         Completed,
-        
+
         /// <summary>
         /// When running with a toggle set to True, waiting for input changes. On next SolveInstance (means input changed), transition to NeedsRun.
         /// </summary>
         Waiting,
-        
+
         /// <summary>
         /// When running with a button, Run = False. On input changes && Run = True, transition to Processing.
         /// </summary>
         NeedsRun,
-        
+
         /// <summary>
         /// Run async work, transition to Completed when all workers finish.
         /// </summary>
         Processing,
-        
+
         /// <summary>
         /// Manually cancelled, add error and transition to Waiting.
         /// </summary>
         Cancelled,
-        
+
         /// <summary>
         /// An error occurred, add error and transition to Waiting.
         /// </summary>

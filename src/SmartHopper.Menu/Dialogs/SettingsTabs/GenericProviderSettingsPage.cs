@@ -129,9 +129,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
                         // Create a horizontal layout for label and control
                         var labelText = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name;
-                        var label = new Label 
-                        { 
-                            Text = labelText + ":", 
+                        var label = new Label
+                        {
+                            Text = labelText + ":",
                             VerticalAlignment = VerticalAlignment.Center,
                             Width = 150  // Fixed width to prevent overflow
                         };
@@ -251,8 +251,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="providerSettings">Current provider settings</param>
         private void LoadSettingValue(SettingDescriptor descriptor, Control control, Dictionary<string, object> providerSettings)
         {
-            var currentValue = providerSettings.ContainsKey(descriptor.Name) 
-                ? providerSettings[descriptor.Name] 
+            var currentValue = providerSettings.ContainsKey(descriptor.Name)
+                ? providerSettings[descriptor.Name]
                 : descriptor.DefaultValue;
 
             var stringValue = currentValue?.ToString() ?? string.Empty;
@@ -336,7 +336,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     case PasswordBox passwordBox:
                         newValue = passwordBox.Text;
                         // For sensitive data, only update if changed and not empty
-                        if (descriptor.IsSecret && _originalValues.ContainsKey(descriptor.Name) && 
+                        if (descriptor.IsSecret && _originalValues.ContainsKey(descriptor.Name) &&
                             passwordBox.Text == _originalValues[descriptor.Name])
                         {
                             continue; // Skip unchanged values

@@ -76,16 +76,19 @@ namespace SmartHopper.Components.Grasshopper
             if (!DA.GetData(1, ref run)) return;
             if (!run)
             {
-                if (lastComponentNames.Count > 0)
-                    DA.SetDataList(0, lastComponentNames);
+                if (this.lastComponentNames.Count > 0)
+                {
+                    DA.SetDataList(0, this.lastComponentNames);
+                }
                 else
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
-                        "Set Run to True to place components");
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to place components");
+                }
                 return;
             }
 
             // 2. Clear previous results and get JSON input
-            lastComponentNames.Clear();
+            this.lastComponentNames.Clear();
             string json = null;
             if (!DA.GetData(0, ref json)) return;
 
@@ -130,12 +133,12 @@ namespace SmartHopper.Components.Grasshopper
                 // 5. Extract and output component names
                 var componentNames = toolResult["components"]
                     ?.ToObject<List<string>>() ?? new List<string>();
-                lastComponentNames = componentNames;
+                this.lastComponentNames = componentNames;
                 DA.SetDataList(0, componentNames);
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
     }
