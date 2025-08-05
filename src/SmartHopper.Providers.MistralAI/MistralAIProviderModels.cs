@@ -78,6 +78,14 @@ namespace SmartHopper.Providers.MistralAI
 
                 // Get list of available models
                 var models = await this.RetrieveAvailable();
+
+                // If no models were retrieved (likely due to API key issue), return default capabilities
+                if (models == null || models.Count == 0)
+                {
+                    Debug.WriteLine("[MistralAI] No models retrieved, returning default capabilities");
+                    return GetDefaultCapabilities();
+                }
+
                 var processedCount = 0;
 
                 foreach (var modelName in models)
@@ -115,6 +123,8 @@ namespace SmartHopper.Providers.MistralAI
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MistralAI] Error in RetrieveCapabilities: {ex.Message}");
+                // Return default capabilities on error
+                return GetDefaultCapabilities();
             }
 
             return result;
@@ -128,8 +138,32 @@ namespace SmartHopper.Providers.MistralAI
         {
             var result = new Dictionary<string, AIModelCapability>();
 
-            result["mistral-small-latest"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["mistral-small-latest"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ImageInput;
             result["magistral-small-latest"] = AIModelCapability.ReasoningChat;
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets default capabilities for common MistralAI models.
+        /// Used when API is not available (e.g., during initialization without API key).
+        /// </summary>
+        /// <returns>Dictionary of default model capabilities.</returns>
+        private Dictionary<string, AIModelCapability> GetDefaultCapabilities()
+        {
+            var result = new Dictionary<string, AIModelCapability>();
+
+            // Ministral models
+            result["ministral-8b*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["ministral-3b*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+
+            // Add wildcard patterns for future versions
+            result["mistral-small*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ImageInput;
+            result["mistral-medium*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ImageInput;
+            result["mistral-large*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["pixtral*"] = AIModelCapability.AdvancedChat | AIModelCapability.ImageInput | AIModelCapability.JsonGenerator;
+            result["codestral*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["magistral*"] = AIModelCapability.ReasoningChat | AIModelCapability.JsonGenerator;
 
             return result;
         }
