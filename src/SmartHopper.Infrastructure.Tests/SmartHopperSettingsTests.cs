@@ -14,8 +14,14 @@ namespace SmartHopper.Infrastructure.Tests
     using SmartHopper.Infrastructure.Settings;
     using Xunit;
 
+    /// <summary>
+    /// Tests for SmartHopper settings functionality.
+    /// </summary>
     public class SmartHopperSettingsTests
     {
+        /// <summary>
+        /// Tests that SmartHopperSettings can be deserialized from valid JSON.
+        /// </summary>
 #if NET7_WINDOWS
         [Fact(DisplayName = "SmartHopperSettings_BindsFromValidJson [Windows]")]
 #else
@@ -35,6 +41,9 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.True(settings.TrustedProviders.ContainsKey("Prov1") && settings.TrustedProviders["Prov1"]);
         }
 
+        /// <summary>
+        /// Tests that SmartHopperSettings can handle missing required fields gracefully.
+        /// </summary>
 #if NET7_WINDOWS
         [Fact(DisplayName = "SmartHopperSettings_ThrowsOnMissingRequiredField [Windows]")]
 #else
@@ -48,6 +57,9 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.NotNull(settings);
         }
 
+        /// <summary>
+        /// Tests IAIProviderSettings schema validation functionality.
+        /// </summary>
 #if NET7_WINDOWS
         [Fact(DisplayName = "IAIProviderSettings_SchemaValidation [Windows]")]
 #else

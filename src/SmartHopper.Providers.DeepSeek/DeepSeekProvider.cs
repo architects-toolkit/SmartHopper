@@ -30,32 +30,33 @@ namespace SmartHopper.Providers.DeepSeek
     public class DeepSeekProvider : AIProvider
     {
         // Static instance for singleton pattern
-        private static readonly Lazy<DeepSeekProvider> _instance = new Lazy<DeepSeekProvider>(() => new DeepSeekProvider());
+        private static readonly Lazy<DeepSeekProvider> InstanceValue = new(() => new DeepSeekProvider());
 
         /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
-        public static DeepSeekProvider Instance => _instance.Value;
+        public static DeepSeekProvider Instance => InstanceValue.Value;
 
         /// <summary>
         /// The name of the provider. This will be displayed in the UI and used for provider selection.
         /// </summary>
-        public static readonly string _name = "DeepSeek";
+        public static readonly string NameValue = "DeepSeek";
 
         private const string DefaultServerUrlValue = "https://api.deepseek.com";
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="DeepSeekProvider"/> class.
         /// Private constructor to enforce singleton pattern.
         /// </summary>
         private DeepSeekProvider()
         {
-            Models = new DeepSeekProviderModels(this, this.CallApi);
+            this.Models = new DeepSeekProviderModels(this, this.CallApi);
         }
 
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
-        public override string Name => _name;
+        public override string Name => NameValue;
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -96,7 +97,7 @@ namespace SmartHopper.Providers.DeepSeek
         {
             try
             {
-                int maxTokens = GetSetting<int>("MaxTokens");
+                int maxTokens = this.GetSetting<int>("MaxTokens");
 
                 // Format messages for DeepSeek API
                 var convertedMessages = new JArray();
@@ -199,7 +200,7 @@ namespace SmartHopper.Providers.DeepSeek
                     var systemMessage = new JObject
                     {
                         ["role"] = "system",
-                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema
+                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema,
                     };
                     convertedMessages.Insert(0, systemMessage);
                 }
@@ -222,7 +223,7 @@ namespace SmartHopper.Providers.DeepSeek
                 Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
 
                 // Use the new Call method for HTTP request
-                var responseString = await CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
+                var responseString = await this.CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
                 var responseJson = JObject.Parse(responseString);
                 Debug.WriteLine($"[DeepSeek] Response parsed successfully");
 
@@ -238,10 +239,10 @@ namespace SmartHopper.Providers.DeepSeek
                 var usage = responseJson["usage"] as JObject;
                 var reasoning = message["reasoning_content"]?.ToString();
                 var content = message["content"]?.ToString() ?? string.Empty;
-                
+
                 // Clean up DeepSeek's malformed JSON responses for array schemas
                 content = CleanUpDeepSeekArrayResponse(content);
-                
+
                 var combined = !string.IsNullOrWhiteSpace(reasoning)
                     ? $"<think>{reasoning}</think>{content}"
                     : content;
@@ -268,7 +269,7 @@ namespace SmartHopper.Providers.DeepSeek
                             {
                                 Id = tc["id"]?.ToString(),
                                 Name = fn["name"]?.ToString(),
-                                Arguments = fn["arguments"]?.ToString()
+                                Arguments = fn["arguments"]?.ToString(),
                             });
                         }
                     }
@@ -288,8 +289,8 @@ namespace SmartHopper.Providers.DeepSeek
         /// DeepSeek sometimes returns malformed JSON like: {"type":"array, items":{"type":"string"}, "enum":["item1", "item2", ...]}
         /// This method extracts the actual array from the "enum" property and returns it as a proper JSON array.
         /// </summary>
-        /// <param name="content">The raw response content from DeepSeek</param>
-        /// <returns>Cleaned content with proper JSON array format</returns>
+        /// <param name="content">The raw response content from DeepSeek.</param>
+        /// <returns>Cleaned content with proper JSON array format.</returns>
         private static string CleanUpDeepSeekArrayResponse(string content)
         {
             if (string.IsNullOrWhiteSpace(content))
@@ -300,14 +301,14 @@ namespace SmartHopper.Providers.DeepSeek
             try
             {
                 // Check if this looks like a malformed DeepSeek array response
-                if (content.Contains("enum") && content.Contains("["))
+                if (content.Contains("enum") && content.Contains('['))
                 {
                     // Try to parse as JObject first
                     try
                     {
                         var responseObj = JObject.Parse(content);
                         var enumArray = responseObj["enum"] as JArray;
-                        
+
                         if (enumArray != null)
                         {
                             // Extract the array from the enum property and return as JSON array
@@ -324,6 +325,7 @@ namespace SmartHopper.Providers.DeepSeek
                         if (enumMatch.Success)
                         {
                             var enumContent = enumMatch.Groups[1].Value;
+
                             // Construct a proper JSON array
                             var cleanedArray = $"[{enumContent}]";
                             Debug.WriteLine($"[DeepSeek] Regex extracted enum array: {cleanedArray}");
@@ -335,6 +337,7 @@ namespace SmartHopper.Providers.DeepSeek
             catch (Exception ex)
             {
                 Debug.WriteLine($"[DeepSeek] Error cleaning response: {ex.Message}");
+
                 // Return original content if cleaning fails
             }
 

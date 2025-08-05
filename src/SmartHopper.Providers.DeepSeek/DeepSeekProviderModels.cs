@@ -13,12 +13,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -27,11 +24,17 @@ namespace SmartHopper.Providers.DeepSeek
     /// </summary>
     public class DeepSeekProviderModels : AIProviderModels
     {
-        private readonly DeepSeekProvider _DeepSeekProvider;
+        private readonly DeepSeekProvider deepSeekProvider;
 
-        public DeepSeekProviderModels(DeepSeekProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DeepSeekProviderModels"/> class.
+        /// </summary>
+        /// <param name="provider">The DeepSeek provider instance.</param>
+        /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
+        public DeepSeekProviderModels(DeepSeekProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
+            : base(provider, apiCaller)
         {
-            this._DeepSeekProvider = provider;
+            this.deepSeekProvider = provider;
         }
 
         /// <summary>
@@ -52,7 +55,10 @@ namespace SmartHopper.Providers.DeepSeek
                     foreach (var item in data.OfType<JObject>())
                     {
                         var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            modelIds.Add(id);
+                        }
                     }
                 }
 
@@ -66,7 +72,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Gets all models and their capabilities supported by DeepSeek
+        /// Gets all models and their capabilities supported by DeepSeek.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
         public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
@@ -83,7 +89,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <summary>
-        /// Gets all default models supported by DeepSeek
+        /// Gets all default models supported by DeepSeek.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
         public override Dictionary<string, AIModelCapability> RetrieveDefault()

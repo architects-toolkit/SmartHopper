@@ -13,12 +13,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -27,11 +24,17 @@ namespace SmartHopper.Providers.OpenAI
     /// </summary>
     public class OpenAIProviderModels : AIProviderModels
     {
-        private readonly OpenAIProvider _openAIProvider;
+        private readonly OpenAIProvider openAIProvider;
 
-        public OpenAIProviderModels(OpenAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OpenAIProviderModels"/> class.
+        /// </summary>
+        /// <param name="provider">The OpenAI provider instance.</param>
+        /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
+        public OpenAIProviderModels(OpenAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
+            : base(provider, apiCaller)
         {
-            this._openAIProvider = provider;
+            this.openAIProvider = provider;
         }
 
         /// <summary>
@@ -52,7 +55,10 @@ namespace SmartHopper.Providers.OpenAI
                     foreach (var item in data.OfType<JObject>())
                     {
                         var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            modelIds.Add(id);
+                        }
                     }
                 }
 
@@ -106,7 +112,7 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
-        /// Gets all default models supported by OpenAI
+        /// Gets all default models supported by OpenAI.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
         public override Dictionary<string, AIModelCapability> RetrieveDefault()

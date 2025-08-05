@@ -151,7 +151,14 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
                 .Where(m => m.HasCapability(requiredCapability))
                 .FirstOrDefault();
 
-            Debug.WriteLine($"[ModelManager] Found compatible default model {compatibleDefaultModel?.Model} for {provider} with capability {requiredCapability}");
+            if (compatibleDefaultModel != null)
+            {
+                Debug.WriteLine($"[ModelManager] Found compatible default model {compatibleDefaultModel.Model} for {provider} with capability {requiredCapability}");
+            }
+            else
+            {
+                Debug.WriteLine($"[ModelManager] No compatible default model found for {provider} with capability {requiredCapability}");
+            }
 
             return compatibleDefaultModel?.Model;
         }

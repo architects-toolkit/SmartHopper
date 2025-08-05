@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using SmartHopper.Core.UI.Chat;
+using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Managers.AIProviders;
 using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Properties;
@@ -67,7 +68,7 @@ namespace SmartHopper.Core.UI
             - gh_group: group components to highlight them to the user, or make notes about them
             - web_rhino_forum_search: look up Rhino forum discussions to try to find answers to the user's question
             - web_rhino_forum_read_post: read a specific post from the Rhino forum
-            - generic_page_read: read a web page by providing the URL
+            - web_generic_page_read: read a web page by providing the URL
             """;
 
         // Private fields
@@ -494,6 +495,7 @@ namespace SmartHopper.Core.UI
                 if (currentProvider == null)
                 {
                     Debug.WriteLine("[CanvasButton] No AI provider available");
+                    StyledMessageDialog.ShowError("No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.", "SmartHopper Assistant");
                     return;
                 }
 

@@ -23,7 +23,7 @@ namespace SmartHopper.Infrastructure.Initialization
     /// </summary>
     public static class SmartHopperInitializer
     {
-        private static readonly object LockObject = new object();
+        private static readonly object LockObject = new ();
         private static bool isInitialized;
 
         /// <summary>
@@ -66,6 +66,10 @@ namespace SmartHopper.Infrastructure.Initialization
 
                         /* No need to call settings.RefreshProvidersLocalStorage() again here
                         as it's already done inside RefreshProviders */
+
+                        // Step 4: Now that both settings and providers are fully initialized, run integrity check
+                        settings.IntegrityCheck();
+                        Debug.WriteLine("[SmartHopperInitializer] Settings integrity check completed");
 
                         Debug.WriteLine("[SmartHopperInitializer] Initialization complete");
                     });
