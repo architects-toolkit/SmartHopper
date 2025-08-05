@@ -335,12 +335,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                         break;
                     case PasswordBox passwordBox:
                         newValue = passwordBox.Text;
+
                         // For sensitive data, only update if changed and not empty
-                        if (descriptor.IsSecret && _originalValues.ContainsKey(descriptor.Name) &&
-                            passwordBox.Text == _originalValues[descriptor.Name])
+                        if (descriptor.IsSecret && this._originalValues.ContainsKey(descriptor.Name) &&
+                            passwordBox.Text == this._originalValues[descriptor.Name])
                         {
                             continue; // Skip unchanged values
                         }
+
                         break;
                     case NumericStepper numericStepper:
                         newValue = descriptor.Type == typeof(int) ? (int)numericStepper.Value : numericStepper.Value;
