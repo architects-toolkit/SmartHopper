@@ -18,7 +18,7 @@ namespace SmartHopper.Infrastructure.Settings
     public class SmartHopperAssistantSettings
     {
         /// <summary>
-        /// Gets or sets a value indicating whether gets or sets whether AI-generated greetings are enabled in chat.
+        /// Gets or sets a value indicating whether AI-generated greetings are enabled in chat.
         /// </summary>
         [JsonProperty]
         public bool EnableAIGreeting { get; set; } = true;
