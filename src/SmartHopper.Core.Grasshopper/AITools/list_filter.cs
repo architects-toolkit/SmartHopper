@@ -202,7 +202,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["success"] = "Success",
                     ["indices"] = "Result", // Map Result to indices
                     ["error"] = "ErrorMessage",
-                    ["rawResponse"] = "Response",
                 };
 
                 var jobj = result.ToJObject<List<int>>(mapping);
