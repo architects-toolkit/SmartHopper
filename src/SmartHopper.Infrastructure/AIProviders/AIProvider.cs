@@ -189,8 +189,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
         /// <param name="endpoint">Optional endpoint to send the request to.</param>
         /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
-        /// <returns>An AIResponse containing the result.</returns>
-        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
+        /// <returns>An AIReturn containing the result.</returns>
+        public abstract Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         /// <summary>
         /// Generates an image based on a text prompt.
@@ -200,8 +200,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
         /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
         /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
-        public virtual Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
+        public virtual Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
         {
             throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
         }

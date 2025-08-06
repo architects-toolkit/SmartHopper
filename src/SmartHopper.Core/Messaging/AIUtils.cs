@@ -55,8 +55,8 @@ namespace SmartHopper.Core.Messaging
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers.</param>
         /// <param name="contextKeyFilter">Optional filter for context keys.</param>
-        /// <returns>An AIResponse containing the generated response and metadata.</returns>
-        public static async Task<AIResponse> GetResponse(
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
+        public static async Task<AIReturn<string>> GetResponse(
             string providerName,
             string model,
             List<KeyValuePair<string, string>> messages,
@@ -80,8 +80,8 @@ namespace SmartHopper.Core.Messaging
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers.</param>
         /// <param name="contextKeyFilter">Optional filter for context keys.</param>
-        /// <returns>An AIResponse containing the generated response and metadata.</returns>
-        public static async Task<AIResponse> GetResponse(
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
+        public static async Task<AIReturn<string>> GetResponse(
             string providerName,
             string model,
             List<AIInteraction<string>> messages,
@@ -105,8 +105,8 @@ namespace SmartHopper.Core.Messaging
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers.</param>
         /// <param name="contextKeyFilter">Optional filter for context keys.</param>
-        /// <returns>An AIResponse containing the generated response and metadata.</returns>
-        private static async Task<AIResponse> GetResponse(
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
+        private static async Task<AIReturn<string>> GetResponse(
             string providerName,
             string model,
             JArray messages,
@@ -116,6 +116,40 @@ namespace SmartHopper.Core.Messaging
             string? contextProviderFilter = null,
             string? contextKeyFilter = null)
         {
+            var request = new AIRequest
+            {
+                Provider = providerName,
+                Model = model,
+                Body = new AIRequestBody
+                {
+                    Interactions = messages,
+                    JsonOutputSchema = jsonSchema,
+                    ToolFilter = toolFilter,
+                    ContextFilter = contextProviderFilter ?? contextKeyFilter,
+                },
+                Endpoint = endpoint,
+            };
+            return await GetResponse(request).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Internal implementation for getting AI responses with full context management.
+        /// </summary>
+        /// <param name="request">The AIRequest containing the request parameters.</param>
+        /// <returns>An AIReturn<T> containing the generated response and metadata.</returns>
+        private static async Task<AIReturn<string>> GetResponse(AIRequest request)
+        {
+            string providerName = request.Provider;
+            string model = request.Model;
+            List<IAIInteraction> messages = request.Body.Interactions;
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string endpoint = request.Endpoint;
+            string? toolFilter = request.Body.ToolFilter;
+
+            // TODO: Unify context filters
+            string? contextProviderFilter = request.Body.ContextFilter;
+            string? contextKeyFilter = request.Body.ContextFilter;
+
             // Add message context
             try
             {

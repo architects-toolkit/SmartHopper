@@ -60,7 +60,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <param name="endpoint">The endpoint to use for AI processing.</param>
         /// <param name="toolFilter">The tool filter to use for AI processing.</param>
         /// <returns>The response from the AI provider.</returns>
-        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
+        Task<AIReturn<string>> GetResponse(AIRequest request);
 
         /// <summary>
         /// Generates an image based on a text prompt.
@@ -70,8 +70,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
         /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
         /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
-        Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
+        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
+        Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
 
         /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.

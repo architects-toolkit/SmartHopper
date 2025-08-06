@@ -48,7 +48,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
             }
 
-            public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIResponse));
+            public Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIReturn<string>));
 
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
@@ -60,7 +60,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
-            public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
+            public Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIReturn<string> { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
 
             public string GetDefaultModel(AICapability capability, bool useSettings = true) { return "dummy_test_model"; }
         }

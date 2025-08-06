@@ -81,8 +81,19 @@ namespace SmartHopper.Providers.OpenAI
         /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a
         /// reasoning_summary field, we embed it as &lt;think&gt;…&lt;/think&gt; immediately preceding the assistant's response.
         /// </remarks>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+        public override async Task<AIReturn<string>> GetResponse(AIRequest request)
         {
+            string providerName = request.Provider;
+            string model = request.Model;
+            List<IAIInteraction> messages = request.Body.Interactions;
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string endpoint = request.Endpoint;
+            string? toolFilter = request.Body.ToolFilter;
+
+            // TODO: Unify context filters
+            string? contextProviderFilter = request.Body.ContextFilter;
+            string? contextKeyFilter = request.Body.ContextFilter;
+            
             // Get settings from the secure settings store
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
@@ -235,26 +246,30 @@ namespace SmartHopper.Providers.OpenAI
                     content = $"<think>{reasoningSummary}</think>\n\n{content}";
                 }
 
-                var aiResponse = new AIResponse
+                var aiReturn = new AIReturn<string>
                 {
-                    Response = content,
-                    Provider = "OpenAI",
-                    Model = model,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
-                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                    Result = content,
+                    Metrics = new AIMetrics
+                    {
+                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
+                        InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                        OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                        Provider = this.Name,
+                        Model = model,
+                    },
+                    Status = AIStatus.Finished,
                 };
 
                 // Handle tool calls if any
                 if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
                 {
-                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    aiReturn.ToolCalls = new List<AIToolCall>();
                     foreach (JObject toolCall in toolCalls)
                     {
                         var function = toolCall["function"] as JObject;
                         if (function != null)
                         {
-                            aiResponse.ToolCalls.Add(new AIToolCall
+                            aiReturn.ToolCalls.Add(new AIToolCall
                             {
                                 Id = toolCall["id"]?.ToString(),
                                 Name = function["name"]?.ToString(),
@@ -262,10 +277,11 @@ namespace SmartHopper.Providers.OpenAI
                             });
                         }
                     }
+                    aiReturn.Status = AIStatus.CallingTools;
                 }
 
-                Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
-                return aiResponse;
+                Debug.WriteLine($"[OpenAI] Response processed successfully: {aiReturn.Result.Substring(0, Math.Min(50, aiReturn.Result.Length))}...");
+                return aiReturn;
             }
             catch (Exception ex)
             {
@@ -282,8 +298,8 @@ namespace SmartHopper.Providers.OpenAI
         /// <param name="size">The size of the generated image (e.g., "1024x1024", "1792x1024", "1024x1792").</param>
         /// <param name="quality">The quality of the generated image ("standard" or "hd").</param>
         /// <param name="style">The style of the generated image ("vivid" or "natural").</param>
-        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
-        public override async Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
+        public override async Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 

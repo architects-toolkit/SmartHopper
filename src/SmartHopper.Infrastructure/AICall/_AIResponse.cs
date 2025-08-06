@@ -13,17 +13,15 @@ using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
-    public class AIResponse
+    public class AIResponseXXX
     {
         public string Response { get; set; }
         public string FinishReason { get; set; }
         public int InTokens { get; set; }
         public int OutTokens { get; set; }
         public double CompletionTime { get; set; }
-        /// <summary>
-        /// Gets or sets the list of tool calls made by the AI model.
-        /// </summary>
-        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
+ 
+        // public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>(); --> moved to AIReturn
         public string Provider { get; set; }
         public string Model { get; set; }
 
