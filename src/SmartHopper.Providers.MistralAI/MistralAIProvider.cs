@@ -59,8 +59,19 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+        public override async Task<AIReturn<string>> GetResponse(AIRequest request)
         {
+            string providerName = request.Provider;
+            string model = request.Model;
+            List<IAIInteraction> messages = request.Body.Interactions;
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string endpoint = request.Endpoint;
+            string? toolFilter = request.Body.ToolFilter;
+
+            // TODO: Unify context filters
+            string? contextProviderFilter = request.Body.ContextFilter;
+            string? contextKeyFilter = request.Body.ContextFilter;
+            
             // Get settings from the secure settings store
             int maxTokens = this.GetSetting<int>("MaxTokens");
 
@@ -186,26 +197,30 @@ namespace SmartHopper.Providers.MistralAI
                     throw new Exception("Invalid response from MistralAI API: No message found");
                 }
 
-                var aiResponse = new AIResponse
+                var aiReturn = new AIReturn<string>
                 {
-                    Response = message["content"]?.ToString() ?? string.Empty,
-                    Provider = "MistralAI",
-                    Model = model,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
-                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                    Result = message["content"]?.ToString() ?? string.Empty,
+                    Metrics = new AIMetrics
+                    {
+                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
+                        InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                        OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                        Provider = this.Name,
+                        Model = model,
+                    },
+                    Status = AIStatus.Finished,
                 };
 
                 // Handle tool calls if any
                 if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
                 {
-                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    aiReturn.ToolCalls = new List<AIToolCall>();
                     foreach (JObject toolCall in toolCalls)
                     {
                         var function = toolCall["function"] as JObject;
                         if (function != null)
                         {
-                            aiResponse.ToolCalls.Add(new AIToolCall
+                            aiReturn.ToolCalls.Add(new AIToolCall
                             {
                                 Id = toolCall["id"]?.ToString(),
                                 Name = function["name"]?.ToString(),
@@ -213,10 +228,11 @@ namespace SmartHopper.Providers.MistralAI
                             });
                         }
                     }
+                    aiReturn.Status = AIStatus.CallingTools;
                 }
 
-                Debug.WriteLine($"[MistralAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
-                return aiResponse;
+                Debug.WriteLine($"[MistralAI] Response processed successfully: {aiReturn.Result.Substring(0, Math.Min(50, aiReturn.Result.Length))}...");
+                return aiReturn;
             }
             catch (Exception ex)
             {

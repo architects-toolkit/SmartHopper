@@ -286,12 +286,17 @@ namespace SmartHopper.Infrastructure.Tests
             public override Image Icon => new Bitmap(16, 16);
 
             /// <inheritdoc/>
-            public override Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+            public override Task<AIReturn<string>> GetResponse(AIRequest request)
             {
-                var response = new AIResponse
+                var response = new AIReturn<string>
                 {
-                    Response = "Mock response",
-                    FinishReason = "success",
+                    Result = "Mock response",
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "success",
+                    },
+                    Status = AICallStatus.Finished,
+                    Request = request,
                 };
                 return Task.FromResult(response);
             }

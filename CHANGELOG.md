@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `AIAgent`, `AIRequest` and `AIRequestBody` models to improve clarity and extensability. Refactored all code to use the new models.
 - Renamed `IChatModel` to `AIInteraction`.
 - Renamed `AIEvaluationResult<T>` to `AIReturn<T>`.
-- Added `AIAgent`, `AIInteraction`, `AIRequest` and `AIRequestBody` models to improve clarity and extensability. Refactored all code to use the new models.
+- Renamed `AIResponse` to `AIReturnBody`
 
 ### Removed
 

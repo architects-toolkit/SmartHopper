@@ -12,45 +12,46 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
-    /// <summary>
-    /// Generic result type for AI evaluations, providing a standard interface between tools and components.
-    /// </summary>
-    /// <typeparam name="T">The type of the result value.</typeparam>
-    public class AIReturn<T>
+    /// <inheritdoc/>
+    public class AIReturn<T> : IAIReturn<T>
     {
-        /// <summary>
-        /// Gets or sets the raw response from the AI.
-        /// </summary>
-        public AIResponse Response { get; set; }
-
-        /// <summary>
-        /// Gets or sets the processed result value.
-        /// </summary>
+        /// <inheritdoc/>
         public T Result { get; set; }
 
-        /// <summary>
-        /// Gets or sets the error message if any occurred during evaluation.
-        /// </summary>
+        /// <inheritdoc/>
+        public AIRequest Request { get; set; }
+
+        /// <inheritdoc/>
+        public AIMetrics Metrics { get; set; }
+
+        /// <inheritdoc/>
+        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
+
+        /// <inheritdoc/>
+        public AICallStatus Status { get; set; } = AICallStatus.Idle;
+
+        /// <inheritdoc/>
         public string ErrorMessage { get; set; }
 
-        /// <summary>
-        /// Gets a value indicating whether the evaluation was successful.
-        /// </summary>
-        /// <returns>True if the evaluation was successful; otherwise, false.</returns>
-        public bool Success => string.IsNullOrEmpty(ErrorMessage);
+        /// <inheritdoc/>
+        public bool Success => string.IsNullOrEmpty(this.ErrorMessage);
 
-        /// <summary>
-        /// Value indicating whether the structure of this IAIReturn is valid.
-        /// </summary>
+        /// <inheritdoc/>
         public bool IsValid()
         {
-            //if (!this.Response.IsValid())
-            //{
-            //    return false;
-            //}
+            if (!this.Request.IsValid())
+            {
+                return false;
+            }
+
+            if (!this.Metrics.IsValid())
+            {
+                return false;
+            }
 
             if (this.Result == null && this.ErrorMessage == null)
             {
@@ -63,15 +64,21 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Creates a new successful result.
         /// </summary>
-        /// <param name="response">The AI response.</param>
         /// <param name="result">The result value.</param>
+        /// <param name="metrics">The metrics from the response.</param>
         /// <returns>A new success result instance.</returns>
-        public static AIReturn<T> CreateSuccess(AIResponse response, T result)
+        public static AIReturn<T> CreateSuccess(T result, AIMetrics? metrics = null)
         {
+            if (metrics == null)
+            {
+                metrics = new AIMetrics();
+            }
+
             return new AIReturn<T>
             {
-                Response = response,
                 Result = result,
+                Status = AICallStatus.Finished,
+                Metrics = metrics,
             };
         }
 
@@ -79,14 +86,23 @@ namespace SmartHopper.Infrastructure.AICall
         /// Creates a new error result.
         /// </summary>
         /// <param name="message">The error message.</param>
-        /// <param name="response">Optional AI response that may have caused the error.</param>
+        /// <param name="metrics">Optional metrics from the response that may have caused the error.</param>
         /// <returns>A new error result instance.</returns>
-        public static AIReturn<T> CreateError(string message, AIResponse response = null)
+        public static AIReturn<T> CreateError(string message, AIMetrics? metrics = null)
         {
+            if (metrics == null)
+            {
+                metrics = new AIMetrics()
+                {
+                    FinishReason = "error",
+                };
+            }	
+
             return new AIReturn<T>
             {
-                Response = response,
+                Metrics = metrics,
                 ErrorMessage = message,
+                Status = AICallStatus.Finished,
             };
         }
     }
@@ -109,12 +125,12 @@ namespace SmartHopper.Infrastructure.AICall
                 ["success"] = "Success",
                 ["result"] = "Result",
                 ["error"] = "ErrorMessage",
-                ["rawResponse"] = "Response",
             };
 
             var jo = new JObject();
             var aiReturnType = aireturn.GetType();
-            var responseType = typeof(AIResponse);
+            var requestType = typeof(AIRequest);
+            var metricsType = typeof(AIMetrics);
 
             foreach (var (jsonKey, sourcePath) in fields)
             {
@@ -123,16 +139,32 @@ namespace SmartHopper.Infrastructure.AICall
 
                 try
                 {
-                    if (sourcePath.StartsWith("Response.", StringComparison.OrdinalIgnoreCase))
+                    if (sourcePath.StartsWith("Request.", StringComparison.OrdinalIgnoreCase))
                     {
                         // Handle nested Response properties
-                        var propName = sourcePath["Response.".Length..];
-                        var responseProp = responseType.GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+                        var propName = sourcePath["Request.".Length..];
+                        var requestProp = requestType.GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
 
-                        if (responseProp != null && aireturn.Response != null)
+                        if (requestProp != null && aireturn.Request != null)
                         {
-                            value = responseProp.GetValue(aireturn.Response);
+                            value = requestProp.GetValue(aireturn.Request);
                         }
+                    }
+                    else if (sourcePath.StartsWith("Metrics.", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Handle nested Response properties
+                        var propName = sourcePath["Metrics.".Length..];
+                        var metricsProp = metricsType.GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+                        if (metricsProp != null && aireturn.Metrics != null)
+                        {
+                            value = metricsProp.GetValue(aireturn.Metrics);
+                        }
+                    }
+                    else if (sourcePath == "Status")
+                    {
+                        // Handle AICallStatus properties
+                        value = aireturn.Status.ToString();
                     }
                     else
                     {

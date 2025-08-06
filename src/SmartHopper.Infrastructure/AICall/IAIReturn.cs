@@ -8,6 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System.Collections.Generic;
+using SmartHopper.Infrastructure.AITools;
+
 namespace SmartHopper.Infrastructure.AICall
 {
     /// <summary>
@@ -17,19 +20,29 @@ namespace SmartHopper.Infrastructure.AICall
     public interface IAIReturn<T>
     {
         /// <summary>
-        /// Gets or sets the request sent to the AI.
-        /// </summary>
-        AIRequest Request { get; set; }	
-        
-        /// <summary>
-        /// Gets or sets the raw response from the AI.
-        /// </summary>
-        AIResponse Response { get; set; }
-
-        /// <summary>
         /// Gets or sets the processed result value.
         /// </summary>
         T Result { get; set; }
+
+        /// <summary>
+        /// Gets or sets the request sent to the AI.
+        /// </summary>
+        AIRequest Request { get; set; }
+
+        /// <summary>
+        /// Gets or sets the metrics from the AI call.
+        /// </summary>
+        AIMetrics Metrics { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of tool calls made by the AI model after the request.
+        /// </summary>
+        List<AIToolCall> ToolCalls { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current status of the request.
+        /// </summary>
+        AICallStatus Status { get; set; }
 
         /// <summary>
         /// Gets or sets the error message if any occurred during evaluation.
@@ -39,7 +52,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets a value indicating whether the evaluation was successful.
         /// </summary>
-        bool Success { get; set; }
+        bool Success { get; }
 
         /// <summary>
         /// Value indicating whether the structure of this IAIReturn is valid.
