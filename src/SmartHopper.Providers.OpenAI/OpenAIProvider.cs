@@ -293,7 +293,7 @@ namespace SmartHopper.Providers.OpenAI
                 string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("ImageModel") : model;
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = this.GetDefaultModel(AIModelCapability.ImageGenerator);
+                    modelName = this.GetDefaultModel(AICapability.ImageGenerator);
                 }
 
                 Debug.WriteLine($"[OpenAI] GenerateImage - Model: {modelName}, Size: {size}, Quality: {quality}, Style: {style}");

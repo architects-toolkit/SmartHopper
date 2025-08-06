@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
                 execute: this.GenerateListToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.StructuredOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.JsonOutput);
         }
 
         /// <summary>

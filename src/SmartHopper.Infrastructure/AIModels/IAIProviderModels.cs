@@ -35,19 +35,19 @@ namespace SmartHopper.Infrastructure.AIModels
         /// Gets all models and their capabilities supported by this provider.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities();
+        Task<Dictionary<string, AICapability>> RetrieveCapabilities();
 
         /// <summary>
         /// Gets the capability information for a specific model.
         /// </summary>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or null if not found.</returns>
-        AIModelCapability RetrieveCapabilities(string model);
+        AICapability RetrieveCapabilities(string model);
 
         /// <summary>
         /// Gets all default models supported by this provider.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        Dictionary<string, AIModelCapability> RetrieveDefault();
+        Dictionary<string, AICapability> RetrieveDefault();
     }
 }
