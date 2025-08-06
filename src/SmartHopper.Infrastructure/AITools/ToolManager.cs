@@ -16,10 +16,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Infrastructure.Managers.AITools
+namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
     /// Central manager for AI tools that can be called from chat interfaces.

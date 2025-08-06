@@ -15,7 +15,7 @@ using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino;
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs;

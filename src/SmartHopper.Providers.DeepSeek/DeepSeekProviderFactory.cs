@@ -8,7 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.DeepSeek
 {

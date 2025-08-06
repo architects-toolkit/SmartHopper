@@ -10,9 +10,8 @@
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.Managers.ModelManager;
 
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Interface for AI provider model management operations.

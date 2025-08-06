@@ -14,7 +14,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
 {

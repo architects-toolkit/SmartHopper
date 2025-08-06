@@ -12,7 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace SmartHopper.Infrastructure.Managers.ModelManager
+namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Registry containing capability information for all known models.

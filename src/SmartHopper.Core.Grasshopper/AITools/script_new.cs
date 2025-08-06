@@ -20,9 +20,8 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
 

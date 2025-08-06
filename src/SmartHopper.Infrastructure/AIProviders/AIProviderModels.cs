@@ -12,10 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.AIProviders.Manager
+namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
     /// Base class for AI provider model management operations.

@@ -14,8 +14,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Providers.OpenAI
 {

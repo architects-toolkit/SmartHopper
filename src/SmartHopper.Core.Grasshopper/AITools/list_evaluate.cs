@@ -19,9 +19,9 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -78,8 +78,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Debug.WriteLine($"[ListTools] Error in EvaluateListAsync (List<GH_String> overload): {ex.Message}");
                 return AIEvaluationResult<bool>.CreateError(
-                    $"Error evaluating list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                    $"Error evaluating list: {ex.Message}", "Error");
             }
         }
 
@@ -121,13 +120,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     return AIEvaluationResult<bool>.CreateError(
                         response.Response,
-                        GH_RuntimeMessageLevel.Error,
+                        "Error",
                         response);
                 }
 
                 // Strip thinking tags from response before parsing
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Parse the boolean from the response
                 var result = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
 
@@ -135,7 +134,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     return AIEvaluationResult<bool>.CreateError(
                         $"The AI returned an invalid response:\n{response.Response}",
-                        GH_RuntimeMessageLevel.Error,
+                        "Error",
                         response);
                 }
 
@@ -148,8 +147,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Debug.WriteLine($"[ListTools] Error in EvaluateListAsync: {ex.Message}");
                 return AIEvaluationResult<bool>.CreateError(
-                    $"Error evaluating list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                    $"Error evaluating list: {ex.Message}", "Error");
             }
         }
 

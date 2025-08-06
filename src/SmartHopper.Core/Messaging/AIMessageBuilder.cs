@@ -10,7 +10,7 @@
 
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Core.Messaging
 {

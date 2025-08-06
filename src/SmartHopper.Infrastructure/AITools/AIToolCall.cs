@@ -8,24 +8,26 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System.Collections.Generic;
-
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
-    /// Interface for providing context to AI queries
+    /// Represents a tool call made by an AI model.
     /// </summary>
-    public interface IAIContextProvider
+    public class AIToolCall
     {
         /// <summary>
-        /// Gets the provider identifier
+        /// Gets or sets the ID of the tool call.
         /// </summary>
-        string ProviderId { get; }
+        public string Id { get; set; }
 
         /// <summary>
-        /// Gets the current context for AI queries
+        /// Gets or sets the name of the tool being called.
         /// </summary>
-        /// <returns>A dictionary of context key-value pairs</returns>
-        Dictionary<string, string> GetContext();
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Gets or sets the arguments passed to the tool as a JSON string.
+        /// </summary>
+        public string Arguments { get; set; }
     }
 }

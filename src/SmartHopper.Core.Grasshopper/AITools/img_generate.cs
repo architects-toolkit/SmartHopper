@@ -15,11 +15,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -94,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     return AIEvaluationResult<GH_String>.CreateError(
                         response.ErrorMessage,
-                        GH_RuntimeMessageLevel.Error,
+                        "Error",
                         response); // Now using AIResponse which is compatible with AIEvaluationResult
                 }
 
@@ -102,13 +101,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string imageResult = !string.IsNullOrEmpty(response.ImageUrl)
                     ? response.ImageUrl
                     : response.ImageData;
-                
+
                 // Check if we have valid image data
                 if (string.IsNullOrEmpty(imageResult))
                 {
                     return AIEvaluationResult<GH_String>.CreateError(
                         "No image data received from AI provider",
-                        GH_RuntimeMessageLevel.Error,
+                        "Error",
                         response);
                 }
                 
@@ -122,7 +121,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[ImageTools] Error in GenerateImageAsync: {ex.Message}");
                 return AIEvaluationResult<GH_String>.CreateError(
                     $"Error generating image: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                    "Error");
             }
         }
 

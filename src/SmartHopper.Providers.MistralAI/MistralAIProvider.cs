@@ -15,8 +15,9 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.MistralAI

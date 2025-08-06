@@ -12,10 +12,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.AIProviders
 {
     public interface IAIProvider
     {

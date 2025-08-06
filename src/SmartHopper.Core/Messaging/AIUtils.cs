@@ -15,11 +15,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIContext;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIContext;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Messaging
 {

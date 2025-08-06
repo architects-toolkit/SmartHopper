@@ -17,8 +17,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {

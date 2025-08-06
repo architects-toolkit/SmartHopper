@@ -23,7 +23,7 @@ using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Core.UI.Chat
 {
