@@ -246,6 +246,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Store metrics if present
+            // TODO: use AIMetrics
             if (result.TryGetValue("rawResponse", out var metricsToken))
             {
                 var aiResp = metricsToken.ToObject<AIResponse>();

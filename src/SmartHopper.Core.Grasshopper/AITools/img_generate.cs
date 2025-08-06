@@ -165,7 +165,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         style: imageStyle)
                 ).ConfigureAwait(false);
 
-                return result.ToJObject<GH_String>();
+                // Return standardized result
+                var mapping = new Dictionary<string, string>
+                {
+                    ["success"] = "Success",
+                    ["result"] = "Result",
+                    ["error"] = "ErrorMessage",
+                    ["rawResponse"] = "Response", // Add rawResponse to get imgUrl
+                };
+
+                return result.ToJObject<GH_String>(mapping);
             }
             catch (Exception ex)
             {
