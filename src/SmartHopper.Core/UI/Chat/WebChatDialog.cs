@@ -24,7 +24,7 @@ using Eto.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.AIProviders.Manager;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Properties;

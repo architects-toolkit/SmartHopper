@@ -18,6 +18,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.AITools;
 using SmartHopper.Infrastructure.Managers.ModelManager;
@@ -25,7 +26,7 @@ using SmartHopper.Infrastructure.Models;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 
-namespace SmartHopper.Infrastructure.Managers.AIProviders
+namespace SmartHopper.Infrastructure.AIProviders.Manager
 {
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
@@ -92,7 +93,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             {
                 // STEP 1: Register models FIRST to make them available for default value resolution
                 // Prevent reloading capabilities if already initialized
-                if (!ModelManager.ModelManager.Instance.HasProviderCapabilities(this.Name))
+                if (!ModelManager.Instance.HasProviderCapabilities(this.Name))
                 {
                     Debug.WriteLine($"[{this.Name}] Registering model capabilities");
                     
@@ -105,7 +106,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                     {
                         var defaultFor = FindDefaultCapabilityForModel(capability.Key, defaultModelsDict);
 
-                        ModelManager.ModelManager.Instance.RegisterCapabilities(
+                        ModelManager.Instance.RegisterCapabilities(
                             this.Name,
                             capability.Key,
                             capability.Value,
@@ -122,7 +123,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
                             // Use RetrieveCapabilities which now handles wildcard resolution automatically
                             var capabilities = this.Models.RetrieveCapabilities(modelName);
 
-                            ModelManager.ModelManager.Instance.RegisterCapabilities(
+                            ModelManager.Instance.RegisterCapabilities(
                                 this.Name,
                                 modelName,
                                 capabilities,
@@ -320,7 +321,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
 
                 if (!string.IsNullOrWhiteSpace(modelFromSettings))
                 {
-                    if (ModelManager.ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                    if (ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
                     {
                         return modelFromSettings;
                     }
@@ -328,7 +329,7 @@ namespace SmartHopper.Infrastructure.Managers.AIProviders
             }
 
             // Else, try to get default model from ModelManager that matches the required capabilities
-            string modelFromProviderDefault = ModelManager.ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
+            string modelFromProviderDefault = ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
 
             if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))
             {

@@ -72,8 +72,8 @@ namespace SmartHopper.Menu.Dialogs
             IAIProvider[] providers = null;
             RhinoApp.InvokeOnUiThread(() =>
             {
-                Infrastructure.Managers.AIProviders.ProviderManager.Instance.RefreshProviders();
-                providers = Infrastructure.Managers.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
+                Infrastructure.AIProviders.ProviderManager.Instance.RefreshProviders();
+                providers = Infrastructure.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
             });
             this._providers = providers;
 
