@@ -59,7 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="question">The true/false question to evaluate.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
-        private static async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
+        private static async Task<AIReturn<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -87,35 +87,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<GH_Boolean>.CreateError(
+                    return AIReturn<GH_Boolean>.CreateError(
                         response.Response,
-                        "Error",
                         response);
                 }
 
                 // Strip thinking tags from response before parsing
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Parse the response
                 var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
                 if (parsedResult == null)
                 {
-                    return AIEvaluationResult<GH_Boolean>.CreateError(
+                    return AIReturn<GH_Boolean>.CreateError(
                         $"The AI returned an invalid response:\n{response.Response}",
-                        "Error",
                         response);
                 }
 
                 // Success case
-                return AIEvaluationResult<GH_Boolean>.CreateSuccess(
+                return AIReturn<GH_Boolean>.CreateSuccess(
                     response,
                     new GH_Boolean(parsedResult.Value));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in EvaluateTextAsync: {ex.Message}");
-                return AIEvaluationResult<GH_Boolean>.CreateError(
-                    $"Error evaluating text: {ex.Message}", "Error");
+                return AIReturn<GH_Boolean>.CreateError($"Error evaluating text: {ex.Message}");
             }
         }
 
@@ -162,13 +159,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ).ConfigureAwait(false);
 
                 // Return standardized result
-                return new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
+                return result.ToJObject<GH_Boolean>();
             }
             catch (Exception ex)
             {
