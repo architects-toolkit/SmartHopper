@@ -12,7 +12,7 @@ using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.AIProviders.Manager;
 using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 

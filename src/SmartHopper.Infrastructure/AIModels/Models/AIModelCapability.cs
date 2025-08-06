@@ -15,7 +15,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.AIProviders.Manager;
 using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Infrastructure.Managers.ModelManager

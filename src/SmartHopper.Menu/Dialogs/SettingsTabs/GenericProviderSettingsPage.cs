@@ -367,7 +367,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Update provider settings via ProviderManager
             if (updatedSettings.Any())
             {
-                SmartHopper.Infrastructure.Managers.AIProviders.ProviderManager.Instance.UpdateProviderSettings(_provider.Name, updatedSettings);
+                Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(_provider.Name, updatedSettings);
             }
         }
     }

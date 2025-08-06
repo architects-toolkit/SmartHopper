@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
   - Added tab for Trusted Providers configuration.
 - Improved API key encryption. Includes migration method.
+- Complete refactor of `SmartHopper.Infrastructure` for clarity and organization.
+
+### Removed
+
+- Removed the `TemplateProvider` since it will be explained in documentation.
 
 ### Fixed
 

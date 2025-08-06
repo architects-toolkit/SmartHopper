@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Models;
 
-namespace SmartHopper.Infrastructure.Managers.AIProviders
+namespace SmartHopper.Infrastructure.AIProviders.Manager
 {
     /// <summary>
     /// Base class for provider settings, encapsulating common UI building and persistence logic.

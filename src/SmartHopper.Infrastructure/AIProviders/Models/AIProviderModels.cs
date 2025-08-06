@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using SmartHopper.Infrastructure.Interfaces;
 using SmartHopper.Infrastructure.Managers.ModelManager;
 
-namespace SmartHopper.Infrastructure.Managers.AIProviders
+namespace SmartHopper.Infrastructure.AIProviders.Manager
 {
     /// <summary>
     /// Base class for AI provider model management operations.
