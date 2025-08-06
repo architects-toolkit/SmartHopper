@@ -9,17 +9,20 @@
  */
 
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
-    /// Interface for provider settings UI and validation.
+    /// Interface for classes that provide AI tools.
+    /// Implement this interface in tool classes to enable auto-discovery.
     /// </summary>
-    public interface IAIProviderSettings
+    public interface IAIToolProvider
     {
-        IEnumerable<SettingDescriptor> GetSettingDescriptors();
-
-        bool ValidateSettings(Dictionary<string, object> settings);
+        /// <summary>
+        /// Get all tools provided by this class
+        /// </summary>
+        /// <returns>Collection of AI tools</returns>
+        IEnumerable<AITool> GetTools();
     }
 }

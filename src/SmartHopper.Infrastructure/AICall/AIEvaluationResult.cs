@@ -8,15 +8,14 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using Grasshopper.Kernel;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Core.Grasshopper.Models
+namespace SmartHopper.Infrastructure.AICall
 {
     /// <summary>
     /// Generic result type for AI evaluations, providing a standard interface between tools and components.
     /// </summary>
-    /// <typeparam name="T">The type of the result value, typically a Grasshopper data type.</typeparam>
+    /// <typeparam name="T">The type of the result value.</typeparam>
     public class AIEvaluationResult<T>
     {
         /// <summary>
@@ -37,7 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         /// <summary>
         /// Gets or sets the level of the error message.
         /// </summary>
-        public GH_RuntimeMessageLevel ErrorLevel { get; set; }
+        public string ErrorLevel { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether the evaluation was successful.
@@ -67,7 +66,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         /// <param name="level">The error level.</param>
         /// <param name="response">Optional AI response that may have caused the error.</param>
         /// <returns>A new error result instance.</returns>
-        public static AIEvaluationResult<T> CreateError(string message, GH_RuntimeMessageLevel level, AIResponse response = null)
+        public static AIEvaluationResult<T> CreateError(string message, string level, AIResponse response = null)
         {
             return new AIEvaluationResult<T>
             {

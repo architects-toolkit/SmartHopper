@@ -17,8 +17,9 @@
 
 using System;
 using System.Collections.Generic;
+using SmartHopper.Infrastructure.AITools;
 
-namespace SmartHopper.Infrastructure.Models
+namespace SmartHopper.Infrastructure.AICall
 {
     public interface IChatModel
     {

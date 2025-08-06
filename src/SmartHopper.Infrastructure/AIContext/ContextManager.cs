@@ -12,10 +12,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Utils;
 
-namespace SmartHopper.Infrastructure.Managers.AIContext
+namespace SmartHopper.Infrastructure.AIContext
 {
     /// <summary>
     /// Static manager for handling AI context providers

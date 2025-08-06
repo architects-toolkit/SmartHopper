@@ -18,15 +18,13 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 
-namespace SmartHopper.Infrastructure.AIProviders.Manager
+namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
@@ -49,7 +47,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         {
         }
     }
-    
+
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
@@ -96,7 +94,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
                 if (!ModelManager.Instance.HasProviderCapabilities(this.Name))
                 {
                     Debug.WriteLine($"[{this.Name}] Registering model capabilities");
-                    
+
                     // Initialize the models manager asynchronously
                     var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
                     var defaultModelsDict = this.Models.RetrieveDefault();
@@ -163,7 +161,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
                     if (descriptor.DefaultValue != null)
                     {
                         this._defaultSettings[descriptor.Name] = descriptor.DefaultValue;
-                        
+
                         // Also add to settingsDict if not already present
                         if (!settingsDict.ContainsKey(descriptor.Name))
                         {

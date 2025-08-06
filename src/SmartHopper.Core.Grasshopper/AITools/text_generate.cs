@@ -15,11 +15,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -93,7 +92,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     return AIEvaluationResult<GH_String>.CreateError(
                         response.Response,
-                        GH_RuntimeMessageLevel.Error,
+                        "Error",
                         response);
                 }
 
@@ -109,8 +108,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateTextAsync: {ex.Message}");
                 return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating text: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                    $"Error generating text: {ex.Message}", "Error");
             }
         }
 

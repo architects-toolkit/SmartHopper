@@ -11,9 +11,9 @@
 using System;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.Models
+namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
     /// Represents an AI-callable tool with metadata and execution function.

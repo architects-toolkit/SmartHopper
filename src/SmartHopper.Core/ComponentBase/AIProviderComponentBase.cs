@@ -14,7 +14,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AIProviders.Manager;
 
 namespace SmartHopper.Core.ComponentBase
 {

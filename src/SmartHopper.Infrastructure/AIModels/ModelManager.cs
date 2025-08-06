@@ -12,9 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
+using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Infrastructure.Managers.ModelManager
+namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Unified manager for AI model capabilities with persistent storage.

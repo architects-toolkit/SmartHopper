@@ -15,11 +15,9 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.Interfaces;
+    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.AIProviders;
-    using SmartHopper.Infrastructure.AIProviders.Manager;
-    using SmartHopper.Infrastructure.Managers.ModelManager;
-    using SmartHopper.Infrastructure.Models;
     using SmartHopper.Infrastructure.Settings;
     using Xunit;
 

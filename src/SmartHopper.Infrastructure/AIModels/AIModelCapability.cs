@@ -15,10 +15,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Infrastructure.Managers.ModelManager
+namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Defines the capabilities that an AI model can support.
