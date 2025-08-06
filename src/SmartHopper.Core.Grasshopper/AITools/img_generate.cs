@@ -76,7 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="style">The style setting for the image.</param>
         /// <param name="generateImage">Custom function to generate image.</param>
         /// <returns>The image URL or data as a GH_String.</returns>
-        private static async Task<AIEvaluationResult<GH_String>> GenerateImageAsync(
+        private static async Task<AIReturn<GH_String>> GenerateImageAsync(
             GH_String prompt,
             GH_String size,
             GH_String quality,
@@ -91,10 +91,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<GH_String>.CreateError(
+                    return AIReturn<GH_String>.CreateError(
                         response.ErrorMessage,
-                        "Error",
-                        response); // Now using AIResponse which is compatible with AIEvaluationResult
+                        response); // Now using AIResponse which is compatible with AIReturn
                 }
 
                 // Return the image URL or data (prioritize URL over base64 data for performance)
@@ -105,23 +104,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check if we have valid image data
                 if (string.IsNullOrEmpty(imageResult))
                 {
-                    return AIEvaluationResult<GH_String>.CreateError(
+                    return AIReturn<GH_String>.CreateError(
                         "No image data received from AI provider",
-                        "Error",
                         response);
                 }
-                
+
                 // Success case
-                return AIEvaluationResult<GH_String>.CreateSuccess(
-                    response, // Now using AIResponse which is compatible with AIEvaluationResult
+                return AIReturn<GH_String>.CreateSuccess(
+                    response, // Now using AIResponse which is compatible with AIReturn
                     new GH_String(imageResult));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ImageTools] Error in GenerateImageAsync: {ex.Message}");
-                return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating image: {ex.Message}",
-                    "Error");
+                return AIReturn<GH_String>.CreateError($"Error generating image: {ex.Message}");
             }
         }
 
@@ -169,15 +165,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         style: imageStyle)
                 ).ConfigureAwait(false);
 
-                // Build standardized result as JObject
-                var responseObj = new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success && result.Result != null ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = result.Response != null ? JToken.FromObject(result.Response) : JValue.CreateNull(),
-                };
-                return responseObj;
+                return result.ToJObject<GH_String>();
             }
             catch (Exception ex)
             {

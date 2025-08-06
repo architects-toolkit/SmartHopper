@@ -8,8 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System.Collections.Generic;
-using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Infrastructure.AICall
@@ -61,17 +59,17 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         public bool IsValid()
         {
-            if(string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model) || !this.Capability.HasInput() || !this.Capability.HasOutput() || string.IsNullOrEmpty(this.Endpoint) || string.IsNullOrEmpty(this.HttpMethod) || string.IsNullOrEmpty(this.Authentication) || string.IsNullOrEmpty(this.ContentType))
+            if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model) || !this.Capability.HasInput() || !this.Capability.HasOutput() || string.IsNullOrEmpty(this.Endpoint) || string.IsNullOrEmpty(this.HttpMethod) || string.IsNullOrEmpty(this.Authentication) || string.IsNullOrEmpty(this.ContentType))
             {
                 return false;
             }
 
-            if(!this.Body.IsValid())
+            if (!this.Body.IsValid())
             {
                 return false;
             }
 
-            if(this.Capability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
+            if (this.Capability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
             {
                 return false;
             }

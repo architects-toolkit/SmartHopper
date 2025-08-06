@@ -24,19 +24,19 @@ namespace SmartHopper.Infrastructure.AICall
     public class AIInteraction<TBody> : IAIInteraction
     {
         /// <summary>
-        /// Gets or sets the timestamp of the interaction.
-        /// </summary>
-        public DateTime Time { get; set; }
-
-        /// <summary>
         /// Gets or sets the agent of the interaction.
         /// </summary>
-        public required AIAgent Agent { get; set; }
+        required public AIAgent Agent { get; set; }
 
         /// <summary>
         /// Gets or sets the body of the interaction.
         /// </summary>
-        public required TBody Body { get; set; }
+        required public TBody Body { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timestamp of the interaction.
+        /// </summary>
+        public DateTime Time { get; set; }
 
         /// <summary>
         /// Gets or sets the list of tool calls associated with this interaction.
@@ -46,8 +46,8 @@ namespace SmartHopper.Infrastructure.AICall
         // IAIInteraction.Body implementation
         object IAIInteraction.Body
         {
-            get => Body!;
-            set => Body = (TBody)value!;
+            get => this.Body!;
+            set => this.Body = (TBody)value!;
         }
     }
 }

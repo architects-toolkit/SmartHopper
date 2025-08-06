@@ -64,7 +64,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="instructions">Optional instructions for the AI.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>The generated text as a GH_String.</returns>
-        private static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
+        private static async Task<AIReturn<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -90,25 +90,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<GH_String>.CreateError(
+                    return AIReturn<GH_String>.CreateError(
                         response.Response,
-                        "Error",
                         response);
                 }
 
                 // Strip thinking tags from response before using
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Success case
-                return AIEvaluationResult<GH_String>.CreateSuccess(
+                return AIReturn<GH_String>.CreateSuccess(
                     response,
                     new GH_String(cleanedResponse));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateTextAsync: {ex.Message}");
-                return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating text: {ex.Message}", "Error");
+                return AIReturn<GH_String>.CreateError($"Error generating text: {ex.Message}");
             }
         }
 
@@ -156,14 +154,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ).ConfigureAwait(false);
 
                 // Build standardized result as JObject
-                var responseObj = new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
-                return responseObj;
+                return result.ToJObject<GH_String>();
             }
             catch (Exception ex)
             {

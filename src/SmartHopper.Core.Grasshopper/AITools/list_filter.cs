@@ -60,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="criteria">The natural language criteria to apply.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, list of indices, and any error information.</returns>
-        private static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
+        private static async Task<AIReturn<List<int>>> FilterListAsync(
             List<GH_String> inputList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -76,8 +76,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in FilterListAsync (List<GH_String> overload): {ex.Message}");
-                return AIEvaluationResult<List<int>>.CreateError(
-                    $"Error filtering list: {ex.Message}", "Error");
+                return AIReturn<List<int>>.CreateError(
+                    $"Error filtering list: {ex.Message}");
             }
         }
 
@@ -88,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="criteria">The natural language criteria to apply.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, list of indices, and any error information.</returns>
-        private static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
+        private static async Task<AIReturn<List<int>>> FilterListAsync(
             string jsonList,
             GH_String criteria,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -123,29 +123,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<List<int>>.CreateError(
+                    return AIReturn<List<int>>.CreateError(
                         response.Response,
-                        "Error",
                         response);
                 }
 
                 // Strip thinking tags from response before parsing
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Parse indices from response
                 var indices = ParsingTools.ParseIndicesFromResponse(cleanedResponse);
                 Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
 
                 // Success case - return the indices directly
-                return AIEvaluationResult<List<int>>.CreateSuccess(
+                return AIReturn<List<int>>.CreateSuccess(
                     response,
                     indices);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in FilterListAsync: {ex.Message}");
-                return AIEvaluationResult<List<int>>.CreateError(
-                    $"Error filtering list: {ex.Message}", "Error");
+                return AIReturn<List<int>>.CreateError($"Error filtering list: {ex.Message}");
             }
         }
 
@@ -199,14 +197,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ).ConfigureAwait(false);
 
                 // Return standardized result
-                return new JObject
+                var mapping = new Dictionary<string, string>
                 {
-                    ["success"] = result.Success,
-                    ["indices"] = result.Success ? JArray.FromObject(result.Result) : JValue.CreateNull(),
-                    ["count"] = new JValue(result.Success ? result.Result.Count : 0),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
+                    ["success"] = "Success",
+                    ["indices"] = "Result", // Map Result to indices
+                    ["error"] = "ErrorMessage",
+                    ["rawResponse"] = "Response",
                 };
+
+                var jobj = result.ToJObject<List<int>>(mapping);
+
+                // Add a count field
+                jobj["count"] = new JValue(result.Success ? result.Result.Count : 0);
+
+                return jobj;
             }
             catch (Exception ex)
             {
@@ -219,29 +223,5 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 };
             }
         }
-
-        ///// <summary>
-        ///// Builds a filtered list of GH_String items based on a list of indices.
-        ///// </summary>
-        ///// <param name="items">Original list of items.</param>
-        ///// <param name="indices">List of indices to select.</param>
-        ///// <returns>Filtered list of items.</returns>
-        //public static List<GH_String> BuildFilteredListFromIndices(List<GH_String> items, List<int> indices)
-        //{
-        //    var result = new List<GH_String>();
-        //    foreach (var idx in indices)
-        //    {
-        //        if (idx >= 0 && idx < items.Count)
-        //        {
-        //            result.Add(items[idx]);
-        //        }
-        //        else
-        //        {
-        //            Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
-        //        }
-        //    }
-
-        //    return result;
-        //}
     }
 }
