@@ -74,7 +74,7 @@ namespace SmartHopper.Core.Messaging
         /// </summary>
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="model">The model to use for the request. If empty, uses provider's default model.</param>
-        /// <param name="messages">The conversation messages as ChatMessageModel objects.</param>
+        /// <param name="messages">The conversation messages as AIInteraction objects.</param>
         /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
         /// <param name="endpoint">Optional custom endpoint to use.</param>
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
@@ -84,7 +84,7 @@ namespace SmartHopper.Core.Messaging
         public static async Task<AIResponse> GetResponse(
             string providerName,
             string model,
-            List<ChatMessageModel> messages,
+            List<AIInteraction<string>> messages,
             string jsonSchema = "",
             string endpoint = "",
             string? toolFilter = null,
@@ -177,15 +177,15 @@ namespace SmartHopper.Core.Messaging
                     // If toolFilter is not null -> use FunctionCalling capability
                     if (!string.IsNullOrWhiteSpace(jsonSchema))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator, false);
+                        model = selectedProvider.GetDefaultModel(AICapability.JsonGenerator, false);
                     }
                     else if (!string.IsNullOrWhiteSpace(toolFilter))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat, false);
+                        model = selectedProvider.GetDefaultModel(AICapability.AdvancedChat, false);
                     }
                     else
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat, false);
+                        model = selectedProvider.GetDefaultModel(AICapability.BasicChat, false);
                     }
 
                     Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
@@ -260,9 +260,9 @@ namespace SmartHopper.Core.Messaging
                 }
 
                 // If no model is specified or the specified model is not compatible with image generation, use the provider's default image model
-                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, AIModelCapability.ImageGenerator))
+                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, AICapability.ImageGenerator))
                 {
-                    model = selectedProvider.GetDefaultModel(AIModelCapability.ImageGenerator);
+                    model = selectedProvider.GetDefaultModel(AICapability.ImageGenerator);
 
                     // If no image model is found, early exit
                     if (string.IsNullOrWhiteSpace(model))

@@ -310,7 +310,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
         }
 
-        public string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat, bool useSettings = true)
+        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
         {
             // Use settings model if matches requiredCapabilites
             if (useSettings)
@@ -556,8 +556,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <param name="modelName">The model name from capabilities (may contain wildcards).</param>
         /// <param name="defaultModelsDict">Dictionary of default models with their capabilities.</param>
-        /// <returns>The default capability for the model, or AIModelCapability.None if no match found.</returns>
-        private static AIModelCapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AIModelCapability> defaultModelsDict)
+        /// <returns>The default capability for the model, or AICapability.None if no match found.</returns>
+        private static AICapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AICapability> defaultModelsDict)
         {
             // First, try exact match (existing behavior)
             if (defaultModelsDict.ContainsKey(modelName))
@@ -571,7 +571,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 var pattern = modelName.Replace("*", "");
                 var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
-                if (!matchingDefault.Equals(default(KeyValuePair<string, AIModelCapability>)))
+                if (!matchingDefault.Equals(default(KeyValuePair<string, AICapability>)))
                 {
                     Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingDefault.Value}");
                     return matchingDefault.Value;
@@ -581,7 +581,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
             var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp =>
                 kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
-            if (!matchingWildcard.Equals(default(KeyValuePair<string, AIModelCapability>)))
+            if (!matchingWildcard.Equals(default(KeyValuePair<string, AICapability>)))
             {
                 Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingWildcard.Value}");
                 return matchingWildcard.Value;
@@ -589,7 +589,7 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             // No match found
             Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] No match found for {modelName}");
-            return AIModelCapability.None;
+            return AICapability.None;
         }
     }
 }

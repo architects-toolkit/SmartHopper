@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""criteria""]
                 }",
                 execute: this.FilterListToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
             );
         }
 

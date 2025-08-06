@@ -21,36 +21,26 @@ using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
-    public interface IChatModel
+    public interface IAIInteraction
     {
-        bool Inbound { get; set; }
-
-        bool Read { get; set; }
-
+        /// <summary>
+        /// Gets or sets the timestamp of the interaction.
+        /// </summary>
         DateTime Time { get; set; }
 
-        string Author { get; set; }
-
-        string Type { get; }
-    }
-
-    public class ChatMessageModel : IChatModel
-    {
-        public bool Inbound { get; set; }
-
-        public bool Read { get; set; }
-
-        public DateTime Time { get; set; }
-
-        public required string Author { get; set; }
-
-        public string Type { get; set; } = "text";
-
-        public required string Body { get; set; }
+        /// <summary>
+        /// Gets or sets the agent of the interaction.
+        /// </summary>
+        AIAgent Agent { get; set; }
 
         /// <summary>
-        /// Gets or sets list of tool calls associated with this message.
+        /// Gets or sets the body of the interaction.
         /// </summary>
-        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
+        object Body { get; set; }
+
+        /// <summary>
+        /// Gets or sets list of tool calls associated with this interaction.
+        /// </summary>
+        List<AIToolCall> ToolCalls { get; set; }
     }
 }
