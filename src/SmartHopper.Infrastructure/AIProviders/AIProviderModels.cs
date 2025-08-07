@@ -12,10 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.AIProviders.Manager
+namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
     /// Base class for AI provider model management operations.
@@ -70,9 +69,9 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         /// Concrete providers should override this to provide provider-specific capability discovery.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public virtual async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
+        public virtual async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             try
             {
@@ -105,11 +104,11 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         /// </summary>
         /// <param name="model">The model name.</param>
         /// <returns>Model capabilities or None if not found.</returns>
-        public virtual AIModelCapability RetrieveCapabilities(string model)
+        public virtual AICapability RetrieveCapabilities(string model)
         {
             if (string.IsNullOrEmpty(model))
             {
-                return AIModelCapability.None;
+                return AICapability.None;
             }
 
             // Get all wildcard capabilities (this calls the async version)
@@ -136,16 +135,16 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
             }
             
             Debug.WriteLine($"[{_provider.Name}] No capability match found for model '{model}'");
-            return AIModelCapability.None;
+            return AICapability.None;
         }
 
         /// <summary>
         /// Gets all default models supported by this provider.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public virtual Dictionary<string, AIModelCapability> RetrieveDefault()
+        public virtual Dictionary<string, AICapability> RetrieveDefault()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             return result;
         }

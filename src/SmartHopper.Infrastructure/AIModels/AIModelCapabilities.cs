@@ -15,10 +15,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Infrastructure.Managers.ModelManager
+namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Represents the capabilities and metadata of a specific AI model.
@@ -38,23 +37,23 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <summary>
         /// Gets or sets the capabilities supported by this model.
         /// </summary>
-        public AIModelCapability Capabilities { get; set; } = AIModelCapability.None;
+        public AICapability Capabilities { get; set; } = AICapability.None;
 
         /// <summary>
         /// Gets or sets the capabilities for which this model is the default.
         /// If a model is marked as default for BasicChat, it will be returned as the default
         /// when requesting a model with BasicChat capabilities for this provider.
         /// </summary>
-        public AIModelCapability Default { get; set; } = AIModelCapability.None;
+        public AICapability Default { get; set; } = AICapability.None;
 
         /// <summary>
         /// Checks if this model supports a specific capability.
         /// </summary>
         /// <param name="capability">The capability to check for.</param>
         /// <returns>True if the capability is supported.</returns>
-        public bool HasCapability(AIModelCapability capability)
+        public bool HasCapability(AICapability capability)
         {
-            if (capability == AIModelCapability.None)
+            if (capability == AICapability.None)
             {
                 return true;
             }

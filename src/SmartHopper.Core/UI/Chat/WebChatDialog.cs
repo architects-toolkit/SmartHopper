@@ -24,9 +24,8 @@ using Eto.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
 
@@ -46,9 +45,9 @@ namespace SmartHopper.Core.UI.Chat
         private readonly Label _statusLabel;
 
         // Chat state
-        private readonly List<ChatMessageModel> _chatHistory;
+        private readonly List<AIInteraction<string>> _chatHistory;
         private bool _isProcessing;
-        private readonly Func<List<ChatMessageModel>, Task<AIResponse>> _getResponse;
+        private readonly Func<List<AIInteraction<string>>, Task<AIResponse>> _getResponse;
         private readonly HtmlChatRenderer _htmlRenderer;
         private readonly string _providerName;
         private bool _webViewInitialized = false;
@@ -71,7 +70,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="providerName">The name of the AI provider to use for default model operations.</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="progressReporter">Optional callback to report progress updates.</param>
-        public WebChatDialog(Func<List<ChatMessageModel>, Task<AIResponse>> getResponse, string providerName, string? systemPrompt = null, Action<string>? progressReporter = null)
+        public WebChatDialog(Func<List<AIInteraction<string>>, Task<AIResponse>> getResponse, string providerName, string? systemPrompt = null, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             this._progressReporter = progressReporter;
@@ -106,7 +105,7 @@ namespace SmartHopper.Core.UI.Chat
                 return resp;
             };
 
-            this._chatHistory = new List<ChatMessageModel>();
+            this._chatHistory = new List<AIInteraction<string>>();
             this._htmlRenderer = new HtmlChatRenderer();
 
             Debug.WriteLine("[WebChatDialog] Creating WebView");
@@ -438,12 +437,10 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="response">The AI response object containing the message.</param>
         private void AddUserMessage(AIResponse response)
         {
-            this._chatHistory.Add(new ChatMessageModel
+            this._chatHistory.Add(new AIInteraction<string>
             {
-                Author = "user",
+                Agent = AIAgent.User,
                 Body = response.Response,
-                Inbound = false,
-                Read = false,
                 Time = DateTime.Now,
             });
 
@@ -471,12 +468,10 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="response">The AI response object containing metrics.</param>
         private void AddAssistantMessage(AIResponse response)
         {
-            this._chatHistory.Add(new ChatMessageModel
+            this._chatHistory.Add(new AIInteraction<string>
             {
-                Author = "assistant",
+                Agent = AIAgent.Assistant,
                 Body = response.Response,
-                Inbound = true,
-                Read = false,
                 Time = DateTime.Now,
                 ToolCalls = new List<AIToolCall>(response.ToolCalls),
             });
@@ -500,7 +495,7 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Find the last message of the specified role in chat history
-                var lastMessage = this._chatHistory.LastOrDefault(m => m.Author == role);
+                var lastMessage = this._chatHistory.LastOrDefault(m => m.Agent == AIAgentExtensions.FromString(role));
                 if (lastMessage == null)
                 {
                     Debug.WriteLine($"[WebChatDialog] No {role} messages found to remove");
@@ -567,12 +562,10 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="type">Optional subtype for styling (e.g., "error").</param>
         private void AddSystemMessage(AIResponse response, string type = null)
         {
-            this._chatHistory.Add(new ChatMessageModel
+            this._chatHistory.Add(new AIInteraction<string>
             {
-                Author = "system",
+                Agent = AIAgent.System,
                 Body = response.Response,
-                Inbound = true,
-                Read = false,
                 Time = DateTime.Now,
             });
 
@@ -845,12 +838,10 @@ namespace SmartHopper.Core.UI.Chat
                 this.AddToolResultMessage(toolResponse);
 
                 // Add tool result to chat history for the AI to see
-                this._chatHistory.Add(new ChatMessageModel
+                this._chatHistory.Add(new AIInteraction<string>
                 {
-                    Author = "tool",
+                    Agent = AIAgent.ToolResult,
                     Body = resultJson,
-                    Inbound = true,
-                    Read = false,
                     Time = DateTime.Now,
                     ToolCalls = new List<AIToolCall> { toolCall },
                 });
@@ -880,12 +871,10 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[WebChatDialog] Adding tool call {toolCall.Id}: {toolCall.Name} ({toolCall.Arguments})");
 
                 // Add to chat history
-                this._chatHistory.Add(new ChatMessageModel
+                this._chatHistory.Add(new AIInteraction<string>
                 {
-                    Author = "tool_call",
+                    Agent = AIAgent.ToolCall,
                     Body = "Calling tool: " + toolCall.Name,
-                    Inbound = true,
-                    Read = false,
                     Time = DateTime.Now,
                     ToolCalls = new List<AIToolCall> { toolCall },
                 });
@@ -948,12 +937,10 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // Show loading message immediately in the chat
-                var loadingMessage = new ChatMessageModel
+                var loadingMessage = new AIInteraction<string>
                 {
-                    Author = "assistant",
+                    Agent = AIAgent.Assistant,
                     Body = "💬 Loading message...",
-                    Inbound = true,
-                    Read = false,
                     Time = DateTime.Now,
                 };
 
@@ -982,14 +969,12 @@ namespace SmartHopper.Core.UI.Chat
                     greetingPrompt = "You are SmartHopper AI, an AI assistant for Grasshopper3D and computational design. Generate a brief, friendly greeting message that welcomes the user and offers assistance. Keep it concise, professional, and inviting.";
                 }
 
-                var greetingMessages = new List<ChatMessageModel>
+                var greetingMessages = new List<AIInteraction<string>>
                 {
-                    new ChatMessageModel
+                    new AIInteraction<string>
                     {
-                        Author = "system",
+                        Agent = AIAgent.System,
                         Body = greetingPrompt,
-                        Inbound = true,
-                        Read = false,
                         Time = DateTime.Now,
                     },
                 };

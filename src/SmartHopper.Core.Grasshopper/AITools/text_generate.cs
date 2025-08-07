@@ -15,11 +15,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -54,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateTextToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
             );
         }
 
@@ -65,7 +64,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="instructions">Optional instructions for the AI.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>The generated text as a GH_String.</returns>
-        private static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
+        private static async Task<AIReturn<GH_String>> GenerateTextAsync(
             GH_String prompt,
             GH_String instructions,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -91,26 +90,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<GH_String>.CreateError(
+                    return AIReturn<GH_String>.CreateError(
                         response.Response,
-                        GH_RuntimeMessageLevel.Error,
                         response);
                 }
 
                 // Strip thinking tags from response before using
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Success case
-                return AIEvaluationResult<GH_String>.CreateSuccess(
+                return AIReturn<GH_String>.CreateSuccess(
                     response,
                     new GH_String(cleanedResponse));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateTextAsync: {ex.Message}");
-                return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating text: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                return AIReturn<GH_String>.CreateError($"Error generating text: {ex.Message}");
             }
         }
 
@@ -158,14 +154,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ).ConfigureAwait(false);
 
                 // Build standardized result as JObject
-                var responseObj = new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
-                return responseObj;
+                return result.ToJObject<GH_String>();
             }
             catch (Exception ex)
             {

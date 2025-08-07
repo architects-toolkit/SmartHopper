@@ -8,7 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
     /// Interface for AI provider factories.

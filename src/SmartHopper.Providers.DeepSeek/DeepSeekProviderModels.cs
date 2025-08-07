@@ -14,8 +14,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -75,15 +75,15 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets all models and their capabilities supported by DeepSeek.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
+        public override async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+            result["deepseek-reasoner"] = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput;
 
             // Add deepseek-chat model
-            result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+            result["deepseek-chat"] = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput;
 
             return result;
         }
@@ -92,15 +92,15 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets all default models supported by DeepSeek.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        public override Dictionary<string, AICapability> RetrieveDefault()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.ReasoningChat;
+            result["deepseek-reasoner"] = AICapability.ReasoningChat;
 
             // Add deepseek-chat model as default for both BasicChat and AdvancedChat
-            result["deepseek-chat"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat;
+            result["deepseek-chat"] = AICapability.BasicChat | AICapability.AdvancedChat;
 
             return result;
         }

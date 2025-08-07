@@ -18,15 +18,13 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 
-namespace SmartHopper.Infrastructure.AIProviders.Manager
+namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
@@ -49,7 +47,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         {
         }
     }
-    
+
     /// <summary>
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
@@ -96,7 +94,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
                 if (!ModelManager.Instance.HasProviderCapabilities(this.Name))
                 {
                     Debug.WriteLine($"[{this.Name}] Registering model capabilities");
-                    
+
                     // Initialize the models manager asynchronously
                     var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
                     var defaultModelsDict = this.Models.RetrieveDefault();
@@ -163,7 +161,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
                     if (descriptor.DefaultValue != null)
                     {
                         this._defaultSettings[descriptor.Name] = descriptor.DefaultValue;
-                        
+
                         // Also add to settingsDict if not already present
                         if (!settingsDict.ContainsKey(descriptor.Name))
                         {
@@ -191,8 +189,8 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
         /// <param name="endpoint">Optional endpoint to send the request to.</param>
         /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
-        /// <returns>An AIResponse containing the result.</returns>
-        public abstract Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
+        /// <returns>An AIReturn containing the result.</returns>
+        public abstract Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
         /// <summary>
         /// Generates an image based on a text prompt.
@@ -202,8 +200,8 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
         /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
         /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
-        public virtual Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
+        public virtual Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
         {
             throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
         }
@@ -312,7 +310,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
             }
         }
 
-        public string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat, bool useSettings = true)
+        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
         {
             // Use settings model if matches requiredCapabilites
             if (useSettings)
@@ -558,8 +556,8 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
         /// </summary>
         /// <param name="modelName">The model name from capabilities (may contain wildcards).</param>
         /// <param name="defaultModelsDict">Dictionary of default models with their capabilities.</param>
-        /// <returns>The default capability for the model, or AIModelCapability.None if no match found.</returns>
-        private static AIModelCapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AIModelCapability> defaultModelsDict)
+        /// <returns>The default capability for the model, or AICapability.None if no match found.</returns>
+        private static AICapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AICapability> defaultModelsDict)
         {
             // First, try exact match (existing behavior)
             if (defaultModelsDict.ContainsKey(modelName))
@@ -573,7 +571,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
             {
                 var pattern = modelName.Replace("*", "");
                 var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
-                if (!matchingDefault.Equals(default(KeyValuePair<string, AIModelCapability>)))
+                if (!matchingDefault.Equals(default(KeyValuePair<string, AICapability>)))
                 {
                     Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingDefault.Value}");
                     return matchingDefault.Value;
@@ -583,7 +581,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
             // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
             var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp =>
                 kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
-            if (!matchingWildcard.Equals(default(KeyValuePair<string, AIModelCapability>)))
+            if (!matchingWildcard.Equals(default(KeyValuePair<string, AICapability>)))
             {
                 Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingWildcard.Value}");
                 return matchingWildcard.Value;
@@ -591,7 +589,7 @@ namespace SmartHopper.Infrastructure.AIProviders.Manager
 
             // No match found
             Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] No match found for {modelName}");
-            return AIModelCapability.None;
+            return AICapability.None;
         }
     }
 }

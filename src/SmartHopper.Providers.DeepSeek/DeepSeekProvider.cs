@@ -18,8 +18,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.DeepSeek
@@ -88,8 +89,19 @@ namespace SmartHopper.Providers.DeepSeek
         /// <param name="endpoint">Optional custom endpoint URL.</param>
         /// <param name="toolFilter">Optional flag to include tool definitions in the response.</param>
         /// <returns>The AI response.</returns>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+        public override async Task<AIReturn<string>> GetResponse(AIRequest request)
         {
+            string providerName = request.Provider;
+            string model = request.Model;
+            List<IAIInteraction> messages = request.Body.Interactions;
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string endpoint = request.Endpoint;
+            string? toolFilter = request.Body.ToolFilter;
+
+            // TODO: Unify context filters
+            string? contextProviderFilter = request.Body.ContextFilter;
+            string? contextKeyFilter = request.Body.ContextFilter;
+            
             try
             {
                 int maxTokens = this.GetSetting<int>("MaxTokens");
@@ -242,25 +254,29 @@ namespace SmartHopper.Providers.DeepSeek
                     ? $"<think>{reasoning}</think>{content}"
                     : content;
 
-                var aiResponse = new AIResponse
+                var aiReturn = new AIReturn<string>
                 {
-                    Response = combined,
-                    Provider = this.Name,
-                    Model = model,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                    Result = combined,
+                    Metrics = new AIMetrics
+                    {
+                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
+                        InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                        OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                        Provider = this.Name,
+                        Model = model,
+                    },
+                    Status = AIStatus.Finished,
                 };
 
                 if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
                 {
-                    aiResponse.ToolCalls = new List<AIToolCall>();
+                    aiReturn.ToolCalls = new List<AIToolCall>();
                     foreach (JObject tc in tcs)
                     {
                         var fn = tc["function"] as JObject;
                         if (fn != null)
                         {
-                            aiResponse.ToolCalls.Add(new AIToolCall
+                            aiReturn.ToolCalls.Add(new AIToolCall
                             {
                                 Id = tc["id"]?.ToString(),
                                 Name = fn["name"]?.ToString(),
@@ -268,9 +284,10 @@ namespace SmartHopper.Providers.DeepSeek
                             });
                         }
                     }
+                    aiReturn.Status = AIStatus.CallingTools;
                 }
 
-                return aiResponse;
+                return aiReturn;
             }
             catch (Exception ex)
             {

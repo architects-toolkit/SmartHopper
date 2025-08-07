@@ -16,12 +16,11 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -53,14 +52,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
                 execute: this.GenerateListToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.StructuredOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.JsonOutput);
         }
 
         /// <summary>
         /// Generates a list of text items using AI, returning a JSON array of strings.
         /// Uses conversational approach to ensure the target count is met.
         /// </summary>
-        private static async Task<AIEvaluationResult<List<string>>> GenerateTextListAsync(
+        private static async Task<AIReturn<List<string>>> GenerateTextListAsync(
             GH_String prompt,
             int count,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -89,9 +88,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (response.FinishReason == "error")
                     {
-                        return AIEvaluationResult<List<string>>.CreateError(
+                        return AIReturn<List<string>>.CreateError(
                             response.Response,
-                            GH_RuntimeMessageLevel.Error,
                             response);
                     }
 
@@ -108,19 +106,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         Debug.WriteLine($"[ListTools] Error parsing response in iteration {iteration}: {parseEx.Message}");
                         Debug.WriteLine($"[ListTools] Raw response: {cleanedResponse}");
-                        
+
                         // If we have some items already, return what we have
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            return AIEvaluationResult<List<string>>.CreateSuccess(lastResponse, allItems);
+                            return AIReturn<List<string>>.CreateSuccess(lastResponse, allItems);
                         }
-                        
+
                         // Otherwise, return the error
-                        return AIEvaluationResult<List<string>>.CreateError(
-                            $"Error parsing AI response: {parseEx.Message}",
-                            GH_RuntimeMessageLevel.Error,
-                            response);
+                        return AIReturn<List<string>>.CreateError($"Error parsing AI response: {parseEx.Message}", response);
                     }
 
                     Debug.WriteLine($"[ListTools] Iteration {iteration} generated {newItems.Count} items: {string.Join(", ", newItems)}");
@@ -159,9 +154,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (allItems.Count == 0)
                 {
-                    return AIEvaluationResult<List<string>>.CreateError(
+                    return AIReturn<List<string>>.CreateError(
                         "AI failed to generate any valid items",
-                        GH_RuntimeMessageLevel.Error,
                         lastResponse);
                 }
 
@@ -173,14 +167,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 Debug.WriteLine($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
-                return AIEvaluationResult<List<string>>.CreateSuccess(lastResponse, allItems);
+                return AIReturn<List<string>>.CreateSuccess(lastResponse, allItems);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in GenerateTextListAsync: {ex.Message}");
-                return AIEvaluationResult<List<string>>.CreateError(
-                    $"Error generating list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                return AIReturn<List<string>>.CreateError($"Error generating list: {ex.Message}");
             }
         }
 
@@ -233,15 +225,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         contextProviderFilter: contextProviderFilter,
                         contextKeyFilter: contextKeyFilter)).ConfigureAwait(false);
 
-                // Build standardized result
-                return new JObject
+                // Return standardized result
+                var mapping = new Dictionary<string, string>
                 {
-                    ["success"] = result.Success,
-                    ["list"] = result.Success ? JArray.FromObject(result.Result) : JValue.CreateNull(),
-                    ["count"] = result.Success ? new JValue(result.Result.Count) : new JValue(0),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
+                    ["success"] = "Success",
+                    ["list"] = "Result", // Map Result to list
+                    ["error"] = "ErrorMessage",
                 };
+
+                var jobj = result.ToJObject<List<string>>(mapping);
+
+                // Add a count field
+                jobj["count"] = new JValue(result.Success ? result.Result.Count : 0);
+
+                return jobj;
             }
             catch (Exception ex)
             {

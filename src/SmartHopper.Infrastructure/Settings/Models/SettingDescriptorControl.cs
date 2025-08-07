@@ -8,7 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-namespace SmartHopper.Infrastructure.Models
+namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
     /// Base class for UI control parameters for a setting descriptor.

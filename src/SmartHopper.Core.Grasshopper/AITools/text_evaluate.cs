@@ -15,12 +15,11 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -49,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""text"", ""question"" ]
                 }",
                 execute: this.EvaluateTextToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
             );
         }
 
@@ -60,7 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="question">The true/false question to evaluate.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
-        private static async Task<AIEvaluationResult<GH_Boolean>> EvaluateTextAsync(
+        private static async Task<AIReturn<GH_Boolean>> EvaluateTextAsync(
             GH_String text,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -88,36 +87,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<GH_Boolean>.CreateError(
+                    return AIReturn<GH_Boolean>.CreateError(
                         response.Response,
-                        GH_RuntimeMessageLevel.Error,
                         response);
                 }
 
                 // Strip thinking tags from response before parsing
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Parse the response
                 var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
                 if (parsedResult == null)
                 {
-                    return AIEvaluationResult<GH_Boolean>.CreateError(
+                    return AIReturn<GH_Boolean>.CreateError(
                         $"The AI returned an invalid response:\n{response.Response}",
-                        GH_RuntimeMessageLevel.Error,
                         response);
                 }
 
                 // Success case
-                return AIEvaluationResult<GH_Boolean>.CreateSuccess(
+                return AIReturn<GH_Boolean>.CreateSuccess(
                     response,
                     new GH_Boolean(parsedResult.Value));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in EvaluateTextAsync: {ex.Message}");
-                return AIEvaluationResult<GH_Boolean>.CreateError(
-                    $"Error evaluating text: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                return AIReturn<GH_Boolean>.CreateError($"Error evaluating text: {ex.Message}");
             }
         }
 
@@ -164,13 +159,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ).ConfigureAwait(false);
 
                 // Return standardized result
-                return new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
+                return result.ToJObject<GH_Boolean>();
             }
             catch (Exception ex)
             {

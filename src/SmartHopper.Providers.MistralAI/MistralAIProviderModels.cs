@@ -15,8 +15,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -77,9 +77,9 @@ namespace SmartHopper.Providers.MistralAI
         /// Gets all models and their capabilities supported by MistralAI, fetching fresh data from API.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
+        public override async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             try
             {
@@ -103,26 +103,26 @@ namespace SmartHopper.Providers.MistralAI
                     var response = await this._apiCaller($"/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                     var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
 
-                    var capabilities = AIModelCapability.None;
+                    var capabilities = AICapability.None;
 
                     // Map Mistral capabilities to our enum
                     if (modelInfo?.capabilities?.completion_chat == true)
                     {
-                        capabilities |= AIModelCapability.BasicChat;
+                        capabilities |= AICapability.BasicChat;
                     }
 
                     if (modelInfo?.capabilities?.function_calling == true)
                     {
-                        capabilities |= AIModelCapability.FunctionCalling;
+                        capabilities |= AICapability.FunctionCalling;
                     }
 
                     if (modelInfo?.capabilities?.vision == true)
                     {
-                        capabilities |= AIModelCapability.ImageInput;
+                        capabilities |= AICapability.ImageInput;
                     }
 
                     // Currently Mistral offers json_mode for all models
-                    capabilities |= AIModelCapability.StructuredOutput;
+                    capabilities |= AICapability.JsonOutput;
 
                     result[modelName] = capabilities;
                     processedCount++;
@@ -146,12 +146,12 @@ namespace SmartHopper.Providers.MistralAI
         /// Gets all default models supported by MistralAI.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        public override Dictionary<string, AICapability> RetrieveDefault()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
-            result["mistral-small-latest"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["magistral-small-latest"] = AIModelCapability.ReasoningChat;
+            result["mistral-small-latest"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
+            result["magistral-small-latest"] = AICapability.ReasoningChat;
 
             return result;
         }
@@ -161,21 +161,21 @@ namespace SmartHopper.Providers.MistralAI
         /// Used when API is not available (e.g., during initialization without API key).
         /// </summary>
         /// <returns>Dictionary of default model capabilities.</returns>
-        private static Dictionary<string, AIModelCapability> GetDefaultCapabilities()
+        private static Dictionary<string, AICapability> GetDefaultCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // Ministral models
-            result["ministral-8b*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["ministral-3b*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
+            result["ministral-8b*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
+            result["ministral-3b*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
 
             // Add wildcard patterns for future versions
-            result["mistral-small*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ImageInput;
-            result["mistral-medium*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ImageInput;
-            result["mistral-large*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["pixtral*"] = AIModelCapability.AdvancedChat | AIModelCapability.ImageInput | AIModelCapability.JsonGenerator;
-            result["codestral*"] = AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["magistral*"] = AIModelCapability.ReasoningChat | AIModelCapability.JsonGenerator;
+            result["mistral-small*"] = AICapability.AdvancedChat | AICapability.JsonGenerator | AICapability.ImageInput;
+            result["mistral-medium*"] = AICapability.AdvancedChat | AICapability.JsonGenerator | AICapability.ImageInput;
+            result["mistral-large*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
+            result["pixtral*"] = AICapability.AdvancedChat | AICapability.ImageInput | AICapability.JsonGenerator;
+            result["codestral*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
+            result["magistral*"] = AICapability.ReasoningChat | AICapability.JsonGenerator;
 
             return result;
         }

@@ -11,7 +11,7 @@
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs

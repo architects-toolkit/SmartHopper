@@ -19,9 +19,9 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""question""]
                 }",
                 execute: this.EvaluateListToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
             );
         }
 
@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="question">The natural language question to answer.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information.</returns>
-        private static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        private static async Task<AIReturn<bool>> EvaluateListAsync(
             List<GH_String> inputList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -77,9 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in EvaluateListAsync (List<GH_String> overload): {ex.Message}");
-                return AIEvaluationResult<bool>.CreateError(
-                    $"Error evaluating list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                return AIReturn<bool>.CreateError($"Error evaluating list: {ex.Message}");
             }
         }
 
@@ -90,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="question">The natural language question to answer.</param>
         /// <param name="getResponse">Custom function to get AI response.</param>
         /// <returns>Evaluation result containing the AI response, boolean result, and any error information.</returns>
-        private static async Task<AIEvaluationResult<bool>> EvaluateListAsync(
+        private static async Task<AIReturn<bool>> EvaluateListAsync(
             string jsonList,
             GH_String question,
             Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
@@ -119,37 +117,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<bool>.CreateError(
+                    return AIReturn<bool>.CreateError(
                         response.Response,
-                        GH_RuntimeMessageLevel.Error,
                         response);
                 }
 
                 // Strip thinking tags from response before parsing
                 var cleanedResponse = AI.StripThinkTags(response.Response);
-                
+
                 // Parse the boolean from the response
                 var result = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
 
                 if (result == null)
                 {
-                    return AIEvaluationResult<bool>.CreateError(
+                    return AIReturn<bool>.CreateError(
                         $"The AI returned an invalid response:\n{response.Response}",
-                        GH_RuntimeMessageLevel.Error,
                         response);
                 }
 
                 // Success case
-                return AIEvaluationResult<bool>.CreateSuccess(
+                return AIReturn<bool>.CreateSuccess(
                     response,
                     result.Value);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in EvaluateListAsync: {ex.Message}");
-                return AIEvaluationResult<bool>.CreateError(
-                    $"Error evaluating list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                return AIReturn<bool>.CreateError(
+                    $"Error evaluating list: {ex.Message}");
             }
         }
 
@@ -218,13 +213,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ).ConfigureAwait(false);
 
                 // Return standardized result
-                return new JObject
-                {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
+                return result.ToJObject<bool>();
             }
             catch (Exception ex)
             {

@@ -11,9 +11,9 @@
 using System;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.Models
+namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
     /// Represents an AI-callable tool with metadata and execution function.
@@ -48,7 +48,7 @@ namespace SmartHopper.Infrastructure.Models
         /// <summary>
         /// Gets required capabilities for this tool to function properly.
         /// </summary>
-        public AIModelCapability RequiredCapabilities { get; }
+        public AICapability RequiredCapabilities { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AITool"/> class.
@@ -60,8 +60,7 @@ namespace SmartHopper.Infrastructure.Models
         /// <param name="parametersSchema">JSON schema describing the tool's parameters.</param>
         /// <param name="execute">Function to execute the tool with given parameters.</param>
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
-        public AITool(string name, string description, string category, string parametersSchema,
-            Func<JObject, Task<object>> execute, AIModelCapability requiredCapabilities = AIModelCapability.None)
+        public AITool(string name, string description, string category, string parametersSchema, Func<JObject, Task<object>> execute, AICapability requiredCapabilities = AICapability.None)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
