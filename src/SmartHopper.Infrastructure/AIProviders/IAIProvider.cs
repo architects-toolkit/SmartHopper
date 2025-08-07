@@ -25,11 +25,6 @@ namespace SmartHopper.Infrastructure.AIProviders
         string Name { get; }
 
         /// <summary>
-        /// Gets the default server URL for the provider.
-        /// </summary>
-        string DefaultServerUrl { get; }
-
-        /// <summary>
         /// Gets the provider's icon. Should return a 16x16 image suitable for display in the UI.
         /// </summary>
         Image Icon { get; }
@@ -52,26 +47,23 @@ namespace SmartHopper.Infrastructure.AIProviders
         string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true);
 
         /// <summary>
-        /// Gets a response from the AI provider.
+        /// Gets the pre-call request for the provider.
         /// </summary>
-        /// <param name="messages">The messages to send to the AI provider.</param>
-        /// <param name="model">The model to use for AI processing.</param>
-        /// <param name="jsonSchema">The JSON schema to use for AI processing.</param>
-        /// <param name="endpoint">The endpoint to use for AI processing.</param>
-        /// <param name="toolFilter">The tool filter to use for AI processing.</param>
-        /// <returns>The response from the AI provider.</returns>
-        Task<AIReturn<string>> GetResponse(AIRequest request);
+        AIRequest PreCall<T>(AIRequest request);
 
         /// <summary>
-        /// Generates an image based on a text prompt.
+        /// Gets the task processing the Call<T> with the provider.
         /// </summary>
-        /// <param name="prompt">The text prompt describing the desired image.</param>
-        /// <param name="model">The model to use for image generation.</param>
-        /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
-        /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
-        /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
-        Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
+        /// <param name="request">The request to send to the AI provider.</param>
+        /// <returns>The response from the AI provider.</returns>
+        Task<AIReturn<T>> Call<T>(AIRequest request);
+
+        /// <summary>
+        /// Gets the post-call response for the provider.
+        /// </summary>
+        /// <param name="response">The response from the AI provider.</param>
+        /// <returns>The response from the AI provider.</returns>
+        AIReturn<T> PostCall<T>(AIReturn<T> response);
 
         /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.

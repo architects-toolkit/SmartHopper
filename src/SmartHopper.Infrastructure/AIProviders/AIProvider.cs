@@ -33,12 +33,12 @@ namespace SmartHopper.Infrastructure.AIProviders
     public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
     {
         private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
-        
+
         /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
         public static T Instance => InstanceValue.Value;
-        
+
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
         /// Protected constructor to enforce the singleton pattern.
@@ -181,29 +181,51 @@ namespace SmartHopper.Infrastructure.AIProviders
             this.RefreshCachedSettings(settingsDict);
         }
 
-        /// <summary>
-        /// Retrieves a response from the AI model based on provided messages and parameters.
-        /// </summary>
-        /// <param name="messages">The conversation messages to send.</param>
-        /// <param name="model">The model to use.</param>
-        /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
-        /// <param name="endpoint">Optional endpoint to send the request to.</param>
-        /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
-        /// <returns>An AIReturn containing the result.</returns>
-        public abstract Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
+        // /// <summary>
+        // /// Retrieves a response from the AI model based on provided messages and parameters.
+        // /// </summary>
+        // /// <param name="messages">The conversation messages to send.</param>
+        // /// <param name="model">The model to use.</param>
+        // /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
+        // /// <param name="endpoint">Optional endpoint to send the request to.</param>
+        // /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
+        // /// <returns>An AIReturn containing the result.</returns>
+        // public abstract Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
 
-        /// <summary>
-        /// Generates an image based on a text prompt.
-        /// </summary>
-        /// <param name="prompt">The text prompt describing the desired image.</param>
-        /// <param name="model">The model to use for image generation.</param>
-        /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
-        /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
-        /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
-        public virtual Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        // /// <summary>
+        // /// Generates an image based on a text prompt.
+        // /// </summary>
+        // /// <param name="prompt">The text prompt describing the desired image.</param>
+        // /// <param name="model">The model to use for image generation.</param>
+        // /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
+        // /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
+        // /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
+        // /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
+        // public virtual Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        // {
+        //     throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
+        // }
+
+        /// <inheritdoc/>
+        public virtual AIRequest PreCall<T>(AIRequest request)
         {
-            throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
+            return request;
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIReturn<T>> Call<T>(AIRequest request)
+        {
+            request = this.PreCall<T>(request);
+
+            var response = await this.CallApi<T>(request);
+
+            return this.PostCall<T>(response);
+        }
+
+        /// <inheritdoc/>
+        public virtual AIReturn<T> PostCall<T>(AIReturn<T> response)
+        {
+            return response;
         }
 
         /// <summary>
