@@ -66,8 +66,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var providerName = parameters["provider"]?.ToString() ?? string.Empty;
                 var modelName = parameters["model"]?.ToString() ?? string.Empty;
                 var endpoint = "script_new";
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
+                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -177,8 +176,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     messages,
                     jsonSchema,
                     endpoint: endpoint,
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter).ConfigureAwait(false);
+                    contextFilter: contextFilter).ConfigureAwait(false);
                 var responseJson = JObject.Parse(aiResponse.Response);
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();

@@ -244,7 +244,10 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <returns>The provider, or null if not found.</returns>
         public IAIProvider GetProvider(string providerName)
         {
-            if (string.IsNullOrEmpty(providerName)) return null;
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return null;
+            }
 
             // Handle "Default" provider name
             if (providerName == "Default")

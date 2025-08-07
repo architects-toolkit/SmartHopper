@@ -145,7 +145,7 @@ namespace SmartHopper.Components.Text
                         ["prompt"] = prompt,
                         ["count"] = count,
                         ["type"] = "text",
-                        ["contextProviderFilter"] = "-*",
+                        ["contextFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync(

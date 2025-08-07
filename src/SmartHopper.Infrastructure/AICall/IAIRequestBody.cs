@@ -37,6 +37,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// A value indicating whether the request body is valid.
         /// </summary>
-        bool IsValid();
+        (bool IsValid, List<string> Errors) IsValid();
+
+        /// <summary>
+        /// A value indicating whether the request requires a JSON output.
+        /// </summary>
+        bool RequiresJsonOutput();
     }
 }

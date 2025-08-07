@@ -41,34 +41,44 @@ namespace SmartHopper.Infrastructure.AICall
         public bool Success => string.IsNullOrEmpty(this.ErrorMessage);
 
         /// <inheritdoc/>
-        public bool IsValid()
+        public (bool IsValid, List<string> Errors) IsValid()
         {
-            if (!this.Request.IsValid())
+            var errors = new List<string>();
+
+            var (rqOk, rqErr) = this.Request.IsValid();
+            if (!rqOk)
             {
-                return false;
+                errors.AddRange(rqErr);
             }
 
-            if (!this.Metrics.IsValid())
+            var (mOk, mErr) = this.Metrics.IsValid();
+            if (!mOk)
             {
-                return false;
+                errors.AddRange(mErr);
             }
 
             if (this.Result == null && this.ErrorMessage == null)
             {
-                return false;
+                errors.Add("Either result or error message must be set");
             }
 
-            return true;
+            return (errors.Count == 0, errors);
         }
 
         /// <summary>
         /// Creates a new successful result.
         /// </summary>
         /// <param name="result">The result value.</param>
+        /// <param name="request">The request that generated the result.</param>
         /// <param name="metrics">The metrics from the response.</param>
         /// <returns>A new success result instance.</returns>
-        public static AIReturn<T> CreateSuccess(T result, AIMetrics? metrics = null)
+        public static AIReturn<T> CreateSuccess(T result, AIRequest? request = null, AIMetrics? metrics = null)
         {
+            if (request == null)
+            {
+                request = new AIRequest();
+            }
+            
             if (metrics == null)
             {
                 metrics = new AIMetrics();
@@ -77,6 +87,7 @@ namespace SmartHopper.Infrastructure.AICall
             return new AIReturn<T>
             {
                 Result = result,
+                Request = request,
                 Status = AICallStatus.Finished,
                 Metrics = metrics,
             };
@@ -86,20 +97,26 @@ namespace SmartHopper.Infrastructure.AICall
         /// Creates a new error result.
         /// </summary>
         /// <param name="message">The error message.</param>
+        /// <param name="request">The request that generated the error.</param>
         /// <param name="metrics">Optional metrics from the response that may have caused the error.</param>
         /// <returns>A new error result instance.</returns>
-        public static AIReturn<T> CreateError(string message, AIMetrics? metrics = null)
+        public static AIReturn<T> CreateError(string message, AIRequest? request = null, AIMetrics? metrics = null)
         {
+            if (request == null)
+            {
+                request = new AIRequest();
+            }
+            
             if (metrics == null)
             {
-                metrics = new AIMetrics()
-                {
-                    FinishReason = "error",
-                };
-            }	
+                metrics = new AIMetrics();
+            }
+
+            metrics.FinishReason = "error";
 
             return new AIReturn<T>
             {
+                Request = request,
                 Metrics = metrics,
                 ErrorMessage = message,
                 Status = AICallStatus.Finished,

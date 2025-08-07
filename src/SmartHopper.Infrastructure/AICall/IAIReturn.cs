@@ -57,6 +57,6 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Value indicating whether the structure of this IAIReturn is valid.
         /// </summary>
-        bool IsValid();
+        (bool IsValid, List<string> Errors) IsValid();
     }
 }
