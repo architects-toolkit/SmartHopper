@@ -14,7 +14,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AIProviders.Manager;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.Initialization

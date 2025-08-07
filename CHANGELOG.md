@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added tab for Trusted Providers configuration.
 - Improved API key encryption. Includes migration method.
 - Complete refactor of `SmartHopper.Infrastructure` for clarity and organization.
+- Added `AIAgent`, `AIRequest` and `AIRequestBody` models to improve clarity and extensability. Refactored all code to use the new models.
+- Renamed `IChatModel` to `AIInteraction`.
+- Renamed `AIEvaluationResult<T>` to `AIReturn<T>`.
+- Renamed `AIResponse` to `AIReturnBody`
 
 ### Removed
 

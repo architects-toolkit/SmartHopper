@@ -14,8 +14,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -75,36 +75,36 @@ namespace SmartHopper.Providers.OpenAI
         /// Gets all models and their capabilities supported by OpenAI, fetching fresh data from API.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
+        public override async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // GPT-4.1 models - text input/output, image input, structured output, function calling
-            result["gpt-4.1*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["gpt-4.1*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
             // O4-mini models - text input/output, image input, structured output, function calling
-            result["o4-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            result["o4-mini*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
 
             // O3 models - text input/output, structured output, function calling
-            result["o3*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            result["o3*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
 
             // GPT-4o models - text input/output, image input, structured output, function calling
-            result["gpt-4o*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["gpt-4o*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
             // GPT-image-1 - text input, image input and output
-            result["gpt-image-1"] = AIModelCapability.TextInput | AIModelCapability.ImageInput | AIModelCapability.ImageOutput;
+            result["gpt-image-1"] = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput;
 
             // DALL-E 3 - text input, image output
-            result["dall-e-3"] = AIModelCapability.TextInput | AIModelCapability.ImageOutput;
+            result["dall-e-3"] = AICapability.TextInput | AICapability.ImageOutput;
 
             // DALL-E 2 - text input, image output
-            result["dall-e-2"] = AIModelCapability.TextInput | AIModelCapability.ImageOutput;
+            result["dall-e-2"] = AICapability.TextInput | AICapability.ImageOutput;
 
             // GPT-3.5 models - text input and output
-            result["gpt-3.5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
+            result["gpt-3.5*"] = AICapability.TextInput | AICapability.TextOutput;
 
             // GPT-4 models - text input and output
-            result["gpt-4*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
+            result["gpt-4*"] = AICapability.TextInput | AICapability.TextOutput;
 
             return result;
         }
@@ -113,13 +113,13 @@ namespace SmartHopper.Providers.OpenAI
         /// Gets all default models supported by OpenAI.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        public override Dictionary<string, AICapability> RetrieveDefault()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
-            result["gpt-4.1-mini"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["o4-mini"] = AIModelCapability.ReasoningChat;
-            result["dall-e-3"] = AIModelCapability.ImageGenerator;
+            result["gpt-4.1-mini"] = AICapability.BasicChat | AICapability.AdvancedChat | AICapability.JsonGenerator;
+            result["o4-mini"] = AICapability.ReasoningChat;
+            result["dall-e-3"] = AICapability.ImageGenerator;
 
             return result;
         }

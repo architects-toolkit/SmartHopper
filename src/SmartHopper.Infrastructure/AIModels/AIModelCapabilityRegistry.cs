@@ -12,7 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace SmartHopper.Infrastructure.Managers.ModelManager
+namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Registry containing capability information for all known models.
@@ -36,27 +36,27 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         {
             var key = $"{provider?.ToLower()}.{model?.ToLower()}";
             Debug.WriteLine($"[GetCapabilities] Looking for '{key}'");
-            
+
             // Try exact match first (fastest path)
             if (this.Models.TryGetValue(key, out var capabilities))
             {
                 Debug.WriteLine($"[GetCapabilities] Found exact match for '{key}' with capabilities {capabilities.Capabilities.ToDetailedString()}");
                 return capabilities;
             }
-            
+
             Debug.WriteLine($"[GetCapabilities] No exact match for '{key}', trying wildcard matching");
-            
+
             // Try wildcard matching - look for stored keys ending with '*' that match our model prefix
             var providerPrefix = $"{provider?.ToLower()}.";
             var modelLower = model?.ToLower();
             Debug.WriteLine($"[GetCapabilities] Wildcard search: providerPrefix='{providerPrefix}', modelLower='{modelLower}'");
             Debug.WriteLine($"[GetCapabilities] Registry has {this.Models.Count} total models");
-            
+
             foreach (var kvp in this.Models)
             {
                 var storedKey = kvp.Key;
                 Debug.WriteLine($"[GetCapabilities] Checking registry key: '{storedKey}'");
-                
+
                 // Skip null keys (shouldn't happen but defensive programming)
                 if (storedKey == null)
                 {
@@ -111,9 +111,9 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// </summary>
         /// <param name="requiredCapabilities">The required capabilities.</param>
         /// <returns>List of matching model capabilities.</returns>
-        public List<AIModelCapabilities> FindModelsWithCapabilities(AIModelCapability requiredCapabilities)
+        public List<AIModelCapabilities> FindModelsWithCapabilities(AICapability requiredCapabilities)
         {
-            if (requiredCapabilities == AIModelCapability.None)
+            if (requiredCapabilities == AICapability.None)
             {
                 return this.Models.Values.ToList();
             }
@@ -170,7 +170,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
         /// <param name="provider">The provider name.</param>
         /// <param name="requiredCapability">The required capability.</param>
         /// <returns>The default model name or null if none found.</returns>
-        public string GetDefaultModel(string provider, AIModelCapability requiredCapability = AIModelCapability.BasicChat)
+        public string GetDefaultModel(string provider, AICapability requiredCapability = AICapability.BasicChat)
         {
             if (string.IsNullOrEmpty(provider))
                 return null;
@@ -198,7 +198,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             // PRIORITY 2: Concrete model names with compatible capability
             var concreteCompatibleModel = providerModels
                 .Where(m => !m.Model.Contains("*"))  // Concrete names only
-                .Where(m => m.Default != AIModelCapability.None && m.HasCapability(requiredCapability))
+                .Where(m => m.Default != AICapability.None && m.HasCapability(requiredCapability))
                 .FirstOrDefault();
 
             if (concreteCompatibleModel != null)
@@ -221,7 +221,7 @@ namespace SmartHopper.Infrastructure.Managers.ModelManager
             // PRIORITY 4: Wildcard patterns with compatible capability (resolve to concrete names)
             var wildcardCompatibleModel = providerModels
                 .Where(m => m.Model.Contains("*"))  // Wildcard patterns only
-                .Where(m => m.Default != AIModelCapability.None && m.HasCapability(requiredCapability))
+                .Where(m => m.Default != AICapability.None && m.HasCapability(requiredCapability))
                 .FirstOrDefault();
 
             if (wildcardCompatibleModel != null)

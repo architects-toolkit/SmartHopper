@@ -12,8 +12,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIContext;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Components.AI
 {

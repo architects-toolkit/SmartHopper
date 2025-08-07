@@ -12,10 +12,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.Interfaces
+namespace SmartHopper.Infrastructure.AIProviders
 {
     public interface IAIProvider
     {
@@ -49,7 +49,7 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <summary>
         /// Gets the default model name for the provider.
         /// </summary>
-        string GetDefaultModel(AIModelCapability requiredCapability = AIModelCapability.BasicChat, bool useSettings = true);
+        string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true);
 
         /// <summary>
         /// Gets a response from the AI provider.
@@ -60,7 +60,7 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <param name="endpoint">The endpoint to use for AI processing.</param>
         /// <param name="toolFilter">The tool filter to use for AI processing.</param>
         /// <returns>The response from the AI provider.</returns>
-        Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
+        Task<AIReturn<string>> GetResponse(AIRequest request);
 
         /// <summary>
         /// Generates an image based on a text prompt.
@@ -70,8 +70,8 @@ namespace SmartHopper.Infrastructure.Interfaces
         /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
         /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
         /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
-        Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
+        /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
+        Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid");
 
         /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.

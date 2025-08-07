@@ -15,8 +15,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Grasshopper;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {

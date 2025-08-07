@@ -15,11 +15,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIContext;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIContext;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AIProviders.Manager;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
 
 namespace SmartHopper.Core.Messaging
 {
@@ -56,8 +55,8 @@ namespace SmartHopper.Core.Messaging
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers.</param>
         /// <param name="contextKeyFilter">Optional filter for context keys.</param>
-        /// <returns>An AIResponse containing the generated response and metadata.</returns>
-        public static async Task<AIResponse> GetResponse(
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
+        public static async Task<AIReturn<string>> GetResponse(
             string providerName,
             string model,
             List<KeyValuePair<string, string>> messages,
@@ -75,17 +74,17 @@ namespace SmartHopper.Core.Messaging
         /// </summary>
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="model">The model to use for the request. If empty, uses provider's default model.</param>
-        /// <param name="messages">The conversation messages as ChatMessageModel objects.</param>
+        /// <param name="messages">The conversation messages as AIInteraction objects.</param>
         /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
         /// <param name="endpoint">Optional custom endpoint to use.</param>
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers.</param>
         /// <param name="contextKeyFilter">Optional filter for context keys.</param>
-        /// <returns>An AIResponse containing the generated response and metadata.</returns>
-        public static async Task<AIResponse> GetResponse(
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
+        public static async Task<AIReturn<string>> GetResponse(
             string providerName,
             string model,
-            List<ChatMessageModel> messages,
+            List<AIInteraction<string>> messages,
             string jsonSchema = "",
             string endpoint = "",
             string? toolFilter = null,
@@ -106,8 +105,8 @@ namespace SmartHopper.Core.Messaging
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
         /// <param name="contextProviderFilter">Optional filter for context providers.</param>
         /// <param name="contextKeyFilter">Optional filter for context keys.</param>
-        /// <returns>An AIResponse containing the generated response and metadata.</returns>
-        private static async Task<AIResponse> GetResponse(
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
+        private static async Task<AIReturn<string>> GetResponse(
             string providerName,
             string model,
             JArray messages,
@@ -117,6 +116,40 @@ namespace SmartHopper.Core.Messaging
             string? contextProviderFilter = null,
             string? contextKeyFilter = null)
         {
+            var request = new AIRequest
+            {
+                Provider = providerName,
+                Model = model,
+                Body = new AIRequestBody
+                {
+                    Interactions = messages,
+                    JsonOutputSchema = jsonSchema,
+                    ToolFilter = toolFilter,
+                    ContextFilter = contextProviderFilter ?? contextKeyFilter,
+                },
+                Endpoint = endpoint,
+            };
+            return await GetResponse(request).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Internal implementation for getting AI responses with full context management.
+        /// </summary>
+        /// <param name="request">The AIRequest containing the request parameters.</param>
+        /// <returns>An AIReturn<T> containing the generated response and metadata.</returns>
+        private static async Task<AIReturn<string>> GetResponse(AIRequest request)
+        {
+            string providerName = request.Provider;
+            string model = request.Model;
+            List<IAIInteraction> messages = request.Body.Interactions;
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string endpoint = request.Endpoint;
+            string? toolFilter = request.Body.ToolFilter;
+
+            // TODO: Unify context filters
+            string? contextProviderFilter = request.Body.ContextFilter;
+            string? contextKeyFilter = request.Body.ContextFilter;
+
             // Add message context
             try
             {
@@ -178,15 +211,15 @@ namespace SmartHopper.Core.Messaging
                     // If toolFilter is not null -> use FunctionCalling capability
                     if (!string.IsNullOrWhiteSpace(jsonSchema))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.JsonGenerator, false);
+                        model = selectedProvider.GetDefaultModel(AICapability.JsonGenerator, false);
                     }
                     else if (!string.IsNullOrWhiteSpace(toolFilter))
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.AdvancedChat, false);
+                        model = selectedProvider.GetDefaultModel(AICapability.AdvancedChat, false);
                     }
                     else
                     {
-                        model = selectedProvider.GetDefaultModel(AIModelCapability.BasicChat, false);
+                        model = selectedProvider.GetDefaultModel(AICapability.BasicChat, false);
                     }
 
                     Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
@@ -261,9 +294,9 @@ namespace SmartHopper.Core.Messaging
                 }
 
                 // If no model is specified or the specified model is not compatible with image generation, use the provider's default image model
-                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, AIModelCapability.ImageGenerator))
+                if (string.IsNullOrWhiteSpace(model) || !ModelManager.Instance.ValidateCapabilities(selectedProvider.Name, model, AICapability.ImageGenerator))
                 {
-                    model = selectedProvider.GetDefaultModel(AIModelCapability.ImageGenerator);
+                    model = selectedProvider.GetDefaultModel(AICapability.ImageGenerator);
 
                     // If no image model is found, early exit
                     if (string.IsNullOrWhiteSpace(model))

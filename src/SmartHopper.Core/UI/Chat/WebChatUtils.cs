@@ -23,7 +23,7 @@ using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -113,7 +113,7 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Create a function to get responses from the AI provider
-                Func<List<ChatMessageModel>, Task<AIResponse>> getResponse =
+                Func<List<AIInteraction<string>>, Task<AIResponse>> getResponse =
                     messages => AIUtils.GetResponse(
                         providerName,
                         modelName,

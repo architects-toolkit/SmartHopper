@@ -15,11 +15,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -64,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateImageToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.ImageOutput
+                requiredCapabilities: AICapability.TextInput | AICapability.ImageOutput
             );
         }
 
@@ -77,7 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="style">The style setting for the image.</param>
         /// <param name="generateImage">Custom function to generate image.</param>
         /// <returns>The image URL or data as a GH_String.</returns>
-        private static async Task<AIEvaluationResult<GH_String>> GenerateImageAsync(
+        private static async Task<AIReturn<GH_String>> GenerateImageAsync(
             GH_String prompt,
             GH_String size,
             GH_String quality,
@@ -92,37 +91,33 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for API errors
                 if (response.FinishReason == "error")
                 {
-                    return AIEvaluationResult<GH_String>.CreateError(
+                    return AIReturn<GH_String>.CreateError(
                         response.ErrorMessage,
-                        GH_RuntimeMessageLevel.Error,
-                        response); // Now using AIResponse which is compatible with AIEvaluationResult
+                        response); // Now using AIResponse which is compatible with AIReturn
                 }
 
                 // Return the image URL or data (prioritize URL over base64 data for performance)
                 string imageResult = !string.IsNullOrEmpty(response.ImageUrl)
                     ? response.ImageUrl
                     : response.ImageData;
-                
+
                 // Check if we have valid image data
                 if (string.IsNullOrEmpty(imageResult))
                 {
-                    return AIEvaluationResult<GH_String>.CreateError(
+                    return AIReturn<GH_String>.CreateError(
                         "No image data received from AI provider",
-                        GH_RuntimeMessageLevel.Error,
                         response);
                 }
-                
+
                 // Success case
-                return AIEvaluationResult<GH_String>.CreateSuccess(
-                    response, // Now using AIResponse which is compatible with AIEvaluationResult
+                return AIReturn<GH_String>.CreateSuccess(
+                    response, // Now using AIResponse which is compatible with AIReturn
                     new GH_String(imageResult));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ImageTools] Error in GenerateImageAsync: {ex.Message}");
-                return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating image: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
+                return AIReturn<GH_String>.CreateError($"Error generating image: {ex.Message}");
             }
         }
 
@@ -170,15 +165,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         style: imageStyle)
                 ).ConfigureAwait(false);
 
-                // Build standardized result as JObject
-                var responseObj = new JObject
+                // Return standardized result
+                var mapping = new Dictionary<string, string>
                 {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success && result.Result != null ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = result.Response != null ? JToken.FromObject(result.Response) : JValue.CreateNull(),
+                    ["success"] = "Success",
+                    ["result"] = "Result",
+                    ["error"] = "ErrorMessage",
+                    ["rawResponse"] = "Response", // Add rawResponse to get imgUrl
                 };
-                return responseObj;
+
+                return result.ToJObject<GH_String>(mapping);
             }
             catch (Exception ex)
             {

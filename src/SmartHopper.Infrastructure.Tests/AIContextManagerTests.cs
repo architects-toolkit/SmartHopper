@@ -13,8 +13,8 @@ namespace SmartHopper.Infrastructure.Tests
     using System;
     using System.Collections.Generic;
     using System.Reflection;
-    using SmartHopper.Infrastructure.Interfaces;
-    using SmartHopper.Infrastructure.Managers.AIContext;
+    using SmartHopper.Infrastructure.AIProviders;
+    using SmartHopper.Infrastructure.AIContext;
     using Xunit;
 
     /// <summary>
