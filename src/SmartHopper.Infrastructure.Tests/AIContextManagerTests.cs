@@ -308,41 +308,6 @@ namespace SmartHopper.Infrastructure.Tests
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "GetCurrentContext_ShouldFilterByContextKey [Windows]")]
-#else
-        [Fact(DisplayName = "GetCurrentContext_ShouldFilterByContextKey [Core]")]
-#endif
-        public void GetCurrentContext_ShouldFilterByContextKey()
-        {
-            // Arrange
-            ResetManager();
-            var provider = new MockContextProvider("test", new Dictionary<string, string>
-            {
-                ["key1"] = "value1",
-                ["key2"] = "value2",
-                ["key3"] = "value3"
-            });
-            AIContextManager.RegisterProvider(provider);
-
-            // Act - Include specific keys
-            var filteredContext = AIContextManager.GetCurrentContext(null, "test_key1,test_key3");
-            
-            // Act - Exclude specific key
-            var excludedContext = AIContextManager.GetCurrentContext(null, "-test_key2");
-
-            // Assert
-            Assert.Equal(2, filteredContext.Count);
-            Assert.Contains("test_key1", filteredContext.Keys);
-            Assert.Contains("test_key3", filteredContext.Keys);
-            Assert.DoesNotContain("test_key2", filteredContext.Keys);
-
-            Assert.Equal(2, excludedContext.Count);
-            Assert.Contains("test_key1", excludedContext.Keys);
-            Assert.Contains("test_key3", excludedContext.Keys);
-            Assert.DoesNotContain("test_key2", excludedContext.Keys);
-        }
-
-#if NET7_WINDOWS
         [Fact(DisplayName = "GetCurrentContext_ShouldHandleComplexFiltering [Windows]")]
 #else
         [Fact(DisplayName = "GetCurrentContext_ShouldHandleComplexFiltering [Core]")]

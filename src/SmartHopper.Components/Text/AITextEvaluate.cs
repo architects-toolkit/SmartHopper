@@ -160,7 +160,7 @@ namespace SmartHopper.Components.Text
                     {
                         ["text"] = textTree[i]?.Value,
                         ["question"] = questionTree[i]?.Value,
-                        ["contextProviderFilter"] = "-*",
+                        ["contextFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)

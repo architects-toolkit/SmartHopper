@@ -67,10 +67,7 @@ namespace SmartHopper.Providers.MistralAI
             string jsonSchema = request.Body.JsonOutputSchema;
             string endpoint = request.Endpoint;
             string? toolFilter = request.Body.ToolFilter;
-
-            // TODO: Unify context filters
-            string? contextProviderFilter = request.Body.ContextFilter;
-            string? contextKeyFilter = request.Body.ContextFilter;
+            string? contextFilter = request.Body.ContextFilter;
             
             // Get settings from the secure settings store
             int maxTokens = this.GetSetting<int>("MaxTokens");

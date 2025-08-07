@@ -53,8 +53,7 @@ namespace SmartHopper.Core.Messaging
         /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
         /// <param name="endpoint">Optional custom endpoint to use.</param>
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
-        /// <param name="contextProviderFilter">Optional filter for context providers.</param>
-        /// <param name="contextKeyFilter">Optional filter for context keys.</param>
+        /// <param name="contextFilter">Optional filter for context providers.</param>
         /// <returns>An AIReturn containing the generated response and metadata.</returns>
         public static async Task<AIReturn<string>> GetResponse(
             string providerName,
@@ -63,10 +62,9 @@ namespace SmartHopper.Core.Messaging
             string jsonSchema = "",
             string endpoint = "",
             string? toolFilter = null,
-            string? contextProviderFilter = null,
-            string? contextKeyFilter = null)
+            string? contextFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextFilter).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -78,8 +76,7 @@ namespace SmartHopper.Core.Messaging
         /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
         /// <param name="endpoint">Optional custom endpoint to use.</param>
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
-        /// <param name="contextProviderFilter">Optional filter for context providers.</param>
-        /// <param name="contextKeyFilter">Optional filter for context keys.</param>
+        /// <param name="contextFilter">Optional filter for context providers.</param>
         /// <returns>An AIReturn containing the generated response and metadata.</returns>
         public static async Task<AIReturn<string>> GetResponse(
             string providerName,
@@ -88,10 +85,9 @@ namespace SmartHopper.Core.Messaging
             string jsonSchema = "",
             string endpoint = "",
             string? toolFilter = null,
-            string? contextProviderFilter = null,
-            string? contextKeyFilter = null)
+            string? contextFilter = null)
         {
-            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextProviderFilter, contextKeyFilter).ConfigureAwait(false);
+            return await GetResponse(providerName, model, AIMessageBuilder.CreateMessage(messages), jsonSchema, endpoint, toolFilter, contextFilter).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -103,8 +99,7 @@ namespace SmartHopper.Core.Messaging
         /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
         /// <param name="endpoint">Optional custom endpoint to use.</param>
         /// <param name="toolFilter">Optional filter for available AI tools.</param>
-        /// <param name="contextProviderFilter">Optional filter for context providers.</param>
-        /// <param name="contextKeyFilter">Optional filter for context keys.</param>
+        /// <param name="contextFilter">Optional filter for context providers.</param>
         /// <returns>An AIReturn containing the generated response and metadata.</returns>
         private static async Task<AIReturn<string>> GetResponse(
             string providerName,
@@ -113,8 +108,7 @@ namespace SmartHopper.Core.Messaging
             string jsonSchema = "",
             string endpoint = "",
             string? toolFilter = null,
-            string? contextProviderFilter = null,
-            string? contextKeyFilter = null)
+            string? contextFilter = null)
         {
             var request = new AIRequest
             {
@@ -125,7 +119,7 @@ namespace SmartHopper.Core.Messaging
                     Interactions = messages,
                     JsonOutputSchema = jsonSchema,
                     ToolFilter = toolFilter,
-                    ContextFilter = contextProviderFilter ?? contextKeyFilter,
+                    ContextFilter = contextFilter,
                 },
                 Endpoint = endpoint,
             };
@@ -139,117 +133,7 @@ namespace SmartHopper.Core.Messaging
         /// <returns>An AIReturn<T> containing the generated response and metadata.</returns>
         private static async Task<AIReturn<string>> GetResponse(AIRequest request)
         {
-            string providerName = request.Provider;
-            string model = request.Model;
-            List<IAIInteraction> messages = request.Body.Interactions;
-            string jsonSchema = request.Body.JsonOutputSchema;
-            string endpoint = request.Endpoint;
-            string? toolFilter = request.Body.ToolFilter;
-
-            // TODO: Unify context filters
-            string? contextProviderFilter = request.Body.ContextFilter;
-            string? contextKeyFilter = request.Body.ContextFilter;
-
-            // Add message context
-            try
-            {
-                // Add context from all registered context providers, applying filters if specified
-                Debug.WriteLine($"[AIUtils] Adding context from providers: {contextProviderFilter ?? "not defined"}, keys: {contextKeyFilter ?? "not defined"}");
-
-                var contextData = AIContextManager.GetCurrentContext(contextProviderFilter, contextKeyFilter);
-                if (contextData.Count > 0)
-                {
-                    var contextMessages = contextData
-                        .Where(kv => !string.IsNullOrEmpty(kv.Value))
-                        .Select(kv => $"- {kv.Key}: {kv.Value}");
-
-                    if (contextMessages.Any())
-                    {
-                        var contextMessage = "Conversation context:\n\n" +
-                                             string.Join("\n", contextMessages);
-                        var contextArray = AIMessageBuilder.CreateMessage(new List<KeyValuePair<string, string>>
-                        {
-                            new ("system", contextMessage),
-                        });
-
-                        // Insert context at the beginning of messages
-                        var newMessages = new JArray();
-                        newMessages.Merge(contextArray);
-                        newMessages.Merge(messages);
-                        messages = newMessages;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error adding context: {ex.Message}");
-            }
-
-            try
-            {
-                var stopwatch = new Stopwatch();
-                stopwatch.Start();
-
-                var providers = ProviderManager.Instance.GetProviders().ToList();
-                var selectedProvider = providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
-
-                if (selectedProvider == null)
-                {
-                    stopwatch.Stop();
-                    return new AIResponse
-                    {
-                        Response = $"Error: Unknown provider '{providerName}'. Available providers: {string.Join(", ", providers.Select(p => p.Name))}",
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    };
-                }
-
-                // Use default model if none specified
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    // If jsonSchema is required -> use JsonOutput capability
-                    // If toolFilter is not null -> use FunctionCalling capability
-                    if (!string.IsNullOrWhiteSpace(jsonSchema))
-                    {
-                        model = selectedProvider.GetDefaultModel(AICapability.JsonGenerator, false);
-                    }
-                    else if (!string.IsNullOrWhiteSpace(toolFilter))
-                    {
-                        model = selectedProvider.GetDefaultModel(AICapability.AdvancedChat, false);
-                    }
-                    else
-                    {
-                        model = selectedProvider.GetDefaultModel(AICapability.BasicChat, false);
-                    }
-
-                    Debug.WriteLine($"[AIUtils] No model specified, using provider's default model: {model}");
-                }
-
-                Debug.WriteLine($"[AIUtils] Loading getResponse from {selectedProvider.Name} with model '{model}' and tools filtered by {toolFilter ?? "null"}");
-
-                var response = await selectedProvider.GetResponse(messages, model, jsonSchema, endpoint, toolFilter).ConfigureAwait(false);
-                stopwatch.Stop();
-                response.CompletionTime = stopwatch.Elapsed.TotalSeconds;
-                return response;
-            }
-            catch (HttpRequestException ex)
-            {
-                return new AIResponse
-                {
-                    Response = $"Error: API request failed - {ex.Message}",
-                    FinishReason = "error",
-                    CompletionTime = 0,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new AIResponse
-                {
-                    Response = $"Error: {ex.Message}",
-                    FinishReason = "error",
-                    CompletionTime = 0,
-                };
-            }
+            return await request.Do().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -262,7 +146,7 @@ namespace SmartHopper.Core.Messaging
         /// <param name="quality">The quality of the generated image.</param>
         /// <param name="style">The style of the generated image.</param>
         /// <returns>An AIImageResponse containing the generated image data.</returns>
-        public static async Task<AIResponse> GenerateImage(
+        public static async Task<AIReturn<string>> GenerateImage(
             string providerName,
             string prompt,
             string model = "",
@@ -281,11 +165,20 @@ namespace SmartHopper.Core.Messaging
                 if (selectedProvider == null)
                 {
                     stopwatch.Stop();
-                    return new AIResponse
+
+                    var error = $"Error: Provider '{providerName}' not found. Available providers: {string.Join(", ", providers.Select(p => p.Name))}";
+
+                    return new AIReturn<string>
                     {
                         FinishReason = "error",
-                        Response = $"Error: Provider '{providerName}' not found. Available providers: {string.Join(", ", providers.Select(p => p.Name))}",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                        Result = error,
+                        Metrics = new AIMetrics()
+                        {
+                            FinishReason = "error",
+                            CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                        },
+                        Status = AICallStatus.Finished,
+                        ErrorMessage = error,
                         OriginalPrompt = prompt,
                         ImageSize = size,
                         ImageQuality = quality,
@@ -302,11 +195,20 @@ namespace SmartHopper.Core.Messaging
                     if (string.IsNullOrWhiteSpace(model))
                     {
                         stopwatch.Stop();
-                        return new AIResponse
+
+                        var error = $"Error: The {selectedProvider.Name} provider does not support image generation. Please select a provider that supports image generation (e.g., OpenAI).";
+
+                        return new AIReturn<string>
                         {
                             FinishReason = "error",
-                            Response = $"Error: The {selectedProvider.Name} provider does not support image generation. Please select a provider that supports image generation (e.g., OpenAI).",
-                            CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                            Result = error,
+                            Metrics = new AIMetrics()
+                            {
+                                FinishReason = "error",
+                                CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                            },
+                            Status = AICallStatus.Finished,
+                            ErrorMessage = error,
                             OriginalPrompt = prompt,
                             ImageSize = size,
                             ImageQuality = quality,
@@ -327,11 +229,19 @@ namespace SmartHopper.Core.Messaging
             }
             catch (HttpRequestException ex)
             {
-                return new AIResponse
+                var error = $"Error: API request failed - {ex.Message}";
+                
+                return new AIReturn<string>
                 {
                     FinishReason = "error",
-                    Response = $"Error: API request failed - {ex.Message}",
-                    CompletionTime = 0,
+                    Result = error,
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    },
+                    Status = AICallStatus.Finished,
+                    ErrorMessage = error,
                     OriginalPrompt = prompt,
                     ImageSize = size,
                     ImageQuality = quality,
@@ -340,11 +250,19 @@ namespace SmartHopper.Core.Messaging
             }
             catch (Exception ex)
             {
-                return new AIResponse
+                var error = $"Error: {ex.Message}";
+                
+                return new AIReturn<string>
                 {
                     FinishReason = "error",
-                    Response = $"Error: {ex.Message}",
-                    CompletionTime = 0,
+                    Result = error,
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    },
+                    Status = AICallStatus.Finished,
+                    ErrorMessage = error,
                     OriginalPrompt = prompt,
                     ImageSize = size,
                     ImageQuality = quality,

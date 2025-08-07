@@ -8,73 +8,167 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net.Http;
+using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.AICall
 {
     public class AIRequest : IAIRequest
     {
-        /// <summary>
-        /// Gets or sets the AI provider name (e.g., "openai", "anthropic").
-        /// </summary>
+        /// <inheritdoc/>
         public string Provider { get; set; }
 
-        /// <summary>
-        /// Gets or sets the model name (e.g., "gpt-4", "claude-3-opus").
-        /// </summary>
+        /// <inheritdoc/>
+        public IAIProvider ProviderInstance { get => ProviderManager.Instance.GetProvider(this.Provider); }
+
+        /// <inheritdoc/>
         public string Model { get; set; }
 
-        /// <summary>
-        /// Gets or sets the required capabilities to process this request. Requires at least an input and an output capability to be defined.
-        /// </summary>
+        /// <inheritdoc/>
         public AICapability Capability { get; set; } = AICapability.None;
 
-        /// <summary>
-        /// Gets or sets the endpoint or full URL to use for the request.
-        /// </summary>
+        /// <inheritdoc/>
         public string Endpoint { get; set; }
 
-        /// <summary>
-        /// Gets or sets the HTTP method to use for the request (GET, POST, DELETE, PATCH).
-        /// </summary>
-        public string HttpMethod { get; set; } = "GET";
-
-        /// <summary>
-        /// Gets or sets the request body.
-        /// </summary>
+        /// <inheritdoc/>
         public IAIRequestBody Body { get; set; }
 
-        /// <summary>
-        /// Gets or sets the content type of the request body.
-        /// </summary>
-        public string ContentType { get; set; } = "application/json";
-
-        /// <summary>
-        /// Gets or sets the authentication method to use for the request.
-        /// </summary>
-        public string Authentication { get; set; } = "bearer";
-
-        /// <summary>
-        /// A value indicating whether the request is valid.
-        /// </summary>
-        public bool IsValid()
+        /// <inheritdoc/>
+        public (bool IsValid, List<string> Errors) IsValid()
         {
-            if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model) || !this.Capability.HasInput() || !this.Capability.HasOutput() || string.IsNullOrEmpty(this.Endpoint) || string.IsNullOrEmpty(this.HttpMethod) || string.IsNullOrEmpty(this.Authentication) || string.IsNullOrEmpty(this.ContentType))
+            var errors = new List<string>();
+
+            if (string.IsNullOrEmpty(this.Provider))
             {
-                return false;
+                errors.Add("Provider field is required");
             }
 
-            if (!this.Body.IsValid())
+            if (string.IsNullOrEmpty(this.Model))
             {
-                return false;
+                errors.Add("Model field is required");
+            }
+
+            if (!this.Capability.HasInput() || !this.Capability.HasOutput())
+            {
+                errors.Add("Capability field is required with both input and output capabilities");
+            }
+
+            if (string.IsNullOrEmpty(this.Endpoint))
+            {
+                errors.Add("Endpoint field is required");
+            }
+
+            var (bodyOk, bodyErr) = this.Body.IsValid();
+            if (!bodyOk)
+            {
+                errors.AddRange(bodyErr);
             }
 
             if (this.Capability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
             {
-                return false;
+                errors.Add("JsonOutput capability requires a non-empty JsonOutputSchema");
             }
 
-            return true;
+            if (this.ProviderInstance == null)
+            {
+                errors.Add($"Unknown provider '{this.Provider}'");
+            }
+
+            return (errors.Count == 0, errors);
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIReturn<T>> Do<T>()
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            // Use default model if none specified
+            if (string.IsNullOrWhiteSpace(this.Model))
+            {
+                // If jsonSchema is required -> use JsonOutput capability
+                // If toolFilter is not null -> use FunctionCalling capability
+                if (this.Body.RequiresJsonOutput())
+                {
+                    this.Model = this.ProviderInstance.GetDefaultModel(AICapability.JsonGenerator, false);
+                }
+                else if (!string.IsNullOrEmpty(this.Body.ToolFilter))
+                {
+                    this.Model = this.ProviderInstance.GetDefaultModel(AICapability.FunctionCalling, false);
+                }
+                else
+                {
+                    this.Model = this.ProviderInstance.GetDefaultModel(AICapability.BasicChat, false);
+                }
+
+                Debug.WriteLine($"[AIRequest.Do] No model specified, using provider's default model: {this.Model}");
+            }
+
+            // Check if the request is valid
+            (bool isValid, List<string> errors) = this.IsValid();
+
+            if (!isValid)
+            {
+                stopwatch.Stop();
+
+                var error = "The request is not valid: " + string.Join(", ", errors);
+
+                return new AIReturn<T>
+                {
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    },
+                    Status = AICallStatus.Finished,
+                    ErrorMessage = error,
+                };
+            }
+
+            Debug.WriteLine($"[AIRequest.Do] Loading getResponse from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body.ToolFilter ?? "null"}");
+
+            try
+            {
+                // Execute the request from the provider
+                return await this.ProviderInstance.Call(this).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                stopwatch.Stop();
+                var error = $"Error: API request failed - {ex.Message}";
+
+                return new AIReturn<T>
+                {
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    },
+                    Status = AICallStatus.Finished,
+                    ErrorMessage = error,
+                };
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                var error = $"Error: {ex.Message}";
+
+                return new AIReturn<T>
+                {
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    },
+                    Status = AICallStatus.Finished,
+                    ErrorMessage = error,
+                };
+            }
         }
     }
 }

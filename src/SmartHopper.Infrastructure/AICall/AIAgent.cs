@@ -15,6 +15,9 @@
     /// </summary>
     public enum AIAgent
     {
+        /// <summary>The context provided by Context Manager.</summary>
+        Context,
+
         /// <summary>The system (e.g. system prompts).</summary>
         System,
 
@@ -48,6 +51,7 @@
         {
             return agent switch
             {
+                AIAgent.Context => "context",
                 AIAgent.System => "system",
                 AIAgent.User => "user",
                 AIAgent.Assistant => "assistant",
@@ -66,6 +70,7 @@
         {
             return agent switch
             {
+                AIAgent.Context => "Context",
                 AIAgent.System => "System",
                 AIAgent.User => "User",
                 AIAgent.Assistant => "Assistant",
@@ -84,6 +89,7 @@
         {
             return agent switch
             {
+                "context" => AIAgent.Context,
                 "system" => AIAgent.System,
                 "user" => AIAgent.User,
                 "assistant" => AIAgent.Assistant,

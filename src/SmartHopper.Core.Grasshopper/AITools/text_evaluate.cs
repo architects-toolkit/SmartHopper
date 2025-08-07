@@ -30,13 +30,38 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class text_evaluate : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "text_evaluate";
+
+        /// <summary>
+        /// Defines the required capabilities for the AI tool provided by this class.
+        /// </summary>
+        private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
+
+        /// <summary>
+        /// System prompt for the AI tool provided by this class.
+        /// </summary>
+        private readonly string systemPrompt =
+            "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\n" +
+            "Respond with TRUE or FALSE, nothing else.\n\n" +
+            "In case the text does not match the criteria, respond with FALSE.";
+
+        /// <summary>
+        /// User prompt for the AI tool provided by this class. Use <question> and <text> placeholders.
+        /// </summary>
+        private readonly string userPrompt =
+            "This is my question: \"<question>\"\n\n" +
+            "Answer the previous question based on the following input:\n<text>\n\n";
+
+        /// <summary>
         /// Get all tools provided by this class.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "text_evaluate",
+                name: this.toolName,
                 description: "Evaluates a text against a true/false question",
                 category: "DataProcessing",
                 parametersSchema: @"{
@@ -47,73 +72,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
-                execute: this.EvaluateTextToolWrapper,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
+                execute: this.EvaluateText,
+                requiredCapabilities: this.toolCapabilityRequirements
             );
-        }
-
-        /// <summary>
-        /// Evaluates text against a true/false question using AI with a custom GetResponse function.
-        /// </summary>
-        /// <param name="text">The text to analyze.</param>
-        /// <param name="question">The true/false question to evaluate.</param>
-        /// <param name="getResponse">Custom function to get AI response.</param>
-        /// <returns>Evaluation result containing the AI response, parsed result, and any error information.</returns>
-        private static async Task<AIReturn<GH_Boolean>> EvaluateTextAsync(
-            GH_String text,
-            GH_String question,
-            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
-        {
-            try
-            {
-                // Prepare messages for the AI
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    // System prompt
-                    new ("system",
-                        "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\n" +
-                        "Respond with TRUE or FALSE, nothing else.\n\n" +
-                        "In case the text does not match the criteria, respond with FALSE."),
-
-                    // User message
-                    new ("user",
-                        $"This is my question: \"{question.Value}\"\n\n" +
-                        $"Answer the previous question based on the following input:\n{text.Value}\n\n"),
-                };
-
-                // Get response using the provided function
-                var response = await getResponse(messages).ConfigureAwait(false);
-
-                // Check for API errors
-                if (response.FinishReason == "error")
-                {
-                    return AIReturn<GH_Boolean>.CreateError(
-                        response.Response,
-                        response);
-                }
-
-                // Strip thinking tags from response before parsing
-                var cleanedResponse = AI.StripThinkTags(response.Response);
-
-                // Parse the response
-                var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
-                if (parsedResult == null)
-                {
-                    return AIReturn<GH_Boolean>.CreateError(
-                        $"The AI returned an invalid response:\n{response.Response}",
-                        response);
-                }
-
-                // Success case
-                return AIReturn<GH_Boolean>.CreateSuccess(
-                    response,
-                    new GH_Boolean(parsedResult.Value));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[TextTools] Error in EvaluateTextAsync: {ex.Message}");
-                return AIReturn<GH_Boolean>.CreateError($"Error evaluating text: {ex.Message}");
-            }
         }
 
         /// <summary>
@@ -121,54 +82,72 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> EvaluateTextToolWrapper(JObject parameters)
+        private async Task<object> EvaluateText(JObject parameters)
         {
             try
             {
-                Debug.WriteLine("[TextTools] Running EvaluateTextToolWrapper");
+                Debug.WriteLine("[TextTools] Running EvaluateText tool");
 
                 // Extract parameters
                 string providerName = parameters["provider"]?.ToString() ?? string.Empty;
                 string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string endpoint = "text_evaluate";
+                string endpoint = this.toolName;
                 string? text = parameters["text"]?.ToString();
                 string? question = parameters["question"]?.ToString();
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
+                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing required parameters",
-                    };
+                    return AIReturn<bool>.CreateError("Missing required parameters").ToJObject<bool>();
                 }
 
-                // Execute the tool
-                var result = await EvaluateTextAsync(
-                    new GH_String(text),
-                    new GH_String(question),
-                    messages => AIUtils.GetResponse(
-                        providerName,
-                        modelName,
-                        messages,
-                        endpoint: endpoint,
-                        contextProviderFilter: contextProviderFilter,
-                        contextKeyFilter: contextKeyFilter)
-                ).ConfigureAwait(false);
+                // Prepare the AI request
+                var userPrompt = this.userPrompt;
+                userPrompt = userPrompt.Replace("<question>", question);
+                userPrompt = userPrompt.Replace("<text>", text);
 
-                // Return standardized result
-                return result.ToJObject<GH_Boolean>();
+                var requestBody = new AIRequestBody();
+                requestBody.AddInteraction("system", this.systemPrompt);
+                requestBody.AddInteraction("user", userPrompt);
+
+                var request = new AIRequest
+                {
+                    Provider = providerName,
+                    Model = modelName,
+                    Capability = this.toolCapabilityRequirements,
+                    Endpoint = endpoint,
+                    Body = requestBody,
+                };
+
+                // Execute the tool
+                var result = await request.Do<string>().ConfigureAwait(false);
+
+                // Strip thinking tags from response before parsing
+                var cleanedResponse = AI.StripThinkTags(result.Result);
+
+                // Parse the boolean from the response
+                var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
+
+                if (parsedResult == null)
+                {
+                    return AIReturn<bool>.CreateError(
+                        $"The AI returned an invalid response:\n{result.Result}",
+                        request: request,
+                        metrics: result.Metrics).ToJObject<bool>();
+                }
+
+                // Success case
+                return AIReturn<bool>.CreateSuccess(
+                    result: parsedResult.Value,
+                    request: request,
+                    metrics: result.Metrics).ToJObject<bool>();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in EvaluateTextToolWrapper: {ex.Message}");
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}",
-                };
+                Debug.WriteLine($"[TextTools] Error in EvaluateText: {ex.Message}");
+
+                // Return error object as JObject
+                return AIReturn<bool>.CreateError($"Error: {ex.Message}").ToJObject<bool>();
             }
         }
     }

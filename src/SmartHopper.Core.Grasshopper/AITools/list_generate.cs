@@ -30,7 +30,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// </summary>
     public class list_generate : IAIToolProvider
     {
-        private const string ListJsonSchema = "['item1', 'item2', 'item3', ...]";
+        /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "list_generate";
+
+        /// <summary>
+        /// Defines the required capabilities for the AI tool provided by this class.
+        /// </summary>
+        private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.JsonOutput;
+
+        /// <summary>
+        /// JSON schema for list output.
+        /// </summary>
+        private readonly string listJsonSchema = "['item1', 'item2', 'item3', ...]";
+
+        /// <summary>
+        /// System prompt for the AI tool provided by this class.
+        /// </summary>
+        private readonly string systemPrompt =
+            "You are a list generator assistant. Your task is to generate a specific number of items based on the user's prompt and return them as a JSON array.\n\n" +
+            "IMPORTANT REQUIREMENTS:\n" +
+            "- Return ONLY a valid JSON array of strings\n" +
+            "- Each item must be a quoted string, even if it contains commas or special characters\n" +
+            "- Generate exactly the requested number of items\n" +
+            "- Do not include any extra text, explanations, or formatting\n" +
+            "- Do not wrap the output in code blocks or additional quotes\n\n" +
+            "OUTPUT EXAMPLES:\n" +
+            "['item1', 'item2', 'item3']\n" +
+            "['{1,0,0}', '{0.707,0.707,0}', '{0,1,0}']\n" +
+            "['apple', 'banana with, comma', 'orange']";
+
+        /// <summary>
+        /// User prompt for the AI tool provided by this class. Use <prompt> and <count> placeholders.
+        /// </summary>
+        private readonly string userPrompt =
+            "Generate exactly <count> items based on this prompt: \"<prompt>\"\n\n" +
+            "Return only the JSON array of strings.";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -39,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "list_generate",
+                name: this.toolName,
                 description: "Generates a list of items based on a prompt, count and type",
                 category: "DataProcessing",
                 parametersSchema: @"{
@@ -51,50 +87,85 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
-                execute: this.GenerateListToolWrapper,
-                requiredCapabilities: AICapability.TextInput | AICapability.JsonOutput);
+                execute: this.GenerateList,
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
-        /// Generates a list of text items using AI, returning a JSON array of strings.
-        /// Uses conversational approach to ensure the target count is met.
+        /// Tool wrapper for the GenerateList function.
         /// </summary>
-        private static async Task<AIReturn<List<string>>> GenerateTextListAsync(
-            GH_String prompt,
-            int count,
-            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
+        private async Task<object> GenerateList(JObject parameters)
         {
             try
             {
-                var allItems = new List<string>();
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    new("system", $"You are a list generator assistant. Generate {count} items of text based on the prompt and return ONLY the JSON array. Include no extra text or formatting. Do not wrap the output in quotes or in a code block.\n\nIMPORTANT: Each item must be a quoted string in the JSON array, even if it contains commas or special characters.\n\nOUTPUT EXAMPLES: ['item1', 'item2', 'item3'] or ['{{1,0,0}}', '{{0.707,0.707,0}}', '{{0,1,0}}']"),
-                    new("user", prompt.Value),
-                };
+                Debug.WriteLine("[ListTools] Running GenerateList tool");
 
-                const int maxIterations = 10; // Prevent infinite loops
+                // Extract parameters
+                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
+                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string endpoint = this.toolName;
+                string? prompt = parameters["prompt"]?.ToString();
+                int count = parameters["count"]?.ToObject<int>() ?? 0;
+                string? type = parameters["type"]?.ToString();
+                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+
+                if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
+                {
+                    return AIReturn<List<string>>.CreateError("Missing or invalid parameters: prompt, count, or type").ToJObject<List<string>>();
+                }
+
+                if (!type.Equals("text", StringComparison.OrdinalIgnoreCase))
+                {
+                    return AIReturn<List<string>>.CreateError($"Type '{type}' not supported").ToJObject<List<string>>();
+                }
+
+                // Use iterative approach to ensure we get the exact count with conversational logic
+                var allItems = new List<string>();
+                const int maxIterations = 10;
                 int iteration = 0;
-                AIResponse? lastResponse = null;
+                AIReturn<string>? result = null;
+
+                // 1. Generate initial request
+                var initialUserPrompt = this.userPrompt;
+                initialUserPrompt = initialUserPrompt.Replace("<prompt>", prompt);
+                initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString());
+
+                var requestBody = new AIRequestBody();
+                requestBody.JsonOutputSchema = this.listJsonSchema;
+                requestBody.AddInteraction("system", this.systemPrompt);
+                requestBody.AddInteraction("user", initialUserPrompt);
+
+                var request = new AIRequest
+                {
+                    Provider = providerName,
+                    Model = modelName,
+                    Capability = this.toolCapabilityRequirements,
+                    Endpoint = endpoint,
+                    Body = requestBody,
+                };
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {
                     iteration++;
-                    Debug.WriteLine($"[ListTools] Iteration {iteration}: Need {count - allItems.Count} more items (have {allItems.Count}/{count})");
+                    var stillNeeded = count - allItems.Count;
+                    Debug.WriteLine($"[ListTools] Iteration {iteration}: Need {stillNeeded} more items (have {allItems.Count}/{count})");
 
-                    // Call AI to generate list
-                    var response = await getResponse(messages).ConfigureAwait(false);
-                    lastResponse = response;
+                    // 2. Execute the request
+                    result = await request.Do<string>().ConfigureAwait(false);
 
-                    if (response.FinishReason == "error")
+                    if (!result.Success)
                     {
                         return AIReturn<List<string>>.CreateError(
-                            response.Response,
-                            response);
+                            $"AI request failed: {result.ErrorMessage}",
+                            request: result.Request,
+                            metrics: result.Metrics).ToJObject<List<string>>();
                     }
 
-                    // Strip thinking tags from response before parsing
-                    var cleanedResponse = AI.StripThinkTags(response.Response);
+                    // 3. Parse the output and check if count is reached
+                    var cleanedResponse = AI.StripThinkTags(result.Result);
+                    Debug.WriteLine($"[ListTools] AI response: {cleanedResponse}");
 
                     // Parse JSON array of strings
                     List<string> newItems;
@@ -111,11 +182,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            return AIReturn<List<string>>.CreateSuccess(lastResponse, allItems);
+                            var partialResult = AIReturn<List<string>>.CreateSuccess(
+                                result: allItems,
+                                request: result.Request,
+                                metrics: result.Metrics);
+                            
+                            var partialMapping = new Dictionary<string, string>
+                            {
+                                ["success"] = "Success",
+                                ["list"] = "Result",
+                                ["error"] = "ErrorMessage",
+                            };
+                            
+                            var partialJobj = partialResult.ToJObject<List<string>>(partialMapping);
+                            partialJobj["count"] = new JValue(allItems.Count);
+                            return partialJobj;
                         }
 
                         // Otherwise, return the error
-                        return AIReturn<List<string>>.CreateError($"Error parsing AI response: {parseEx.Message}", response);
+                        return AIReturn<List<string>>.CreateError(
+                            $"Error parsing AI response: {parseEx.Message}",
+                            request: result.Request,
+                            metrics: result.Metrics).ToJObject<List<string>>();
                     }
 
                     Debug.WriteLine($"[ListTools] Iteration {iteration} generated {newItems.Count} items: {string.Join(", ", newItems)}");
@@ -126,7 +214,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         allItems.Add(item);
                     }
 
-                    // If we have enough items, trim to exact count and break
+                    // If we have enough items, trim to exact count and return
                     if (allItems.Count >= count)
                     {
                         if (allItems.Count > count)
@@ -138,25 +226,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         break;
                     }
 
-                    // Add the AI's response to conversation history
-                    messages.Add(new("assistant", cleanedResponse));
-
-                    // Calculate how many more items we need
-                    int stillNeeded = count - allItems.Count;
-
-                    // Create follow-up message with context
-                    var followUpMessage = $"I need {stillNeeded} more items to complete the list. Please generate {stillNeeded} additional items that are different from the ones already provided. Current list has {allItems.Count} items: [{string.Join(", ", allItems.Select(item => $"'{item}'"))}].\n\nGenerate {stillNeeded} NEW items as a JSON array, meeting the initial user's request: {prompt}.";
-
-                    messages.Add(new("user", followUpMessage));
-
+                    // 4. If count not reached, build conversation for next iteration
+                    // Use the request from the last return and add assistant + user interactions
+                    stillNeeded = count - allItems.Count;
                     Debug.WriteLine($"[ListTools] Requesting {stillNeeded} more items in next iteration");
+
+                    // Get the request from the result and add the assistant response
+                    request = result.Request;
+                    request.Body.AddInteraction("assistant", result.Result);
+                    
+                    // Add follow-up user message asking for more items
+                    var followUpMessage = $"I need {stillNeeded} more items to complete the list. Please generate {stillNeeded} additional items to the ones already provided. Current list has {allItems.Count} items: [{string.Join(", ", allItems.Select(item => $"'{item}'"))}].\n\nGenerate {stillNeeded} NEW items as a JSON array, meeting my initial request: {prompt}.\n\nReturn only the JSON array of the new items, nothing else.";
+                    request.Body.AddInteraction("user", followUpMessage);
                 }
 
                 if (allItems.Count == 0)
                 {
                     return AIReturn<List<string>>.CreateError(
                         "AI failed to generate any valid items",
-                        lastResponse);
+                        request: lastRequest,
+                        metrics: lastResult?.Metrics).ToJObject<List<string>>();
                 }
 
                 // Final safety check: trim list if it's longer than requested
@@ -167,87 +256,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 Debug.WriteLine($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
-                return AIReturn<List<string>>.CreateSuccess(lastResponse, allItems);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ListTools] Error in GenerateTextListAsync: {ex.Message}");
-                return AIReturn<List<string>>.CreateError($"Error generating list: {ex.Message}");
-            }
-        }
 
-        /// <summary>
-        /// Tool wrapper for list_generate.
-        /// </summary>
-        private async Task<object> GenerateListToolWrapper(JObject parameters)
-        {
-            try
-            {
-                Debug.WriteLine("[ListTools] Running GenerateListToolWrapper");
+                // Success case
+                var successResult = AIReturn<List<string>>.CreateSuccess(
+                    result: allItems,
+                    request: lastRequest,
+                    metrics: lastResult?.Metrics);
 
-                // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string endpoint = "list_generate";
-                string prompt = parameters["prompt"]?.ToString() ?? string.Empty;
-                int count = parameters["count"]?.ToObject<int>() ?? 0;
-                string type = parameters["type"]?.ToString() ?? string.Empty;
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
-
-                if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
-                {
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing or invalid parameters: prompt, count, or type",
-                    };
-                }
-
-                if (!type.Equals("text", StringComparison.OrdinalIgnoreCase))
-                {
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = $"Type '{type}' not supported",
-                    };
-                }
-
-                var result = await GenerateTextListAsync(
-                    new GH_String(prompt),
-                    count,
-                    messages => AIUtils.GetResponse(
-                        providerName,
-                        modelName,
-                        messages,
-                        jsonSchema: ListJsonSchema,
-                        endpoint: endpoint,
-                        contextProviderFilter: contextProviderFilter,
-                        contextKeyFilter: contextKeyFilter)).ConfigureAwait(false);
-
-                // Return standardized result
+                // Return standardized result with custom mapping
                 var mapping = new Dictionary<string, string>
                 {
                     ["success"] = "Success",
-                    ["list"] = "Result", // Map Result to list
+                    ["list"] = "Result",
                     ["error"] = "ErrorMessage",
                 };
 
-                var jobj = result.ToJObject<List<string>>(mapping);
+                var jobj = successResult.ToJObject<List<string>>(mapping);
 
                 // Add a count field
-                jobj["count"] = new JValue(result.Success ? result.Result.Count : 0);
+                jobj["count"] = new JValue(allItems.Count);
 
                 return jobj;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in GenerateListToolWrapper: {ex.Message}");
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}",
-                };
+                Debug.WriteLine($"[ListTools] Error in GenerateList: {ex.Message}");
+
+                // Return error object as JObject
+                return AIReturn<List<string>>.CreateError($"Error: {ex.Message}").ToJObject<List<string>>();
             }
         }
     }

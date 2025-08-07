@@ -91,17 +91,12 @@ namespace SmartHopper.Infrastructure.AIContext
         /// Prefix a provider ID with '-' to exclude it (e.g., "-time" excludes the time provider).
         /// Use '*' to include all providers (default behavior).
         /// Use '-*' to exclude all providers.</param>
-        /// <param name="contextFilter">Optional context key filter. If specified, only context with matching keys will be included. Multiple context keys can be specified as a comma-separated or space-separated list.
-        /// Prefix a context key with '-' to exclude it (e.g., "-time_current-datetime" excludes that specific context key).
-        /// Use '*' to include all context keys (default behavior).
-        /// Use '-*' to exclude all context keys.</param>
         /// <returns>A dictionary of context key-value pairs</returns>
-        public static Dictionary<string, string> GetCurrentContext(string providerFilter = null, string contextFilter = null)
+        public static Dictionary<string, string> GetCurrentContext(string providerFilter = null)
         {
             var result = new Dictionary<string, string>();
 
             var provFilter = Filtering.Parse(providerFilter);
-            var ctxFilter  = Filtering.Parse(contextFilter);
 
             var providers = _contextProviders
                 .Where(p => provFilter.ShouldInclude(p.ProviderId))
@@ -117,16 +112,8 @@ namespace SmartHopper.Infrastructure.AIContext
                         key = $"{provider.ProviderId}_{key}";
                     }
 
-                    if (ctxFilter.ShouldInclude(key))
-                    {
-                        Debug.WriteLine($"[GetCurrentContext] Adding context key: {key}");
-
-                        result[key] = kv.Value;
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[GetCurrentContext] Skipping context key: {key}");
-                    }
+                    Debug.WriteLine($"[GetCurrentContext] Adding context key: {key}");
+                    result[key] = kv.Value;
                 }
             }
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New tests for Context Manager and Model Manager.
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
+- Added `Do<T>` method to `AIRequest` to execute the request and return a `AIReturn<T>`, as well as multiple methods to simplify the process of executing requests.
 
 ### Changed
 
@@ -23,11 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `AIAgent`, `AIRequest` and `AIRequestBody` models to improve clarity and extensability. Refactored all code to use the new models.
 - Renamed `IChatModel` to `AIInteraction`.
 - Renamed `AIEvaluationResult<T>` to `AIReturn<T>`.
-- Renamed `AIResponse` to `AIReturnBody`
+- Renamed `AIResponse` to `AIReturnBody`.
+- Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
 
 ### Removed
 
 - Removed the `TemplateProvider` since it will be explained in documentation.
+- Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
 
 ### Fixed
 

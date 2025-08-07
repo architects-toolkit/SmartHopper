@@ -76,34 +76,36 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Value indicating whether the structure of this AIMetrics is valid.
         /// </summary>
-        public bool IsValid()
+        public (bool IsValid, List<string> Errors) IsValid()
         {
+            var errors = new List<string>();
+
             if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
             {
-                return false;
+                errors.Add("Provider and model fields are required");
             }
 
             if (this.InputTokens < 0 || this.OutputTokens < 0)
             {
-                return false;
+                errors.Add("Input and output tokens must be greater than or equal to 0");
             }
 
             if (this.ReuseCount < 1)
             {
-                return false;
+                errors.Add("Reuse count must be greater than or equal to 1");
             }
 
             if (string.IsNullOrEmpty(this.FinishReason))
             {
-                return false;
+                errors.Add("Finish reason must be set");
             }
 
             if (this.CompletionTime < 0)
             {
-                return false;
+                errors.Add("Completion time must be greater than or equal to 0");
             }
 
-            return true;
+            return (errors.Count == 0, errors);
         }
     }
 }

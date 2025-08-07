@@ -73,8 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var modelName = parameters["model"]?.ToString() ?? string.Empty;
                 var endpoint = "script_review";
                 var question = parameters["question"]?.ToString();
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
+                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
                 var objects = GHCanvasUtils.GetCurrentObjects();
@@ -150,8 +149,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     modelName,
                     msgs,
                     endpoint: endpoint,
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter);
+                    contextFilter: contextFilter);
                 var aiResponse = await getResponse(messages).ConfigureAwait(false);
 
                 return new JObject
