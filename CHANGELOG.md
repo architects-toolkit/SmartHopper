@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `AIEvaluationResult<T>` to `AIReturn<T>`.
 - Renamed `AIResponse` to `AIReturnBody`.
 - Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
+- Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call<T>` method.
 
 ### Removed
 

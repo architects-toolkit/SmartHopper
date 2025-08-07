@@ -135,7 +135,7 @@ namespace SmartHopper.Infrastructure.AICall
             try
             {
                 // Execute the request from the provider
-                return await this.ProviderInstance.Call(this).ConfigureAwait(false);
+                return await this.ProviderInstance.Call<T>(this).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {

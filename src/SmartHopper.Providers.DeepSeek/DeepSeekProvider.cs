@@ -36,11 +36,6 @@ namespace SmartHopper.Providers.DeepSeek
         public static readonly string NameValue = "DeepSeek";
 
         /// <summary>
-        /// Gets the default server URL for the provider.
-        /// </summary>
-        private const string DefaultServerUrlValue = "https://api.deepseek.com";
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="DeepSeekProvider"/> class.
         /// Private constructor to enforce singleton pattern.
         /// </summary>
@@ -57,7 +52,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => DefaultServerUrlValue;
+        public override string DefaultServerUrl => "https://api.deepseek.com";
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
