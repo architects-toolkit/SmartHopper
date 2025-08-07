@@ -36,6 +36,15 @@ namespace SmartHopper.Infrastructure.AICall
         public string Endpoint { get; set; }
 
         /// <inheritdoc/>
+        public string HttpMethod { get; set; } = "POST";
+
+        /// <inheritdoc/>
+        public string Authentication { get; set; } = "bearer";
+
+        /// <inheritdoc/>
+        public string ContentType { get; set; } = "application/json";
+
+        /// <inheritdoc/>
         public IAIRequestBody Body { get; set; }
 
         /// <inheritdoc/>
@@ -45,12 +54,27 @@ namespace SmartHopper.Infrastructure.AICall
 
             if (string.IsNullOrEmpty(this.Provider))
             {
-                errors.Add("Provider field is required");
+                errors.Add("Provider is required");
             }
 
             if (string.IsNullOrEmpty(this.Model))
             {
-                errors.Add("Model field is required");
+                errors.Add("Model is required");
+            }
+
+            if (string.IsNullOrEmpty(this.Endpoint))
+            {
+                errors.Add("Endpoint is required");
+            }
+
+            if (string.IsNullOrEmpty(this.HttpMethod))
+            {
+                errors.Add("HttpMethod is required");
+            }
+
+            if (string.IsNullOrEmpty(this.Authentication))
+            {
+                errors.Add("Authentication method is required");
             }
 
             if (!this.Capability.HasInput() || !this.Capability.HasOutput())
@@ -58,9 +82,9 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.Add("Capability field is required with both input and output capabilities");
             }
 
-            if (string.IsNullOrEmpty(this.Endpoint))
+            if (this.Capability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
             {
-                errors.Add("Endpoint field is required");
+                errors.Add("JsonOutput capability requires a non-empty JsonOutputSchema");
             }
 
             var (bodyOk, bodyErr) = this.Body.IsValid();
@@ -69,15 +93,12 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.AddRange(bodyErr);
             }
 
-            if (this.Capability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
-            {
-                errors.Add("JsonOutput capability requires a non-empty JsonOutputSchema");
-            }
-
             if (this.ProviderInstance == null)
             {
                 errors.Add($"Unknown provider '{this.Provider}'");
             }
+
+            // TODO: Check valid model capabilities
 
             return (errors.Count == 0, errors);
         }
@@ -109,26 +130,7 @@ namespace SmartHopper.Infrastructure.AICall
                 Debug.WriteLine($"[AIRequest.Do] No model specified, using provider's default model: {this.Model}");
             }
 
-            // Check if the request is valid
-            (bool isValid, List<string> errors) = this.IsValid();
-
-            if (!isValid)
-            {
-                stopwatch.Stop();
-
-                var error = "The request is not valid: " + string.Join(", ", errors);
-
-                return new AIReturn<T>
-                {
-                    Metrics = new AIMetrics()
-                    {
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    },
-                    Status = AICallStatus.Finished,
-                    ErrorMessage = error,
-                };
-            }
+            // TODO: Replace model with capable model is not capable to perform this request
 
             Debug.WriteLine($"[AIRequest.Do] Loading getResponse from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body.ToolFilter ?? "null"}");
 

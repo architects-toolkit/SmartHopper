@@ -31,7 +31,7 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         /// <param name="provider">The OpenAI provider instance.</param>
         /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
-        public OpenAIProviderModels(OpenAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
+        public OpenAIProviderModels(OpenAIProvider provider, Func<IAIRequest, Task<IAIReturn<string>>> apiCaller)
             : base(provider, apiCaller)
         {
             this.openAIProvider = provider;

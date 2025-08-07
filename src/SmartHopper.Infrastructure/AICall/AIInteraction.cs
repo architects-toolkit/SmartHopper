@@ -36,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets or sets the timestamp of the interaction.
         /// </summary>
-        public DateTime Time { get; set; }
+        public DateTime Time { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Gets or sets the list of tool calls associated with this interaction.

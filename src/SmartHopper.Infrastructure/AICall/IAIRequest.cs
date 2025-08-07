@@ -8,10 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Net.Http;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
@@ -44,6 +41,21 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the endpoint or full URL to use for the request.
         /// </summary>
         string Endpoint { get; set; }
+
+        /// <summary>
+        /// Gets or sets the HTTP method to use for the request.
+        /// </summary>
+        string HttpMethod { get; set; }
+
+        /// <summary>
+        /// Gets or sets the authentication method to use for the request.
+        /// </summary>
+        string Authentication { get; set; }
+
+        /// <summary>
+        /// Gets or sets the content type to use for the request.
+        /// </summary>
+        string ContentType { get; set; }
 
         /// <summary>
         /// Gets or sets the request body.

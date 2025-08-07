@@ -23,7 +23,10 @@ namespace SmartHopper.Infrastructure.AICall
         public T Result { get; set; }
 
         /// <inheritdoc/>
-        public AIRequest Request { get; set; }
+        public string RawResult { get; set; }
+
+        /// <inheritdoc/>
+        public IAIRequest Request { get; set; }
 
         /// <inheritdoc/>
         public AIMetrics Metrics { get; set; }
@@ -72,13 +75,13 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="request">The request that generated the result.</param>
         /// <param name="metrics">The metrics from the response.</param>
         /// <returns>A new success result instance.</returns>
-        public static AIReturn<T> CreateSuccess(T result, AIRequest? request = null, AIMetrics? metrics = null)
+        public static AIReturn<T> CreateSuccess(T result, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null)
             {
                 request = new AIRequest();
             }
-            
+
             if (metrics == null)
             {
                 metrics = new AIMetrics();
@@ -94,19 +97,47 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
+        /// Creates a new successful result from the raw response.
+        /// </summary>
+        /// <param name="raw">The raw response from the provider.</param>
+        /// <param name="request">The request that generated the result.</param>
+        /// <param name="metrics">The metrics from the response.</param>
+        /// <returns>A new success result instance.</returns>
+        public static AIReturn<T> CreateRawSuccess(string raw, IAIRequest? request = null, AIMetrics? metrics = null)
+        {
+            if (request == null)
+            {
+                request = new AIRequest();
+            }
+
+            if (metrics == null)
+            {
+                metrics = new AIMetrics();
+            }
+
+            return new AIReturn<T>
+            {
+                RawResult = raw,
+                Request = request,
+                Status = AICallStatus.Finished,
+                Metrics = metrics,
+            };
+        }
+
+        /// <summary>
         /// Creates a new error result.
         /// </summary>
         /// <param name="message">The error message.</param>
         /// <param name="request">The request that generated the error.</param>
         /// <param name="metrics">Optional metrics from the response that may have caused the error.</param>
         /// <returns>A new error result instance.</returns>
-        public static AIReturn<T> CreateError(string message, AIRequest? request = null, AIMetrics? metrics = null)
+        public static AIReturn<T> CreateError(string message, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null)
             {
                 request = new AIRequest();
             }
-            
+
             if (metrics == null)
             {
                 metrics = new AIMetrics();
