@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -56,35 +57,22 @@ namespace SmartHopper.Infrastructure.AIProviders
         private Dictionary<string, object> _injectedSettings;
         private Dictionary<string, object> _defaultSettings;
 
-        /// <summary>
-        /// Gets the models manager for this provider.
-        /// Provides access to model-related operations including capability management.
-        /// </summary>
-        public IAIProviderModels Models { get; set; }
-
-        /// <summary>
-        /// Gets the name of the provider.
-        /// </summary>
+        /// <inheritdoc/>
         public abstract string Name { get; }
 
-        /// <summary>
-        /// Gets the default server URL for the provider.
-        /// </summary>
-        public abstract string DefaultServerUrl { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether the provider is enabled.
-        /// </summary>
-        public abstract bool IsEnabled { get; }
-
-        /// <summary>
-        /// Gets the icon representing the provider.
-        /// </summary>
+        /// <inheritdoc/>
         public abstract Image Icon { get; }
 
-        /// <summary>
-        /// Initializes the provider.
-        /// </summary>
+        /// <inheritdoc/>
+        public abstract bool IsEnabled { get; }
+
+        /// <inheritdoc/>
+        public abstract string DefaultServerUrl { get; }
+
+        /// <inheritdoc/>
+        public IAIProviderModels Models { get; set; }
+
+        /// <inheritdoc/>
         public virtual async Task InitializeProviderAsync()
         {
             try
@@ -181,63 +169,102 @@ namespace SmartHopper.Infrastructure.AIProviders
             this.RefreshCachedSettings(settingsDict);
         }
 
-        // /// <summary>
-        // /// Retrieves a response from the AI model based on provided messages and parameters.
-        // /// </summary>
-        // /// <param name="messages">The conversation messages to send.</param>
-        // /// <param name="model">The model to use.</param>
-        // /// <param name="jsonSchema">Optional JSON schema to validate the response.</param>
-        // /// <param name="endpoint">Optional endpoint to send the request to.</param>
-        // /// <param name="toolFilter">Optional filter to specify which tools are available.</param>
-        // /// <returns>An AIReturn containing the result.</returns>
-        // public abstract Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null);
-
-        // /// <summary>
-        // /// Generates an image based on a text prompt.
-        // /// </summary>
-        // /// <param name="prompt">The text prompt describing the desired image.</param>
-        // /// <param name="model">The model to use for image generation.</param>
-        // /// <param name="size">The size of the generated image (e.g., "1024x1024").</param>
-        // /// <param name="quality">The quality of the generated image (e.g., "standard" or "hd").</param>
-        // /// <param name="style">The style of the generated image (e.g., "vivid" or "natural").</param>
-        // /// <returns>An AIReturn containing the generated image data in image-specific fields.</returns>
-        // public virtual Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
-        // {
-        //     throw new NotSupportedException($"Image generation is not supported by the {this.Name} provider. Only providers with DefaultImgModel support can generate images.");
-        // }
-
         /// <inheritdoc/>
-        public virtual AIRequest PreCall<T>(AIRequest request)
+        public virtual IAIRequest PreCall<T>(IAIRequest request)
         {
             return request;
         }
 
         /// <inheritdoc/>
-        public async Task<AIReturn<T>> Call<T>(AIRequest request)
+        public virtual string FormatRequestBody(IAIRequest request)
         {
-            request = this.PreCall<T>(request);
+            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
+            {
+                return "GET and DELETE requests do not use a request body";
+            }
 
-            var response = await this.CallApi<T>(request);
-
-            return this.PostCall<T>(response);
+            switch (request.Endpoint)
+            {
+                default:
+                    return "Provider " + this.Name + " is not configured to format the request body for endpoint " + request.Endpoint;
+            }
         }
 
         /// <inheritdoc/>
-        public virtual AIReturn<T> PostCall<T>(AIReturn<T> response)
+        public async Task<IAIReturn<T>> Call<T>(IAIRequest request)
+        {
+            // Start stopwatch
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            // Execute PreCall
+            request = this.PreCall<T>(request);
+
+            // Validate request before calling the API
+            (bool isValid, List<string> errors) = request.IsValid();
+            if (!isValid)
+            {
+                stopwatch.Stop();
+
+                var error = "The request is not valid: " + string.Join(", ", errors);
+
+                return new AIReturn<T>
+                {
+                    Metrics = new AIMetrics()
+                    {
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    },
+                    Status = AICallStatus.Finished,
+                    ErrorMessage = error,
+                };
+            }
+
+            // Execute CallApi
+            var response = await this.CallApi<T>(request);
+
+            // Add completion time to metrics
+            stopwatch.Stop();
+            response.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+
+            // Execute PostCall
+            response = this.PostCall<T>(response);
+
+            return response;
+        }
+
+        /// <inheritdoc/>
+        public virtual IAIReturn<T> PostCall<T>(IAIReturn<T> response)
         {
             return response;
         }
 
-        /// <summary>
-        /// Resets the provider's cached settings, completely replacing them with the specified settings.
-        /// </summary>
-        /// <param name="settings">The decrypted settings to use.</param>
-        /// <remarks>
-        /// This method completely replaces the cached settings. Use RefreshCachedSettings if you want to merge settings instead.
-        /// </remarks>
-        private void ResetCachedSettings(Dictionary<string, object> settings)
+        /// <inheritdoc/>
+        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
         {
-            this._injectedSettings = settings ?? new Dictionary<string, object>();
+            // Use settings model if matches required capabilities
+            if (useSettings)
+            {
+                string modelFromSettings = this.GetSetting<string>("Model");
+
+                if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                {
+                    if (ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                    {
+                        return modelFromSettings;
+                    }
+                }
+            }
+
+            // Else, try to get default model from ModelManager that matches the required capabilities
+            string modelFromProviderDefault = ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
+
+            if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))
+            {
+                return modelFromProviderDefault;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -264,6 +291,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                     this._injectedSettings[kvp.Key] = kvp.Value;
                 }
             }
+        }
+
+        /// <inheritdoc/>
+        public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
+        {
+            var ui = ProviderManager.Instance.GetProviderSettings(this.Name);
+            return ui?.GetSettingDescriptors()
+                ?? Enumerable.Empty<SettingDescriptor>();
         }
 
         /// <summary>
@@ -330,33 +365,6 @@ namespace SmartHopper.Infrastructure.AIProviders
                 Debug.WriteLine($"Error getting setting {key} for provider {this.Name}: {ex.Message}");
                 return default;
             }
-        }
-
-        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
-        {
-            // Use settings model if matches requiredCapabilites
-            if (useSettings)
-            {
-                string modelFromSettings = this.GetSetting<string>("Model");
-
-                if (!string.IsNullOrWhiteSpace(modelFromSettings))
-                {
-                    if (ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
-                    {
-                        return modelFromSettings;
-                    }
-                }
-            }
-
-            // Else, try to get default model from ModelManager that matches the required capabilities
-            string modelFromProviderDefault = ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
-
-            if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))
-            {
-                return modelFromProviderDefault;
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -462,28 +470,18 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Returns the SettingDescriptors for this provider by
-        /// fetching its IAIProviderSettings instance from ProviderManager.
-        /// </summary>
-        /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
-        public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
-        {
-            var ui = ProviderManager.Instance.GetProviderSettings(this.Name);
-            return ui?.GetSettingDescriptors()
-                ?? Enumerable.Empty<SettingDescriptor>();
-        }
-
-        /// <summary>
         /// Makes an HTTP request to the specified endpoint with authentication.
         /// </summary>
-        /// <param name="endpoint">The endpoint to call. Can be a full URL or a relative path.</param>
-        /// <param name="httpMethod">The HTTP method to use (GET, POST, DELETE, PATCH). Defaults to GET.</param>
-        /// <param name="requestBody">The request body content for POST and PATCH requests.</param>
-        /// <param name="contentType">The content type for the request body. Defaults to "application/json".</param>
-        /// <param name="authentication">The authentication method to use. Currently only "bearer" is supported.</param>
-        /// <returns>The HTTP response content as a string.</returns>
-        protected virtual async Task<string> CallApi(string endpoint, string httpMethod = "GET", string requestBody = null, string contentType = "application/json", string authentication = "bearer")
+        /// <param name="request">The request to make.</param>
+        /// <returns>The HTTP response content as a type T.</returns>
+        protected virtual async Task<IAIReturn<T>> CallApi<T>(IAIRequest request)
         {
+            string endpoint = request.Endpoint;
+            string httpMethod = request.HttpMethod;
+            string requestBody = this.FormatRequestBody(request);
+            string contentType = request.ContentType;
+            string authentication = request.Authentication;
+
             if (string.IsNullOrWhiteSpace(endpoint))
             {
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
@@ -500,16 +498,16 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 // Endpoint is a relative path, append to DefaultServerUrl
                 var baseUrl = this.DefaultServerUrl.TrimEnd('/');
-                var path = endpoint.StartsWith("/") ? endpoint : "/" + endpoint;
+                var path = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint : "/" + endpoint;
                 fullUrl = baseUrl + path;
             }
 
-            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper()}, URL: {fullUrl}");
+            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUrl}");
 
             using (var httpClient = new HttpClient())
             {
                 // Set up authentication
-                if (authentication.ToLower() == "bearer")
+                if (authentication.ToLower(CultureInfo.InvariantCulture) == "bearer")
                 {
                     string apiKey = this.GetSetting<string>("ApiKey");
                     if (string.IsNullOrWhiteSpace(apiKey))
@@ -529,7 +527,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 try
                 {
                     HttpResponseMessage response;
-                    switch (httpMethod.ToUpper())
+                    switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
                             response = await httpClient.GetAsync(fullUrl).ConfigureAwait(false);
@@ -562,7 +560,17 @@ namespace SmartHopper.Infrastructure.AIProviders
                         throw new Exception($"Error from {this.Name} API: {response.StatusCode} - {content}");
                     }
 
-                    return content;
+                    // Prepare the AIReturn
+                    var aiReturn = AIReturn<T>.CreateRawSuccess(
+                        raw: content,
+                        request: request,
+                        metrics: new AIMetrics()
+                        {
+                            Provider = this.Name,
+                            Model = request.Model,
+                        });
+
+                    return aiReturn;
                 }
                 catch (Exception ex)
                 {
@@ -570,6 +578,18 @@ namespace SmartHopper.Infrastructure.AIProviders
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Resets the provider's cached settings, completely replacing them with the specified settings.
+        /// </summary>
+        /// <param name="settings">The decrypted settings to use.</param>
+        /// <remarks>
+        /// This method completely replaces the cached settings. Use RefreshCachedSettings if you want to merge settings instead.
+        /// </remarks>
+        private void ResetCachedSettings(Dictionary<string, object> settings)
+        {
+            this._injectedSettings = settings ?? new Dictionary<string, object>();
         }
 
         /// <summary>

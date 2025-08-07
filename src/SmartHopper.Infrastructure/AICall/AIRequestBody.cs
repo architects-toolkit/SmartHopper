@@ -49,7 +49,6 @@ namespace SmartHopper.Infrastructure.AICall
                             {
                                 Agent = AIAgent.Context,
                                 Body = contextMessage,
-                                Time = DateTime.UtcNow
                             };
                             
                             result.Insert(0, contextInteraction);
@@ -62,30 +61,7 @@ namespace SmartHopper.Infrastructure.AICall
             }
             set => _interactions = value;
         }
-
-        /// <summary>
-        /// Gets the number of interactions.
-        /// </summary>
-        public int InteractionsCount()
-        {
-            return (_interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
-        }
         
-        /// <summary>
-        /// Checks if there is context data to inject.
-        /// </summary>
-        private bool HasContextData()
-        {
-            if (string.IsNullOrEmpty(ContextFilter))
-            {
-                return false;
-            }
-
-            var contextData = AIContextManager.GetCurrentContext(ContextFilter);
-
-            return contextData.Any(kv => !string.IsNullOrEmpty(kv.Value));
-        }
-
         /// <inheritdoc/>
         public string ToolFilter { get; set; }
 
@@ -118,7 +94,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// Adds an interaction to the start of the interaction history.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>
-        public void AddInteractionToStart(IAIInteraction interaction)
+        public void AddFirstInteraction(IAIInteraction interaction)
         {
             _interactions ??= new List<IAIInteraction>();
             _interactions.Insert(0, interaction);
@@ -128,7 +104,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// Adds an interaction to the start of the interaction history.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>
-        public void AddInteractionToStart(List<IAIInteraction> interactions)
+        public void AddFirstInteraction(List<IAIInteraction> interactions)
         {
             _interactions ??= new List<IAIInteraction>();
             _interactions.InsertRange(0, interactions);
@@ -138,16 +114,16 @@ namespace SmartHopper.Infrastructure.AICall
         /// Adds an interaction to the start of the interaction history from a key value pair.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>
-        public void AddInteractionToStart(string agent, string body)
+        public void AddFirstInteraction(string agent, string body)
         {
-            this.AddInteractionToStart(CreateInteraction(agent, body));
+            this.AddFirstInteraction(CreateInteraction(agent, body));
         }
 
         /// <summary>
         /// Adds an interaction to the end of the interaction history.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>
-        public void AddInteractionToEnd(IAIInteraction interaction)
+        public void AddLastInteraction(IAIInteraction interaction)
         {
             _interactions ??= new List<IAIInteraction>();
             _interactions.Add(interaction);
@@ -157,7 +133,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// Adds an interaction to the end of the interaction history.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>
-        public void AddInteractionToEnd(List<IAIInteraction> interactions)
+        public void AddLastInteraction(List<IAIInteraction> interactions)
         {
             _interactions ??= new List<IAIInteraction>();
             _interactions.AddRange(interactions);
@@ -167,9 +143,9 @@ namespace SmartHopper.Infrastructure.AICall
         /// Adds an interaction to the end of the interaction history from a key value pair.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>
-        public void AddInteractionToEnd(string agent, string body)
+        public void AddLastInteraction(string agent, string body)
         {
-            this.AddInteractionToEnd(CreateInteraction(agent, body));
+            this.AddLastInteraction(CreateInteraction(agent, body));
         }
 
         /// <summary>
@@ -178,7 +154,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddInteraction(IAIInteraction interaction)
         {
-            this.AddInteractionToEnd(interaction);
+            this.AddLastInteraction(interaction);
         }
 
         /// <summary>
@@ -187,7 +163,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddInteraction(List<IAIInteraction> interactions)
         {
-            this.AddInteractionToEnd(interactions);
+            this.AddLastInteraction(interactions);
         }
 
         /// <summary>
@@ -196,7 +172,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddInteraction(string agent, string body)
         {
-            this.AddInteractionToEnd(CreateInteraction(agent, body));
+            this.AddLastInteraction(CreateInteraction(agent, body));
         }
 
         /// <summary>
@@ -210,9 +186,31 @@ namespace SmartHopper.Infrastructure.AICall
             {
                 Agent = AIAgentExtensions.FromString(agent),
                 Body = body,
-                Time = DateTime.UtcNow,
             };
             return interaction;
+        }
+
+        /// <summary>
+        /// Gets the number of interactions.
+        /// </summary>
+        public int InteractionsCount()
+        {
+            return (_interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Checks if there is context data to inject.
+        /// </summary>
+        private bool HasContextData()
+        {
+            if (string.IsNullOrEmpty(ContextFilter))
+            {
+                return false;
+            }
+
+            var contextData = AIContextManager.GetCurrentContext(ContextFilter);
+
+            return contextData.Any(kv => !string.IsNullOrEmpty(kv.Value));
         }
     }
 }

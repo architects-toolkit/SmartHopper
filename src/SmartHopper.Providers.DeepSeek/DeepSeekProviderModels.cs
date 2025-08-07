@@ -31,7 +31,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         /// <param name="provider">The DeepSeek provider instance.</param>
         /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
-        public DeepSeekProviderModels(DeepSeekProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
+        public DeepSeekProviderModels(DeepSeekProvider provider, Func<IAIRequest, Task<IAIReturn<string>>> apiCaller)
             : base(provider, apiCaller)
         {
             this.deepSeekProvider = provider;

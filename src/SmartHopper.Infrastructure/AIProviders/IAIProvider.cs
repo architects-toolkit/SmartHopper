@@ -42,28 +42,38 @@ namespace SmartHopper.Infrastructure.AIProviders
         IAIProviderModels Models { get; }
 
         /// <summary>
-        /// Gets the default model name for the provider.
+        /// Initializes the provider.
         /// </summary>
-        string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true);
+        Task InitializeProviderAsync();
 
         /// <summary>
         /// Gets the pre-call request for the provider.
         /// </summary>
-        AIRequest PreCall<T>(AIRequest request);
+        IAIRequest PreCall<T>(IAIRequest request);
+
+        /// <summary>
+        /// Gets the formatted body for the request.
+        /// </summary>
+        string FormatRequestBody(IAIRequest request);
 
         /// <summary>
         /// Gets the task processing the Call<T> with the provider.
         /// </summary>
         /// <param name="request">The request to send to the AI provider.</param>
         /// <returns>The response from the AI provider.</returns>
-        Task<AIReturn<T>> Call<T>(AIRequest request);
+        Task<IAIReturn<T>> Call<T>(IAIRequest request);
 
         /// <summary>
         /// Gets the post-call response for the provider.
         /// </summary>
         /// <param name="response">The response from the AI provider.</param>
         /// <returns>The response from the AI provider.</returns>
-        AIReturn<T> PostCall<T>(AIReturn<T> response);
+        IAIReturn<T> PostCall<T>(IAIReturn<T> response);
+
+        /// <summary>
+        /// Gets the default model name for the provider.
+        /// </summary>
+        string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true);
 
         /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
@@ -77,10 +87,5 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
-
-        /// <summary>
-        /// Initializes the provider.
-        /// </summary>
-        Task InitializeProviderAsync();
     }
 }

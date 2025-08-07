@@ -25,17 +25,22 @@ namespace SmartHopper.Infrastructure.AICall
         T Result { get; set; }
 
         /// <summary>
-        /// Gets or sets the request sent to the AI.
+        /// Gets or sets the raw response from the provider.
         /// </summary>
-        AIRequest Request { get; set; }
+        string RawResult { get; set; }
 
         /// <summary>
-        /// Gets or sets the metrics from the AI call.
+        /// Gets or sets the request sent to the provider.
+        /// </summary>
+        IAIRequest Request { get; set; }
+
+        /// <summary>
+        /// Gets or sets the metrics about this call.
         /// </summary>
         AIMetrics Metrics { get; set; }
 
         /// <summary>
-        /// Gets or sets the list of tool calls made by the AI model after the request.
+        /// Gets or sets the list of tool calls made by the provider after the request.
         /// </summary>
         List<AIToolCall> ToolCalls { get; set; }
 

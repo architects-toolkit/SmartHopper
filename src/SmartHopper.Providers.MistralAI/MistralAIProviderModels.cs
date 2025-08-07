@@ -32,7 +32,7 @@ namespace SmartHopper.Providers.MistralAI
         /// </summary>
         /// <param name="provider">The MistralAI provider instance.</param>
         /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
-        public MistralAIProviderModels(MistralAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
+        public MistralAIProviderModels(MistralAIProvider provider, Func<IAIRequest, Task<IAIReturn<string>>> apiCaller)
             : base(provider, apiCaller)
         {
             this.mistralProvider = provider;
