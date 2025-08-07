@@ -529,7 +529,7 @@ namespace SmartHopper.Infrastructure.Settings
                 File.WriteAllBytes(filePath, obfuscated);
 
                 // Set restrictive file permissions (Unix-like systems)
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
                     // chmod 600 equivalent
                     File.SetUnixFileMode(filePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
