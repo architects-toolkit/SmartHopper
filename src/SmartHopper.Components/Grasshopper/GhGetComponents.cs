@@ -105,7 +105,7 @@ namespace SmartHopper.Components.Grasshopper
                     ["connectionDepth"] = connectionDepth,
                     ["guidFilter"] = JArray.FromObject(SelectedObjects.Select(o => o.InstanceGuid.ToString())),
                 };
-                var toolResult = AIToolManager.ExecuteTool("gh_get", parameters, null).GetAwaiter().GetResult() as JObject;
+                var toolResult = AIToolManager.ExecuteTool("gh_get", parameters).GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
