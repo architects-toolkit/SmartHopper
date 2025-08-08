@@ -20,8 +20,10 @@ using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Utils;
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
 
@@ -153,10 +155,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""additionalProperties"": false
                 }".Replace('"', '"');
 
-                // Prepare AI messages with instructions for structured output
-                var messages = new List<KeyValuePair<string, string>>
+                // Build AIRequest with schema and context filter
+                var requestBody = new AIRequestBody
                 {
-                    new("system", $"""
+                    JsonOutputSchema = jsonSchema,
+                    ContextFilter = contextFilter,
+                };
+                requestBody.AddInteraction("system", $"""
                     You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
                     
                     Your response MUST be a valid JSON object with the following structure:
@@ -165,19 +170,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     - outputs: Array of output parameters with name, type, and description
                     
                     The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
-                    """),
-                    new("user", prompt)
+                    """);
+                requestBody.AddInteraction("user", prompt);
+
+                var request = new AIRequest
+                {
+                    Provider = providerName,
+                    Model = modelName,
+                    Capability = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Endpoint = endpoint,
+                    Body = requestBody,
                 };
 
-                // Get AI response with JSON schema
-                var aiResponse = await AIUtils.GetResponse(
-                    providerName,
-                    modelName,
-                    messages,
-                    jsonSchema,
-                    endpoint: endpoint,
-                    contextFilter: contextFilter).ConfigureAwait(false);
-                var responseJson = JObject.Parse(aiResponse.Response);
+                var result = await request.Do<string>().ConfigureAwait(false);
+                if (!result.Success)
+                {
+                    return new { success = false, error = result.ErrorMessage };
+                }
+
+                var cleaned = AI.StripThinkTags(result.Result);
+                var responseJson = JObject.Parse(cleaned);
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();
                 var outputs = responseJson["outputs"] as JArray ?? new JArray();
