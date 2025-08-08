@@ -125,7 +125,7 @@ namespace SmartHopper.Components.Grasshopper
             try
             {
                 var parameters = new JObject { ["guids"] = JArray.FromObject(guids) };
-                var result = AIToolManager.ExecuteTool("gh_tidy_up", parameters, null)
+                var result = AIToolManager.ExecuteTool("gh_tidy_up", parameters)
                                   .GetAwaiter().GetResult() as JObject;
                 if (result == null)
                 {
