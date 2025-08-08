@@ -20,6 +20,11 @@ namespace SmartHopper.Infrastructure.AICall
 {
     public class AIRequest : IAIRequest
     {
+        /// <summary>
+        /// Store the desired model.
+        /// </summary>
+        private string model;
+        
         /// <inheritdoc/>
         public string Provider { get; set; }
 
@@ -27,38 +32,7 @@ namespace SmartHopper.Infrastructure.AICall
         public IAIProvider ProviderInstance { get => ProviderManager.Instance.GetProvider(this.Provider); }
 
         /// <inheritdoc/>
-        public string Model { get; set; }
-
-        /// <inheritdoc/>
-        public string ModelUsed
-        {
-            get
-            {
-                if(string.IsNullOrEmpty(this.Provider))
-                {
-                    return null;
-                }
-                else
-                {
-                    var defaultModel = this.ProviderInstance.GetDefaultModel(this.Capability);
-                    
-                    if (string.IsNullOrEmpty(this.Model))
-                    {
-                        return defaultModel;
-                    }
-                    else
-                    {
-                        // Validate capabilites and return default if not capable
-                        if (!this.ValidModelCapabilities())
-                        {
-                            return defaultModel;
-                        }
-
-                        return this.Model;
-                    }
-                }
-            }
-        }
+        public string Model { get => this.GetModelToUse(); set => this.model = value; }
 
         /// <inheritdoc/>
         public AICapability Capability { get; set; } = AICapability.BasicChat;
@@ -88,9 +62,9 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.Add("Provider is required");
             }
 
-            if (string.IsNullOrEmpty(this.Model) && !string.IsNullOrEmpty(this.ModelUsed))
+            if (string.IsNullOrEmpty(this.model))
             {
-                errors.Add($"(Info) Model is not specified - the default model '{this.ModelUsed}' will be used");
+                errors.Add($"(Info) Model is not specified - the default model '{this.GetModelToUse()}' will be used");
             }
 
             if (string.IsNullOrEmpty(this.Endpoint))
@@ -129,8 +103,10 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.Add($"Unknown provider '{this.Provider}'");
             }
 
-            if 
-            // TODO: Check valid model capabilities, if not valid, mention default model that will be used
+            if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
+            {
+                errors.Add($"(Info) Model '{this.model}' is not capable for this request - the default model '{this.GetModelToUse()}' will be used");
+            }
 
             return (errors.Count == 0, errors);
         }
@@ -141,35 +117,13 @@ namespace SmartHopper.Infrastructure.AICall
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            // Use default model if none specified
-            if (string.IsNullOrWhiteSpace(this.Model))
-            {
-                // If jsonSchema is required -> use JsonOutput capability
-                // If toolFilter is not null -> use FunctionCalling capability
-                if (this.Body.RequiresJsonOutput())
-                {
-                    this.Model = this.ProviderInstance.GetDefaultModel(AICapability.JsonGenerator, false);
-                }
-                else if (!string.IsNullOrEmpty(this.Body.ToolFilter))
-                {
-                    this.Model = this.ProviderInstance.GetDefaultModel(AICapability.FunctionCalling, false);
-                }
-                else
-                {
-                    this.Model = this.ProviderInstance.GetDefaultModel(AICapability.BasicChat, false);
-                }
-
-                Debug.WriteLine($"[AIRequest.Do] No model specified, using provider's default model: {this.Model}");
-            }
-
-            // TODO: Replace model with capable model is not capable to perform this request
-
             Debug.WriteLine($"[AIRequest.Do] Loading getResponse from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body.ToolFilter ?? "null"}");
 
             try
             {
                 // Execute the request from the provider
-                return await this.ProviderInstance.Call<T>(this).ConfigureAwait(false);
+                var result = await this.ProviderInstance.Call<T>(this).ConfigureAwait(false);
+                return (AIReturn<T>)result;
             }
             catch (HttpRequestException ex)
             {
@@ -205,6 +159,37 @@ namespace SmartHopper.Infrastructure.AICall
             }
         }
 
+
+        /// <summary>
+        /// Gets the model to use for the request.
+        /// </summary>
+        private string GetModelToUse()
+        {
+            if(string.IsNullOrEmpty(this.Provider))
+            {
+                return null;
+            }
+            else
+            {
+                var defaultModel = this.ProviderInstance.GetDefaultModel(this.Capability);
+                
+                if (string.IsNullOrEmpty(this.Model))
+                {
+                    return defaultModel;
+                }
+                else
+                {
+                    // Validate capabilites and return default if not capable
+                    if (!this.ValidModelCapabilities())
+                    {
+                        return defaultModel;
+                    }
+
+                    return this.Model;
+                }
+            }
+        }
+
         /// <summary>
         /// Validates the model capabilities and mentions the default model that will be used if the specified model is not capable to perform this request.
         /// </summary>
@@ -223,7 +208,7 @@ namespace SmartHopper.Infrastructure.AICall
                     else
                     {
                         // Validate capabilites and return default if not capable
-                        bool valid = ModelManager.ValidateCapabilities(this.Provider, this.Model, this.Capability);
+                        bool valid = ModelManager.Instance.ValidateCapabilities(this.Provider, this.Model, this.Capability);
 
                         return valid;
                     }

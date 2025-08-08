@@ -16,6 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.SpecialTypes;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -105,8 +106,22 @@ namespace SmartHopper.Providers.MistralAI
             {
                 AIAgent role = interaction.Agent;
                 string roleName = string.Empty;
-                string msgContent = interaction.Body.ToString() ?? string.Empty;
-                msgContent = AI.StripThinkTags(msgContent);
+                string msgContent;
+                var body = interaction.Body;
+                if (body is string s)
+                {
+                    msgContent = s;
+                }
+                else if (body is SmartHopper.Infrastructure.AICall.SpecialTypes.AIText text)
+                {
+                    // For AIText, only send the actual content
+                    msgContent = text.Content ?? string.Empty;
+                }
+                else
+                {
+                    // Fallback to string representation
+                    msgContent = body?.ToString() ?? string.Empty;
+                }
 
                 var messageObj = new JObject
                 {
@@ -222,15 +237,9 @@ namespace SmartHopper.Providers.MistralAI
             // First do the base PostCall
             response = base.PostCall<T>(response);
 
-            // If type is not string return error
-            if (!(typeof(T) == typeof(string) && response is IAIReturn<string> stringResponse))
-            {
-                throw new Exception("Error: Type " + typeof(T).Name + " is not supported for " + this.Name + " provider");
-            }
-
             try
             {
-                var responseJson = JObject.Parse(stringResponse.RawResult);
+                var responseJson = JObject.Parse(response.RawResult);
                 Debug.WriteLine($"[MistralAI] PostCall - Response parsed successfully");
 
                 // Extract response content
@@ -245,11 +254,68 @@ namespace SmartHopper.Providers.MistralAI
                     throw new Exception("Invalid response from MistralAI API: No message found");
                 }
 
-                var content = message["content"]?.ToString() ?? string.Empty;
+                // Extract content and reasoning (thinking) parts from Mistral's structured content array
+                string content = string.Empty;
+                string reasoning = string.Empty;
 
-                var aiReturn = new AIReturn<string>
+                var contentToken = message["content"];
+                if (contentToken is JArray contentArray)
                 {
-                    Result = content,
+                    var contentParts = new List<string>();
+                    var reasoningParts = new List<string>();
+
+                    foreach (var part in contentArray.OfType<JObject>())
+                    {
+                        var type = part["type"]?.ToString();
+                        if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Mistral returns a nested "thinking" array with typed entries
+                            var thinkingToken = part["thinking"];
+                            if (thinkingToken is JArray thinkingArray)
+                            {
+                                foreach (var t in thinkingArray)
+                                {
+                                    // Prefer nested objects { type: "text", text: "..." }
+                                    if (t is JObject to &&
+                                        string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        var textVal = to["text"]?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                    }
+                                    else
+                                    {
+                                        var textVal = t?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Normal assistant text block
+                            var textVal = part["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
+                        }
+                    }
+
+                    content = string.Join("", contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
+                }
+                else if (contentToken != null)
+                {
+                    // Fallback: content as plain string
+                    content = contentToken.ToString();
+                }
+
+                var result = new AIText
+                {
+                    Content = content,
+                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                };
+
+                var aiReturn = new AIReturn<AIText>
+                {
+                    Result = result,
                     Metrics = new AIMetrics
                     {
                         FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
@@ -279,7 +345,8 @@ namespace SmartHopper.Providers.MistralAI
                     aiReturn.Status = AICallStatus.CallingTools;
                 }
 
-                Debug.WriteLine($"[MistralAI] PostCall - Response processed successfully: {aiReturn.Result.Substring(0, Math.Min(50, aiReturn.Result.Length))}...");
+                var preview = aiReturn.Result?.Content ?? string.Empty;
+                Debug.WriteLine($"[MistralAI] PostCall - Response processed successfully: {preview.Substring(0, Math.Min(50, preview.Length))}...");
                 return (IAIReturn<T>)aiReturn;
             }
             catch (Exception ex)

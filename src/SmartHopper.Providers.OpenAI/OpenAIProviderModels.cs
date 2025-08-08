@@ -30,9 +30,8 @@ namespace SmartHopper.Providers.OpenAI
         /// Initializes a new instance of the <see cref="OpenAIProviderModels"/> class.
         /// </summary>
         /// <param name="provider">The OpenAI provider instance.</param>
-        /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
-        public OpenAIProviderModels(OpenAIProvider provider, Func<IAIRequest, Task<IAIReturn<string>>> apiCaller)
-            : base(provider, apiCaller)
+        public OpenAIProviderModels(OpenAIProvider provider)
+            : base(provider)
         {
             this.openAIProvider = provider;
         }
