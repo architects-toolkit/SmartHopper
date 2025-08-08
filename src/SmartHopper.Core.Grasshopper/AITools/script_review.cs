@@ -20,6 +20,7 @@ using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -132,31 +133,50 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     codedIssues.Add("Warning: script language not recognized; static checks may be incomplete.");
                 }
 
-                // AI-based code review
-                var messages = new List<KeyValuePair<string, string>>
+                // AI-based code review using AIRequest/AIReturn flow
+                var requestBody = new AIRequestBody
                 {
-                    new("system", "You are a code review assistant. Provide concise feedback on the code."),
+                    ContextFilter = contextFilter,
                 };
+                requestBody.AddInteraction("system", "You are a code review assistant. Provide concise feedback on the code.");
+
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
-                    userPrompt = $"Perform a general review of the following script code:\n```\n{scriptCode}\n```" +
-                                 "\n\nPlease: (1) describe the main purpose; (2) detect potential bugs or incoherences; (3) suggest an improved code block.";
+                {
+                    userPrompt = $"Perform a general review of the following script code:\n```\n{scriptCode}\n```\n\nPlease: (1) describe the main purpose; (2) detect potential bugs or incoherences; (3) suggest an improved code block.";
+                }
                 else
+                {
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
-                messages.Add(new("user", userPrompt));
-                Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse = msgs => AIUtils.GetResponse(
-                    providerName,
-                    modelName,
-                    msgs,
-                    endpoint: endpoint,
-                    contextFilter: contextFilter);
-                var aiResponse = await getResponse(messages).ConfigureAwait(false);
+                }
+                requestBody.AddInteraction("user", userPrompt);
+
+                var request = new AIRequest
+                {
+                    Provider = providerName,
+                    Model = modelName,
+                    Capability = AICapability.TextInput | AICapability.TextOutput,
+                    Endpoint = endpoint,
+                    Body = requestBody,
+                };
+
+                var result = await request.Do<string>().ConfigureAwait(false);
+                if (!result.Success)
+                {
+                    return new JObject
+                    {
+                        ["success"] = false,
+                        ["error"] = result.ErrorMessage ?? "AI request failed",
+                    };
+                }
+
+                var aiReview = AI.StripThinkTags(result.Result);
 
                 return new JObject
                 {
                     ["success"] = true,
                     ["codedIssues"] = JArray.FromObject(codedIssues),
-                    ["aiReview"] = aiResponse.Response,
+                    ["aiReview"] = aiReview,
                 };
             }
             catch (Exception ex)

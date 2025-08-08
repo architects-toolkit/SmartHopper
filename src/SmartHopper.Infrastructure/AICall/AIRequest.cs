@@ -132,7 +132,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             // TODO: Replace model with capable model is not capable to perform this request
 
-            Debug.WriteLine($"[AIRequest.Do] Loading getResponse from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body.ToolFilter ?? "null"}");
+            Debug.WriteLine($"[AIRequest.Do] Calling {this.Provider} provider with model '{this.Model}' and tools filtered by {this.Body.ToolFilter ?? "null"}");
 
             try
             {
