@@ -33,6 +33,11 @@ namespace SmartHopper.Infrastructure.AICall
         string Model { get; set; }
 
         /// <summary>
+        /// Gets the actual model used.
+        /// </summary>
+        string ModelUsed { get; }
+
+        /// <summary>
         /// Gets or sets the required capabilities to process this request.
         /// </summary>
         AICapability Capability { get; set; }
