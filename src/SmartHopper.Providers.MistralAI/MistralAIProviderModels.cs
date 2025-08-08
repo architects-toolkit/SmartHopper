@@ -31,9 +31,8 @@ namespace SmartHopper.Providers.MistralAI
         /// Initializes a new instance of the <see cref="MistralAIProviderModels"/> class.
         /// </summary>
         /// <param name="provider">The MistralAI provider instance.</param>
-        /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
-        public MistralAIProviderModels(MistralAIProvider provider, Func<IAIRequest, Task<IAIReturn<string>>> apiCaller)
-            : base(provider, apiCaller)
+        public MistralAIProviderModels(MistralAIProvider provider)
+            : base(provider)
         {
             this.mistralProvider = provider;
         }
@@ -48,6 +47,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine("[MistralAI] Retrieving available models");
 
+                // TODO: Replace with AIRequest.Do()
                 var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;

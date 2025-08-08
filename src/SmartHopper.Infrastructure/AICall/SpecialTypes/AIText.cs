@@ -1,0 +1,61 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+namespace SmartHopper.Infrastructure.AICall.SpecialTypes
+{
+    /// <summary>
+    /// Represents an AI-generated text result with associated metadata.
+    /// Used as the Result type for AIReturn&lt;AIText&gt; in text generation operations.
+    /// </summary>
+    public class AIText
+    {
+        /// <summary>
+        /// Gets or sets the content of the message.
+        /// </summary>
+        public string Content { get; set; }
+
+        /// <summary>
+        /// Gets or sets the reasoning of the message.
+        /// </summary>
+        public string Reasoning { get; set; }
+
+        /// <summary>
+        /// Returns a string representation of the AIText.
+        /// </summary>
+        /// <returns>A formatted string containing text metadata.</returns>
+        public override string ToString()
+        {
+            var result = string.Empty;
+
+            if(!string.IsNullOrEmpty(Reasoning))
+            {
+                result += $"<think>{Reasoning}</think>";
+            }
+
+            if(!string.IsNullOrEmpty(Content))
+            {
+                result += $"{Content}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Sets the result for text generation.
+        /// </summary>
+        /// <param name="content">The content to generate the text from.</param>
+        /// <param name="reasoning">The reasoning to generate the text from.</param>
+        public void SetResult(string content, string reasoning = null)
+        {
+            this.Content = content;
+            this.Reasoning = reasoning;
+        }
+    }
+}

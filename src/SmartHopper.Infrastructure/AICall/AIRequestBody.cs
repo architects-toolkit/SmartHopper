@@ -169,7 +169,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Adds an interaction to the start of the interaction history from a key value pair.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="agent"></param>
+        /// <param name="body"></param>
         public void AddInteraction(string agent, string body)
         {
             this.AddLastInteraction(CreateInteraction(agent, body));
@@ -178,7 +179,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the first interaction.
         /// </summary>
-        public AIInteraction GetFirstInteraction()
+        /// <returns></returns>
+        public IAIInteraction GetFirstInteraction()
         {
             return this.Interactions.FirstOrDefault();
         }
@@ -186,7 +188,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the first interaction of type AIAgent.
         /// </summary>
-        public AIInteraction GetFirstInteraction(AIAgent agent)
+        /// /// <param name="agent"></param>
+        public IAIInteraction GetFirstInteraction(AIAgent agent)
         {
             return this.Interactions.FirstOrDefault(i => i.Agent == agent);
         }
@@ -194,7 +197,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the first interaction of type AIAgent.
         /// </summary>
-        public AIInteraction GetFirstInteraction(string agent)
+        public IAIInteraction GetFirstInteraction(string agent)
         {
             return this.Interactions.FirstOrDefault(i => i.Agent.ToString() == agent);
         }
@@ -202,7 +205,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the last interaction.
         /// </summary>
-        public AIInteraction GetLastInteraction()
+        public IAIInteraction GetLastInteraction()
         {
             return this.Interactions.LastOrDefault();
         }
@@ -210,7 +213,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the last interaction of type AIAgent.
         /// </summary>
-        public AIInteraction GetLastInteraction(AIAgent agent)
+        public IAIInteraction GetLastInteraction(AIAgent agent)
         {
             return this.Interactions.LastOrDefault(i => i.Agent == agent);
         }
@@ -218,7 +221,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the last interaction of type AIAgent.
         /// </summary>
-        public AIInteraction GetLastInteraction(string agent)
+        public IAIInteraction GetLastInteraction(string agent)
         {
             return this.Interactions.LastOrDefault(i => i.Agent.ToString() == agent);
         }
@@ -228,7 +231,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         public int InteractionsCount()
         {
-            return (_interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+            return (this._interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
         }
 
         /// <summary>

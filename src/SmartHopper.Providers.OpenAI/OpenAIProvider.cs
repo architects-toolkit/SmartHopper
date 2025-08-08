@@ -139,12 +139,6 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private string FormatChatCompletionsRequestBody(IAIRequest request)
         {
-            // If Body type is not string return error
-            if (request.Body.Interactions.OfType<AIInteraction<string>>() == null)
-            {
-                throw new Exception("Error: Body type " + request.Body.GetType().Name + " is not supported for " + this.Name + " provider");
-            }
-
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
             string jsonSchema = request.Body.JsonOutputSchema;
@@ -159,8 +153,24 @@ namespace SmartHopper.Providers.OpenAI
             {
                 AIAgent role = interaction.Agent;
                 string roleName = string.Empty;
-                string msgContent = interaction.Body.ToString() ?? string.Empty;
-                msgContent = AI.StripThinkTags(msgContent);
+
+                // Extract message content based on interaction body type
+                string msgContent;
+                var body = interaction.Body;
+                if (body is string s)
+                {
+                    msgContent = s;
+                }
+                else if (body is SmartHopper.Infrastructure.AICall.SpecialTypes.AIText text)
+                {
+                    // For AIText, only send the actual content
+                    msgContent = text.Content ?? string.Empty;
+                }
+                else
+                {
+                    // Fallback to string representation
+                    msgContent = body?.ToString() ?? string.Empty;
+                }
 
                 var messageObj = new JObject
                 {
@@ -228,15 +238,20 @@ namespace SmartHopper.Providers.OpenAI
             {
                 ["model"] = request.Model,
                 ["messages"] = convertedMessages,
-                ["max_completion_tokens"] = maxTokens,
-                ["temperature"] = this.GetSetting<double>("Temperature"),
             };
 
-            // Add reasoning effort for o-series models
+            // Configure tokens and parameters based on model family
+            // - o-series (o1/o3/o4...): use max_completion_tokens and reasoning_effort; omit temperature
+            // - others: use max_tokens and temperature
             if (Regex.IsMatch(request.Model, @"^o[0-9]", RegexOptions.IgnoreCase))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
-                requestBody["temperature"] = 1; // Only 1 is accepted for o-series models
+                requestBody["max_completion_tokens"] = maxTokens;
+            }
+            else
+            {
+                requestBody["max_tokens"] = maxTokens;
+                requestBody["temperature"] = this.GetSetting<double>("Temperature");
             }
 
             // Add response format if JSON schema is provided
@@ -322,7 +337,7 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                Debug.WriteLine($"[OpenAI] No interactions found ?¿");
+                Debug.WriteLine($"[OpenAI] No interactions found ?ï¿½");
             }
 
             // Build request payload for image generation
@@ -351,28 +366,37 @@ namespace SmartHopper.Providers.OpenAI
             // First do the base PostCall
             response = base.PostCall<T>(response);
 
-            // Handle different response types
-            if (typeof(T) == typeof(string) && response is IAIReturn<string> stringResponse)
+            // Handle different endpoints
+            if (response.Request.Endpoint == "/images/generations")
             {
-                return (IAIReturn<T>)ProcessChatCompletionsResponse(stringResponse);
-            }
-            else if (typeof(T) == typeof(AIImage) && response is IAIReturn<AIImage> imageResponse)
-            {
-                return (IAIReturn<T>)ProcessImageGenerationResponse(imageResponse);
+                return ProcessImageGenerationResponse(response);
             }
             else
             {
-                throw new Exception($"Error: Type {typeof(T).Name} is not supported for {this.Name} provider");
+                return ProcessChatCompletionsResponse(response);
             }
         }
 
         /// <summary>
         /// Processes chat completions response.
         /// </summary>
-        private IAIReturn<string> ProcessChatCompletionsResponse(IAIReturn<string> response)
+        private IAIReturn<T> ProcessChatCompletionsResponse(IAIReturn<T> response)
         {
             try
             {
+                if (response.Result is string s)
+                {
+                    // Strings are valid responses for this tool
+                }
+                else if (response.Result is AIText text)
+                {
+                    // AIText is valid response for this tool
+                }
+                else
+                {
+                    throw new Exception($"Error: Type of response {typeof(T).Name} is not supported for {this.Name} provider");
+                }
+
                 var responseJson = JObject.Parse(response.RawResult);
                 Debug.WriteLine($"[OpenAI] PostCall - ChatCompletions response parsed successfully");
 
@@ -388,27 +412,65 @@ namespace SmartHopper.Providers.OpenAI
                     throw new Exception("Invalid response from OpenAI API: No message found");
                 }
 
-                var content = message["content"]?.ToString() ?? string.Empty;
-                var reasoningSummary = message["reasoning_summary"]?.ToString();
+                // Extract content and reasoning if OpenAI returns structured content parts
+                // Reasoning parts may appear as items with type "reasoning" or "thinking"; text in type "text"
+                string content = string.Empty;
+                string reasoning = string.Empty;
+
+                var contentToken = message["content"];
+                if (contentToken is JArray contentArray)
+                {
+                    var contentParts = new List<string>();
+                    var reasoningParts = new List<string>();
+
+                    foreach (var part in contentArray.OfType<JObject>())
+                    {
+                        var type = part["type"]?.ToString();
+                        if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                        }
+                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
+                        }
+                        else if (string.Equals(type, "output_text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // OpenAI Responses-style content item; treat as normal assistant text
+                            var textVal = part["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
+                        }
+                    }
+
+                    content = string.Join("", contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
+                }
+                else if (contentToken != null)
+                {
+                    content = contentToken.ToString();
+                }
+
+                var result = new AIText
+                {
+                    Content = content,
+                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                };
 
                 // Implement schema unwrapping if needed
                 var wrapperInfo = CurrentWrapperInfo.Value;
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
                     Debug.WriteLine($"[OpenAI] Unwrapping response content using wrapper info: Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
-                    content = UnwrapResponseContent(content, wrapperInfo);
-                    Debug.WriteLine($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
+                    result.Content = UnwrapResponseContent(result.Content, wrapperInfo);
+                    Debug.WriteLine($"[OpenAI] Content after unwrapping: {result.Content.Substring(0, Math.Min(100, result.Content.Length))}...");
                 }
 
-                // If we have a reasoning summary, wrap it in <think> tags before the actual content
-                if (!string.IsNullOrWhiteSpace(reasoningSummary))
+                var aiReturn = new AIReturn<AIText>
                 {
-                    content = $"<think>{reasoningSummary}</think>\n\n{content}";
-                }
-
-                var aiReturn = new AIReturn<string>
-                {
-                    Result = content,
+                    Result = result,
                     Metrics = new AIMetrics
                     {
                         FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
@@ -438,7 +500,7 @@ namespace SmartHopper.Providers.OpenAI
                     aiReturn.Status = AICallStatus.CallingTools;
                 }
 
-                Debug.WriteLine($"[OpenAI] PostCall - Response processed successfully: {aiReturn.Result.Substring(0, Math.Min(50, aiReturn.Result.Length))}...");
+                Debug.WriteLine($"[OpenAI] PostCall - Response processed successfully: {aiReturn.Result.Content.Substring(0, Math.Min(50, aiReturn.Result.Content.Length))}...");
                 return aiReturn;
             }
             catch (Exception ex)
@@ -466,7 +528,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 var imageData = dataArray[0];
                 var imageUrl = imageData["url"]?.ToString() ?? string.Empty;
-                var revisedPrompt = imageData["revised_prompt"]?.ToString();
+                var revisedPrompt = imageData["revised_prompt"]?.ToString() ?? string.Empty;
 
                 // Create the result AIImage object using the original request parameters
                 var imageItem = (AIImage)response.Request.Body.Interactions.First().Body;
@@ -474,8 +536,7 @@ namespace SmartHopper.Providers.OpenAI
                 // Set the result data from the API response
                 imageItem.SetResult(
                     imageUrl: imageUrl,
-                    revisedPrompt: revisedPrompt
-                );
+                    revisedPrompt: revisedPrompt);
 
                 Debug.WriteLine($"[OpenAI] Final AIImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
 

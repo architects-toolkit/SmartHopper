@@ -70,12 +70,12 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="providerName">The name of the AI provider to use for default model operations.</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="progressReporter">Optional callback to report progress updates.</param>
-        public WebChatDialog(Func<List<AIInteraction<string>>, Task<AIResponse>> getResponse, string providerName, string? systemPrompt = null, Action<string>? progressReporter = null)
+        public WebChatDialog(AIRequest request, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             this._progressReporter = progressReporter;
-            this._systemPrompt = systemPrompt;
-            this._providerName = providerName ?? throw new ArgumentNullException(nameof(providerName));
+            this._systemPrompt = request.Body.GetFirstInteraction(AIAgent.System);
+            this._providerName = request.Provider ?? throw new ArgumentNullException(nameof(request.Provider));
 
             this.Title = "SmartHopper AI Chat";
             this.MinimumSize = new Size(600, 700);
@@ -94,9 +94,9 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Wrap the incoming getResponse delegate with logging for entry and exit
-            if (getResponse == null) throw new ArgumentNullException(nameof(getResponse));
-            Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {getResponse.Method.DeclaringType.FullName}.{getResponse.Method.Name}");
-            var originalGetResponse = getResponse;
+            if (this._getResponse == null) throw new ArgumentNullException(nameof(this._getResponse));
+            Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {this._getResponse.Method.DeclaringType.FullName}.{this._getResponse.Method.Name}");
+            var originalGetResponse = this._getResponse;
             this._getResponse = async messages =>
             {
                 Debug.WriteLine($"[WebChatDialog] Calling getResponse delegate ({originalGetResponse.Method.DeclaringType.FullName}.{originalGetResponse.Method.Name}) with {messages.Count} messages");

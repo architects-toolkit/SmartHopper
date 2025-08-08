@@ -94,12 +94,6 @@ namespace SmartHopper.Providers.DeepSeek
         /// <inheritdoc/>
         public override string FormatRequestBody(IAIRequest request)
         {
-            // If Body type is not string return error
-            if (request.Body.Interactions.OfType<AIInteraction<string>>() == null)
-            {
-                throw new Exception("Error: Body type " + request.Body.GetType().Name + " is not supported for " + this.Name + " provider");
-            }
-
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
@@ -110,8 +104,22 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 AIAgent role = interaction.Agent;
                 string roleName = string.Empty;
-                string msgContent = interaction.Body.ToString() ?? string.Empty;
-                msgContent = AI.StripThinkTags(msgContent);
+                string msgContent;
+                var body = interaction.Body;
+                if (body is string s)
+                {
+                    msgContent = s;
+                }
+                else if (body is SmartHopper.Infrastructure.AICall.SpecialTypes.AIText text)
+                {
+                    // For AIText, only send the actual content
+                    msgContent = text.Content ?? string.Empty;
+                }
+                else
+                {
+                    // Fallback to string representation
+                    msgContent = body?.ToString() ?? string.Empty;
+                }     
 
                 var messageObj = new JObject
                 {
@@ -260,12 +268,6 @@ namespace SmartHopper.Providers.DeepSeek
             // First do the base PostCall
             response = base.PostCall<T>(response);
 
-            // If type is not string return error
-            if (!(typeof(T) == typeof(string) && response is IAIReturn<string> stringResponse))
-            {
-                throw new Exception("Error: Type " + typeof(T).Name + " is not supported for " + this.Name + " provider");
-            }
-
             var responseString = response.RawResult;
             var responseJson = JObject.Parse(responseString);
             Debug.WriteLine($"[DeepSeek] Response parsed successfully");
@@ -280,19 +282,21 @@ namespace SmartHopper.Providers.DeepSeek
             }
 
             var usage = responseJson["usage"] as JObject;
-            var reasoning = message["reasoning_content"]?.ToString();
+            var reasoning = message["reasoning_content"]?.ToString() ?? string.Empty;
             var content = message["content"]?.ToString() ?? string.Empty;
 
             // Clean up DeepSeek's malformed JSON responses for array schemas
             content = CleanUpDeepSeekArrayResponse(content);
 
-            var combined = !string.IsNullOrWhiteSpace(reasoning)
-                ? $"<think>{reasoning}</think>{content}"
-                : content;
-
-            var aiReturn = new AIReturn<string>
+            var result = new AIText
             {
-                Result = combined,
+                Content = content,
+                Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+            };
+
+            var aiReturn = new AIReturn<AIText>
+            {
+                Result = result,
                 Metrics = new AIMetrics
                 {
                     FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
