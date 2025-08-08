@@ -30,7 +30,38 @@ namespace SmartHopper.Infrastructure.AICall
         public string Model { get; set; }
 
         /// <inheritdoc/>
-        public AICapability Capability { get; set; } = AICapability.None;
+        public string ModelUsed
+        {
+            get
+            {
+                if(string.IsNullOrEmpty(this.Provider))
+                {
+                    return null;
+                }
+                else
+                {
+                    var defaultModel = this.ProviderInstance.GetDefaultModel(this.Capability);
+                    
+                    if (string.IsNullOrEmpty(this.Model))
+                    {
+                        return defaultModel;
+                    }
+                    else
+                    {
+                        // Validate capabilites and return default if not capable
+                        if (!this.ValidModelCapabilities())
+                        {
+                            return defaultModel;
+                        }
+
+                        return this.Model;
+                    }
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public AICapability Capability { get; set; } = AICapability.BasicChat;
 
         /// <inheritdoc/>
         public string Endpoint { get; set; }
@@ -57,9 +88,9 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.Add("Provider is required");
             }
 
-            if (string.IsNullOrEmpty(this.Model))
+            if (string.IsNullOrEmpty(this.Model) && !string.IsNullOrEmpty(this.ModelUsed))
             {
-                errors.Add("Model is required");
+                errors.Add($"(Info) Model is not specified - the default model '{this.ModelUsed}' will be used");
             }
 
             if (string.IsNullOrEmpty(this.Endpoint))
@@ -98,7 +129,8 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.Add($"Unknown provider '{this.Provider}'");
             }
 
-            // TODO: Check valid model capabilities
+            if 
+            // TODO: Check valid model capabilities, if not valid, mention default model that will be used
 
             return (errors.Count == 0, errors);
         }
@@ -171,6 +203,31 @@ namespace SmartHopper.Infrastructure.AICall
                     ErrorMessage = error,
                 };
             }
+        }
+
+        /// <summary>
+        /// Validates the model capabilities and mentions the default model that will be used if the specified model is not capable to perform this request.
+        /// </summary>
+        private bool ValidModelCapabilities()
+        {
+            if(string.IsNullOrEmpty(this.Provider))
+                {
+                    return false;
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(this.Model))
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        // Validate capabilites and return default if not capable
+                        bool valid = ModelManager.ValidateCapabilities(this.Provider, this.Model, this.Capability);
+
+                        return valid;
+                    }
+                }
         }
     }
 }

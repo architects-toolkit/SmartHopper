@@ -176,6 +176,62 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
+        /// Gets the first interaction.
+        /// </summary>
+        public AIInteraction GetFirstInteraction()
+        {
+            return this.Interactions.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Gets the first interaction of type AIAgent.
+        /// </summary>
+        public AIInteraction GetFirstInteraction(AIAgent agent)
+        {
+            return this.Interactions.FirstOrDefault(i => i.Agent == agent);
+        }
+
+        /// <summary>
+        /// Gets the first interaction of type AIAgent.
+        /// </summary>
+        public AIInteraction GetFirstInteraction(string agent)
+        {
+            return this.Interactions.FirstOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
+        /// Gets the last interaction.
+        /// </summary>
+        public AIInteraction GetLastInteraction()
+        {
+            return this.Interactions.LastOrDefault();
+        }
+
+        /// <summary>
+        /// Gets the last interaction of type AIAgent.
+        /// </summary>
+        public AIInteraction GetLastInteraction(AIAgent agent)
+        {
+            return this.Interactions.LastOrDefault(i => i.Agent == agent);
+        }
+
+        /// <summary>
+        /// Gets the last interaction of type AIAgent.
+        /// </summary>
+        public AIInteraction GetLastInteraction(string agent)
+        {
+            return this.Interactions.LastOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
+        /// Gets the number of interactions.
+        /// </summary>
+        public int InteractionsCount()
+        {
+            return (_interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+        }
+
+        /// <summary>
         /// Creates a new AIInteraction<string> from a key value pair.
         /// </summary>
         /// <param name="agent">The key of the interaction.</param>
@@ -188,14 +244,6 @@ namespace SmartHopper.Infrastructure.AICall
                 Body = body,
             };
             return interaction;
-        }
-
-        /// <summary>
-        /// Gets the number of interactions.
-        /// </summary>
-        public int InteractionsCount()
-        {
-            return (_interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
         }
 
         /// <summary>

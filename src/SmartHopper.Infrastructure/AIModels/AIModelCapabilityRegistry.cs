@@ -173,7 +173,9 @@ namespace SmartHopper.Infrastructure.AIModels
         public string GetDefaultModel(string provider, AICapability requiredCapability = AICapability.BasicChat)
         {
             if (string.IsNullOrEmpty(provider))
+            {
                 return null;
+            }
 
             var providerModels = this.Models.Values
                 .Where(m => m != null && string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase))
