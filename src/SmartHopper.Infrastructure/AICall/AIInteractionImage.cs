@@ -9,15 +9,31 @@
  */
 
 using System;
+using SmartHopper.Infrastructure.AICodec;
 
-namespace SmartHopper.Infrastructure.AICall.SpecialTypes
+namespace SmartHopper.Infrastructure.AICall
 {
     /// <summary>
     /// Represents an AI-generated image result with associated metadata.
-    /// Used as the Result type for AIReturn&lt;AIImage&gt; in image generation operations.
+    /// Used as the Result type for AIInteractionImage in image generation operations.
     /// </summary>
-    public class AIImage
+    public class AIInteractionImage : IAIInteraction
     {
+        /// <summary>
+        /// Gets or sets the agent of the interaction.
+        /// </summary>
+        required public AIAgent Agent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timestamp of the interaction.
+        /// </summary>
+        public DateTime Time { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Gets or sets the list of tool calls associated with this interaction.
+        /// </summary>
+        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
+
         /// <summary>
         /// Gets or sets the URL of the generated image.
         /// </summary>
@@ -55,12 +71,12 @@ namespace SmartHopper.Infrastructure.AICall.SpecialTypes
         public string ImageStyle { get; set; } = "vivid";
 
         /// <summary>
-        /// Returns a string representation of the AIImage.
+        /// Returns a string representation of the AIInteractionImage.
         /// </summary>
         /// <returns>A formatted string containing image metadata.</returns>
         public override string ToString()
         {
-            return $"AIImage ({ImageSize}) generated from '{OriginalPrompt.Substring(0, Math.Min(50, OriginalPrompt.Length))}...'";
+            return $"AIInteractionImage ({ImageSize}) generated from '{OriginalPrompt.Substring(0, Math.Min(50, OriginalPrompt.Length))}...'";
         }
 
         /// <summary>
