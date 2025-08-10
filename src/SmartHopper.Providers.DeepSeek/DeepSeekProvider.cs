@@ -105,12 +105,23 @@ namespace SmartHopper.Providers.DeepSeek
                 AIAgent role = interaction.Agent;
                 string roleName = string.Empty;
                 string msgContent;
-                var body = interaction.Body;
+
+                // TODO: Handle interactions based on type
+
+                if (interaction as AIInteractionText != null)
+                {
+                }
+                else
+                {
+                    throw new Exception("Type not supported by DeepSeek");
+                }
+
+                    var body = interaction.Body;
                 if (body is string s)
                 {
                     msgContent = s;
                 }
-                else if (body is SmartHopper.Infrastructure.AICall.SpecialTypes.AIText text)
+                else if (body is Infrastructure.AICall.SpecialTypes.AIText text)
                 {
                     // For AIText, only send the actual content
                     msgContent = text.Content ?? string.Empty;
@@ -119,7 +130,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     // Fallback to string representation
                     msgContent = body?.ToString() ?? string.Empty;
-                }     
+                }
 
                 var messageObj = new JObject
                 {
