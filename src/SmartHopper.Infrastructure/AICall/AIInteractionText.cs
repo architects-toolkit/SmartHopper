@@ -8,14 +8,31 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-namespace SmartHopper.Infrastructure.AICall.SpecialTypes
+using SmartHopper.Infrastructure.AICodec;
+
+namespace SmartHopper.Infrastructure.AICall
 {
     /// <summary>
     /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIReturn&lt;AIText&gt; in text generation operations.
+    /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIText
+    public class AIInteractionText : IAIInteraction
     {
+        /// <summary>
+        /// Gets or sets the agent of the interaction.
+        /// </summary>
+        required public AIAgent Agent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timestamp of the interaction.
+        /// </summary>
+        public DateTime Time { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Gets or sets the list of tool calls associated with this interaction.
+        /// </summary>
+        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
+
         /// <summary>
         /// Gets or sets the content of the message.
         /// </summary>
@@ -27,7 +44,7 @@ namespace SmartHopper.Infrastructure.AICall.SpecialTypes
         public string Reasoning { get; set; }
 
         /// <summary>
-        /// Returns a string representation of the AIText.
+        /// Returns a string representation of the AIInteractionText.
         /// </summary>
         /// <returns>A formatted string containing text metadata.</returns>
         public override string ToString()
