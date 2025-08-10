@@ -73,10 +73,10 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall<T>(IAIRequest request)
+        public override IAIRequest PreCall(IAIRequest request)
         {
             // First do the base PreCall
-            request = base.PreCall<T>(request);
+            request = base.PreCall(request);
 
             // Determine endpoint based on return type
             if (typeof(T) == typeof(AIImage))
@@ -361,10 +361,10 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override IAIReturn<T> PostCall<T>(IAIReturn<T> response)
+        public override IAIReturn PostCall(IAIReturn response)
         {
             // First do the base PostCall
-            response = base.PostCall<T>(response);
+            response = base.PostCall(response);
 
             // Handle different endpoints
             if (response.Request.Endpoint == "/images/generations")
@@ -380,7 +380,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Processes chat completions response.
         /// </summary>
-        private IAIReturn<T> ProcessChatCompletionsResponse(IAIReturn<T> response)
+        private IAIReturn ProcessChatCompletionsResponse(IAIReturn response)
         {
             try
             {

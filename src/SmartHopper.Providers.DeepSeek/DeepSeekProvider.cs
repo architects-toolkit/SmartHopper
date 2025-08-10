@@ -75,10 +75,10 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall<T>(IAIRequest request)
+        public override IAIRequest PreCall(IAIRequest request)
         {
             // First do the base PreCall
-            request = base.PreCall<T>(request);
+            request = base.PreCall(request);
 
             // Setup proper httpmethod, content type, and authentication
             request.HttpMethod = "POST";
@@ -92,7 +92,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override string FormatRequestBody(IAIRequest request)
+        public override string Encode(IAIRequest request)
         {
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");
@@ -263,69 +263,114 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override IAIReturn<T> PostCall<T>(IAIReturn<T> response)
+        public override List<IAIInteraction> DecodeResponse(string response)
         {
-            // First do the base PostCall
-            response = base.PostCall<T>(response);
+            // Decode DeepSeek chat completion response into a list of interactions (text only).
+            // DeepSeek does not support image generation; we return a single AIInteractionText
+            // representing the assistant message, and map any tool calls onto that interaction.
+            var interactions = new List<IAIInteraction>();
 
-            var responseString = response.RawResult;
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return interactions;
+            }
+
+            try
+            {
+                var responseJson = JObject.Parse(response);
+
+                var choices = responseJson["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var message = firstChoice?["message"] as JObject;
+                if (message == null)
+                {
+                    Debug.WriteLine("[DeepSeek] Decode: No message found in response");
+                    return interactions;
+                }
+
+                var reasoning = message["reasoning_content"]?.ToString() ?? string.Empty;
+                var content = message["content"]?.ToString() ?? string.Empty;
+
+                // Clean up DeepSeek's malformed JSON responses for array schemas
+                content = CleanUpDeepSeekArrayResponse(content);
+
+                var interaction = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = content,
+                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                    Time = DateTime.UtcNow,
+                };
+
+                // Map tool calls (if any) to the interaction
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                {
+                    foreach (JObject tc in tcs)
+                    {
+                        var fn = tc["function"] as JObject;
+                        if (fn != null)
+                        {
+                            interaction.ToolCalls.Add(new AIToolCall
+                            {
+                                Id = tc["id"]?.ToString(),
+                                Name = fn["name"]?.ToString(),
+                                Arguments = fn["arguments"]?.ToString(),
+                            });
+                        }
+                    }
+                }
+
+                interactions.Add(interaction);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Decode error: {ex.Message}");
+            }
+
+            return interactions;
+        }
+
+        /// <inheritdoc/>
+        public override AIMetrics DecodeMetrics(string response)
+        {
+            var responseString = response.EncodedResult;
             var responseJson = JObject.Parse(responseString);
-            Debug.WriteLine($"[DeepSeek] Response parsed successfully");
+            Debug.WriteLine("[DeepSeek] PostCall: parsed response for metrics");
 
             var choices = responseJson["choices"] as JArray;
             var firstChoice = choices?.FirstOrDefault() as JObject;
-            var message = firstChoice?["message"] as JObject;
-            if (message == null)
-            {
-                Debug.WriteLine($"[DeepSeek] No message in response: {responseString}");
-                throw new Exception("Invalid response from DeepSeek API: No message found");
-            }
-
             var usage = responseJson["usage"] as JObject;
-            var reasoning = message["reasoning_content"]?.ToString() ?? string.Empty;
-            var content = message["content"]?.ToString() ?? string.Empty;
 
-            // Clean up DeepSeek's malformed JSON responses for array schemas
-            content = CleanUpDeepSeekArrayResponse(content);
+            // Create a new metrics instance
+            var metrics = new AIMetrics();
+            metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
+            metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+            metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+            return metrics;
+        }
 
-            var result = new AIText
+        /// <inheritdoc/>
+        public override IAIReturn PostCall(IAIReturn response)
+        {
+            // First do the base PostCall
+            response = base.PostCall(response);
+
+            try
             {
-                Content = content,
-                Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
-            };
-
-            var aiReturn = new AIReturn<AIText>
-            {
-                Result = result,
-                Metrics = new AIMetrics
+                // Determine status based on decoded interactions' tool calls
+                var interactions = response.Result; // triggers provider Decode
+                if (interactions != null && interactions.Any(i => i.ToolCalls != null && i.ToolCalls.Count > 0))
                 {
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                    InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                },
-                Status = AICallStatus.Finished,
-            };
-
-            if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
-            {
-                aiReturn.ToolCalls = new List<AIToolCall>();
-                foreach (JObject tc in tcs)
-                {
-                    var fn = tc["function"] as JObject;
-                    if (fn != null)
-                    {
-                        aiReturn.ToolCalls.Add(new AIToolCall
-                        {
-                            Id = tc["id"]?.ToString(),
-                            Name = fn["name"]?.ToString(),
-                            Arguments = fn["arguments"]?.ToString(),
-                        });
-                    }
+                    response.Status = AICallStatus.CallingTools;
                 }
-                aiReturn.Status = AICallStatus.CallingTools;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] PostCall metrics parsing error: {ex.Message}");
+                // Keep original response on failure
             }
 
-            return (IAIReturn<T>)aiReturn;
+            return response;
         }
 
         /// <summary>

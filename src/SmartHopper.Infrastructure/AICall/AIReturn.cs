@@ -30,7 +30,7 @@ namespace SmartHopper.Infrastructure.AICall
                     var (valid, errors) = this.IsValid();
                     if (valid)
                     {
-                        return this.Request.ProviderInstance.Decode(this.EncodedResult);
+                        return this.Request.ProviderInstance.DecodeResponse(this.EncodedResult);
                     }
                     else
                     {
@@ -44,13 +44,18 @@ namespace SmartHopper.Infrastructure.AICall
             }
 
         /// <inheritdoc/>
-        public string EncodedResult { get; set; }
+        public string EncodedResult { get; set => {
+            this.EncodedResult = value;
+
+            // TODO: Ensure we combine existing metrics with new metrics
+            this.Metrics = this.Request.ProviderInstance.DecodeMetrics(value);
+        } }
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }
 
         /// <inheritdoc/>
-        public AIMetrics Metrics { get; set; }
+        public AIMetrics Metrics { get; private set; }
 
         /// <inheritdoc/>
         public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
@@ -95,7 +100,7 @@ namespace SmartHopper.Infrastructure.AICall
                 }
             }
 
-            if (this.Result == null && this.EncodedResult == null && this.ErrorMessage == null)
+            if (this.EncodedResult == null && this.ErrorMessage == null)
             {
                 errors.Add("Either result or error message must be set");
             }
@@ -110,7 +115,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="request">The request that generated the result.</param>
         /// <param name="metrics">The metrics from the response.</param>
         /// <returns>A new success result instance.</returns>
-        public static AIReturn CreateSuccess(T result, IAIRequest? request = null, AIMetrics? metrics = null)
+        public static AIReturn CreateSuccess(List<IAIInteraction> result, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null)
             {
@@ -138,7 +143,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="request">The request that generated the result.</param>
         /// <param name="metrics">The metrics from the response.</param>
         /// <returns>A new success result instance.</returns>
-        public static AIReturn<T> CreateRawSuccess(string raw, IAIRequest? request = null, AIMetrics? metrics = null)
+        public static AIReturn CreateSuccess(string raw, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null)
             {
@@ -150,7 +155,7 @@ namespace SmartHopper.Infrastructure.AICall
                 metrics = new AIMetrics();
             }
 
-            return new AIReturn<T>
+            return new AIReturn
             {
                 EncodedResult = raw,
                 Request = request,
@@ -166,7 +171,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="request">The request that generated the error.</param>
         /// <param name="metrics">Optional metrics from the response that may have caused the error.</param>
         /// <returns>A new error result instance.</returns>
-        public static AIReturn<T> CreateError(string message, IAIRequest? request = null, AIMetrics? metrics = null)
+        public static AIReturn CreateError(string message, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null)
             {
@@ -180,7 +185,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             metrics.FinishReason = "error";
 
-            return new AIReturn<T>
+            return new AIReturn
             {
                 Request = request,
                 Metrics = metrics,
@@ -191,7 +196,7 @@ namespace SmartHopper.Infrastructure.AICall
     }
 
     /// <summary>
-    /// Extension methods for AIReturn<T>.
+    /// Extension methods for AIReturn.
     /// </summary>
     public static class AIReturnExtensions
     {
@@ -201,7 +206,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="aireturn">The AIReturn instance.</param>
         /// <param name="fields">Dictionary mapping JSON key names to field paths. Use "Request.PropertyName" or "Metrics.PropertyName" for nested properties.</param>
         /// <returns>JObject with mapped values.</returns>
-        public static JObject ToJObject<T>(this AIReturn<T> aireturn, Dictionary<string, string> fields = null)
+        public static JObject ToJObject<T>(this AIReturn aireturn, Dictionary<string, string> fields = null)
         {
             fields ??= new Dictionary<string, string>
             {
@@ -251,7 +256,7 @@ namespace SmartHopper.Infrastructure.AICall
                     }
                     else
                     {
-                        // Handle AIReturn<T> properties
+                        // Handle AIReturn properties
                         var prop = aiReturnType.GetProperty(sourcePath, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
 
                         if (prop != null)

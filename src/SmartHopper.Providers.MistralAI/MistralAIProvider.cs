@@ -61,10 +61,10 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall<T>(IAIRequest request)
+        public override IAIRequest PreCall(IAIRequest request)
         {
             // First do the base PreCall
-            request = base.PreCall<T>(request);
+            request = base.PreCall(request);
 
             switch (request.Endpoint)
             {
@@ -232,10 +232,10 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override IAIReturn<T> PostCall<T>(IAIReturn<T> response)
+        public override IAIReturn PostCall(IAIReturn response)
         {
             // First do the base PostCall
-            response = base.PostCall<T>(response);
+            response = base.PostCall(response);
 
             try
             {
@@ -347,7 +347,7 @@ namespace SmartHopper.Providers.MistralAI
 
                 var preview = aiReturn.Result?.Content ?? string.Empty;
                 Debug.WriteLine($"[MistralAI] PostCall - Response processed successfully: {preview.Substring(0, Math.Min(50, preview.Length))}...");
-                return (IAIReturn<T>)aiReturn;
+                return (IAIReturn)aiReturn;
             }
             catch (Exception ex)
             {
