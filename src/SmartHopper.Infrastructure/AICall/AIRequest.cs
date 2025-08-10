@@ -13,8 +13,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -57,8 +59,8 @@ namespace SmartHopper.Infrastructure.AICall
         public IAIRequestBody Body { get; set; }
 
         /// <inheritdoc/>
-        public string EncodedRequestBody { get => 
-            {
+        public string EncodedRequestBody {
+            get {
                 var (valid, errors) = this.IsValid();
                 if (valid)
                 {
@@ -68,7 +70,8 @@ namespace SmartHopper.Infrastructure.AICall
                 {
                     return string.Empty;
                 }
-            }; }
+            }
+        }
 
         /// <inheritdoc/>
         public (bool IsValid, List<string> Errors) IsValid()
@@ -167,57 +170,56 @@ namespace SmartHopper.Infrastructure.AICall
                 if (this.ProviderInstance == null)
                 {
                     stopwatch.Stop();
-                    return new AIReturn
+                    var toreturn = new AIReturn();
+                    var metrics = new AIMetrics
                     {
-                        Metrics = new AIMetrics()
-                        {
-                            FinishReason = "error",
-                            CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                        },
-                        Status = AICallStatus.Finished,
-                        ErrorMessage = $"Error: Unknown provider '{this.Provider}'",
+                        FinishReason = "error",
+                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     };
+
+                    toreturn = AIReturn.CreateError("Provider is missing", this, metrics: metrics);
+
+                    return toreturn;
                 }
 
                 // Execute the request from the provider
                 var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
 
-                return result;
+                return (AIReturn)result;
             }
             catch (HttpRequestException ex)
             {
                 stopwatch.Stop();
                 var error = $"Error: API request failed - {ex.Message}";
 
-                return new AIReturn
+                var result = new AIReturn();
+                var metrics = new AIMetrics
                 {
-                    Metrics = new AIMetrics()
-                    {
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    },
-                    Status = AICallStatus.Finished,
-                    ErrorMessage = error,
+                    FinishReason = "error",
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
+
+                result = AIReturn.CreateError(error, this, metrics: metrics);
+
+                return result;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 var error = $"Error: {ex.Message}";
 
-                return new AIReturn
+                var result = new AIReturn();
+                var metrics = new AIMetrics
                 {
-                    Metrics = new AIMetrics()
-                    {
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    },
-                    Status = AICallStatus.Finished,
-                    ErrorMessage = error,
+                    FinishReason = "error",
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
+
+                result = AIReturn.CreateError(error, this, metrics: metrics);
+
+                return result;
             }
         }
-
 
         /// <summary>
         /// Gets the model to use for the request.

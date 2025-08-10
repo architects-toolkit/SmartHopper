@@ -55,11 +55,11 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Gets the decoded interaction given the encoded response.
         /// </summary>
         List<IAIInteraction> DecodeResponse(string response);
-        
+
         /// <summary>
         /// Gets the decoded metrics given the encoded response.
         /// </summary>
-        List<IAIInteraction> DecodeResponse(string response);
+        AIMetrics DecodeMetrics(string response);
 
         /// <summary>
         /// Gets the pre-call request for the provider.

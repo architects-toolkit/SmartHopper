@@ -202,16 +202,16 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 var error = "The request is not valid: " + string.Join(", ", errors);
 
-                return new AIReturn
+                var result = new AIReturn();
+                var metrics = new AIMetrics
                 {
-                    Metrics = new AIMetrics()
-                    {
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    },
-                    Status = AICallStatus.Finished,
-                    ErrorMessage = error,
+                    FinishReason = "error",
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
+
+                result = AIReturn.CreateError(error, request, metrics);
+
+                return result;
             }
 
             // Execute CallApi
