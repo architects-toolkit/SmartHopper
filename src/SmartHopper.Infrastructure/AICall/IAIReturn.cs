@@ -16,18 +16,17 @@ namespace SmartHopper.Infrastructure.AICall
     /// <summary>
     /// Generic result type for AI evaluations, providing a standard interface between tools and components.
     /// </summary>
-    /// <typeparam name="T">The type of the result value.</typeparam>
-    public interface IAIReturn<T>
+    public interface IAIReturn
     {
         /// <summary>
-        /// Gets or sets the processed result value.
+        /// Gets the decoded result interactions.
         /// </summary>
-        T Result { get; set; }
+        List<IAIInteraction> Result { get; set; }
 
         /// <summary>
-        /// Gets or sets the raw response from the provider.
+        /// Gets or sets the encoded response from the provider.
         /// </summary>
-        string RawResult { get; set; }
+        string EncodedResult { get; set; }
 
         /// <summary>
         /// Gets or sets the request sent to the provider.
@@ -37,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets or sets the metrics about this call.
         /// </summary>
-        AIMetrics Metrics { get; set; }
+        AIMetrics Metrics { get; private set; }
 
         /// <summary>
         /// Gets or sets the list of tool calls made by the provider after the request.

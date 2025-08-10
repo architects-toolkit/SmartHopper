@@ -47,28 +47,38 @@ namespace SmartHopper.Infrastructure.AIProviders
         Task InitializeProviderAsync();
 
         /// <summary>
+        /// Gets the encoded interaction for this provider, given an <see cref="IAIRequest"/>.
+        /// </summary>
+        string Encode(IAIRequest request);
+
+        /// <summary>
+        /// Gets the decoded interaction given the encoded response.
+        /// </summary>
+        List<IAIInteraction> DecodeResponse(string response);
+        
+        /// <summary>
+        /// Gets the decoded metrics given the encoded response.
+        /// </summary>
+        List<IAIInteraction> DecodeResponse(string response);
+
+        /// <summary>
         /// Gets the pre-call request for the provider.
         /// </summary>
-        IAIRequest PreCall<T>(IAIRequest request);
+        IAIRequest PreCall(IAIRequest request);
 
         /// <summary>
-        /// Gets the formatted body for the request.
-        /// </summary>
-        string FormatRequestBody(IAIRequest request);
-
-        /// <summary>
-        /// Gets the task processing the Call<T> with the provider.
+        /// Gets the task processing the Call with the provider.
         /// </summary>
         /// <param name="request">The request to send to the AI provider.</param>
         /// <returns>The response from the AI provider.</returns>
-        Task<IAIReturn<T>> Call<T>(IAIRequest request);
+        Task<IAIReturn> Call(IAIRequest request);
 
         /// <summary>
         /// Gets the post-call response for the provider.
         /// </summary>
         /// <param name="response">The response from the AI provider.</param>
         /// <returns>The response from the AI provider.</returns>
-        IAIReturn<T> PostCall<T>(IAIReturn<T> response);
+        IAIReturn PostCall(IAIReturn response);
 
         /// <summary>
         /// Gets the default model name for the provider.

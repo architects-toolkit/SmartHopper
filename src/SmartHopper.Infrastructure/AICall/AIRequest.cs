@@ -57,7 +57,7 @@ namespace SmartHopper.Infrastructure.AICall
         public IAIRequestBody Body { get; set; }
 
         /// <inheritdoc/>
-        public string EncodedRequest { get => 
+        public string EncodedRequestBody { get => 
             {
                 var (valid, errors) = this.IsValid();
                 if (valid)
@@ -154,7 +154,7 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <inheritdoc/>
-        public async Task<AIReturn<T>> Do<T>()
+        public async Task<AIReturn> Do()
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -167,7 +167,7 @@ namespace SmartHopper.Infrastructure.AICall
                 if (this.ProviderInstance == null)
                 {
                     stopwatch.Stop();
-                    return new AIReturn<T>
+                    return new AIReturn
                     {
                         Metrics = new AIMetrics()
                         {
@@ -179,21 +179,17 @@ namespace SmartHopper.Infrastructure.AICall
                     };
                 }
 
-                this = this.ProviderInstance.Encode(this);
-
                 // Execute the request from the provider
-                var result = await this.ProviderInstance.Call<T>(this).ConfigureAwait(false);
+                var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
 
-                this = this.Provide
-
-                return (AIReturn<T>)result;
+                return result;
             }
             catch (HttpRequestException ex)
             {
                 stopwatch.Stop();
                 var error = $"Error: API request failed - {ex.Message}";
 
-                return new AIReturn<T>
+                return new AIReturn
                 {
                     Metrics = new AIMetrics()
                     {
@@ -209,7 +205,7 @@ namespace SmartHopper.Infrastructure.AICall
                 stopwatch.Stop();
                 var error = $"Error: {ex.Message}";
 
-                return new AIReturn<T>
+                return new AIReturn
                 {
                     Metrics = new AIMetrics()
                     {
