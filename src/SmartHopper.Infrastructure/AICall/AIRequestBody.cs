@@ -8,10 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Infrastructure.AICall
@@ -38,8 +36,8 @@ namespace SmartHopper.Infrastructure.AICall
         {
             get
             {
-                var result = new List<IAIInteraction>(_interactions ?? new List<IAIInteraction>());
-                
+                var result = new List<IAIInteraction>(this._interactions ?? new List<IAIInteraction>());
+
                 // Inject dynamic context at the beginning if ContextFilter is set
                 if (!string.IsNullOrEmpty(ContextFilter))
                 {
@@ -54,24 +52,24 @@ namespace SmartHopper.Infrastructure.AICall
                         {
                             var contextMessage = "Conversation context:\n\n" +
                                                  string.Join("\n", contextMessages);
-                            
-                            var contextInteraction = new AIInteraction<string>
+
+                            var contextInteraction = new AIInteractionText
                             {
                                 Agent = AIAgent.Context,
-                                Body = contextMessage,
+                                Content = contextMessage,
                             };
-                            
+
                             result.Insert(0, contextInteraction);
                         }
                     }
                 }
-                
-                // Return the modified list without modifying the original _interactions list
+
+                // Return the modified list without modifying the original this._interactions list
                 return result; 
             }
-            set => _interactions = value;
+            set => this._interactions = value;
         }
-        
+
         /// <inheritdoc/>
         public string ToolFilter { get; set; }
 
@@ -106,8 +104,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddFirstInteraction(IAIInteraction interaction)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.Insert(0, interaction);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.Insert(0, interaction);
         }
 
         /// <summary>
@@ -116,8 +114,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interactions">The interactions to add.</param>
         public void AddFirstInteraction(List<IAIInteraction> interactions)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.InsertRange(0, interactions);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.InsertRange(0, interactions);
         }
 
         /// <summary>
@@ -127,7 +125,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="body">The textual content of the interaction.</param>
         public void AddFirstInteraction(string agent, string body)
         {
-            this.AddFirstInteraction(CreateInteraction(agent, body));
+            this.AddFirstInteraction(CreateInteractionText(agent, body));
         }
 
         /// <summary>
@@ -136,8 +134,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddLastInteraction(IAIInteraction interaction)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.Add(interaction);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.Add(interaction);
         }
 
         /// <summary>
@@ -146,8 +144,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interactions">The interactions to add.</param>
         public void AddLastInteraction(List<IAIInteraction> interactions)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.AddRange(interactions);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.AddRange(interactions);
         }
 
         /// <summary>
@@ -157,7 +155,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="body">The textual content of the interaction.</param>
         public void AddLastInteraction(string agent, string body)
         {
-            this.AddLastInteraction(CreateInteraction(agent, body));
+            this.AddLastInteraction(CreateInteractionText(agent, body));
         }
 
         /// <summary>
@@ -185,7 +183,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="body">The textual content of the interaction.</param>
         public void AddInteraction(string agent, string body)
         {
-            this.AddLastInteraction(CreateInteraction(agent, body));
+            this.AddLastInteraction(CreateInteractionText(agent, body));
         }
 
         /// <summary>
@@ -260,12 +258,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         /// <param name="agent">The agent name.</param>
         /// <param name="body">The textual content.</param>
-        private static AIInteraction<string> CreateInteraction(string agent, string body)
+        private static AIInteractionText CreateInteractionText(string agent, string body)
         {
-            var interaction = new AIInteraction<string>
+            var interaction = new AIInteractionText
             {
                 Agent = AIAgentExtensions.FromString(agent),
-                Body = body,
+                Content = body,
             };
             return interaction;
         }

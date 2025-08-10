@@ -23,33 +23,54 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIReturn : IAIReturn
     {
+        private string PrivateEncodedResult { get; set; }
+
         /// <inheritdoc/>
-        public List<IAIInteraction> Result {
-            get => 
+        public List<IAIInteraction> Result
+        {
+            get
+            {
+                var (valid, errors) = this.IsValid();
+                if (valid)
                 {
-                    var (valid, errors) = this.IsValid();
-                    if (valid)
-                    {
-                        return this.Request.ProviderInstance.DecodeResponse(this.EncodedResult);
-                    }
-                    else
-                    {
-                        return new List<IAIInteraction>();
-                    }
-                };
-            set =>
+                    return this.Request.ProviderInstance.DecodeResponse(this.PrivateEncodedResult);
+                }
+                else
                 {
-                    this.EncodedResult = this.Request.ProviderInstance.Encode(value);
-                };
+                    return new List<IAIInteraction>();
+                }
             }
 
-        /// <inheritdoc/>
-        public string EncodedResult { get; set => {
-            this.EncodedResult = value;
+            set
+            {
+                // Create a copy of the current request and set its Body to a new AIRequestBody with the given interactions.
+                var requestCopy = new AIRequest
+                {
+                    Provider = this.Request.Provider,
+                    Model = this.Request.Model,
+                    Capability = this.Request.Capability,
+                    Endpoint = this.Request.Endpoint,
+                    HttpMethod = this.Request.HttpMethod,
+                    Authentication = this.Request.Authentication,
+                    ContentType = this.Request.ContentType,
+                    Body = new AIRequestBody { Interactions = value },
+                };
+                this.PrivateEncodedResult = this.Request.ProviderInstance.Encode(requestCopy);
+            }
+        }
 
-            // TODO: Ensure we combine existing metrics with new metrics
-            this.Metrics = this.Request.ProviderInstance.DecodeMetrics(value);
-        } }
+        /// <inheritdoc/>
+        public string EncodedResult
+        {
+            get => this.PrivateEncodedResult;
+            set
+            {
+                this.PrivateEncodedResult = value;
+
+                // TODO: Ensure we combine existing metrics with new metrics
+                this.Metrics = this.Request.ProviderInstance.DecodeMetrics(value);
+            }
+        }
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }

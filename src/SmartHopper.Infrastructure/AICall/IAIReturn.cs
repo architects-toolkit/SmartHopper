@@ -36,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets or sets the metrics about this call.
         /// </summary>
-        AIMetrics Metrics { get; private set; }
+        AIMetrics Metrics { get; }
 
         /// <summary>
         /// Gets or sets the list of tool calls made by the provider after the request.

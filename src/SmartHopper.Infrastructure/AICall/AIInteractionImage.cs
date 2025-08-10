@@ -9,7 +9,8 @@
  */
 
 using System;
-using SmartHopper.Infrastructure.AICodec;
+using System.Collections.Generic;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
