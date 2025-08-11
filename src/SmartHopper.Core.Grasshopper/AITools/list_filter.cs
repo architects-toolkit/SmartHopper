@@ -93,8 +93,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[ListTools] Running FilterList tool");
 
                 // Extract parameters
-                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 string? rawList = toolCall.Arguments["list"]?.ToString();
                 string? criteria = toolCall.Arguments["criteria"]?.ToString();
@@ -119,11 +119,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<criteria>", criteria);
                 userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
 
-                var requestBody = new AIRequestBody();
+                var requestBody = new AIBody();
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", userPrompt);
 
-                var request = new AIRequest
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,

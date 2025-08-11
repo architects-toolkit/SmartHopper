@@ -73,8 +73,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolCall.ErrorMessage = $"Invalid GUID: {guidStr}";
                     return toolCall;
                 }
-                var providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                var modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                var providerName = toolCall.Provider;
+                var modelName = toolCall.Model;
                 var endpoint = "script_review";
                 var question = toolCall.Arguments["question"]?.ToString();
                 string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
@@ -135,8 +135,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     codedIssues.Add("Warning: script language not recognized; static checks may be incomplete.");
                 }
 
-                // AI-based code review using AIRequest/AIReturn flow
-                var requestBody = new AIRequestBody
+                // AI-based code review using AIRequestCall/AIReturn flow
+                var requestBody = new AIBody
                 {
                     ContextFilter = contextFilter,
                 };
@@ -153,7 +153,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
                 requestBody.AddInteraction("user", userPrompt);
 
-                var request = new AIRequest
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,

@@ -38,36 +38,6 @@ namespace SmartHopper.Infrastructure.AICall
         AICapability Capability { get; set; }
 
         /// <summary>
-        /// Gets or sets the endpoint or full URL to use for the request.
-        /// </summary>
-        string Endpoint { get; set; }
-
-        /// <summary>
-        /// Gets or sets the HTTP method to use for the request.
-        /// </summary>
-        string HttpMethod { get; set; }
-
-        /// <summary>
-        /// Gets or sets the authentication method to use for the request.
-        /// </summary>
-        string Authentication { get; set; }
-
-        /// <summary>
-        /// Gets or sets the content type to use for the request.
-        /// </summary>
-        string ContentType { get; set; }
-
-        /// <summary>
-        /// Gets or sets the request body.
-        /// </summary>
-        IAIRequestBody Body { get; set; }
-
-        /// <summary>
-        /// Gets the encoded request for the specified provider.
-        /// </summary>
-        string EncodedRequestBody { get; }
-
-        /// <summary>
         /// A value indicating whether the request is valid.
         /// </summary>
         (bool IsValid, List<string> Errors) IsValid();
@@ -75,6 +45,6 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Executes the request and gets the result.
         /// </summary>
-        Task<AIReturn> Do();
+        Task<AIReturn> Exec();
     }
 }

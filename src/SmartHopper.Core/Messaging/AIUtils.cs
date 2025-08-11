@@ -110,11 +110,11 @@ namespace SmartHopper.Core.Messaging
             string? toolFilter = null,
             string? contextFilter = null)
         {
-            var request = new AIRequest
+            var request = new AIRequestCall
             {
                 Provider = providerName,
                 Model = model,
-                Body = new AIRequestBody
+                Body = new AIBody
                 {
                     Interactions = messages,
                     JsonOutputSchema = jsonSchema,
@@ -129,11 +129,11 @@ namespace SmartHopper.Core.Messaging
         /// <summary>
         /// Internal implementation for getting AI responses with full context management.
         /// </summary>
-        /// <param name="request">The AIRequest containing the request parameters.</param>
+        /// <param name="request">The AIRequestCall containing the request parameters.</param>
         /// <returns>An AIReturn containing the generated response and metadata.</returns>
-        private static async Task<AIReturn<string>> GetResponse(AIRequest request)
+        private static async Task<AIReturn<string>> GetResponse(AIRequestCall request)
         {
-            return await request.Do().ConfigureAwait(false);
+            return await request.Exec().ConfigureAwait(false);
         }
 
         /// <summary>

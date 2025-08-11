@@ -103,7 +103,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(AIRequest request, Guid componentId = default, Action<string>? progressReporter = null)
+        public static async Task<AIResponse> ShowWebChatDialog(AIRequestCall request, Guid componentId = default, Action<string>? progressReporter = null)
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse? lastResponse = null;

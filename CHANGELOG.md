@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New tests for Context Manager and Model Manager.
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
-- Added `Do<T>` method to `AIRequest` to execute the request and return a `AIReturn<T>`, as well as multiple methods to simplify the process of executing requests.
+- Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
+- Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
 
 ### Changed
 
@@ -21,12 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added tab for Trusted Providers configuration.
 - Improved API key encryption. Includes migration method.
 - Complete refactor of `SmartHopper.Infrastructure` for clarity and organization.
-- Added `AIAgent`, `AIRequest` and `AIRequestBody` models to improve clarity and extensability. Refactored all code to use the new models.
+- Added `AIAgent`, `AIRequest` and `AIBody` models to improve clarity and extensibility. Refactored all code to use the new models.
 - Renamed `IChatModel` to `AIInteraction`.
-- Renamed `AIEvaluationResult<T>` to `AIReturn<T>`.
+- Renamed `AIEvaluationResult` to `AIReturn`.
 - Renamed `AIResponse` to `AIReturnBody`.
 - Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
-- Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call<T>` method.
+- Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
 
 ### Removed
 

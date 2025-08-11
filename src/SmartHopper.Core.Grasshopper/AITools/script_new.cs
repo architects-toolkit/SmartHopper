@@ -65,8 +65,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var prompt = toolCall.Arguments["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
                 var language = toolCall.Arguments["language"]?.ToString() ?? "python";
-                var providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                var modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                var providerName = toolCall.Provider;
+                var modelName = toolCall.Model;
                 var endpoint = "script_new";
                 string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
@@ -155,8 +155,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""additionalProperties"": false
                 }".Replace('"', '"');
 
-                // Build AIRequest with schema and context filter
-                var requestBody = new AIRequestBody
+                // Build AIRequestCall with schema and context filter
+                var requestBody = new AIBody
                 {
                     JsonOutputSchema = jsonSchema,
                     ContextFilter = contextFilter,
@@ -173,7 +173,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     """);
                 requestBody.AddInteraction("user", prompt);
 
-                var request = new AIRequest
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,

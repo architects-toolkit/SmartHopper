@@ -47,9 +47,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         Task InitializeProviderAsync();
 
         /// <summary>
-        /// Gets the encoded request for this provider, given an <see cref="IAIRequest"/>.
+        /// Gets the encoded request for this provider, given an <see cref="AIRequestCall"/>.
         /// </summary>
-        string Encode(IAIRequest request);
+        string Encode(AIRequestCall request);
 
         /// <summary>
         /// Gets the encoded list of interactions for this provider, given an <see cref="IAIInteraction"/>.
@@ -69,14 +69,14 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Gets the pre-call request for the provider.
         /// </summary>
-        IAIRequest PreCall(IAIRequest request);
+        AIRequestCall PreCall(AIRequestCall request);
 
         /// <summary>
         /// Gets the task processing the Call with the provider.
         /// </summary>
         /// <param name="request">The request to send to the AI provider.</param>
         /// <returns>The response from the AI provider.</returns>
-        Task<IAIReturn> Call(IAIRequest request);
+        Task<IAIReturn> Call(AIRequestCall request);
 
         /// <summary>
         /// Gets the post-call response for the provider.

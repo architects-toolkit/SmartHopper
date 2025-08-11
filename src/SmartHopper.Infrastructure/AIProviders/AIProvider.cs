@@ -170,10 +170,26 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public abstract string Encode(IAIRequest request);
+        public abstract string Encode(AIRequestCall request);
 
         /// <inheritdoc/>
         public abstract string Encode(IAIInteraction interaction);
+
+        /// <summary>
+        /// Encode multiple interactions
+        /// </summary>
+        /// <param name="interactions">The interactions to encode</param>
+        /// <returns>The encoded string</returns>
+        public virtual string Encode(List<IAIInteraction> interactions)
+        {
+            var result = string.Empty;
+            foreach (var interaction in interactions)
+            {
+                result += this.Encode(interaction);
+            }
+            
+            return result;
+        }
 
         /// <inheritdoc/>
         public abstract List<IAIInteraction> DecodeResponse(string response);
@@ -182,13 +198,13 @@ namespace SmartHopper.Infrastructure.AIProviders
         public abstract AIMetrics DecodeMetrics(string response);
 
         /// <inheritdoc/>
-        public virtual IAIRequest PreCall(IAIRequest request)
+        public virtual AIRequestCall PreCall(AIRequestCall request)
         {
             return request;
         }
 
         /// <inheritdoc/>
-        public async Task<IAIReturn> Call(IAIRequest request)
+        public async Task<IAIReturn> Call(AIRequestCall request)
         {
             // Start stopwatch
             var stopwatch = new Stopwatch();
@@ -488,7 +504,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <param name="request">The request to make.</param>
         /// <returns>The HTTP response content as a type T.</returns>
-        protected virtual async Task<IAIReturn> CallApi(IAIRequest request)
+        protected virtual async Task<IAIReturn> CallApi(AIRequestCall request)
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;

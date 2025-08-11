@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall
     /// The <see cref="Interactions"/> getter injects dynamic context messages at the beginning
     /// when <see cref="ContextFilter"/> is set and matching context is available.
     /// </summary>
-    public class AIRequestBody : IAIRequestBody
+    public class AIBody : IAIBody
     {
         /// <summary>
         /// Private storage for the list of interactions.

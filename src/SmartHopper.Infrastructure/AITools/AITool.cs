@@ -10,7 +10,7 @@
 
 using System;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Infrastructure.AITools
