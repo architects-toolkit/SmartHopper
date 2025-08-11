@@ -96,29 +96,31 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> GenerateList(JObject parameters)
+        private async Task<AIToolCall> GenerateList(AIToolCall toolCall)
         {
             try
             {
                 Debug.WriteLine("[ListTools] Running GenerateList tool");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
                 string endpoint = this.toolName;
-                string? prompt = parameters["prompt"]?.ToString();
-                int count = parameters["count"]?.ToObject<int>() ?? 0;
-                string? type = parameters["type"]?.ToString();
-                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+                string? prompt = toolCall.Arguments["prompt"]?.ToString();
+                int count = toolCall.Arguments["count"]?.ToObject<int>() ?? 0;
+                string? type = toolCall.Arguments["type"]?.ToString();
+                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
                 {
-                    return AIReturn<List<string>>.CreateError("Missing or invalid parameters: prompt, count, or type").ToJObject<List<string>>();
+                    toolCall.ErrorMessage = "Missing or invalid parameters: prompt, count, or type";
+                    return toolCall;
                 }
 
                 if (!type.Equals("text", StringComparison.OrdinalIgnoreCase))
                 {
-                    return AIReturn<List<string>>.CreateError($"Type '{type}' not supported").ToJObject<List<string>>();
+                    toolCall.ErrorMessage = $"Type '{type}' not supported";
+                    return toolCall;
                 }
 
                 // Use iterative approach to ensure we get the exact count with conversational logic
@@ -157,10 +159,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (!result.Success)
                     {
-                        return AIReturn<List<string>>.CreateError(
-                            $"AI request failed: {result.ErrorMessage}",
-                            request: result.Request,
-                            metrics: result.Metrics).ToJObject<List<string>>();
+                        toolCall.ErrorMessage = $"AI request failed: {result.ErrorMessage}";
+                        return toolCall;
                     }
 
                     // 3. Parse the output and check if count is reached
@@ -182,28 +182,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            var partialResult = AIReturn<List<string>>.CreateSuccess(
-                                result: allItems,
-                                request: result.Request,
-                                metrics: result.Metrics);
-                            
-                            var partialMapping = new Dictionary<string, string>
-                            {
-                                ["success"] = "Success",
-                                ["list"] = "Result",
-                                ["error"] = "ErrorMessage",
-                            };
-                            
-                            var partialJobj = partialResult.ToJObject<List<string>>(partialMapping);
-                            partialJobj["count"] = new JValue(allItems.Count);
-                            return partialJobj;
+                            toolCall.Result = allItems;
+                            toolCall.Metrics = result.Metrics;
+                            return toolCall;
                         }
 
                         // Otherwise, return the error
-                        return AIReturn<List<string>>.CreateError(
-                            $"Error parsing AI response: {parseEx.Message}",
-                            request: result.Request,
-                            metrics: result.Metrics).ToJObject<List<string>>();
+                        toolCall.ErrorMessage = $"Error parsing AI response: {parseEx.Message}";
+                        return toolCall;
                     }
 
                     Debug.WriteLine($"[ListTools] Iteration {iteration} generated {newItems.Count} items: {string.Join(", ", newItems)}");
@@ -242,10 +228,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (allItems.Count == 0)
                 {
-                    return AIReturn<List<string>>.CreateError(
-                        "AI failed to generate any valid items",
-                        request: lastRequest,
-                        metrics: lastResult?.Metrics).ToJObject<List<string>>();
+                    toolCall.ErrorMessage = "AI failed to generate any valid items";
+                    return toolCall;
                 }
 
                 // Final safety check: trim list if it's longer than requested
@@ -258,32 +242,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
 
                 // Success case
-                var successResult = AIReturn<List<string>>.CreateSuccess(
-                    result: allItems,
-                    request: lastRequest,
-                    metrics: lastResult?.Metrics);
-
-                // Return standardized result with custom mapping
-                var mapping = new Dictionary<string, string>
-                {
-                    ["success"] = "Success",
-                    ["list"] = "Result",
-                    ["error"] = "ErrorMessage",
-                };
-
-                var jobj = successResult.ToJObject<List<string>>(mapping);
-
-                // Add a count field
-                jobj["count"] = new JValue(allItems.Count);
-
-                return jobj;
+                toolCall.Result = allItems;
+                toolCall.Metrics = lastResult?.Metrics;
+                return toolCall;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in GenerateList: {ex.Message}");
 
                 // Return error object as JObject
-                return AIReturn<List<string>>.CreateError($"Error: {ex.Message}").ToJObject<List<string>>();
+                toolCall.ErrorMessage = $"Error: {ex.Message}";
+                return toolCall;
             }
         }
     }

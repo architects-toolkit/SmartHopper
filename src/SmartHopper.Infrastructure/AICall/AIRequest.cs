@@ -170,16 +170,16 @@ namespace SmartHopper.Infrastructure.AICall
                 if (this.ProviderInstance == null)
                 {
                     stopwatch.Stop();
-                    var toreturn = new AIReturn();
+                    var result = new AIReturn();
                     var metrics = new AIMetrics
                     {
                         FinishReason = "error",
                         CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     };
 
-                    toreturn = AIReturn.CreateError("Provider is missing", this, metrics: metrics);
+                    result = AIReturn.CreateError("Provider is missing", this, metrics: metrics);
 
-                    return toreturn;
+                    return result;
                 }
 
                 // Execute the request from the provider

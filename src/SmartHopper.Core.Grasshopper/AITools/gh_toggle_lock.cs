@@ -52,10 +52,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             );
         }
 
-        private async Task<object> GhToggleLockAsync(JObject parameters)
+        private async Task<AIToolCall> GhToggleLockAsync(AIToolCall toolCall)
         {
-            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var locked = parameters["locked"]?.ToObject<bool>() ?? false;
+            var guids = toolCall.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var locked = toolCall.Arguments["locked"]?.ToObject<bool>() ?? false;
             Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
             var updated = new List<string>();
 
@@ -75,7 +75,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            return new { success = true, updated };
+            toolCall.Result = new { updated };
+            return toolCall;
         }
     }
 }

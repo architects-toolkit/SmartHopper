@@ -67,13 +67,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the Grasshopper list component types tool.
         /// </summary>
-        private Task<object> GhRetrieveToolAsync(JObject parameters)
+        private Task<AIToolCall> GhRetrieveToolAsync(AIToolCall toolCall)
         {
             var server = Instances.ComponentServer;
-            var categoryFilters = parameters["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-            var nameFilter = parameters["nameFilter"]?.ToString() ?? string.Empty;
-            var includeDetails = parameters["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
-            var maxResults = parameters["maxResults"]?.ToObject<int>() ?? 100;
+            var categoryFilters = toolCall.Arguments["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
+            var nameFilter = toolCall.Arguments["nameFilter"]?.ToString() ?? string.Empty;
+            var includeDetails = toolCall.Arguments["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
+            var maxResults = toolCall.Arguments["maxResults"]?.ToObject<int>() ?? 100;
             var (includeCats, excludeCats) = Get.ParseIncludeExclude(categoryFilters, Get.CategorySynonyms);
 
             // Retrieve all component proxies in one call
@@ -190,8 +190,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ["guids"] = JArray.FromObject(guids),
                 ["json"] = json,
             };
-
-            return Task.FromResult<object>(result);
+            toolCall.Result = result;
+            return toolCall;
         }
     }
 }

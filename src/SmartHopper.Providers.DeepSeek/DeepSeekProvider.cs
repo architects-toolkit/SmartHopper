@@ -102,127 +102,14 @@ namespace SmartHopper.Providers.DeepSeek
             var convertedMessages = new JArray();
             foreach (var interaction in request.Body.Interactions)
             {
-                AIAgent role = interaction.Agent;
-                string roleName = string.Empty;
-                string msgContent;
-
-                // TODO: Handle interactions based on type
-
-                if (interaction as AIInteractionText != null)
+                try
                 {
-                }
-                else
-                {
-                    throw new Exception("Type not supported by DeepSeek");
-                }
-
-                    var body = interaction.Body;
-                if (body is string s)
-                {
-                    msgContent = s;
-                }
-                else if (body is Infrastructure.AICall.SpecialTypes.AIText text)
-                {
-                    // For AIText, only send the actual content
-                    msgContent = text.Content ?? string.Empty;
-                }
-                else
-                {
-                    // Fallback to string representation
-                    msgContent = body?.ToString() ?? string.Empty;
-                }
-
-                var messageObj = new JObject
-                {
-                    ["content"] = msgContent,
-                };
-
-                // Map role names
-                if (role == AIAgent.System)
-                {
-                    // DeepSeek uses system role
-                    roleName = "system";
-                }
-                else if (role == AIAgent.Context)
-                {
-                    // Rename context to system
-                    roleName = "system";
-                }
-                else if (role == AIAgent.Assistant)
-                {
-                    // DeepSeek uses assistant role
-                    roleName = "assistant";
-                }
-                else if (role == AIAgent.ToolResult)
-                {
-                    roleName = "tool";
-
-                    // Ensure content is a string, not a json object
-                    var jsonString = JsonConvert.SerializeObject(interaction.Body, Formatting.None);
-                    jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
-                    jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
-                    jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-
-                    // Remove two or more consecutive whitespace characters
-                    jsonString = Regex.Replace(jsonString, @"\s+", " ");
-
-                    // Replace content with the cleaned string
-                    messageObj["content"] = jsonString;
-
-                    // Propagate tool_call ID and name from incoming message
-                    if (interaction.Body is JObject bodyObj)
-                    {
-                        if (bodyObj["name"] != null)
-                        {
-                            messageObj["name"] = bodyObj["name"];
-                        }
-
-                        if (bodyObj["tool_call_id"] != null)
-                        {
-                            messageObj["tool_call_id"] = bodyObj["tool_call_id"];
-                        }
-                    }
-                }
-                else if (role == AIAgent.ToolCall)
-                {
-                    // Omit it
-                    continue;
-                }
-                else
-                {
-                    // DeepSeek uses user role
-                    roleName = "user";
-                }
-
-                // Add tool calls if present
-                if (interaction.ToolCalls != null && interaction.ToolCalls.Count > 0)
-                {
-                    var toolCallsArray = new JArray();
-
-                    foreach (var toolCall in interaction.ToolCalls)
-                    {
-                        var toolCallObj = new JObject
-                        {
-                            ["id"] = toolCall.Id,
-                            ["type"] = "function",
-                            ["function"] = new JObject
-                            {
-                                ["name"] = toolCall.Name,
-                                ["arguments"] = toolCall.Arguments,
-                            },
-                        };
-
-                        toolCallsArray.Add(toolCallObj);
-                    }
-
-                    messageObj["tool_calls"] = toolCallsArray;
-                }
-
-                // Add message to converted messages
-                if (!string.IsNullOrEmpty(roleName))
-                {
-                    messageObj["role"] = roleName;
+                    var messageObj = this.Encode(interaction);
                     convertedMessages.Add(messageObj);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -271,6 +158,119 @@ namespace SmartHopper.Providers.DeepSeek
             Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
 
             return requestBody.ToString();
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(IAIInteraction interaction)
+        {
+            AIAgent role = interaction.Agent;
+            string roleName = string.Empty;
+            string msgContent;
+
+            // Handle interactions based on type
+            if (interaction as AIInteractionText != null)
+            {
+                // For AIInteractionText, only send the actual content
+                msgContent = interaction.Body.Content ?? string.Empty; 
+            }
+            else
+            {
+                throw new Exception("Type of interaction not supported by DeepSeek");
+            }
+
+            var messageObj = new JObject
+            {
+                ["content"] = msgContent,
+            };
+
+            // Map role names
+            if (role == AIAgent.System)
+            {
+                // DeepSeek uses system role
+                roleName = "system";
+            }
+            else if (role == AIAgent.Context)
+            {
+                // Rename context to system
+                roleName = "system";
+            }
+            else if (role == AIAgent.Assistant)
+            {
+                // DeepSeek uses assistant role
+                roleName = "assistant";
+            }
+            else if (role == AIAgent.ToolResult)
+            {
+                roleName = "tool";
+
+                // Ensure content is a string, not a json object
+                var jsonString = JsonConvert.SerializeObject(interaction.Body, Formatting.None);
+                jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
+                jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
+                jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+                // Remove two or more consecutive whitespace characters
+                jsonString = Regex.Replace(jsonString, @"\s+", " ");
+
+                // Replace content with the cleaned string
+                messageObj["content"] = jsonString;
+
+                // Propagate tool_call ID and name from incoming message
+                if (interaction.Body is JObject bodyObj)
+                {
+                    if (bodyObj["name"] != null)
+                    {
+                        messageObj["name"] = bodyObj["name"];
+                    }
+
+                    if (bodyObj["tool_call_id"] != null)
+                    {
+                        messageObj["tool_call_id"] = bodyObj["tool_call_id"];
+                    }
+                }
+            }
+            else if (role == AIAgent.ToolCall)
+            {
+                // Omit it
+                continue;
+            }
+            else
+            {
+                // DeepSeek uses user role
+                roleName = "user";
+            }
+
+            // Add tool calls if present
+            if (interaction.ToolCalls != null && interaction.ToolCalls.Count > 0)
+            {
+                var toolCallsArray = new JArray();
+
+                foreach (var toolCall in interaction.ToolCalls)
+                {
+                    var toolCallObj = new JObject
+                    {
+                        ["id"] = toolCall.Id,
+                        ["type"] = "function",
+                        ["function"] = new JObject
+                        {
+                            ["name"] = toolCall.Name,
+                            ["arguments"] = toolCall.Arguments,
+                        },
+                    };
+
+                    toolCallsArray.Add(toolCallObj);
+                }
+
+                messageObj["tool_calls"] = toolCallsArray;
+            }
+
+            // Add message to converted messages
+            if (!string.IsNullOrEmpty(roleName))
+            {
+                messageObj["role"] = roleName;
+            }
+            
+            return messageObj;
         }
 
         /// <inheritdoc/>
@@ -325,6 +325,8 @@ namespace SmartHopper.Providers.DeepSeek
                             {
                                 Id = tc["id"]?.ToString(),
                                 Name = fn["name"]?.ToString(),
+                                Provider = this,
+                                Model = this.Model,
                                 Arguments = fn["arguments"]?.ToString(),
                             });
                         }
@@ -358,30 +360,6 @@ namespace SmartHopper.Providers.DeepSeek
             metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
             metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
             return metrics;
-        }
-
-        /// <inheritdoc/>
-        public override IAIReturn PostCall(IAIReturn response)
-        {
-            // First do the base PostCall
-            response = base.PostCall(response);
-
-            try
-            {
-                // Determine status based on decoded interactions' tool calls
-                var interactions = response.Result; // triggers provider Decode
-                if (interactions != null && interactions.Any(i => i.ToolCalls != null && i.ToolCalls.Count > 0))
-                {
-                    response.Status = AICallStatus.CallingTools;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[DeepSeek] PostCall metrics parsing error: {ex.Message}");
-                // Keep original response on failure
-            }
-
-            return response;
         }
 
         /// <summary>

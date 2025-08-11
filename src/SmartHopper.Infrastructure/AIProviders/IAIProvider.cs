@@ -47,12 +47,17 @@ namespace SmartHopper.Infrastructure.AIProviders
         Task InitializeProviderAsync();
 
         /// <summary>
-        /// Gets the encoded interaction for this provider, given an <see cref="IAIRequest"/>.
+        /// Gets the encoded request for this provider, given an <see cref="IAIRequest"/>.
         /// </summary>
         string Encode(IAIRequest request);
 
         /// <summary>
-        /// Gets the decoded interaction given the encoded response.
+        /// Gets the encoded list of interactions for this provider, given an <see cref="IAIInteraction"/>.
+        /// </summary>
+        string Encode(IAIInteraction interaction);
+
+        /// <summary>
+        /// Gets the decoded list of interactions given the encoded response.
         /// </summary>
         List<IAIInteraction> DecodeResponse(string response);
 

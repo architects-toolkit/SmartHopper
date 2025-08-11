@@ -46,12 +46,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
             );
         }
 
-        private async Task<object> GhPutToolAsync(JObject parameters)
+        private async Task<AIToolCall> GhPutToolAsync(AIToolCall toolCall)
         {
             string analysisMsg = null;
             try
             {
-                var json = parameters["json"]?.ToString() ?? string.Empty;
+                var json = toolCall.Arguments["json"]?.ToString() ?? string.Empty;
 
                 GHJsonLocal.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
@@ -59,12 +59,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (document?.Components == null || !document.Components.Any())
                 {
                     var msg = analysisMsg ?? "JSON must contain a non-empty components array";
-                    return new { success = false, analysis = msg };
+                    toolCall.ErrorMessage = msg;
+                    return toolCall;
                 }
 
                 // Placement & wiring using Put utils
                 var placed = Put.PutObjectsOnCanvas(document);
-                return new { success = true, components = placed, analysis = analysisMsg };
+                toolCall.Result = new { components = placed, analysis = analysisMsg };
             }
             catch (Exception ex)
             {
@@ -72,7 +73,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var combined = string.IsNullOrEmpty(analysisMsg)
                     ? ex.Message
                     : analysisMsg + "\nException: " + ex.Message;
-                return new { success = false, analysis = combined };
+                toolCall.ErrorMessage = combined;
+                return toolCall;
             }
         }
     }

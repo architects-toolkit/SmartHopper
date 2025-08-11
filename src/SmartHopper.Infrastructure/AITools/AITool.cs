@@ -36,14 +36,14 @@ namespace SmartHopper.Infrastructure.AITools
         public string Category { get; } = "General";
 
         /// <summary>
-        /// Gets jSON schema describing the tool's parameters.
+        /// Gets the JSON schema describing the tool's parameters.
         /// </summary>
         public string ParametersSchema { get; }
 
         /// <summary>
-        /// Gets function to execute the tool with given parameters.
+        /// Gets the function to execute the tool with given parameters.
         /// </summary>
-        public Func<JObject, Task<object>> Execute { get; }
+        public Func<AIToolCall, Task<AIToolCall>> Execute { get; }
 
         /// <summary>
         /// Gets required capabilities for this tool to function properly.
@@ -60,7 +60,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="parametersSchema">JSON schema describing the tool's parameters.</param>
         /// <param name="execute">Function to execute the tool with given parameters.</param>
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
-        public AITool(string name, string description, string category, string parametersSchema, Func<JObject, Task<object>> execute, AICapability requiredCapabilities = AICapability.None)
+        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIToolCall>> execute, AICapability requiredCapabilities = AICapability.None)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));

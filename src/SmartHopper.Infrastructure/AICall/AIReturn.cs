@@ -67,8 +67,8 @@ namespace SmartHopper.Infrastructure.AICall
             {
                 this.PrivateEncodedResult = value;
 
-                // TODO: Ensure we combine existing metrics with new metrics
-                this.Metrics = this.Request.ProviderInstance.DecodeMetrics(value);
+                // Decode Metrics and combine them with existing metrics
+                this.Metrics = this.CombineMetrics(this.Metrics, this.Request.ProviderInstance.DecodeMetrics(value));
             }
         }
 
@@ -213,6 +213,30 @@ namespace SmartHopper.Infrastructure.AICall
                 ErrorMessage = message,
                 Status = AICallStatus.Finished,
             };
+        }
+
+        private AIMetrics CombineMetrics(AIMetrics original, AIMetrics input)
+        {
+            var result = original;
+            if (input.Provider != null)
+            {
+                result.Provider = input.Provider;
+            }
+            if (input.Model != null)
+            {
+                result.Model = input.Model;
+            }
+            if (input.FinishReason != null)
+            {
+                result.FinishReason = input.FinishReason;
+            }
+            result.InputTokensPrompt += input.InputTokensPrompt;
+            result.InputTokensCached += input.InputTokensCached;
+            result.OutputTokensReasoning += input.OutputTokensReasoning;
+            result.OutputTokensGeneration += input.OutputTokensGeneration;
+            result.ReuseCount += input.ReuseCount;
+            result.CompletionTime += input.CompletionTime;
+            return result;
         }
     }
 

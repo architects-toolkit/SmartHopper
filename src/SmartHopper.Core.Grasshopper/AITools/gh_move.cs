@@ -64,12 +64,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             );
         }
 
-        private async Task<object> GhMoveObjAsync(JObject parameters)
+        private async Task<AIToolCall> GhMoveObjAsync(AIToolCall toolCall)
         {
-            var targetsObj = parameters["targets"] as JObject;
+            var targetsObj = toolCall.Arguments["targets"] as JObject;
             if (targetsObj == null)
-                return new { success = false, error = "Missing or invalid 'targets' parameter." };
-            var relative = parameters["relative"]?.ToObject<bool>() ?? false;
+            {
+                toolCall.ErrorMessage = "Missing or invalid 'targets' parameter.";
+                return toolCall;
+            }
+            var relative = toolCall.Arguments["relative"]?.ToObject<bool>() ?? false;
             var dict = new Dictionary<Guid, PointF>();
             foreach (var prop in targetsObj.Properties())
             {
@@ -88,7 +91,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
             var movedList = GHCanvasUtils.MoveInstance(dict, relative);
-            return new { success = movedList.Any(), updated = movedList.Select(g => g.ToString()).ToList() };
+            toolCall.Result = new { updated = movedList.Select(g => g.ToString()).ToList() };
+            return toolCall;
         }
     }
 }

@@ -70,22 +70,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters object containing filter settings.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<object> GhGetToolAsync(JObject parameters)
+        private Task<AIToolCall> GhGetToolAsync(AIToolCall toolCall)
         {
             // Parse filters
-            var attrFilters = parameters["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
-            var typeFilters = parameters["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
+            var attrFilters = toolCall.Arguments["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
+            var typeFilters = toolCall.Arguments["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
             var objects = GHCanvasUtils.GetCurrentObjects();
 
             // Filter by manual UI selection if provided
-            var selectedGuids = parameters["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
+            var selectedGuids = toolCall.Arguments["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
             if (selectedGuids.Any())
             {
                 var set = new HashSet<string>(selectedGuids);
                 objects = objects.Where(o => set.Contains(o.InstanceGuid.ToString())).ToList();
             }
 
-            var connectionDepth = parameters["connectionDepth"]?.ToObject<int>() ?? 0;
+            var connectionDepth = toolCall.Arguments["connectionDepth"]?.ToObject<int>() ?? 0;
             var (includeTypes, excludeTypes) = Get.ParseIncludeExclude(typeFilters, Get.TypeSynonyms);
             var (includeTags, excludeTags) = Get.ParseIncludeExclude(attrFilters, Get.FilterSynonyms);
 
@@ -343,14 +343,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var json = JsonConvert.SerializeObject(document, Formatting.None);
 
             // Package result with classifications
-            var result = new JObject
+            toolCall.Result = new JObject
             {
                 ["names"] = JArray.FromObject(names),
                 ["guids"] = JArray.FromObject(guids),
                 ["json"] = json,
             };
 
-            return Task.FromResult<object>(result);
+            return toolCall;
         }
     }
 }

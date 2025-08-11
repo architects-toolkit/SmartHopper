@@ -79,23 +79,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> GenerateText(JObject parameters)
+        private async Task<AIToolCall> GenerateText(AIToolCall toolCall)
         {
             try
             {
                 Debug.WriteLine("[TextTools] Running GenerateText tool");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
                 string endpoint = this.toolName;
-                string? prompt = parameters["prompt"]?.ToString();
-                string? instructions = parameters["instructions"]?.ToString();
-                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+                string? prompt = toolCall.Arguments["prompt"]?.ToString();
+                string? instructions = toolCall.Arguments["instructions"]?.ToString();
+                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    return AIReturn<string>.CreateError("Missing required parameter: prompt").ToJObject<string>();
+                    toolCall.ErrorMessage = "Missing required parameter: prompt";
+                    return toolCall;
                 }
 
                 // Use custom instructions if provided, otherwise use default system prompt
@@ -122,17 +123,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var cleanedResponse = AI.StripThinkTags(result.Result);
 
                 // Success case
-                return AIReturn<string>.CreateSuccess(
-                    result: cleanedResponse,
-                    request: request,
-                    metrics: result.Metrics).ToJObject<string>();
+                toolCall.Result = cleanedResponse;
+                toolCall.Metrics = result.Metrics;
+                return toolCall;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateText: {ex.Message}");
 
                 // Return error object as JObject
-                return AIReturn<string>.CreateError($"Error: {ex.Message}").ToJObject<string>();
+                toolCall.ErrorMessage = $"Error: {ex.Message}";
+                return toolCall;
             }
         }
     }

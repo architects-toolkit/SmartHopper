@@ -62,30 +62,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">JSON object with "guid" field.</param>
         /// <returns>Result containing success flag, codedIssues array, and aiReview string, or error details.</returns>
-        private async Task<object> ScriptReviewToolAsync(JObject parameters)
+        private async Task<AIToolCall> ScriptReviewToolAsync(AIToolCall toolCall)
         {
             try
             {
                 // Parse and validate parameters
-                var guidStr = parameters.Value<string>("guid") ?? throw new ArgumentException("Missing 'guid' parameter.");
+                var guidStr = toolCall.Arguments["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
                 if (!Guid.TryParse(guidStr, out var scriptGuid))
-                    throw new ArgumentException($"Invalid GUID: {guidStr}");
-                var providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                var modelName = parameters["model"]?.ToString() ?? string.Empty;
+                {
+                    toolCall.ErrorMessage = $"Invalid GUID: {guidStr}";
+                    return toolCall;
+                }
+                var providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                var modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
                 var endpoint = "script_review";
-                var question = parameters["question"]?.ToString();
-                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+                var question = toolCall.Arguments["question"]?.ToString();
+                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
                 var objects = GHCanvasUtils.GetCurrentObjects();
                 var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid) as IScriptComponent;
                 if (target == null)
                 {
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = $"Script component with GUID {scriptGuid} not found.",
-                    };
+                    toolCall.ErrorMessage = $"Script component with GUID {scriptGuid} not found.";
+                    return toolCall;
                 }
 
                 var scriptCode = target.Text ?? string.Empty;
@@ -109,7 +109,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Python/IronPython
                     var debugPy = Regex.Matches(scriptCode, @"print\(", RegexOptions.IgnoreCase).Count;
                     if (debugPy > 0)
+                    {
                         codedIssues.Add("Remove debug 'print' statements from Python script.");
+                    }
                 }
                 else if (Regex.IsMatch(scriptCode, @"void\s+RunScript", RegexOptions.IgnoreCase)
                          || scriptCode.IndexOf("using ", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -163,29 +165,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var result = await request.Do<string>().ConfigureAwait(false);
                 if (!result.Success)
                 {
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = result.ErrorMessage ?? "AI request failed",
-                    };
+                    toolCall.ErrorMessage = result.ErrorMessage ?? "AI request failed";
+                    return toolCall;
                 }
 
                 var aiReview = AI.StripThinkTags(result.Result);
 
-                return new JObject
-                {
-                    ["success"] = true,
-                    ["codedIssues"] = JArray.FromObject(codedIssues),
-                    ["aiReview"] = aiReview,
-                };
+                toolCall.Result = new { codedIssues = codedIssues, aiReview = aiReview };
+                return toolCall;
             }
             catch (Exception ex)
             {
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = ex.Message,
-                };
+                toolCall.ErrorMessage = ex.Message;
+                return toolCall;
             }
         }
     }

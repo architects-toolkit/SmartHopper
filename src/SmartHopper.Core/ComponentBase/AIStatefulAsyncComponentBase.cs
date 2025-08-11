@@ -41,7 +41,7 @@ namespace SmartHopper.Core.ComponentBase
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
         private string _model;
-        
+
         /// <summary>
         /// List of AI returns.
         /// </summary>
@@ -109,7 +109,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             string model = null;
             DA.GetData("Model", ref model);
-            SetModel(model);
+            this.SetModel(model);
 
             base.SolveInstance(DA);
         }
@@ -126,7 +126,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="model">The model to use</param>
         protected void SetModel(string model)
         {
-            _model = model;
+            this._model = model;
         }
 
         /// <summary>
@@ -143,6 +143,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Handle null provider scenario, return default model
                 return string.Empty;
             }
+
             string actualModel = provider.Models.GetModel(model);
 
             return actualModel;

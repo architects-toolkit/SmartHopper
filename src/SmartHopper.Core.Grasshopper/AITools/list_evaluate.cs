@@ -85,28 +85,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> EvaluateList(JObject parameters)
+        private async Task<AIToolCall> EvaluateList(AIToolCall toolCall)
         {
             try
             {
                 Debug.WriteLine("[ListTools] Running EvaluateList tool");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
                 string endpoint = this.toolName;
-                string? rawList = parameters["list"]?.ToString();
-                string? question = parameters["question"]?.ToString();
-                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+                string? rawList = toolCall.Arguments["list"]?.ToString();
+                string? question = toolCall.Arguments["question"]?.ToString();
+                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
                 {
-                    // Return error object as JObject
-                    return AIReturn<bool>.CreateError("Missing required parameters").ToJObject<bool>();
+                    toolCall.ErrorMessage = "Missing required parameters";
+                    return toolCall;
                 }
 
                 // Normalize list input
-                var items = NormalizeListInput(parameters);
+                var items = NormalizeListInput(toolCall);
 
                 // Convert to GH_String list
                 var ghStringList = items.Select(s => new GH_String(s)).ToList();
@@ -141,33 +141,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (parsedResult == null)
                 {
-                    return AIReturn<bool>.CreateError(
-                        $"The AI returned an invalid response:\n{result.Result}",
-                        request: request,
-                        metrics: result.Metrics).ToJObject<bool>();
+                    toolCall.ErrorMessage = $"The AI returned an invalid response:\n{result}";
+                    return toolCall;
                 }
 
                 // Success case
-                return AIReturn<bool>.CreateSuccess(
-                    result: parsedResult.Value,
-                    request: request,
-                    metrics: result.Metrics).ToJObject<bool>();
+                toolCall.Result = parsedResult.Value;
+                toolCall.Metrics = result.Metrics;
+                return toolCall;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
 
-                // Return error object as JObject
-                return AIReturn<bool>.CreateError($"Error: {ex.Message}").ToJObject<bool>();
+                toolCall.ErrorMessage = $"Error: {ex.Message}";
+                return toolCall;
             }
         }
 
         /// <summary>
         /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
         /// </summary>
-        private static List<string> NormalizeListInput(JObject parameters)
+        private static List<string> NormalizeListInput(AIToolCall toolCall)
         {
-            var token = parameters["list"];
+            var token = toolCall.Arguments["list"];
             if (token is JArray array)
             {
                 return array.Select(t => t.ToString()).ToList();
