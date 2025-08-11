@@ -56,9 +56,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Fetches the text content of a webpage given its URL, if allowed by robots.txt.
         /// </summary>
         /// <param name="parameters">A JObject containing the URL parameter.</param>
-        private async Task<object> GenericPageReadAsync(JObject parameters)
+        private async Task<AIToolCall> GenericPageReadAsync(AIToolCall toolCall)
         {
-            string url = parameters.Value<string>("url") ?? throw new ArgumentException("Missing 'url' parameter.");
+            string url = toolCall.Arguments["url"]?.ToString() ?? throw new ArgumentException("Missing 'url' parameter.");
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
                 throw new ArgumentException($"Invalid URL: {url}");
@@ -123,6 +123,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[WebTools] JSON parse failed: {ex.Message}");
+                        toolCall.ErrorMessage = $"JSON parse failed: {ex.Message}";
+                        return toolCall;
                     }
                 }
             }
@@ -197,7 +199,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             Debug.WriteLine($"[WebTools] Normalized text length: {text.Length}");
             Debug.WriteLine($"[WebTools] Normalized snippet: {text.Substring(0, Math.Min(text.Length, 200))}");
 
-            return text;
+            toolCall.Result = text;
+            return toolCall;
         }
     }
 }

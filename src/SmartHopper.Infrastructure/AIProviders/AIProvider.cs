@@ -173,6 +173,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         public abstract string Encode(IAIRequest request);
 
         /// <inheritdoc/>
+        public abstract string Encode(IAIInteraction interaction);
+
+        /// <inheritdoc/>
         public abstract List<IAIInteraction> DecodeResponse(string response);
         
         /// <inheritdoc/>
@@ -217,9 +220,11 @@ namespace SmartHopper.Infrastructure.AIProviders
             // Execute CallApi
             var response = await this.CallApi(request);
 
-            // Add completion time to metrics
+            // Add provider specific metrics
             stopwatch.Stop();
             response.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+            response.Metrics.Provider = this.Name;
+            response.Metrics.Model = request.Model;
 
             // Execute PostCall
             response = this.PostCall(response);
@@ -230,6 +235,21 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public virtual IAIReturn PostCall(IAIReturn response)
         {
+            try
+            {
+                // Determine status based on decoded interactions' tool calls
+                var interactions = response.Result; // triggers provider Decode
+                if (interactions != null && interactions.Any(i => i.ToolCalls != null && i.ToolCalls.Count > 0))
+                {
+                    response.Status = AICallStatus.CallingTools;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] PostCall metrics parsing error: {ex.Message}");
+                // Keep original response on failure
+            }
+
             return response;
         }
 

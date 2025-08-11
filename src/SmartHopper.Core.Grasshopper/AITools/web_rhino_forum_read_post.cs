@@ -50,16 +50,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Retrieves a full Rhino Discourse forum post by ID.
         /// </summary>
         /// <param name="parameters">A JObject containing the ID parameter.</param>
-        private async Task<object> WebRhinoForumReadPostAsync(JObject parameters)
+        private async Task<AIToolCall> WebRhinoForumReadPostAsync(AIToolCall toolCall)
         {
-            int id = parameters.Value<int>("id");
+            int id = toolCall.Arguments["id"]?.Value<int>();
             var httpClient = new HttpClient();
             var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
             var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var json = JObject.Parse(content);
-            return json;
+            toolCall.Result = json;
+            return toolCall;
         }
     }
 }

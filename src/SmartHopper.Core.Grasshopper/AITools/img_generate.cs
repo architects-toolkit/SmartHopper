@@ -126,28 +126,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> GenerateImageToolWrapper(JObject parameters)
+        private async Task<AIToolCall> GenerateImageToolWrapper(AIToolCall toolCall)
         {
             try
             {
                 Debug.WriteLine("[ImageTools] Running GenerateImageToolWrapper");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string? prompt = parameters["prompt"]?.ToString();
-                string size = parameters["size"]?.ToString() ?? "1024x1024";
-                string quality = parameters["quality"]?.ToString() ?? "standard";
-                string style = parameters["style"]?.ToString() ?? "vivid";
+                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string? prompt = toolCall.Arguments["prompt"]?.ToString();
+                string size = toolCall.Arguments["size"]?.ToString() ?? "1024x1024";
+                string quality = toolCall.Arguments["quality"]?.ToString() ?? "standard";
+                string style = toolCall.Arguments["style"]?.ToString() ?? "vivid";
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    // Return error object as JObject
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing required parameter: prompt"
-                    };
+                    toolCall.ErrorMessage = "Missing required parameter: prompt";
+                    return toolCall;
                 }
 
                 // Execute the tool
@@ -174,17 +170,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["rawResponse"] = "Response", // Add rawResponse to get imgUrl
                 };
 
-                return result.ToJObject<GH_String>(mapping);
+                toolCall.Result = result.ToJObject<GH_String>(mapping);
+                return toolCall;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ImageTools] Error in GenerateImageToolWrapper: {ex.Message}");
-                // Return error object as JObject
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}",
-                };
+                toolCall.ErrorMessage = $"Error: {ex.Message}";
+                return toolCall;
             }
         }
     }

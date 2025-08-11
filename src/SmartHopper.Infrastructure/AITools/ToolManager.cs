@@ -55,51 +55,37 @@ namespace SmartHopper.Infrastructure.AITools
         /// <summary>
         /// Execute a tool with its parameters
         /// </summary>
-        /// <param name="toolName">The name of the tool to execute</param>
-        /// <param name="parameters">The parameters for the tool</param>
-        /// <param name="extraParameters">Additional parameters to merge into the tool parameters</param>
+        /// <param name="toolCall">The tool call to execute</param>
         /// <returns>The result of the tool execution</returns>
-        public static async Task<object> ExecuteTool(string toolName, JObject parameters, JObject extraParameters = null)
+        public static async Task<AIToolCall> ExecuteTool(AIToolCall toolCall)
         {
             // Ensure tools are discovered
             DiscoverTools();
 
-            Debug.WriteLine($"[AIToolManager] Executing tool: {toolName}");
+            Debug.WriteLine($"[AIToolManager] Executing tool: {toolCall.Name}");
 
-            // Check if tool exists
-            if (!_tools.ContainsKey(toolName))
+            // Validate tool call
+            var (isValid, errors) = toolCall.IsValid();
+            if (!isValid)
             {
-                Debug.WriteLine($"[AIToolManager] Tool not found: {toolName}");
-                dynamic errorObj = new ExpandoObject();
-                errorObj.success = false;
-                errorObj.error = $"Tool '{toolName}' not found";
-                return errorObj;
-            }
-
-            // Merge extra parameters into parameters
-            if (extraParameters != null)
-            {
-                foreach (var prop in extraParameters.Properties())
-                {
-                    parameters[prop.Name] = prop.Value;
-                }
+                Debug.WriteLine($"[AIToolManager] Tool call is invalid: {string.Join(", ", errors)}");
+                toolCall.ErrorMessage = $"Tool call is invalid: {string.Join(", ", errors)}";
+                return toolCall;
             }
 
             try
             {
                 // Execute the tool
-                Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolName}");
-                var result = await _tools[toolName].Execute(parameters);
-                Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolName}");
+                Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolCall.Name}");
+                var result = await _tools[toolCall.Name].Execute(toolCall);
+                Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolCall.Name}");
                 return result;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIToolManager] Error executing tool {toolName}: {ex.Message}");
-                dynamic errorObj = new ExpandoObject();
-                errorObj.success = false;
-                errorObj.error = $"Error executing tool '{toolName}': {ex.Message}";
-                return errorObj;
+                Debug.WriteLine($"[AIToolManager] Error executing tool {toolCall.Name}: {ex.Message}");
+                toolCall.ErrorMessage = $"Error executing tool '{toolCall.Name}': {ex.Message}";
+                return toolCall;
             }
         }
 

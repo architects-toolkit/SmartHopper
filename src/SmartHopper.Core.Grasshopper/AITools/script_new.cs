@@ -59,16 +59,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the "script_new" tool: generates a script component based on user instructions and places it on the canvas.
         /// </summary>
-        private async Task<object> ScriptNewToolAsync(JObject parameters)
+        private async Task<AIToolCall> ScriptNewToolAsync(AIToolCall toolCall)
         {
             try
             {
-                var prompt = parameters.Value<string>("prompt") ?? throw new ArgumentException("Missing 'prompt' parameter.");
-                var language = parameters.Value<string>("language") ?? "python";
-                var providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                var modelName = parameters["model"]?.ToString() ?? string.Empty;
+                var prompt = toolCall.Arguments["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
+                var language = toolCall.Arguments["language"]?.ToString() ?? "python";
+                var providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                var modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
                 var endpoint = "script_new";
-                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -185,7 +185,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var result = await request.Do<string>().ConfigureAwait(false);
                 if (!result.Success)
                 {
-                    return new { success = false, error = result.ErrorMessage };
+                    toolCall.ErrorMessage = result.ErrorMessage;
+                    return toolCall;
                 }
 
                 var cleaned = AI.StripThinkTags(result.Result);
@@ -294,13 +295,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Retrieve actual placed GUID
                 if (mapping.TryGetValue(comp.InstanceGuid, out var actualGuid))
                 {
-                    return new { success = true, script = scriptCode, guid = actualGuid, inputs = scriptInputs, outputs = scriptOutputs };
+                    toolCall.Result = new { script = scriptCode, guid = actualGuid, inputs = scriptInputs, outputs = scriptOutputs };
+                    return toolCall;
                 }
-                return new { success = false, error = "Failed to retrieve placed component GUID." };
+                toolCall.ErrorMessage = "Failed to retrieve placed component GUID.";
+                return toolCall;
             }
             catch (Exception ex)
             {
-                return new { success = false, error = ex.Message };
+                toolCall.ErrorMessage = ex.Message;
+                return toolCall;
             }
         }
     }

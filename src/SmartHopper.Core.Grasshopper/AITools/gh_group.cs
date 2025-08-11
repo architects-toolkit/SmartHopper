@@ -60,11 +60,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             );
         }
 
-        private Task<object> GhGroupAsync(JObject parameters)
+        private Task<AIToolCall> GhGroupAsync(AIToolCall toolCall)
         {
-            var guidStrings = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var groupName = parameters["groupName"]?.ToString();
-            var colorStr = parameters["color"]?.ToString();
+            var guidStrings = toolCall.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var groupName = toolCall.Arguments["groupName"]?.ToString();
+            var colorStr = toolCall.Arguments["color"]?.ToString();
             var validGuids = new List<Guid>();
 
             foreach (var s in guidStrings)
@@ -74,7 +74,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             if (!validGuids.Any())
-                return Task.FromResult<object>(new { success = false, error = "No valid GUIDs provided for grouping." });
+            {
+                toolCall.ErrorMessage = "No valid GUIDs provided for grouping.";
+                return Task.FromResult<AIToolCall>(toolCall);
+            }
 
             GH_Group group = null;
             
@@ -111,24 +114,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Resolve task result
                 if (group != null)
                 {
-                    tcs.SetResult(new
+                    toolCall.Result = new JObject
                     {
-                        success = true,
-                        group = group.InstanceGuid.ToString(),
+                        ["group"] = group.InstanceGuid.ToString(),
                         grouped = validGuids.Select(g => g.ToString()).ToList()
-                    });
+                    };
                 }
                 else
                 {
-                    tcs.SetResult(new
-                    {
-                        success = false,
-                        error = "Failed to create group."
-                    });
+                    toolCall.ErrorMessage = "Failed to create group.";
                 }
             });
 
-            return tcs.Task;
+            return toolCall;
         }
     }
 }

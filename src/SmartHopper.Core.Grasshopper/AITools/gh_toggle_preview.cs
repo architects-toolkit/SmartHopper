@@ -52,10 +52,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             );
         }
 
-        private async Task<object> GhTogglePreviewAsync(JObject parameters)
+        private async Task<AIToolCall> GhTogglePreviewAsync(AIToolCall toolCall)
         {
-            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var previewOn = parameters["previewOn"]?.ToObject<bool>() ?? false;
+            var guids = toolCall.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var previewOn = toolCall.Arguments["previewOn"]?.ToObject<bool>() ?? false;
             Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
             var updated = new List<string>();
 
@@ -75,7 +75,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            return new { success = true, updated };
+            toolCall.Result = new { updated };
+            return toolCall;
         }
     }
 }

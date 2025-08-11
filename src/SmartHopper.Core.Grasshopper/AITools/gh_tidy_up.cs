@@ -61,10 +61,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Reorganize selected components into a tidy grid layout by GUID list.
         /// </summary>
-        private async Task<object> GhTidyUpAsync(JObject parameters)
+        private async Task<AIToolCall> GhTidyUpAsync(AIToolCall toolCall)
         {
-            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var startToken = parameters["startPoint"];
+            var guids = toolCall.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
+            var startToken = toolCall.Arguments["startPoint"];
             var hasStart = startToken != null;
             PointF origin = default;
             if (hasStart)
@@ -78,7 +78,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             if (!selected.Any())
             {
                 Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
-                return new { success = false, error = "No matching components found for provided GUIDs." };
+                toolCall.ErrorMessage = "No matching components found for provided GUIDs.";
+                return toolCall;
             }
             var doc = GHDocumentUtils.GetObjectsDetails(selected);
             var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
@@ -103,7 +104,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
                 if (ok) moved.Add(guid.ToString());
             }
-            return new { success = true, moved };
+            toolCall.Result = new { moved };
+            return toolCall;
         }
     }
 }

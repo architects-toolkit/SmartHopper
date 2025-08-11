@@ -82,23 +82,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> EvaluateText(JObject parameters)
+        private async Task<AIToolCall> EvaluateText(AIToolCall toolCall)
         {
             try
             {
                 Debug.WriteLine("[TextTools] Running EvaluateText tool");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
+                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
                 string endpoint = this.toolName;
-                string? text = parameters["text"]?.ToString();
-                string? question = parameters["question"]?.ToString();
-                string? contextFilter = parameters["contextFilter"]?.ToString() ?? string.Empty;
+                string? text = toolCall.Arguments["text"]?.ToString();
+                string? question = toolCall.Arguments["question"]?.ToString();
+                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    return AIReturn<bool>.CreateError("Missing required parameters").ToJObject<bool>();
+                    toolCall.ErrorMessage = "Missing required parameters";
+                    return toolCall;
                 }
 
                 // Prepare the AI request
@@ -130,24 +131,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (parsedResult == null)
                 {
-                    return AIReturn<bool>.CreateError(
-                        $"The AI returned an invalid response:\n{result.Result}",
-                        request: request,
-                        metrics: result.Metrics).ToJObject<bool>();
+                    toolCall.ErrorMessage = $"The AI returned an invalid response:\n{result.Result}";
+                    return toolCall;
                 }
 
                 // Success case
-                return AIReturn<bool>.CreateSuccess(
-                    result: parsedResult.Value,
-                    request: request,
-                    metrics: result.Metrics).ToJObject<bool>();
+                toolCall.Result = parsedResult.Value;
+                toolCall.Metrics = result.Metrics;
+                return toolCall;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in EvaluateText: {ex.Message}");
 
                 // Return error object as JObject
-                return AIReturn<bool>.CreateError($"Error: {ex.Message}").ToJObject<bool>();
+                toolCall.ErrorMessage = $"Error: {ex.Message}";
+                return toolCall;
             }
         }
     }

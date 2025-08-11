@@ -48,9 +48,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         // TODO: take only 5 and return a summary of the posts
-        private async Task<object> WebRhinoForumSearchAsync(JObject parameters)
+        private async Task<AIToolCall> WebRhinoForumSearchAsync(AIToolCall toolCall)
         {
-            string query = parameters.Value<string>("query") ?? throw new ArgumentException("Missing 'query' parameter.");
+            string query = toolCall.Arguments["query"]?.ToString() ?? throw new ArgumentException("Missing 'query' parameter.");
             var httpClient = new HttpClient();
             var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
             var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
@@ -79,7 +79,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["cooked"] = p.Value<string>("cooked"),
                 };
             }));
-            return result;
+            toolCall.Result = result;
+            return toolCall;
         }
     }
 }

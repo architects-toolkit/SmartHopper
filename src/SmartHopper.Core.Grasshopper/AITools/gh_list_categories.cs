@@ -55,11 +55,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the Grasshopper categories listing tool with optional soft string filter.
         /// </summary>
-        private Task<object> GhCategoriesToolAsync(JObject parameters)
+        private Task<AIToolCall> GhCategoriesToolAsync(AIToolCall toolCall)
         {
             var server = Instances.ComponentServer;
-            var filterString = parameters["filter"]?.ToObject<string>() ?? string.Empty;
-            var includeSubcategories = parameters["includeSubcategories"]?.ToObject<bool>() ?? false;
+            var filterString = toolCall.Arguments["filter"]?.ToObject<string>() ?? string.Empty;
+            var includeSubcategories = toolCall.Arguments["includeSubcategories"]?.ToObject<bool>() ?? false;
             var tokens = Regex.Replace(filterString, @"[,;\-_]", " ")
                 .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.ToLowerInvariant())
@@ -128,7 +128,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ["count"] = result.Count,
                 ["categories"] = JArray.FromObject(result),
             };
-            return Task.FromResult<object>(jResult);
+            toolCall.Result = jResult;
+            return toolCall;
         }
     }
 }
