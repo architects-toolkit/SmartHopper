@@ -13,10 +13,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -26,8 +24,14 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIRequestCall : AIRequestBase
     {
+        private AICapability capability = AICapability.BasicChat;
+
         /// <inheritdoc/>
-        public override AICapability Capability { get => this.GetEffectiveCapabilities(out _); set => this.capability = value; } = AICapability.BasicChat;
+        public override AICapability Capability
+        {
+            get => this.GetEffectiveCapabilities(out _);
+            set => this.capability = value;
+        }
 
         /// <summary>
         /// Gets or sets the endpoint or full URL to use for the request.
@@ -140,7 +144,7 @@ namespace SmartHopper.Infrastructure.AICall
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            Debug.WriteLine($"[AIRequest.Do] Loading getResponse from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body?.ToolFilter ?? "null"}");
+            Debug.WriteLine($"[AIRequest.Do] Loading Call method from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body?.ToolFilter ?? "null"}");
 
             try
             {
@@ -148,16 +152,15 @@ namespace SmartHopper.Infrastructure.AICall
                 if (this.ProviderInstance == null)
                 {
                     stopwatch.Stop();
-                    var result = new AIReturn();
-                    var metrics = new AIMetrics
+                    var errorMetrics = new AIMetrics
                     {
                         FinishReason = "error",
                         CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     };
 
-                    result = AIReturn.CreateError("Provider is missing", this, metrics: metrics);
+                    var errorResult = AIReturn.CreateError("Provider is missing", this, metrics: errorMetrics);
 
-                    return result;
+                    return errorResult;
                 }
 
                 // Execute the request from the provider
@@ -170,32 +173,30 @@ namespace SmartHopper.Infrastructure.AICall
                 stopwatch.Stop();
                 var error = $"Error: API request failed - {ex.Message}";
 
-                var result = new AIReturn();
-                var metrics = new AIMetrics
+                var errorMetrics = new AIMetrics
                 {
                     FinishReason = "error",
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
 
-                result = AIReturn.CreateError(error, this, metrics: metrics);
+                var errorResult = AIReturn.CreateError(error, this, metrics: errorMetrics);
 
-                return result;
+                return errorResult;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 var error = $"Error: {ex.Message}";
 
-                var result = new AIReturn();
-                var metrics = new AIMetrics
+                var errorMetrics = new AIMetrics
                 {
                     FinishReason = "error",
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
 
-                result = AIReturn.CreateError(error, this, metrics: metrics);
+                var errorResult = AIReturn.CreateError(error, this, metrics: errorMetrics);
 
-                return result;
+                return errorResult;
             }
         }
 

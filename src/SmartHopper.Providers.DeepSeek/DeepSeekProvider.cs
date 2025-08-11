@@ -232,7 +232,7 @@ namespace SmartHopper.Providers.DeepSeek
             else if (role == AIAgent.ToolCall)
             {
                 // Omit it
-                continue;
+                return string.Empty;
             }
             else
             {
@@ -269,7 +269,7 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 messageObj["role"] = roleName;
             }
-            
+
             return messageObj;
         }
 
@@ -325,7 +325,7 @@ namespace SmartHopper.Providers.DeepSeek
                             {
                                 Id = tc["id"]?.ToString(),
                                 Name = fn["name"]?.ToString(),
-                                Provider = this,
+                                Provider = this.Name,
                                 Model = this.Model,
                                 Arguments = fn["arguments"]?.ToString(),
                             });
