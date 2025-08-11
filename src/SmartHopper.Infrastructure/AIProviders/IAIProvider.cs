@@ -52,9 +52,14 @@ namespace SmartHopper.Infrastructure.AIProviders
         string Encode(AIRequestCall request);
 
         /// <summary>
-        /// Gets the encoded list of interactions for this provider, given an <see cref="IAIInteraction"/>.
+        /// Gets the encoded interaction for this provider, given an <see cref="IAIInteraction"/>.
         /// </summary>
         string Encode(IAIInteraction interaction);
+
+        /// <summary>
+        /// Gets the encoded list of interactions for this provider, given an <see cref="List{IAIInteraction}"/>.
+        /// </summary>
+        string Encode(List<IAIInteraction> interactions);
 
         /// <summary>
         /// Gets the decoded list of interactions given the encoded response.

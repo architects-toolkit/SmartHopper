@@ -56,6 +56,7 @@ namespace SmartHopper.Infrastructure.AICall
                 this.PrivateEncodedResult = value;
 
                 // Decode Metrics and combine them with existing metrics
+                // TODO: How will Metrics be reset? How are we ensuring that Metrics are correct?
                 this.Metrics.Combine(this.Request.ProviderInstance.DecodeMetrics(value));
             }
         }
@@ -64,7 +65,7 @@ namespace SmartHopper.Infrastructure.AICall
         public IAIRequest Request { get; set; }
 
         /// <inheritdoc/>
-        public AIMetrics Metrics { get; private set; }
+        public AIMetrics Metrics { get; private set; } = new AIMetrics();
 
         /// <inheritdoc/>
         public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();

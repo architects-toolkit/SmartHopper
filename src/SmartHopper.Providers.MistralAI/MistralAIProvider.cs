@@ -13,13 +13,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Infrastructure.AICall.SpecialTypes;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -108,7 +104,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     msgContent = s;
                 }
-                else if (body is SmartHopper.Infrastructure.AICall.SpecialTypes.AIText text)
+                else if (body is AIInteractionText text)
                 {
                     // For AIText, only send the actual content
                     msgContent = text.Content ?? string.Empty;
