@@ -87,7 +87,8 @@
         /// <returns>The AIAgent.</returns>
         public static AIAgent FromString(string agent)
         {
-            return agent switch
+            agent = agent.ToLower();
+            var result = agent switch
             {
                 "context" => AIAgent.Context,
                 "system" => AIAgent.System,
@@ -97,6 +98,7 @@
                 "tool" => AIAgent.ToolResult,
                 _ => AIAgent.Unknown,
             };
+            return result;
         }
     }
 }

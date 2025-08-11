@@ -87,7 +87,7 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                var toolResult = AIToolManager.ExecuteTool("gh_list_components", parameters, null)
+                var toolResult = AIToolManager.ExecuteTool("gh_list_components", parameters)
                     .GetAwaiter().GetResult() as JObject;
                 if (toolResult == null)
                 {

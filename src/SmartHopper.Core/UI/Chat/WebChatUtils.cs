@@ -103,12 +103,17 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string? endpoint = null, string? systemPrompt = null, Guid componentId = default, Action<string>? progressReporter = null)
+        public static async Task<AIResponse> ShowWebChatDialog(AIRequest request, Guid componentId = default, Action<string>? progressReporter = null)
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse? lastResponse = null;
 
             Debug.WriteLine("[WebChatUtils] Preparing to show web chat dialog");
+
+            var providerName = request.Provider;
+            var modelName = request.Model;
+            var endpoint = request.Endpoint;
+            var toolFilter = "Knowledge, Components, Scripting, ComponentsRetrieval";
 
             try
             {
@@ -119,7 +124,7 @@ namespace SmartHopper.Core.UI.Chat
                         modelName,
                         messages,
                         endpoint: endpoint,
-                        toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval");
+                        toolFilter: toolFilter);
 
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
@@ -148,7 +153,7 @@ namespace SmartHopper.Core.UI.Chat
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-                        var dialog = new WebChatDialog(getResponse, providerName, systemPrompt, progressReporter);
+                        var dialog = new WebChatDialog(request, progressReporter);
 
                         // If component ID is provided, store the dialog
                         if (componentId != default)

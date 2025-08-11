@@ -8,14 +8,18 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Infrastructure.AICall
 {
+    /// <summary>
+    /// Encapsulates the request body sent to AI providers, including the interaction history,
+    /// optional tool and context filters, and an optional JSON output schema.
+    /// The <see cref="Interactions"/> getter injects dynamic context messages at the beginning
+    /// when <see cref="ContextFilter"/> is set and matching context is available.
+    /// </summary>
     public class AIRequestBody : IAIRequestBody
     {
         /// <summary>
@@ -23,13 +27,17 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private List<IAIInteraction> _interactions;
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets or sets the interaction list. When getting, a copy of the internal list is returned;
+        /// if <see cref="ContextFilter"/> is set and context has content, a synthesized context interaction is
+        /// inserted at index 0 of the returned list without mutating the internal storage.
+        /// </summary>
         public List<IAIInteraction> Interactions
         {
             get
             {
-                var result = new List<IAIInteraction>(_interactions ?? new List<IAIInteraction>());
-                
+                var result = new List<IAIInteraction>(this._interactions ?? new List<IAIInteraction>());
+
                 // Inject dynamic context at the beginning if ContextFilter is set
                 if (!string.IsNullOrEmpty(ContextFilter))
                 {
@@ -44,24 +52,24 @@ namespace SmartHopper.Infrastructure.AICall
                         {
                             var contextMessage = "Conversation context:\n\n" +
                                                  string.Join("\n", contextMessages);
-                            
-                            var contextInteraction = new AIInteraction<string>
+
+                            var contextInteraction = new AIInteractionText
                             {
                                 Agent = AIAgent.Context,
-                                Body = contextMessage,
+                                Content = contextMessage,
                             };
-                            
+
                             result.Insert(0, contextInteraction);
                         }
                     }
                 }
-                
-                // Return the modified list without modifying the original _interactions list
+
+                // Return the modified list without modifying the original this._interactions list
                 return result; 
             }
-            set => _interactions = value;
+            set => this._interactions = value;
         }
-        
+
         /// <inheritdoc/>
         public string ToolFilter { get; set; }
 
@@ -96,27 +104,28 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddFirstInteraction(IAIInteraction interaction)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.Insert(0, interaction);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.Insert(0, interaction);
         }
 
         /// <summary>
-        /// Adds an interaction to the start of the interaction history.
+        /// Adds interactions to the start of the interaction history.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="interactions">The interactions to add.</param>
         public void AddFirstInteraction(List<IAIInteraction> interactions)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.InsertRange(0, interactions);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.InsertRange(0, interactions);
         }
 
         /// <summary>
-        /// Adds an interaction to the start of the interaction history from a key value pair.
+        /// Adds an interaction to the start of the interaction history using an agent name and a body string.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
+        /// <param name="body">The textual content of the interaction.</param>
         public void AddFirstInteraction(string agent, string body)
         {
-            this.AddFirstInteraction(CreateInteraction(agent, body));
+            this.AddFirstInteraction(CreateInteractionText(agent, body));
         }
 
         /// <summary>
@@ -125,27 +134,28 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="interaction">The interaction to add.</param>
         public void AddLastInteraction(IAIInteraction interaction)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.Add(interaction);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.Add(interaction);
         }
 
         /// <summary>
-        /// Adds an interaction to the end of the interaction history.
+        /// Adds interactions to the end of the interaction history.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="interactions">The interactions to add.</param>
         public void AddLastInteraction(List<IAIInteraction> interactions)
         {
-            _interactions ??= new List<IAIInteraction>();
-            _interactions.AddRange(interactions);
+            this._interactions ??= new List<IAIInteraction>();
+            this._interactions.AddRange(interactions);
         }
 
         /// <summary>
-        /// Adds an interaction to the end of the interaction history from a key value pair.
+        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
+        /// <param name="body">The textual content of the interaction.</param>
         public void AddLastInteraction(string agent, string body)
         {
-            this.AddLastInteraction(CreateInteraction(agent, body));
+            this.AddLastInteraction(CreateInteractionText(agent, body));
         }
 
         /// <summary>
@@ -158,44 +168,104 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Adds an interaction to the end of the interaction history.
+        /// Adds interactions to the end of the interaction history.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="interactions">The interactions to add.</param>
         public void AddInteraction(List<IAIInteraction> interactions)
         {
             this.AddLastInteraction(interactions);
         }
 
         /// <summary>
-        /// Adds an interaction to the start of the interaction history from a key value pair.
+        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
         /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
+        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
+        /// <param name="body">The textual content of the interaction.</param>
         public void AddInteraction(string agent, string body)
         {
-            this.AddLastInteraction(CreateInteraction(agent, body));
+            this.AddLastInteraction(CreateInteractionText(agent, body));
         }
 
         /// <summary>
-        /// Creates a new AIInteraction<string> from a key value pair.
+        /// Gets the first interaction.
         /// </summary>
-        /// <param name="agent">The key of the interaction.</param>
-        /// <param name="body">The value of the interaction.</param>
-        private static AIInteraction<string> CreateInteraction(string agent, string body)
+        /// <returns>The first interaction if present; otherwise, null.</returns>
+        public IAIInteraction GetFirstInteraction()
         {
-            var interaction = new AIInteraction<string>
-            {
-                Agent = AIAgentExtensions.FromString(agent),
-                Body = body,
-            };
-            return interaction;
+            return this.Interactions.FirstOrDefault();
         }
 
         /// <summary>
-        /// Gets the number of interactions.
+        /// Gets the first interaction by the specified agent.
         /// </summary>
+        /// <param name="agent">The agent to match.</param>
+        /// <returns>The first matching interaction if present; otherwise, null.</returns>
+        public IAIInteraction GetFirstInteraction(AIAgent agent)
+        {
+            return this.Interactions.FirstOrDefault(i => i.Agent == agent);
+        }
+
+        /// <summary>
+        /// Gets the first interaction whose agent name matches the provided string.
+        /// </summary>
+        /// <param name="agent">Agent name to match.</param>
+        /// <returns>The first matching interaction if present; otherwise, null.</returns>
+        public IAIInteraction GetFirstInteraction(string agent)
+        {
+            return this.Interactions.FirstOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
+        /// Gets the last interaction.
+        /// </summary>
+        /// <returns>The last interaction if present; otherwise, null.</returns>
+        public IAIInteraction GetLastInteraction()
+        {
+            return this.Interactions.LastOrDefault();
+        }
+
+        /// <summary>
+        /// Gets the last interaction by the specified agent.
+        /// </summary>
+        /// <param name="agent">The agent to match.</param>
+        /// <returns>The last matching interaction if present; otherwise, null.</returns>
+        public IAIInteraction GetLastInteraction(AIAgent agent)
+        {
+            return this.Interactions.LastOrDefault(i => i.Agent == agent);
+        }
+
+        /// <summary>
+        /// Gets the last interaction whose agent name matches the provided string.
+        /// </summary>
+        /// <param name="agent">Agent name to match.</param>
+        /// <returns>The last matching interaction if present; otherwise, null.</returns>
+        public IAIInteraction GetLastInteraction(string agent)
+        {
+            return this.Interactions.LastOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
+        /// Gets the number of interactions, including a synthesized context interaction when applicable.
+        /// </summary>
+        /// <returns>The total count of interactions that would be returned by <see cref="Interactions"/>.</returns>
         public int InteractionsCount()
         {
-            return (_interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+            return (this._interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Creates a new AIInteraction<string> from an agent name and body string.
+        /// </summary>
+        /// <param name="agent">The agent name.</param>
+        /// <param name="body">The textual content.</param>
+        private static AIInteractionText CreateInteractionText(string agent, string body)
+        {
+            var interaction = new AIInteractionText
+            {
+                Agent = AIAgentExtensions.FromString(agent),
+                Content = body,
+            };
+            return interaction;
         }
 
         /// <summary>

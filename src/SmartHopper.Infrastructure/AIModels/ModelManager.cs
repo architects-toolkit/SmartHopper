@@ -112,29 +112,6 @@ namespace SmartHopper.Infrastructure.AIModels
         }
 
         /// <summary>
-        /// Gets the default model for a provider and specific tool.
-        /// </summary>
-        /// <param name="provider">The provider name.</param>
-        /// <param name="toolName">The tool name.</param>
-        /// <returns>The default model name or null if none found.</returns>
-        public string GetDefaultModelForTool(string provider, string toolName)
-        {
-            var requiredCapabilities = this.GetRequiredCapabilitiesForTool(toolName);
-            if (requiredCapabilities == null)
-            {
-                return null;
-            }
-
-            var defaultModel = this.GetDefaultModel(provider, requiredCapabilities);
-            if (defaultModel == null)
-            {
-                return null;
-            }
-
-            return defaultModel;
-        }
-
-        /// <summary>
         /// Checks if a provider has any registered model capabilities.
         /// </summary>
         /// <param name="provider">The provider name to check.</param>

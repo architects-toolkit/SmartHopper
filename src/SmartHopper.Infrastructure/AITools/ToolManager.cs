@@ -59,7 +59,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="parameters">The parameters for the tool</param>
         /// <param name="extraParameters">Additional parameters to merge into the tool parameters</param>
         /// <returns>The result of the tool execution</returns>
-        public static async Task<object> ExecuteTool(string toolName, JObject parameters, JObject extraParameters)
+        public static async Task<object> ExecuteTool(string toolName, JObject parameters, JObject extraParameters = null)
         {
             // Ensure tools are discovered
             DiscoverTools();

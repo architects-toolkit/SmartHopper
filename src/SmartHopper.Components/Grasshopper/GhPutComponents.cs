@@ -95,7 +95,7 @@ namespace SmartHopper.Components.Grasshopper
                 // 3. Call the AI tool
                 var parameters = new JObject { ["json"] = json };
                 var toolResult = AIToolManager
-                    .ExecuteTool("gh_put", parameters, null)
+                    .ExecuteTool("gh_put", parameters)
                     .GetAwaiter()
                     .GetResult() as JObject;
 

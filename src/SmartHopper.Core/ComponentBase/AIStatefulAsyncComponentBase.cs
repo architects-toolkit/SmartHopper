@@ -41,6 +41,11 @@ namespace SmartHopper.Core.ComponentBase
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
         private string _model;
+        
+        /// <summary>
+        /// List of AI returns.
+        /// </summary>
+        private List<AIReturn> _responseMetrics = new List<AIResponse>();
 
         /// <summary>
         /// Creates a new instance of the AI-powered stateful asynchronous component.
@@ -165,6 +170,7 @@ namespace SmartHopper.Core.ComponentBase
 
             JObject result;
 
+            // TODO: remove and check it in AIRequest
             // Validate capability requirements before execution
             try
             {
@@ -182,10 +188,12 @@ namespace SmartHopper.Core.ComponentBase
                     }
                     else
                     {
-                        var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
+                        // TODO: remove and use ModelUsed from AIRequest
+                        // var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
                         if (!validationResult)
                         {
-                            model = ModelManager.Instance.GetDefaultModelForTool(currentProvider.Name, toolName);
+                            // TODO: remove and use ModelUsed from AIRequest
+                            // model = ModelManager.Instance.GetDefaultModelForTool(currentProvider.Name, toolName);
 
                             if (model == null)
                             {
@@ -227,7 +235,7 @@ namespace SmartHopper.Core.ComponentBase
             try
             {
                 result = await AIToolManager
-                    .ExecuteTool(toolName, parameters, null)
+                    .ExecuteTool(toolName, parameters)
                     .ConfigureAwait(false) as JObject;
             }
             catch (Exception ex)
@@ -268,6 +276,10 @@ namespace SmartHopper.Core.ComponentBase
             return result;
         }
 
+        /// <summary>
+        /// Converts an AI response to a persistent runtime message.
+        /// </summary>
+        /// <param name="response">The AI response to convert.</param>
         protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
         {
             var responseMessage = response.Response.ToLower();
@@ -298,21 +310,18 @@ namespace SmartHopper.Core.ComponentBase
         #region METRICS
 
         /// <summary>
-        /// List of AI response metrics.
-        /// </summary>
-        private List<AIResponse> _responseMetrics = new List<AIResponse>();
-
-        /// <summary>
         /// Stores the given AI response metrics in the component's internal metrics list.
         /// </summary>
         /// <param name="response">The AI response to store metrics from.</param>
         /// <param name="reuseCount">Optional. The number of times this response is reused across different branches. Default is 1.</param>
-        public void StoreResponseMetrics(AIResponse response, int reuseCount = 1)
+        public void StoreResponseMetrics(AIReturn toolReturn, int reuseCount = 1)
         {
-            if (response != null)
+            if (toolReturn != null)
             {
+                var metrics = toolReturn.Metrics;
+                
                 // Set the reuse count on the response
-                response.ReuseCount = reuseCount;
+                metrics.ReuseCount = reuseCount;
 
                 _responseMetrics.Add(response);
 
