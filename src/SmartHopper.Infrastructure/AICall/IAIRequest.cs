@@ -63,6 +63,11 @@ namespace SmartHopper.Infrastructure.AICall
         IAIRequestBody Body { get; set; }
 
         /// <summary>
+        /// Gets the encoded request for the specified provider.
+        /// </summary>
+        string EncodedRequestBody { get; }
+
+        /// <summary>
         /// A value indicating whether the request is valid.
         /// </summary>
         (bool IsValid, List<string> Errors) IsValid();
@@ -70,6 +75,6 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Executes the request and gets the result.
         /// </summary>
-        Task<AIReturn<T>> Do<T>();
+        Task<AIReturn> Do();
     }
 }

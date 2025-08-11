@@ -34,11 +34,6 @@ namespace SmartHopper.Infrastructure.AICall
         AIAgent Agent { get; set; }
 
         /// <summary>
-        /// Gets or sets the body of the interaction.
-        /// </summary>
-        object Body { get; set; }
-
-        /// <summary>
         /// Gets or sets list of tool calls associated with this interaction.
         /// </summary>
         List<AIToolCall> ToolCalls { get; set; }

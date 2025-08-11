@@ -118,10 +118,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
 
+                // Initiate AIRequestBody
                 var requestBody = new AIRequestBody();
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", userPrompt);
 
+                // Initiate AIRequest
                 var request = new AIRequest
                 {
                     Provider = providerName,
@@ -131,14 +133,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Body = requestBody,
                 };
 
-                // Execute the tool
+                // Execute the AIRequest
                 var result = await request.Do<string>().ConfigureAwait(false);
 
-                // Strip thinking tags from response before parsing
-                var cleanedResponse = AI.StripThinkTags(result.Result);
-
                 // Parse the boolean from the response
-                var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
+                var parsedResult = ParsingTools.ParseBooleanFromResponse(result);
 
                 if (parsedResult == null)
                 {

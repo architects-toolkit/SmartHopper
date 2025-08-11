@@ -170,35 +170,29 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public virtual IAIRequest PreCall<T>(IAIRequest request)
+        public abstract string Encode(IAIRequest request);
+
+        /// <inheritdoc/>
+        public abstract List<IAIInteraction> DecodeResponse(string response);
+        
+        /// <inheritdoc/>
+        public abstract AIMetrics DecodeMetrics(string response);
+
+        /// <inheritdoc/>
+        public virtual IAIRequest PreCall(IAIRequest request)
         {
             return request;
         }
 
         /// <inheritdoc/>
-        public virtual string FormatRequestBody(IAIRequest request)
-        {
-            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
-            {
-                return "GET and DELETE requests do not use a request body";
-            }
-
-            switch (request.Endpoint)
-            {
-                default:
-                    return "Provider " + this.Name + " is not configured to format the request body for endpoint " + request.Endpoint;
-            }
-        }
-
-        /// <inheritdoc/>
-        public async Task<IAIReturn<T>> Call<T>(IAIRequest request)
+        public async Task<IAIReturn> Call(IAIRequest request)
         {
             // Start stopwatch
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             // Execute PreCall
-            request = this.PreCall<T>(request);
+            request = this.PreCall(request);
 
             // Validate request before calling the API
             (bool isValid, List<string> errors) = request.IsValid();
@@ -208,33 +202,33 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 var error = "The request is not valid: " + string.Join(", ", errors);
 
-                return new AIReturn<T>
+                var result = new AIReturn();
+                var metrics = new AIMetrics
                 {
-                    Metrics = new AIMetrics()
-                    {
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    },
-                    Status = AICallStatus.Finished,
-                    ErrorMessage = error,
+                    FinishReason = "error",
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
+
+                result = AIReturn.CreateError(error, request, metrics);
+
+                return result;
             }
 
             // Execute CallApi
-            var response = await this.CallApi<T>(request);
+            var response = await this.CallApi(request);
 
             // Add completion time to metrics
             stopwatch.Stop();
             response.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
 
             // Execute PostCall
-            response = this.PostCall<T>(response);
+            response = this.PostCall(response);
 
             return response;
         }
 
         /// <inheritdoc/>
-        public virtual IAIReturn<T> PostCall<T>(IAIReturn<T> response)
+        public virtual IAIReturn PostCall(IAIReturn response)
         {
             return response;
         }
@@ -474,11 +468,11 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <param name="request">The request to make.</param>
         /// <returns>The HTTP response content as a type T.</returns>
-        protected virtual async Task<IAIReturn<T>> CallApi<T>(IAIRequest request)
+        protected virtual async Task<IAIReturn> CallApi(IAIRequest request)
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;
-            string requestBody = this.FormatRequestBody(request);
+            string requestBody = request.EncodedRequestBody;
             string contentType = request.ContentType;
             string authentication = request.Authentication;
 
@@ -561,7 +555,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
 
                     // Prepare the AIReturn
-                    var aiReturn = AIReturn<T>.CreateRawSuccess(
+                    var aiReturn = AIReturn.CreateSuccess(
                         raw: content,
                         request: request,
                         metrics: new AIMetrics()

@@ -130,7 +130,7 @@ namespace SmartHopper.Core.Messaging
         /// Internal implementation for getting AI responses with full context management.
         /// </summary>
         /// <param name="request">The AIRequest containing the request parameters.</param>
-        /// <returns>An AIReturn<T> containing the generated response and metadata.</returns>
+        /// <returns>An AIReturn containing the generated response and metadata.</returns>
         private static async Task<AIReturn<string>> GetResponse(AIRequest request)
         {
             return await request.Do().ConfigureAwait(false);

@@ -16,6 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.SpecialTypes;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -60,10 +61,10 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall<T>(IAIRequest request)
+        public override IAIRequest PreCall(IAIRequest request)
         {
             // First do the base PreCall
-            request = base.PreCall<T>(request);
+            request = base.PreCall(request);
 
             switch (request.Endpoint)
             {
@@ -83,13 +84,9 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override string FormatRequestBody(IAIRequest request)
+        public override string Encode(IAIRequest request)
         {
-            // If Body type is not string return error
-            if (request.Body.Interactions.OfType<AIInteraction<string>>() == null)
-            {
-                throw new Exception("Error: Body type " + request.Body.GetType().Name + " is not supported for " + this.Name + " provider");
-            }
+            // Encode request body for Mistral. Supports string and AIText content in interactions.
 
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");
@@ -97,7 +94,7 @@ namespace SmartHopper.Providers.MistralAI
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[MistralAI] FormatRequestBody - Model: {model}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
             // Format messages for Mistral API
             var convertedMessages = new JArray();
@@ -105,8 +102,22 @@ namespace SmartHopper.Providers.MistralAI
             {
                 AIAgent role = interaction.Agent;
                 string roleName = string.Empty;
-                string msgContent = interaction.Body.ToString() ?? string.Empty;
-                msgContent = AI.StripThinkTags(msgContent);
+                string msgContent;
+                var body = interaction.Body;
+                if (body is string s)
+                {
+                    msgContent = s;
+                }
+                else if (body is SmartHopper.Infrastructure.AICall.SpecialTypes.AIText text)
+                {
+                    // For AIText, only send the actual content
+                    msgContent = text.Content ?? string.Empty;
+                }
+                else
+                {
+                    // Fallback to string representation
+                    msgContent = body?.ToString() ?? string.Empty;
+                }
 
                 var messageObj = new JObject
                 {
@@ -217,58 +228,92 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override IAIReturn<T> PostCall<T>(IAIReturn<T> response)
+        public override List<IAIInteraction> DecodeResponse(string response)
         {
-            // First do the base PostCall
-            response = base.PostCall<T>(response);
+            var interactions = new List<IAIInteraction>();
 
-            // If type is not string return error
-            if (!(typeof(T) == typeof(string) && response is IAIReturn<string> stringResponse))
+            if (string.IsNullOrWhiteSpace(response))
             {
-                throw new Exception("Error: Type " + typeof(T).Name + " is not supported for " + this.Name + " provider");
+                return interactions;
             }
 
             try
             {
-                var responseJson = JObject.Parse(stringResponse.RawResult);
-                Debug.WriteLine($"[MistralAI] PostCall - Response parsed successfully");
-
-                // Extract response content
+                var responseJson = JObject.Parse(response);
                 var choices = responseJson["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
-                var usage = responseJson["usage"] as JObject;
 
                 if (message == null)
                 {
-                    Debug.WriteLine($"[MistralAI] No message in response: {responseJson}");
-                    throw new Exception("Invalid response from MistralAI API: No message found");
+                    return interactions;
                 }
 
-                var content = message["content"]?.ToString() ?? string.Empty;
+                // Extract content and reasoning (thinking) parts from Mistral's structured content array
+                string content = string.Empty;
+                string reasoning = string.Empty;
 
-                var aiReturn = new AIReturn<string>
+                var contentToken = message["content"];
+                if (contentToken is JArray contentArray)
                 {
-                    Result = content,
-                    Metrics = new AIMetrics
+                    var contentParts = new List<string>();
+                    var reasoningParts = new List<string>();
+
+                    foreach (var part in contentArray.OfType<JObject>())
                     {
-                        FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                        InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                        OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                    },
-                    Status = AICallStatus.Finished,
+                        var type = part["type"]?.ToString();
+                        if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var thinkingToken = part["thinking"];
+                            if (thinkingToken is JArray thinkingArray)
+                            {
+                                foreach (var t in thinkingArray)
+                                {
+                                    if (t is JObject to && string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        var textVal = to["text"]?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                    }
+                                    else
+                                    {
+                                        var textVal = t?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
+                        }
+                    }
+
+                    content = string.Join(string.Empty, contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
+                }
+                else if (contentToken != null)
+                {
+                    // Fallback: content as plain string
+                    content = contentToken.ToString();
+                }
+
+                var interaction = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = content,
+                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                 };
 
-                // Handle tool calls if any
+                // Handle tool calls if any (attach to interaction)
                 if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
                 {
-                    aiReturn.ToolCalls = new List<AIToolCall>();
                     foreach (JObject toolCall in toolCalls)
                     {
                         var function = toolCall["function"] as JObject;
                         if (function != null)
                         {
-                            aiReturn.ToolCalls.Add(new AIToolCall
+                            interaction.ToolCalls.Add(new AIToolCall
                             {
                                 Id = toolCall["id"]?.ToString(),
                                 Name = function["name"]?.ToString(),
@@ -276,16 +321,65 @@ namespace SmartHopper.Providers.MistralAI
                             });
                         }
                     }
-                    aiReturn.Status = AICallStatus.CallingTools;
                 }
 
-                Debug.WriteLine($"[MistralAI] PostCall - Response processed successfully: {aiReturn.Result.Substring(0, Math.Min(50, aiReturn.Result.Length))}...");
-                return (IAIReturn<T>)aiReturn;
+                interactions.Add(interaction);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAI] PostCall - Exception: {ex.Message}");
-                throw new Exception($"Error processing MistralAI response: {ex.Message}", ex);
+                Debug.WriteLine($"[MistralAI] DecodeResponse error: {ex.Message}");
+            }
+
+            return interactions;
+        }
+
+        /// <inheritdoc/>
+        public override AIMetrics DecodeMetrics(string response)
+        {
+            var metrics = new AIMetrics();
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return metrics;
+            }
+
+            try
+            {
+                var responseJson = JObject.Parse(response);
+                var choices = responseJson["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var usage = responseJson["usage"] as JObject;
+
+                metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
+                metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+                metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MistralAI] DecodeMetrics error: {ex.Message}");
+            }
+
+            return metrics;
+        }
+
+        /// <inheritdoc/>
+        public override IAIReturn PostCall(IAIReturn response)
+        {
+            // First do the base PostCall
+            response = base.PostCall(response);
+
+            try
+            {
+                // Determine status based on decoded interactions' tool calls
+                var interactions = response.Result; // triggers provider DecodeResponse
+                if (interactions != null && interactions.Any(i => i.ToolCalls != null && i.ToolCalls.Count > 0))
+                {
+                    response.Status = AICallStatus.CallingTools;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MistralAI] PostCall status update error: {ex.Message}");
+                // Keep original response on failure
             }
 
             return response;

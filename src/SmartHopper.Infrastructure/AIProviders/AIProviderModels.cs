@@ -22,16 +22,14 @@ namespace SmartHopper.Infrastructure.AIProviders
     public abstract class AIProviderModels : IAIProviderModels
     {
         protected readonly IAIProvider _provider;
-        protected readonly Func<IAIRequest, Task<IAIReturn<string>>> _apiCaller;
 
         /// <summary>
         /// Initializes a new instance of the AIProviderModels.
         /// </summary>
         /// <param name="provider">The AI provider this model manager belongs to.</param>
-        protected AIProviderModels(IAIProvider provider, Func<IAIRequest, Task<IAIReturn<string>>> apiCaller)
+        protected AIProviderModels(IAIProvider provider)
         {
             this._provider = provider ?? throw new ArgumentNullException(nameof(provider));
-            this._apiCaller = apiCaller ?? throw new ArgumentNullException(nameof(apiCaller));
         }
 
         /// <summary>
