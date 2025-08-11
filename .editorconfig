@@ -242,3 +242,12 @@ dotnet_diagnostic.CA1707.severity = none
 # SA1124: Do not use regions
 # Suppressed because regions are used to group related methods
 dotnet_diagnostic.SA1124.severity = none
+
+# Unused private members
+dotnet_diagnostic.IDE0051.severity = warning
+
+# Assigned but not used
+dotnet_diagnostic.IDE0052.severity = warning
+
+# FxCop: uncalled private code
+dotnet_diagnostic.CA1811.severity = warning

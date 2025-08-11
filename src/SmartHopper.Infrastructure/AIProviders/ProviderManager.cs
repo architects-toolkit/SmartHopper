@@ -298,28 +298,6 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Refreshes a provider with current settings from SmartHopperSettings.
-        /// </summary>
-        /// <param name="provider">The provider to refresh.</param>
-        private void RefreshProviderSettings(IAIProvider provider)
-        {
-            try
-            {
-                if (provider == null) return;
-
-                var settingsDict = SmartHopperSettings.Instance.GetProviderSettings(provider.Name);
-                if (settingsDict != null)
-                {
-                    provider.RefreshCachedSettings(settingsDict);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ProviderManager] Error refreshing provider settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// Gets the settings for a provider.
         /// </summary>
         /// <param name="providerName">The name of the provider.</param>
