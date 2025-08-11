@@ -190,7 +190,6 @@ namespace SmartHopper.Core.ComponentBase
                     else
                     {
                         // TODO: remove and use ModelUsed from AIRequest
-                        // var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
                         if (!validationResult)
                         {
                             // TODO: remove and use ModelUsed from AIRequest
