@@ -11,12 +11,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Dynamic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Infrastructure.AITools
 {

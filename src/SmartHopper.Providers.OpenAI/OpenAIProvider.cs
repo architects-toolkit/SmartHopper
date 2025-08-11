@@ -73,7 +73,7 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall(IAIRequest request)
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
             // First do the base PreCall
             request = base.PreCall(request);
@@ -116,7 +116,7 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override string FormatRequestBody(IAIRequest request)
+        public override string FormatRequestBody(AIRequestCall request)
         {
             if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
             {
@@ -137,7 +137,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Formats request body for chat completions endpoint.
         /// </summary>
-        private string FormatChatCompletionsRequestBody(IAIRequest request)
+        private string FormatChatCompletionsRequestBody(AIRequestCall request)
         {
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";

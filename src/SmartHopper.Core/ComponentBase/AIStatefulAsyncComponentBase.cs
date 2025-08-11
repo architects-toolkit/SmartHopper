@@ -25,7 +25,6 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.ComponentBase
@@ -43,9 +42,14 @@ namespace SmartHopper.Core.ComponentBase
         private string _model;
 
         /// <summary>
-        /// List of AI returns.
+        /// AI metrics from the last call.
         /// </summary>
-        private List<AIReturn> _responseMetrics = new List<AIResponse>();
+        private AIMetrics _responseMetrics;
+
+        /// <summary>
+        /// Number of iterations performed.
+        /// </summary>
+        private int _iterationsCount;
 
         /// <summary>
         /// Creates a new instance of the AI-powered stateful asynchronous component.
@@ -165,77 +169,50 @@ namespace SmartHopper.Core.ComponentBase
         {
             parameters ??= new JObject();
 
-            // Inject provider and model
+            // Provider and model
             var providerName = this.GetActualAIProviderName();
             var model = this.GetModel();
 
-            JObject result;
+            AIToolCall toolCall = new AIToolCall
+            {
+                Name = toolName,
+                Arguments = parameters,
+                Provider = providerName,
+                Model = model,
+            };
 
-            // TODO: remove and check it in AIRequest
-            // Validate capability requirements before execution
+            toolCall.ReplaceReuseCount(reuseCount);
+
+            // Surface validation messages from AIToolCall/AIRequestBase validation
             try
             {
-                var currentProvider = this.GetActualAIProvider();
-                if (currentProvider != null)
+                var (isValid, messages) = toolCall.IsValid();
+                if (messages != null && messages.Count > 0)
                 {
-                    var capabilities = ModelManager.Instance.GetCapabilities(currentProvider.Name, model);
-                    if (capabilities == null)
+                    int idx = 0;
+                    foreach (var msg in messages)
                     {
-                        this.SetPersistentRuntimeMessage(
-                            "model_not_registered",
-                            GH_RuntimeMessageLevel.Remark,
-                            $"The selected model is not registered in the compatibility matrix. It could generate unexpected results",
-                            false);
-                    }
-                    else
-                    {
-                        // TODO: remove and use ModelUsed from AIRequest
-                        if (!validationResult)
-                        {
-                            // TODO: remove and use ModelUsed from AIRequest
-                            // model = ModelManager.Instance.GetDefaultModelForTool(currentProvider.Name, toolName);
-
-                            if (model == null)
-                            {
-                                this.SetPersistentRuntimeMessage(
-                                    "provider_not_compatible",
-                                    GH_RuntimeMessageLevel.Error,
-                                    $"The selected provider does not have any model compatible with this component.",
-                                    false);
-
-                                result = new JObject
-                                {
-                                    ["success"] = false,
-                                    ["error"] = "The selected provider does not have any model compatible with this component.\nPlease, choose another AI provider.",
-                                };
-
-                                return result;
-                            }
-
-                            this.SetPersistentRuntimeMessage(
-                                "model_replaced",
-                                GH_RuntimeMessageLevel.Remark,
-                                $"The selected or default model is not compatible with this component.\n\"{model}\" by \"{providerName}\" was used instead.",
-                                false);
-                        }
+                        idx++;
+                        var level = msg != null && msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase)
+                            ? GH_RuntimeMessageLevel.Remark
+                            : GH_RuntimeMessageLevel.Error;
+                        var message = msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) ? msg.Replace("(Info) ", "", StringComparison.OrdinalIgnoreCase) : msg;
+                        this.SetPersistentRuntimeMessage($"tool_validation_{idx}", level, message, false);
                     }
                 }
             }
-            catch (Exception capEx)
+            catch (Exception valEx)
             {
-                // Log capability check error but don't fail execution
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Capability validation error: {capEx.Message}");
+                // Log validation message surfacing issues but do not fail execution
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Validation message processing error: {valEx.Message}");
             }
 
-            // Inject provider and model
-            parameters["provider"] = providerName;
-            parameters["model"] = model;
-            parameters["reuseCount"] = reuseCount;
+            JObject result;
 
             try
             {
                 result = await AIToolManager
-                    .ExecuteTool(toolName, parameters)
+                    .ExecuteTool(toolCall)
                     .ConfigureAwait(false) as JObject;
             }
             catch (Exception ex)
@@ -258,7 +235,7 @@ namespace SmartHopper.Core.ComponentBase
             if (result.TryGetValue("rawResponse", out var metricsToken))
             {
                 var aiResp = metricsToken.ToObject<AIResponse>();
-                StoreResponseMetrics(aiResp, reuseCount);
+                StoreResponseMetrics(aiResp);
             }
 
             // Handle tool-level failure
@@ -314,18 +291,16 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="response">The AI response to store metrics from.</param>
         /// <param name="reuseCount">Optional. The number of times this response is reused across different branches. Default is 1.</param>
-        public void StoreResponseMetrics(AIReturn toolReturn, int reuseCount = 1)
+        public void StoreResponseMetrics(AIReturn toolReturn)
         {
             if (toolReturn != null)
             {
                 var metrics = toolReturn.Metrics;
-                
-                // Set the reuse count on the response
-                metrics.ReuseCount = reuseCount;
 
-                _responseMetrics.Add(response);
+                _responseMetrics.Combine(metrics);
+                _iterationsCount++;
 
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list with reuse count: {reuseCount}");
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list with reuse count: {metrics.ReuseCount}");
             }
         }
 
@@ -337,7 +312,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            if (!_responseMetrics.Any())
+            if (_responseMetrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
@@ -347,24 +322,22 @@ namespace SmartHopper.Core.ComponentBase
             string actualProvider = GetActualAIProviderName();
 
             // Aggregate metrics
-            int totalInTokens = _responseMetrics.Sum(r => r.InTokens);
-            int totalOutTokens = _responseMetrics.Sum(r => r.OutTokens);
-            string finishReason = _responseMetrics.Last().FinishReason;
-            double totalCompletionTime = _responseMetrics.Sum(r => r.CompletionTime);
-            string usedModels = string.Join(", ", _responseMetrics
-                .Select(r => r.Model)
-                .Distinct());
+            int totalInTokens = this._responseMetrics.InputTokens;
+            int totalOutTokens = this._responseMetrics.OutputTokens;
+            string finishReason = this._responseMetrics.FinishReason;
+            double totalCompletionTime = this._responseMetrics.CompletionTime;
+            string usedModel = this._responseMetrics.Model;
 
             // Create JSON object with metrics
             var metricsJson = new JObject(
                 new JProperty("ai_provider", actualProvider),
-                new JProperty("ai_model", usedModels),
+                new JProperty("ai_model", usedModel),
                 new JProperty("tokens_input", totalInTokens),
                 new JProperty("tokens_output", totalOutTokens),
                 new JProperty("finish_reason", finishReason),
                 new JProperty("completion_time", totalCompletionTime),
-                new JProperty("data_count", _responseMetrics.Sum(r => r.ReuseCount)),
-                new JProperty("iterations_count", _responseMetrics.Count)
+                new JProperty("data_count", _responseMetrics.ReuseCount),
+                new JProperty("iterations_count", _iterationsCount)
             );
 
             // Convert metricsJson to GH_String
@@ -388,6 +361,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
                 _responseMetrics.Clear();
+                _iterationsCount = 0;
             }
         }
 

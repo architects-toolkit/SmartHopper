@@ -70,7 +70,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="providerName">The name of the AI provider to use for default model operations.</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="progressReporter">Optional callback to report progress updates.</param>
-        public WebChatDialog(AIRequest request, Action<string>? progressReporter = null)
+        public WebChatDialog(AIRequestCall request, Action<string>? progressReporter = null)
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             this._progressReporter = progressReporter;
@@ -822,7 +822,7 @@ namespace SmartHopper.Core.UI.Chat
                     JObject.Parse(toolCall.Arguments),
                     new JObject { ["provider"] = parentResponse.Provider, ["model"] = parentResponse.Model }
                 );
-                var resultJson = JsonConvert.SerializeObject(result, Formatting.Indented);
+                var resultJson = JsonConvert.SerializeObject(result.Result, Formatting.Indented);
 
                 // wrap the tool result in an AIResponse
                 var toolResponse = new AIResponse

@@ -43,19 +43,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             set
             {
-                // Create a copy of the current request and set its Body to a new AIRequestBody with the given interactions.
-                var requestCopy = new AIRequest
-                {
-                    Provider = this.Request.Provider,
-                    Model = this.Request.Model,
-                    Capability = this.Request.Capability,
-                    Endpoint = this.Request.Endpoint,
-                    HttpMethod = this.Request.HttpMethod,
-                    Authentication = this.Request.Authentication,
-                    ContentType = this.Request.ContentType,
-                    Body = new AIRequestBody { Interactions = value },
-                };
-                this.PrivateEncodedResult = this.Request.ProviderInstance.Encode(requestCopy);
+                this.PrivateEncodedResult = this.Request.ProviderInstance.Encode(value);
             }
         }
 
@@ -68,7 +56,7 @@ namespace SmartHopper.Infrastructure.AICall
                 this.PrivateEncodedResult = value;
 
                 // Decode Metrics and combine them with existing metrics
-                this.Metrics = this.CombineMetrics(this.Metrics, this.Request.ProviderInstance.DecodeMetrics(value));
+                this.Metrics.Combine(this.Request.ProviderInstance.DecodeMetrics(value));
             }
         }
 
@@ -140,7 +128,7 @@ namespace SmartHopper.Infrastructure.AICall
         {
             if (request == null)
             {
-                request = new AIRequest();
+                request = new AIRequestCall();
             }
 
             if (metrics == null)
@@ -168,7 +156,7 @@ namespace SmartHopper.Infrastructure.AICall
         {
             if (request == null)
             {
-                request = new AIRequest();
+                request = new AIRequestCall();
             }
 
             if (metrics == null)
@@ -196,7 +184,7 @@ namespace SmartHopper.Infrastructure.AICall
         {
             if (request == null)
             {
-                request = new AIRequest();
+                request = new AIRequestCall();
             }
 
             if (metrics == null)
@@ -213,30 +201,6 @@ namespace SmartHopper.Infrastructure.AICall
                 ErrorMessage = message,
                 Status = AICallStatus.Finished,
             };
-        }
-
-        private AIMetrics CombineMetrics(AIMetrics original, AIMetrics input)
-        {
-            var result = original;
-            if (input.Provider != null)
-            {
-                result.Provider = input.Provider;
-            }
-            if (input.Model != null)
-            {
-                result.Model = input.Model;
-            }
-            if (input.FinishReason != null)
-            {
-                result.FinishReason = input.FinishReason;
-            }
-            result.InputTokensPrompt += input.InputTokensPrompt;
-            result.InputTokensCached += input.InputTokensCached;
-            result.OutputTokensReasoning += input.OutputTokensReasoning;
-            result.OutputTokensGeneration += input.OutputTokensGeneration;
-            result.ReuseCount += input.ReuseCount;
-            result.CompletionTime += input.CompletionTime;
-            return result;
         }
     }
 
@@ -262,7 +226,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             var jo = new JObject();
             var aiReturnType = aireturn.GetType();
-            var requestType = aireturn.Request?.GetType() ?? typeof(AIRequest);
+            var requestType = aireturn.Request?.GetType() ?? typeof(AIRequestCall);
             var metricsType = aireturn.Metrics?.GetType() ?? typeof(AIMetrics);
 
             foreach (var (jsonKey, sourcePath) in fields)

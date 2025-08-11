@@ -47,7 +47,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine("[MistralAI] Retrieving available models");
 
-                // TODO: Replace with AIRequest.Do()
+                // TODO: Replace with AIRequestCall.Exec()
                 var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;

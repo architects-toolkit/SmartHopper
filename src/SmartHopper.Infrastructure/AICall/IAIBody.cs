@@ -12,7 +12,7 @@ using System.Collections.Generic;
 
 namespace SmartHopper.Infrastructure.AICall
 {
-    public interface IAIRequestBody
+    public interface IAIBody
     {
         /// <summary>
         /// Gets or sets the interaction history.

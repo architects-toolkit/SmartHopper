@@ -75,7 +75,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall(IAIRequest request)
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
             // First do the base PreCall
             request = base.PreCall(request);
@@ -92,7 +92,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override string Encode(IAIRequest request)
+        public override string Encode(AIRequestCall request)
         {
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");

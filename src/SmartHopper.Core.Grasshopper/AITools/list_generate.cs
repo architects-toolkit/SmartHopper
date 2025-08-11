@@ -103,8 +103,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[ListTools] Running GenerateList tool");
 
                 // Extract parameters
-                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 string? prompt = toolCall.Arguments["prompt"]?.ToString();
                 int count = toolCall.Arguments["count"]?.ToObject<int>() ?? 0;
@@ -134,12 +134,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 initialUserPrompt = initialUserPrompt.Replace("<prompt>", prompt);
                 initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString());
 
-                var requestBody = new AIRequestBody();
+                var requestBody = new AIBody();
                 requestBody.JsonOutputSchema = this.listJsonSchema;
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", initialUserPrompt);
 
-                var request = new AIRequest
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,

@@ -86,8 +86,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[TextTools] Running GenerateText tool");
 
                 // Extract parameters
-                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 string? prompt = toolCall.Arguments["prompt"]?.ToString();
                 string? instructions = toolCall.Arguments["instructions"]?.ToString();
@@ -103,11 +103,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
 
                 // Prepare the AI request
-                var requestBody = new AIRequestBody();
+                var requestBody = new AIBody();
                 requestBody.AddInteraction("system", systemPrompt);
                 requestBody.AddInteraction("user", prompt);
 
-                var request = new AIRequest
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,

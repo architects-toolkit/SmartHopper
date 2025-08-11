@@ -92,8 +92,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[ListTools] Running EvaluateList tool");
 
                 // Extract parameters
-                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 string? rawList = toolCall.Arguments["list"]?.ToString();
                 string? question = toolCall.Arguments["question"]?.ToString();
@@ -118,13 +118,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
 
-                // Initiate AIRequestBody
-                var requestBody = new AIRequestBody();
+                // Initiate AIBody
+                var requestBody = new AIBody();
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", userPrompt);
 
-                // Initiate AIRequest
-                var request = new AIRequest
+                // Initiate AIRequestCall
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,
@@ -133,7 +133,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Body = requestBody,
                 };
 
-                // Execute the AIRequest
+                // Execute the AIRequestCall
                 var result = await request.Do<string>().ConfigureAwait(false);
 
                 // Parse the boolean from the response

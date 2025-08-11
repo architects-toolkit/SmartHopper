@@ -133,8 +133,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[ImageTools] Running GenerateImageToolWrapper");
 
                 // Extract parameters
-                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
                 string? prompt = toolCall.Arguments["prompt"]?.ToString();
                 string size = toolCall.Arguments["size"]?.ToString() ?? "1024x1024";
                 string quality = toolCall.Arguments["quality"]?.ToString() ?? "standard";

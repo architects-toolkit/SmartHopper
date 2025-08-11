@@ -109,5 +109,31 @@ namespace SmartHopper.Infrastructure.AICall
 
             return (errors.Count == 0, errors);
         }
+
+        /// <summary>
+        /// Combines the metrics of another AIMetrics object into this one.
+        /// </summary>
+        /// <param name="other">The AIMetrics object to combine with.</param>
+        public void Combine(AIMetrics other)
+        {
+            if (other.Provider != null)
+            {
+                this.Provider = other.Provider;
+            }
+            if (other.Model != null)
+            {
+                this.Model = other.Model;
+            }
+            if (other.FinishReason != null)
+            {
+                this.FinishReason = other.FinishReason;
+            }
+            this.InputTokensPrompt += other.InputTokensPrompt;
+            this.InputTokensCached += other.InputTokensCached;
+            this.OutputTokensReasoning += other.OutputTokensReasoning;
+            this.OutputTokensGeneration += other.OutputTokensGeneration;
+            this.ReuseCount += other.ReuseCount;
+            this.CompletionTime += other.CompletionTime;
+        }
     }
 }

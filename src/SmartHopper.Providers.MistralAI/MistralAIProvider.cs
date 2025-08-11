@@ -61,7 +61,7 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override IAIRequest PreCall(IAIRequest request)
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
             // First do the base PreCall
             request = base.PreCall(request);
@@ -84,7 +84,7 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override string Encode(IAIRequest request)
+        public override string Encode(AIRequestCall request)
         {
             // Encode request body for Mistral. Supports string and AIText content in interactions.
 

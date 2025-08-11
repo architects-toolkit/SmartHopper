@@ -24,41 +24,39 @@ namespace SmartHopper.Infrastructure.AICall
     /// Represents a fully-specified AI request that providers can execute, including
     /// provider information, model resolution, capability validation, and request body.
     /// </summary>
-    public class AIRequest : IAIRequest
+    public class AIRequestCall : AIRequestBase
     {
+        /// <inheritdoc/>
+        public override AICapability Capability { get => this.GetEffectiveCapabilities(out _); set => this.capability = value; } = AICapability.BasicChat;
+
         /// <summary>
-        /// Store the desired model.
+        /// Gets or sets the endpoint or full URL to use for the request.
         /// </summary>
-        private string model;
-        
-        /// <inheritdoc/>
-        public string Provider { get; set; }
-
-        /// <inheritdoc/>
-        public IAIProvider ProviderInstance { get => ProviderManager.Instance.GetProvider(this.Provider); }
-
-        /// <inheritdoc/>
-        public string Model { get => this.GetModelToUse(); set => this.model = value; }
-
-        /// <inheritdoc/>
-        public AICapability Capability { get; set; } = AICapability.BasicChat;
-
-        /// <inheritdoc/>
         public string Endpoint { get; set; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets or sets the HTTP method to use for the request.
+        /// </summary>
         public string HttpMethod { get; set; } = "POST";
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets or sets the authentication method to use for the request.
+        /// </summary>
         public string Authentication { get; set; } = "bearer";
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets or sets the content type to use for the request.
+        /// </summary>
         public string ContentType { get; set; } = "application/json";
 
-        /// <inheritdoc/>
-        public IAIRequestBody Body { get; set; }
+        /// <summary>
+        /// Gets or sets the request body.
+        /// </summary>
+        public IAIBody Body { get; set; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the encoded request for the specified provider.
+        /// </summary>
         public string EncodedRequestBody {
             get {
                 var (valid, errors) = this.IsValid();
@@ -74,27 +72,24 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <inheritdoc/>
-        public (bool IsValid, List<string> Errors) IsValid()
+        public override (bool IsValid, List<string> Errors) IsValid()
         {
             var messages = new List<string>();
             bool hasErrors = false;
+
+            var (baseValid, baseErrors) = base.IsValid();
+            if (!baseValid)
+            {
+                messages.AddRange(baseErrors);
+                hasErrors = true;
+            }
+
             var effectiveCapability = this.GetEffectiveCapabilities(out var capabilityNotes);
 
             // Append any capability notes (informational)
             if (capabilityNotes.Count > 0)
             {
                 messages.AddRange(capabilityNotes);
-            }
-
-            if (string.IsNullOrEmpty(this.Provider))
-            {
-                messages.Add("Provider is required");
-                hasErrors = true;
-            }
-
-            if (string.IsNullOrEmpty(this.model))
-            {
-                messages.Add($"(Info) Model is not specified - the default model '{this.GetModelToUse()}' will be used");
             }
 
             if (string.IsNullOrEmpty(this.Endpoint))
@@ -112,12 +107,6 @@ namespace SmartHopper.Infrastructure.AICall
             if (string.IsNullOrEmpty(this.Authentication))
             {
                 messages.Add("Authentication method is required");
-                hasErrors = true;
-            }
-
-            if (!effectiveCapability.HasInput() || !effectiveCapability.HasOutput())
-            {
-                messages.Add("Capability field is required with both input and output capabilities");
                 hasErrors = true;
             }
 
@@ -142,22 +131,11 @@ namespace SmartHopper.Infrastructure.AICall
                 }
             }
 
-            if (this.ProviderInstance == null)
-            {
-                messages.Add($"Unknown provider '{this.Provider}'");
-                hasErrors = true;
-            }
-
-            if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
-            {
-                messages.Add($"(Info) Model '{this.model}' is not capable for this request - the default model '{this.GetModelToUse()}' will be used");
-            }
-
             return (!hasErrors, messages);
         }
 
         /// <inheritdoc/>
-        public async Task<AIReturn> Do()
+        public override async Task<AIReturn> Exec()
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -222,59 +200,6 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Gets the model to use for the request.
-        /// </summary>
-        private string GetModelToUse()
-        {
-            if (string.IsNullOrEmpty(this.Provider))
-            {
-                return null;
-            }
-
-            var provider = this.ProviderInstance;
-            if (provider == null)
-            {
-                return null;
-            }
-
-            var defaultModel = provider.GetDefaultModel(this.GetEffectiveCapabilities(out _));
-
-            if (string.IsNullOrEmpty(this.model))
-            {
-                return defaultModel;
-            }
-
-            // Validate capabilities and return default if not capable
-            if (!this.ValidModelCapabilities())
-            {
-                return defaultModel;
-            }
-
-            return this.model;
-        }
-
-        /// <summary>
-        /// Validates the model capabilities and mentions the default model that will be used if the specified model is not capable to perform this request.
-        /// </summary>
-        private bool ValidModelCapabilities()
-        {
-            if (string.IsNullOrEmpty(this.Provider))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(this.model))
-            {
-                return false;
-            }
-
-            // Validate capabilities
-            var capabilities = this.GetEffectiveCapabilities(out _);
-            bool valid = ModelManager.Instance.ValidateCapabilities(this.Provider, this.model, capabilities);
-            return valid;
-        }
-
-        /// <summary>
         /// Computes the effective capabilities for this request, augmenting with additional flags
         /// implied by the body (e.g., JsonOutput when a schema is provided, FunctionCalling when tools are requested).
         /// Returns the effective capabilities and a list of informational notes describing adjustments.
@@ -282,7 +207,7 @@ namespace SmartHopper.Infrastructure.AICall
         private AICapability GetEffectiveCapabilities(out List<string> notes)
         {
             notes = new List<string>();
-            var effective = this.Capability;
+            var effective = this.capability;
 
             // If body requires JSON output but capability lacks it, add it (informational)
             if (this.Body?.RequiresJsonOutput() == true && !effective.HasFlag(AICapability.JsonOutput))

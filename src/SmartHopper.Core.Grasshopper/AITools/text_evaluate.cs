@@ -89,8 +89,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[TextTools] Running EvaluateText tool");
 
                 // Extract parameters
-                string providerName = toolCall.Arguments["provider"]?.ToString() ?? string.Empty;
-                string modelName = toolCall.Arguments["model"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 string? text = toolCall.Arguments["text"]?.ToString();
                 string? question = toolCall.Arguments["question"]?.ToString();
@@ -107,11 +107,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<text>", text);
 
-                var requestBody = new AIRequestBody();
+                var requestBody = new AIBody();
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", userPrompt);
 
-                var request = new AIRequest
+                var request = new AIRequestCall
                 {
                     Provider = providerName,
                     Model = modelName,
