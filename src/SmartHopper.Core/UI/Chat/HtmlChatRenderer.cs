@@ -26,7 +26,6 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     internal class HtmlChatRenderer
     {
-        private readonly MarkdownPipeline _markdownPipeline;
         private readonly ChatResourceManager _resourceManager;
 
         /// <summary>
