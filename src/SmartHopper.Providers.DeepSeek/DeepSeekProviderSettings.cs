@@ -64,7 +64,7 @@ namespace SmartHopper.Providers.DeepSeek
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     Type = typeof(int),
-                    DefaultValue = 500,
+                    DefaultValue = 2000,
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false, // keep the NumericStepper

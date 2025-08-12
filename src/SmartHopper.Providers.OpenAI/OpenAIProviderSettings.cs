@@ -62,7 +62,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Name = "MaxTokens",
                     Type = typeof(int),
-                    DefaultValue = 500,
+                    DefaultValue = 2000,
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
                     ControlParams = new NumericSettingDescriptorControl
