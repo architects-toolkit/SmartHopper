@@ -56,7 +56,7 @@
                 AIAgent.User => "user",
                 AIAgent.Assistant => "assistant",
                 AIAgent.ToolCall => "tool_call",
-                AIAgent.ToolResult => "tool",
+                AIAgent.ToolResult => "tool_result",
                 _ => "unknown",
             };
         }
@@ -92,9 +92,11 @@
             {
                 "context" => AIAgent.Context,
                 "system" => AIAgent.System,
+                "developer" => AIAgent.System,
                 "user" => AIAgent.User,
                 "assistant" => AIAgent.Assistant,
                 "tool_call" => AIAgent.ToolCall,
+                "tool_result" => AIAgent.ToolResult,
                 "tool" => AIAgent.ToolResult,
                 _ => AIAgent.Unknown,
             };

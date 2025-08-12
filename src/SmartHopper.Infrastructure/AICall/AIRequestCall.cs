@@ -49,11 +49,6 @@ namespace SmartHopper.Infrastructure.AICall
         public string ContentType { get; set; } = "application/json";
 
         /// <summary>
-        /// Gets or sets the request body.
-        /// </summary>
-        public AIBody Body { get; set; }
-
-        /// <summary>
         /// Gets the encoded request for the specified provider.
         /// </summary>
         public string EncodedRequestBody {

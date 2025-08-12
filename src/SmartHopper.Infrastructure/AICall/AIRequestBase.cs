@@ -43,6 +43,9 @@ namespace SmartHopper.Infrastructure.AICall
         public virtual AICapability Capability { get; set; } = AICapability.BasicChat;
 
         /// <inheritdoc/>
+        public virtual AIBody Body { get; set; } = new AIBody();
+
+        /// <inheritdoc/>
         public virtual (bool IsValid, List<string> Errors) IsValid()
         {
             var messages = new List<string>();

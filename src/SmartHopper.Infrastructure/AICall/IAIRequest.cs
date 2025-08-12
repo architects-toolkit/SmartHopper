@@ -38,6 +38,11 @@ namespace SmartHopper.Infrastructure.AICall
         AICapability Capability { get; set; }
 
         /// <summary>
+        /// Gets or sets the request body.
+        /// </summary>
+        AIBody Body { get; set; }
+
+        /// <summary>
         /// A value indicating whether the request is valid.
         /// </summary>
         (bool IsValid, List<string> Errors) IsValid();
