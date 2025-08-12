@@ -20,20 +20,14 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIInteractionImage : IAIInteraction
     {
-        /// <summary>
-        /// Gets or sets the agent of the interaction.
-        /// </summary>
+        /// <inheritdoc/>
         required public AIAgent Agent { get; set; }
 
-        /// <summary>
-        /// Gets or sets the timestamp of the interaction.
-        /// </summary>
+        /// <inheritdoc/>
         public DateTime Time { get; set; } = DateTime.UtcNow;
 
-        /// <summary>
-        /// Gets or sets the list of tool calls associated with this interaction.
-        /// </summary>
-        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
+        /// <inheritdoc/>
+        public AIMetrics Metrics { get; set; } = new AIMetrics();
 
         /// <summary>
         /// Gets or sets the URL of the generated image.

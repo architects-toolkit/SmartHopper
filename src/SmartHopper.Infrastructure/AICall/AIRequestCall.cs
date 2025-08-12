@@ -193,33 +193,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public void Initialize(string provider, string model,  AIBody body, string endpoint = string.Empty, AICapability capability = AICapability.TextOutput)
-        {
-            this.Provider = provider;
-            this.Model = model;
-            this.Endpoint = endpoint;
-            this.Body = body;
-            this.Capability = capability;
-        }
-
-        /// <summary>
-        /// Initializes the call request.
-        /// </summary>
-        public void Initialize(string provider, string model,  List<IAIInteraction> interactions, string endpoint = string.Empty, AICapability capability = AICapability.TextOutput, string toolFilter = null)
-        {
-            var body = new AIBody(interactions, toolFilter);
-            this.Initialize(provider, model, body, endpoint, capability);
-        }
-
-        /// <summary>
-        /// Initializes the call request.
-        /// </summary>
-        public void Initialize(string provider, string model,  string systemPrompt, string endpoint = string.Empty, AICapability capability = AICapability.TextOutput, string toolFilter = null)
+        public void Initialize(string provider, string model,  string systemPrompt, string endpoint, AICapability capability = AICapability.TextOutput, string toolFilter = null)
         {
             var interactionList = new List<IAIInteraction>();
-            interactionList.Add(new AIInteractionText { Role = "system", Content = systemPrompt });
+            interactionList.Add(new AIInteractionText { Agent = AIAgent.System, Content = systemPrompt });
 
-            this.Initialize(provider, model, interactionList, endpoint, capability, toolFilter);
+            this.Initialize(provider, model, interactionList, endpoint ?? string.Empty, capability, toolFilter);
         }
 
         /// <summary>

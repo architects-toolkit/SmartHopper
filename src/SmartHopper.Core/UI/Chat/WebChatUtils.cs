@@ -23,6 +23,8 @@ using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -92,20 +94,17 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Shows a web-based chat dialog for the specified AI provider and model.
+        /// Shows a web-based chat dialog for the specified AI request.
         /// If a dialog is already open for the specified component, it will be focused instead of creating a new one.
         /// </summary>
-        /// <param name="providerName">The name of the AI provider to use.</param>
-        /// <param name="modelName">The model to use for AI processing.</param>
-        /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
-        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
+        /// <param name="request">The AI request call containing provider, model, and configuration.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
-        /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(AIRequestCall request, Guid componentId = Guid.NewGuid(), Action<string>? progressReporter = null)
+        /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
+        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId = Guid.NewGuid(), Action<string>? progressReporter = null)
         {
-            var tcs = new TaskCompletionSource<AIResponse>();
-            AIResponse? lastResponse = null;
+            var tcs = new TaskCompletionSource<AIReturn>();
+            AIReturn? lastReturn = null;
 
             Debug.WriteLine("[WebChatUtils] Preparing to show web chat dialog");
 
@@ -132,8 +131,9 @@ namespace SmartHopper.Core.UI.Chat
                             // Use the cross-platform EnsureVisibility method to make the dialog visible
                             existingDialog.EnsureVisibility();
 
-                            // Complete the task with null to indicate no new response
-                            tcs.TrySetResult(null);
+                            // Get the last return from the existing dialog
+                            var existingReturn = existingDialog.GetLastReturn();
+                            tcs.TrySetResult(existingReturn);
                             return;
                         }
 
@@ -151,21 +151,22 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             Debug.WriteLine("[WebChatUtils] Dialog closed");
 
-                            // Remove from open dialogs dictionary
+                            // Remove dialog from tracking
                             if (componentId != default)
                             {
                                 OpenDialogs.Remove(componentId);
                             }
 
-                            // Complete the task with the last response
-                            tcs.TrySetResult(lastResponse);
+                            // Complete the task with the last return
+                            lastReturn = dialog.GetLastReturn();
+                            tcs.TrySetResult(lastReturn);
                         };
 
-                        // Handle responses
-                        dialog.ResponseReceived += (sender, response) =>
+                        // Handle response received
+                        dialog.ResponseReceived += (sender, result) =>
                         {
-                            Debug.WriteLine("[WebChatUtils] Response received");
-                            lastResponse = response;
+                            Debug.WriteLine("[WebChatUtils] Response received from dialog");
+                            lastReturn = result;
                         };
 
                         // Configure the dialog window
@@ -204,7 +205,7 @@ namespace SmartHopper.Core.UI.Chat
             private AIRequestCall initialRequest = new AIRequestCall();
             private readonly Action<string> progressReporter;
             private readonly Guid componentId;
-            private AIReturn? lastResponse;
+            private AIReturn? lastReturn;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="WebChatWorker"/> class.
@@ -230,6 +231,7 @@ namespace SmartHopper.Core.UI.Chat
                     model: modelName,
                     systemPrompt: systemPrompt,
                     endpoint: endpoint,
+                    capability: AICapability.TextOutput,
                     toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
@@ -263,7 +265,7 @@ namespace SmartHopper.Core.UI.Chat
 
                 try
                 {
-                    this.lastResponse = await ShowWebChatDialog(
+                    this.lastReturn = await ShowWebChatDialog(
                         request: this.initialRequest,
                         componentId: this.componentId,
                         progressReporter: reporter).ConfigureAwait(false);
@@ -277,12 +279,33 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
-            /// Gets the last AI response received from the chat dialog.
+            /// Gets the last AI return received from the chat dialog.
             /// </summary>
-            /// <returns>The last AI response, or null if no response was received.</returns>
-            public AIResponse GetLastResponse()
+            /// <returns>The last AI return, or null if no return was received.</returns>
+            public AIReturn GetLastReturn()
             {
-                return this.lastResponse;
+                return this.lastReturn;
+            }
+
+            /// <summary>
+            /// Gets the combined metrics from all interactions in the chat history.
+            /// </summary>
+            /// <returns>Combined AI metrics from all chat interactions.</returns>
+            public AIMetrics GetCombinedMetrics()
+            {
+                if (this.lastReturn != null && this.lastReturn.Body?.Interactions?.Count > 0)
+                {
+                    var combinedMetrics = new AIMetrics();
+                    foreach (var interaction in this.lastReturn.Body.Interactions)
+                    {
+                        if (interaction.Metrics != null)
+                        {
+                            combinedMetrics.Combine(interaction.Metrics);
+                        }
+                    }
+                    return combinedMetrics;
+                }
+                return new AIMetrics();
             }
         }
 
