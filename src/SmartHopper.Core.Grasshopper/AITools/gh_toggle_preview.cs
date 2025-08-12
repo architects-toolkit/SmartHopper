@@ -68,7 +68,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var previewOn = toolInfo.Arguments["previewOn"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");

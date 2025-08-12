@@ -142,14 +142,8 @@ namespace SmartHopper.Infrastructure.AICall
                 if (this.ProviderInstance == null)
                 {
                     stopwatch.Stop();
-                    var errorMetrics = new AIMetrics
-                    {
-                        FinishReason = "error",
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    };
-
-                    var errorResult = AIReturn.CreateError("Provider is missing", this, metrics: errorMetrics);
-
+                    var errorResult = new AIReturn();
+                    errorResult.CreateError("Provider is missing", this);
                     return errorResult;
                 }
 
@@ -162,30 +156,16 @@ namespace SmartHopper.Infrastructure.AICall
             {
                 stopwatch.Stop();
                 var error = $"Error: API request failed - {ex.Message}";
-
-                var errorMetrics = new AIMetrics
-                {
-                    FinishReason = "error",
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                };
-
-                var errorResult = AIReturn.CreateError(error, this, metrics: errorMetrics);
-
+                var errorResult = new AIReturn();
+                errorResult.CreateError(error, this);
                 return errorResult;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 var error = $"Error: {ex.Message}";
-
-                var errorMetrics = new AIMetrics
-                {
-                    FinishReason = "error",
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                };
-
-                var errorResult = AIReturn.CreateError(error, this, metrics: errorMetrics);
-
+                var errorResult = new AIReturn();
+                errorResult.CreateError(error, this);
                 return errorResult;
             }
         }

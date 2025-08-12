@@ -24,7 +24,6 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
-;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -101,8 +100,13 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId = Guid.NewGuid(), Action<string>? progressReporter = null)
+        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId, Action<string>? progressReporter = null)
         {
+            if (componentId == Guid.Empty)
+            {
+                componentId = Guid.NewGuid();
+            }
+
             var tcs = new TaskCompletionSource<AIReturn>();
             AIReturn? lastReturn = null;
 
@@ -316,8 +320,9 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="modelName">The model to use for AI processing.</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
-        /// <param name="progressReporter">Action to report progress.</param>
+        /// <param name="toolFilter">The tool filter to provide to the AI assistant.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
+        /// <param name="progressReporter">Action to report progress.</param>
         /// <returns>A new web chat worker.</returns>
         public static WebChatWorker CreateWebChatWorker(
             string providerName,
@@ -325,9 +330,14 @@ namespace SmartHopper.Core.UI.Chat
             string endpoint,
             string systemPrompt,
             string toolFilter,
-            Action<string> progressReporter = null!,
-            Guid componentId = Guid.NewGuid())
+            Guid componentId,
+            Action<string> progressReporter = null!)
         {
+            if (componentId == Guid.Empty)
+            {
+                componentId = Guid.NewGuid();
+            }
+
             return new WebChatWorker(
                 providerName,
                 modelName,

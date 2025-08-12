@@ -8,8 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System.Linq;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -67,7 +69,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <inheritdoc/>
         public override async Task<AIReturn> Exec()
         {
-            var result = await ToolManager.ExecuteTool(this).ConfigureAwait(false);
+            var result = await AIToolManager.ExecuteTool(this).ConfigureAwait(false);
             return result;
         }
 
@@ -77,7 +79,21 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="reuseCount">The new reuse count.</param>
         public void ReplaceReuseCount(int reuseCount)
         {
-            this.Metrics.ReuseCount = reuseCount;
+            var last = this.Body.GetLastInteraction();
+            if (last == null)
+            {
+                return;
+            }
+            last.Metrics ??= new AIMetrics();
+            last.Metrics.ReuseCount = reuseCount;
+        }
+
+        /// <summary>
+        /// Gets the tool call from body.
+        /// </summary>
+        public AIInteractionToolCall GetToolCall()
+        {
+            return this.Body.PendingToolCallsList().First();
         }
     }
 }

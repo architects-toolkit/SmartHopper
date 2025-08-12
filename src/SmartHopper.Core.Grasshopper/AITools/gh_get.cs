@@ -86,7 +86,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Parse filters
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 var attrFilters = toolInfo.Arguments["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
                 var typeFilters = toolInfo.Arguments["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 var objects = GHCanvasUtils.GetCurrentObjects();

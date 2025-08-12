@@ -105,7 +105,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         public virtual void Initialize(string provider, string model,  List<IAIInteraction> interactions, string endpoint, AICapability capability = AICapability.TextOutput, string toolFilter = null)
         {
-            var body = new AIBody(interactions, toolFilter);
+            var body = new AIBody();
+            body.Interactions = interactions;
+            if (!string.IsNullOrEmpty(toolFilter))
+            {
+                body.ToolFilter = toolFilter;
+            }
             this.Initialize(provider, model, body, endpoint ?? string.Empty, capability);
         }
 

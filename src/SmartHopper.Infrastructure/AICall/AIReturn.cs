@@ -139,7 +139,6 @@ namespace SmartHopper.Infrastructure.AICall
             var body = new AIBody
             {
                 Interactions = result,
-                Metrics = metrics,
             };
 
             this.CreateSuccess(body, request);
@@ -169,7 +168,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             result.SetBody(raw);
 
-            this.CreateSuccess(result, request);
+            this.CreateSuccess(result.Body, request);
         }
 
         /// <summary>
@@ -217,7 +216,7 @@ namespace SmartHopper.Infrastructure.AICall
             this.PrivateEncodedResult = raw;
 
             // TODO: Most of the tools do not return json to decode, but json to directly add to the body.
-            this.Body.Interactions = this.Request.ProviderInstance.Decode(raw);
+            this.Body.Interactions = this.Request.ProviderInstance.Decode(raw.ToString());
         }
     }
 

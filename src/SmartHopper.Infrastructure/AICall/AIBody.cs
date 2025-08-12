@@ -223,10 +223,29 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Adds an interaction to the end of the interaction history using an agent name and a body string.
         /// </summary>
+        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
+        /// <param name="body">The textual content of the interaction.</param>
+        public void AddInteraction(string agent, string body)
+        {
+            this.AddLastInteraction(CreateInteractionText(agent, body, null));
+        }
+
+        /// <summary>
+        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
+        /// </summary>
         /// <param name="body">The textual content of the interaction.</param>
         public void AddInteractionToolResult(JObject body, AIMetrics metrics)
         {
             this.AddLastInteraction(CreateInteractionToolResult(body, metrics));
+        }
+
+        /// <summary>
+        /// Adds an interaction tool result to the end of the interaction history.
+        /// </summary>
+        /// <param name="body">The JSON result of the tool execution.</param>
+        public void AddInteractionToolResult(JObject body)
+        {
+            this.AddLastInteraction(CreateInteractionToolResult(body, null));
         }
 
         /// <summary>
@@ -365,11 +384,11 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Creates a new AIInteraction<string> from an agent name and body string.
+        /// Replaces the internal interactions list with the provided list.
+        /// Does not inject context; context is added dynamically via the Interactions getter when accessed.
         /// </summary>
-        /// <param name="agent">The agent name.</param>
-        /// <param name="body">The textual content.</param>
-        private void OverrideInteractions(List<IAIInteraction> interactions)
+        /// <param name="interactions">The interactions collection to set as the body history.</param>
+        public void OverrideInteractions(List<IAIInteraction> interactions)
         {
             this._interactions = interactions;
         }

@@ -70,7 +70,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 var server = Instances.ComponentServer;
                 var filterString = toolInfo.Arguments["filter"]?.ToObject<string>() ?? string.Empty;
                 var includeSubcategories = toolInfo.Arguments["includeSubcategories"]?.ToObject<bool>() ?? false;

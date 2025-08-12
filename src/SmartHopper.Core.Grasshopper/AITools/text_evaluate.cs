@@ -97,7 +97,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 string? text = toolInfo.Arguments["text"]?.ToString();
                 string? question = toolInfo.Arguments["question"]?.ToString();
                 string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
