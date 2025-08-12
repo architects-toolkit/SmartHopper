@@ -181,7 +181,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 // Add tool_call_id for tool messages
-                if (interaction.Agent == AIAgent.Tool && textInteraction.ToolCalls != null && textInteraction.ToolCalls.Count > 0)
+                if (interaction.Agent == AIAgent.ToolCall && textInteraction.ToolCalls != null && textInteraction.ToolCalls.Count > 0)
                 {
                     messageObj["tool_call_id"] = textInteraction.ToolCalls.First().Id;
                 }
@@ -506,7 +506,7 @@ namespace SmartHopper.Providers.OpenAI
                 };
 
                 interactions.Add(interaction);
-                
+
                 // Add an AIInteractionToolCall for each tool call
                 if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
                 {
@@ -521,12 +521,6 @@ namespace SmartHopper.Providers.OpenAI
                         interactions.Add(toolCall);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData error: {ex.Message}");
-            }
-
             }
             catch (Exception ex)
             {
