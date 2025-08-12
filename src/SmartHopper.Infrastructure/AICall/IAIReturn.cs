@@ -58,11 +58,5 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         /// <param name="body">The body to set as result.</param>
         void SetBody(AIBody body);
-
-        /// <summary>
-        /// Gets or sets the list of pending tool calls made by the provider after the request.
-        /// </summary>
-        // TODO: Implement method to check toolcalls with toolresults and find pending tools to execute.
-        List<AIToolCall> ToolCalls();
     }
 }

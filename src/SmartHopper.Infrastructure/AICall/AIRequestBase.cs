@@ -89,6 +89,27 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
+        /// Initializes the call request.
+        /// </summary>
+        public virtual void Initialize(string provider, string model,  AIBody body, string endpoint, AICapability capability = AICapability.TextOutput)
+        {
+            this.Provider = provider;
+            this.Model = model;
+            this.Endpoint = endpoint ?? string.Empty;
+            this.Body = body;
+            this.Capability = capability;
+        }
+
+        /// <summary>
+        /// Initializes the call request.
+        /// </summary>
+        public virtual void Initialize(string provider, string model,  List<IAIInteraction> interactions, string endpoint, AICapability capability = AICapability.TextOutput, string toolFilter = null)
+        {
+            var body = new AIBody(interactions, toolFilter);
+            this.Initialize(provider, model, body, endpoint ?? string.Empty, capability);
+        }
+
+        /// <summary>
         /// Gets the model to use for the request.
         /// </summary>
         private string GetModelToUse()

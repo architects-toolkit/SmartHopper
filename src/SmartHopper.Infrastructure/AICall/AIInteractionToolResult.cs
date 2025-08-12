@@ -21,10 +21,8 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction
     {
-        /// <summary>
-        /// Gets the agent of the interaction.
-        /// </summary>
-        public override AIAgent Agent { get; } = AIAgent.ToolResult;
+        /// <inheritdoc/>
+        public override AIAgent Agent { get; set; } = AIAgent.ToolResult;
 
         /// <summary>
         /// Gets or sets the result of the tool call.

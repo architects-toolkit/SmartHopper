@@ -20,14 +20,10 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIInteractionText : IAIInteraction
     {
-        /// <summary>
-        /// Gets or sets the agent of the interaction.
-        /// </summary>
+        /// <inheritdoc/>
         required public AIAgent Agent { get; set; }
 
-        /// <summary>
-        /// Gets or sets the timestamp of the interaction.
-        /// </summary>
+        /// <inheritdoc/>
         public DateTime Time { get; set; } = DateTime.UtcNow;
 
         /// <summary>
@@ -39,6 +35,9 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the reasoning of the message.
         /// </summary>
         public string Reasoning { get; set; }
+
+        /// <inheritdoc/>
+        public AIMetrics Metrics { get; set; } = new AIMetrics();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionText.

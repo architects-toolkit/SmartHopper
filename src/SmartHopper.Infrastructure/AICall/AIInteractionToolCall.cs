@@ -21,15 +21,14 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIInteractionToolCall : IAIInteraction
     {
-        /// <summary>
-        /// Gets the agent of the interaction.
-        /// </summary>
-        public virtual AIAgent Agent { get; } = AIAgent.ToolCall;
+        /// <inheritdoc/>
+        public virtual AIAgent Agent { get; set; } = AIAgent.ToolCall;
 
-        /// <summary>
-        /// Gets or sets the timestamp of the interaction.
-        /// </summary>
+        /// <inheritdoc/>
         public DateTime Time { get; set; } = DateTime.UtcNow;
+
+        /// <inheritdoc/>
+        public AIMetrics Metrics { get; set; } = new AIMetrics();
 
         /// <summary>
         /// Gets or sets the id of the tool call.
