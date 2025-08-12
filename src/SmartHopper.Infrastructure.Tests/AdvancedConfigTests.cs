@@ -27,13 +27,11 @@ namespace SmartHopper.Infrastructure.Tests
         {
             public string Name => "DummyProvider";
 
-            public string DefaultServerUrl => "https://example.com";
-
             public bool IsEnabled => true;
 
-            public System.Drawing.Image? Icon => null;
+            public System.Drawing.Image Icon => null;
 
-            public IAIProviderModels Models { get; protected set; }
+            public IAIProviderModels Models { get; private set; } = new DummyProviderModels();
 
             public async Task InitializeProviderAsync()
             {
@@ -48,21 +46,51 @@ namespace SmartHopper.Infrastructure.Tests
             {
             }
 
-            public Task<AIReturn<string>> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIReturn<string>));
+            public string Encode(AIRequestCall request) => "{\"test\":\"encoded_request\"}";
+
+            public string Encode(IAIInteraction interaction) => "{\"test\":\"encoded_interaction\"}";
+
+            public string Encode(List<IAIInteraction> interactions) => "{\"test\":\"encoded_interactions\"}";
+
+            public List<IAIInteraction> Decode(string response) => new List<IAIInteraction>();
+
+            public AIRequestCall PreCall(AIRequestCall request) => request;
+
+            public async Task<IAIReturn> Call(AIRequestCall request)
+            {
+                var result = new AIReturn();
+                result.CreateSuccess(new AIBody(), request);
+                return await Task.FromResult(result);
+            }
+
+            public IAIReturn PostCall(IAIReturn response) => response;
+
+            public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true) => "dummy_test_model";
 
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
             }
 
-            public void ResetCachedSettings(Dictionary<string, object> settings)
+            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+        }
+
+        private class DummyProviderModels : IAIProviderModels
+        {
+            public async Task<List<string>> RetrieveAvailableModels()
             {
+                return await Task.FromResult(new List<string> { "dummy_model_1", "dummy_model_2" });
             }
 
-            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+            public async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
+            {
+                return await Task.FromResult(new Dictionary<string, AIModelCapabilities>
+                {
+                    ["dummy_model_1"] = new AIModelCapabilities { Capabilities = AICapability.BasicChat },
+                    ["dummy_model_2"] = new AIModelCapabilities { Capabilities = AICapability.TextInput | AICapability.TextOutput }
+                });
+            }
 
-            public Task<AIReturn<string>> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIReturn<string> { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
-
-            public string GetDefaultModel(AICapability capability, bool useSettings = true) { return "dummy_test_model"; }
+            public string RetrieveDefault() => "dummy_model_1";
         }
 
         private class DummySettings : IAIProviderSettings

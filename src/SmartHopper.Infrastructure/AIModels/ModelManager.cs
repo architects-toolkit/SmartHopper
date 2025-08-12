@@ -12,7 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Infrastructure.AIModels
 {

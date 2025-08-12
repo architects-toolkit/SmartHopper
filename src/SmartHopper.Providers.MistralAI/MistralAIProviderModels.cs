@@ -15,8 +15,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -47,8 +48,21 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine("[MistralAI] Retrieving available models");
 
-                // TODO: Replace with AIRequestCall.Exec()
-                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                // Use AIRequestCall to perform the request
+                var request = new AIRequestCall();
+                request.Initialize(this.mistralProvider.Name, string.Empty, string.Empty, "/models", AICapability.TextInput);
+                request.HttpMethod = "GET";
+                request.ContentType = "application/json";
+                request.Authentication = "bearer";
+
+                var aiReturn = await request.Exec().ConfigureAwait(false);
+                if (!aiReturn.Success)
+                {
+                    throw new Exception($"API request failed: {aiReturn.ErrorMessage}");
+                }
+
+                var response = aiReturn.Body.GetLastInteraction() as AIInteractionText;
+                var content = response?.Content ?? string.Empty;
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;
                 var modelNames = new List<string>();
@@ -107,9 +121,23 @@ namespace SmartHopper.Providers.MistralAI
 
                 foreach (var modelName in models)
                 {
-                    // Call the Mistral models/{model_id} endpoint
-                    var response = await this._apiCaller($"/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                    var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
+                    // Use AIRequestCall to get model details
+                    var request = new AIRequestCall();
+                    request.Initialize(this.mistralProvider.Name, string.Empty, string.Empty, $"/models/{modelName}", AICapability.TextInput);
+                    request.HttpMethod = "GET";
+                    request.ContentType = "application/json";
+                    request.Authentication = "bearer";
+
+                    var aiReturn = await request.Exec().ConfigureAwait(false);
+                    if (!aiReturn.Success)
+                    {
+                        Debug.WriteLine($"[MistralAI] Failed to get model details for {modelName}: {aiReturn.ErrorMessage}");
+                        continue;
+                    }
+
+                    var response = aiReturn.Body.GetLastInteraction() as AIInteractionText;
+                    var content = response?.Content ?? string.Empty;
+                    var modelInfo = JsonConvert.DeserializeObject<dynamic>(content);
 
                     var capabilities = AICapability.None;
 
@@ -144,7 +172,7 @@ namespace SmartHopper.Providers.MistralAI
                 Debug.WriteLine($"[MistralAI] Error in RetrieveCapabilities: {ex.Message}");
 
                 Debug.WriteLine("[MistralAI] Falling back to static/default model capabilities");
-                
+
                 // Fallback to static capabilities when API is unavailable (e.g., missing API key)
                 result = GetFallbackCapabilities();
             }
@@ -160,33 +188,49 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <summary>
+        /// Fallback list of available model IDs when API is unavailable.
+        /// </summary>
+        private List<string> GetFallbackAvailableModels()
+        {
+            return new List<string>
+            {
+                // Concrete, commonly used names
+                "mistral-small-latest",
+                "mistral-medium-latest",
+                "mistral-large-latest",
+                "magistral-small-latest",
+                "magistral-medium-latest",
+            };
+        }
+
+        /// <summary>
         /// Gets fallback model capabilities when API is unavailable.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        private Dictionary<string, AIModelCapability> GetFallbackCapabilities()
+        private Dictionary<string, AICapability> GetFallbackCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // Mistral Small models - text input/output, structured output, function calling
-            result["mistral-small*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["mistral-small*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
             // Ensure concrete default ID exists alongside wildcard to allow default registration
-            result["mistral-small-latest"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["mistral-small-latest"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
             // Mistral Medium models - text input/output, structured output, function calling
-            result["mistral-medium*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["mistral-medium*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
             // Mistral Large models - text input/output, structured output, function calling
-            result["mistral-large*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+            result["mistral-large*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
             // Magistral Small models - text input/output, structured output, function calling
-            result["magistral-small*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            result["magistral-small*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
 
             // Ensure concrete default ID exists alongside wildcard to allow default registration
-            result["magistral-small-latest"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            result["magistral-small-latest"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
 
             // Magistral Medium models - text input/output, structured output, function calling
-            result["magistral-medium*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            result["magistral-medium*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
 
             Debug.WriteLine($"[MistralAI] Registered {result.Count} fallback model patterns");
             return result;

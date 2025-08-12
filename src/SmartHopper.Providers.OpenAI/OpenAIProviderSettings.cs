@@ -12,8 +12,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Providers.OpenAI
 {

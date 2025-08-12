@@ -510,7 +510,8 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval");
+                    toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
+                    componentId: Guid.NewGuid());
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 

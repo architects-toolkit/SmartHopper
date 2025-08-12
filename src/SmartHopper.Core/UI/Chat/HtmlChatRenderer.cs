@@ -27,6 +27,7 @@ namespace SmartHopper.Core.UI.Chat
     internal class HtmlChatRenderer
     {
         private readonly ChatResourceManager _resourceManager;
+        private readonly MarkdownPipeline _markdownPipeline;
 
         /// <summary>
         /// Initializes a new instance of the HtmlChatRenderer class.
@@ -36,7 +37,7 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine("[HtmlChatRenderer] Initializing HtmlChatRenderer");
 
             // Configure Markdig pipeline with needed extensions
-            _markdownPipeline = new MarkdownPipelineBuilder()
+            this._markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .UseSoftlineBreakAsHardlineBreak()
                 .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Default)
@@ -93,7 +94,7 @@ namespace SmartHopper.Core.UI.Chat
         public string GenerateMessageHtml(IAIInteraction interaction)
         {
             Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
-            
+
             try
             {
                 string displayRole = interaction.Agent.ToDescription();
@@ -102,9 +103,10 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     // Create timestamp for the message
                     string timestamp = DateTime.Now.ToString("HH:mm");
+
                     // Use the resource manager to create the message HTML
                     string messageHtml = _resourceManager.CreateMessageHtml(
-                        interaction.Agent,
+                        interaction.Agent.ToString().ToLower(),
                         displayRole,
                         timestamp,
                         interaction);

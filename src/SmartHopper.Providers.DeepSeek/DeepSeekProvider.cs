@@ -40,7 +40,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private DeepSeekProvider()
         {
-            this.Models = new DeepSeekProviderModels(this, request => this.CallApi<string>(request));
+            this.Models = new DeepSeekProviderModels(this);
         }
 
         /// <summary>
@@ -168,10 +168,10 @@ namespace SmartHopper.Providers.DeepSeek
             string msgContent;
 
             // Handle interactions based on type
-            if (interaction as AIInteractionText != null)
+            if (interaction is AIInteractionText textInteraction)
             {
                 // For AIInteractionText, only send the actual content
-                msgContent = interaction.Body.Content ?? string.Empty; 
+                msgContent = textInteraction.Content ?? string.Empty; 
             }
             else
             {
@@ -203,8 +203,10 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 roleName = "tool";
 
+                var toolInteraction = interaction as AIInteractionToolResult;
+
                 // Ensure content is a string, not a json object
-                var jsonString = JsonConvert.SerializeObject(interaction.Body, Formatting.None);
+                var jsonString = JsonConvert.SerializeObject(toolInteraction?.Result, Formatting.None);
                 jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
@@ -216,7 +218,7 @@ namespace SmartHopper.Providers.DeepSeek
                 messageObj["content"] = jsonString;
 
                 // Propagate tool_call ID and name from incoming message
-                if (interaction.Body is JObject bodyObj)
+                if (toolInteraction?.Result is JObject bodyObj)
                 {
                     if (bodyObj["name"] != null)
                     {
@@ -240,27 +242,21 @@ namespace SmartHopper.Providers.DeepSeek
                 roleName = "user";
             }
 
-            // Add tool calls if present
-            if (interaction.ToolCalls != null && interaction.ToolCalls.Count > 0)
+            // Add tool calls if present (only for specific interaction types that have them)
+            if (interaction is AIInteractionToolCall toolCallInteraction)
             {
                 var toolCallsArray = new JArray();
-
-                foreach (var toolCall in interaction.ToolCalls)
+                var toolCallObj = new JObject
                 {
-                    var toolCallObj = new JObject
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
                     {
-                        ["id"] = toolCall.Id,
-                        ["type"] = "function",
-                        ["function"] = new JObject
-                        {
-                            ["name"] = toolCall.Name,
-                            ["arguments"] = toolCall.Arguments,
-                        },
-                    };
-
-                    toolCallsArray.Add(toolCallObj);
-                }
-
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}"
+                    }
+                };
+                toolCallsArray.Add(toolCallObj);
                 messageObj["tool_calls"] = toolCallsArray;
             }
 
@@ -270,7 +266,7 @@ namespace SmartHopper.Providers.DeepSeek
                 messageObj["role"] = roleName;
             }
 
-            return messageObj;
+            return messageObj.ToString();
         }
 
         /// <inheritdoc/>
@@ -328,7 +324,7 @@ namespace SmartHopper.Providers.DeepSeek
                         {
                             Id = tc["id"]?.ToString(),
                             Name = tc["name"]?.ToString(),
-                            Arguments = tc["arguments"]?.ToString(),
+                            Arguments = tc["arguments"] as JObject ?? new JObject(),
                         };
                         interactions.Add(toolCall);
                     }
@@ -349,7 +345,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>The decoded metrics.</returns>
         private AIMetrics DecodeMetrics(string response)
         {
-            var responseString = response.EncodedResult;
+            var responseString = response;
             var responseJson = JObject.Parse(responseString);
             Debug.WriteLine("[DeepSeek] PostCall: parsed response for metrics");
 

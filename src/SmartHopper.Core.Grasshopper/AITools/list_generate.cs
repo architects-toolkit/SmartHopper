@@ -233,7 +233,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Add the assistant response to the conversation
                     request.Body.AddInteraction(AIAgent.Assistant, response);
-                    
+
                     // Add follow-up user message asking for more items
                     var followUpMessage = $"I need {stillNeeded} more items to complete the list. Please generate {stillNeeded} additional items to the ones already provided. Current list has {allItems.Count} items: [{string.Join(", ", allItems.Select(item => $"'{item}'"))}].\n\nGenerate {stillNeeded} NEW items as a JSON array, meeting my initial request: {prompt}.\n\nReturn only the JSON array of the new items, nothing else.";
                     request.Body.AddInteraction(AIAgent.User, followUpMessage);

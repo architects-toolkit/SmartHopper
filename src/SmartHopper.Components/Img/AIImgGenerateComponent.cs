@@ -235,14 +235,8 @@ namespace SmartHopper.Components.Img
                                     // Get the image result (could be URL or base64 data)
                                     string imageResult = toolResult["result"]?.ToString() ?? string.Empty;
                                     
-                                    // Get revised prompt from rawResponse if available
-                                    string revisedPrompt = prompt; // Default fallback
-                                    var rawResponse = toolResult["rawResponse"];
-                                    if (rawResponse != null)
-                                    {
-                                        revisedPrompt = rawResponse["RevisedPrompt"]?.ToString() ??
-                                                       rawResponse["revisedPrompt"]?.ToString() ??prompt;
-                                    }
+                                    // Get revised prompt - now returned directly from new schema
+                                    string revisedPrompt = toolResult["revisedPrompt"]?.ToString() ?? prompt;
                                     
                                     // Process the image result (URL or base64)
                                     if (!string.IsNullOrEmpty(imageResult))
@@ -260,27 +254,27 @@ namespace SmartHopper.Components.Img
                                                 using var stream = new MemoryStream(imageData);
                                                 bitmap = new Bitmap(stream);
                                             }
-                                             else
-                                             {
-                                                 // Convert from base64
-                                                 var base64Data = imageResult.StartsWith("data:image/")
-                                                     ? imageResult.Substring(imageResult.IndexOf(",") + 1)
-                                                     : imageResult;
-                                                 var imageBytes = Convert.FromBase64String(base64Data);
-                                                 using var stream = new MemoryStream(imageBytes);
-                                                 bitmap = new Bitmap(stream);
-                                             }
-                                             
-                                             // Wrap the bitmap in a Grasshopper-compatible image object
-                                             branchResults.Add(new GH_ObjectWrapper(bitmap));
-                                             branchRevisedPrompts.Add(new GH_String(revisedPrompt));
-                                         }
-                                         catch (Exception processEx)
-                                         {
-                                             this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
-                                             branchResults.Add(new GH_ObjectWrapper(null));
-                                             branchRevisedPrompts.Add(new GH_String(revisedPrompt));
-                                         }
+                                            else
+                                            {
+                                                // Convert from base64
+                                                var base64Data = imageResult.StartsWith("data:image/")
+                                                    ? imageResult.Substring(imageResult.IndexOf(",") + 1)
+                                                    : imageResult;
+                                                var imageBytes = Convert.FromBase64String(base64Data);
+                                                using var stream = new MemoryStream(imageBytes);
+                                                bitmap = new Bitmap(stream);
+                                            }
+                                            
+                                            // Wrap the bitmap in a Grasshopper-compatible image object
+                                            branchResults.Add(new GH_ObjectWrapper(bitmap));
+                                            branchRevisedPrompts.Add(new GH_String(revisedPrompt));
+                                        }
+                                        catch (Exception processEx)
+                                        {
+                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
+                                            branchResults.Add(new GH_ObjectWrapper(null));
+                                            branchRevisedPrompts.Add(new GH_String(revisedPrompt));
+                                        }
                                     }
                                     else
                                     {

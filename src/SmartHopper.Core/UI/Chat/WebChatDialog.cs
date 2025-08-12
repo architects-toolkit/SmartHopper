@@ -590,14 +590,14 @@ namespace SmartHopper.Core.UI.Chat
             if (!this._webViewInitialized)
             {
                 // Queue the message to be added after initialization
-                Debug.WriteLine($"[WebChatDialog] WebView not initialized yet, queueing message: {interaction.Agent.ToString()}");
+                Debug.WriteLine($"[WebChatDialog] WebView not initialized yet, queueing message: {interaction.Agent}");
                 Task.Run(async () =>
                 {
                     try
                     {
-                        await this._webViewInitializedTcs.Task;
-                        Debug.WriteLine($"[WebChatDialog] WebView now initialized, adding queued message: {interaction.Agent.ToString()}");
-                        Application.Instance.AsyncInvoke(() => this.AddMessageToWebView(interaction));
+                        await this._webViewInitializedTcs.Task.ConfigureAwait(false);
+                        Debug.WriteLine($"[WebChatDialog] WebView now initialized, adding queued message: {interaction.Agent}");
+                        Application.Instance.AsyncInvoke(() => this.AddInteractionToWebView(interaction));
                     }
                     catch (Exception ex)
                     {

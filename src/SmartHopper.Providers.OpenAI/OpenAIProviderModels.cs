@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -45,7 +46,21 @@ namespace SmartHopper.Providers.OpenAI
             Debug.WriteLine("[OpenAI] Retrieving available models");
             try
             {
-                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                // Use AIRequestCall to perform the request
+                var request = new AIRequestCall();
+                request.Initialize(this.openAIProvider.Name, string.Empty, string.Empty, "/models", AICapability.TextInput);
+                request.HttpMethod = "GET";
+                request.ContentType = "application/json";
+                request.Authentication = "bearer";
+
+                var aiReturn = await request.Exec().ConfigureAwait(false);
+                if (!aiReturn.Success)
+                {
+                    throw new Exception($"API request failed: {aiReturn.ErrorMessage}");
+                }
+
+                var response = aiReturn.Body.GetLastInteraction() as AIInteractionText;
+                var content = response?.Content ?? string.Empty;
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;
                 var modelIds = new List<string>();
@@ -87,9 +102,9 @@ namespace SmartHopper.Providers.OpenAI
             var result = new Dictionary<string, AICapability>();
 
             // GPT-5 models - text input/output, image input, structured output, function calling, reasoning
-            result["gpt-5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-            result["gpt-5-mini"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-            
+            result["gpt-5*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
+            result["gpt-5-mini"] = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning;
+
             // GPT-4.1 models - text input/output, image input, structured output, function calling
             result["gpt-4.1*"] = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling;
 
@@ -146,8 +161,8 @@ namespace SmartHopper.Providers.OpenAI
         {
             var result = new Dictionary<string, AICapability>();
 
-            result["gpt-5-mini"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ReasoningChat;
-            result["dall-e-3"] = AIModelCapability.ImageGenerator;
+            result["gpt-5-mini"] = AICapability.BasicChat | AICapability.AdvancedChat | AICapability.JsonGenerator | AICapability.ReasoningChat;
+            result["dall-e-3"] = AICapability.ImageGenerator;
 
             return result;
         }
