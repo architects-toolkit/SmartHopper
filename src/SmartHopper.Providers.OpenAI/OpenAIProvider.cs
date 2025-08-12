@@ -147,7 +147,7 @@ namespace SmartHopper.Providers.OpenAI
             };
 
             // Add reasoning effort if model starts with "o-series"
-            if (Regex.IsMatch(model, @"^o[0-9]", RegexOptions.IgnoreCase))
+            if (Regex.IsMatch(model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(model, @"^gpt-5", RegexOptions.IgnoreCase))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
                 requestBody["temperature"] = 1; // Only 1 is accepted for o-series models
