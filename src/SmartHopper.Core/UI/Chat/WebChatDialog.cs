@@ -706,10 +706,10 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // If AI finished with error reason, display error message with red background
-                if (!string.IsNullOrEmpty(response.FinishReason) && response.FinishReason.Equals("error", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(response.Metrics.FinishReason) && response.Metrics.FinishReason.Equals("error", StringComparison.OrdinalIgnoreCase))
                 {
                     Debug.WriteLine("[WebChatDialog] Response finishReason is error; showing error message");
-                    this.AddSystemMessage(response.Response, "error");
+                    this.AddSystemMessage(response.Result);
                     Application.Instance.AsyncInvoke(() =>
                     {
                         this._statusLabel.Text = "Error in response";
