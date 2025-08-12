@@ -172,14 +172,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     """);
                 requestBody.AddInteraction("user", prompt);
 
-                var request = new AIRequestCall
-                {
-                    Provider = providerName,
-                    Model = modelName,
-                    Capability = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    Endpoint = endpoint,
-                    Body = requestBody,
-                };
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    endpoint: endpoint,
+                    body: requestBody,
+                );
 
                 var result = await request.Do<string>().ConfigureAwait(false);
                 if (!result.Success)

@@ -196,36 +196,43 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Creates a call request.
+        /// Initializes the call request.
         /// </summary>
-        public static AIRequestCall Create(string provider, string model,  List<IAIInteraction> interactions, string endpoint = string.Empty, string toolFilter = null)
+        public void Initialize(string provider, string model,  AIBody body, string endpoint = string.Empty, AICapability capability = AICapability.TextOutput)
         {
-            return new AIRequestCall
-            {
-                Provider = provider,
-                Model = model,
-                Endpoint = endpoint,
-                Body = new AIBody(interactions, toolFilter)
-            };
+            this.Provider = provider;
+            this.Model = model;
+            this.Endpoint = endpoint;
+            this.Body = body;
+            this.Capability = capability;
         }
 
         /// <summary>
-        /// Creates a call request.
+        /// Initializes the call request.
         /// </summary>
-        public static AIRequestCall Create(string provider, string model,  string systemPrompt, string endpoint = string.Empty, string toolFilter = null)
+        public void Initialize(string provider, string model,  List<IAIInteraction> interactions, string endpoint = string.Empty, AICapability capability = AICapability.TextOutput, string toolFilter = null)
+        {
+            var body = new AIBody(interactions, toolFilter);
+            this.Initialize(provider, model, body, endpoint, capability);
+        }
+
+        /// <summary>
+        /// Initializes the call request.
+        /// </summary>
+        public void Initialize(string provider, string model,  string systemPrompt, string endpoint = string.Empty, AICapability capability = AICapability.TextOutput, string toolFilter = null)
         {
             var interactionList = new List<IAIInteraction>();
             interactionList.Add(new AIInteractionText { Role = "system", Content = systemPrompt });
 
-            return Create(provider, model, interactionList, endpoint, toolFilter);
+            this.Initialize(provider, model, interactionList, endpoint, capability, toolFilter);
         }
 
         /// <summary>
         /// Replace the interactions list from the body.
         /// </summary>
-        public void ReplaceInteractionsList(List<IAIInteraction> interactions)
+        public void OverrideInteractions(List<IAIInteraction> interactions)
         {
-            this.Body.ReplaceInteractionsList(interactions);
+            this.Body.OverrideInteractions(interactions);
         }
 
         /// <summary>

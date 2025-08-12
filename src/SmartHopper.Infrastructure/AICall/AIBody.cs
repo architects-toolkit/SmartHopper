@@ -73,16 +73,26 @@ namespace SmartHopper.Infrastructure.AICall
             set => this._interactions = value;
         }
 
-        /// <inheritdoc/>
-        public string ToolFilter { get; set; }
+        /// <summary>
+        /// Gets or sets the tool filter.
+        /// Default to no tools.
+        /// </summary>
+        public string ToolFilter { get; set; } = "-*";
 
-        /// <inheritdoc/>
-        public string ContextFilter { get; set; }
+        /// <summary>
+        /// Gets or sets the context filter.
+        /// Default to no context.
+        /// </summary>
+        public string ContextFilter { get; set; } = "-*";
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets or sets the output JSON schema.
+        /// </summary>
         public string JsonOutputSchema { get; set; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Validates the body.
+        /// </summary>
         public (bool IsValid, List<string> Errors) IsValid()
         {
             var errors = new List<string>();
@@ -95,7 +105,9 @@ namespace SmartHopper.Infrastructure.AICall
             return (errors.Count == 0, errors);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Checks if the body requires JSON output.
+        /// </summary>
         public bool RequiresJsonOutput()
         {
             return !string.IsNullOrEmpty(this.JsonOutputSchema);
@@ -276,7 +288,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         /// <param name="agent">The agent name.</param>
         /// <param name="body">The textual content.</param>
-        private void ReplaceInteractionsList(List<IAIInteraction> interactions)
+        private void OverrideInteractions(List<IAIInteraction> interactions)
         {
             this._interactions = interactions;
         }

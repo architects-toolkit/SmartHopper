@@ -201,7 +201,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         public class WebChatWorker
         {
-            private AIRequestCall? initialRequest;
+            private AIRequestCall initialRequest = new AIRequestCall();
             private readonly Action<string> progressReporter;
             private readonly Guid componentId;
             private AIReturn? lastResponse;
@@ -225,7 +225,7 @@ namespace SmartHopper.Core.UI.Chat
                 Action<string> progressReporter,
                 Guid componentId = default)
             {
-                this.initialRequest = AIRequestCall.Create(
+                this.initialRequest.Initialize(
                     provider: providerName,
                     model: modelName,
                     systemPrompt: systemPrompt,
