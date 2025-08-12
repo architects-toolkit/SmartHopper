@@ -138,14 +138,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", initialUserPrompt);
 
-                var request = new AIRequestCall
-                {
-                    Provider = providerName,
-                    Model = modelName,
-                    Capability = this.toolCapabilityRequirements,
-                    Endpoint = endpoint,
-                    Body = requestBody,
-                };
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    capability: this.toolCapabilityRequirements,
+                    endpoint: endpoint,
+                    body: requestBody,
+                );
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {

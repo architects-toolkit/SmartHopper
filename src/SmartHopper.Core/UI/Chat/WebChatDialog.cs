@@ -687,7 +687,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 // Make a copy and update chat history
                 var request = this._initialRequest;
-                request.ReplaceInteractionsList(this._chatHistory);
+                request.OverrideInteractions(this._chatHistory);
 
                 Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
                 // Get response from AI provider using the provided function
