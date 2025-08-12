@@ -34,11 +34,6 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Gets or sets the endpoint or full URL to use for the request.
-        /// </summary>
-        public string Endpoint { get; set; }
-
-        /// <summary>
         /// Gets or sets the HTTP method to use for the request.
         /// </summary>
         public string HttpMethod { get; set; } = "POST";
@@ -56,7 +51,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets or sets the request body.
         /// </summary>
-        public IAIBody Body { get; set; }
+        public AIBody Body { get; set; }
 
         /// <summary>
         /// Gets the encoded request for the specified provider.
@@ -198,6 +193,39 @@ namespace SmartHopper.Infrastructure.AICall
 
                 return errorResult;
             }
+        }
+
+        /// <summary>
+        /// Creates a call request.
+        /// </summary>
+        public static AIRequestCall Create(string provider, string model,  List<IAIInteraction> interactions, string endpoint = string.Empty, string toolFilter = null)
+        {
+            return new AIRequestCall
+            {
+                Provider = provider,
+                Model = model,
+                Endpoint = endpoint,
+                Body = new AIBody(interactions, toolFilter)
+            };
+        }
+
+        /// <summary>
+        /// Creates a call request.
+        /// </summary>
+        public static AIRequestCall Create(string provider, string model,  string systemPrompt, string endpoint = string.Empty, string toolFilter = null)
+        {
+            var interactionList = new List<IAIInteraction>();
+            interactionList.Add(new AIInteractionText { Role = "system", Content = systemPrompt });
+
+            return Create(provider, model, interactionList, endpoint, toolFilter);
+        }
+
+        /// <summary>
+        /// Replace the interactions list from the body.
+        /// </summary>
+        public void ReplaceInteractionsList(List<IAIInteraction> interactions)
+        {
+            this.Body.ReplaceInteractionsList(interactions);
         }
 
         /// <summary>

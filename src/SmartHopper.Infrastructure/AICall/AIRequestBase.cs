@@ -37,6 +37,9 @@ namespace SmartHopper.Infrastructure.AICall
         public virtual string Model { get => this.GetModelToUse(); set => this.model = value; }
 
         /// <inheritdoc/>
+        public string Endpoint { get; set; }
+
+        /// <inheritdoc/>
         public virtual AICapability Capability { get; set; } = AICapability.BasicChat;
 
         /// <inheritdoc/>

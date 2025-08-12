@@ -88,19 +88,18 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Generates HTML for a chat message.
         /// </summary>
-        /// <param name="role">The role of the message sender (user, assistant, system).</param>
-        /// <param name="response">The AIResponse containing metrics data.</param>
+        /// <param name="interaction">The AIInteraction containing metrics data.</param>
         /// <returns>HTML representation of the message.</returns>
-        public string GenerateMessageHtml(string role, AIResponse response)
+        public string GenerateMessageHtml(IAIInteraction interaction)
         {
-            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for role: {role}");
-
+            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for role: {interaction.Role}");
+            
             try
             {
                 string displayRole;
 
                 // Determine display role based on message role
-                switch (role)
+                switch (interaction.Role)
                 {
                     case "user":
                         displayRole = "You";
@@ -118,7 +117,7 @@ namespace SmartHopper.Core.UI.Chat
                         displayRole = "Calling a tool...";
                         break;
                     default:
-                        displayRole = role;
+                        displayRole = interaction.Role;
                         break;
                 }
 
@@ -128,10 +127,10 @@ namespace SmartHopper.Core.UI.Chat
                     string timestamp = DateTime.Now.ToString("HH:mm");
                     // Use the resource manager to create the message HTML
                     string messageHtml = _resourceManager.CreateMessageHtml(
-                        role,
+                        interaction.Role,
                         WebUtility.HtmlEncode(displayRole),
                         timestamp,
-                        response);
+                        interaction);
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
 
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML (truncated): {messageHtml?.Substring(0, Math.Min(100, messageHtml.Length))}...");

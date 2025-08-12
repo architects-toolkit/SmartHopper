@@ -22,7 +22,6 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
-using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Core.UI.Chat
@@ -103,29 +102,15 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(AIRequestCall request, Guid componentId = default, Action<string>? progressReporter = null)
+        public static async Task<AIResponse> ShowWebChatDialog(AIRequestCall request, Guid componentId = Guid.NewGuid(), Action<string>? progressReporter = null)
         {
             var tcs = new TaskCompletionSource<AIResponse>();
             AIResponse? lastResponse = null;
 
             Debug.WriteLine("[WebChatUtils] Preparing to show web chat dialog");
 
-            var providerName = request.Provider;
-            var modelName = request.Model;
-            var endpoint = request.Endpoint;
-            var toolFilter = "Knowledge, Components, Scripting, ComponentsRetrieval";
-
             try
             {
-                // Create a function to get responses from the AI provider
-                Func<List<AIInteraction<string>>, Task<AIResponse>> getResponse =
-                    messages => AIUtils.GetResponse(
-                        providerName,
-                        modelName,
-                        messages,
-                        endpoint: endpoint,
-                        toolFilter: toolFilter);
-
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -184,7 +169,7 @@ namespace SmartHopper.Core.UI.Chat
                         };
 
                         // Configure the dialog window
-                        dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
+                        dialog.Title = $"SmartHopper AI Chat - {request.Model} ({request.Provider})";
 
                         // Show the dialog as a non-modal window
                         Debug.WriteLine("[WebChatUtils] Showing dialog");
@@ -216,35 +201,36 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         public class WebChatWorker
         {
+            private AIRequestCall? initialRequest;
             private readonly Action<string> progressReporter;
-            private readonly string providerName;
-            private readonly string modelName;
-            private readonly string endpoint;
-            private readonly string systemPrompt;
             private readonly Guid componentId;
-            private AIResponse lastResponse;
+            private AIReturn? lastResponse;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="WebChatWorker"/> class.
             /// </summary>
             /// <param name="providerName">The name of the AI provider to use.</param>
             /// <param name="modelName">The model to use for AI processing.</param>
-            /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
             /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
+            /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+            /// <param name="toolFilter">Optional tool filter to provide to the AI assistant.</param>
             /// <param name="progressReporter">Action to report progress.</param>
             /// <param name="componentId">The unique ID of the component instance.</param>
             public WebChatWorker(
                 string providerName,
                 string modelName,
-                string endpoint,
                 string systemPrompt,
+                string endpoint,
+                string toolFilter,
                 Action<string> progressReporter,
                 Guid componentId = default)
             {
-                this.providerName = providerName;
-                this.modelName = modelName;
-                this.endpoint = endpoint;
-                this.systemPrompt = systemPrompt;
+                this.initialRequest = AIRequestCall.Create(
+                    provider: providerName,
+                    model: modelName,
+                    systemPrompt: systemPrompt,
+                    endpoint: endpoint,
+                    toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
             }
@@ -278,12 +264,9 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     this.lastResponse = await ShowWebChatDialog(
-                        this.providerName,
-                        this.modelName,
-                        this.endpoint,
-                        this.systemPrompt,
-                        this.componentId,
-                        reporter).ConfigureAwait(false);
+                        request: this.initialRequest,
+                        componentId: this.componentId,
+                        progressReporter: reporter).ConfigureAwait(false);
                     reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)
@@ -318,14 +301,16 @@ namespace SmartHopper.Core.UI.Chat
             string modelName,
             string endpoint,
             string systemPrompt,
-            Action<string> progressReporter,
-            Guid componentId = default)
+            string toolFilter,
+            Action<string> progressReporter = null!,
+            Guid componentId = Guid.NewGuid())
         {
             return new WebChatWorker(
                 providerName,
                 modelName,
                 endpoint,
                 systemPrompt,
+                toolFilter,
                 progressReporter,
                 componentId);
         }

@@ -313,27 +313,22 @@ namespace SmartHopper.Providers.DeepSeek
                     Time = DateTime.UtcNow,
                 };
 
-                // Map tool calls (if any) to the interaction
+                interactions.Add(interaction);
+
+                // Add an AIInteractionToolCall for each tool call
                 if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
                 {
                     foreach (JObject tc in tcs)
                     {
-                        var fn = tc["function"] as JObject;
-                        if (fn != null)
+                        var toolCall = new AIInteractionToolCall
                         {
-                            interaction.ToolCalls.Add(new AIToolCall
-                            {
-                                Id = tc["id"]?.ToString(),
-                                Name = fn["name"]?.ToString(),
-                                Provider = this.Name,
-                                Model = this.Model,
-                                Arguments = fn["arguments"]?.ToString(),
-                            });
-                        }
+                            Id = tc["id"]?.ToString(),
+                            Name = tc["name"]?.ToString(),
+                            Arguments = tc["arguments"]?.ToString(),
+                        };
+                        interactions.Add(toolCall);
                     }
                 }
-
-                interactions.Add(interaction);
             }
             catch (Exception ex)
             {

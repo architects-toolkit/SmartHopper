@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall
     /// The <see cref="Interactions"/> getter injects dynamic context messages at the beginning
     /// when <see cref="ContextFilter"/> is set and matching context is available.
     /// </summary>
-    public class AIBody : IAIBody
+    public class AIBody
     {
         /// <summary>
         /// Private storage for the list of interactions.
@@ -37,6 +37,9 @@ namespace SmartHopper.Infrastructure.AICall
             get
             {
                 var result = new List<IAIInteraction>(this._interactions ?? new List<IAIInteraction>());
+
+                // Remove context interaction if present
+                result = result.Where(i => i.Agent != AIAgent.Context).ToList();
 
                 // Inject dynamic context at the beginning if ContextFilter is set
                 if (!string.IsNullOrEmpty(ContextFilter))
@@ -266,6 +269,16 @@ namespace SmartHopper.Infrastructure.AICall
                 Content = body,
             };
             return interaction;
+        }
+
+        /// <summary>
+        /// Creates a new AIInteraction<string> from an agent name and body string.
+        /// </summary>
+        /// <param name="agent">The agent name.</param>
+        /// <param name="body">The textual content.</param>
+        private void ReplaceInteractionsList(List<IAIInteraction> interactions)
+        {
+            this._interactions = interactions;
         }
 
         /// <summary>

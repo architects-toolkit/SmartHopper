@@ -32,10 +32,5 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the agent of the interaction.
         /// </summary>
         AIAgent Agent { get; set; }
-
-        /// <summary>
-        /// Gets or sets list of tool calls associated with this interaction.
-        /// </summary>
-        List<AIToolCall> ToolCalls { get; set; }
     }
 }

@@ -23,7 +23,6 @@ using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Properties;
@@ -44,21 +43,22 @@ namespace SmartHopper.Core.UI.Chat
         private readonly ProgressBar _progressBar;
         private readonly Label _statusLabel;
 
-        // Chat state
-        private readonly List<AIInteraction<string>> _chatHistory;
+        // Chat Dialog
         private bool _isProcessing;
-        private readonly Func<List<AIInteraction<string>>, Task<AIResponse>> _getResponse;
-        private readonly HtmlChatRenderer _htmlRenderer;
-        private readonly string _providerName;
+        private readonly Action<string>? _progressReporter;
+        private readonly HtmlChatRenderer _htmlRenderer = new HtmlChatRenderer();
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
-        private readonly Action<string>? _progressReporter;
-        private readonly string? _systemPrompt;
+
+        // Chat history
+        private readonly AIRequestCall _initialRequest;
+        private readonly AIReturn _lastReturn = new AIReturn();
+        private readonly List<IAIInteraction> _chatHistory = new List<IAIInteraction>();
 
         /// <summary>
         /// Event raised when a new AI response is received.
         /// </summary>
-        public event EventHandler<AIResponse> ResponseReceived;
+        public event EventHandler<AIReturn> ResponseReceived;
 
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
@@ -74,8 +74,7 @@ namespace SmartHopper.Core.UI.Chat
         {
             Debug.WriteLine("[WebChatDialog] Initializing WebChatDialog");
             this._progressReporter = progressReporter;
-            this._systemPrompt = request.Body.GetFirstInteraction(AIAgent.System);
-            this._providerName = request.Provider ?? throw new ArgumentNullException(nameof(request.Provider));
+            this._initialRequest = request;
 
             this.Title = "SmartHopper AI Chat";
             this.MinimumSize = new Size(600, 700);
@@ -92,21 +91,6 @@ namespace SmartHopper.Core.UI.Chat
                     this.Icon = new Eto.Drawing.Icon(stream);
                 }
             }
-
-            // Wrap the incoming getResponse delegate with logging for entry and exit
-            if (this._getResponse == null) throw new ArgumentNullException(nameof(this._getResponse));
-            Debug.WriteLine($"[WebChatDialog] getResponse delegate passed in: {this._getResponse.Method.DeclaringType.FullName}.{this._getResponse.Method.Name}");
-            var originalGetResponse = this._getResponse;
-            this._getResponse = async messages =>
-            {
-                Debug.WriteLine($"[WebChatDialog] Calling getResponse delegate ({originalGetResponse.Method.DeclaringType.FullName}.{originalGetResponse.Method.Name}) with {messages.Count} messages");
-                var resp = await originalGetResponse(messages);
-                Debug.WriteLine($"[WebChatDialog] getResponse completed: ToolCalls count = {resp?.ToolCalls?.Count ?? 0}");
-                return resp;
-            };
-
-            this._chatHistory = new List<AIInteraction<string>>();
-            this._htmlRenderer = new HtmlChatRenderer();
 
             Debug.WriteLine("[WebChatDialog] Creating WebView");
             // Initialize WebView
@@ -432,19 +416,14 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Adds a user message to the chat history and displays it in the WebView.
+        /// Adds a message to the chat history and displays it in the WebView.
         /// </summary>
-        /// <param name="response">The AI response object containing the message.</param>
-        private void AddUserMessage(AIResponse response)
+        /// <param name="interaction">The AI interaction object containing the message.</param>
+        private void AddMessage(IAIInteraction interaction)
         {
-            this._chatHistory.Add(new AIInteraction<string>
-            {
-                Agent = AIAgent.User,
-                Body = response.Response,
-                Time = DateTime.Now,
-            });
+            this._chatHistory.Add(interaction);
 
-            this.AddMessageToWebView("user", response);
+            this.AddMessageToWebView(interaction);
         }
 
         /// <summary>
@@ -453,40 +432,73 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="message">The message text.</param>
         private void AddUserMessage(string message)
         {
-            var response = new AIResponse()
+            var interaction = new AIInteractionText()
             {
-                Response = message,
+                Agent = AIAgent.User,
+                Content = message,
             };
 
-            this.AddUserMessage(response);
+            this.AddMessage(interaction);
         }
 
         /// <summary>
-        /// Adds an assistant (AI) message with metrics information.
+        /// Adds an assistant message to the chat history and displays it in the WebView.
         /// </summary>
         /// <param name="message">The message text.</param>
-        /// <param name="response">The AI response object containing metrics.</param>
-        private void AddAssistantMessage(AIResponse response)
+        private void AddAssistantMessage(string message)
         {
-            this._chatHistory.Add(new AIInteraction<string>
+            var interaction = new AIInteractionText()
             {
                 Agent = AIAgent.Assistant,
-                Body = response.Response,
-                Time = DateTime.Now,
-                ToolCalls = new List<AIToolCall>(response.ToolCalls),
-            });
+                Content = message,
+            };
 
-            this.AddMessageToWebView("assistant", response);
+            this.AddMessage(interaction);
+        }
+
+        /// <summary>
+        /// Adds a system message to the chat history and displays it in the WebView.
+        /// </summary>
+        /// <param name="message">The message text.</param>
+        private void AddSystemMessage(string message)
+        {
+            var interaction = new AIInteractionText()
+            {
+                Agent = AIAgent.System,
+                Content = message,
+            };
+
+            this.AddMessage(interaction);
+        }
+
+
+        /// <summary>
+        /// Adds a tool call message to the chat display.
+        /// </summary>
+        /// <param name="parentResponse">Parent response that triggered the tool call.</param>
+        /// <param name="toolCall">Tool call details.</param>
+        private void AddToolCallMessage(AIInteractionToolCall toolCall)
+        {
+            this.AddMessage(toolCall);
+        }
+
+        /// <summary>
+        /// Adds a tool result message to the chat display.
+        /// </summary>
+        /// <param name="toolResponse">Result from the tool execution.</param>
+        private void AddToolResultMessage(AIInteractionToolResult toolResponse)
+        {
+            this.AddMessage(toolResponse);
         }
 
         /// <summary>
         /// Removes the last message of a specific role from both chat history and WebView.
         /// </summary>
-        /// <param name="role">The role of the message to remove (user, assistant, system).</param>
+        /// <param name="agent">The role of the message to remove (user, assistant, system).</param>
         /// <returns>True if a message was removed, false otherwise.</returns>
-        private bool RemoveLastMessage(string role)
+        private bool RemoveLastMessage(AIAgent agent)
         {
-            if (string.IsNullOrEmpty(role))
+            if (agent == null)
             {
                 Debug.WriteLine("[WebChatDialog] Cannot remove message with empty role");
                 return false;
@@ -495,10 +507,10 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Find the last message of the specified role in chat history
-                var lastMessage = this._chatHistory.LastOrDefault(m => m.Agent == AIAgentExtensions.FromString(role));
+                var lastMessage = this._chatHistory.LastOrDefault(m => m.Agent == agent);
                 if (lastMessage == null)
                 {
-                    Debug.WriteLine($"[WebChatDialog] No {role} messages found to remove");
+                    Debug.WriteLine($"[WebChatDialog] No {agent.ToString()} messages found to remove");
                     return false;
                 }
 
@@ -511,23 +523,23 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        string sanitizedRole = JsonConvert.SerializeObject(role);
+                        string sanitizedRole = JsonConvert.SerializeObject(agent.ToString());
                         string script = $"if (typeof removeLastMessageByRole === 'function') {{ return removeLastMessageByRole({sanitizedRole}); }} else {{ return false; }}";
                         string result = this._webView.ExecuteScript(script);
                         removedFromUI = bool.TryParse(result, out bool jsResult) && jsResult;
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[WebChatDialog] Error removing {role} message from UI: {ex.Message}");
+                        Debug.WriteLine($"[WebChatDialog] Error removing {agent.ToString()} message from UI: {ex.Message}");
                     }
                 }
 
-                Debug.WriteLine($"[WebChatDialog] Removed last {role} message - History: {removedFromHistory}, UI: {removedFromUI}");
+                Debug.WriteLine($"[WebChatDialog] Removed last {agent.ToString()} message - History: {removedFromHistory}, UI: {removedFromUI}");
                 return removedFromHistory; // Return true if removed from history, even if UI removal failed
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] Error removing last {role} message: {ex.Message}");
+                Debug.WriteLine($"[WebChatDialog] Error removing last {agent.ToString()} message: {ex.Message}");
                 return false;
             }
         }
@@ -538,76 +550,32 @@ namespace SmartHopper.Core.UI.Chat
         /// <returns>True if a message was removed, false otherwise.</returns>
         private bool RemoveLastAssistantMessage()
         {
-            return this.RemoveLastMessage("assistant");
-        }
-
-        /// <summary>
-        /// Adds an assistant message to the chat history and displays it in the WebView.
-        /// </summary>
-        /// <param name="message">The message text.</param>
-        private void AddAssistantMessage(string message)
-        {
-            var response = new AIResponse()
-            {
-                Response = message,
-            };
-
-            this.AddAssistantMessage(response);
-        }
-
-        /// <summary>
-        /// Adds a system message with an optional subtype (e.g., "error").
-        /// </summary>
-        /// <param name="message">The message text.</param>
-        /// <param name="type">Optional subtype for styling (e.g., "error").</param>
-        private void AddSystemMessage(AIResponse response, string type = null)
-        {
-            this._chatHistory.Add(new AIInteraction<string>
-            {
-                Agent = AIAgent.System,
-                Body = response.Response,
-                Time = DateTime.Now,
-            });
-
-            // In the web view, use the combined role with optional type
-            var role = "system" + (string.IsNullOrEmpty(type) ? "" : " " + type);
-            this.AddMessageToWebView(role, response);
-        }
-
-        private void AddSystemMessage(string message, string type = null)
-        {
-            var response = new AIResponse()
-            {
-                Response = message,
-            };
-
-            this.AddSystemMessage(response, type);
+            return this.RemoveLastMessage(AIAgent.Assistant);
         }
 
         /// <summary>
         /// Adds a message to the WebView with the specified role.
         /// </summary>
-        /// <param name="role">The role of the message (e.g., "user", "assistant", "system").</param>
-        /// <param name="response">The AI response object containing metrics.</param>
-        private void AddMessageToWebView(string role, AIResponse response)
+        /// <param name="interaction">The AI interaction object containing metrics.</param>
+        private void AddMessageToWebView(IAIInteraction interaction)
         {
-            if (string.IsNullOrEmpty(response.Response))
+            if (interaction is null)
             {
-                Debug.WriteLine($"[WebChatDialog] Skipping empty message for role: {role}");
+                Debug.WriteLine($"[WebChatDialog] Skipping empty message for role: {interaction.Agent.ToString()}");
                 return;
             }
 
             if (!this._webViewInitialized)
             {
                 // Queue the message to be added after initialization
-                Debug.WriteLine($"[WebChatDialog] WebView not initialized yet, queueing message: {role}");
+                Debug.WriteLine($"[WebChatDialog] WebView not initialized yet, queueing message: {interaction.Agent.ToString()}");
                 Task.Run(async () =>
                 {
                     try
                     {
                         await this._webViewInitializedTcs.Task;
-                        Debug.WriteLine($"[WebChatDialog] WebView now initialized, adding queued message: {role}");
-                        Application.Instance.AsyncInvoke(() => this.AddMessageToWebView(role, response));
+                        Debug.WriteLine($"[WebChatDialog] WebView now initialized, adding queued message: {interaction.Agent.ToString()}");
+                        Application.Instance.AsyncInvoke(() => this.AddMessageToWebView(interaction));
                     }
                     catch (Exception ex)
                     {
@@ -619,16 +587,9 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                // Automatically add loading class for loading messages (any role)
-                string finalRole = role;
-                if (response?.FinishReason == "loading")
-                {
-                    finalRole = role + " loading";
-                }
-
                 // Generate HTML for the message
-                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {finalRole}");
-                string messageHtml = this._htmlRenderer.GenerateMessageHtml(finalRole, response);
+                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {interaction.Agent.ToString()}");
+                string messageHtml = this._htmlRenderer.GenerateMessageHtml(interaction);
 
                 // Execute JavaScript to add the message to the WebView
                 Debug.WriteLine("[WebChatDialog] Executing JavaScript to add message");
@@ -701,7 +662,7 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error getting response: {ex.Message}");
-                this.AddSystemMessage($"Error: {ex.Message}", "error");
+                this.AddSystemMessage($"Error: {ex.Message}");
                 Application.Instance.AsyncInvoke(() =>
                 {
                     this._statusLabel.Text = "Error occurred";
@@ -724,17 +685,18 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                // Create a copy of the chat history for the API call
-                var messages = this._chatHistory.ToList();
+                // Make a copy and update chat history
+                var request = this._initialRequest;
+                request.ReplaceInteractionsList(this._chatHistory);
 
                 Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
                 // Get response from AI provider using the provided function
-                var response = await this._getResponse(messages);
+                var response = await request.Exec().ConfigureAwait(false);
 
                 if (response == null)
                 {
                     Debug.WriteLine("[WebChatDialog] No response received from AI provider");
-                    this.AddSystemMessage("Error: Failed to get response from AI provider.", "error");
+                    this.AddSystemMessage("Error: Failed to get response from AI provider.");
                     Application.Instance.AsyncInvoke(() =>
                     {
                         this._statusLabel.Text = "Error: No response received";
@@ -853,55 +815,6 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
                 this.AddSystemMessage($"Error executing tool '{toolCall.Name}': {ex.Message}", "error");
-            }
-        }
-
-        /// <summary>
-        /// Adds a tool call message to the chat display.
-        /// </summary>
-        /// <param name="parentResponse">Parent response that triggered the tool call.</param>
-        /// <param name="toolCall">Tool call details.</param>
-        private void AddToolCallMessage(AIResponse parentResponse, AIToolCall toolCall)
-        {
-            try
-            {
-                // Create a formatted message
-                var formatted = JsonConvert.SerializeObject(JObject.Parse(toolCall.Arguments), Formatting.Indented);
-
-                Debug.WriteLine($"[WebChatDialog] Adding tool call {toolCall.Id}: {toolCall.Name} ({toolCall.Arguments})");
-
-                // Add to chat history
-                this._chatHistory.Add(new AIInteraction<string>
-                {
-                    Agent = AIAgent.ToolCall,
-                    Body = "Calling tool: " + toolCall.Name,
-                    Time = DateTime.Now,
-                    ToolCalls = new List<AIToolCall> { toolCall },
-                });
-                this.AddMessageToWebView("tool_call", parentResponse);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WebChatDialog] Error formatting tool call: {ex.Message}");
-                this.AddSystemMessage($"Tool Call: {toolCall.Name} (Error formatting arguments: {ex.Message})", "error");
-            }
-        }
-
-        /// <summary>
-        /// Adds a tool result message to the chat display.
-        /// </summary>
-        /// <param name="toolResponse">Result from the tool execution.</param>
-        private void AddToolResultMessage(AIResponse toolResponse)
-        {
-            try
-            {
-                // Pretty-print JSON and render a tool bubble
-                this.AddMessageToWebView("tool", toolResponse);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WebChatDialog] Error formatting tool result: {ex.Message}");
-                this.AddSystemMessage($"Tool Result: (Error formatting result: {ex.Message})", "error");
             }
         }
 

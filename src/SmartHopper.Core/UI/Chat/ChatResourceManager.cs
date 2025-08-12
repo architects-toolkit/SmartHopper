@@ -249,10 +249,16 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="model">AI model name (for AI responses)</param>
         /// <param name="finishReason">AI response finish reason (for AI responses)</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string role, string displayName, string timestamp, AIResponse response)
+        public string CreateMessageHtml(string role, string displayName, string timestamp, IAIInteraction interaction)
         {
             Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
 
+            // TODO: Render different types of interaction (AIInteractionText and AIInteractionImage and AIInteractionToolCall and AIInteractionToolResult)
+
+            // TODO: Handle case for processing state (loading message)
+
+            // TODO: Handle case for AIReturn.Success = false (with errors)
+            
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
             var raw = response?.Response ?? "";
