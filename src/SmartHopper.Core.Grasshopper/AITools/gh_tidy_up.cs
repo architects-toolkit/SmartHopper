@@ -78,7 +78,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var startToken = toolInfo.Arguments["startPoint"];
                 var hasStart = startToken != null;

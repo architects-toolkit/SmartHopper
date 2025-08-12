@@ -77,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Parse and validate parameters
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 var guidStr = toolInfo.Arguments["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
                 if (!Guid.TryParse(guidStr, out var scriptGuid))
                 {

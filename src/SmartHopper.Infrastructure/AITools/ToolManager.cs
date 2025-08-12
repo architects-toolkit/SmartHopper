@@ -60,7 +60,9 @@ namespace SmartHopper.Infrastructure.AITools
             // Ensure tools are discovered
             DiscoverTools();
 
-            Debug.WriteLine($"[AIToolManager] Executing tool: {toolCall.Name}");
+            var toolInfo = toolCall.GetToolCall();
+
+            Debug.WriteLine($"[AIToolManager] Executing tool: {toolInfo.Name}");
 
             var output = new AIReturn()
             {
@@ -79,16 +81,16 @@ namespace SmartHopper.Infrastructure.AITools
             try
             {
                 // Execute the tool
-                Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolCall.Name}");
-                var result = await _tools[toolCall.Name].Execute(toolCall);
-                Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolCall.Name}");
-                output.SetResult(result);
+                Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolInfo.Name}");
+                var result = await _tools[toolInfo.Name].Execute(toolCall);
+                Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
+                output.SetBody(result.Body);
                 return output;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIToolManager] Error executing tool {toolCall.Name}: {ex.Message}");
-                output.ErrorMessage = $"Error executing tool '{toolCall.Name}': {ex.Message}";
+                Debug.WriteLine($"[AIToolManager] Error executing tool {toolInfo.Name}: {ex.Message}");
+                output.ErrorMessage = $"Error executing tool '{toolInfo.Name}': {ex.Message}";
                 return output;
             }
         }

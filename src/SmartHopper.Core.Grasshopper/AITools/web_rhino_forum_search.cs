@@ -64,7 +64,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 string query = toolInfo.Arguments["query"]?.ToString();
                 if (string.IsNullOrEmpty(query))
                 {

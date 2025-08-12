@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AITools;
 
@@ -37,12 +38,12 @@ namespace SmartHopper.Infrastructure.AICall
         {
             var result = "Tool result";
 
-            if(!string.IsNullOrEmpty(Name))
+            if (!string.IsNullOrEmpty(Name))
             {
                 result += $" from {Name}";
             }
 
-            if(!string.IsNullOrEmpty(Result))
+            if (Result != null && Result.HasValues)
             {
                 result += $":\n{JsonConvert.SerializeObject(Result, Formatting.Indented)}";
             }

@@ -36,6 +36,6 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets or sets the metrics associated with the interaction.
         /// </summary>
-        AIMetrics Metrics { get; set; } = new AIMetrics();
+        AIMetrics Metrics { get; set; }
     }
 }

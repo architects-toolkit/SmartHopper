@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
                 var json = toolInfo.Arguments["json"]?.ToString() ?? string.Empty;
 
                 GHJsonLocal.Validate(json, out analysisMsg);

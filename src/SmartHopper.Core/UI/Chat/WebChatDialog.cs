@@ -484,6 +484,8 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="messageType">The type of system message (info, error, etc.).</param>
         private void AddSystemMessage(string message, string messageType = "info")
         {
+            // TODO: Pass message type
+            
             var interaction = new AIInteractionText
             {
                 Agent = AIAgent.System,
@@ -780,10 +782,10 @@ namespace SmartHopper.Core.UI.Chat
                         // Execute tool using AIToolCall.Exec()
                         var toolResult = await toolCall.Exec().ConfigureAwait(false);
 
-                        if (toolResult.Success && toolresult.Body.Interactions?.Count > 0)
+                        if (toolResult.Success && toolResult.Body.Interactions?.Count > 0)
                         {
                             // Add tool result interactions to history and display them
-                            foreach (var interaction in toolresult.Body.Interactions)
+                            foreach (var interaction in toolResult.Body.Interactions)
                             {
                                 this._chatHistory.Add(interaction);
                                 await Application.Instance.InvokeAsync(() => this.AddInteractionToWebView(interaction));
@@ -831,10 +833,13 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                // Display system message as collapsible if provided
-                if (!string.IsNullOrEmpty(this._systemPrompt))
+                // Display system message as collapsible if provide
+                var systemMessage = this._chatHistory.FirstOrDefault(x => x.Agent == AIAgent.System);
+                var systemMessageText = systemMessage as AIInteractionText;
+
+                if (systemMessage != null && systemMessageText != null)
                 {
-                    this.AddSystemMessage(this._systemPrompt);
+                    this.AddSystemMessage(systemMessageText.Content);
                 }
 
                 // Check if AI greeting is enabled in settings
@@ -862,9 +867,9 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Generate AI greeting message using a context-aware custom prompt
                 string greetingPrompt;
-                if (!string.IsNullOrEmpty(this._systemPrompt))
+                if (!string.IsNullOrEmpty(systemMessageText.Content))
                 {
-                    greetingPrompt = $"You are a chat assistant with specialized knowledge and capabilities. The user has provided the following system instructions that define your role and expertise:\n\n{this._systemPrompt}\n\nBased on these instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
+                    greetingPrompt = $"You are a chat assistant with specialized knowledge and capabilities. The user has provided the following system instructions that define your role and expertise:\n\n{systemMessageText.Content}\n\nBased on these instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
                 }
                 else
                 {
@@ -909,11 +914,11 @@ namespace SmartHopper.Core.UI.Chat
                     this.RemoveLastAssistantMessage();
 
                     // Add the actual greeting message
-                    if (greetingResult != null && greetingResult.Success && 
-                        greetingresult.Body.Interactions?.Count > 0)
+                    if (greetingResult != null && greetingResult.Success &&
+                        greetingResult.Body.Interactions?.Count > 0)
                     {
                         // Find the assistant response in the interactions
-                        var assistantInteraction = greetingresult.Body.Interactions
+                        var assistantInteraction = greetingResult.Body.Interactions
                             .OfType<AIInteractionText>()
                             .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
@@ -934,7 +939,7 @@ namespace SmartHopper.Core.UI.Chat
 
                     this._statusLabel.Text = "Ready";
                     this._progressReporter?.Invoke("Ready");
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -948,7 +953,7 @@ namespace SmartHopper.Core.UI.Chat
                     this.AddAssistantMessage(defaultGreeting);
                     this._statusLabel.Text = "Ready";
                     this._progressReporter?.Invoke("Ready");
-                });
+                }).ConfigureAwait(false);
             }
         }
     }
