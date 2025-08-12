@@ -35,10 +35,6 @@ namespace SmartHopper.Infrastructure.AIProviders
     {
         private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
 
-        // Recursion guard to prevent infinite loops during settings access
-        [ThreadStatic]
-        private static HashSet<string> _currentlyGettingSettings;
-
         /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
@@ -60,6 +56,10 @@ namespace SmartHopper.Infrastructure.AIProviders
     {
         private Dictionary<string, object> _injectedSettings;
         private Dictionary<string, object> _defaultSettings;
+
+        // Recursion guard to prevent infinite loops during settings access
+        [ThreadStatic]
+        private static HashSet<string> _currentlyGettingSettings;
 
         /// <inheritdoc/>
         public abstract string Name { get; }
@@ -191,13 +191,13 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 result += this.Encode(interaction);
             }
-            
+
             return result;
         }
 
         /// <inheritdoc/>
         public abstract List<IAIInteraction> DecodeResponse(string response);
-        
+
         /// <inheritdoc/>
         public abstract AIMetrics DecodeMetrics(string response);
 
@@ -317,10 +317,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             // Initialize recursion guard if needed
             if (_currentlyGettingSettings == null)
+            {
                 _currentlyGettingSettings = new HashSet<string>();
+            }
 
             var settingKey = $"{this.Name}.{key}";
-            
+
             // Check for recursion
             if (_currentlyGettingSettings.Contains(settingKey))
             {
