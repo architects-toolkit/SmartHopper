@@ -354,7 +354,7 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> DecodeResponse(string response)
+        public override List<IAIInteraction> Decode(string response)
         {
             var interactions = new List<IAIInteraction>();
 
@@ -388,7 +388,7 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(string response)
         {
             var metrics = new AIMetrics();
 
@@ -504,6 +504,10 @@ namespace SmartHopper.Providers.OpenAI
                     Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                     Time = DateTime.UtcNow,
                 };
+
+                var metrics = this.DecodeMetrics(response);
+
+                interaction.Metrics = metrics;
 
                 interactions.Add(interaction);
 

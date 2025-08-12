@@ -274,7 +274,7 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> DecodeResponse(string response)
+        public override List<IAIInteraction> Decode(string response)
         {
             // Decode DeepSeek chat completion response into a list of interactions (text only).
             // DeepSeek does not support image generation; we return a single AIInteractionText
@@ -313,6 +313,10 @@ namespace SmartHopper.Providers.DeepSeek
                     Time = DateTime.UtcNow,
                 };
 
+                var metrics = this.DecodeMetrics(response);
+
+                interaction.Metrics = metrics;
+
                 interactions.Add(interaction);
 
                 // Add an AIInteractionToolCall for each tool call
@@ -338,8 +342,12 @@ namespace SmartHopper.Providers.DeepSeek
             return interactions;
         }
 
-        /// <inheritdoc/>
-        public override AIMetrics DecodeMetrics(string response)
+        /// <summary>
+        /// Decodes the metrics from the response.
+        /// </summary>
+        /// <param name="response">The response to decode.</param>
+        /// <returns>The decoded metrics.</returns>
+        private AIMetrics DecodeMetrics(string response)
         {
             var responseString = response.EncodedResult;
             var responseJson = JObject.Parse(responseString);

@@ -215,6 +215,8 @@ namespace SmartHopper.Infrastructure.AICall
         public void SetBody(JObject raw)
         {
             this.PrivateEncodedResult = raw;
+
+            // TODO: Most of the tools do not return json to decode, but json to directly add to the body.
             this.Body.Interactions = this.Request.ProviderInstance.Decode(raw);
         }
     }
