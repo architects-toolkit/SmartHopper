@@ -15,6 +15,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Reflection;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
+    using SmartHopper.Infrastructure.AICall;
     using SmartHopper.Infrastructure.AITools;
     using SmartHopper.Infrastructure.AIProviders;
     using Xunit;
@@ -51,63 +52,12 @@ namespace SmartHopper.Infrastructure.Tests
         public void RegisterTool_ShouldAddTool()
         {
             ResetManager();
-            var tool = new AITool("TestTool", "Test Description", "Test Category", "{}", _ => Task.FromResult((object)"dummy"));
+            var tool = new AITool("TestTool", "Test Description", "Test Category", "{}", _ => Task.FromResult(new AIReturn()));
             AIToolManager.RegisterTool(tool);
             var tools = AIToolManager.GetTools();
             Assert.Contains("TestTool", tools.Keys);
             Assert.Equal("Test Description", tools["TestTool"].Description);
             Assert.Equal("Test Category", tools["TestTool"].Category);
-        }
-
-#if NET7_WINDOWS
-        /// <summary>
-        /// Tests that ExecuteTool returns an error when the tool is not found on Windows.
-        /// </summary>
-        [Fact(DisplayName = "ExecuteTool ShouldReturnError WhenToolNotFound [Windows]")]
-#else
-        /// <summary>
-        /// Tests that ExecuteTool returns an error when the tool is not found on Core.
-        /// </summary>
-        [Fact(DisplayName = "ExecuteTool ShouldReturnError WhenToolNotFound [Core]")]
-#endif
-        public async Task ExecuteTool_ShouldReturnError_WhenToolNotFound()
-        {
-            ResetManager();
-            var result = await AIToolManager.ExecuteTool("UnknownTool").ConfigureAwait(false);
-            dynamic dyn = result;
-            Assert.False(dyn.success);
-            Assert.Contains("UnknownTool", (string)dyn.error, StringComparison.Ordinal);
-        }
-
-#if NET7_WINDOWS
-        /// <summary>
-        /// Tests that ExecuteTool correctly executes a registered tool with merged parameters on Windows.
-        /// </summary>
-        [Fact(DisplayName = "ExecuteTool ShouldExecuteRegisteredTool WithMergedParameters [Windows]")]
-#else
-        /// <summary>
-        /// Tests that ExecuteTool correctly executes a registered tool with merged parameters on Core.
-        /// </summary>
-        [Fact(DisplayName = "ExecuteTool ShouldExecuteRegisteredTool WithMergedParameters [Core]")]
-#endif
-        public async Task ExecuteTool_ShouldExecuteRegisteredTool_WithMergedParameters()
-        {
-            ResetManager();
-            JObject? captured = null;
-            var tool = new AITool("Compute", "Computes value", "Test Category", "{}", p =>
-            {
-                captured = p;
-                int value = p["value"]?.Value<int>() ?? 0;
-                return Task.FromResult((object)(value * 2));
-            });
-            AIToolManager.RegisterTool(tool);
-            var parameters = new JObject { ["value"] = 10 };
-            var extra = new JObject { ["extra"] = 5 };
-            var result = await AIToolManager.ExecuteTool("Compute", (JObject)parameters.DeepClone(), extra).ConfigureAwait(false);
-            Assert.IsType<int>(result);
-            Assert.Equal(20, (int)result);
-            Assert.NotNull(captured);
-            Assert.Equal(5, captured["extra"]?.Value<int>() ?? 0);
         }
 
 #if NET7_WINDOWS

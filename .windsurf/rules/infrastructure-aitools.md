@@ -30,7 +30,7 @@ description: Information about the Tool Manager (AITools)
 - **Execution Flow**
   1. ExecuteTool(AIToolCall) ensures discovery and fetches the target tool.
   2. Validates the AIToolCall via `toolCall.IsValid()`.
-  3. Calls the tool’s Execute(toolCall) to get an AIReturn.
+  3. Calls the tool’s Execute(toolCall) to get an AIReturn (
   4. Wraps the result in a manager-level AIReturn with `Request = toolCall` and SetBody(result.Body). Errors are captured in `ErrorMessage`.
 
 - **Integration**
@@ -49,3 +49,4 @@ description: Information about the Tool Manager (AITools)
   2. Each AITool defines metadata, JSON schema, and an async Execute.
   3. The AI model issues a tool call; the system constructs an AIToolCall.
   4. `AIToolManager.ExecuteTool(toolCall)` runs the tool and returns an AIReturn to the tool-calling loop.
+  5. Don't call Execute(toolCall) directly in code, use AIToolCall.Exec() instead.

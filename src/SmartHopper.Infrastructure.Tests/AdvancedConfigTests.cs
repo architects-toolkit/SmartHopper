@@ -76,21 +76,42 @@ namespace SmartHopper.Infrastructure.Tests
 
         private class DummyProviderModels : IAIProviderModels
         {
-            public async Task<List<string>> RetrieveAvailableModels()
+            public string GetModel(string requestedModel = "")
+            {
+                return string.IsNullOrEmpty(requestedModel) ? "dummy_model_1" : requestedModel;
+            }
+
+            public async Task<List<string>> RetrieveAvailable()
             {
                 return await Task.FromResult(new List<string> { "dummy_model_1", "dummy_model_2" });
             }
 
-            public async Task<Dictionary<string, AIModelCapabilities>> RetrieveCapabilities()
+            public async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
             {
-                return await Task.FromResult(new Dictionary<string, AIModelCapabilities>
+                return await Task.FromResult(new Dictionary<string, AICapability>
                 {
-                    ["dummy_model_1"] = new AIModelCapabilities { Capabilities = AICapability.BasicChat },
-                    ["dummy_model_2"] = new AIModelCapabilities { Capabilities = AICapability.TextInput | AICapability.TextOutput }
+                    ["dummy_model_1"] = AICapability.BasicChat,
+                    ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
                 });
             }
 
-            public string RetrieveDefault() => "dummy_model_1";
+            public AICapability RetrieveCapabilities(string model)
+            {
+                var capabilities = new Dictionary<string, AICapability>
+                {
+                    ["dummy_model_1"] = AICapability.BasicChat,
+                    ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
+                };
+                return capabilities.TryGetValue(model, out var capability) ? capability : AICapability.None;
+            }
+
+            public Dictionary<string, AICapability> RetrieveDefault()
+            {
+                return new Dictionary<string, AICapability>
+                {
+                    ["dummy_model_1"] = AICapability.BasicChat
+                };
+            }
         }
 
         private class DummySettings : IAIProviderSettings
