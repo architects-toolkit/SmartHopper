@@ -35,6 +35,10 @@ namespace SmartHopper.Infrastructure.AIProviders
     {
         private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
 
+        // Recursion guard to prevent infinite loops during settings access
+        [ThreadStatic]
+        private static HashSet<string> _currentlyGettingSettings;
+
         /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
@@ -269,34 +273,6 @@ namespace SmartHopper.Infrastructure.AIProviders
             return response;
         }
 
-        /// <inheritdoc/>
-        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
-        {
-            // Use settings model if matches required capabilities
-            if (useSettings)
-            {
-                string modelFromSettings = this.GetSetting<string>("Model");
-
-                if (!string.IsNullOrWhiteSpace(modelFromSettings))
-                {
-                    if (ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
-                    {
-                        return modelFromSettings;
-                    }
-                }
-            }
-
-            // Else, try to get default model from ModelManager that matches the required capabilities
-            string modelFromProviderDefault = ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
-
-            if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))
-            {
-                return modelFromProviderDefault;
-            }
-
-            return null;
-        }
-
         /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
         /// </summary>
@@ -339,62 +315,108 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <returns>The setting value, or default if not found.</returns>
         protected T GetSetting<T>(string key)
         {
-            if (this._injectedSettings == null)
+            // Initialize recursion guard if needed
+            if (_currentlyGettingSettings == null)
+                _currentlyGettingSettings = new HashSet<string>();
+
+            var settingKey = $"{this.Name}.{key}";
+            
+            // Check for recursion
+            if (_currentlyGettingSettings.Contains(settingKey))
             {
-                Debug.WriteLine($"Warning: Settings not initialized for {this.Name}");
+                Debug.WriteLine($"[AIProvider] Recursion detected for {settingKey}, returning default to break cycle");
                 return default;
             }
 
-            if (!this._injectedSettings.TryGetValue(key, out var value) || value == null)
-            {
-                // Check _defaultSettings field for default value (loaded during initialization)
-                if (this._defaultSettings != null && this._defaultSettings.TryGetValue(key, out var defaultValue) && defaultValue != null)
-                {
-                    value = defaultValue;
-                    Debug.WriteLine($"[{this.Name}] Using default value for setting '{key}': {defaultValue}");
-                }
-                else
-                {
-                    // No default value available, return type default
-                    Debug.WriteLine($"[{this.Name}] No value or default found for setting '{key}'");
-                    return default;
-                }
-            }
-
-            // Handle type conversion
             try
             {
-                if (value is T typedValue)
+                _currentlyGettingSettings.Add(settingKey);
+
+                if (this._injectedSettings == null)
                 {
-                    return typedValue;
+                    Debug.WriteLine($"Warning: Settings not initialized for {this.Name}");
+                    return default;
                 }
-                else if (typeof(T) == typeof(int) && int.TryParse(value.ToString(), out var intValue))
+
+                if (!this._injectedSettings.TryGetValue(key, out var value) || value == null)
                 {
-                    return (T)(object)intValue;
+                    // Try to get the default value from the descriptor
+                    var descriptor = this.GetSettingDescriptors().FirstOrDefault(d => d.Name == key);
+                    if (descriptor?.DefaultValue != null && descriptor.DefaultValue is T defaultValue)
+                    {
+                        return defaultValue;
+                    }
+
+                    return default;
                 }
-                else if (typeof(T) == typeof(bool) && bool.TryParse(value.ToString(), out var boolValue))
+
+                // Handle type conversion
+                try
                 {
-                    return (T)(object)boolValue;
+                    if (value is T typedValue)
+                    {
+                        return typedValue;
+                    }
+                    else if (typeof(T) == typeof(int) && int.TryParse(value.ToString(), out var intValue))
+                    {
+                        return (T)(object)intValue;
+                    }
+                    else if (typeof(T) == typeof(bool) && bool.TryParse(value.ToString(), out var boolValue))
+                    {
+                        return (T)(object)boolValue;
+                    }
+                    else if (typeof(T) == typeof(string))
+                    {
+                        return (T)(object)value.ToString();
+                    }
+                    else if (typeof(T) == typeof(double) && double.TryParse(value.ToString(), out var doubleValue))
+                    {
+                        return (T)(object)doubleValue;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Warning: Failed to convert {key} to {typeof(T).Name} for provider {this.Name}");
+                        return default;
+                    }
                 }
-                else if (typeof(T) == typeof(string))
+                catch (Exception ex)
                 {
-                    return (T)(object)value.ToString();
-                }
-                else if (typeof(T) == typeof(double) && double.TryParse(value.ToString(), out var doubleValue))
-                {
-                    return (T)(object)doubleValue;
-                }
-                else
-                {
-                    Debug.WriteLine($"Warning: Failed to convert {key} to {typeof(T).Name} for provider {this.Name}");
+                    Debug.WriteLine($"Error getting setting {key} for provider {this.Name}: {ex.Message}");
                     return default;
                 }
             }
-            catch (Exception ex)
+            finally
             {
-                Debug.WriteLine($"Error getting setting {key} for provider {this.Name}: {ex.Message}");
-                return default;
+                _currentlyGettingSettings.Remove(settingKey);
             }
+        }
+
+        /// <inheritdoc/>
+        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
+        {
+            // Use settings model if matches requiredCapabilites
+            if (useSettings && this.GetSetting<string>("Model") != null)
+            {
+                string modelFromSettings = this.GetSetting<string>("Model");
+
+                if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                {
+                    if (ModelManager.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                    {
+                        return modelFromSettings;
+                    }
+                }
+            }
+
+            // Else, try to get default model from ModelManager that matches the required capabilities
+            string modelFromProviderDefault = ModelManager.Instance.GetDefaultModel(this.Name, requiredCapability);
+
+            if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))
+            {
+                return modelFromProviderDefault;
+            }
+
+            return null;
         }
 
         /// <summary>
