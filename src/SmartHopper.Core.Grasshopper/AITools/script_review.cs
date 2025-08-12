@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Messaging;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;

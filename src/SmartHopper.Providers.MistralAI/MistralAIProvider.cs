@@ -301,29 +301,26 @@ namespace SmartHopper.Providers.MistralAI
                     Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                 };
 
-                // Handle tool calls if any (attach to interaction)
-                if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                interactions.Add(interaction);
+
+                // Add an AIInteractionToolCall for each tool call
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
                 {
-                    foreach (JObject toolCall in toolCalls)
+                    foreach (JObject tc in tcs)
                     {
-                        var function = toolCall["function"] as JObject;
-                        if (function != null)
+                        var toolCall = new AIInteractionToolCall
                         {
-                            interaction.ToolCalls.Add(new AIToolCall
-                            {
-                                Id = toolCall["id"]?.ToString(),
-                                Name = function["name"]?.ToString(),
-                                Arguments = function["arguments"]?.ToString(),
-                            });
-                        }
+                            Id = tc["id"]?.ToString(),
+                            Name = tc["name"]?.ToString(),
+                            Arguments = tc["arguments"]?.ToString(),
+                        };
+                        interactions.Add(toolCall);
                     }
                 }
-
-                interactions.Add(interaction);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAI] DecodeResponse error: {ex.Message}");
+                Debug.WriteLine($"[MistralAI] Decode error: {ex.Message}");
             }
 
             return interactions;

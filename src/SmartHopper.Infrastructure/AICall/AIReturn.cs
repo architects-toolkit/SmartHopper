@@ -68,9 +68,6 @@ namespace SmartHopper.Infrastructure.AICall
         public AIMetrics Metrics { get; private set; } = new AIMetrics();
 
         /// <inheritdoc/>
-        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
-
-        /// <inheritdoc/>
         public AICallStatus Status { get; set; } = AICallStatus.Idle;
 
         /// <inheritdoc/>

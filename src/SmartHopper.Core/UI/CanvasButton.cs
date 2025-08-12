@@ -508,10 +508,9 @@ namespace SmartHopper.Core.UI
                 var chatWorker = WebChatUtils.CreateWebChatWorker(
                     providerName,
                     model,
-                    string.Empty, // endpoint
-                    DefaultSystemPrompt,
-                    (Action<string>)null!, // progress reporter
-                    Guid.NewGuid()); // unique component ID for this button
+                    endpoint: "canvas-chat",
+                    systemPrompt: DefaultSystemPrompt,
+                    toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval");
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 

@@ -39,11 +39,6 @@ namespace SmartHopper.Infrastructure.AICall
         AIMetrics Metrics { get; }
 
         /// <summary>
-        /// Gets or sets the list of tool calls made by the provider after the request.
-        /// </summary>
-        List<AIToolCall> ToolCalls { get; set; }
-
-        /// <summary>
         /// Gets or sets the current status of the request.
         /// </summary>
         AICallStatus Status { get; set; }
@@ -62,5 +57,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// Value indicating whether the structure of this IAIReturn is valid.
         /// </summary>
         (bool IsValid, List<string> Errors) IsValid();
+
+        /// <summary>
+        /// Gets or sets the list of pending tool calls made by the provider after the request.
+        /// </summary>
+        // TODO: Implement method to check toolcalls with toolresults and find pending tools to execute.
+        List<AIToolCall> ToolCalls();
     }
 }

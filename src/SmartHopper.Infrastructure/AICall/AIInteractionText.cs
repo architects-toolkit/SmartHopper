@@ -31,11 +31,6 @@ namespace SmartHopper.Infrastructure.AICall
         public DateTime Time { get; set; } = DateTime.UtcNow;
 
         /// <summary>
-        /// Gets or sets the list of tool calls associated with this interaction.
-        /// </summary>
-        public List<AIToolCall> ToolCalls { get; set; } = new List<AIToolCall>();
-
-        /// <summary>
         /// Gets or sets the content of the message.
         /// </summary>
         public string Content { get; set; }

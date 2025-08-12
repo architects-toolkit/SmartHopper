@@ -17,7 +17,6 @@ using Newtonsoft.Json.Linq;
 using Rhino;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
 using SmartHopper.Infrastructure.AICall;
