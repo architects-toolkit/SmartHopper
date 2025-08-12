@@ -43,7 +43,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <summary>
         /// Gets the function to execute the tool with given parameters.
         /// </summary>
-        public Func<AIToolCall, Task<AIToolCall>> Execute { get; }
+        public Func<AIToolCall, Task<AIReturn>> Execute { get; }
 
         /// <summary>
         /// Gets required capabilities for this tool to function properly.
@@ -60,7 +60,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="parametersSchema">JSON schema describing the tool's parameters.</param>
         /// <param name="execute">Function to execute the tool with given parameters.</param>
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
-        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIToolCall>> execute, AICapability requiredCapabilities = AICapability.None)
+        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));

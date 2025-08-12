@@ -95,8 +95,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<AIToolCall> GenerateList(AIToolCall toolCall)
+        private async Task<AIReturn> GenerateList(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
                 Debug.WriteLine("[ListTools] Running GenerateList tool");
@@ -105,47 +111,50 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                string? prompt = toolCall.Arguments["prompt"]?.ToString();
-                int count = toolCall.Arguments["count"]?.ToObject<int>() ?? 0;
-                string? type = toolCall.Arguments["type"]?.ToString();
-                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                string? prompt = toolInfo.Arguments["prompt"]?.ToString();
+                int count = toolInfo.Arguments["count"]?.ToObject<int>() ?? 0;
+                string? type = toolInfo.Arguments["type"]?.ToString();
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
                 {
-                    toolCall.ErrorMessage = "Missing or invalid parameters: prompt, count, or type";
-                    return toolCall;
+                    output.CreateError("Missing or invalid parameters: prompt, count, or type");
+                    return output;
                 }
 
                 if (!type.Equals("text", StringComparison.OrdinalIgnoreCase))
                 {
-                    toolCall.ErrorMessage = $"Type '{type}' not supported";
-                    return toolCall;
+                    output.CreateError($"Type '{type}' not supported");
+                    return output;
                 }
 
                 // Use iterative approach to ensure we get the exact count with conversational logic
                 var allItems = new List<string>();
                 const int maxIterations = 10;
                 int iteration = 0;
-                AIReturn<string>? result = null;
+                AIReturn? result = null;
 
                 // 1. Generate initial request
                 var initialUserPrompt = this.userPrompt;
                 initialUserPrompt = initialUserPrompt.Replace("<prompt>", prompt);
                 initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString());
 
+                // Initiate AIBody
                 var requestBody = new AIBody();
                 requestBody.JsonOutputSchema = this.listJsonSchema;
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", initialUserPrompt);
+                requestBody.ContextFilter = contextFilter;
 
+                // Initiate AIRequestCall
                 var request = new AIRequestCall();
                 request.Initialize(
                     provider: providerName,
                     model: modelName,
                     capability: this.toolCapabilityRequirements,
                     endpoint: endpoint,
-                    body: requestBody,
-                );
+                    body: requestBody);
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {
@@ -153,42 +162,48 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var stillNeeded = count - allItems.Count;
                     Debug.WriteLine($"[ListTools] Iteration {iteration}: Need {stillNeeded} more items (have {allItems.Count}/{count})");
 
-                    // 2. Execute the request
-                    result = await request.Do<string>().ConfigureAwait(false);
+                    // 2. Execute the AIRequestCall
+                    result = await request.Exec().ConfigureAwait(false);
 
                     if (!result.Success)
                     {
-                        toolCall.ErrorMessage = $"AI request failed: {result.ErrorMessage}";
-                        return toolCall;
+                        output.CreateError($"AI request failed: {result.ErrorMessage}");
+                        return output;
                     }
 
                     // 3. Parse the output and check if count is reached
-                    var cleanedResponse = AI.StripThinkTags(result.Result);
-                    Debug.WriteLine($"[ListTools] AI response: {cleanedResponse}");
+                    var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                    Debug.WriteLine($"[ListTools] AI response: {response}");
 
                     // Parse JSON array of strings
                     List<string> newItems;
                     try
                     {
-                        newItems = ParsingTools.ParseStringArrayFromResponse(cleanedResponse);
+                        newItems = ParsingTools.ParseStringArrayFromResponse(response);
                     }
                     catch (Exception parseEx)
                     {
                         Debug.WriteLine($"[ListTools] Error parsing response in iteration {iteration}: {parseEx.Message}");
-                        Debug.WriteLine($"[ListTools] Raw response: {cleanedResponse}");
+                        Debug.WriteLine($"[ListTools] Raw response: {response}");
 
                         // If we have some items already, return what we have
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            toolCall.Result = allItems;
-                            toolCall.Metrics = result.Metrics;
-                            return toolCall;
+                            
+                            var partialResult = new JObject();
+                            partialResult.Add("result", new JArray(allItems));
+
+                            var partialBody = new AIBody();
+                            partialBody.AddInteractionToolResult(partialResult, result.Metrics);
+
+                            output.CreateSuccess(partialBody);
+                            return output;
                         }
 
                         // Otherwise, return the error
-                        toolCall.ErrorMessage = $"Error parsing AI response: {parseEx.Message}";
-                        return toolCall;
+                        output.CreateError($"Error parsing AI response: {parseEx.Message}");
+                        return output;
                     }
 
                     Debug.WriteLine($"[ListTools] Iteration {iteration} generated {newItems.Count} items: {string.Join(", ", newItems)}");
@@ -216,19 +231,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     stillNeeded = count - allItems.Count;
                     Debug.WriteLine($"[ListTools] Requesting {stillNeeded} more items in next iteration");
 
-                    // Get the request from the result and add the assistant response
-                    request = result.Request;
-                    request.Body.AddInteraction("assistant", result.Result);
+                    // Add the assistant response to the conversation
+                    request.Body.AddInteraction(AIAgent.Assistant, response);
                     
                     // Add follow-up user message asking for more items
                     var followUpMessage = $"I need {stillNeeded} more items to complete the list. Please generate {stillNeeded} additional items to the ones already provided. Current list has {allItems.Count} items: [{string.Join(", ", allItems.Select(item => $"'{item}'"))}].\n\nGenerate {stillNeeded} NEW items as a JSON array, meeting my initial request: {prompt}.\n\nReturn only the JSON array of the new items, nothing else.";
-                    request.Body.AddInteraction("user", followUpMessage);
+                    request.Body.AddInteraction(AIAgent.User, followUpMessage);
                 }
 
                 if (allItems.Count == 0)
                 {
-                    toolCall.ErrorMessage = "AI failed to generate any valid items";
-                    return toolCall;
+                    output.CreateError("AI failed to generate any valid items");
+                    return output;
                 }
 
                 // Final safety check: trim list if it's longer than requested
@@ -241,17 +255,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
 
                 // Success case
-                toolCall.Result = allItems;
-                toolCall.Metrics = lastResult?.Metrics;
-                return toolCall;
+                var toolResult = new JObject();
+                toolResult.Add("result", new JArray(allItems));
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, result?.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in GenerateList: {ex.Message}");
 
-                // Return error object as JObject
-                toolCall.ErrorMessage = $"Error: {ex.Message}";
-                return toolCall;
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
     }

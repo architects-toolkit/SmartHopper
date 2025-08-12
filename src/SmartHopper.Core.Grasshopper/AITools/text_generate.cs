@@ -78,8 +78,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<AIToolCall> GenerateText(AIToolCall toolCall)
+        private async Task<AIReturn> GenerateText(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
                 Debug.WriteLine("[TextTools] Running GenerateText tool");
@@ -88,51 +94,56 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                string? prompt = toolCall.Arguments["prompt"]?.ToString();
-                string? instructions = toolCall.Arguments["instructions"]?.ToString();
-                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                string? prompt = toolInfo.Arguments["prompt"]?.ToString();
+                string? instructions = toolInfo.Arguments["instructions"]?.ToString();
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    toolCall.ErrorMessage = "Missing required parameter: prompt";
-                    return toolCall;
+                    output.CreateError("Missing required parameter: prompt");
+                    return output;
                 }
 
                 // Use custom instructions if provided, otherwise use default system prompt
                 string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
 
-                // Prepare the AI request
+                // Initiate AIBody
                 var requestBody = new AIBody();
-                requestBody.AddInteraction("system", systemPrompt);
-                requestBody.AddInteraction("user", prompt);
+                requestBody.AddInteraction(AIAgent.System, systemPrompt);
+                requestBody.AddInteraction(AIAgent.User, prompt);
+                requestBody.ContextFilter = contextFilter;
 
+                // Initiate AIRequestCall
                 var request = new AIRequestCall();
                 request.Initialize(
                     provider: providerName,
                     model: modelName,
                     capability: this.toolCapabilityRequirements,
                     endpoint: endpoint,
-                    body: requestBody,
-                );
+                    body: requestBody);
 
-                // Execute the tool
-                var result = await request.Do<string>().ConfigureAwait(false);
+                // Execute the AIRequestCall
+                var result = await request.Exec().ConfigureAwait(false);
 
-                // Strip thinking tags from response before using
-                var cleanedResponse = AI.StripThinkTags(result.Result);
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Success case
-                toolCall.Result = cleanedResponse;
-                toolCall.Metrics = result.Metrics;
-                return toolCall;
+                var toolResult = new JObject();
+                toolResult.Add("result", response);
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in GenerateText: {ex.Message}");
 
-                // Return error object as JObject
-                toolCall.ErrorMessage = $"Error: {ex.Message}";
-                return toolCall;
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
     }

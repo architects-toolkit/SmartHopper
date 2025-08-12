@@ -615,7 +615,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
 
                     // Prepare the AIReturn
-                    var aiReturn = AIReturn.CreateSuccess(
+                    AIReturn aiReturn.CreateSuccess(
                         raw: content,
                         request: request,
                         metrics: new AIMetrics()

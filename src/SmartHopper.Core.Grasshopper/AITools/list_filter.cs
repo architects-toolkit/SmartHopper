@@ -85,8 +85,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<AIToolCall> FilterList(AIToolCall toolCall)
+        private async Task<AIReturn> FilterList(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
                 Debug.WriteLine("[ListTools] Running FilterList tool");
@@ -95,18 +101,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                string? rawList = toolCall.Arguments["list"]?.ToString();
-                string? criteria = toolCall.Arguments["criteria"]?.ToString();
-                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                string? rawList = toolInfo.Arguments["list"]?.ToString();
+                string? criteria = toolInfo.Arguments["criteria"]?.ToString();
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
                 {
-                    toolCall.ErrorMessage = "Missing required parameters";
-                    return toolCall;
+                    output.CreateError("Missing required parameters");
+                    return output;
                 }
 
                 // Normalize list input
-                var items = NormalizeListInput(toolCall);
+                var items = NormalizeListInput(toolInfo);
 
                 // Convert to GH_String list
                 var ghStringList = items.Select(s => new GH_String(s)).ToList();
@@ -118,54 +125,60 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<criteria>", criteria);
                 userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
 
+                // Initiate AIBody
                 var requestBody = new AIBody();
                 requestBody.AddInteraction("system", this.systemPrompt);
                 requestBody.AddInteraction("user", userPrompt);
+                requestBody.ContextFilter = contextFilter;
 
+                // Initiate AIRequestCall
                 var request = new AIRequestCall();
                 request.Initialize(
                     provider: providerName,
                     model: modelName,
                     capability: this.toolCapabilityRequirements,
                     endpoint: endpoint,
-                    body: requestBody,
-                );
+                    body: requestBody);
 
-                // Execute the tool
-                var result = await request.Do<string>().ConfigureAwait(false);
+                // Execute the AIRequestCall
+                var result = await request.Exec().ConfigureAwait(false);
 
-                // Strip thinking tags from response before parsing
-                var cleanedResponse = AI.StripThinkTags(result.Result);
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Parse indices from response
-                var indices = ParsingTools.ParseIndicesFromResponse(cleanedResponse);
+                var indices = ParsingTools.ParseIndicesFromResponse(response);
 
                 if (indices == null)
                 {
-                    toolCall.ErrorMessage = $"The AI returned an invalid response:\n{result.Result}";
-                    return toolCall;
+                    output.CreateError($"The AI returned an invalid response:\n{result}");
+                    return output;
                 }
 
                 Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
 
                 // Success case
-                toolCall.Result = indices;
-                toolCall.Metrics = result.Metrics;
-                return toolCall;
+                var toolResult = new JObject();
+                toolResult.Add("result", new JArray(indices));
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ListTools] Error in FilterList: {ex.Message}");
 
-                toolCall.ErrorMessage = $"Error: {ex.Message}";
-                return toolCall;
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
 
         /// <summary>
         /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
         /// </summary>
-        private static List<string> NormalizeListInput(AIToolCall toolCall)
+        private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
         {
             var token = toolCall.Arguments["list"];
             if (token is JArray array)

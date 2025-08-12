@@ -40,9 +40,9 @@ namespace SmartHopper.Infrastructure.AICall
                 hasErrors = true;
             }
 
-            if (this.Body.PendingToolCallsCount() == 0)
+            if (this.Body.PendingToolCallsCount() != 1)
             {
-                messages.Add("Body must have at least one pending tool call");
+                messages.Add("Body must have exactly one pending tool call");
                 hasErrors = true;
             }
 

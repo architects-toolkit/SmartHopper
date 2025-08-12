@@ -29,12 +29,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class script_review : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "script_review";
+        
+        /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "script_review",
+                name: this.toolName,
                 description: "Return a code review for the script component specified by its GUID.",
                 category: "Scripting",
                 parametersSchema: @"{
@@ -61,30 +66,37 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">JSON object with "guid" field.</param>
         /// <returns>Result containing success flag, codedIssues array, and aiReview string, or error details.</returns>
-        private async Task<AIToolCall> ScriptReviewToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> ScriptReviewToolAsync(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
                 // Parse and validate parameters
-                var guidStr = toolCall.Arguments["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                var guidStr = toolInfo.Arguments["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
                 if (!Guid.TryParse(guidStr, out var scriptGuid))
                 {
-                    toolCall.ErrorMessage = $"Invalid GUID: {guidStr}";
-                    return toolCall;
+                    output.CreateError($"Invalid GUID: {guidStr}");
+                    return output;
                 }
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
-                var endpoint = "script_review";
-                var question = toolCall.Arguments["question"]?.ToString();
-                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                var endpoint = this.toolName;
+                var question = toolInfo.Arguments["question"]?.ToString();
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
                 var objects = GHCanvasUtils.GetCurrentObjects();
                 var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid) as IScriptComponent;
                 if (target == null)
                 {
-                    toolCall.ErrorMessage = $"Script component with GUID {scriptGuid} not found.";
-                    return toolCall;
+                    output.CreateError($"Script component with GUID {scriptGuid} not found.");
+                    return output;
                 }
 
                 var scriptCode = target.Text ?? string.Empty;
@@ -139,7 +151,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ContextFilter = contextFilter,
                 };
-                requestBody.AddInteraction("system", "You are a code review assistant. Provide concise feedback on the code.");
+                requestBody.AddInteraction(AIAgent.System, "You are a code review assistant. Provide concise feedback on the code.");
 
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
@@ -150,7 +162,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
                 }
-                requestBody.AddInteraction("user", userPrompt);
+                requestBody.AddInteraction(AIAgent.User, userPrompt);
 
                 var request = new AIRequestCall();
                 request.Initialize(
@@ -158,25 +170,33 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput,
                     endpoint: endpoint,
-                    body: requestBody,
-                );
+                    body: requestBody);
 
-                var result = await request.Do<string>().ConfigureAwait(false);
+                var result = await request.Exec().ConfigureAwait(false);
                 if (!result.Success)
                 {
-                    toolCall.ErrorMessage = result.ErrorMessage ?? "AI request failed";
-                    return toolCall;
+                    output.CreateError(result.ErrorMessage ?? "AI request failed");
+                    return output;
                 }
 
-                var aiReview = AI.StripThinkTags(result.Result);
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
-                toolCall.Result = new { codedIssues = codedIssues, aiReview = aiReview };
-                return toolCall;
+                // Success case
+                var toolResult = new JObject();
+                toolResult.Add("success", true);
+                toolResult.Add("codedIssues", new JArray(codedIssues));
+                toolResult.Add("aiReview", response);
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
-                toolCall.ErrorMessage = ex.Message;
-                return toolCall;
+                output.CreateError(ex.Message);
+                return output;
             }
         }
     }

@@ -81,8 +81,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<AIToolCall> EvaluateText(AIToolCall toolCall)
+        private async Task<AIReturn> EvaluateText(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
                 Debug.WriteLine("[TextTools] Running EvaluateText tool");
@@ -91,14 +97,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                string? text = toolCall.Arguments["text"]?.ToString();
-                string? question = toolCall.Arguments["question"]?.ToString();
-                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                string? text = toolInfo.Arguments["text"]?.ToString();
+                string? question = toolInfo.Arguments["question"]?.ToString();
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    toolCall.ErrorMessage = "Missing required parameters";
-                    return toolCall;
+                    output.CreateError("Missing required parameters");
+                    return output;
                 }
 
                 // Prepare the AI request
@@ -106,46 +113,51 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<text>", text);
 
+                // Initiate AIBody
                 var requestBody = new AIBody();
-                requestBody.AddInteraction("system", this.systemPrompt);
-                requestBody.AddInteraction("user", userPrompt);
+                requestBody.AddInteraction(AIAgent.System, this.systemPrompt);
+                requestBody.AddInteraction(AIAgent.User, userPrompt);
+                requestBody.ContextFilter = contextFilter;
 
+                // Initiate AIRequestCall
                 var request = new AIRequestCall();
                 request.Initialize(
                     provider: providerName,
                     model: modelName,
                     capability: this.toolCapabilityRequirements,
                     endpoint: endpoint,
-                    body: requestBody,
-                );
+                    body: requestBody);
 
-                // Execute the tool
-                var result = await request.Do<string>().ConfigureAwait(false);
+                // Execute the AIRequestCall
+                var result = await request.Exec().ConfigureAwait(false);
 
-                // Strip thinking tags from response before parsing
-                var cleanedResponse = AI.StripThinkTags(result.Result);
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Parse the boolean from the response
-                var parsedResult = ParsingTools.ParseBooleanFromResponse(cleanedResponse);
+                var parsedResult = ParsingTools.ParseBooleanFromResponse(response);
 
                 if (parsedResult == null)
                 {
-                    toolCall.ErrorMessage = $"The AI returned an invalid response:\n{result.Result}";
-                    return toolCall;
+                    output.CreateError($"The AI returned an invalid response:\n{result}");
+                    return output;
                 }
 
                 // Success case
-                toolCall.Result = parsedResult.Value;
-                toolCall.Metrics = result.Metrics;
-                return toolCall;
+                var toolResult = new JObject();
+                toolResult.Add("result", parsedResult.Value);
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[TextTools] Error in EvaluateText: {ex.Message}");
 
-                // Return error object as JObject
-                toolCall.ErrorMessage = $"Error: {ex.Message}";
-                return toolCall;
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
     }

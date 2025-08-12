@@ -32,5 +32,10 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the agent of the interaction.
         /// </summary>
         AIAgent Agent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the metrics associated with the interaction.
+        /// </summary>
+        AIMetrics Metrics { get; set; } = new AIMetrics();
     }
 }

@@ -34,12 +34,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class script_new : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "script_new";
+
+        /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "script_new",
+                name: this.toolName,
                 description: "Generate a script component in the specified language (default python) based on user instructions and place it on the canvas.",
                 category: "Scripting",
                 parametersSchema: @"{
@@ -58,16 +63,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the "script_new" tool: generates a script component based on user instructions and places it on the canvas.
         /// </summary>
-        private async Task<AIToolCall> ScriptNewToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> ScriptNewToolAsync(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
-                var prompt = toolCall.Arguments["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
-                var language = toolCall.Arguments["language"]?.ToString() ?? "python";
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                var prompt = toolInfo.Arguments["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
+                var language = toolInfo.Arguments["language"]?.ToString() ?? "python";
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
-                var endpoint = "script_new";
-                string? contextFilter = toolCall.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                var endpoint = this.toolName;
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -160,7 +172,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     JsonOutputSchema = jsonSchema,
                     ContextFilter = contextFilter,
                 };
-                requestBody.AddInteraction("system", $"""
+                requestBody.AddInteraction(AIAgent.System, $"""
                     You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
                     
                     Your response MUST be a valid JSON object with the following structure:
@@ -170,7 +182,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     
                     The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
                     """);
-                requestBody.AddInteraction("user", prompt);
+                requestBody.AddInteraction(AIAgent.User, prompt);
 
                 var request = new AIRequestCall();
                 request.Initialize(
@@ -178,18 +190,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     endpoint: endpoint,
-                    body: requestBody,
-                );
+                    body: requestBody);
 
-                var result = await request.Do<string>().ConfigureAwait(false);
+                var result = await request.Exec().ConfigureAwait(false);
                 if (!result.Success)
                 {
-                    toolCall.ErrorMessage = result.ErrorMessage;
-                    return toolCall;
+                    output.CreateError(result.ErrorMessage);
+                    return output;
                 }
 
-                var cleaned = AI.StripThinkTags(result.Result);
-                var responseJson = JObject.Parse(cleaned);
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                var responseJson = JObject.Parse(response);
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();
                 var outputs = responseJson["outputs"] as JArray ?? new JArray();
@@ -294,16 +305,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Retrieve actual placed GUID
                 if (mapping.TryGetValue(comp.InstanceGuid, out var actualGuid))
                 {
-                    toolCall.Result = new { script = scriptCode, guid = actualGuid, inputs = scriptInputs, outputs = scriptOutputs };
-                    return toolCall;
+                    var toolResult = new JObject();
+                    toolResult.Add("script", scriptCode);
+                    toolResult.Add("guid", actualGuid.ToString());
+                    toolResult.Add("inputs", scriptInputs);
+                    toolResult.Add("outputs", scriptOutputs);
+
+                    var toolBody = new AIBody();
+                    toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+
+                    output.CreateSuccess(toolBody);
+                    return output;
                 }
-                toolCall.ErrorMessage = "Failed to retrieve placed component GUID.";
-                return toolCall;
+                output.CreateError("Failed to retrieve placed component GUID.");
+                return output;
             }
             catch (Exception ex)
             {
-                toolCall.ErrorMessage = ex.Message;
-                return toolCall;
+                output.CreateError(ex.Message);
+                return output;
             }
         }
     }
