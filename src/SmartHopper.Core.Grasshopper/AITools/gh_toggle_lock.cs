@@ -11,9 +11,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -24,13 +26,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class gh_toggle_lock : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "gh_toggle_lock";
+        /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_toggle_lock",
+                name: this.toolName,
                 description: "Toggle Grasshopper component locked state (enable/disable) by GUID.",
                 category: "Components",
                 parametersSchema: @"{
@@ -52,31 +58,55 @@ namespace SmartHopper.Core.Grasshopper.AITools
             );
         }
 
-        private async Task<AIToolCall> GhToggleLockAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhToggleLockAsync(AIToolCall toolCall)
         {
-            var guids = toolCall.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var locked = toolCall.Arguments["locked"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
-            var updated = new List<string>();
-
-            foreach (var s in guids)
+            // Prepare the output
+            var output = new AIReturn()
             {
-                Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
-                if (Guid.TryParse(s, out var guid))
-                {
-                    Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                    GHComponentUtils.SetComponentLock(guid, locked);
-                    Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
-                    updated.Add(guid.ToString());
-                }
-                else
-                {
-                    Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
-                }
-            }
+                Request = toolCall,
+            };
 
-            toolCall.Result = new { updated };
-            return toolCall;
+            try
+            {
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var locked = toolInfo.Arguments["locked"]?.ToObject<bool>() ?? false;
+                Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
+                var updated = new List<string>();
+
+                foreach (var s in guids)
+                {
+                    Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
+                    if (Guid.TryParse(s, out var guid))
+                    {
+                        Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
+                        GHComponentUtils.SetComponentLock(guid, locked);
+                        Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
+                        updated.Add(guid.ToString());
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
+                    }
+                }
+
+                var toolResult = new JObject
+                {
+                    ["updated"] = JArray.FromObject(updated)
+                };
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult);
+
+                output.CreateSuccess(toolBody);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                output.CreateError($"Error: {ex.Message}");
+                return output;
+            }
         }
     }
 }

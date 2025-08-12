@@ -10,9 +10,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -24,13 +26,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class web_rhino_forum_read_post : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "web_rhino_forum_read_post";
+        /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "web_rhino_forum_read_post",
+                name: this.toolName,
                 description: "Retrieve a full Rhino Discourse forum post by ID.",
                 category: "Knowledge",
                 parametersSchema: @"{
@@ -50,17 +56,48 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Retrieves a full Rhino Discourse forum post by ID.
         /// </summary>
         /// <param name="parameters">A JObject containing the ID parameter.</param>
-        private async Task<AIToolCall> WebRhinoForumReadPostAsync(AIToolCall toolCall)
+        private async Task<AIReturn> WebRhinoForumReadPostAsync(AIToolCall toolCall)
         {
-            int id = toolCall.Arguments["id"]?.Value<int>();
-            var httpClient = new HttpClient();
-            var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
-            var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var json = JObject.Parse(content);
-            toolCall.Result = json;
-            return toolCall;
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
+            try
+            {
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.Body.PendingToolCallsList().First();
+                int? idNullable = toolInfo.Arguments["id"]?.Value<int>();
+                if (!idNullable.HasValue)
+                {
+                    output.CreateError("Missing 'id' parameter.");
+                    return output;
+                }
+                int id = idNullable.Value;
+                var httpClient = new HttpClient();
+                var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
+                var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var json = JObject.Parse(content);
+                var toolResult = new JObject
+                {
+                    ["id"] = id,
+                    ["post"] = json
+                };
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult);
+
+                output.CreateSuccess(toolBody);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                output.CreateError($"Error: {ex.Message}");
+                return output;
+            }
         }
     }
 }
