@@ -224,7 +224,7 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> DecodeResponse(string response)
+        public override List<IAIInteraction> Decode(string response)
         {
             var interactions = new List<IAIInteraction>();
 
@@ -301,6 +301,10 @@ namespace SmartHopper.Providers.MistralAI
                     Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                 };
 
+                var metrics = this.DecodeMetrics(response);
+
+                interaction.Metrics = metrics;
+
                 interactions.Add(interaction);
 
                 // Add an AIInteractionToolCall for each tool call
@@ -327,7 +331,7 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(string response)
         {
             var metrics = new AIMetrics();
             if (string.IsNullOrWhiteSpace(response))
@@ -352,30 +356,6 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             return metrics;
-        }
-
-        /// <inheritdoc/>
-        public override IAIReturn PostCall(IAIReturn response)
-        {
-            // First do the base PostCall
-            response = base.PostCall(response);
-
-            try
-            {
-                // Determine status based on decoded interactions' tool calls
-                var interactions = response.Result; // triggers provider DecodeResponse
-                if (interactions != null && interactions.Any(i => i.ToolCalls != null && i.ToolCalls.Count > 0))
-                {
-                    response.Status = AICallStatus.CallingTools;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[MistralAI] PostCall status update error: {ex.Message}");
-                // Keep original response on failure
-            }
-
-            return response;
         }
     }
 }

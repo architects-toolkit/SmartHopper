@@ -224,7 +224,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// Adds an interaction to the end of the interaction history using an agent name and a body string.
         /// </summary>
         /// <param name="body">The textual content of the interaction.</param>
-        public void AddInteractionToolResult(JObject body, AIMetrics metrics)
+        public void AddInteractionToolResult(JObject body, AIMetrics metrics = new AIMetrics())
         {
             this.AddLastInteraction(CreateInteractionToolResult(body, metrics));
         }

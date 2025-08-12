@@ -196,10 +196,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public abstract List<IAIInteraction> DecodeResponse(string response);
-
-        /// <inheritdoc/>
-        public abstract AIMetrics DecodeMetrics(string response);
+        public abstract List<IAIInteraction> Decode(string response);
 
         /// <inheritdoc/>
         public virtual AIRequestCall PreCall(AIRequestCall request)
@@ -232,7 +229,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
 
-                result = AIReturn.CreateError(error, request, metrics);
+                result.CreateError(error, request);
 
                 return result;
             }
@@ -255,21 +252,6 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public virtual IAIReturn PostCall(IAIReturn response)
         {
-            try
-            {
-                // Determine status based on decoded interactions' tool calls
-                var interactions = response.Result; // triggers provider Decode
-                if (interactions != null && interactions.Any(i => i.ToolCalls != null && i.ToolCalls.Count > 0))
-                {
-                    response.Status = AICallStatus.CallingTools;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[{this.Name}] PostCall metrics parsing error: {ex.Message}");
-                // Keep original response on failure
-            }
-
             return response;
         }
 
@@ -615,14 +597,11 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
 
                     // Prepare the AIReturn
-                    AIReturn aiReturn.CreateSuccess(
-                        raw: content,
-                        request: request,
-                        metrics: new AIMetrics()
-                        {
-                            Provider = this.Name,
-                            Model = request.Model,
-                        });
+                    var rawJObject = JObject.Parse(content);
+                    var aiReturn = new AIReturn();
+                    aiReturn.CreateSuccess(
+                        raw: rawJObject,
+                        request: request);
 
                     return aiReturn;
                 }

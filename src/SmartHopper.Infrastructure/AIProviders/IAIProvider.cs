@@ -62,14 +62,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         string Encode(List<IAIInteraction> interactions);
 
         /// <summary>
-        /// Gets the decoded list of interactions given the encoded response.
+        /// Gets the decoded list of interactions given the encoded response. Interactions include the response, tool calls and metrics.
         /// </summary>
-        List<IAIInteraction> DecodeResponse(string response);
-
-        /// <summary>
-        /// Gets the decoded metrics given the encoded response.
-        /// </summary>
-        AIMetrics DecodeMetrics(string response);
+        List<IAIInteraction> Decode(string response);
 
         /// <summary>
         /// Gets the pre-call request for the provider.
