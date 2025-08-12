@@ -833,11 +833,15 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                // Display system message as collapsible if provide
-                var systemMessage = this._chatHistory.FirstOrDefault(x => x.Agent == AIAgent.System);
-                var systemMessageText = systemMessage as AIInteractionText;
+                // Display system message as collapsible if provided
 
-                if (systemMessage != null && systemMessageText != null)
+                // TODO: Why is systemMessageText always null? Is _chatHistory empty?
+
+                var systemMessageText = this._chatHistory
+                    .OfType<AIInteractionText>()
+                    .FirstOrDefault(x => x.Agent == AIAgent.System);
+
+                if (systemMessageText != null)
                 {
                     this.AddSystemMessage(systemMessageText.Content);
                 }
@@ -867,7 +871,7 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Generate AI greeting message using a context-aware custom prompt
                 string greetingPrompt;
-                if (!string.IsNullOrEmpty(systemMessageText.Content))
+                if (systemMessageText != null && !string.IsNullOrEmpty(systemMessageText.Content))
                 {
                     greetingPrompt = $"You are a chat assistant with specialized knowledge and capabilities. The user has provided the following system instructions that define your role and expertise:\n\n{systemMessageText.Content}\n\nBased on these instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
                 }
