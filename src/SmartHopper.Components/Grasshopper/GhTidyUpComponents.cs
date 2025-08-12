@@ -18,6 +18,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
@@ -125,19 +126,34 @@ namespace SmartHopper.Components.Grasshopper
             try
             {
                 var parameters = new JObject { ["guids"] = JArray.FromObject(guids) };
-                var result = AIToolManager.ExecuteTool("gh_tidy_up", parameters)
-                                  .GetAwaiter().GetResult() as JObject;
-                if (result == null)
+                // Create AIToolCall and execute
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_tidy_up",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                    Metrics = new AIMetrics { ReuseCount = 1 },
+                };
+
+                var toolCall = new AIToolCall();
+                toolCall.Endpoint = "gh_tidy_up";
+                toolCall.Body = new AIBody();
+                toolCall.Body.AddInteraction(toolCallInteraction);
+
+                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
+                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
+                if (toolResult == null)
                 {
                     this.LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
                 }
-                else if (result["success"]?.ToObject<bool>() == false)
+                else if (toolResult["success"]?.ToObject<bool>() == false)
                 {
-                    this.LastErrors.Add(result["error"]?.ToString() ?? "Unknown error");
+                    this.LastErrors.Add(toolResult["error"]?.ToString() ?? "Unknown error");
                 }
                 else
                 {
-                    var moved = result["moved"]?.ToObject<List<string>>() ?? new List<string>();
+                    var moved = toolResult["moved"]?.ToObject<List<string>>() ?? new List<string>();
                     var failed = guids.Except(moved);
                     foreach (var g in failed)
                     {

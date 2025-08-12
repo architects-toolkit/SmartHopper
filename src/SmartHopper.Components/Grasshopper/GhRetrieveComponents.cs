@@ -14,6 +14,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
@@ -87,8 +88,23 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                var toolResult = AIToolManager.ExecuteTool("gh_list_components", parameters)
-                    .GetAwaiter().GetResult() as JObject;
+                // Create AIToolCall and execute
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_list_components",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                    Metrics = new AIMetrics { ReuseCount = 1 },
+                };
+
+                var toolCall = new AIToolCall();
+                toolCall.Endpoint = "gh_list_components";
+                toolCall.Body = new AIBody();
+                toolCall.Body.AddInteraction(toolCallInteraction);
+
+                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
+                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error,

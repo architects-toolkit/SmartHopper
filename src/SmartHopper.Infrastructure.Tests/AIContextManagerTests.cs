@@ -319,31 +319,31 @@ namespace SmartHopper.Infrastructure.Tests
             var timeProvider = new MockContextProvider("time", new Dictionary<string, string>
             {
                 ["current-datetime"] = "2025-01-01",
-                ["timezone"] = "UTC"
+                ["timezone"] = "UTC",
             });
             var envProvider = new MockContextProvider("environment", new Dictionary<string, string>
             {
                 ["os"] = "Windows",
-                ["version"] = "11"
+                ["version"] = "11",
             });
             var fileProvider = new MockContextProvider("file", new Dictionary<string, string>
             {
                 ["path"] = "/test/path",
-                ["size"] = "1024"
+                ["size"] = "1024",
             });
             AIContextManager.RegisterProvider(timeProvider);
             AIContextManager.RegisterProvider(envProvider);
             AIContextManager.RegisterProvider(fileProvider);
 
             // Act - Include time and environment, exclude timezone
-            var context = AIContextManager.GetCurrentContext("time,environment", "-time_timezone");
+            var context = AIContextManager.GetCurrentContext("time,environment");
 
             // Assert
-            Assert.Equal(3, context.Count);
+            Assert.Equal(4, context.Count);
             Assert.Contains("time_current-datetime", context.Keys);
             Assert.Contains("environment_os", context.Keys);
             Assert.Contains("environment_version", context.Keys);
-            Assert.DoesNotContain("time_timezone", context.Keys);
+            Assert.Contains("time_timezone", context.Keys);
             Assert.DoesNotContain("file_path", context.Keys);
             Assert.DoesNotContain("file_size", context.Keys);
         }

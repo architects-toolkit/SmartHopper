@@ -167,7 +167,7 @@ namespace SmartHopper.Components.AI
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;
-            private AIResponse lastResponse;
+            private AIReturn lastReturn;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="AIChatWorker"/> class.
@@ -208,18 +208,18 @@ namespace SmartHopper.Components.AI
                     // Create a web chat worker
                     var chatWorker = WebChatUtils.CreateWebChatWorker(
                         actualProvider,
-                        this.GetModel(),
+                        this.component.GetModel(),
                         endpoint: "ai-chat",
-                        systemPrompt: this.GetSystemPrompt(),
+                        systemPrompt: this.component.GetSystemPrompt(),
                         toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
                         progressReporter: this.progressReporter,
-                        componentId: this.InstanceGuid);
+                        componentId: this.component.InstanceGuid);
 
                     // Process the chat
                     await chatWorker.ProcessChatAsync(token).ConfigureAwait(false);
 
-                    // Get the last response
-                    this.lastResponse = chatWorker.GetLastResponse();
+                    // Get the last return
+                    this.lastReturn = chatWorker.GetLastReturn();
 
                     Debug.WriteLine("[AIChatWorker] Web chat worker completed");
                     // this.progressReporter?.Invoke("Web chat completed");
@@ -241,14 +241,22 @@ namespace SmartHopper.Components.AI
             {
                 message = "Ready";
 
-                if (this.lastResponse != null)
+                if (this.lastReturn != null)
                 {
+                    // Get the text result from the AIReturn
+                    var lastInteraction = this.lastReturn.Body.GetLastInteraction() as AIInteractionText;
+                    string responseText = lastInteraction.Content ?? string.Empty;
+
                     // Set the last response output
-                    var responseGoo = new GH_String(this.lastResponse.Response);
+                    var responseGoo = new GH_String(responseText);
                     this.component.SetPersistentOutput("Last Response", responseGoo, DA);
 
                     // Store metrics for the base class to output
-                    this.component.StoreResponseMetrics(this.lastResponse);
+                    var combinedMetrics = this.lastReturn.Metrics;
+                    if (combinedMetrics != null)
+                    {
+                        this.component.StoreResponseMetrics(combinedMetrics);
+                    }
 
                     message = $"Ready";
                 }
