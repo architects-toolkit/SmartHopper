@@ -73,7 +73,7 @@ namespace SmartHopper.Infrastructure.Tests
         public async Task ExecuteTool_ShouldReturnError_WhenToolNotFound()
         {
             ResetManager();
-            var result = await AIToolManager.ExecuteTool("UnknownTool", [], null!).ConfigureAwait(false);
+            var result = await AIToolManager.ExecuteTool("UnknownTool").ConfigureAwait(false);
             dynamic dyn = result;
             Assert.False(dyn.success);
             Assert.Contains("UnknownTool", (string)dyn.error, StringComparison.Ordinal);
