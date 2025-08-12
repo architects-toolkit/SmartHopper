@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -45,7 +46,21 @@ namespace SmartHopper.Providers.DeepSeek
             Debug.WriteLine("[DeepSeek] Retrieving available models");
             try
             {
-                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                // Use AIRequestCall to perform the request
+                var request = new AIRequestCall();
+                request.Initialize(this.deepSeekProvider.Name, string.Empty, string.Empty, "/models", AICapability.TextInput);
+                request.HttpMethod = "GET";
+                request.ContentType = "application/json";
+                request.Authentication = "bearer";
+
+                var aiReturn = await request.Exec().ConfigureAwait(false);
+                if (!aiReturn.Success)
+                {
+                    throw new Exception($"API request failed: {aiReturn.ErrorMessage}");
+                }
+
+                var response = aiReturn.Body.GetLastInteraction() as AIInteractionText;
+                var content = response?.Content ?? string.Empty;
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;
                 var modelIds = new List<string>();

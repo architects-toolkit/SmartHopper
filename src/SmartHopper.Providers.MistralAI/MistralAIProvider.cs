@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIProviders;
@@ -23,7 +24,7 @@ namespace SmartHopper.Providers.MistralAI
     {
         private MistralAIProvider()
         {
-            this.Models = new MistralAIProviderModels(this, request => this.CallApi<string>(request));
+            this.Models = new MistralAIProviderModels(this);
         }
 
         /// <summary>
@@ -80,6 +81,57 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
+        public override string Encode(IAIInteraction interaction)
+        {
+            // This method should encode a single interaction to string
+            // For MistralAI, we'll serialize the interaction as JSON
+            try
+            {
+                if (interaction is AIInteractionText textInteraction)
+                {
+                    return JsonConvert.SerializeObject(new
+                    {
+                        agent = textInteraction.Agent.ToString(),
+                        content = textInteraction.Content,
+                        reasoning = textInteraction.Reasoning
+                    });
+                }
+                else if (interaction is AIInteractionToolCall toolCallInteraction)
+                {
+                    return JsonConvert.SerializeObject(new
+                    {
+                        agent = toolCallInteraction.Agent.ToString(),
+                        id = toolCallInteraction.Id,
+                        name = toolCallInteraction.Name,
+                        arguments = toolCallInteraction.Arguments
+                    });
+                }
+                else if (interaction is AIInteractionToolResult toolResultInteraction)
+                {
+                    return JsonConvert.SerializeObject(new
+                    {
+                        agent = toolResultInteraction.Agent.ToString(),
+                        result = toolResultInteraction.Result,
+                        id = toolResultInteraction.Id,
+                        name = toolResultInteraction.Name
+                    });
+                }
+
+                // Fallback
+                return JsonConvert.SerializeObject(new
+                {
+                    agent = interaction.Agent.ToString(),
+                    content = string.Empty,
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MistralAI] Encode error: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        /// <inheritdoc/>
         public override string Encode(AIRequestCall request)
         {
             // Encode request body for Mistral. Supports string and AIText content in interactions.
@@ -99,20 +151,27 @@ namespace SmartHopper.Providers.MistralAI
                 AIAgent role = interaction.Agent;
                 string roleName = string.Empty;
                 string msgContent;
-                var body = interaction.Body;
-                if (body is string s)
+                // Handle different interaction types by casting to concrete types
+                if (interaction is AIInteractionText textInteraction)
                 {
-                    msgContent = s;
+                    msgContent = textInteraction.Content ?? string.Empty;
                 }
-                else if (body is AIInteractionText text)
+                else if (interaction is AIInteractionToolResult toolResultInteraction)
                 {
-                    // For AIText, only send the actual content
-                    msgContent = text.Content ?? string.Empty;
+                    msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
+                }
+                else if (interaction is AIInteractionToolCall toolCallInteraction)
+                {
+                    msgContent = string.Empty; // Tool calls don't have content
+                }
+                else if (interaction is AIInteractionImage imageInteraction)
+                {
+                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
                 }
                 else
                 {
-                    // Fallback to string representation
-                    msgContent = body?.ToString() ?? string.Empty;
+                    // Fallback to empty string for unknown types
+                    msgContent = string.Empty;
                 }
 
                 var messageObj = new JObject
@@ -129,43 +188,42 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     roleName = "assistant";
 
-                    // Pass tool_calls if available from ToolCalls property
-                    if (interaction.ToolCalls != null && interaction.ToolCalls.Count > 0)
-                    {
-                        var toolCallsArray = new JArray();
-                        foreach (var toolCall in interaction.ToolCalls)
-                        {
-                            var toolCallObj = new JObject
-                            {
-                                ["id"] = toolCall.Id,
-                                ["type"] = "function",
-                                ["function"] = new JObject
-                                {
-                                    ["name"] = toolCall.Name,
-                                    ["arguments"] = toolCall.Arguments,
-                                }
-                            };
-                            toolCallsArray.Add(toolCallObj);
-                        }
-                        messageObj["tool_calls"] = toolCallsArray;
-                    }
+                    // Tool calls are handled separately as AIInteractionToolCall objects
+                    // Assistant messages don't directly contain tool calls in our architecture
                 }
                 else if (role == AIAgent.ToolResult)
                 {
                     roleName = "tool";
 
-                    // Propagate tool_call ID and name from ToolCalls property
-                    if (interaction.ToolCalls != null && interaction.ToolCalls.Count > 0)
+                    // Propagate tool_call ID and name - cast to concrete type
+                    if (interaction is AIInteractionToolResult toolResultInteraction)
                     {
-                        var toolCall = interaction.ToolCalls.First();
-                        messageObj["name"] = toolCall.Name;
-                        messageObj["tool_call_id"] = toolCall.Id;
+                        messageObj["name"] = toolResultInteraction.Name;
+                        messageObj["tool_call_id"] = toolResultInteraction.Id;
                     }
                 }
                 else if (role == AIAgent.ToolCall)
                 {
-                    // Omit it
-                    continue;
+                    roleName = "assistant";
+                    
+                    // Handle tool call as assistant message with tool_calls
+                    if (interaction is AIInteractionToolCall toolCallInteraction)
+                    {
+                        var toolCallsArray = new JArray();
+                        var toolCallObj = new JObject
+                        {
+                            ["id"] = toolCallInteraction.Id,
+                            ["type"] = "function",
+                            ["function"] = new JObject
+                            {
+                                ["name"] = toolCallInteraction.Name,
+                                ["arguments"] = toolCallInteraction.Arguments is JToken jToken ? jToken.ToString() : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
+                            },
+                        };
+                        toolCallsArray.Add(toolCallObj);
+                        messageObj["tool_calls"] = toolCallsArray;
+                        msgContent = string.Empty; // Tool calls don't have content
+                    }
                 }
                 else
                 {
@@ -177,8 +235,6 @@ namespace SmartHopper.Providers.MistralAI
                     messageObj["role"] = roleName;
                     convertedMessages.Add(messageObj);
                 }
-
-                
             }
 
             // Create request body for Mistral API
@@ -315,8 +371,8 @@ namespace SmartHopper.Providers.MistralAI
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
-                            Name = tc["name"]?.ToString(),
-                            Arguments = tc["arguments"]?.ToString(),
+                            Name = tc["function"]?["name"]?.ToString(),
+                            Arguments = tc["function"]?["arguments"] as JObject,
                         };
                         interactions.Add(toolCall);
                     }

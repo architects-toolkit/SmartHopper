@@ -234,9 +234,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var scriptOutputs = new JArray();
-                foreach (var output in outputs)
+                foreach (var data in outputs)
                 {
-                    var outputType = output["type"]?.ToString() ?? Generic;
+                    var outputType = data["type"]?.ToString() ?? Generic;
 
                     // Validate output type
                     if (!SupportedDataTypes.IsValidType(outputType))
@@ -247,10 +247,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     var outputObj = new JObject
                     {
-                        ["variableName"] = output["name"]?.ToString() ?? "output",
-                        ["name"] = output["name"]?.ToString() ?? "Output",
-                        ["description"] = output["description"]?.ToString() ?? string.Empty,
-                        ["type"] = outputType
+                        ["variableName"] = data["name"]?.ToString() ?? "output",
+                        ["name"] = data["name"]?.ToString() ?? "Output",
+                        ["description"] = data["description"]?.ToString() ?? string.Empty,
+                        ["type"] = outputType,
                     };
                     scriptOutputs.Add(outputObj);
                 }

@@ -227,16 +227,6 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Strips any <think>…</think> sections from the raw response.
-        /// </summary>
-        /// <param name="rawResponse">Raw markdown response including <think> tags.</param>
-        /// <returns>Markdown string without reasoning sections.</returns>
-        private string StripReasoning(string rawResponse)
-        {
-            return Regex.Replace(rawResponse, @"<think>[\s\S]*?</think>", "", RegexOptions.Singleline).Trim();
-        }
-
-        /// <summary>
         /// Creates a message HTML from the template.
         /// </summary>
         /// <param name="role">The role of the message sender (user, assistant, system).</param>
@@ -258,18 +248,56 @@ namespace SmartHopper.Core.UI.Chat
             // TODO: Handle case for processing state (loading message)
 
             // TODO: Handle case for AIReturn.Success = false (with errors)
-            
+
+            // Get content from interaction based on type
+            string rawContent = string.Empty;
+            string rawReasoning = string.Empty;
+            string provider = string.Empty;
+            string model = string.Empty;
+            string finishReason = "unknown";
+            int inTokens = 0;
+            int outTokens = 0;
+
+            switch (interaction)
+            {
+                case AIInteractionText textInteraction:
+                    rawContent = textInteraction.Content ?? string.Empty;
+                    rawReasoning = textInteraction.Reasoning ?? string.Empty;
+                    break;
+                case AIInteractionToolResult toolResult:
+                    rawContent = toolResult.Result.ToString();
+                    break;
+                case AIInteractionToolCall toolCall:
+                    rawContent = $"Tool Call: {toolCall.Name}";
+                    break;
+                case AIInteractionImage imageInteraction:
+                    rawContent = imageInteraction.ImageUrl ?? "[Image]";
+                    break;
+                default:
+                    rawContent = interaction.ToString();
+                    rawReasoning = string.Empty;
+                    break;
+            }
+
+            // Extract metrics if available
+            if (interaction.Metrics != null)
+            {
+                provider = interaction.Metrics.Provider ?? "";
+                model = interaction.Metrics.Model ?? "";
+                finishReason = interaction.Metrics.FinishReason ?? "unknown";
+                inTokens = interaction.Metrics.InputTokens;
+                outTokens = interaction.Metrics.OutputTokens;
+            }
+
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
-            var raw = response?.Response ?? "";
-            var reasoningPanel = RenderReasoning(raw);
-            var answerMd = StripReasoning(raw);
+            var reasoningPanel = RenderReasoning(rawReasoning);
             Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
-            string answerHtml = Markdown.ToHtml(answerMd, _markdownPipeline);
+            string answerHtml = Markdown.ToHtml(rawContent, _markdownPipeline);
             Debug.WriteLine($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
 
             // Escape answer markdown for safe use in an HTML attribute
-            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(answerMd).Replace("'", "&#39;");
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(rawContent).Replace("'", "&#39;");
 
             string template = GetMessageTemplate();
 
@@ -279,11 +307,11 @@ namespace SmartHopper.Core.UI.Chat
                 .Replace("{{timestamp}}", timestamp)
                 .Replace("{{htmlContent}}", reasoningPanel + answerHtml)
                 .Replace("{{mdContent}}", mdContentEscaped)
-                .Replace("{{inTokens}}", response?.InTokens.ToString() ?? "")
-                .Replace("{{outTokens}}", response?.OutTokens.ToString() ?? "")
-                .Replace("{{provider}}", response?.Provider ?? "")
-                .Replace("{{model}}", response?.Model ?? "")
-                .Replace("{{finishReason}}", response?.FinishReason ?? "unknown");
+                .Replace("{{inTokens}}", inTokens.ToString())
+                .Replace("{{outTokens}}", outTokens.ToString())
+                .Replace("{{provider}}", provider)
+                .Replace("{{model}}", model)
+                .Replace("{{finishReason}}", finishReason);
 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
 

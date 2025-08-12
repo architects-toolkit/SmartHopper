@@ -17,6 +17,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.OpenAI
@@ -36,7 +37,7 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private OpenAIProvider()
         {
-            this.Models = new OpenAIProviderModels(this, request => this.CallApi<string>(request));
+            this.Models = new OpenAIProviderModels(this);
         }
 
         /// <summary>
@@ -80,7 +81,8 @@ namespace SmartHopper.Providers.OpenAI
             request.ContentType = "application/json";
             request.Authentication = "bearer";
 
-            if (request.Endpoint == "/images/generations")
+            // Determine endpoint based on request capability
+            if (request.Capability.HasFlag(AICapability.ImageOutput))
             {
                 request.Endpoint = "/images/generations";
             }
@@ -132,7 +134,7 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override JObject Encode(IAIInteraction interaction)
+        public override string Encode(IAIInteraction interaction)
         {
             var messageObj = new JObject();
 
@@ -147,8 +149,10 @@ namespace SmartHopper.Providers.OpenAI
                 case AIAgent.Assistant:
                     messageObj["role"] = "assistant";
                     break;
-                case AIAgent.Tool:
+                case AIAgent.ToolCall:
                     messageObj["role"] = "tool";
+                    break;
+                case AIAgent.ToolResult:
                     break;
                 default:
                     throw new ArgumentException($"Agent {interaction.Agent} not supported by OpenAI");
@@ -158,33 +162,20 @@ namespace SmartHopper.Providers.OpenAI
             if (interaction is AIInteractionText textInteraction)
             {
                 messageObj["content"] = textInteraction.Content;
-
-                // Add tool calls if present
-                if (textInteraction.ToolCalls != null && textInteraction.ToolCalls.Count > 0)
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                var toolCallObj = new JObject
                 {
-                    var toolCallsArray = new JArray();
-                    foreach (var toolCall in textInteraction.ToolCalls)
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
                     {
-                        var toolCallObj = new JObject
-                        {
-                            ["id"] = toolCall.Id,
-                            ["type"] = "function",
-                            ["function"] = new JObject
-                            {
-                                ["name"] = toolCall.Name,
-                                ["arguments"] = toolCall.Arguments ?? "{}",
-                            },
-                        };
-                        toolCallsArray.Add(toolCallObj);
-                    }
-                    messageObj["tool_calls"] = toolCallsArray;
-                }
-
-                // Add tool_call_id for tool messages
-                if (interaction.Agent == AIAgent.ToolCall && textInteraction.ToolCalls != null && textInteraction.ToolCalls.Count > 0)
-                {
-                    messageObj["tool_call_id"] = textInteraction.ToolCalls.First().Id;
-                }
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString(),
+                    },
+                };
+                messageObj["tool_calls"] = new JArray { toolCallObj };
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -192,26 +183,58 @@ namespace SmartHopper.Providers.OpenAI
                 var contentArray = new JArray();
                 contentArray.Add(new JObject
                 {
-                    ["type"] = "text",
-                    ["text"] = imageInteraction.Content ?? string.Empty,
-                });
-
-                if (!string.IsNullOrEmpty(imageInteraction.ImageData))
-                {
-                    contentArray.Add(new JObject
+                    ["type"] = "image_url",
+                    ["image_url"] = new JObject
                     {
-                        ["type"] = "image_url",
-                        ["image_url"] = new JObject
-                        {
-                            ["url"] = imageInteraction.ImageData,
-                        },
-                    });
-                }
-
+                        ["url"] = imageInteraction.ImageUrl ?? imageInteraction.ImageData,
+                    },
+                });
                 messageObj["content"] = contentArray;
             }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                messageObj["tool_call_id"] = toolResultInteraction.Id;
+                messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+            }
 
-            return messageObj;
+            return messageObj.ToString();
+        }
+
+        /// <inheritdoc/>
+        public override List<IAIInteraction> Decode(string response)
+        {
+            var interactions = new List<IAIInteraction>();
+            
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return interactions;
+            }
+            
+            try
+            {
+                var responseJson = JObject.Parse(response);
+                
+                // Handle different response types based on the response structure
+                if (responseJson["data"] != null)
+                {
+                    // Image generation response - create a dummy request for processing
+                    var dummyRequest = new AIRequestCall();
+                    dummyRequest.Body = new AIBody();
+                    dummyRequest.Body.Interactions = new List<IAIInteraction> { new AIInteractionImage { Agent = AIAgent.User } };
+                    return this.ProcessImageGenerationResponseData(responseJson, dummyRequest);
+                }
+                else if (responseJson["choices"] != null)
+                {
+                    // Chat completion response
+                    return this.ProcessChatCompletionsResponseData(responseJson);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Decode error: {ex.Message}");
+            }
+            
+            return interactions;
         }
 
         /// <summary>
@@ -301,7 +324,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Formats request body for image generation endpoint.
         /// </summary>
-        private string FormatImageGenerationRequestBody(IAIRequest request)
+        private string FormatImageGenerationRequestBody(AIRequestCall request)
         {
             // Define default values
             string prompt = string.Empty;
@@ -309,11 +332,11 @@ namespace SmartHopper.Providers.OpenAI
             string quality = "standard";
             string style = "vivid";
 
-            // Get parameters from AIImage object in first interaction body
+            // Get parameters from AIInteractionImage in interactions
             if (request.Body.Interactions.Count > 0)
             {
-                var interaction = request.Body.Interactions.First();
-                if (interaction.Body is AIImage imageRequest)
+                var interaction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage);
+                if (interaction is AIInteractionImage imageRequest)
                 {
                     prompt = imageRequest.OriginalPrompt ?? string.Empty;
                     size = imageRequest.ImageSize ?? "1024x1024";
@@ -323,14 +346,18 @@ namespace SmartHopper.Providers.OpenAI
                 }
                 else
                 {
-                    // Fallback: treat body as string prompt and create minimal AIImage
-                    prompt = interaction.Body.ToString() ?? string.Empty;
-                    Debug.WriteLine($"[OpenAI] Fallback: using body as prompt string: '{prompt.Substring(0, Math.Min(50, prompt.Length))}...'");
+                    // Fallback: treat first interaction content as prompt
+                    var firstInteraction = request.Body.Interactions.First();
+                    if (firstInteraction is AIInteractionText textInteraction)
+                    {
+                        prompt = textInteraction.Content ?? string.Empty;
+                        Debug.WriteLine($"[OpenAI] Fallback: using text interaction as prompt: '{prompt.Substring(0, Math.Min(50, prompt.Length))}...'");
+                    }
                 }
             }
             else
             {
-                Debug.WriteLine($"[OpenAI] No interactions found ?�");
+                Debug.WriteLine($"[OpenAI] No interactions found");
             }
 
             // Build request payload for image generation
@@ -354,40 +381,16 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override IAIReturn PostCall(IAIReturn response)
         {
-            var interactions = new List<IAIInteraction>();
-
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                return interactions;
-            }
-
-            try
-            {
-                var responseJson = JObject.Parse(response);
-
-                // Handle different response types based on the response structure
-                if (responseJson["data"] != null)
-                {
-                    // Image generation response
-                    return this.ProcessImageGenerationResponseData(responseJson);
-                }
-                else if (responseJson["choices"] != null)
-                {
-                    // Chat completion response
-                    return this.ProcessChatCompletionsResponseData(responseJson);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OpenAI] Decode error: {ex.Message}");
-            }
-
-            return interactions;
+            // The base implementation already handles the processing
+            // Just return the response as-is since processing is done in Call method
+            return response;
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Decodes metrics from OpenAI response.
+        /// </summary>
         private AIMetrics DecodeMetrics(string response)
         {
             var metrics = new AIMetrics();
@@ -406,7 +409,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
                     metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
-                    metrics.InputTokensTotal = usage["total_tokens"]?.Value<int>() ?? metrics.InputTokensTotal;
+                    // Note: TotalTokens is calculated automatically from InputTokensPrompt + OutputTokensGeneration
                 }
 
                 // Handle finish reason for chat completions
@@ -505,7 +508,7 @@ namespace SmartHopper.Providers.OpenAI
                     Time = DateTime.UtcNow,
                 };
 
-                var metrics = this.DecodeMetrics(response);
+                var metrics = this.DecodeMetrics(responseJson.ToString());
 
                 interaction.Metrics = metrics;
 
@@ -519,8 +522,8 @@ namespace SmartHopper.Providers.OpenAI
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
-                            Name = tc["name"]?.ToString(),
-                            Arguments = tc["arguments"]?.ToString(),
+                            Name = tc["function"]?["name"]?.ToString(),
+                            Arguments = tc["function"]?["arguments"] as JObject,
                         };
                         interactions.Add(toolCall);
                     }
@@ -537,11 +540,10 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Processes image generation response data and converts to interactions.
         /// </summary>
-        private List<IAIInteraction> ProcessImageGenerationResponseData(JObject responseJson)
+        private List<IAIInteraction> ProcessImageGenerationResponseData(JObject responseJson, AIRequestCall request)
         {
             try
             {
-                var responseJson = JObject.Parse(response.RawResult);
                 Debug.WriteLine($"[OpenAI] PostCall - ImageGeneration response parsed successfully");
 
                 var dataArray = responseJson["data"] as JArray;
@@ -554,28 +556,28 @@ namespace SmartHopper.Providers.OpenAI
                 var imageUrl = imageData["url"]?.ToString() ?? string.Empty;
                 var revisedPrompt = imageData["revised_prompt"]?.ToString() ?? string.Empty;
 
-                // Create the result AIImage object using the original request parameters
-                var imageItem = (AIImage)response.Request.Body.Interactions.First().Body;
+                // Get original image request parameters
+                var originalImageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
+                
+                // Create result interaction
+                var resultInteraction = new AIInteractionImage
+                {
+                    Agent = AIAgent.Assistant,
+                    Time = DateTime.UtcNow,
+                    OriginalPrompt = originalImageInteraction?.OriginalPrompt ?? string.Empty,
+                    ImageSize = originalImageInteraction?.ImageSize ?? "1024x1024",
+                    ImageQuality = originalImageInteraction?.ImageQuality ?? "standard",
+                    ImageStyle = originalImageInteraction?.ImageStyle ?? "vivid",
+                };
 
                 // Set the result data from the API response
-                imageItem.SetResult(
+                resultInteraction.SetResult(
                     imageUrl: imageUrl,
                     revisedPrompt: revisedPrompt);
 
-                Debug.WriteLine($"[OpenAI] Final AIImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
+                Debug.WriteLine($"[OpenAI] Final AIInteractionImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
 
-                var aiReturn = new AIReturn<AIImage>
-                {
-                    Result = imageItem,
-                    Metrics = new AIMetrics
-                    {
-                        FinishReason = "success",
-                    },
-                    Status = AICallStatus.Finished,
-                };
-
-                Debug.WriteLine($"[OpenAI] PostCall - Image response processed successfully: {aiReturn.Result.ImageUrl}");
-                return aiReturn;
+                return new List<IAIInteraction> { resultInteraction };
             }
             catch (Exception ex)
             {

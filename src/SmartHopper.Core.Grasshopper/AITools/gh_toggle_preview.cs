@@ -91,7 +91,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var toolResult = new JObject();
-                toolResult["updated"] = updated;
+                toolResult["updated"] = JToken.FromObject(updated);
 
                 var toolBody = new AIBody();
                 toolBody.AddInteractionToolResult(toolResult);

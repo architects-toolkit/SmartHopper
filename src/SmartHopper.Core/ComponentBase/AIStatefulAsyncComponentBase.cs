@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
@@ -173,15 +174,22 @@ namespace SmartHopper.Core.ComponentBase
             var providerName = this.GetActualAIProviderName();
             var model = this.GetModel();
 
-            AIToolCall toolCall = new ()
+            // Create the tool call interaction with proper structure
+            var toolCallInteraction = new AIInteractionToolCall
             {
                 Name = toolName,
                 Arguments = parameters,
-                Provider = providerName,
-                Model = model,
+                Agent = AIAgent.Assistant,
+                Metrics = new AIMetrics { ReuseCount = reuseCount },
             };
 
-            toolCall.ReplaceReuseCount(reuseCount);
+            // Create the tool call request with proper body
+            var toolCall = new AIToolCall();
+            toolCall.Provider = providerName;
+            toolCall.Model = model;
+            toolCall.Endpoint = toolName;
+            toolCall.Body = new AIBody();
+            toolCall.Body.AddInteraction(toolCallInteraction);
 
             // Surface validation messages from AIToolCall/AIRequestBase validation
             try
@@ -207,15 +215,30 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] Validation message processing error: {valEx.Message}");
             }
 
+            AIReturn toolResult;
             JObject result;
 
             try
             {
-                toolCall = await AIToolManager
-                    .ExecuteTool(toolCall)
-                    .ConfigureAwait(false);
+                toolResult = await toolCall.Exec().ConfigureAwait(false);
 
-                result = toolCall.Result;
+                // Extract the result from the AIReturn
+                var toolResultInteraction = toolResult.Body.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                if (toolResultInteraction?.Result != null)
+                {
+                    result = toolResultInteraction.Result;
+                }
+                else
+                {
+                    result = new JObject
+                    {
+                        ["success"] = toolResult.Success,
+                        ["error"] = toolResult.ErrorMessage
+                    };
+                }
             }
             catch (Exception ex)
             {
@@ -230,24 +253,28 @@ namespace SmartHopper.Core.ComponentBase
                     ["success"] = false,
                     ["error"] = ex.Message,
                 };
+                toolResult = null;
             }
 
             // Store metrics if present
-            if (toolCall.Metrics != null)
+            if (toolResult?.Metrics != null)
             {
-                this.StoreResponseMetrics(toolCall.Metrics);
+                this.StoreResponseMetrics(toolResult.Metrics);
             }
 
             // Handle tool-level failure
             bool ok = result.Value<bool?>("success") ?? true;
-            if (!ok || toolCall.ErrorMessage != null)
+            if (!ok)
             {
-                var errorMsg = result.Value<string>("error") ?? toolCall.ErrorMessage;
-                this.SetPersistentRuntimeMessage(
-                    "ai_error",
-                    GH_RuntimeMessageLevel.Error,
-                    errorMsg,
-                    false);
+                var errorMsg = result.Value<string>("error") ?? toolResult?.ErrorMessage;
+                if (!string.IsNullOrEmpty(errorMsg))
+                {
+                    this.SetPersistentRuntimeMessage(
+                        "ai_error",
+                        GH_RuntimeMessageLevel.Error,
+                        errorMsg,
+                        false);
+                }
             }
 
             return result;

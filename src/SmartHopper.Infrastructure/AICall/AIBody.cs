@@ -210,6 +210,27 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
+        /// Adds an interaction to the end of the interaction history using an agent and a body string.
+        /// </summary>
+        /// <param name="agent">The agent.</param>
+        /// <param name="body">The textual content of the interaction.</param>
+        /// <param name="metrics">The metrics associated with the interaction.</param>>
+        public void AddInteraction(AIAgent agent, string body, AIMetrics metrics)
+        {
+            this.AddLastInteraction(CreateInteractionText(agent, body, metrics));
+        }
+
+        /// <summary>
+        /// Adds an interaction to the end of the interaction history using an agent and a body string.
+        /// </summary>
+        /// <param name="agent">The agent.</param>
+        /// <param name="body">The textual content of the interaction.</param>
+        public void AddInteraction(AIAgent agent, string body)
+        {
+            this.AddLastInteraction(CreateInteractionText(agent, body, null));
+        }
+
+        /// <summary>
         /// Adds an interaction to the end of the interaction history using an agent name and a body string.
         /// </summary>
         /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
@@ -346,7 +367,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="body">The textual content.</param>
         /// <param name="metrics">The metrics associated with the interaction.</param>
         /// <returns>The created AIInteraction<string>.</returns>
-        private static AIInteractionText CreateInteractionText(string agent, string body, AIMetrics metrics)
+        private static AIInteractionText CreateInteractionText(AIAgent agent, string body, AIMetrics metrics)
         {
             if (metrics is null)
             {
@@ -355,11 +376,23 @@ namespace SmartHopper.Infrastructure.AICall
 
             var interaction = new AIInteractionText
             {
-                Agent = AIAgentExtensions.FromString(agent),
+                Agent = agent,
                 Content = body,
                 Metrics = metrics,
             };
             return interaction;
+        }
+
+        /// <summary>
+        /// Creates a new AIInteraction<string> from an agent name and body string.
+        /// </summary>
+        /// <param name="agent">The agent name.</param>
+        /// <param name="body">The textual content.</param>
+        /// <param name="metrics">The metrics associated with the interaction.</param>
+        /// <returns>The created AIInteraction<string>.</returns>
+        private static AIInteractionText CreateInteractionText(string agent, string body, AIMetrics metrics)
+        {
+            return CreateInteractionText(AIAgentExtensions.FromString(agent), body, metrics);
         }
 
         /// <summary>
