@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2-alpha] - 2025-08-12
+
+### Fixed
+
+- StackOverflowException on first run due to recursive lazy defaults in provider settings (`SmartHopperSettings.GetSetting`, `AIProvider.GetSetting<T>`), guarded with thread-static recursion checks.
+- Readiness guard in `SmartHopperSettings.RefreshProvidersLocalStorage` to avoid partial refresh before all providers register settings UI.
+- OpenAI and MistralAI providers now fall back to static model lists/capabilities on API errors or empty API responses, preventing empty model selections.
+
 ## [0.5.1-alpha] - 2025-07-30
 
 ### Added
@@ -18,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Greeting generation was using stored settings models instead of the provider's default model. To solve it, now if `AIUtils.GetResponse` doesn't get a model, it will use the provider's default model.
 - Components triggered with a Boolean Toggle (permanent true value) weren't calculating when the toggle was turned to true.
 - Lazy default values in `AI Provider Settings` to prevent race conditions at initialization.
-- Fixed "List length in list_generate was not met for long requests" ([#277](https://github.com/architects-toolkit/SmartHopper/issues/277)
+- Fixed "List length in list_generate was not met for long requests" ([#277)](https://github.com/architects-toolkit/SmartHopper/issues/277))
 
 ## [0.5.0-alpha] - 2025-07-29
 

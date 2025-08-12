@@ -56,12 +56,20 @@ namespace SmartHopper.Providers.OpenAI
                     }
                 }
 
+                // Fallback when API returns an empty list
+                if (modelIds.Count == 0)
+                {
+                    Debug.WriteLine("[OpenAI] API returned 0 models, using fallback list");
+                    return GetFallbackAvailableModels();
+                }
+
                 return modelIds;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[OpenAI] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from OpenAI API: {ex.Message}", ex);
+                // Fallback to a sensible offline list when API is unavailable (e.g., missing API key)
+                return GetFallbackAvailableModels();
             }
         }
 
@@ -73,6 +81,10 @@ namespace SmartHopper.Providers.OpenAI
         {
             var result = new Dictionary<string, AIModelCapability>();
 
+            // GPT-5 models - text input/output, image input, structured output, function calling, reasoning
+            result["gpt-5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            result["gpt-5-mini"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+            
             // GPT-4.1 models - text input/output, image input, structured output, function calling
             result["gpt-4.1*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
 
@@ -106,6 +118,24 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Fallback list of available model IDs when API is unavailable.
+        /// </summary>
+        private List<string> GetFallbackAvailableModels()
+        {
+            return new List<string>
+            {
+                // Concrete, commonly used names aligned with our capability map
+                "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "gpt-4.1-mini",
+                "o4-mini",
+                "gpt-4o-mini",
+                "dall-e-3",
+            };
+        }
+
+        /// <summary>
         /// Gets all default models supported by OpenAI
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
@@ -113,8 +143,7 @@ namespace SmartHopper.Providers.OpenAI
         {
             var result = new Dictionary<string, AIModelCapability>();
 
-            result["gpt-4.1-mini"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["o4-mini"] = AIModelCapability.ReasoningChat;
+            result["gpt-5-mini"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ReasoningChat;
             result["dall-e-3"] = AIModelCapability.ImageGenerator;
 
             return result;

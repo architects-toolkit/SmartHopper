@@ -56,9 +56,6 @@ namespace SmartHopper.Infrastructure.Initialization
                         // RefreshProviders will internally refresh settings once as providers are registered
                         providerManager.RefreshProviders();
 
-                        // No need to call settings.RefreshProvidersLocalStorage() again here
-                        // as it's already done inside RefreshProviders
-
                         Debug.WriteLine("[SmartHopperInitializer] Initialization complete");
                     });
 
