@@ -64,12 +64,20 @@ namespace SmartHopper.Providers.MistralAI
                     }
                 }
 
+                // Fallback when API returns an empty list
+                if (modelNames.Count == 0)
+                {
+                    Debug.WriteLine("[MistralAI] API returned 0 models, using fallback list");
+                    return GetFallbackAvailableModels();
+                }
+
                 return modelNames;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MistralAI] Error retrieving available models: {ex.Message}");
-                return new List<string>();
+                // Fallback to a sensible offline list when API is unavailable (e.g., missing API key)
+                return GetFallbackAvailableModels();
             }
         }
 
@@ -135,10 +143,52 @@ namespace SmartHopper.Providers.MistralAI
             {
                 Debug.WriteLine($"[MistralAI] Error in RetrieveCapabilities: {ex.Message}");
 
-                // Return default capabilities on error
-                return GetDefaultCapabilities();
+                Debug.WriteLine("[MistralAI] Falling back to static/default model capabilities");
+                
+                // Fallback to static capabilities when API is unavailable (e.g., missing API key)
+                result = GetFallbackCapabilities();
             }
 
+            // If we still have no results, use fallback
+            if (result.Count == 0)
+            {
+                Debug.WriteLine("[MistralAI] No models found, using fallback capabilities");
+                result = GetFallbackCapabilities();
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets fallback model capabilities when API is unavailable.
+        /// </summary>
+        /// <returns>Dictionary of model names and their capabilities.</returns>
+        private Dictionary<string, AIModelCapability> GetFallbackCapabilities()
+        {
+            var result = new Dictionary<string, AIModelCapability>();
+
+            // Mistral Small models - text input/output, structured output, function calling
+            result["mistral-small*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // Ensure concrete default ID exists alongside wildcard to allow default registration
+            result["mistral-small-latest"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // Mistral Medium models - text input/output, structured output, function calling
+            result["mistral-medium*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // Mistral Large models - text input/output, structured output, function calling
+            result["mistral-large*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
+
+            // Magistral Small models - text input/output, structured output, function calling
+            result["magistral-small*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+
+            // Ensure concrete default ID exists alongside wildcard to allow default registration
+            result["magistral-small-latest"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+
+            // Magistral Medium models - text input/output, structured output, function calling
+            result["magistral-medium*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
+
+            Debug.WriteLine($"[MistralAI] Registered {result.Count} fallback model patterns");
             return result;
         }
 
