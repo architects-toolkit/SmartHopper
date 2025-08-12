@@ -55,20 +55,25 @@ namespace SmartHopper.Infrastructure.AITools
         /// </summary>
         /// <param name="toolCall">The tool call to execute</param>
         /// <returns>The result of the tool execution</returns>
-        public static async Task<AIToolCall> ExecuteTool(AIToolCall toolCall)
+        public static async Task<AIReturn> ExecuteTool(AIToolCall toolCall)
         {
             // Ensure tools are discovered
             DiscoverTools();
 
             Debug.WriteLine($"[AIToolManager] Executing tool: {toolCall.Name}");
 
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             // Validate tool call
             var (isValid, errors) = toolCall.IsValid();
             if (!isValid)
             {
                 Debug.WriteLine($"[AIToolManager] Tool call is invalid: {string.Join(", ", errors)}");
-                toolCall.ErrorMessage = $"Tool call is invalid: {string.Join(", ", errors)}";
-                return toolCall;
+                output.ErrorMessage = $"Tool call is invalid: {string.Join(", ", errors)}";
+                return output;
             }
 
             try
@@ -77,13 +82,14 @@ namespace SmartHopper.Infrastructure.AITools
                 Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolCall.Name}");
                 var result = await _tools[toolCall.Name].Execute(toolCall);
                 Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolCall.Name}");
-                return result;
+                output.SetResult(result);
+                return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIToolManager] Error executing tool {toolCall.Name}: {ex.Message}");
-                toolCall.ErrorMessage = $"Error executing tool '{toolCall.Name}': {ex.Message}";
-                return toolCall;
+                output.ErrorMessage = $"Error executing tool '{toolCall.Name}': {ex.Message}";
+                return output;
             }
         }
 

@@ -13,15 +13,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -84,11 +81,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<AIToolCall> EvaluateList(AIToolCall toolCall)
+        private async Task<AIReturn> EvaluateList(AIToolCall toolCall)
         {
             try
             {
                 Debug.WriteLine("[ListTools] Running EvaluateList tool");
+
+                // Prepare the output
+                var output = new AIReturn()
+                {
+                    Request = toolCall,
+                };
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -100,8 +103,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(question))
                 {
-                    toolCall.ErrorMessage = "Missing required parameters";
-                    return toolCall;
+                    output.ErrorMessage = "Missing required parameters";
+                    return output;
                 }
 
                 // Normalize list input

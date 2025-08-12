@@ -21,12 +21,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the decoded result interactions.
         /// </summary>
-        List<IAIInteraction> Result { get; set; }
-
-        /// <summary>
-        /// Gets or sets the encoded response from the provider.
-        /// </summary>
-        string EncodedResult { get; set; }
+        AIBody Body { get; }
 
         /// <summary>
         /// Gets or sets the request sent to the provider.
@@ -57,6 +52,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// Value indicating whether the structure of this IAIReturn is valid.
         /// </summary>
         (bool IsValid, List<string> Errors) IsValid();
+
+        /// <summary>
+        /// Sets the body of the result.
+        /// </summary>
+        /// <param name="body">The body to set as result.</param>
+        void SetBody(AIBody body);
 
         /// <summary>
         /// Gets or sets the list of pending tool calls made by the provider after the request.

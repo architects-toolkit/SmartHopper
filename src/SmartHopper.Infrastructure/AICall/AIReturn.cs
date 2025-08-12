@@ -23,43 +23,13 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIReturn : IAIReturn
     {
-        private string PrivateEncodedResult { get; set; }
+        /// <summary>
+        /// Internal storage for the raw response.
+        /// </summary>
+        private JObject PrivateEncodedResult { get; set; }
 
         /// <inheritdoc/>
-        public List<IAIInteraction> Result
-        {
-            get
-            {
-                var (valid, errors) = this.IsValid();
-                if (valid)
-                {
-                    return this.Request.ProviderInstance.DecodeResponse(this.PrivateEncodedResult);
-                }
-                else
-                {
-                    return new List<IAIInteraction>();
-                }
-            }
-
-            set
-            {
-                this.PrivateEncodedResult = this.Request.ProviderInstance.Encode(value);
-            }
-        }
-
-        /// <inheritdoc/>
-        public string EncodedResult
-        {
-            get => this.PrivateEncodedResult;
-            set
-            {
-                this.PrivateEncodedResult = value;
-
-                // Decode Metrics and combine them with existing metrics
-                // TODO: How will Metrics be reset? How are we ensuring that Metrics are correct?
-                this.Metrics.Combine(this.Request.ProviderInstance.DecodeMetrics(value));
-            }
-        }
+        public AIBody Body { get; private set; } = new AIBody();
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }
@@ -107,9 +77,9 @@ namespace SmartHopper.Infrastructure.AICall
                 }
             }
 
-            if (this.EncodedResult == null && this.ErrorMessage == null)
+            if (this.Body == null && this.ErrorMessage == null)
             {
-                errors.Add("Either result or error message must be set");
+                errors.Add("Either body or error message must be set");
             }
 
             return (errors.Count == 0, errors);
@@ -124,19 +94,27 @@ namespace SmartHopper.Infrastructure.AICall
         /// <returns>A new success result instance.</returns>
         public static AIReturn CreateSuccess(List<IAIInteraction> result, IAIRequest? request = null, AIMetrics? metrics = null)
         {
-            if (request == null)
+            if (request == null && this.Request != null)
+            {
+                request = this.Request;
+            }
+            else if (request == null)
             {
                 request = new AIRequestCall();
             }
 
-            if (metrics == null)
+            if (metrics == null && this.Metrics != null)
+            {
+                metrics = this.Metrics;
+            }
+            else if (metrics == null)
             {
                 metrics = new AIMetrics();
             }
 
             return new AIReturn
             {
-                Result = result,
+                Body.Interactions = result,
                 Request = request,
                 Status = AICallStatus.Finished,
                 Metrics = metrics,
@@ -150,25 +128,36 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="request">The request that generated the result.</param>
         /// <param name="metrics">The metrics from the response.</param>
         /// <returns>A new success result instance.</returns>
-        public static AIReturn CreateSuccess(string raw, IAIRequest? request = null, AIMetrics? metrics = null)
+        public static AIReturn CreateSuccess(JObject raw, IAIRequest? request = null, AIMetrics? metrics = null)
         {
-            if (request == null)
+            if (request == null && this.Request != null)
+            {
+                request = this.Request;
+            }
+            else if (request == null)
             {
                 request = new AIRequestCall();
             }
 
-            if (metrics == null)
+            if (metrics == null && this.Metrics != null)
+            {
+                metrics = this.Metrics;
+            }
+            else if (metrics == null)
             {
                 metrics = new AIMetrics();
             }
 
-            return new AIReturn
+            var result = new AIReturn
             {
-                EncodedResult = raw,
                 Request = request,
                 Status = AICallStatus.Finished,
                 Metrics = metrics,
             };
+
+            result.SetBody(raw);
+
+            return result;
         }
 
         /// <summary>
@@ -180,12 +169,20 @@ namespace SmartHopper.Infrastructure.AICall
         /// <returns>A new error result instance.</returns>
         public static AIReturn CreateError(string message, IAIRequest? request = null, AIMetrics? metrics = null)
         {
-            if (request == null)
+            if (request == null && this.Request != null)
+            {
+                request = this.Request;
+            }
+            else if (request == null)
             {
                 request = new AIRequestCall();
             }
 
-            if (metrics == null)
+            if (metrics == null && this.Metrics != null)
+            {
+                metrics = this.Metrics;
+            }
+            else if (metrics == null)
             {
                 metrics = new AIMetrics();
             }
@@ -199,6 +196,32 @@ namespace SmartHopper.Infrastructure.AICall
                 ErrorMessage = message,
                 Status = AICallStatus.Finished,
             };
+        }
+
+        /// <inheritdoc/>
+        public void SetBody(AIBody body)
+        {
+            this.Body = body;
+        }
+
+        /// <summary>
+        /// Sets the result from a list of interactions.
+        /// </summary>
+        /// <param name="interactions">The list of interactions to set as result.</param>
+        public void SetBody(List<IAIInteraction> interactions)
+        {
+            this.Body.Interactions = interactions;
+        }
+
+        /// <summary>
+        /// Sets the result from a raw response.
+        /// </summary>
+        /// <param name="raw">The raw response from the provider.</param>
+        public void SetBody(JObject raw)
+        {
+            this.PrivateEncodedResult = raw;
+            this.Body.Interactions = this.Request.ProviderInstance.DecodeResponse(raw);
+            this.Body.Metrics.Combine(this.Request.ProviderInstance.DecodeMetrics(raw));
         }
     }
 

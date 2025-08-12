@@ -75,13 +75,13 @@ namespace SmartHopper.Infrastructure.AICall
 
         /// <summary>
         /// Gets or sets the tool filter.
-        /// Default to no tools.
+        /// Defaults to no tools.
         /// </summary>
         public string ToolFilter { get; set; } = "-*";
 
         /// <summary>
         /// Gets or sets the context filter.
-        /// Default to no context.
+        /// Defaults to no context.
         /// </summary>
         public string ContextFilter { get; set; } = "-*";
 
@@ -89,6 +89,21 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the output JSON schema.
         /// </summary>
         public string JsonOutputSchema { get; set; }
+
+        /// <summary>
+        /// Gets the aggregated metrics for all interactions.
+        /// </summary>
+        public AIMetrics Metrics {
+            get
+            {
+                var metrics = new AIMetrics();
+                foreach (var interaction in this._interactions)
+                {
+                    metrics.Combine(interaction.Metrics);
+                }
+                return metrics;
+            }
+        }
 
         /// <summary>
         /// Validates the body.
@@ -266,6 +281,28 @@ namespace SmartHopper.Infrastructure.AICall
         public int InteractionsCount()
         {
             return (this._interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Checks if there are pending tool calls by matching AIInteractionToolCall.Id with AIInteractionToolResult.Id.
+        /// </summary>
+        public int PendingToolCallsCount()
+        {
+            var toolCalls = this.Interactions.OfType<AIInteractionToolCall>();
+            var toolResults = this.Interactions.OfType<AIInteractionToolResult>();
+
+            return toolCalls.Count(tc => toolResults.Any(tr => tr.Id == tc.Id));
+        }
+
+        /// <summary>
+        /// Gets the list of pending tool calls by matching AIInteractionToolCall.Id with AIInteractionToolResult.Id.
+        /// </summary>
+        public List<AIInteractionToolCall> PendingToolCallsList()
+        {
+            var toolCalls = this.Interactions.OfType<AIInteractionToolCall>();
+            var toolResults = this.Interactions.OfType<AIInteractionToolResult>();
+
+            return toolCalls.Where(tc => toolResults.Any(tr => tr.Id == tc.Id)).ToList();
         }
 
         /// <summary>

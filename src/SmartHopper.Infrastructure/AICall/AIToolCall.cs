@@ -19,46 +19,6 @@ namespace SmartHopper.Infrastructure.AICall
     public class AIToolCall : AIRequestBase
     {
         /// <summary>
-        /// Gets or sets the ID of the tool call.
-        /// </summary>
-        public string? Id { get; set; }
-
-        /// <summary>
-        /// Gets or sets the name of the tool being called.
-        /// </summary>
-        public string? Name { get; set; }
-
-        /// <summary>
-        /// Gets or sets the arguments passed to the tool as a JSON object.
-        /// </summary>
-        public JObject Arguments { get; set; } = new JObject();
-
-        /// <summary>
-        /// Gets or sets the JSON object containing the result of the tool call.
-        /// </summary>
-        public JObject Result { get; set; } = new JObject();
-
-        /// <summary>
-        /// Gets or sets the metrics about this call.
-        /// </summary>
-        public AIMetrics Metrics { get; set; } = new AIMetrics();
-
-        /// <summary>
-        /// Gets a value indicating whether the tool call was executed.
-        /// </summary>
-        public bool Executed { get => this.Result != null; }
-
-        /// <summary>
-        /// Gets a value indicating whether the tool call was successful.
-        /// </summary>
-        public bool Success { get => string.IsNullOrEmpty(this.ErrorMessage); }
-
-        /// <summary>
-        /// Gets or sets the error message if any occurred during the tool call.
-        /// </summary>
-        public string? ErrorMessage { get; set; }
-
-        /// <summary>
         /// Gets a value indicating whether the tool call is valid.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the tool call is valid and a list of error messages.</returns>
@@ -74,19 +34,41 @@ namespace SmartHopper.Infrastructure.AICall
                 hasErrors = true;
             }
 
-            if (string.IsNullOrEmpty(this.Name))
+            if (this.Body.Interactions.Count == 0)
             {
-                messages.Add("Tool name is required");
+                messages.Add("Body cannot be empty");
                 hasErrors = true;
             }
 
-            if (this.Arguments == null)
+            if (this.Body.PendingToolCallsCount() == 0)
             {
-                messages.Add("Arguments are required");
+                messages.Add("Body must have at least one pending tool call");
                 hasErrors = true;
+            }
+
+            foreach (var toolCall in this.Body.PendingToolCallsList())
+            {
+                if (string.IsNullOrEmpty(toolCall.Name))
+                {
+                    messages.Add($"Tool name is required for tool call {toolCall.Id}");
+                    hasErrors = true;
+                }
+
+                if (toolCall.Arguments == null)
+                {
+                    messages.Add($"(Info) Tool arguments are not set for tool call {toolCall.Id}");
+                    hasErrors = false;
+                }
             }
 
             return (!hasErrors, messages);
+        }
+
+        /// <inheritdoc/>
+        public override async Task<AIReturn> Exec()
+        {
+            var result = await ToolManager.ExecuteTool(this).ConfigureAwait(false);
+            return result;
         }
 
         /// <summary>

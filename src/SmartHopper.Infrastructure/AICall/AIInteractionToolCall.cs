@@ -23,7 +23,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the agent of the interaction.
         /// </summary>
-        required public AIAgent Agent { get; } = AIAgent.ToolCall;
+        public virtual AIAgent Agent { get; } = AIAgent.ToolCall;
 
         /// <summary>
         /// Gets or sets the timestamp of the interaction.
