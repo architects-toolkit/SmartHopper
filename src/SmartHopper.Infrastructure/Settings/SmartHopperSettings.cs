@@ -32,6 +32,10 @@ namespace SmartHopper.Infrastructure.Settings
         private static readonly byte[] LegacyKey = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
         private static readonly byte[] LegacyIv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
 
+        // Recursion guard to prevent infinite loops during settings access
+        [ThreadStatic]
+        private static HashSet<string> _currentlyGettingSettings;
+
         [JsonProperty]
         internal Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
 
@@ -74,34 +78,55 @@ namespace SmartHopper.Infrastructure.Settings
         /// <returns>The setting value, or null if not found.</returns>
         internal object GetSetting(string providerName, string settingName)
         {
-            if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
-                settings.TryGetValue(settingName, out var value))
-            {
-                var descriptors = GetProviderDescriptors(providerName);
-                var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+            // Initialize recursion guard if needed
+            if (_currentlyGettingSettings == null)
+                _currentlyGettingSettings = new HashSet<string>();
 
-                if (descriptor?.IsSecret == true && value != null)
+            var settingKey = $"{providerName}.{settingName}";
+            
+            // Check for recursion
+            if (_currentlyGettingSettings.Contains(settingKey))
+            {
+                Debug.WriteLine($"[Settings] Recursion detected for {settingKey}, returning null to break cycle");
+                return null;
+            }
+
+            try
+            {
+                _currentlyGettingSettings.Add(settingKey);
+
+                if (ProviderSettings.TryGetValue(providerName, out var settings) &&
+                    settings.TryGetValue(settingName, out var value))
                 {
-                    Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
-                    return Decrypt(value.ToString());
+                    var descriptors = GetProviderDescriptors(providerName);
+                    var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+
+                    if (descriptor?.IsSecret == true && value != null)
+                    {
+                        Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
+                        return Decrypt(value.ToString());
+                    }
+                    Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
+                    return value;
                 }
 
-                Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
-                return value;
+                // If setting doesn't exist, try to get default value from descriptor
+                var allDescriptors = GetProviderDescriptors(providerName);
+                var missingDescriptor = allDescriptors.FirstOrDefault(d => d.Name == settingName);
+
+                if (missingDescriptor?.DefaultValue != null)
+                {
+                    Debug.WriteLine($"[Settings] Using default for {providerName}.{settingName} = {missingDescriptor.DefaultValue}");
+                    return missingDescriptor.DefaultValue;
+                }
+
+                Debug.WriteLine($"[Settings] No value or default found for {providerName}.{settingName}");
+                return null;
             }
-
-            // If setting doesn't exist, try to get default value from descriptor
-            var allDescriptors = GetProviderDescriptors(providerName);
-            var missingDescriptor = allDescriptors.FirstOrDefault(d => d.Name == settingName);
-
-            if (missingDescriptor?.DefaultValue != null)
+            finally
             {
-                Debug.WriteLine($"[Settings] Using default for {providerName}.{settingName} = {missingDescriptor.DefaultValue}");
-                return missingDescriptor.DefaultValue;
+                _currentlyGettingSettings.Remove(settingKey);
             }
-
-            Debug.WriteLine($"[Settings] No value or default found for {providerName}.{settingName}");
-            return null;
         }
 
         /// <summary>
@@ -253,6 +278,18 @@ namespace SmartHopper.Infrastructure.Settings
                 if (providers == null)
                 {
                     Debug.WriteLine("No providers available to refresh");
+                    return;
+                }
+                
+                // Ensure ALL providers have their settings UI registered before refreshing.
+                // This avoids triggering lazy defaults while providers are still initializing.
+                var notReady = providers
+                    .Where(p => ProviderManager.Instance.GetProviderSettings(p.Name) == null)
+                    .Select(p => p.Name)
+                    .ToList();
+                if (notReady.Count > 0)
+                {
+                    Debug.WriteLine($"[Settings] Skipping provider refresh: settings UI not registered for: {string.Join(", ", notReady)}");
                     return;
                 }
 

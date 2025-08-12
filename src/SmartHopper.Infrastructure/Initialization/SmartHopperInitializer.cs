@@ -64,9 +64,6 @@ namespace SmartHopper.Infrastructure.Initialization
                         // RefreshProviders will internally refresh settings once as providers are registered
                         providerManager.RefreshProviders();
 
-                        /* No need to call settings.RefreshProvidersLocalStorage() again here
-                        as it's already done inside RefreshProviders */
-
                         // Step 4: Now that both settings and providers are fully initialized, run integrity check
                         settings.IntegrityCheck();
                         Debug.WriteLine("[SmartHopperInitializer] Settings integrity check completed");

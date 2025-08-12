@@ -240,7 +240,7 @@ namespace SmartHopper.Providers.OpenAI
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...): use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
-            if (Regex.IsMatch(request.Model, @"^o[0-9]", RegexOptions.IgnoreCase))
+            if (Regex.IsMatch(model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(model, @"^gpt-5", RegexOptions.IgnoreCase))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
                 requestBody["max_completion_tokens"] = maxTokens;
