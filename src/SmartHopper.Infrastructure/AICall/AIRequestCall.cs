@@ -51,9 +51,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets the encoded request for the specified provider.
         /// </summary>
-        public string EncodedRequestBody {
-            get {
-                var (valid, errors) = this.IsValid();
+        public string EncodedRequestBody
+        {
+            get
+            {
+                var (valid, _) = this.IsValid();
                 if (valid)
                 {
                     return this.ProviderInstance.Encode(this);
@@ -223,17 +225,26 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public void Initialize(string provider, string model,  string systemPrompt, string endpoint, AICapability capability = AICapability.TextOutput, string toolFilter = null)
+        /// <param name="provider">Provider ID to use (for example, the assembly name of the provider).</param>
+        /// <param name="model">Model name to target. If incompatible, the provider's default model will be used.</param>
+        /// <param name="systemPrompt">System message inserted as the first interaction of the request.</param>
+        /// <param name="endpoint">Provider endpoint or route. If null, an empty string will be used.</param>
+        /// <param name="capability">Desired capabilities for this request (input/output and options).</param>
+        /// <param name="toolFilter">Optional tool filter expression (e.g., "-*" to disable all tools).</param>
+        public void Initialize(string provider, string model,  string systemPrompt, string? endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
-            var interactionList = new List<IAIInteraction>();
-            interactionList.Add(new AIInteractionText { Agent = AIAgent.System, Content = systemPrompt });
+            var interactionList = new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.System, Content = systemPrompt },
+            };
 
-            this.Initialize(provider, model, interactionList, endpoint ?? string.Empty, capability, toolFilter);
+            this.Initialize(provider, model, interactionList, endpoint ?? string.Empty, capability, toolFilter ?? string.Empty);
         }
 
         /// <summary>
         /// Replace the interactions list from the body.
         /// </summary>
+        /// <param name="interactions">New interactions list that replaces the current body interactions.</param>
         public void OverrideInteractions(List<IAIInteraction> interactions)
         {
             this.Body.OverrideInteractions(interactions);
@@ -244,6 +255,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// implied by the body (e.g., JsonOutput when a schema is provided, FunctionCalling when tools are requested).
         /// Returns the effective capabilities and a list of informational notes describing adjustments.
         /// </summary>
+        /// <param name="notes">Output list populated with informational messages about inferred capabilities.</param>
         private AICapability GetEffectiveCapabilities(out List<string> notes)
         {
             notes = new List<string>();

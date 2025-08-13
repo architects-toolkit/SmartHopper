@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
 - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
 - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
-
-### Changed
+- `AIRequestCall`: optional parameter to process pending tool calls natively during execution.
+ 
+ ### Changed
 
 - AI Chat component default system prompt to a generic one.
 - Settings dialog now organized in tabs.
@@ -28,8 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `AIResponse` to `AIReturnBody`.
 - Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
 - Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
-
-### Removed
+- WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
+ 
+ ### Removed
 
 - Removed the `TemplateProvider` since it will be explained in documentation.
 - Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
@@ -38,8 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
 - Fixed "Invalid model" when model manager was providing the wildcard instead of the actual default model name.
-
-## [0.5.2-alpha] - 2025-08-12
+- WebChatDialog stability issues in certain scenarios.
+- Build stability after refactor (compilation issues resolved).
+- Infrastructure stability fixes.
+ 
+ ## [0.5.2-alpha] - 2025-08-12
 
 ### Fixed
 
