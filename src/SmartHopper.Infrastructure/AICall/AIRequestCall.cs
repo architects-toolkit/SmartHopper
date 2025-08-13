@@ -146,8 +146,21 @@ namespace SmartHopper.Infrastructure.AICall
             return (!hasErrors, messages);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Executes the request and gets the result. By default, it doesn't trigger the tool processing.
+        /// </summary>
+        /// <returns>The result of the request in <see cref="AIReturn"/> format.</returns>
         public override async Task<AIReturn> Exec()
+        {
+            return await this.Exec(false).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Executes the request and gets the result.
+        /// </summary>
+        /// <param name="processTools">A value indicating whether to process the tool calls.</param>
+        /// <returns>The result of the request in <see cref="AIReturn"/> format.</returns>
+        public async Task<AIReturn> Exec(bool processTools)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -168,7 +181,24 @@ namespace SmartHopper.Infrastructure.AICall
                 // Execute the request from the provider
                 var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
 
-                // TODO: if authorized, execute tool calls and add results to AIReturn
+                if (processTools)
+                {
+                    var pendingToolCalls = result.Body.PendingToolCallsList();
+
+                    // TODO: parallel processing of tool calls
+                    foreach (var toolCall in pendingToolCalls)
+                    {
+                        // Create an AIToolCall request
+                        var toolCallRequest = new AIToolCall();
+                        toolCallRequest.FromToolCallInteraction(toolCall);
+
+                        // Execute the tool call
+                        var toolResult = await toolCallRequest.Exec().ConfigureAwait(false);
+
+                        // Add the tool result to the result body
+                        result.Body.AddLastInteraction(toolResult.Body.GetLastInteraction());
+                    }
+                }
 
                 return (AIReturn)result;
             }

@@ -50,6 +50,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Executes the request and gets the result.
         /// </summary>
+        /// <returns>The result of the request in <see cref="AIReturn"/> format.</returns>
         Task<AIReturn> Exec();
     }
 }
