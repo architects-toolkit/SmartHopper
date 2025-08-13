@@ -42,7 +42,7 @@ description: Information about the Provider Manager (AIProvider)
 
 - **Request Lifecycle (per provider)**
   1. PreCall(AIRequestCall) — provider-specific pre-processing.
-  2. Call(AIRequestCall) — HTTP call via `CallApi<T>()` or custom logic; returns IAIReturn.
+  2. Call(AIRequestCall) — HTTP call via `CallApi()` or custom logic; returns IAIReturn.
   3. PostCall(IAIReturn) — normalize results, attach metrics/tool calls if needed.
 
 - **Typical Usage**
@@ -55,5 +55,5 @@ description: Information about the Provider Manager (AIProvider)
   - Keep InitializeProviderAsync() non-blocking; register capabilities before resolving defaults.
   - Use GetSettingDescriptors() to describe required keys and mark secrets.
   - Prefer concrete model names for API calls; support wildcard fallback.
-  - Ensure `CallApi<T>()` usage includes auth headers and robust error handling.
+  - `CallApi()` shouldn't be overriden by AIProvider implementations, use base class. Override PreCall and PostCall if needed.
   - Keep `Decode()` resilient to provider payload variations; include tool calls and metrics where applicable.

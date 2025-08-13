@@ -40,7 +40,7 @@ namespace SmartHopper.Infrastructure.AICall
         public string Endpoint { get; set; }
 
         /// <inheritdoc/>
-        public virtual AICapability Capability { get; set; } = AICapability.BasicChat;
+        public virtual AICapability Capability { get; set; } = AICapability.None;
 
         /// <inheritdoc/>
         public virtual AIBody Body { get; set; } = new AIBody();
@@ -51,27 +51,9 @@ namespace SmartHopper.Infrastructure.AICall
             var messages = new List<string>();
             bool hasErrors = false;
 
-            if (string.IsNullOrEmpty(this.Provider))
-            {
-                messages.Add("Provider is required");
-                hasErrors = true;
-            }
-
-            if (string.IsNullOrEmpty(this.model))
+            if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
             {
                 messages.Add($"(Info) Model is not specified - the default model '{this.GetModelToUse()}' will be used");
-            }
-
-            if (!this.Capability.HasInput() || !this.Capability.HasOutput())
-            {
-                messages.Add("Capability field is required with both input and output capabilities");
-                hasErrors = true;
-            }
-
-            if (this.ProviderInstance == null)
-            {
-                messages.Add($"Unknown provider '{this.Provider}'");
-                hasErrors = true;
             }
 
             if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
@@ -119,6 +101,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private string GetModelToUse()
         {
+            if (this.Capability == AICapability.None)
+            {
+                return null;
+            }
+            
             if (string.IsNullOrEmpty(this.Provider))
             {
                 return null;
@@ -132,7 +119,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             var defaultModel = provider.GetDefaultModel(this.Capability);
 
-            if (string.IsNullOrEmpty(this.model))
+            if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
             {
                 return defaultModel;
             }
@@ -151,6 +138,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private bool ValidModelCapabilities()
         {
+            if (this.Capability == AICapability.None)
+            {
+                return true;
+            }
+            
             if (string.IsNullOrEmpty(this.Provider))
             {
                 return false;

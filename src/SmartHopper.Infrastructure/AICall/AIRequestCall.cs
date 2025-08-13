@@ -78,6 +78,24 @@ namespace SmartHopper.Infrastructure.AICall
                 hasErrors = true;
             }
 
+            if (string.IsNullOrEmpty(this.Provider))
+            {
+                messages.Add("Provider is required");
+                hasErrors = true;
+            }
+
+            if (!this.Capability.HasInput() || !this.Capability.HasOutput())
+            {
+                messages.Add("Capability field is required with both input and output capabilities");
+                hasErrors = true;
+            }
+
+            if (this.ProviderInstance == null)
+            {
+                messages.Add($"Unknown provider '{this.Provider}'");
+                hasErrors = true;
+            }
+
             var effectiveCapability = this.GetEffectiveCapabilities(out var capabilityNotes);
 
             // Append any capability notes (informational)
@@ -150,6 +168,8 @@ namespace SmartHopper.Infrastructure.AICall
                 // Execute the request from the provider
                 var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
 
+                // TODO: if authorized, execute tool calls and add results to AIReturn
+
                 return (AIReturn)result;
             }
             catch (HttpRequestException ex)
@@ -207,7 +227,7 @@ namespace SmartHopper.Infrastructure.AICall
             }
 
             // If tools are requested but capability lacks FunctionCalling, add it (informational)
-            if (!string.IsNullOrEmpty(this.Body?.ToolFilter) && !effective.HasFlag(AICapability.FunctionCalling))
+            if (!string.IsNullOrEmpty(this.Body?.ToolFilter) && this.Body?.ToolFilter != "-*" && !effective.HasFlag(AICapability.FunctionCalling))
             {
                 effective |= AICapability.FunctionCalling;
                 notes.Add("(Info) Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling");

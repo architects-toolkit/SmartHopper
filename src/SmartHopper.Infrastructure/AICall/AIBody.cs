@@ -26,7 +26,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Private storage for the list of interactions.
         /// </summary>
-        private List<IAIInteraction> _interactions;
+        private List<IAIInteraction> _interactions = new List<IAIInteraction>();
 
         /// <summary>
         /// Gets or sets the interaction list. When getting, a copy of the internal list is returned;
@@ -98,10 +98,16 @@ namespace SmartHopper.Infrastructure.AICall
             get
             {
                 var metrics = new AIMetrics();
+                if (this._interactions.Count == 0)
+                {
+                    return metrics;
+                }
+                
                 foreach (var interaction in this._interactions)
                 {
                     metrics.Combine(interaction.Metrics);
                 }
+
                 return metrics;
             }
         }
@@ -344,8 +350,11 @@ namespace SmartHopper.Infrastructure.AICall
         {
             var toolCalls = this.Interactions.OfType<AIInteractionToolCall>();
             var toolResults = this.Interactions.OfType<AIInteractionToolResult>();
+            var resultIds = new HashSet<string>(toolResults.Select(tr => tr.Id));
 
-            return toolCalls.Count(tc => toolResults.Any(tr => tr.Id == tc.Id));
+            int matched = toolCalls.Count(tc => resultIds.Contains(tc.Id));
+            int pending = toolCalls.Count() - matched;
+            return pending;
         }
 
         /// <summary>
@@ -356,8 +365,9 @@ namespace SmartHopper.Infrastructure.AICall
         {
             var toolCalls = this.Interactions.OfType<AIInteractionToolCall>();
             var toolResults = this.Interactions.OfType<AIInteractionToolResult>();
+            var resultIds = new HashSet<string>(toolResults.Select(tr => tr.Id));
 
-            return toolCalls.Where(tc => toolResults.Any(tr => tr.Id == tc.Id)).ToList();
+            return toolCalls.Where(tc => !resultIds.Contains(tc.Id)).ToList();
         }
 
         /// <summary>
