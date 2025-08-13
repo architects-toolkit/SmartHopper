@@ -85,13 +85,14 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
                 }
+
                 return;
             }
 
             // Clear previous results when starting a new run
-            lastComponentNames.Clear();
-            lastComponentGuids.Clear();
-            lastJsonOutput = "";
+            this.lastComponentNames.Clear();
+            this.lastComponentGuids.Clear();
+            this.lastJsonOutput = string.Empty;
 
             try
             {
@@ -104,8 +105,9 @@ namespace SmartHopper.Components.Grasshopper
                     ["attrFilters"] = JArray.FromObject(filters),
                     ["typeFilter"] = JArray.FromObject(typeFilters),
                     ["connectionDepth"] = connectionDepth,
-                    ["guidFilter"] = JArray.FromObject(SelectedObjects.Select(o => o.InstanceGuid.ToString())),
+                    ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
                 };
+
                 // Create AIToolCall and execute
                 var toolCallInteraction = new AIInteractionToolCall
                 {
@@ -117,11 +119,10 @@ namespace SmartHopper.Components.Grasshopper
 
                 var toolCall = new AIToolCall();
                 toolCall.Endpoint = "gh_get";
-                toolCall.Body = new AIBody();
                 toolCall.Body.AddInteraction(toolCallInteraction);
 
                 var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
+                var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
                 var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
