@@ -712,7 +712,7 @@ namespace SmartHopper.Core.UI.Chat
                 request.OverrideInteractions(this._chatHistory);
 
                 Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
-                var result = await request.Exec().ConfigureAwait(false);
+                var result = await request.Exec(processTools: true).ConfigureAwait(false);
 
                 // Store the last return for external access
                 this._lastReturn = result;
@@ -740,7 +740,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // Process any pending tool calls
-                await this.ProcessPendingToolCalls(result);
+                // await this.ProcessPendingToolCalls(result);
             }
             catch (Exception ex)
             {
@@ -749,79 +749,79 @@ namespace SmartHopper.Core.UI.Chat
             }
         }
 
-        /// <summary>
-        /// Processes any pending tool calls in the AI return using the new AIToolCall.Exec() method.
-        /// </summary>
-        /// <param name="result">The AI return containing potential tool calls.</param>
-        private async Task ProcessPendingToolCalls(AIReturn result)
-        {
-            // Check if there are pending tool calls in the result
-            if (result.Body?.PendingToolCallsCount() > 0)
-            {
-                foreach (var pendingTool in result.Body.PendingToolCallsList())
-                {
-                    await Application.Instance.InvokeAsync(() =>
-                    {
-                        this._statusLabel.Text = $"Executing tool: {pendingTool.Name}...";
-                        this._progressReporter?.Invoke("Executing tool...");
-                    });
+        // /// <summary>
+        // /// Processes any pending tool calls in the AI return using the new AIToolCall.Exec() method.
+        // /// </summary>
+        // /// <param name="result">The AI return containing potential tool calls.</param>
+        // private async Task ProcessPendingToolCalls(AIReturn result)
+        // {
+        //     // Check if there are pending tool calls in the result
+        //     if (result.Body?.PendingToolCallsCount() > 0)
+        //     {
+        //         foreach (var pendingTool in result.Body.PendingToolCallsList())
+        //         {
+        //             await Application.Instance.InvokeAsync(() =>
+        //             {
+        //                 this._statusLabel.Text = $"Executing tool: {pendingTool.Name}...";
+        //                 this._progressReporter?.Invoke("Executing tool...");
+        //             });
 
-                    Debug.WriteLine($"[WebChatDialog] Processing tool call: {pendingTool.Name}");
+        //             Debug.WriteLine($"[WebChatDialog] Processing tool call: {pendingTool.Name}");
 
-                    try
-                    {
-                        // Create tool call request using the new architecture
-                        var toolCall = new AIToolCall();
-                        toolCall.Initialize(
-                            this._initialRequest.Provider,
-                            this._initialRequest.Model,
-                            result.Body,
-                            this._initialRequest.Endpoint,
-                            this._initialRequest.Capability);
+        //             try
+        //             {
+        //                 // Create tool call request using the new architecture
+        //                 var toolCall = new AIToolCall();
+        //                 toolCall.Initialize(
+        //                     this._initialRequest.Provider,
+        //                     this._initialRequest.Model,
+        //                     result.Body,
+        //                     this._initialRequest.Endpoint,
+        //                     this._initialRequest.Capability);
 
-                        // Execute tool using AIToolCall.Exec()
-                        var toolResult = await toolCall.Exec().ConfigureAwait(false);
+        //                 // Execute tool using AIToolCall.Exec()
+        //                 var toolResult = await toolCall.Exec().ConfigureAwait(false);
 
-                        if (toolResult.Success && toolResult.Body.Interactions?.Count > 0)
-                        {
-                            // Add tool result interactions to history and display them
-                            foreach (var interaction in toolResult.Body.Interactions)
-                            {
-                                this._chatHistory.Add(interaction);
-                                await Application.Instance.InvokeAsync(() => this.AddInteractionToWebView(interaction));
-                            }
+        //                 if (toolResult.Success && toolResult.Body.Interactions?.Count > 0)
+        //                 {
+        //                     // Add tool result interactions to history and display them
+        //                     foreach (var interaction in toolResult.Body.Interactions)
+        //                     {
+        //                         this._chatHistory.Add(interaction);
+        //                         await Application.Instance.InvokeAsync(() => this.AddInteractionToWebView(interaction));
+        //                     }
 
-                            // Continue conversation with tool result
-                            await this.ProcessAIInteraction();
-                        }
-                        else
-                        {
-                            this.AddSystemMessage($"Tool execution failed: {toolResult.ErrorMessage}", "error");
-                            await Application.Instance.InvokeAsync(() =>
-                            {
-                                this._statusLabel.Text = "Tool execution failed";
-                                this._progressReporter?.Invoke("Error :(");
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
-                        this.AddSystemMessage($"Error executing tool '{pendingTool.Name}': {ex.Message}", "error");
-                    }
-                }
-            }
-            else
-            {
-                // No tool calls, conversation complete
-                this.ResponseReceived?.Invoke(this, result);
-                await Application.Instance.InvokeAsync(() =>
-                {
-                    this._statusLabel.Text = "Ready";
-                    this._progressReporter?.Invoke("Ready");
-                });
-            }
-        }
+        //                     // Continue conversation with tool result
+        //                     await this.ProcessAIInteraction();
+        //                 }
+        //                 else
+        //                 {
+        //                     this.AddSystemMessage($"Tool execution failed: {toolResult.ErrorMessage}", "error");
+        //                     await Application.Instance.InvokeAsync(() =>
+        //                     {
+        //                         this._statusLabel.Text = "Tool execution failed";
+        //                         this._progressReporter?.Invoke("Error :(");
+        //                     });
+        //                 }
+        //             }
+        //             catch (Exception ex)
+        //             {
+        //                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
+        //                 this.AddSystemMessage($"Error executing tool '{pendingTool.Name}': {ex.Message}", "error");
+        //             }
+        //         }
+        //     }
+        //     else
+        //     {
+        //         // No tool calls, conversation complete
+        //         this.ResponseReceived?.Invoke(this, result);
+        //         await Application.Instance.InvokeAsync(() =>
+        //         {
+        //             this._statusLabel.Text = "Ready";
+        //             this._progressReporter?.Invoke("Ready");
+        //         });
+        //     }
+        // }
 
         /// <summary>
         /// Initializes a new conversation with a collapsible system message and an AI-generated greeting message.
