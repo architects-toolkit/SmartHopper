@@ -227,7 +227,7 @@ namespace SmartHopper.Components.Img
                                 };
 
                                 var toolResult = await this._parent.CallAiToolAsync(
-                                    "img_generate", parameters, 1)
+                                    "img_generate", parameters)
                                     .ConfigureAwait(false);
 
                                 if (toolResult != null && toolResult["success"]?.Value<bool>() == true)

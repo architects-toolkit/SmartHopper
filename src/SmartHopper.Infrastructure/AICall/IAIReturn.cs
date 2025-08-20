@@ -31,7 +31,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Gets or sets the metrics about this call.
         /// </summary>
-        AIMetrics Metrics { get; }
+        AIMetrics Metrics { get; set; }
 
         /// <summary>
         /// Gets or sets the current status of the request.

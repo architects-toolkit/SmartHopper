@@ -350,12 +350,11 @@ namespace SmartHopper.Providers.MistralAI
                     content = contentToken.ToString();
                 }
 
-                var interaction = new AIInteractionText
-                {
-                    Agent = AIAgent.Assistant,
-                    Content = content,
-                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
-                };
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 var metrics = this.DecodeMetrics(response);
 

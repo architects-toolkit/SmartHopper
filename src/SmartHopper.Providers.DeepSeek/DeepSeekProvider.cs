@@ -301,13 +301,11 @@ namespace SmartHopper.Providers.DeepSeek
                 // Clean up DeepSeek's malformed JSON responses for array schemas
                 content = CleanUpDeepSeekArrayResponse(content);
 
-                var interaction = new AIInteractionText
-                {
-                    Agent = AIAgent.Assistant,
-                    Content = content,
-                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
-                    Time = DateTime.UtcNow,
-                };
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 var metrics = this.DecodeMetrics(response);
 

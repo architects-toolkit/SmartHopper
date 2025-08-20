@@ -239,9 +239,11 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             // Add provider specific metrics
             stopwatch.Stop();
-            response.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
-            response.Metrics.Provider = this.Name;
-            response.Metrics.Model = request.Model;
+            response.Metrics = new AIMetrics {
+                CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                Provider = this.Name,
+                Model = request.Model,
+            };
 
             // Execute PostCall
             response = this.PostCall(response);
@@ -510,7 +512,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <param name="request">The request to make.</param>
         /// <returns>The HTTP response content as a type T.</returns>
-        protected virtual async Task<IAIReturn> CallApi(AIRequestCall request)
+        private async Task<IAIReturn> CallApi(AIRequestCall request)
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;

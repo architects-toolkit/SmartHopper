@@ -192,7 +192,7 @@ namespace SmartHopper.Infrastructure.AICall
                     {
                         // Create an AIToolCall request
                         var toolCallRequest = new AIToolCall();
-                        toolCallRequest.FromToolCallInteraction(toolCall);
+                        toolCallRequest.FromToolCallInteraction(toolCall, this.Provider, this.Model);
 
                         // Execute the tool call
                         var toolResult = await toolCallRequest.Exec().ConfigureAwait(false);

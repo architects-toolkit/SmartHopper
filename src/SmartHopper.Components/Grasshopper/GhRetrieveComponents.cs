@@ -94,7 +94,6 @@ namespace SmartHopper.Components.Grasshopper
                     Name = "gh_list_components",
                     Arguments = parameters,
                     Agent = AIAgent.Assistant,
-                    Metrics = new AIMetrics { ReuseCount = 1 },
                 };
 
                 var toolCall = new AIToolCall();

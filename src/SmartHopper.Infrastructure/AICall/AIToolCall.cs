@@ -76,24 +76,17 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Initializes the tool call with the first tool call pending to run from an AI interaction tool call.
         /// </summary>
-        public void FromToolCallInteraction(AIInteractionToolCall toolCall)
+        public void FromToolCallInteraction(AIInteractionToolCall toolCall, string provider = null, string model = null)
         {
             this.Body.AddLastInteraction(toolCall);
-        }
-
-        /// <summary>
-        /// Replaces the reuse count of the metrics.
-        /// </summary>
-        /// <param name="reuseCount">The new reuse count.</param>
-        public void ReplaceReuseCount(int reuseCount)
-        {
-            var last = this.Body.GetLastInteraction();
-            if (last == null)
+            if (provider != null)
             {
-                return;
+                this.Provider = provider;
             }
-            last.Metrics ??= new AIMetrics();
-            last.Metrics.ReuseCount = reuseCount;
+            if (model != null)
+            {
+                this.Model = model;
+            }
         }
 
         /// <summary>

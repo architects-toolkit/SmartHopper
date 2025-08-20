@@ -103,7 +103,7 @@ namespace SmartHopper.Components.Text
                         async (branches, reuseCount) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -117,7 +117,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextEvaluate parent, int reuseCount = 1)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextEvaluate parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -128,7 +128,7 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
@@ -163,7 +163,7 @@ namespace SmartHopper.Components.Text
                         ["contextFilter"] = "-*",
                     };
 
-                    var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)
+                    var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters)
                         .ConfigureAwait(false);
 
                     bool result = toolResult?["result"]?.ToObject<bool>() ?? false;

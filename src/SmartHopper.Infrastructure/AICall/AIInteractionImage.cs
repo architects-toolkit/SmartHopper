@@ -21,7 +21,7 @@ namespace SmartHopper.Infrastructure.AICall
     public class AIInteractionImage : IAIInteraction
     {
         /// <inheritdoc/>
-        required public AIAgent Agent { get; set; }
+        public AIAgent Agent { get; set; }
 
         /// <inheritdoc/>
         public DateTime Time { get; set; } = DateTime.UtcNow;

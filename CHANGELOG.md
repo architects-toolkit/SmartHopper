@@ -30,11 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
 - Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
 - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
+- `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
+Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
  
  ### Removed
 
 - Removed the `TemplateProvider` since it will be explained in documentation.
 - Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
+- Removed `AIToolCall.ReplaceReuseCount()` in favor of unified metrics handling.
 
 ### Fixed
 
@@ -43,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebChatDialog stability issues in certain scenarios.
 - Build stability after refactor (compilation issues resolved).
 - Infrastructure stability fixes.
+- Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
  
  ## [0.5.2-alpha] - 2025-08-12
 
