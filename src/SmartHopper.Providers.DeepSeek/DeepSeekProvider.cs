@@ -104,8 +104,12 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 try
                 {
-                    var messageObj = this.Encode(interaction);
-                    convertedMessages.Add(messageObj);
+                    var messageJson = this.Encode(interaction);
+                    if (!string.IsNullOrWhiteSpace(messageJson))
+                    {
+                        var token = JToken.Parse(messageJson);
+                        convertedMessages.Add(token);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -125,19 +129,52 @@ namespace SmartHopper.Providers.DeepSeek
             // Add JSON response format if schema is provided
             if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
             {
-                // Add response format for structured output
-                requestBody["response_format"] = new JObject
+                // Determine if the provided schema is an array at the root.
+                bool isArraySchema = false;
+                try
                 {
-                    ["type"] = "json_object",
-                };
+                    var schemaToken = JToken.Parse(request.Body.JsonOutputSchema);
+                    if (schemaToken.Type == JTokenType.Object)
+                    {
+                        var typeValue = (schemaToken["type"] ?? schemaToken["$ref"])?.ToString();
+                        isArraySchema = string.Equals(typeValue, "array", StringComparison.OrdinalIgnoreCase);
+                    }
+                    else if (schemaToken.Type == JTokenType.Array)
+                    {
+                        // If someone passed a raw array as a schema, treat it as array type
+                        isArraySchema = true;
+                    }
+                }
+                catch
+                {
+                    // If schema cannot be parsed, default to object behavior below
+                }
 
-                // Add schema as a system message to guide the model
-                var systemMessage = new JObject
+                if (isArraySchema)
                 {
-                    ["role"] = "system",
-                    ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + request.Body.JsonOutputSchema,
-                };
-                convertedMessages.Insert(0, systemMessage);
+                    // Fix A (quick): Do NOT force json_object for array schemas. Let the model return a plain JSON array string.
+                    requestBody["response_format"] = new JObject { ["type"] = "text" };
+
+                    // Guide the model explicitly to return only a JSON array according to the schema
+                    var systemMessage = new JObject
+                    {
+                        ["role"] = "system",
+                        ["content"] = "Return ONLY a valid JSON array that strictly follows this schema (no wrapping object, no code fences, no extra text): " + request.Body.JsonOutputSchema,
+                    };
+                    convertedMessages.Insert(0, systemMessage);
+                }
+                else
+                {
+                    // Non-array schemas: keep structured output as JSON object
+                    requestBody["response_format"] = new JObject { ["type"] = "json_object" };
+
+                    var systemMessage = new JObject
+                    {
+                        ["role"] = "system",
+                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + request.Body.JsonOutputSchema,
+                    };
+                    convertedMessages.Insert(0, systemMessage);
+                }
             }
             else
             {
@@ -296,10 +333,57 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 var reasoning = message["reasoning_content"]?.ToString() ?? string.Empty;
-                var content = message["content"]?.ToString() ?? string.Empty;
 
-                // Clean up DeepSeek's malformed JSON responses for array schemas
+                // Robust content extraction: handle string, array of parts, or object content
+                string content;
+                var contentToken = message["content"];
+                if (contentToken is JArray contentParts && contentParts.Count > 0)
+                {
+                    // Concatenate known text-bearing fields; fallback to ToString() for each part
+                    var texts = new List<string>();
+                    foreach (var part in contentParts)
+                    {
+                        var text = part?["text"]?.ToString()
+                                   ?? part?["content"]?.ToString()
+                                   ?? part?.ToString(Newtonsoft.Json.Formatting.None)
+                                   ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            texts.Add(text);
+                        }
+                    }
+                    content = string.Join("\n", texts);
+                }
+                else if (contentToken is JObject contentObj)
+                {
+                    // Try to unwrap arrays from common keys (items, list, enum)
+                    var extractedArray = TryExtractArrayFromObject(contentObj);
+                    content = extractedArray ?? contentObj.ToString(Newtonsoft.Json.Formatting.None);
+                }
+                else
+                {
+                    content = contentToken?.ToString() ?? string.Empty;
+                }
+
+                // Clean up DeepSeek's malformed JSON responses for array schemas, and also unwrap if content is an object string containing items/list/enum
                 content = CleanUpDeepSeekArrayResponse(content);
+                try
+                {
+                    var trimmed = content?.TrimStart() ?? string.Empty;
+                    if (trimmed.StartsWith("{"))
+                    {
+                        var obj = JObject.Parse(content);
+                        var unwrapped = TryExtractArrayFromObject(obj);
+                        if (!string.IsNullOrEmpty(unwrapped))
+                        {
+                            content = unwrapped;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[DeepSeek] Decode: unwrap attempt failed: {ex.Message}");
+                }
 
                 var interaction = new AIInteractionText();
                 interaction.SetResult(
@@ -417,6 +501,33 @@ namespace SmartHopper.Providers.DeepSeek
             }
 
             return content;
+        }
+
+        /// <summary>
+        /// Attempts to extract a JSON array from a wrapper object commonly returned by providers.
+        /// Looks for keys like "items", "list", or DeepSeek's malformed "enum" arrays.
+        /// Returns a compact JSON array string if found; otherwise null.
+        /// </summary>
+        /// <param name="obj">The object potentially wrapping an array.</param>
+        /// <returns>JSON array string or null.</returns>
+        private static string? TryExtractArrayFromObject(JObject obj)
+        {
+            if (obj == null)
+            {
+                return null;
+            }
+
+            // Preferred keys in order
+            var keys = new[] { "items", "list", "enum" };
+            foreach (var key in keys)
+            {
+                if (obj[key] is JArray arr)
+                {
+                    return arr.ToString(Newtonsoft.Json.Formatting.None);
+                }
+            }
+
+            return null;
         }
     }
 }
