@@ -95,8 +95,8 @@ namespace SmartHopper.Menu.Dialogs
 
             // Create tab pages
             this._generalPage = new GeneralSettingsPage(this._providers);
-            this._providersPage = new ProvidersSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
+            this._providersPage = new ProvidersSettingsPage(this._providers);
             this._providerPages = new List<GenericProviderSettingsPage>();
 
             // Create provider-specific tabs
