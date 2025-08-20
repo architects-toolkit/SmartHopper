@@ -47,6 +47,7 @@ Providers refactored to use `AIInteractionText.SetResult(...)` for consistent co
 - Build stability after refactor (compilation issues resolved).
 - Infrastructure stability fixes.
 - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
+- Corrected DataCount in metrics.
 
 ## [0.5.3-alpha] - 2025-08-20
 

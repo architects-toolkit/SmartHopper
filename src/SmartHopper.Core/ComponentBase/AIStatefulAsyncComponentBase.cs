@@ -47,16 +47,6 @@ namespace SmartHopper.Core.ComponentBase
         private AIMetrics responseMetrics;
 
         /// <summary>
-        /// Number of iterations performed.
-        /// </summary>
-        private int iterationsCount;
-
-        /// <summary>
-        /// Data count. 
-        /// </summary>
-        private int dataCount = 1;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
         /// Creates a new instance of the AI-powered stateful asynchronous component.
         /// </summary>
@@ -296,7 +286,6 @@ namespace SmartHopper.Core.ComponentBase
             if (metrics != null)
             {
                 this.responseMetrics.Combine(metrics);
-                this.iterationsCount++;
             }
         }
 
@@ -326,7 +315,7 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("finish_reason", this.responseMetrics.FinishReason),
                 new JProperty("completion_time", this.responseMetrics.CompletionTime),
                 new JProperty("data_count", this.dataCount),
-                new JProperty("iterations_count", this.iterationsCount));
+                new JProperty("iterations_count", this.ProgressInfo.Total));
 
             // Convert metricsJson to GH_String
             var metricsJsonString = metricsJson.ToString();
@@ -349,7 +338,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
                 this.responseMetrics = new AIMetrics();
-                this.iterationsCount = 0;
             }
         }
 

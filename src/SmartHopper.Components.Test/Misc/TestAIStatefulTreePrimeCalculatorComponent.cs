@@ -71,10 +71,11 @@ namespace SmartHopper.Components.Test.Misc
                 _result = new GH_Structure<GH_Number>();
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                _inputTree = new GH_Structure<GH_Integer>();
+                this._inputTree = new GH_Structure<GH_Integer>();
                 DA.GetDataTree(0, out _inputTree);
+                dataCount = this._inputTree.DataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
