@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
 - Fixed "Invalid model" when model manager was providing the wildcard instead of the actual default model name.
 
+## [0.5.3-alpha] - 2025-08-20
+
+### Fixed
+
+- Fix incorrect json schema required fields in `script_new` tool ([#304](https://github.com/architects-toolkit/SmartHopper/issues/304)).
+
 ## [0.5.2-alpha] - 2025-08-12
 
 ### Fixed

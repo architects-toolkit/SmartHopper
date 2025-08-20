@@ -117,6 +117,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | gh_move_obj | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_generate | Generate Grasshopper definitions using AI | ⚪ | - | - | - |
+| gh_connect | Connect Grasshopper components | ⚪ | - | - | - |
 | gh_group | Group components and set a meaningful title | ⚪ | - | - | - |
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
