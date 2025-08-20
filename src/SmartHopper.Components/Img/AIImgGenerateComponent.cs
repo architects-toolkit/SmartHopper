@@ -232,7 +232,9 @@ namespace SmartHopper.Components.Img
                                     "img_generate", parameters)
                                     .ConfigureAwait(false);
 
-                                if (toolResult != null && toolResult["success"]?.Value<bool>() == true)
+                                // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)
+                                // and ensure there's no 'error' key to consider it a success.
+                                if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && string.IsNullOrEmpty(toolResult["error"]?.ToString())))
                                 {
                                     // Get the image result (could be URL or base64 data)
                                     string imageResult = toolResult["result"]?.ToString() ?? string.Empty;

@@ -50,6 +50,7 @@ Providers refactored to use `AIInteractionText.SetResult(...)` for consistent co
 - Corrected DataCount in metrics.
 - Fixed incorrect result output in `list_generate` tool.
 - DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
+- Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
 
 ## [0.5.3-alpha] - 2025-08-20
 
