@@ -47,8 +47,14 @@ Providers refactored to use `AIInteractionText.SetResult(...)` for consistent co
 - Build stability after refactor (compilation issues resolved).
 - Infrastructure stability fixes.
 - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
- 
- ## [0.5.2-alpha] - 2025-08-12
+
+## [0.5.3-alpha] - 2025-08-20
+
+### Fixed
+
+- Fix incorrect json schema required fields in `script_new` tool ([#304](https://github.com/architects-toolkit/SmartHopper/issues/304)).
+
+## [0.5.2-alpha] - 2025-08-12
 
 ### Fixed
 
