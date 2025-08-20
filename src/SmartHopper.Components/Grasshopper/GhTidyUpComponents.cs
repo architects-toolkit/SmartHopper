@@ -132,7 +132,6 @@ namespace SmartHopper.Components.Grasshopper
                     Name = "gh_tidy_up",
                     Arguments = parameters,
                     Agent = AIAgent.Assistant,
-                    Metrics = new AIMetrics { ReuseCount = 1 },
                 };
 
                 var toolCall = new AIToolCall();

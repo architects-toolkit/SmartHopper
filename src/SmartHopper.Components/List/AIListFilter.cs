@@ -109,7 +109,7 @@ namespace SmartHopper.Components.List
                         async (branches, reuseCount) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -123,7 +123,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent, int reuseCount = 1)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -134,7 +134,7 @@ namespace SmartHopper.Components.List
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
@@ -180,7 +180,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
 
                     var toolResult = await parent.CallAiToolAsync(
-                        "list_filter", parameters, reuseCount)
+                        "list_filter", parameters)
                         .ConfigureAwait(false);
 
                     var indices = toolResult?["indices"]?.ToObject<List<int>>() ?? new List<int>();

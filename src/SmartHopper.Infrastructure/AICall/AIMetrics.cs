@@ -8,7 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -33,12 +35,6 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the model used for the AI call.
         /// </summary>
         public string Model { get; set; }
-
-        /// <summary>
-        /// Tracks how many times this response is reused across different data tree branches.
-        /// Default is 1 (used once).
-        /// </summary>
-        public int ReuseCount { get; set; } = 1;
 
         /// <summary>
         /// Gets or sets the number of cached input tokens used by the AI call.
@@ -92,11 +88,6 @@ namespace SmartHopper.Infrastructure.AICall
                 errors.Add("Input and output tokens must be greater than or equal to 0");
             }
 
-            if (this.ReuseCount < 1)
-            {
-                errors.Add("Reuse count must be greater than or equal to 1");
-            }
-
             if (string.IsNullOrEmpty(this.FinishReason))
             {
                 errors.Add("Finish reason must be set");
@@ -116,23 +107,27 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="other">The AIMetrics object to combine with.</param>
         public void Combine(AIMetrics other)
         {
+            Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+
             if (other.Provider != null)
             {
                 this.Provider = other.Provider;
             }
+
             if (other.Model != null)
             {
                 this.Model = other.Model;
             }
+
             if (other.FinishReason != null)
             {
                 this.FinishReason = other.FinishReason;
             }
+
             this.InputTokensPrompt += other.InputTokensPrompt;
             this.InputTokensCached += other.InputTokensCached;
             this.OutputTokensReasoning += other.OutputTokensReasoning;
             this.OutputTokensGeneration += other.OutputTokensGeneration;
-            this.ReuseCount += other.ReuseCount;
             this.CompletionTime += other.CompletionTime;
         }
     }

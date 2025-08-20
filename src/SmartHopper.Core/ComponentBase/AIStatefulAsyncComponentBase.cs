@@ -52,6 +52,11 @@ namespace SmartHopper.Core.ComponentBase
         private int iterationsCount;
 
         /// <summary>
+        /// Data count. 
+        /// </summary>
+        private int dataCount = 1;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
         /// Creates a new instance of the AI-powered stateful asynchronous component.
         /// </summary>
@@ -164,9 +169,8 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="toolName">Name of the registered tool.</param>
         /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
-        /// <param name="reuseCount">Reuse count for metrics accounting.</param>
         /// <returns>Raw tool result as JObject.</returns>
-        protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
+        protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters)
         {
             parameters ??= new JObject();
 
@@ -180,7 +184,6 @@ namespace SmartHopper.Core.ComponentBase
                 Name = toolName,
                 Arguments = parameters,
                 Agent = AIAgent.Assistant,
-                Metrics = new AIMetrics { ReuseCount = reuseCount },
             };
 
             // Create the tool call request with proper body
@@ -294,8 +297,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 this.responseMetrics.Combine(metrics);
                 this.iterationsCount++;
-
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list with reuse count: {metrics.ReuseCount}");
             }
         }
 
@@ -316,22 +317,15 @@ namespace SmartHopper.Core.ComponentBase
             // Get the actual provider name
             string actualProvider = this.GetActualAIProviderName();
 
-            // Aggregate metrics
-            int totalInTokens = this.responseMetrics.InputTokens;
-            int totalOutTokens = this.responseMetrics.OutputTokens;
-            string finishReason = this.responseMetrics.FinishReason;
-            double totalCompletionTime = this.responseMetrics.CompletionTime;
-            string usedModel = this.responseMetrics.Model;
-
             // Create JSON object with metrics
             var metricsJson = new JObject(
                 new JProperty("ai_provider", actualProvider),
-                new JProperty("ai_model", usedModel),
-                new JProperty("tokens_input", totalInTokens),
-                new JProperty("tokens_output", totalOutTokens),
-                new JProperty("finish_reason", finishReason),
-                new JProperty("completion_time", totalCompletionTime),
-                new JProperty("data_count", this.responseMetrics.ReuseCount),
+                new JProperty("ai_model", this.responseMetrics.Model),
+                new JProperty("tokens_input", this.responseMetrics.InputTokens),
+                new JProperty("tokens_output", this.responseMetrics.OutputTokens),
+                new JProperty("finish_reason", this.responseMetrics.FinishReason),
+                new JProperty("completion_time", this.responseMetrics.CompletionTime),
+                new JProperty("data_count", this.dataCount),
                 new JProperty("iterations_count", this.iterationsCount));
 
             // Convert metricsJson to GH_String

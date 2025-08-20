@@ -500,13 +500,11 @@ namespace SmartHopper.Providers.OpenAI
                     Debug.WriteLine($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
                 }
 
-                var interaction = new AIInteractionText
-                {
-                    Agent = AIAgent.Assistant,
-                    Content = content,
-                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
-                    Time = DateTime.UtcNow,
-                };
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 var metrics = this.DecodeMetrics(responseJson.ToString());
 
@@ -563,7 +561,6 @@ namespace SmartHopper.Providers.OpenAI
                 var resultInteraction = new AIInteractionImage
                 {
                     Agent = AIAgent.Assistant,
-                    Time = DateTime.UtcNow,
                     OriginalPrompt = originalImageInteraction?.OriginalPrompt ?? string.Empty,
                     ImageSize = originalImageInteraction?.ImageSize ?? "1024x1024",
                     ImageQuality = originalImageInteraction?.ImageQuality ?? "standard",

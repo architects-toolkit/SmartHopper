@@ -18,7 +18,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -114,7 +113,6 @@ namespace SmartHopper.Components.Grasshopper
                     Name = "gh_get",
                     Arguments = parameters,
                     Agent = AIAgent.Assistant,
-                    Metrics = new AIMetrics { ReuseCount = 1 },
                 };
 
                 var toolCall = new AIToolCall();

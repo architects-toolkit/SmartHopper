@@ -10,9 +10,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -28,6 +28,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private JObject PrivateEncodedResult { get; set; }
 
+        /// <summary>
+        /// Internal storage for global metrics.
+        /// </summary>
+        private AIMetrics PrivateGlobalMetrics { get; set; } = new AIMetrics();
+
         /// <inheritdoc/>
         public AIBody Body { get; private set; } = new AIBody();
 
@@ -35,9 +40,21 @@ namespace SmartHopper.Infrastructure.AICall
         public IAIRequest Request { get; set; }
 
         /// <inheritdoc/>
-        public AIMetrics Metrics { get
+        public AIMetrics Metrics
+        {
+            get
             {
-                return this.Body.Metrics;
+                var metrics = this.Body.Metrics ?? new AIMetrics();
+                metrics.Combine(this.PrivateGlobalMetrics);
+                return metrics;
+            }
+
+            set
+            {
+                Debug.WriteLine($"[AIReturn] Setting global metrics: {value}");
+                var metrics = this.PrivateGlobalMetrics ?? new AIMetrics();
+                metrics.Combine(value);
+                this.PrivateGlobalMetrics = metrics;
             }
         }
 
