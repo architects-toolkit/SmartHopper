@@ -114,14 +114,14 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                // Convert interactions to OpenAI format using the new Encode method
+                // Convert interactions to OpenAI format using the JToken-based encoder
                 var messages = new JArray();
                 foreach (var interaction in request.Body.Interactions)
                 {
                     try
                     {
-                        var messageObj = this.Encode(interaction);
-                        messages.Add(messageObj);
+                        var messageToken = this.EncodeToJToken(interaction);
+                        if (messageToken != null) messages.Add(messageToken);
                     }
                     catch (Exception ex)
                     {
@@ -136,11 +136,21 @@ namespace SmartHopper.Providers.OpenAI
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
+            var messageObj = this.EncodeToJToken(interaction);
+            return messageObj?.ToString();
+        }
+
+        /// <inheritdoc/>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
             var messageObj = new JObject();
 
             switch (interaction.Agent)
             {
                 case AIAgent.System:
+                    messageObj["role"] = "system";
+                    break;
+                case AIAgent.Context:
                     messageObj["role"] = "system";
                     break;
                 case AIAgent.User:
@@ -150,18 +160,31 @@ namespace SmartHopper.Providers.OpenAI
                     messageObj["role"] = "assistant";
                     break;
                 case AIAgent.ToolCall:
-                    messageObj["role"] = "tool";
+                    messageObj["role"] = "assistant";
                     break;
                 case AIAgent.ToolResult:
+                    messageObj["role"] = "tool";
                     break;
                 default:
                     throw new ArgumentException($"Agent {interaction.Agent} not supported by OpenAI");
             }
 
             // Handle different interaction types
+            string msgContent = string.Empty;
+            bool contentSetExplicitly = false;
+
             if (interaction is AIInteractionText textInteraction)
             {
-                messageObj["content"] = textInteraction.Content;
+                msgContent = textInteraction.Content ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                messageObj["tool_call_id"] = toolResultInteraction.Id;
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    messageObj["name"] = toolResultInteraction.Name;
+                }
+                msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
@@ -176,28 +199,37 @@ namespace SmartHopper.Providers.OpenAI
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
+                msgContent = string.Empty; // assistant tool_calls messages should have empty content
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
                 // Handle image interactions (for vision models)
-                var contentArray = new JArray();
-                contentArray.Add(new JObject
+                var contentArray = new JArray
                 {
-                    ["type"] = "image_url",
-                    ["image_url"] = new JObject
+                    new JObject
                     {
-                        ["url"] = imageInteraction.ImageUrl ?? imageInteraction.ImageData,
+                        ["type"] = "image_url",
+                        ["image_url"] = new JObject
+                        {
+                            ["url"] = imageInteraction.ImageUrl ?? imageInteraction.ImageData,
+                        },
                     },
-                });
+                };
                 messageObj["content"] = contentArray;
+                contentSetExplicitly = true;
             }
-            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            else
             {
-                messageObj["tool_call_id"] = toolResultInteraction.Id;
-                messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+                // Fallback to empty string for unknown types
+                msgContent = string.Empty;
             }
 
-            return messageObj.ToString();
+            if (!contentSetExplicitly)
+            {
+                messageObj["content"] = msgContent;
+            }
+
+            return messageObj;
         }
 
         /// <inheritdoc/>

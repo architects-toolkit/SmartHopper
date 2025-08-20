@@ -48,6 +48,8 @@ Providers refactored to use `AIInteractionText.SetResult(...)` for consistent co
 - Infrastructure stability fixes.
 - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
 - Corrected DataCount in metrics.
+- Fixed incorrect result output in `list_generate` tool.
+- DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
 
 ## [0.5.3-alpha] - 2025-08-20
 

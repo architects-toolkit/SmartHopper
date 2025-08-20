@@ -114,7 +114,7 @@ namespace SmartHopper.Providers.DeepSeek
             result["deepseek-reasoner"] = AICapability.ReasoningChat;
 
             // Add deepseek-chat model as default for both BasicChat and AdvancedChat
-            result["deepseek-chat"] = AICapability.BasicChat | AICapability.AdvancedChat;
+            result["deepseek-chat"] = AICapability.BasicChat | AICapability.AdvancedChat | AICapability.JsonOutput;
 
             return result;
         }
