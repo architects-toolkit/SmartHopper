@@ -224,8 +224,8 @@ namespace SmartHopper.Core.UI.Chat
             public WebChatWorker(
                 string providerName,
                 string modelName,
-                string systemPrompt,
                 string endpoint,
+                string systemPrompt,
                 string toolFilter,
                 Action<string> progressReporter,
                 Guid componentId = default)
@@ -235,7 +235,7 @@ namespace SmartHopper.Core.UI.Chat
                     model: modelName,
                     systemPrompt: systemPrompt,
                     endpoint: endpoint,
-                    capability: AICapability.TextOutput,
+                    capability: AICapability.BasicChat,
                     toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;

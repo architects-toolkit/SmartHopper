@@ -545,7 +545,8 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        string sanitizedRole = JsonConvert.SerializeObject(agent.ToString());
+                        // Role class in HTML is lowercase (e.g., 'assistant', 'user', 'system')
+                        string sanitizedRole = JsonConvert.SerializeObject(agent.ToString().ToLower());
                         string script = $"if (typeof removeLastMessageByRole === 'function') {{ return removeLastMessageByRole({sanitizedRole}); }} else {{ return false; }}";
                         string result = this._webView.ExecuteScript(script);
                         removedFromUI = bool.TryParse(result, out bool jsResult) && jsResult;
@@ -749,80 +750,6 @@ namespace SmartHopper.Core.UI.Chat
             }
         }
 
-        // /// <summary>
-        // /// Processes any pending tool calls in the AI return using the new AIToolCall.Exec() method.
-        // /// </summary>
-        // /// <param name="result">The AI return containing potential tool calls.</param>
-        // private async Task ProcessPendingToolCalls(AIReturn result)
-        // {
-        //     // Check if there are pending tool calls in the result
-        //     if (result.Body?.PendingToolCallsCount() > 0)
-        //     {
-        //         foreach (var pendingTool in result.Body.PendingToolCallsList())
-        //         {
-        //             await Application.Instance.InvokeAsync(() =>
-        //             {
-        //                 this._statusLabel.Text = $"Executing tool: {pendingTool.Name}...";
-        //                 this._progressReporter?.Invoke("Executing tool...");
-        //             });
-
-        //             Debug.WriteLine($"[WebChatDialog] Processing tool call: {pendingTool.Name}");
-
-        //             try
-        //             {
-        //                 // Create tool call request using the new architecture
-        //                 var toolCall = new AIToolCall();
-        //                 toolCall.Initialize(
-        //                     this._initialRequest.Provider,
-        //                     this._initialRequest.Model,
-        //                     result.Body,
-        //                     this._initialRequest.Endpoint,
-        //                     this._initialRequest.Capability);
-
-        //                 // Execute tool using AIToolCall.Exec()
-        //                 var toolResult = await toolCall.Exec().ConfigureAwait(false);
-
-        //                 if (toolResult.Success && toolResult.Body.Interactions?.Count > 0)
-        //                 {
-        //                     // Add tool result interactions to history and display them
-        //                     foreach (var interaction in toolResult.Body.Interactions)
-        //                     {
-        //                         this._chatHistory.Add(interaction);
-        //                         await Application.Instance.InvokeAsync(() => this.AddInteractionToWebView(interaction));
-        //                     }
-
-        //                     // Continue conversation with tool result
-        //                     await this.ProcessAIInteraction();
-        //                 }
-        //                 else
-        //                 {
-        //                     this.AddSystemMessage($"Tool execution failed: {toolResult.ErrorMessage}", "error");
-        //                     await Application.Instance.InvokeAsync(() =>
-        //                     {
-        //                         this._statusLabel.Text = "Tool execution failed";
-        //                         this._progressReporter?.Invoke("Error :(");
-        //                     });
-        //                 }
-        //             }
-        //             catch (Exception ex)
-        //             {
-        //                 Debug.WriteLine($"[WebChatDialog] Error processing tool call: {ex.Message}");
-        //                 this.AddSystemMessage($"Error executing tool '{pendingTool.Name}': {ex.Message}", "error");
-        //             }
-        //         }
-        //     }
-        //     else
-        //     {
-        //         // No tool calls, conversation complete
-        //         this.ResponseReceived?.Invoke(this, result);
-        //         await Application.Instance.InvokeAsync(() =>
-        //         {
-        //             this._statusLabel.Text = "Ready";
-        //             this._progressReporter?.Invoke("Ready");
-        //         });
-        //     }
-        // }
-
         /// <summary>
         /// Initializes a new conversation with a collapsible system message and an AI-generated greeting message.
         /// Keeps the chat in loading state until greeting is received or 30s timeout occurs.
@@ -880,14 +807,19 @@ namespace SmartHopper.Core.UI.Chat
                     greetingPrompt = "You are SmartHopper AI, an AI assistant for Grasshopper3D and computational design. Generate a brief, friendly greeting message that welcomes the user and offers assistance. Keep it concise, professional, and inviting.";
                 }
 
-                var greetingInteractions = new List<IAIInteraction>
+                var greetingInteractions = new List<IAIInteraction>();
+                // Keep instructions as system message
+                greetingInteractions.Add(new AIInteractionText
                 {
-                    new AIInteractionText
-                    {
-                        Agent = AIAgent.System,
-                        Content = greetingPrompt,
-                    },
-                };
+                    Agent = AIAgent.System,
+                    Content = greetingPrompt,
+                });
+                // Add a minimal user turn to trigger an assistant reply across providers
+                greetingInteractions.Add(new AIInteractionText
+                {
+                    Agent = AIAgent.User,
+                    Content = "Please send a short friendly greeting to start the chat. Keep it to one or two sentences.",
+                });
 
                 AIReturn greetingResult = null;
 
@@ -900,15 +832,58 @@ namespace SmartHopper.Core.UI.Chat
                         this._initialRequest.Model,
                         greetingInteractions,
                         this._initialRequest.Endpoint,
-                        AICapability.TextOutput,
+                        AICapability.BasicChat,
                         "-*"); // Disable all tools for greeting
 
-                    greetingResult = await greetingRequest.Exec().ConfigureAwait(false);
+                    // Log provider/model for diagnostics
+                    Debug.WriteLine($"[WebChatDialog] Generating greeting with provider='{this._initialRequest.Provider}', model='{this._initialRequest.Model}', interactions={greetingInteractions?.Count ?? 0}");
+
+                    // Execute with tools processing disabled and enforce a timeout
+                    var execTask = greetingRequest.Exec(processTools: false);
+                    var timeoutTask = Task.Delay(30000);
+                    var completed = await Task.WhenAny(execTask, timeoutTask).ConfigureAwait(false);
+                    if (completed == execTask)
+                    {
+                        greetingResult = execTask.Result;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[WebChatDialog] Greeting generation timed out after 30s");
+                        greetingResult = null;
+                    }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[WebChatDialog] Error generating greeting: {ex.Message}");
                     greetingResult = null;
+                }
+
+                // Diagnostic logging for greeting result
+                try
+                {
+                    if (greetingResult == null)
+                    {
+                        Debug.WriteLine("[WebChatDialog] Greeting result is null (timeout or exception). Using fallback.");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[WebChatDialog] GreetingResult.Success={greetingResult.Success}, Error='{greetingResult.ErrorMessage ?? string.Empty}'");
+                        var interactions = greetingResult.Body?.Interactions;
+                        Debug.WriteLine($"[WebChatDialog] GreetingResult.Interactions.Count={interactions?.Count ?? 0}");
+                        if (interactions != null)
+                        {
+                            foreach (var inter in interactions)
+                            {
+                                var text = (inter as AIInteractionText)?.Content ?? string.Empty;
+                                var preview = text.Length > 200 ? text.Substring(0, 200) + "..." : text;
+                                Debug.WriteLine($"[WebChatDialog] -> {inter.Agent}: {preview}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception diagEx)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Error while logging greeting diagnostics: {diagEx.Message}");
                 }
 
                 // Replace loading message with actual greeting or fallback
