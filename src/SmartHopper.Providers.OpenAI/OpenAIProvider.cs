@@ -265,7 +265,7 @@ namespace SmartHopper.Providers.OpenAI
             {
                 Debug.WriteLine($"[OpenAI] Decode error: {ex.Message}");
             }
-            
+
             return interactions;
         }
 
