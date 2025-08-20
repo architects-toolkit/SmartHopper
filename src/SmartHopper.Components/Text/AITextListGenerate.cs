@@ -75,7 +75,7 @@ namespace SmartHopper.Components.Text
                 };
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
@@ -87,6 +87,9 @@ namespace SmartHopper.Components.Text
 
                 this.inputTree["Prompt"] = promptTree;
                 this.inputTree["Count"] = countTree;
+
+                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
+                dataCount = metrics.dataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -96,9 +99,9 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[AITextListGenerate] Starting DoWorkAsync");
                     this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
-                        async (branches, reuseCount) =>
+                        async (branches) =>
                         {
-                            Debug.WriteLine($"[AITextListGenerate] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
+                            Debug.WriteLine($"[AITextListGenerate] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,

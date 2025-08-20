@@ -112,9 +112,10 @@ namespace SmartHopper.Components.AI
             /// </summary>
             /// <param name="DA">Data access object.</param>
             /// <param name="message">Output message.</param>
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 // No inputs to gather for this component
+                dataCount = 0;
             }
 
             /// <summary>

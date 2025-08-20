@@ -65,11 +65,12 @@ namespace SmartHopper.Components.Test.Misc
             {
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 int n = 100;
                 DA.GetData(0, ref n);
                 _nthPrime = Math.Max(1, Math.Min(n, 1000000));
+                dataCount = 1;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)

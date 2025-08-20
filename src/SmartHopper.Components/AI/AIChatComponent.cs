@@ -185,9 +185,10 @@ namespace SmartHopper.Components.AI
             /// Gathers input data from the component.
             /// </summary>
             /// <param name="DA">The data access object.</param>
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 // Base inputs (Model and Run) are handled by the base class
+                dataCount = 0;
             }
 
             /// <summary>

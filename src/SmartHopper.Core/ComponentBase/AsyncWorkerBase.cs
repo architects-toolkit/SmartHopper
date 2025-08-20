@@ -38,7 +38,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gather input data from the component's input parameters.
         /// </summary>
-        public abstract void GatherInput(IGH_DataAccess DA);
+        public abstract void GatherInput(IGH_DataAccess DA, out int dataCount);
 
         /// <summary>
         /// Perform the asynchronous computation.

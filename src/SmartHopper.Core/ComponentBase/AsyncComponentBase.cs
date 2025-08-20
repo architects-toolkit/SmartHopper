@@ -41,6 +41,11 @@ namespace SmartHopper.Core.ComponentBase
         private readonly List<CancellationTokenSource> _cancellationSources;
 
         /// <summary>
+        /// Stores the number of data items to output.
+        /// </summary>
+        protected int dataCount = 0;
+
+        /// <summary>
         /// Tracks the state of worker task completion:
         /// - Starts at 0 when component initializes
         /// - Increments when a worker task completes
@@ -139,8 +144,9 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine("[AsyncComponentBase] Gathering input");
 
                 // Gather input before starting the task
-                worker.GatherInput(DA);
+                worker.GatherInput(DA, out int dataCount);
                 this.CurrentWorker = worker;
+                this.dataCount = dataCount;
 
                 // Create cancellation token source
                 var source = new CancellationTokenSource();

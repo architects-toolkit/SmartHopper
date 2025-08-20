@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,7 +21,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Core.DataTree;
 
 namespace SmartHopper.Components.Img
 {
@@ -117,7 +116,7 @@ namespace SmartHopper.Components.Img
             /// Gathers input from the component.
             /// </summary>
             /// <param name="DA">Data access object.</param>
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this._prompts = new GH_Structure<GH_String>();
                 this._sizes = new GH_Structure<GH_String>();
@@ -133,6 +132,7 @@ namespace SmartHopper.Components.Img
                 if (!DA.GetDataTree(0, out this._prompts)) // Prompt parameter index
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get Prompt input");
+                    dataCount = 0;
                     return;
                 }
 
@@ -153,6 +153,8 @@ namespace SmartHopper.Components.Img
                     // Use default if not provided
                     this._styles.Append(new GH_String("vivid"), new GH_Path(0));
                 }
+
+                dataCount = 1;
             }
 
             /// <summary>
