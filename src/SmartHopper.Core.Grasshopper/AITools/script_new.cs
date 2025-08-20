@@ -133,7 +133,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     ""description"": { ""type"": ""string"" },
                                     ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""] }
                                 },
-                                ""required"": [""name"", ""type""],
+                                ""required"": [""name"", ""type"", ""description"", ""access""],
                                 ""additionalProperties"": false
                             }
                         },
@@ -146,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     ""type"": { ""type"": ""string"" },
                                     ""description"": { ""type"": ""string"" }
                                 },
-                                ""required"": [""name"", ""type""],
+                                ""required"": [""name"", ""type"", ""description""],
                                 ""additionalProperties"": false
                             }
                         }
