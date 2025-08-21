@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
-using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {

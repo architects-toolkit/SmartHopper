@@ -14,7 +14,8 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -94,10 +95,23 @@ namespace SmartHopper.Components.Grasshopper
             {
                 // 3. Call the AI tool
                 var parameters = new JObject { ["json"] = json };
-                var toolResult = AIToolManager
-                    .ExecuteTool("gh_put", parameters, null)
-                    .GetAwaiter()
-                    .GetResult() as JObject;
+
+                // Create AIToolCall and execute
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_put",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var toolCall = new AIToolCall();
+                toolCall.Endpoint = "gh_put";
+                toolCall.Body = new AIBody();
+                toolCall.Body.AddInteraction(toolCallInteraction);
+
+                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
+                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
 
                 var success = toolResult?["success"]?.ToObject<bool>() ?? false;
                 var analysis = toolResult?["analysis"]?.ToString();

@@ -17,7 +17,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using Markdig;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -26,8 +26,8 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     internal class HtmlChatRenderer
     {
-        private readonly MarkdownPipeline _markdownPipeline;
         private readonly ChatResourceManager _resourceManager;
+        private readonly MarkdownPipeline _markdownPipeline;
 
         /// <summary>
         /// Initializes a new instance of the HtmlChatRenderer class.
@@ -37,7 +37,7 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine("[HtmlChatRenderer] Initializing HtmlChatRenderer");
 
             // Configure Markdig pipeline with needed extensions
-            _markdownPipeline = new MarkdownPipelineBuilder()
+            this._markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .UseSoftlineBreakAsHardlineBreak()
                 .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Default)
@@ -89,50 +89,27 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Generates HTML for a chat message.
         /// </summary>
-        /// <param name="role">The role of the message sender (user, assistant, system).</param>
-        /// <param name="response">The AIResponse containing metrics data.</param>
+        /// <param name="interaction">The AIInteraction containing metrics data.</param>
         /// <returns>HTML representation of the message.</returns>
-        public string GenerateMessageHtml(string role, AIResponse response)
+        public string GenerateMessageHtml(IAIInteraction interaction)
         {
-            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for role: {role}");
+            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
 
             try
             {
-                string displayRole;
-
-                // Determine display role based on message role
-                switch (role)
-                {
-                    case "user":
-                        displayRole = "You";
-                        break;
-                    case "assistant":
-                        displayRole = "AI";
-                        break;
-                    case "system":
-                        displayRole = "System";
-                        break;
-                    case "tool":
-                        displayRole = "Tool";
-                        break;
-                    case "tool_call":
-                        displayRole = "Calling a tool...";
-                        break;
-                    default:
-                        displayRole = role;
-                        break;
-                }
+                string displayRole = interaction.Agent.ToDescription();
 
                 try
                 {
                     // Create timestamp for the message
                     string timestamp = DateTime.Now.ToString("HH:mm");
+
                     // Use the resource manager to create the message HTML
                     string messageHtml = _resourceManager.CreateMessageHtml(
-                        role,
-                        WebUtility.HtmlEncode(displayRole),
+                        interaction.Agent.ToString().ToLower(),
+                        displayRole,
                         timestamp,
-                        response);
+                        interaction);
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
 
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML (truncated): {messageHtml?.Substring(0, Math.Min(100, messageHtml.Length))}...");

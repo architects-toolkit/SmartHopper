@@ -15,11 +15,9 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
-using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -64,131 +62,118 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateImageToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.ImageOutput
+                requiredCapabilities: AICapability.TextInput | AICapability.ImageOutput
             );
         }
 
-        /// <summary>
-        /// Generates an image from a prompt using AI with a custom GenerateImage function.
-        /// </summary>
-        /// <param name="prompt">The user's prompt.</param>
-        /// <param name="size">The size of the generated image.</param>
-        /// <param name="quality">The quality setting for the image.</param>
-        /// <param name="style">The style setting for the image.</param>
-        /// <param name="generateImage">Custom function to generate image.</param>
-        /// <returns>The image URL or data as a GH_String.</returns>
-        private static async Task<AIEvaluationResult<GH_String>> GenerateImageAsync(
-            GH_String prompt,
-            GH_String size,
-            GH_String quality,
-            GH_String style,
-            Func<string, string, string, string, string, Task<AIResponse>> generateImage)
-        {
-            try
-            {
-                // Get response using the provided function
-                var response = await generateImage(prompt.Value, "", size.Value, quality.Value, style.Value).ConfigureAwait(false);
 
-                // Check for API errors
-                if (response.FinishReason == "error")
-                {
-                    return AIEvaluationResult<GH_String>.CreateError(
-                        response.ErrorMessage,
-                        GH_RuntimeMessageLevel.Error,
-                        response); // Now using AIResponse which is compatible with AIEvaluationResult
-                }
-
-                // Return the image URL or data (prioritize URL over base64 data for performance)
-                string imageResult = !string.IsNullOrEmpty(response.ImageUrl)
-                    ? response.ImageUrl
-                    : response.ImageData;
-                
-                // Check if we have valid image data
-                if (string.IsNullOrEmpty(imageResult))
-                {
-                    return AIEvaluationResult<GH_String>.CreateError(
-                        "No image data received from AI provider",
-                        GH_RuntimeMessageLevel.Error,
-                        response);
-                }
-                
-                // Success case
-                return AIEvaluationResult<GH_String>.CreateSuccess(
-                    response, // Now using AIResponse which is compatible with AIEvaluationResult
-                    new GH_String(imageResult));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ImageTools] Error in GenerateImageAsync: {ex.Message}");
-                return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating image: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
-            }
-        }
 
         /// <summary>
         /// Tool wrapper for the GenerateImage function.
         /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
-        private async Task<object> GenerateImageToolWrapper(JObject parameters)
+        /// <param name="toolCall">The tool call information.</param>
+        /// <returns>AIReturn with the result.</returns>
+        private async Task<AIReturn> GenerateImageToolWrapper(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
                 Debug.WriteLine("[ImageTools] Running GenerateImageToolWrapper");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string? prompt = parameters["prompt"]?.ToString();
-                string size = parameters["size"]?.ToString() ?? "1024x1024";
-                string quality = parameters["quality"]?.ToString() ?? "standard";
-                string style = parameters["style"]?.ToString() ?? "vivid";
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                string? prompt = toolInfo.Arguments["prompt"]?.ToString();
+                string size = toolInfo.Arguments["size"]?.ToString() ?? "1024x1024";
+                string quality = toolInfo.Arguments["quality"]?.ToString() ?? "standard";
+                string style = toolInfo.Arguments["style"]?.ToString() ?? "vivid";
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    // Return error object as JObject
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing required parameter: prompt"
-                    };
+                    output.CreateError("Missing required parameter: prompt");
+                    return output;
                 }
 
-                // Execute the tool
-                var result = await GenerateImageAsync(
-                    new GH_String(prompt),
-                    new GH_String(size),
-                    new GH_String(quality),
-                    new GH_String(style),
-                    (promptText, model, imageSize, imageQuality, imageStyle) => AIUtils.GenerateImage(
-                        providerName,
-                        promptText,
-                        model: modelName,
-                        size: imageSize,
-                        quality: imageQuality,
-                        style: imageStyle)
-                ).ConfigureAwait(false);
-
-                // Build standardized result as JObject
-                var responseObj = new JObject
+                // Create image interaction for request
+                var imageInteraction = new AIInteractionImage
                 {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success && result.Result != null ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = result.Response != null ? JToken.FromObject(result.Response) : JValue.CreateNull(),
+                    Agent = AIAgent.User,
                 };
-                return responseObj;
+
+                imageInteraction.CreateRequest(
+                    prompt: prompt,
+                    size: size,
+                    quality: quality,
+                    style: style);
+
+                // Create request body with image interaction
+                var requestBody = new AIBody();
+                requestBody.AddInteraction(imageInteraction);
+
+                // Create AI request for image generation
+                var aiRequest = new AIRequestCall();
+                aiRequest.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    capability: AICapability.TextInput | AICapability.ImageOutput,
+                    endpoint: "/images/generations",
+                    body: requestBody);
+
+                // Execute the request
+                var response = await aiRequest.Exec().ConfigureAwait(false);
+
+                // Check for errors
+                if (!response.Success)
+                {
+                    output.CreateError(response.ErrorMessage ?? "Image generation failed");
+                    return output;
+                }
+
+                // Extract image result from interactions
+                var resultImageInteraction = response.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionImage;
+                if (resultImageInteraction == null)
+                {
+                    output.CreateError("No image result received from AI provider");
+                    return output;
+                }
+
+                // Return the image URL or data (prioritize URL over base64 data for performance)
+                string imageResult = !string.IsNullOrEmpty(resultImageInteraction.ImageUrl)
+                    ? resultImageInteraction.ImageUrl
+                    : resultImageInteraction.ImageData;
+
+                // Check if we have valid image data
+                if (string.IsNullOrEmpty(imageResult))
+                {
+                    output.CreateError("No image data received from AI provider");
+                    return output;
+                }
+
+                // Create success result with additional metadata
+                var toolResult = new JObject();
+                toolResult.Add("result", imageResult);
+                toolResult.Add("revisedPrompt", resultImageInteraction.RevisedPrompt ?? string.Empty);
+                toolResult.Add("imageSize", resultImageInteraction.ImageSize ?? string.Empty);
+                toolResult.Add("imageQuality", resultImageInteraction.ImageQuality ?? string.Empty);
+                toolResult.Add("imageStyle", resultImageInteraction.ImageStyle ?? string.Empty);
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, response.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ImageTools] Error in GenerateImageToolWrapper: {ex.Message}");
-                // Return error object as JObject
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}",
-                };
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
     }

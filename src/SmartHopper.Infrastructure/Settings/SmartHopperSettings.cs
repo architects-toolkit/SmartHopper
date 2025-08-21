@@ -17,8 +17,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.Settings
 {
@@ -565,7 +564,7 @@ namespace SmartHopper.Infrastructure.Settings
                 File.WriteAllBytes(filePath, obfuscated);
 
                 // Set restrictive file permissions (Unix-like systems)
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
                     // chmod 600 equivalent
                     File.SetUnixFileMode(filePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);

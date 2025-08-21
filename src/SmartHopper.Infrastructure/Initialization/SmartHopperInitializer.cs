@@ -13,7 +13,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Rhino;
-using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.Initialization

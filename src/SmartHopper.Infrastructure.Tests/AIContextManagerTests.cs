@@ -13,8 +13,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System;
     using System.Collections.Generic;
     using System.Reflection;
-    using SmartHopper.Infrastructure.Interfaces;
-    using SmartHopper.Infrastructure.Managers.AIContext;
+    using SmartHopper.Infrastructure.AIContext;
     using Xunit;
 
     /// <summary>
@@ -46,14 +45,15 @@ namespace SmartHopper.Infrastructure.Tests
         /// </summary>
         private class MockContextProvider : IAIContextProvider
         {
-            public string ProviderId { get; }
-            public Dictionary<string, string> Context { get; }
-
             public MockContextProvider(string providerId, Dictionary<string, string>? context = null)
             {
-                ProviderId = providerId;
-                Context = context ?? new Dictionary<string, string>();
+                this.ProviderId = providerId;
+                this.Context = context ?? new Dictionary<string, string>();
             }
+
+            public string ProviderId { get; }
+
+            public Dictionary<string, string> Context { get; }
 
             public Dictionary<string, string> GetContext()
             {
@@ -308,41 +308,6 @@ namespace SmartHopper.Infrastructure.Tests
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "GetCurrentContext_ShouldFilterByContextKey [Windows]")]
-#else
-        [Fact(DisplayName = "GetCurrentContext_ShouldFilterByContextKey [Core]")]
-#endif
-        public void GetCurrentContext_ShouldFilterByContextKey()
-        {
-            // Arrange
-            ResetManager();
-            var provider = new MockContextProvider("test", new Dictionary<string, string>
-            {
-                ["key1"] = "value1",
-                ["key2"] = "value2",
-                ["key3"] = "value3"
-            });
-            AIContextManager.RegisterProvider(provider);
-
-            // Act - Include specific keys
-            var filteredContext = AIContextManager.GetCurrentContext(null, "test_key1,test_key3");
-            
-            // Act - Exclude specific key
-            var excludedContext = AIContextManager.GetCurrentContext(null, "-test_key2");
-
-            // Assert
-            Assert.Equal(2, filteredContext.Count);
-            Assert.Contains("test_key1", filteredContext.Keys);
-            Assert.Contains("test_key3", filteredContext.Keys);
-            Assert.DoesNotContain("test_key2", filteredContext.Keys);
-
-            Assert.Equal(2, excludedContext.Count);
-            Assert.Contains("test_key1", excludedContext.Keys);
-            Assert.Contains("test_key3", excludedContext.Keys);
-            Assert.DoesNotContain("test_key2", excludedContext.Keys);
-        }
-
-#if NET7_WINDOWS
         [Fact(DisplayName = "GetCurrentContext_ShouldHandleComplexFiltering [Windows]")]
 #else
         [Fact(DisplayName = "GetCurrentContext_ShouldHandleComplexFiltering [Core]")]
@@ -354,31 +319,31 @@ namespace SmartHopper.Infrastructure.Tests
             var timeProvider = new MockContextProvider("time", new Dictionary<string, string>
             {
                 ["current-datetime"] = "2025-01-01",
-                ["timezone"] = "UTC"
+                ["timezone"] = "UTC",
             });
             var envProvider = new MockContextProvider("environment", new Dictionary<string, string>
             {
                 ["os"] = "Windows",
-                ["version"] = "11"
+                ["version"] = "11",
             });
             var fileProvider = new MockContextProvider("file", new Dictionary<string, string>
             {
                 ["path"] = "/test/path",
-                ["size"] = "1024"
+                ["size"] = "1024",
             });
             AIContextManager.RegisterProvider(timeProvider);
             AIContextManager.RegisterProvider(envProvider);
             AIContextManager.RegisterProvider(fileProvider);
 
             // Act - Include time and environment, exclude timezone
-            var context = AIContextManager.GetCurrentContext("time,environment", "-time_timezone");
+            var context = AIContextManager.GetCurrentContext("time,environment");
 
             // Assert
-            Assert.Equal(3, context.Count);
+            Assert.Equal(4, context.Count);
             Assert.Contains("time_current-datetime", context.Keys);
             Assert.Contains("environment_os", context.Keys);
             Assert.Contains("environment_version", context.Keys);
-            Assert.DoesNotContain("time_timezone", context.Keys);
+            Assert.Contains("time_timezone", context.Keys);
             Assert.DoesNotContain("file_path", context.Keys);
             Assert.DoesNotContain("file_size", context.Keys);
         }

@@ -60,44 +60,6 @@ namespace SmartHopper.Core.DataTree
             return preserveStructure ? new List<T>() : null;
         }
 
-        ///// <summary>
-        ///// Finds paths that have identical branch data for a given set of trees and current branches
-        ///// </summary>
-        ///// <param name="trees">The complete dictionary of trees</param>
-        ///// <param name="currentBranches">The current branches being processed</param>
-        ///// <returns>List of paths that have identical branch data</returns>
-        //private static List<GH_Path> FindIdenticalBranches<T>(
-        //    Dictionary<string, GH_Structure<T>> trees,
-        //    Dictionary<string, List<T>> currentBranches,
-        //    GH_Path currentPath,
-        //    bool onlyMatchingPaths = false) where T : IGH_Goo
-        //{
-        //    var result = new List<GH_Path>();
-        //    var currentKey = GetBranchesKey(currentBranches);
-        //    var allPaths = GetProcessingPaths(trees, onlyMatchingPaths).uniquePaths;
-
-        //    foreach (var path in allPaths)
-        //    {
-        //        // Avoid comparing the current path
-        //        if (path == currentPath)
-        //            continue;
-
-        //        // Get branches for this path from all trees
-        //        var siblingBranches = trees.ToDictionary(
-        //            kvp => kvp.Key,
-        //            kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
-        //        );
-
-        //        // Compare the branch data
-        //        if (GetBranchesKey(siblingBranches) == currentKey)
-        //        {
-        //            result.Add(path);
-        //        }
-        //    }
-
-        //    return result;
-        //}
-
         /// <summary>
         /// Generates a unique key for a set of branches based on their content
         /// </summary>
@@ -173,6 +135,23 @@ namespace SmartHopper.Core.DataTree
             }
 
             return matchingPaths;
+        }
+
+        /// <summary>
+        /// Gets the amount of iterations and data to process
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="trees"></param>
+        /// <param name="onlyMatchingPaths"></param>
+        /// <param name="groupIdenticalBranches"></param>
+        /// <returns>(iterationCount, dataCount) tuple</returns>
+        public static (int iterationCount, int dataCount) GetProcessingPathMetrics<T>(Dictionary<string, GH_Structure<T>> trees, bool onlyMatchingPaths = false, bool groupIdenticalBranches = false) where T : IGH_Goo
+        {
+            var (allPaths, pathsToApplyMap) = GetProcessingPaths(trees, onlyMatchingPaths, groupIdenticalBranches);
+
+            Debug.WriteLine($"[DataTreeProcessor] Applying {pathsToApplyMap.Count} paths to a total of {pathsToApplyMap.Sum(p => p.Value.Count)} paths");
+
+            return (pathsToApplyMap.Count, pathsToApplyMap.Sum(p => p.Value.Count));
         }
 
         /// <summary>
@@ -371,7 +350,7 @@ namespace SmartHopper.Core.DataTree
         /// <returns>Dictionary of output data trees</returns>
         public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
-            Func<Dictionary<string, List<T>>, int, Task<Dictionary<string, List<U>>>> function,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
             Action<int, int> progressCallback = null,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false,
@@ -434,12 +413,8 @@ namespace SmartHopper.Core.DataTree
                     // Get the paths to apply the result to (could be multiple if they have identical branch data)
                     var pathsToApply = pathsToApplyMap[path];
 
-                    // Calculate the reuse count as the number of paths this result will be applied to
-                    int reuseCount = pathsToApply.Count;
-                    Debug.WriteLine($"[DataTreeProcessor] Result for path {path} will be reused {reuseCount} times");
-
-                    // Apply the function to the current branch and await its completion, passing the reuse count
-                    var branchResult = await function(branches, reuseCount);
+                    // Apply the function to the current branch and await its completion
+                    var branchResult = await function(branches);
 
                     // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
                     foreach (var applyPath in pathsToApply)

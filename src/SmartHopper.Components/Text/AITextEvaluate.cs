@@ -74,7 +74,7 @@ namespace SmartHopper.Components.Text
                 };
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
@@ -88,6 +88,9 @@ namespace SmartHopper.Components.Text
                 // The first defined tree is the one that overrides paths in case they don't match between trees
                 this.inputTree["Text"] = textTree;
                 this.inputTree["Question"] = questionTree;
+
+                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
+                dataCount = metrics.dataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -100,10 +103,10 @@ namespace SmartHopper.Components.Text
 
                     this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
-                        async (branches, reuseCount) =>
+                        async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -117,7 +120,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextEvaluate parent, int reuseCount = 1)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextEvaluate parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -128,7 +131,7 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
@@ -160,10 +163,10 @@ namespace SmartHopper.Components.Text
                     {
                         ["text"] = textTree[i]?.Value,
                         ["question"] = questionTree[i]?.Value,
-                        ["contextProviderFilter"] = "-*",
+                        ["contextFilter"] = "-*",
                     };
 
-                    var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters, reuseCount)
+                    var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters)
                         .ConfigureAwait(false);
 
                     bool result = toolResult?["result"]?.ToObject<bool>() ?? false;

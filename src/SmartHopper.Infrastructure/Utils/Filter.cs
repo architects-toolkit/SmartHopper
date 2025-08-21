@@ -21,14 +21,6 @@ namespace SmartHopper.Infrastructure.Utils
     /// </summary>
     public sealed class Filter
     {
-        public bool ExcludeAll { get; }
-
-        public bool IncludeAll { get; }
-
-        public IReadOnlySet<string> IncludeSet { get; }
-
-        public IReadOnlySet<string> ExcludeSet { get; }
-
         private Filter(
             bool excludeAll,
             bool includeAll,
@@ -40,6 +32,14 @@ namespace SmartHopper.Infrastructure.Utils
             this.IncludeSet = includeSet;
             this.ExcludeSet = excludeSet;
         }
+
+        public bool ExcludeAll { get; }
+
+        public bool IncludeAll { get; }
+
+        public IReadOnlySet<string> IncludeSet { get; }
+
+        public IReadOnlySet<string> ExcludeSet { get; }
 
         /// <summary>
         /// Parse a filter expression. Null/empty ⇒ include-all; "-*" ⇒ exclude-all.

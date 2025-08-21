@@ -14,50 +14,44 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Threading;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
-using SmartHopper.Infrastructure.Utils;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.OpenAI
 {
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public sealed class OpenAIProvider : AIProvider
+    public sealed class OpenAIProvider : AIProvider<OpenAIProvider>
     {
-        private const string NameValue = "OpenAI";
-        private const string DefaultServerUrlValue = "https://api.openai.com/v1";
-
-        private static readonly Lazy<OpenAIProvider> InstanceValue = new (() => new OpenAIProvider());
-
         /// <summary>
-        /// Gets the singleton instance of the OpenAI provider.
+        /// Thread-local storage for schema wrapper information during request/response cycle.
         /// </summary>
-        public static OpenAIProvider Instance => InstanceValue.Value;
+        private static readonly ThreadLocal<SchemaWrapperInfo> CurrentWrapperInfo = new ThreadLocal<SchemaWrapperInfo>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenAIProvider"/> class.
         /// </summary>
         private OpenAIProvider()
         {
-            this.Models = new OpenAIProviderModels(this, this.CallApi);
+            this.Models = new OpenAIProviderModels(this);
         }
 
         /// <summary>
         /// Gets the name of the provider.
         /// </summary>
-        public override string Name => NameValue;
+        public override string Name => "OpenAI";
 
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => DefaultServerUrlValue;
+        public override string DefaultServerUrl => "https://api.openai.com/v1";
 
         /// <summary>
-        /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
+        /// Gets a value indicating whether this provider is enabled and should be available for use.
         /// </summary>
         public override bool IsEnabled => true;
 
@@ -76,100 +70,237 @@ namespace SmartHopper.Providers.OpenAI
             }
         }
 
-        /// <summary>
-        /// Sends messages to the OpenAI Chat Completions endpoint, injecting a reasoning summary parameter when supported
-        /// and wrapping any returned reasoning_summary in &lt;think&gt; tags before the actual content.
-        /// </summary>
-        /// <param name="messages">The conversation messages to send.</param>
-        /// <param name="model">The model to use for the request.</param>
-        /// <param name="jsonSchema">Optional JSON schema for structured output.</param>
-        /// <param name="endpoint">Optional endpoint override.</param>
-        /// <param name="toolFilter">Optional tool filter.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        /// <remarks>
-        /// We pass reasoning_effort (configurable as "low", "medium", or "high") in the request; if the API returns a
-        /// reasoning_summary field, we embed it as &lt;think&gt;…&lt;/think&gt; immediately preceding the assistant's response.
-        /// </remarks>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+        /// <inheritdoc/>
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
-            // Get settings from the secure settings store
+            // First do the base PreCall
+            request = base.PreCall(request);
+
+            // Setup HTTP method, content type, and authentication
+            request.HttpMethod = "POST";
+            request.ContentType = "application/json";
+            request.Authentication = "bearer";
+
+            // Determine endpoint based on request capability
+            if (request.Capability.HasFlag(AICapability.ImageOutput))
+            {
+                request.Endpoint = "/images/generations";
+            }
+            else if (request.Endpoint == "/models")
+            {
+                request.HttpMethod = "GET";
+            }
+            else
+            {
+                // Default to chat completions
+                request.Endpoint = "/chat/completions";
+            }
+
+            return request;
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(AIRequestCall request)
+        {
+            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
+            {
+                return "GET and DELETE requests do not use a request body";
+            }
+
+            // Handle different endpoints
+            if (request.Endpoint == "/images/generations")
+            {
+                return this.FormatImageGenerationRequestBody(request);
+            }
+            else
+            {
+                // Convert interactions to OpenAI format using the JToken-based encoder
+                var messages = new JArray();
+                foreach (var interaction in request.Body.Interactions)
+                {
+                    try
+                    {
+                        var messageToken = this.EncodeToJToken(interaction);
+                        if (messageToken != null) messages.Add(messageToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
+                    }
+                }
+
+                return this.FormatChatCompletionsRequestBody(request, messages);
+            }
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(IAIInteraction interaction)
+        {
+            var messageObj = this.EncodeToJToken(interaction);
+            return messageObj?.ToString();
+        }
+
+        /// <inheritdoc/>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
+            var messageObj = new JObject();
+
+            switch (interaction.Agent)
+            {
+                case AIAgent.System:
+                    messageObj["role"] = "system";
+                    break;
+                case AIAgent.Context:
+                    messageObj["role"] = "system";
+                    break;
+                case AIAgent.User:
+                    messageObj["role"] = "user";
+                    break;
+                case AIAgent.Assistant:
+                    messageObj["role"] = "assistant";
+                    break;
+                case AIAgent.ToolCall:
+                    messageObj["role"] = "assistant";
+                    break;
+                case AIAgent.ToolResult:
+                    messageObj["role"] = "tool";
+                    break;
+                default:
+                    throw new ArgumentException($"Agent {interaction.Agent} not supported by OpenAI");
+            }
+
+            // Handle different interaction types
+            string msgContent = string.Empty;
+            bool contentSetExplicitly = false;
+
+            if (interaction is AIInteractionText textInteraction)
+            {
+                msgContent = textInteraction.Content ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                messageObj["tool_call_id"] = toolResultInteraction.Id;
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    messageObj["name"] = toolResultInteraction.Name;
+                }
+                msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                var toolCallObj = new JObject
+                {
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
+                    {
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString(),
+                    },
+                };
+                messageObj["tool_calls"] = new JArray { toolCallObj };
+                msgContent = string.Empty; // assistant tool_calls messages should have empty content
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                // Handle image interactions (for vision models)
+                var contentArray = new JArray
+                {
+                    new JObject
+                    {
+                        ["type"] = "image_url",
+                        ["image_url"] = new JObject
+                        {
+                            ["url"] = imageInteraction.ImageUrl ?? imageInteraction.ImageData,
+                        },
+                    },
+                };
+                messageObj["content"] = contentArray;
+                contentSetExplicitly = true;
+            }
+            else
+            {
+                // Fallback to empty string for unknown types
+                msgContent = string.Empty;
+            }
+
+            if (!contentSetExplicitly)
+            {
+                messageObj["content"] = msgContent;
+            }
+
+            return messageObj;
+        }
+
+        /// <inheritdoc/>
+        public override List<IAIInteraction> Decode(string response)
+        {
+            var interactions = new List<IAIInteraction>();
+            
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return interactions;
+            }
+            
+            try
+            {
+                var responseJson = JObject.Parse(response);
+                
+                // Handle different response types based on the response structure
+                if (responseJson["data"] != null)
+                {
+                    // Image generation response - create a dummy request for processing
+                    var dummyRequest = new AIRequestCall();
+                    dummyRequest.Body = new AIBody();
+                    dummyRequest.Body.Interactions = new List<IAIInteraction> { new AIInteractionImage { Agent = AIAgent.User } };
+                    return this.ProcessImageGenerationResponseData(responseJson, dummyRequest);
+                }
+                else if (responseJson["choices"] != null)
+                {
+                    // Chat completion response
+                    return this.ProcessChatCompletionsResponseData(responseJson);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] Decode error: {ex.Message}");
+            }
+
+            return interactions;
+        }
+
+        /// <summary>
+        /// Formats request body for chat completions endpoint.
+        /// </summary>
+        private string FormatChatCompletionsRequestBody(AIRequestCall request, JArray messages)
+        {
             int maxTokens = this.GetSetting<int>("MaxTokens");
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[OpenAI] GetResponse - Model: {model}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}");
 
-            // Format messages for OpenAI API
-            var convertedMessages = new JArray();
-
-            foreach (var msg in messages)
-            {
-                string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                string msgContent = msg["content"]?.ToString() ?? string.Empty;
-                msgContent = AI.StripThinkTags(msgContent);
-
-                var messageObj = new JObject
-                {
-                    ["content"] = msgContent,
-                };
-
-                if (role == "assistant")
-                {
-                    // Pass tool_calls if available
-                    if (msg["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
-                    {
-                        foreach (JObject toolCall in toolCalls)
-                        {
-                            var function = toolCall["function"] as JObject;
-                            if (function != null)
-                            {
-                                // Ensure 'arguments' is serialized as a JSON string
-                                if (function["arguments"] is JObject argumentsObject)
-                                {
-                                    function["arguments"] = argumentsObject.ToString(Newtonsoft.Json.Formatting.None);
-                                }
-                            }
-                        }
-
-                        messageObj["tool_calls"] = toolCalls;
-                    }
-                }
-                else if (role == "tool")
-                {
-                    var toolCallId = msg["tool_call_id"]?.ToString();
-                    var toolName = msg["name"]?.ToString();
-                    if (!string.IsNullOrEmpty(toolCallId))
-                    {
-                        messageObj["tool_call_id"] = toolCallId;
-                    }
-
-                    if (!string.IsNullOrEmpty(toolName))
-                    {
-                        messageObj["name"] = toolName;
-                    }
-                }
-
-                messageObj["role"] = role;
-                convertedMessages.Add(messageObj);
-            }
-
-            // Build request body for the new Responses API
+            // Build request body for chat completions
             var requestBody = new JObject
             {
-                ["model"] = model,
-                ["messages"] = convertedMessages,
-                ["max_completion_tokens"] = maxTokens,
-                ["temperature"] = this.GetSetting<double>("Temperature"),
+                ["model"] = request.Model,
+                ["messages"] = messages,
             };
 
-            // Add reasoning effort if model starts with "o-series"
-            if (Regex.IsMatch(model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(model, @"^gpt-5", RegexOptions.IgnoreCase))
+            // Configure tokens and parameters based on model family
+            // - o-series (o1/o3/o4...): use max_completion_tokens and reasoning_effort; omit temperature
+            // - others: use max_tokens and temperature
+            if (Regex.IsMatch(request.Model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(request.Model, @"^gpt-5", RegexOptions.IgnoreCase))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
-                requestBody["temperature"] = 1; // Only 1 is accepted for o-series models
+                requestBody["max_completion_tokens"] = maxTokens;
             }
-
-            // Store wrapper info for response unwrapping
-            SchemaWrapperInfo wrapperInfo = new () { IsWrapped = false };
+            else
+            {
+                requestBody["max_tokens"] = maxTokens;
+                requestBody["temperature"] = this.GetSetting<double>("Temperature");
+            }
 
             // Add response format if JSON schema is provided
             if (!string.IsNullOrEmpty(jsonSchema))
@@ -177,8 +308,11 @@ namespace SmartHopper.Providers.OpenAI
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
-                    var wrappedSchema = WrapSchemaForOpenAI(schemaObj);
-                    wrapperInfo = wrappedSchema.wrapperInfo;
+                    var (wrappedSchema, wrapperInfo) = WrapSchemaForOpenAI(schemaObj);
+
+                    // Store wrapper info for response unwrapping
+                    CurrentWrapperInfo.Value = wrapperInfo;
+                    Debug.WriteLine($"[OpenAI] Schema wrapper info stored: IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     requestBody["response_format"] = new JObject
                     {
@@ -186,7 +320,7 @@ namespace SmartHopper.Providers.OpenAI
                         ["json_schema"] = new JObject
                         {
                             ["name"] = "response_schema",
-                            ["schema"] = wrappedSchema.schema,
+                            ["schema"] = wrappedSchema,
                             ["strict"] = true,
                         },
                     };
@@ -194,9 +328,14 @@ namespace SmartHopper.Providers.OpenAI
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
-
                     // Continue without schema if parsing fails
+                    CurrentWrapperInfo.Value = new SchemaWrapperInfo { IsWrapped = false };
                 }
+            }
+            else
+            {
+                // No schema, so no wrapping needed
+                CurrentWrapperInfo.Value = new SchemaWrapperInfo { IsWrapped = false };
             }
 
             // Add tools if requested
@@ -210,187 +349,269 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            Debug.WriteLine($"[OpenAI] Request: {requestBody}");
+            Debug.WriteLine($"[OpenAI] ChatCompletions Request: {requestBody}");
+            return requestBody.ToString();
+        }
+
+        /// <summary>
+        /// Formats request body for image generation endpoint.
+        /// </summary>
+        private string FormatImageGenerationRequestBody(AIRequestCall request)
+        {
+            // Define default values
+            string prompt = string.Empty;
+            string size = "1024x1024";
+            string quality = "standard";
+            string style = "vivid";
+
+            // Get parameters from AIInteractionImage in interactions
+            if (request.Body.Interactions.Count > 0)
+            {
+                var interaction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage);
+                if (interaction is AIInteractionImage imageRequest)
+                {
+                    prompt = imageRequest.OriginalPrompt ?? string.Empty;
+                    size = imageRequest.ImageSize ?? "1024x1024";
+                    quality = imageRequest.ImageQuality ?? "standard";
+                    style = imageRequest.ImageStyle ?? "vivid";
+                    Debug.WriteLine($"[OpenAI] Image parameters extracted: prompt='{prompt.Substring(0, Math.Min(50, prompt.Length))}...', size={size}, quality={quality}, style={style}");
+                }
+                else
+                {
+                    // Fallback: treat first interaction content as prompt
+                    var firstInteraction = request.Body.Interactions.First();
+                    if (firstInteraction is AIInteractionText textInteraction)
+                    {
+                        prompt = textInteraction.Content ?? string.Empty;
+                        Debug.WriteLine($"[OpenAI] Fallback: using text interaction as prompt: '{prompt.Substring(0, Math.Min(50, prompt.Length))}...'");
+                    }
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"[OpenAI] No interactions found");
+            }
+
+            // Build request payload for image generation
+            var requestPayload = new JObject
+            {
+                ["model"] = request.Model,
+                ["prompt"] = prompt,
+                ["n"] = 1,
+                ["size"] = size,
+            };
+
+            // Add quality and style for DALL-E 3 models
+            if (request.Model.Contains("dall-e-3", StringComparison.OrdinalIgnoreCase))
+            {
+                requestPayload["quality"] = quality;
+                requestPayload["style"] = style;
+            }
+
+            Debug.WriteLine($"[OpenAI] ImageGeneration Request: {requestPayload}");
+            return requestPayload.ToString();
+        }
+
+        /// <inheritdoc/>
+        public override IAIReturn PostCall(IAIReturn response)
+        {
+            // The base implementation already handles the processing
+            // Just return the response as-is since processing is done in Call method
+            return response;
+        }
+
+        /// <summary>
+        /// Decodes metrics from OpenAI response.
+        /// </summary>
+        private AIMetrics DecodeMetrics(string response)
+        {
+            var metrics = new AIMetrics();
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return metrics;
+            }
 
             try
             {
-                // Use the new Call method for HTTP request
-                var responseContent = await this.CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
+                var responseJson = JObject.Parse(response);
+                var usage = responseJson["usage"] as JObject;
 
-                var responseJson = JObject.Parse(responseContent);
-                Debug.WriteLine($"[OpenAI] Response parsed successfully");
+                if (usage != null)
+                {
+                    metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+                    // Note: TotalTokens is calculated automatically from InputTokensPrompt + OutputTokensGeneration
+                }
+
+                // Handle finish reason for chat completions
+                var choices = responseJson["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                if (firstChoice != null)
+                {
+                    metrics.FinishReason = firstChoice["finish_reason"]?.ToString() ?? metrics.FinishReason;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] DecodeMetrics error: {ex.Message}");
+            }
+
+            return metrics;
+        }
+
+        /// <summary>
+        /// Processes chat completions response data and converts to interactions.
+        /// </summary>
+        private List<IAIInteraction> ProcessChatCompletionsResponseData(JObject responseJson)
+        {
+            var interactions = new List<IAIInteraction>();
+
+            try
+            {
+                Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData - Processing response");
 
                 // Extract response content
                 var choices = responseJson["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
-                var usage = responseJson["usage"] as JObject;
 
                 if (message == null)
                 {
                     Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
-                    throw new Exception("Invalid response from OpenAI API: No message found");
+                    return interactions;
                 }
 
-                var content = message["content"]?.ToString() ?? string.Empty;
-                var reasoningSummary = message["reasoning_summary"]?.ToString();
+                // Extract content and reasoning if OpenAI returns structured content parts
+                // Reasoning parts may appear as items with type "reasoning" or "thinking"; text in type "text"
+                string content = string.Empty;
+                string reasoning = string.Empty;
 
-                // Unwrap response content if it was wrapped for schema compatibility
-                content = UnwrapResponseContent(content, wrapperInfo);
-
-                // If we have a reasoning summary, wrap it in <think> tags before the actual content
-                if (!string.IsNullOrWhiteSpace(reasoningSummary))
+                var contentToken = message["content"];
+                if (contentToken is JArray contentArray)
                 {
-                    content = $"<think>{reasoningSummary}</think>\n\n{content}";
-                }
+                    var contentParts = new List<string>();
+                    var reasoningParts = new List<string>();
 
-                var aiResponse = new AIResponse
-                {
-                    Response = content,
-                    Provider = "OpenAI",
-                    Model = model,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
-                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                };
-
-                // Handle tool calls if any
-                if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
-                {
-                    aiResponse.ToolCalls = new List<AIToolCall>();
-                    foreach (JObject toolCall in toolCalls)
+                    foreach (var part in contentArray.OfType<JObject>())
                     {
-                        var function = toolCall["function"] as JObject;
-                        if (function != null)
+                        var type = part["type"]?.ToString();
+                        if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
                         {
-                            aiResponse.ToolCalls.Add(new AIToolCall
-                            {
-                                Id = toolCall["id"]?.ToString(),
-                                Name = function["name"]?.ToString(),
-                                Arguments = function["arguments"]?.ToString(),
-                            });
+                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                        }
+                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
+                        }
+                        else if (string.Equals(type, "output_text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // OpenAI Responses-style content item; treat as normal assistant text
+                            var textVal = part["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
                         }
                     }
+
+                    content = string.Join("", contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
+                }
+                else if (contentToken != null)
+                {
+                    content = contentToken.ToString();
                 }
 
-                Debug.WriteLine($"[OpenAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
-                return aiResponse;
+                // Implement schema unwrapping if needed
+                var wrapperInfo = CurrentWrapperInfo.Value;
+                if (wrapperInfo != null && wrapperInfo.IsWrapped)
+                {
+                    Debug.WriteLine($"[OpenAI] Unwrapping response content using wrapper info: Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    content = UnwrapResponseContent(content, wrapperInfo);
+                    Debug.WriteLine($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
+                }
+
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+
+                var metrics = this.DecodeMetrics(responseJson.ToString());
+
+                interaction.Metrics = metrics;
+
+                interactions.Add(interaction);
+
+                // Add an AIInteractionToolCall for each tool call
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                {
+                    foreach (JObject tc in tcs)
+                    {
+                        var toolCall = new AIInteractionToolCall
+                        {
+                            Id = tc["id"]?.ToString(),
+                            Name = tc["function"]?["name"]?.ToString(),
+                            Arguments = tc["function"]?["arguments"] as JObject,
+                        };
+                        interactions.Add(toolCall);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] Exception: {ex.Message}");
-                throw new Exception($"Error communicating with OpenAI API: {ex.Message}", ex);
+                Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData error: {ex.Message}");
             }
+
+            return interactions;
         }
 
         /// <summary>
-        /// Generates an image based on a text prompt using OpenAI's DALL-E models.
+        /// Processes image generation response data and converts to interactions.
         /// </summary>
-        /// <param name="prompt">The text prompt describing the desired image.</param>
-        /// <param name="model">The model to use for image generation (e.g., "dall-e-3", "dall-e-2").</param>
-        /// <param name="size">The size of the generated image (e.g., "1024x1024", "1792x1024", "1024x1792").</param>
-        /// <param name="quality">The quality of the generated image ("standard" or "hd").</param>
-        /// <param name="style">The style of the generated image ("vivid" or "natural").</param>
-        /// <returns>An AIResponse containing the generated image data in image-specific fields.</returns>
-        public override async Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid")
+        private List<IAIInteraction> ProcessImageGenerationResponseData(JObject responseJson, AIRequestCall request)
         {
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
             try
             {
-                // Use default model if none specified
-                string modelName = string.IsNullOrWhiteSpace(model) ? this.GetSetting<string>("ImageModel") : model;
-                if (string.IsNullOrWhiteSpace(modelName))
-                {
-                    modelName = this.GetDefaultModel(AIModelCapability.ImageGenerator);
-                }
+                Debug.WriteLine($"[OpenAI] PostCall - ImageGeneration response parsed successfully");
 
-                Debug.WriteLine($"[OpenAI] GenerateImage - Model: {modelName}, Size: {size}, Quality: {quality}, Style: {style}");
-                Debug.WriteLine($"[OpenAI] GenerateImage - Prompt: {prompt}");
-
-                // Build request payload
-                var requestPayload = new JObject
-                {
-                    ["model"] = modelName,
-                    ["prompt"] = prompt,
-                    ["n"] = 1, // Number of images to generate
-                    ["size"] = size,
-
-                    // Note: The OpenAI Images API supports the response_format parameter with values 'url' or 'b64_json'.
-                    // This implementation does not use the parameter, and images are returned as URLs by default.
-                };
-
-                // Add quality and style for DALL-E 3 models
-                if (modelName.Contains("dall-e-3", StringComparison.OrdinalIgnoreCase))
-                {
-                    requestPayload["quality"] = quality;
-                    requestPayload["style"] = style;
-                }
-
-                var jsonRequest = requestPayload.ToString(Newtonsoft.Json.Formatting.None);
-                Debug.WriteLine($"[OpenAI] GenerateImage - Request: {jsonRequest}");
-
-                // Make API call to image generation endpoint
-                var content = await this.CallApi("/images/generations", "POST", jsonRequest).ConfigureAwait(false);
-                Debug.WriteLine($"[OpenAI] GenerateImage - Response: {content}");
-
-                stopwatch.Stop();
-
-                // Parse response
-                var responseObj = JObject.Parse(content);
-                var dataArray = responseObj["data"] as JArray;
-
+                var dataArray = responseJson["data"] as JArray;
                 if (dataArray == null || dataArray.Count == 0)
                 {
-                    return new AIResponse
-                    {
-                        FinishReason = "error",
-                        ErrorMessage = "No image data returned from OpenAI",
-                        OriginalPrompt = prompt,
-                        ImageSize = size,
-                        ImageQuality = quality,
-                        ImageStyle = style,
-                        Provider = this.Name,
-                        Model = modelName,
-                        CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                    };
+                    throw new Exception("No image data returned from OpenAI");
                 }
 
                 var imageData = dataArray[0];
                 var imageUrl = imageData["url"]?.ToString() ?? string.Empty;
-                var revisedPrompt = imageData["revised_prompt"]?.ToString() ?? prompt;
+                var revisedPrompt = imageData["revised_prompt"]?.ToString() ?? string.Empty;
 
-                return new AIResponse
+                // Get original image request parameters
+                var originalImageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
+                
+                // Create result interaction
+                var resultInteraction = new AIInteractionImage
                 {
-                    ImageUrl = imageUrl,
-                    RevisedPrompt = revisedPrompt,
-                    OriginalPrompt = prompt,
-                    ImageSize = size,
-                    ImageQuality = quality,
-                    ImageStyle = style,
-                    FinishReason = "success",
-                    Provider = this.Name,
-                    Model = modelName,
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    Agent = AIAgent.Assistant,
+                    OriginalPrompt = originalImageInteraction?.OriginalPrompt ?? string.Empty,
+                    ImageSize = originalImageInteraction?.ImageSize ?? "1024x1024",
+                    ImageQuality = originalImageInteraction?.ImageQuality ?? "standard",
+                    ImageStyle = originalImageInteraction?.ImageStyle ?? "vivid",
                 };
+
+                // Set the result data from the API response
+                resultInteraction.SetResult(
+                    imageUrl: imageUrl,
+                    revisedPrompt: revisedPrompt);
+
+                Debug.WriteLine($"[OpenAI] Final AIInteractionImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
+
+                return new List<IAIInteraction> { resultInteraction };
             }
             catch (Exception ex)
             {
-                stopwatch.Stop();
-                Debug.WriteLine($"[OpenAI] GenerateImage - Exception: {ex.Message}");
-
-                return new AIResponse
-                {
-                    FinishReason = "error",
-                    ErrorMessage = $"Error generating image: {ex.Message}",
-                    OriginalPrompt = prompt,
-                    ImageSize = size,
-                    ImageQuality = quality,
-                    ImageStyle = style,
-                    Provider = this.Name,
-                    Model = model,
-                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                };
+                Debug.WriteLine($"[OpenAI] PostCall - Exception: {ex.Message}");
+                throw new Exception($"Error processing OpenAI image response: {ex.Message}", ex);
             }
         }
 

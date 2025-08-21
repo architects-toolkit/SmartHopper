@@ -15,10 +15,9 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.Interfaces;
-    using SmartHopper.Infrastructure.Managers.AIProviders;
-    using SmartHopper.Infrastructure.Managers.ModelManager;
-    using SmartHopper.Infrastructure.Models;
+    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AIModels;
+    using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
     using Xunit;
 
@@ -28,13 +27,11 @@ namespace SmartHopper.Infrastructure.Tests
         {
             public string Name => "DummyProvider";
 
-            public string DefaultServerUrl => "https://example.com";
-
             public bool IsEnabled => true;
 
-            public System.Drawing.Image? Icon => null;
+            public System.Drawing.Image Icon => null;
 
-            public IAIProviderModels Models { get; protected set; }
+            public IAIProviderModels Models { get; private set; } = new DummyProviderModels();
 
             public async Task InitializeProviderAsync()
             {
@@ -49,21 +46,72 @@ namespace SmartHopper.Infrastructure.Tests
             {
             }
 
-            public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIResponse));
+            public string Encode(AIRequestCall request) => "{\"test\":\"encoded_request\"}";
+
+            public string Encode(IAIInteraction interaction) => "{\"test\":\"encoded_interaction\"}";
+
+            public string Encode(List<IAIInteraction> interactions) => "{\"test\":\"encoded_interactions\"}";
+
+            public List<IAIInteraction> Decode(string response) => new List<IAIInteraction>();
+
+            public AIRequestCall PreCall(AIRequestCall request) => request;
+
+            public async Task<IAIReturn> Call(AIRequestCall request)
+            {
+                var result = new AIReturn();
+                result.CreateSuccess(new AIBody(), request);
+                return await Task.FromResult(result);
+            }
+
+            public IAIReturn PostCall(IAIReturn response) => response;
+
+            public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true) => "dummy_test_model";
 
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
             }
 
-            public void ResetCachedSettings(Dictionary<string, object> settings)
+            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+        }
+
+        private class DummyProviderModels : IAIProviderModels
+        {
+            public string GetModel(string requestedModel = "")
             {
+                return string.IsNullOrEmpty(requestedModel) ? "dummy_model_1" : requestedModel;
             }
 
-            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+            public async Task<List<string>> RetrieveAvailable()
+            {
+                return await Task.FromResult(new List<string> { "dummy_model_1", "dummy_model_2" });
+            }
 
-            public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
+            public async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
+            {
+                return await Task.FromResult(new Dictionary<string, AICapability>
+                {
+                    ["dummy_model_1"] = AICapability.BasicChat,
+                    ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
+                });
+            }
 
-            public string GetDefaultModel(AIModelCapability capability, bool useSettings = true) { return "dummy_test_model"; }
+            public AICapability RetrieveCapabilities(string model)
+            {
+                var capabilities = new Dictionary<string, AICapability>
+                {
+                    ["dummy_model_1"] = AICapability.BasicChat,
+                    ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
+                };
+                return capabilities.TryGetValue(model, out var capability) ? capability : AICapability.None;
+            }
+
+            public Dictionary<string, AICapability> RetrieveDefault()
+            {
+                return new Dictionary<string, AICapability>
+                {
+                    ["dummy_model_1"] = AICapability.BasicChat
+                };
+            }
         }
 
         private class DummySettings : IAIProviderSettings

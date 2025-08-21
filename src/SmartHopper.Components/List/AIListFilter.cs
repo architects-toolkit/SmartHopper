@@ -75,7 +75,7 @@ namespace SmartHopper.Components.List
                 };
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
@@ -94,6 +94,9 @@ namespace SmartHopper.Components.List
                 // Store the converted trees
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Criteria"] = criteriaTree;
+
+                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
+                dataCount = metrics.dataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -106,10 +109,10 @@ namespace SmartHopper.Components.List
 
                     this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
-                        async (branches, reuseCount) =>
+                        async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -123,7 +126,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent, int reuseCount = 1)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -134,7 +137,7 @@ namespace SmartHopper.Components.List
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
@@ -174,13 +177,13 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["criteria"] = criterion.Value,
-                        ["contextProviderFilter"] = "-*",
+                        ["contextFilter"] = "-*",
                     };
 
                     Debug.WriteLine($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
 
                     var toolResult = await parent.CallAiToolAsync(
-                        "list_filter", parameters, reuseCount)
+                        "list_filter", parameters)
                         .ConfigureAwait(false);
 
                     var indices = toolResult?["indices"]?.ToObject<List<int>>() ?? new List<int>();

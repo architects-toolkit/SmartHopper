@@ -14,8 +14,8 @@ using System.IO;
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
@@ -367,7 +367,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Update provider settings via ProviderManager
             if (updatedSettings.Any())
             {
-                SmartHopper.Infrastructure.Managers.AIProviders.ProviderManager.Instance.UpdateProviderSettings(_provider.Name, updatedSettings);
+                Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(_provider.Name, updatedSettings);
             }
         }
     }

@@ -15,7 +15,7 @@ using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino;
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs;
@@ -72,8 +72,8 @@ namespace SmartHopper.Menu.Dialogs
             IAIProvider[] providers = null;
             RhinoApp.InvokeOnUiThread(() =>
             {
-                Infrastructure.Managers.AIProviders.ProviderManager.Instance.RefreshProviders();
-                providers = Infrastructure.Managers.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
+                Infrastructure.AIProviders.ProviderManager.Instance.RefreshProviders();
+                providers = Infrastructure.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
             });
             this._providers = providers;
 
@@ -95,8 +95,8 @@ namespace SmartHopper.Menu.Dialogs
 
             // Create tab pages
             this._generalPage = new GeneralSettingsPage(this._providers);
-            this._providersPage = new ProvidersSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
+            this._providersPage = new ProvidersSettingsPage(this._providers);
             this._providerPages = new List<GenericProviderSettingsPage>();
 
             // Create provider-specific tabs

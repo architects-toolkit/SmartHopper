@@ -75,7 +75,7 @@ namespace SmartHopper.Components.Text
                 };
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
@@ -87,6 +87,9 @@ namespace SmartHopper.Components.Text
 
                 this.inputTree["Prompt"] = promptTree;
                 this.inputTree["Count"] = countTree;
+
+                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
+                dataCount = metrics.dataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -96,10 +99,10 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[AITextListGenerate] Starting DoWorkAsync");
                     this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
-                        async (branches, reuseCount) =>
+                        async (branches) =>
                         {
-                            Debug.WriteLine($"[AITextListGenerate] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
+                            Debug.WriteLine($"[AITextListGenerate] ProcessData called with {branches.Count} branches");
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -114,8 +117,7 @@ namespace SmartHopper.Components.Text
 
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(
                 Dictionary<string, List<GH_String>> branches,
-                AITextListGenerate parent,
-                int reuseCount = 1)
+                AITextListGenerate parent)
             {
                 var promptList = branches["Prompt"];
                 var countList = branches["Count"];
@@ -145,11 +147,11 @@ namespace SmartHopper.Components.Text
                         ["prompt"] = prompt,
                         ["count"] = count,
                         ["type"] = "text",
-                        ["contextProviderFilter"] = "-*",
+                        ["contextFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync(
-                        "list_generate", parameters, reuseCount).ConfigureAwait(false);
+                        "list_generate", parameters).ConfigureAwait(false);
 
                     var items = toolResult?["list"]?.ToObject<List<string>>() ?? new List<string>();
                     foreach (var item in items)

@@ -1,4 +1,5 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
+
 [![Version](https://img.shields.io/badge/version-0%2E6%2E0--dev%2E250820-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
@@ -8,7 +9,7 @@
 [![DeepSeek](https://img.shields.io/badge/AI--powered-DeepSeek-blue?logo=deepseek)](https://deepseek.com/)
 [![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
 
-SmartHopper is a groundbreaking plugin that enables AI to directly interact with your Grasshopper canvas! Ask for help, search on the McNeel forum, reorganize components, toggle preview on or off, and much more, just by chatting with your customizable AI assistant. Additionally, this plugins includes multiple components that correspond to individual AI tools, so that you can integrate text- or list-based operations directly into your definition.
+SmartHopper is a Grasshopper3D plugin that enables AI to directly interact with your canvas! Ask for help, search on the McNeel forum, reorganize components, toggle preview on or off, and much more, just by chatting with your customizable AI assistant. Additionally, this plugins includes multiple components that correspond to individual AI tools, so that you can integrate text- or list-based operations directly into your definition.
 
 ## 🎯 Key Features
 
@@ -17,41 +18,17 @@ SmartHopper is a groundbreaking plugin that enables AI to directly interact with
 - 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/), [**OpenAI**](https://openai.com/) and [**DeepSeek**](https://deepseek.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
 - 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
 
-## 👥 Who Is This For?
-
-- **Architects and engineers** looking to enhance their parametric design workflow with AI assistance.
-- **Computational designers** seeking to automate repetitive tasks and generate creative solutions.
-- **Researchers** exploring the intersection of AI and parametric design methodologies.
-
-## 🛠️ Technical Capabilities
-
-- **Seamless integration** with Grasshopper's Data Tree structure.
-- **Asynchronous** execution to maintain a responsive design environment.
-- **Flexible** triggering options: run components manually or automatically when inputs change.
-- **Modular** architecture designed for stability and future extensibility.
-
 ## 💻 Installation
 
-You can install SmartHopper through multiple methods:
+You can install SmartHopper from the Rhino Package Manager:
 
-1. **Rhino Package Manager** (Recommended):
    - Open Rhino 8
    - Type `PackageManager` in the command line
    - In the Package Manager, select "include pre-releases"
    - Search for "SmartHopper"
    - Click "Install"
 
-2. **Food4Rhino**:
-   - Go to [Food4Rhino](https://www.food4rhino.com/en/app/smarthopper)
-   - Click "Install"
-
-3. **GitHub Releases**:
-   - Download the latest release from our [GitHub Releases](https://github.com/architects-toolkit/SmartHopper/releases) page
-   - Extract the downloaded ZIP file
-   - Copy the contents to your Grasshopper plugins folder
-   - Restart Rhino
-
-After installation, all SmartHopper components will be available in the Grasshopper palette.
+Check for detailed installation instructions and initial setup in [smarthopper.xyz/#installation](https://smarthopper.xyz/#installation).
 
 ## 📊 Development Status
 
