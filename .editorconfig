@@ -242,3 +242,15 @@ dotnet_diagnostic.CA1707.severity = none
 # SA1124: Do not use regions
 # Suppressed because regions are used to group related methods
 dotnet_diagnostic.SA1124.severity = none
+
+# IDE0051: Unused private members
+dotnet_diagnostic.IDE0051.severity = warning
+
+# IDE0052: Assigned but not used
+dotnet_diagnostic.IDE0052.severity = warning
+
+# CA1811: uncalled private code
+dotnet_diagnostic.CA1811.severity = warning
+
+# SA1210: Using directives should be ordered alphabetically by the namespaces
+dotnet_diagnostic.SA1210.severity = error

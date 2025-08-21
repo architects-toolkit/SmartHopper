@@ -14,8 +14,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -30,9 +31,8 @@ namespace SmartHopper.Providers.DeepSeek
         /// Initializes a new instance of the <see cref="DeepSeekProviderModels"/> class.
         /// </summary>
         /// <param name="provider">The DeepSeek provider instance.</param>
-        /// <param name="apiCaller">The API caller function for making HTTP requests.</param>
-        public DeepSeekProviderModels(DeepSeekProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller)
-            : base(provider, apiCaller)
+        public DeepSeekProviderModels(DeepSeekProvider provider)
+            : base(provider)
         {
             this.deepSeekProvider = provider;
         }
@@ -46,7 +46,21 @@ namespace SmartHopper.Providers.DeepSeek
             Debug.WriteLine("[DeepSeek] Retrieving available models");
             try
             {
-                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
+                // Use AIRequestCall to perform the request
+                var request = new AIRequestCall();
+                request.Initialize(this.deepSeekProvider.Name, string.Empty, string.Empty, "/models", AICapability.TextInput);
+                request.HttpMethod = "GET";
+                request.ContentType = "application/json";
+                request.Authentication = "bearer";
+
+                var aiReturn = await request.Exec().ConfigureAwait(false);
+                if (!aiReturn.Success)
+                {
+                    throw new Exception($"API request failed: {aiReturn.ErrorMessage}");
+                }
+
+                var response = aiReturn.Body.GetLastInteraction() as AIInteractionText;
+                var content = response?.Content ?? string.Empty;
                 var json = JObject.Parse(content);
                 var data = json["data"] as JArray;
                 var modelIds = new List<string>();
@@ -75,15 +89,15 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets all models and their capabilities supported by DeepSeek.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
+        public override async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+            result["deepseek-reasoner"] = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput;
 
             // Add deepseek-chat model
-            result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
+            result["deepseek-chat"] = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput;
 
             return result;
         }
@@ -92,15 +106,15 @@ namespace SmartHopper.Providers.DeepSeek
         /// Gets all default models supported by DeepSeek.
         /// </summary>
         /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        public override Dictionary<string, AICapability> RetrieveDefault()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            var result = new Dictionary<string, AICapability>();
 
             // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.ReasoningChat;
+            result["deepseek-reasoner"] = AICapability.ReasoningChat;
 
             // Add deepseek-chat model as default for both BasicChat and AdvancedChat
-            result["deepseek-chat"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat;
+            result["deepseek-chat"] = AICapability.BasicChat | AICapability.AdvancedChat | AICapability.JsonOutput;
 
             return result;
         }

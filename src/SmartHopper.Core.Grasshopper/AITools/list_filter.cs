@@ -16,12 +16,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -32,13 +30,41 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class list_filter : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "list_filter";
+
+        /// <summary>
+        /// Defines the required capabilities for the AI tool provided by this class.
+        /// </summary>
+        private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
+
+        /// <summary>
+        /// System prompt for the AI tool provided by this class.
+        /// </summary>
+        private readonly string systemPrompt =
+            "You are a list filtering assistant. Your task is to filter a list of items based on natural language criteria and return the indices of items that match.\n\n" +
+            "The list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\n" +
+            "Based on the filtering criteria, return ONLY the indices (as integers) of the items that should remain in the list. " +
+            "Return the indices as a JSON array, for example: [0, 2, 5]. If no items match, return an empty array: [].\n\n" +
+            "Do not include the actual items in your response, only the indices.";
+
+        /// <summary>
+        /// User prompt for the AI tool provided by this class. Use <criteria> and <list> placeholders.
+        /// </summary>
+        private readonly string userPrompt =
+            $"Apply this filtering criteria: \"<criteria>\"\n\n" +
+            $"To the following list:\n<list>\n\n" +
+            $"Return only the indices of items that match the criteria as a JSON array.";
+
+        /// <summary>
         /// Get all tools provided by this class.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "list_filter",
+                name: this.toolName,
                 description: "Filters a list based on natural language criteria",
                 category: "DataProcessing",
                 parametersSchema: @"{
@@ -49,107 +75,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""list"", ""criteria""]
                 }",
-                execute: this.FilterListToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
+                execute: this.FilterList,
+                requiredCapabilities: this.toolCapabilityRequirements
             );
-        }
-
-        /// <summary>
-        /// Filters a list based on natural language criteria using AI with a custom GetResponse function, accepts raw GH_String list.
-        /// </summary>
-        /// <param name="inputList">The list of GH_String items to filter.</param>
-        /// <param name="criteria">The natural language criteria to apply.</param>
-        /// <param name="getResponse">Custom function to get AI response.</param>
-        /// <returns>Evaluation result containing the AI response, list of indices, and any error information.</returns>
-        private static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
-            List<GH_String> inputList,
-            GH_String criteria,
-            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
-        {
-            try
-            {
-                // Convert list to JSON dictionary for AI prompt - process the list as a whole
-                var dictJson = ParsingTools.ConcatenateItemsToJson(inputList);
-
-                // Call the string-based method to handle the core logic
-                return await FilterListAsync(dictJson, criteria, getResponse).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ListTools] Error in FilterListAsync (List<GH_String> overload): {ex.Message}");
-                return AIEvaluationResult<List<int>>.CreateError(
-                    $"Error filtering list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
-            }
-        }
-
-        /// <summary>
-        /// Filters a list based on natural language criteria using AI with a custom GetResponse function, accepts JSON list string.
-        /// </summary>
-        /// <param name="jsonList">The list of items to filter in JSON format.</param>
-        /// <param name="criteria">The natural language criteria to apply.</param>
-        /// <param name="getResponse">Custom function to get AI response.</param>
-        /// <returns>Evaluation result containing the AI response, list of indices, and any error information.</returns>
-        private static async Task<AIEvaluationResult<List<int>>> FilterListAsync(
-            string jsonList,
-            GH_String criteria,
-            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
-        {
-            try
-            {
-                // Prepare messages for the AI
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    // System prompt
-                    new ("system",
-                        "You are a list processor assistant. Your task is to analyze a list of items and return the indices of items that match the given criteria.\n\n" +
-                        "The list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\n" +
-                        "You can be asked to:\n" +
-                        "- Reorder the list (return the same number of indices in a different order)\n" +
-                        "- Filter the list (return less items than the original list)\n" +
-                        "- Repeat some items (return some indices multiple times)\n" +
-                        "- Shuffle the list (return a random order of indices)\n" +
-                        "- Combination of the above\n\n" +
-                        "Return ONLY the comma-separated indices of the selected items in the order specified by the user, or in the original order if the user didn't specify an order.\n\n" +
-                        "DO NOT RETURN ANYTHING ELSE APART FROM THE COMMA-SEPARATED INDICES."),
-
-                    // User message
-                    new ("user",
-                        $"Return the indices of items that match the following prompt: \"{criteria.Value}\"\n\n" +
-                        $"Apply the previous prompt to the following list:\n{jsonList}\n\n"),
-                };
-
-                // Get response using the provided function
-                var response = await getResponse(messages).ConfigureAwait(false);
-
-                // Check for API errors
-                if (response.FinishReason == "error")
-                {
-                    return AIEvaluationResult<List<int>>.CreateError(
-                        response.Response,
-                        GH_RuntimeMessageLevel.Error,
-                        response);
-                }
-
-                // Strip thinking tags from response before parsing
-                var cleanedResponse = AI.StripThinkTags(response.Response);
-                
-                // Parse indices from response
-                var indices = ParsingTools.ParseIndicesFromResponse(cleanedResponse);
-                Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
-
-                // Success case - return the indices directly
-                return AIEvaluationResult<List<int>>.CreateSuccess(
-                    response,
-                    indices);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ListTools] Error in FilterListAsync: {ex.Message}");
-                return AIEvaluationResult<List<int>>.CreateError(
-                    $"Error filtering list: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
-            }
         }
 
         /// <summary>
@@ -157,94 +85,109 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> FilterListToolWrapper(JObject parameters)
+        private async Task<AIReturn> FilterList(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
-                Debug.WriteLine("[ListTools] Running FilterListToolWrapper");
+                Debug.WriteLine("[ListTools] Running FilterList tool");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string endpoint = "list_filter";
-                string? rawList = parameters["list"]?.ToString();
-                string? criteria = parameters["criteria"]?.ToString();
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
+                string endpoint = this.toolName;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
+                string? rawList = toolInfo.Arguments["list"]?.ToString();
+                string? criteria = toolInfo.Arguments["criteria"]?.ToString();
+                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
                 {
-                    // Return error object as JObject
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing required parameters",
-                    };
+                    output.CreateError("Missing required parameters");
+                    return output;
                 }
 
-                // Normalize list JSON
-                var parsed = ParsingTools.ParseStringArrayFromResponse(rawList);
+                // Normalize list input
+                var items = NormalizeListInput(toolInfo);
 
                 // Convert to GH_String list
-                var ghStringList = parsed.Select(s => new GH_String(s)).ToList();
+                var ghStringList = items.Select(s => new GH_String(s)).ToList();
 
-                // Execute the tool
-                var result = await FilterListAsync(
-                    ghStringList,
-                    new GH_String(criteria),
-                    messages => AIUtils.GetResponse(
-                        providerName,
-                        modelName,
-                        messages,
-                        endpoint: endpoint,
-                        contextProviderFilter: contextProviderFilter,
-                        contextKeyFilter: contextKeyFilter)
-                ).ConfigureAwait(false);
+                string itemsJsonDict = ParsingTools.ConcatenateItemsToJson(ghStringList);
 
-                // Return standardized result
-                return new JObject
+                // Prepare the AI request
+                var userPrompt = this.userPrompt;
+                userPrompt = userPrompt.Replace("<criteria>", criteria);
+                userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
+
+                // Initiate AIBody
+                var requestBody = new AIBody();
+                requestBody.AddInteraction("system", this.systemPrompt);
+                requestBody.AddInteraction("user", userPrompt);
+                requestBody.ContextFilter = contextFilter;
+
+                // Initiate AIRequestCall
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    capability: this.toolCapabilityRequirements,
+                    endpoint: endpoint,
+                    body: requestBody);
+
+                // Execute the AIRequestCall
+                var result = await request.Exec().ConfigureAwait(false);
+
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+
+                // Parse indices from response
+                var indices = ParsingTools.ParseIndicesFromResponse(response);
+
+                if (indices == null)
                 {
-                    ["success"] = result.Success,
-                    ["indices"] = result.Success ? JArray.FromObject(result.Result) : JValue.CreateNull(),
-                    ["count"] = new JValue(result.Success ? result.Result.Count : 0),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
+                    output.CreateError($"The AI returned an invalid response:\n{result}");
+                    return output;
+                }
+
+                Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
+
+                // Success case
+                var toolResult = new JObject();
+                toolResult.Add("result", new JArray(indices));
+
+                var toolBody = new AIBody();
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in FilterListToolWrapper: {ex.Message}");
-                // Return error object as JObject
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}",
-                };
+                Debug.WriteLine($"[ListTools] Error in FilterList: {ex.Message}");
+
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
 
-        ///// <summary>
-        ///// Builds a filtered list of GH_String items based on a list of indices.
-        ///// </summary>
-        ///// <param name="items">Original list of items.</param>
-        ///// <param name="indices">List of indices to select.</param>
-        ///// <returns>Filtered list of items.</returns>
-        //public static List<GH_String> BuildFilteredListFromIndices(List<GH_String> items, List<int> indices)
-        //{
-        //    var result = new List<GH_String>();
-        //    foreach (var idx in indices)
-        //    {
-        //        if (idx >= 0 && idx < items.Count)
-        //        {
-        //            result.Add(items[idx]);
-        //        }
-        //        else
-        //        {
-        //            Debug.WriteLine($"[ListTools] Invalid index {idx}. Skipping.");
-        //        }
-        //    }
+        /// <summary>
+        /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
+        /// </summary>
+        private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
+        {
+            var token = toolCall.Arguments["list"];
+            if (token is JArray array)
+            {
+                return array.Select(t => t.ToString()).ToList();
+            }
 
-        //    return result;
-        //}
+            var raw = token?.ToString();
+            return ParsingTools.ParseStringArrayFromResponse(raw);
+        }
     }
 }

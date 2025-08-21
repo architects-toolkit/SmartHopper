@@ -11,19 +11,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New tests for Context Manager and Model Manager.
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
-
-### Changed
+- Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
+- Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
+- `AIRequestCall`: optional parameter to process pending tool calls natively during execution.
+ 
+ ### Changed
 
 - AI Chat component default system prompt to a generic one.
 - Settings dialog now organized in tabs.
   - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
   - Added tab for Trusted Providers configuration.
 - Improved API key encryption. Includes migration method.
+- Complete refactor of `SmartHopper.Infrastructure` for clarity and organization.
+- Added `AIAgent`, `AIRequest` and `AIBody` models to improve clarity and extensibility. Refactored all code to use the new models.
+- Renamed `IChatModel` to `AIInteraction`.
+- Renamed `AIEvaluationResult` to `AIReturn`.
+- Renamed `AIResponse` to `AIReturnBody`.
+- Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
+- Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
+- WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
+- `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
+Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
+ 
+ ### Removed
+
+- Removed the `TemplateProvider` since it will be explained in documentation.
+- Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
+- Removed `AIToolCall.ReplaceReuseCount()` in favor of unified metrics handling.
 
 ### Fixed
 
 - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
 - Fixed "Invalid model" when model manager was providing the wildcard instead of the actual default model name.
+- WebChatDialog stability issues in certain scenarios.
+- Build stability after refactor (compilation issues resolved).
+- Infrastructure stability fixes.
+- Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
+- Corrected DataCount in metrics.
+- Fixed incorrect result output in `list_generate` tool.
+- DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
+- Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
 
 ## [0.5.3-alpha] - 2025-08-20
 

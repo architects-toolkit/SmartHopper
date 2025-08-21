@@ -17,7 +17,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.AICall;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -84,13 +84,14 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
                 }
+
                 return;
             }
 
             // Clear previous results when starting a new run
-            lastComponentNames.Clear();
-            lastComponentGuids.Clear();
-            lastJsonOutput = "";
+            this.lastComponentNames.Clear();
+            this.lastComponentGuids.Clear();
+            this.lastJsonOutput = string.Empty;
 
             try
             {
@@ -103,9 +104,24 @@ namespace SmartHopper.Components.Grasshopper
                     ["attrFilters"] = JArray.FromObject(filters),
                     ["typeFilter"] = JArray.FromObject(typeFilters),
                     ["connectionDepth"] = connectionDepth,
-                    ["guidFilter"] = JArray.FromObject(SelectedObjects.Select(o => o.InstanceGuid.ToString())),
+                    ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
                 };
-                var toolResult = AIToolManager.ExecuteTool("gh_get", parameters, null).GetAwaiter().GetResult() as JObject;
+
+                // Create AIToolCall and execute
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_get",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var toolCall = new AIToolCall();
+                toolCall.Endpoint = "gh_get";
+                toolCall.Body.AddInteraction(toolCallInteraction);
+
+                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
+                var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");

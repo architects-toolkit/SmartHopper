@@ -15,11 +15,11 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.DeepSeek
@@ -27,22 +27,12 @@ namespace SmartHopper.Providers.DeepSeek
     /// <summary>
     /// DeepSeek AI provider implementation.
     /// </summary>
-    public class DeepSeekProvider : AIProvider
+    public class DeepSeekProvider : AIProvider<DeepSeekProvider>
     {
-        // Static instance for singleton pattern
-        private static readonly Lazy<DeepSeekProvider> InstanceValue = new(() => new DeepSeekProvider());
-
-        /// <summary>
-        /// Gets the singleton instance of the provider.
-        /// </summary>
-        public static DeepSeekProvider Instance => InstanceValue.Value;
-
         /// <summary>
         /// The name of the provider. This will be displayed in the UI and used for provider selection.
         /// </summary>
         public static readonly string NameValue = "DeepSeek";
-
-        private const string DefaultServerUrlValue = "https://api.deepseek.com";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DeepSeekProvider"/> class.
@@ -50,7 +40,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private DeepSeekProvider()
         {
-            this.Models = new DeepSeekProviderModels(this, this.CallApi);
+            this.Models = new DeepSeekProviderModels(this);
         }
 
         /// <summary>
@@ -61,7 +51,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => DefaultServerUrlValue;
+        public override string DefaultServerUrl => "https://api.deepseek.com";
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
@@ -84,204 +74,379 @@ namespace SmartHopper.Providers.DeepSeek
             }
         }
 
-        /// <summary>
-        /// Gets a response from the AI provider.
-        /// </summary>
-        /// <param name="messages">The messages to send to the AI provider.</param>
-        /// <param name="model">The model to use, or empty for default.</param>
-        /// <param name="jsonSchema">Optional JSON schema for response formatting.</param>
-        /// <param name="endpoint">Optional custom endpoint URL.</param>
-        /// <param name="toolFilter">Optional flag to include tool definitions in the response.</param>
-        /// <returns>The AI response.</returns>
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+        /// <inheritdoc/>
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
-            try
+            // First do the base PreCall
+            request = base.PreCall(request);
+
+            // Setup proper httpmethod, content type, and authentication
+            request.HttpMethod = "POST";
+            request.ContentType = "application/json";
+            request.Authentication = "bearer";
+
+            // Currently DeepSeek is only compatible with chat completions
+            request.Endpoint = "/chat/completions";
+
+            return request;
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(AIRequestCall request)
+        {
+            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
             {
-                int maxTokens = this.GetSetting<int>("MaxTokens");
+                return "GET and DELETE requests do not use a request body";
+            }
+            int maxTokens = this.GetSetting<int>("MaxTokens");
+            double temperature = this.GetSetting<double>("Temperature");
+            string? toolFilter = request.Body.ToolFilter;
 
-                // Format messages for DeepSeek API
-                var convertedMessages = new JArray();
-                foreach (var msg in messages)
+            // Format messages for DeepSeek API
+            var convertedMessages = new JArray();
+            foreach (var interaction in request.Body.Interactions)
+            {
+                try
                 {
-                    string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                    string msgContent = msg["content"]?.ToString() ?? string.Empty;
-                    msgContent = AI.StripThinkTags(msgContent);
-
-                    var messageObj = new JObject
+                    var messageJson = this.Encode(interaction);
+                    if (!string.IsNullOrWhiteSpace(messageJson))
                     {
-                        ["content"] = msgContent,
-                    };
-
-                    // Map role names
-                    if (role == "system")
-                    {
-                        // DeepSeek uses system role
+                        var token = JToken.Parse(messageJson);
+                        convertedMessages.Add(token);
                     }
-                    else if (role == "assistant")
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
+                }
+            }
+
+            // Build request body
+            var requestBody = new JObject
+            {
+                ["model"] = request.Model,
+                ["messages"] = convertedMessages,
+                ["max_tokens"] = maxTokens,
+                ["temperature"] = temperature,
+            };
+
+            // Add JSON response format if schema is provided
+            if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
+            {
+                // Determine if the provided schema is an array at the root.
+                bool isArraySchema = false;
+                try
+                {
+                    var schemaToken = JToken.Parse(request.Body.JsonOutputSchema);
+                    if (schemaToken.Type == JTokenType.Object)
                     {
-                        // DeepSeek uses assistant role
-
-                        // DeepSeek doesn't support tool calls for assistant messages
-                        if (msg["tool_calls"] != null)
-                        {
-                            var toolCalls = msg["tool_calls"] as JArray;
-                            int i = 0;
-                            foreach (JObject toolCall in toolCalls)
-                            {
-                                toolCalls[i]["function"]["arguments"] = JsonConvert.SerializeObject(toolCall["function"]["arguments"], Formatting.None);
-                                i++;
-                            }
-
-                            messageObj["tool_calls"] = toolCalls;
-                        }
+                        var typeValue = (schemaToken["type"] ?? schemaToken["$ref"])?.ToString();
+                        isArraySchema = string.Equals(typeValue, "array", StringComparison.OrdinalIgnoreCase);
                     }
-                    else if (role == "tool")
+                    else if (schemaToken.Type == JTokenType.Array)
                     {
-                        // Ensure content is a string, not a json object
-                        var jsonString = JsonConvert.SerializeObject(msg["content"], Formatting.None);
-                        jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
-                        jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
-                        jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-
-                        // Remove two or more consecutive whitespace characters
-                        jsonString = Regex.Replace(jsonString, @"\s+", " ");
-
-                        // Replace content with the cleaned string
-                        messageObj["content"] = jsonString;
-
-                        // Propagate tool_call ID and name from incoming message
-                        if (msg["name"] != null)
-                        {
-                            messageObj["name"] = msg["name"];
-                        }
-
-                        if (msg["tool_call_id"] != null)
-                        {
-                            messageObj["tool_call_id"] = msg["tool_call_id"];
-                        }
+                        // If someone passed a raw array as a schema, treat it as array type
+                        isArraySchema = true;
                     }
-                    else if (role == "tool_call")
-                    {
-                        // Omit it
-                        continue;
-                    }
-                    else if (role == "user")
-                    {
-                        // DeepSeek uses user role
-                    }
-                    else
-                    {
-                        role = "system"; // Default to system
-                    }
-
-                    messageObj["role"] = role;
-                    convertedMessages.Add(messageObj);
+                }
+                catch
+                {
+                    // If schema cannot be parsed, default to object behavior below
                 }
 
-                // Build request body
-                var requestBody = new JObject
+                if (isArraySchema)
                 {
-                    ["model"] = model,
-                    ["messages"] = convertedMessages,
-                    ["max_tokens"] = maxTokens,
-                    ["temperature"] = this.GetSetting<double>("Temperature"),
-                };
+                    // Fix A (quick): Do NOT force json_object for array schemas. Let the model return a plain JSON array string.
+                    requestBody["response_format"] = new JObject { ["type"] = "text" };
 
-                // Add JSON response format if schema is provided
-                if (!string.IsNullOrWhiteSpace(jsonSchema))
-                {
-                    // Add response format for structured output
-                    requestBody["response_format"] = new JObject
-                    {
-                        ["type"] = "json_object",
-                    };
-
-                    // Add schema as a system message to guide the model
+                    // Guide the model explicitly to return only a JSON array according to the schema
                     var systemMessage = new JObject
                     {
                         ["role"] = "system",
-                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema,
+                        ["content"] = "Return ONLY a valid JSON array that strictly follows this schema (no wrapping object, no code fences, no extra text): " + request.Body.JsonOutputSchema,
                     };
                     convertedMessages.Insert(0, systemMessage);
                 }
                 else
                 {
-                    requestBody["response_format"] = new JObject { ["type"] = "text" };
-                }
+                    // Non-array schemas: keep structured output as JSON object
+                    requestBody["response_format"] = new JObject { ["type"] = "json_object" };
 
-                // Add tools if requested
-                if (!string.IsNullOrWhiteSpace(toolFilter))
-                {
-                    var tools = this.GetFormattedTools(toolFilter);
-                    if (tools != null && tools.Count > 0)
+                    var systemMessage = new JObject
                     {
-                        requestBody["tools"] = tools;
-                        requestBody["tool_choice"] = "auto";
+                        ["role"] = "system",
+                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + request.Body.JsonOutputSchema,
+                    };
+                    convertedMessages.Insert(0, systemMessage);
+                }
+            }
+            else
+            {
+                requestBody["response_format"] = new JObject { ["type"] = "text" };
+            }
+
+            // Add tools if requested
+            if (!string.IsNullOrWhiteSpace(toolFilter))
+            {
+                var tools = this.GetFormattedTools(toolFilter);
+                if (tools != null && tools.Count > 0)
+                {
+                    requestBody["tools"] = tools;
+                    requestBody["tool_choice"] = "auto";
+                }
+            }
+
+            Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
+
+            return requestBody.ToString();
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(IAIInteraction interaction)
+        {
+            AIAgent role = interaction.Agent;
+            string roleName = string.Empty;
+            string msgContent;
+
+            // Handle interactions based on type
+            if (interaction is AIInteractionText textInteraction)
+            {
+                // For AIInteractionText, only send the actual content
+                msgContent = textInteraction.Content ?? string.Empty;
+            }
+            else
+            {
+                // Non-text interactions default to empty content; specific handling follows below
+                msgContent = string.Empty;
+            }
+
+            var messageObj = new JObject
+            {
+                ["content"] = msgContent,
+            };
+
+            // Map role names
+            if (role == AIAgent.System)
+            {
+                // DeepSeek uses system role
+                roleName = "system";
+            }
+            else if (role == AIAgent.Context)
+            {
+                // Rename context to system
+                roleName = "system";
+            }
+            else if (role == AIAgent.Assistant)
+            {
+                // DeepSeek uses assistant role
+                roleName = "assistant";
+            }
+            else if (role == AIAgent.ToolResult)
+            {
+                roleName = "tool";
+
+                var toolInteraction = interaction as AIInteractionToolResult;
+
+                // Ensure content is a string, not a json object
+                var jsonString = JsonConvert.SerializeObject(toolInteraction?.Result, Formatting.None);
+                jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
+                jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
+                jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+                // Remove two or more consecutive whitespace characters
+                jsonString = Regex.Replace(jsonString, @"\s+", " ");
+
+                // Replace content with the cleaned string
+                messageObj["content"] = jsonString;
+
+                // Propagate tool_call ID and name from incoming message
+                if (toolInteraction?.Result is JObject bodyObj)
+                {
+                    if (bodyObj["name"] != null)
+                    {
+                        messageObj["name"] = bodyObj["name"];
+                    }
+
+                    if (bodyObj["tool_call_id"] != null)
+                    {
+                        messageObj["tool_call_id"] = bodyObj["tool_call_id"];
                     }
                 }
+            }
+            else if (role == AIAgent.ToolCall)
+            {
+                // Encode tool calls as assistant messages with tool_calls
+                roleName = "assistant";
+                // TODO: verify deepseek api accepts this
+            }
+            else
+            {
+                // DeepSeek uses user role
+                roleName = "user";
+            }
 
-                Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
+            // Add tool calls if present (only for specific interaction types that have them)
+            if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                var toolCallsArray = new JArray();
+                var toolCallObj = new JObject
+                {
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
+                    {
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}"
+                    }
+                };
+                toolCallsArray.Add(toolCallObj);
+                messageObj["tool_calls"] = toolCallsArray;
+            }
 
-                // Use the new Call method for HTTP request
-                var responseString = await this.CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
-                var responseJson = JObject.Parse(responseString);
-                Debug.WriteLine($"[DeepSeek] Response parsed successfully");
+            // Add message to converted messages
+            if (!string.IsNullOrEmpty(roleName))
+            {
+                messageObj["role"] = roleName;
+            }
+
+            return messageObj.ToString();
+        }
+
+        /// <inheritdoc/>
+        public override List<IAIInteraction> Decode(string response)
+        {
+            // Decode DeepSeek chat completion response into a list of interactions (text only).
+            // DeepSeek does not support image generation; we return a single AIInteractionText
+            // representing the assistant message, and map any tool calls onto that interaction.
+            var interactions = new List<IAIInteraction>();
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return interactions;
+            }
+
+            try
+            {
+                var responseJson = JObject.Parse(response);
 
                 var choices = responseJson["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
                 if (message == null)
                 {
-                    Debug.WriteLine($"[DeepSeek] No message in response: {responseString}");
-                    throw new Exception("Invalid response from DeepSeek API: No message found");
+                    Debug.WriteLine("[DeepSeek] Decode: No message found in response");
+                    return interactions;
                 }
 
-                var usage = responseJson["usage"] as JObject;
-                var reasoning = message["reasoning_content"]?.ToString();
-                var content = message["content"]?.ToString() ?? string.Empty;
+                var reasoning = message["reasoning_content"]?.ToString() ?? string.Empty;
 
-                // Clean up DeepSeek's malformed JSON responses for array schemas
-                content = CleanUpDeepSeekArrayResponse(content);
-
-                var combined = !string.IsNullOrWhiteSpace(reasoning)
-                    ? $"<think>{reasoning}</think>{content}"
-                    : content;
-
-                var aiResponse = new AIResponse
+                // Robust content extraction: handle string, array of parts, or object content
+                string content;
+                var contentToken = message["content"];
+                if (contentToken is JArray contentParts && contentParts.Count > 0)
                 {
-                    Response = combined,
-                    Provider = this.Name,
-                    Model = model,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                };
-
-                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
-                {
-                    aiResponse.ToolCalls = new List<AIToolCall>();
-                    foreach (JObject tc in tcs)
+                    // Concatenate known text-bearing fields; fallback to ToString() for each part
+                    var texts = new List<string>();
+                    foreach (var part in contentParts)
                     {
-                        var fn = tc["function"] as JObject;
-                        if (fn != null)
+                        var text = part?["text"]?.ToString()
+                                   ?? part?["content"]?.ToString()
+                                   ?? part?.ToString(Newtonsoft.Json.Formatting.None)
+                                   ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(text))
                         {
-                            aiResponse.ToolCalls.Add(new AIToolCall
-                            {
-                                Id = tc["id"]?.ToString(),
-                                Name = fn["name"]?.ToString(),
-                                Arguments = fn["arguments"]?.ToString(),
-                            });
+                            texts.Add(text);
+                        }
+                    }
+                    content = string.Join("\n", texts);
+                }
+                else if (contentToken is JObject contentObj)
+                {
+                    // Try to unwrap arrays from common keys (items, list, enum)
+                    var extractedArray = TryExtractArrayFromObject(contentObj);
+                    content = extractedArray ?? contentObj.ToString(Newtonsoft.Json.Formatting.None);
+                }
+                else
+                {
+                    content = contentToken?.ToString() ?? string.Empty;
+                }
+
+                // Clean up DeepSeek's malformed JSON responses for array schemas, and also unwrap if content is an object string containing items/list/enum
+                content = CleanUpDeepSeekArrayResponse(content);
+                try
+                {
+                    var trimmed = content?.TrimStart() ?? string.Empty;
+                    if (trimmed.StartsWith("{"))
+                    {
+                        var obj = JObject.Parse(content);
+                        var unwrapped = TryExtractArrayFromObject(obj);
+                        if (!string.IsNullOrEmpty(unwrapped))
+                        {
+                            content = unwrapped;
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[DeepSeek] Decode: unwrap attempt failed: {ex.Message}");
+                }
 
-                return aiResponse;
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+
+                var metrics = this.DecodeMetrics(response);
+
+                interaction.Metrics = metrics;
+
+                interactions.Add(interaction);
+
+                // Add an AIInteractionToolCall for each tool call
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                {
+                    foreach (JObject tc in tcs)
+                    {
+                        var toolCall = new AIInteractionToolCall
+                        {
+                            Id = tc["id"]?.ToString(),
+                            Name = tc["name"]?.ToString(),
+                            Arguments = tc["arguments"] as JObject ?? new JObject(),
+                        };
+                        interactions.Add(toolCall);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DeepSeek] Exception: {ex.Message}");
-                throw new Exception($"Error communicating with DeepSeek API: {ex.Message}", ex);
+                Debug.WriteLine($"[DeepSeek] Decode error: {ex.Message}");
             }
+
+            return interactions;
+        }
+
+        /// <summary>
+        /// Decodes the metrics from the response.
+        /// </summary>
+        /// <param name="response">The response to decode.</param>
+        /// <returns>The decoded metrics.</returns>
+        private AIMetrics DecodeMetrics(string response)
+        {
+            var responseString = response;
+            var responseJson = JObject.Parse(responseString);
+            Debug.WriteLine("[DeepSeek] PostCall: parsed response for metrics");
+
+            var choices = responseJson["choices"] as JArray;
+            var firstChoice = choices?.FirstOrDefault() as JObject;
+            var usage = responseJson["usage"] as JObject;
+
+            // Create a new metrics instance
+            var metrics = new AIMetrics();
+            metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
+            metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+            metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+            return metrics;
         }
 
         /// <summary>
@@ -342,6 +507,33 @@ namespace SmartHopper.Providers.DeepSeek
             }
 
             return content;
+        }
+
+        /// <summary>
+        /// Attempts to extract a JSON array from a wrapper object commonly returned by providers.
+        /// Looks for keys like "items", "list", or DeepSeek's malformed "enum" arrays.
+        /// Returns a compact JSON array string if found; otherwise null.
+        /// </summary>
+        /// <param name="obj">The object potentially wrapping an array.</param>
+        /// <returns>JSON array string or null.</returns>
+        private static string? TryExtractArrayFromObject(JObject obj)
+        {
+            if (obj == null)
+            {
+                return null;
+            }
+
+            // Preferred keys in order
+            var keys = new[] { "items", "list", "enum" };
+            foreach (var key in keys)
+            {
+                if (obj[key] is JArray arr)
+                {
+                    return arr.ToString(Newtonsoft.Json.Formatting.None);
+                }
+            }
+
+            return null;
         }
     }
 }

@@ -21,7 +21,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Security.Cryptography;
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
-    using SmartHopper.Infrastructure.Managers.AIProviders;
+    using SmartHopper.Infrastructure.AIProviders;
     using Xunit;
     using Xunit.Abstractions;
     using Xunit.Sdk;

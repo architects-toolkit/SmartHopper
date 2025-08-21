@@ -727,38 +727,39 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>Dictionary of output data trees</returns>
         protected async Task<Dictionary<string, GH_Structure<U>>> RunDataTreeFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
-            Func<Dictionary<string, List<T>>, int, Task<Dictionary<string, List<U>>>> function,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false,
             CancellationToken token = default)
             where T : IGH_Goo
             where U : IGH_Goo
         {
-            return await DataTree.DataTreeProcessor.RunFunctionAsync(
+            var result = await DataTree.DataTreeProcessor.RunFunctionAsync(
                 trees,
                 function,
                 progressCallback: (current, total) =>
                 {
                     Debug.WriteLine($"[{this.GetType().Name}] Progress callback received: current={current}, total={total}");
-                    
+
                     // Initialize progress on first call
                     if (this.ProgressInfo.Total == 0)
                     {
                         Debug.WriteLine($"[{this.GetType().Name}] Initializing progress with total={total}");
                         this.InitializeProgress(total);
-                        Debug.WriteLine($"[{this.GetType().Name}] After initialization: ProgressInfo.Total={this.ProgressInfo.Total}");
                     }
                     else
                     {
                         Debug.WriteLine($"[{this.GetType().Name}] Progress already initialized: ProgressInfo.Total={this.ProgressInfo.Total}");
                     }
-                    
+
                     // Update progress
                     this.UpdateProgress(current);
                 },
                 onlyMatchingPaths: onlyMatchingPaths,
                 groupIdenticalBranches: groupIdenticalBranches,
                 token: token).ConfigureAwait(false);
+
+            return result;
         }
         #endregion
 

@@ -22,8 +22,8 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
-using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -93,34 +93,27 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Shows a web-based chat dialog for the specified AI provider and model.
+        /// Shows a web-based chat dialog for the specified AI request.
         /// If a dialog is already open for the specified component, it will be focused instead of creating a new one.
         /// </summary>
-        /// <param name="providerName">The name of the AI provider to use.</param>
-        /// <param name="modelName">The model to use for AI processing.</param>
-        /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
-        /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
+        /// <param name="request">The AI request call containing provider, model, and configuration.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
-        /// <returns>The last AI response received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIResponse> ShowWebChatDialog(string providerName, string modelName, string? endpoint = null, string? systemPrompt = null, Guid componentId = default, Action<string>? progressReporter = null)
+        /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
+        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId, Action<string>? progressReporter = null)
         {
-            var tcs = new TaskCompletionSource<AIResponse>();
-            AIResponse? lastResponse = null;
+            if (componentId == Guid.Empty)
+            {
+                componentId = Guid.NewGuid();
+            }
+
+            var tcs = new TaskCompletionSource<AIReturn>();
+            AIReturn? lastReturn = null;
 
             Debug.WriteLine("[WebChatUtils] Preparing to show web chat dialog");
 
             try
             {
-                // Create a function to get responses from the AI provider
-                Func<List<ChatMessageModel>, Task<AIResponse>> getResponse =
-                    messages => AIUtils.GetResponse(
-                        providerName,
-                        modelName,
-                        messages,
-                        endpoint: endpoint,
-                        toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval");
-
                 // We need to use Rhino's UI thread to show the dialog
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -142,13 +135,14 @@ namespace SmartHopper.Core.UI.Chat
                             // Use the cross-platform EnsureVisibility method to make the dialog visible
                             existingDialog.EnsureVisibility();
 
-                            // Complete the task with null to indicate no new response
-                            tcs.TrySetResult(null);
+                            // Get the last return from the existing dialog
+                            var existingReturn = existingDialog.GetLastReturn();
+                            tcs.TrySetResult(existingReturn);
                             return;
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-                        var dialog = new WebChatDialog(getResponse, providerName, systemPrompt, progressReporter);
+                        var dialog = new WebChatDialog(request, progressReporter);
 
                         // If component ID is provided, store the dialog
                         if (componentId != default)
@@ -161,25 +155,26 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             Debug.WriteLine("[WebChatUtils] Dialog closed");
 
-                            // Remove from open dialogs dictionary
+                            // Remove dialog from tracking
                             if (componentId != default)
                             {
                                 OpenDialogs.Remove(componentId);
                             }
 
-                            // Complete the task with the last response
-                            tcs.TrySetResult(lastResponse);
+                            // Complete the task with the last return
+                            lastReturn = dialog.GetLastReturn();
+                            tcs.TrySetResult(lastReturn);
                         };
 
-                        // Handle responses
-                        dialog.ResponseReceived += (sender, response) =>
+                        // Handle response received
+                        dialog.ResponseReceived += (sender, result) =>
                         {
-                            Debug.WriteLine("[WebChatUtils] Response received");
-                            lastResponse = response;
+                            Debug.WriteLine("[WebChatUtils] Response received from dialog");
+                            lastReturn = result;
                         };
 
                         // Configure the dialog window
-                        dialog.Title = $"SmartHopper AI Chat - {modelName} ({providerName})";
+                        dialog.Title = $"SmartHopper AI Chat - {request.Model} ({request.Provider})";
 
                         // Show the dialog as a non-modal window
                         Debug.WriteLine("[WebChatUtils] Showing dialog");
@@ -211,21 +206,19 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         public class WebChatWorker
         {
+            private AIRequestCall initialRequest = new AIRequestCall();
             private readonly Action<string> progressReporter;
-            private readonly string providerName;
-            private readonly string modelName;
-            private readonly string endpoint;
-            private readonly string systemPrompt;
             private readonly Guid componentId;
-            private AIResponse lastResponse;
+            private AIReturn? lastReturn;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="WebChatWorker"/> class.
             /// </summary>
             /// <param name="providerName">The name of the AI provider to use.</param>
             /// <param name="modelName">The model to use for AI processing.</param>
-            /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
             /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
+            /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+            /// <param name="toolFilter">Optional tool filter to provide to the AI assistant.</param>
             /// <param name="progressReporter">Action to report progress.</param>
             /// <param name="componentId">The unique ID of the component instance.</param>
             public WebChatWorker(
@@ -233,13 +226,17 @@ namespace SmartHopper.Core.UI.Chat
                 string modelName,
                 string endpoint,
                 string systemPrompt,
+                string toolFilter,
                 Action<string> progressReporter,
                 Guid componentId = default)
             {
-                this.providerName = providerName;
-                this.modelName = modelName;
-                this.endpoint = endpoint;
-                this.systemPrompt = systemPrompt;
+                this.initialRequest.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    systemPrompt: systemPrompt,
+                    endpoint: endpoint,
+                    capability: AICapability.BasicChat,
+                    toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
             }
@@ -272,13 +269,10 @@ namespace SmartHopper.Core.UI.Chat
 
                 try
                 {
-                    this.lastResponse = await ShowWebChatDialog(
-                        this.providerName,
-                        this.modelName,
-                        this.endpoint,
-                        this.systemPrompt,
-                        this.componentId,
-                        reporter).ConfigureAwait(false);
+                    this.lastReturn = await ShowWebChatDialog(
+                        request: this.initialRequest,
+                        componentId: this.componentId,
+                        progressReporter: reporter).ConfigureAwait(false);
                     reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)
@@ -289,12 +283,33 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
-            /// Gets the last AI response received from the chat dialog.
+            /// Gets the last AI return received from the chat dialog.
             /// </summary>
-            /// <returns>The last AI response, or null if no response was received.</returns>
-            public AIResponse GetLastResponse()
+            /// <returns>The last AI return, or null if no return was received.</returns>
+            public AIReturn GetLastReturn()
             {
-                return this.lastResponse;
+                return this.lastReturn;
+            }
+
+            /// <summary>
+            /// Gets the combined metrics from all interactions in the chat history.
+            /// </summary>
+            /// <returns>Combined AI metrics from all chat interactions.</returns>
+            public AIMetrics GetCombinedMetrics()
+            {
+                if (this.lastReturn != null && this.lastReturn.Body?.Interactions?.Count > 0)
+                {
+                    var combinedMetrics = new AIMetrics();
+                    foreach (var interaction in this.lastReturn.Body.Interactions)
+                    {
+                        if (interaction.Metrics != null)
+                        {
+                            combinedMetrics.Combine(interaction.Metrics);
+                        }
+                    }
+                    return combinedMetrics;
+                }
+                return new AIMetrics();
             }
         }
 
@@ -305,22 +320,30 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="modelName">The model to use for AI processing.</param>
         /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
-        /// <param name="progressReporter">Action to report progress.</param>
+        /// <param name="toolFilter">The tool filter to provide to the AI assistant.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
+        /// <param name="progressReporter">Action to report progress.</param>
         /// <returns>A new web chat worker.</returns>
         public static WebChatWorker CreateWebChatWorker(
             string providerName,
             string modelName,
             string endpoint,
             string systemPrompt,
-            Action<string> progressReporter,
-            Guid componentId = default)
+            string toolFilter,
+            Guid componentId,
+            Action<string> progressReporter = null!)
         {
+            if (componentId == Guid.Empty)
+            {
+                componentId = Guid.NewGuid();
+            }
+
             return new WebChatWorker(
                 providerName,
                 modelName,
                 endpoint,
                 systemPrompt,
+                toolFilter,
                 progressReporter,
                 componentId);
         }

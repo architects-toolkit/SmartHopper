@@ -22,9 +22,9 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using SmartHopper.Core.UI.Chat;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
 using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Core.UI
@@ -500,7 +500,7 @@ namespace SmartHopper.Core.UI
                 }
 
                 var providerName = currentProvider.Name;
-                var model = currentProvider.GetDefaultModel(AIModelCapability.ReasoningChat);
+                var model = currentProvider.GetDefaultModel(AICapability.ReasoningChat);
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 
@@ -508,10 +508,10 @@ namespace SmartHopper.Core.UI
                 var chatWorker = WebChatUtils.CreateWebChatWorker(
                     providerName,
                     model,
-                    string.Empty, // endpoint
-                    DefaultSystemPrompt,
-                    (Action<string>)null!, // progress reporter
-                    Guid.NewGuid()); // unique component ID for this button
+                    endpoint: "canvas-chat",
+                    systemPrompt: DefaultSystemPrompt,
+                    toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
+                    componentId: Guid.NewGuid());
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 

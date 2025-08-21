@@ -13,34 +13,29 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
-using SmartHopper.Infrastructure.Utils;
+using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAIProvider : AIProvider
+    public sealed class MistralAIProvider : AIProvider<MistralAIProvider>
     {
-        private const string NameValue = "MistralAI";
-        private const string DefaultServerUrlValue = "https://api.mistral.ai/v1";
-
-        private static readonly Lazy<MistralAIProvider> InstanceValue = new (() => new MistralAIProvider());
-
-        public static MistralAIProvider Instance => InstanceValue.Value;
-
         private MistralAIProvider()
         {
-            this.Models = new MistralAIProviderModels(this, this.CallApi);
+            this.Models = new MistralAIProviderModels(this);
         }
 
-        public override string Name => NameValue;
+        /// <summary>
+        /// Gets the name of the provider.
+        /// </summary>
+        public override string Name => "MistralAI";
 
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => DefaultServerUrlValue;
+        public override string DefaultServerUrl => "https://api.mistral.ai/v1";
 
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
@@ -62,21 +57,126 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
-        public override async Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null)
+        /// <inheritdoc/>
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
-            // Get settings from the secure settings store
-            int maxTokens = this.GetSetting<int>("MaxTokens");
+            // First do the base PreCall
+            request = base.PreCall(request);
 
-            Debug.WriteLine($"[MistralAI] GetResponse - Model: {model}, MaxTokens: {maxTokens}");
+            switch (request.Endpoint)
+            {
+                case "/models":
+                    request.HttpMethod = "GET";
+                    break;
+                default:
+                    // Setup proper httpmethod, content type, and authentication
+                    request.HttpMethod = "POST";
+                    request.Endpoint = "/chat/completions";
+                    break;
+            }
+            request.ContentType = "application/json";
+            request.Authentication = "bearer";
+
+            return request;
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(IAIInteraction interaction)
+        {
+            // This method should encode a single interaction to string
+            // For MistralAI, we'll serialize the interaction as JSON
+            try
+            {
+                if (interaction is AIInteractionText textInteraction)
+                {
+                    return JsonConvert.SerializeObject(new
+                    {
+                        agent = textInteraction.Agent.ToString(),
+                        content = textInteraction.Content,
+                        reasoning = textInteraction.Reasoning
+                    });
+                }
+                else if (interaction is AIInteractionToolCall toolCallInteraction)
+                {
+                    return JsonConvert.SerializeObject(new
+                    {
+                        agent = toolCallInteraction.Agent.ToString(),
+                        id = toolCallInteraction.Id,
+                        name = toolCallInteraction.Name,
+                        arguments = toolCallInteraction.Arguments
+                    });
+                }
+                else if (interaction is AIInteractionToolResult toolResultInteraction)
+                {
+                    return JsonConvert.SerializeObject(new
+                    {
+                        agent = toolResultInteraction.Agent.ToString(),
+                        result = toolResultInteraction.Result,
+                        id = toolResultInteraction.Id,
+                        name = toolResultInteraction.Name
+                    });
+                }
+
+                // Fallback
+                return JsonConvert.SerializeObject(new
+                {
+                    agent = interaction.Agent.ToString(),
+                    content = string.Empty,
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MistralAI] Encode error: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(AIRequestCall request)
+        {
+            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
+            {
+                return "GET and DELETE requests do not use a request body";
+            }
+            // Encode request body for Mistral. Supports string and AIText content in interactions.
+
+            int maxTokens = this.GetSetting<int>("MaxTokens");
+            double temperature = this.GetSetting<double>("Temperature");
+
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string? toolFilter = request.Body.ToolFilter;
+
+            Debug.WriteLine($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
             // Format messages for Mistral API
             var convertedMessages = new JArray();
-            foreach (var msg in messages)
+            foreach (var interaction in request.Body.Interactions)
             {
-                // Provider-specific: propagate assistant tool_call messages unmodified
-                string role = msg["role"]?.ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture) ?? "user";
-                string msgContent = msg["content"]?.ToString() ?? string.Empty;
-                msgContent = AI.StripThinkTags(msgContent);
+                AIAgent role = interaction.Agent;
+                string roleName = string.Empty;
+                string msgContent;
+                // Handle different interaction types by casting to concrete types
+                if (interaction is AIInteractionText textInteraction)
+                {
+                    msgContent = textInteraction.Content ?? string.Empty;
+                }
+                else if (interaction is AIInteractionToolResult toolResultInteraction)
+                {
+                    msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
+                }
+                else if (interaction is AIInteractionToolCall toolCallInteraction)
+                {
+                    msgContent = string.Empty; // Tool calls don't have content
+                }
+                else if (interaction is AIInteractionImage imageInteraction)
+                {
+                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
+                }
+                else
+                {
+                    // Fallback to empty string for unknown types
+                    msgContent = string.Empty;
+                }
 
                 var messageObj = new JObject
                 {
@@ -84,62 +184,73 @@ namespace SmartHopper.Providers.MistralAI
                 };
 
                 // Map role names
-                if (role == "system")
+                if (role == AIAgent.System || role == AIAgent.Context)
                 {
-                    // Mistral uses system role
+                    roleName = "system";
                 }
-                else if (role == "assistant")
+                else if (role == AIAgent.Assistant)
                 {
-                    // Mistral uses assistant role
+                    roleName = "assistant";
 
-                    // Pass tool_calls if available
-                    if (msg["tool_calls"] != null)
-                    {
-                        messageObj["tool_calls"] = msg["tool_calls"];
-                    }
+                    // Tool calls are handled separately as AIInteractionToolCall objects
+                    // Assistant messages don't directly contain tool calls in our architecture
                 }
-                else if (role == "tool")
+                else if (role == AIAgent.ToolResult)
                 {
-                    // Propagate tool_call ID and name from incoming message
-                    if (msg["name"] != null)
-                    {
-                        messageObj["name"] = msg["name"];
-                    }
+                    roleName = "tool";
 
-                    if (msg["tool_call_id"] != null)
+                    // Propagate tool_call ID and name - cast to concrete type
+                    if (interaction is AIInteractionToolResult toolResultInteraction)
                     {
-                        messageObj["tool_call_id"] = msg["tool_call_id"];
+                        messageObj["name"] = toolResultInteraction.Name;
+                        messageObj["tool_call_id"] = toolResultInteraction.Id;
                     }
                 }
-                else if (role == "tool_call")
+                else if (role == AIAgent.ToolCall)
                 {
-                    // Omit it
-                    continue;
-                }
-                else if (role == "user")
-                {
-                    // Mistral uses user role
+                    roleName = "assistant";
+                    
+                    // Handle tool call as assistant message with tool_calls
+                    if (interaction is AIInteractionToolCall toolCallInteraction)
+                    {
+                        var toolCallsArray = new JArray();
+                        var toolCallObj = new JObject
+                        {
+                            ["id"] = toolCallInteraction.Id,
+                            ["type"] = "function",
+                            ["function"] = new JObject
+                            {
+                                ["name"] = toolCallInteraction.Name,
+                                ["arguments"] = toolCallInteraction.Arguments is JToken jToken ? jToken.ToString() : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
+                            },
+                        };
+                        toolCallsArray.Add(toolCallObj);
+                        messageObj["tool_calls"] = toolCallsArray;
+                        msgContent = string.Empty; // Tool calls don't have content
+                    }
                 }
                 else
                 {
-                    role = "system"; // Default to system
+                    roleName = "user";
                 }
 
-                messageObj["role"] = role;
-
-                convertedMessages.Add(messageObj);
+                if(!string.IsNullOrEmpty(roleName))
+                {
+                    messageObj["role"] = roleName;
+                    convertedMessages.Add(messageObj);
+                }
             }
 
-            // Build request body
+            // Create request body for Mistral API
             var requestBody = new JObject
             {
-                ["model"] = model,
+                ["model"] = request.Model,
                 ["messages"] = convertedMessages,
                 ["max_tokens"] = maxTokens,
-                ["temperature"] = this.GetSetting<double>("Temperature"),
+                ["temperature"] = temperature,
             };
 
-            // Add JSON response format if schema is provided
+            // Add JSON schema if provided
             if (!string.IsNullOrWhiteSpace(jsonSchema))
             {
                 // Add response format for structured output
@@ -169,63 +280,141 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             Debug.WriteLine($"[MistralAI] Request: {requestBody}");
+            return requestBody.ToString();
+        }
+
+        /// <inheritdoc/>
+        public override List<IAIInteraction> Decode(string response)
+        {
+            var interactions = new List<IAIInteraction>();
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return interactions;
+            }
 
             try
             {
-                // Use the new Call method for HTTP request
-                var responseContent = await this.CallApi("/chat/completions", "POST", requestBody.ToString()).ConfigureAwait(false);
-                var responseJson = JObject.Parse(responseContent);
-                Debug.WriteLine($"[MistralAI] Response parsed successfully");
-
-                // Extract response content
+                var responseJson = JObject.Parse(response);
                 var choices = responseJson["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
-                var usage = responseJson["usage"] as JObject;
 
                 if (message == null)
                 {
-                    Debug.WriteLine($"[MistralAI] No message in response: {responseJson}");
-                    throw new Exception("Invalid response from MistralAI API: No message found");
+                    return interactions;
                 }
 
-                var aiResponse = new AIResponse
-                {
-                    Response = message["content"]?.ToString() ?? string.Empty,
-                    Provider = "MistralAI",
-                    Model = model,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? "unknown",
-                    InTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutTokens = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                };
+                // Extract content and reasoning (thinking) parts from Mistral's structured content array
+                string content = string.Empty;
+                string reasoning = string.Empty;
 
-                // Handle tool calls if any
-                if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                var contentToken = message["content"];
+                if (contentToken is JArray contentArray)
                 {
-                    aiResponse.ToolCalls = new List<AIToolCall>();
-                    foreach (JObject toolCall in toolCalls)
+                    var contentParts = new List<string>();
+                    var reasoningParts = new List<string>();
+
+                    foreach (var part in contentArray.OfType<JObject>())
                     {
-                        var function = toolCall["function"] as JObject;
-                        if (function != null)
+                        var type = part["type"]?.ToString();
+                        if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
                         {
-                            aiResponse.ToolCalls.Add(new AIToolCall
+                            var thinkingToken = part["thinking"];
+                            if (thinkingToken is JArray thinkingArray)
                             {
-                                Id = toolCall["id"]?.ToString(),
-                                Name = function["name"]?.ToString(),
-                                Arguments = function["arguments"]?.ToString(),
-                            });
+                                foreach (var t in thinkingArray)
+                                {
+                                    if (t is JObject to && string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        var textVal = to["text"]?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                    }
+                                    else
+                                    {
+                                        var textVal = t?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
                         }
                     }
+
+                    content = string.Join(string.Empty, contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
+                }
+                else if (contentToken != null)
+                {
+                    // Fallback: content as plain string
+                    content = contentToken.ToString();
                 }
 
-                Debug.WriteLine($"[MistralAI] Response processed successfully: {aiResponse.Response.Substring(0, Math.Min(50, aiResponse.Response.Length))}...");
-                return aiResponse;
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+
+                var metrics = this.DecodeMetrics(response);
+
+                interaction.Metrics = metrics;
+
+                interactions.Add(interaction);
+
+                // Add an AIInteractionToolCall for each tool call
+                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                {
+                    foreach (JObject tc in tcs)
+                    {
+                        var toolCall = new AIInteractionToolCall
+                        {
+                            Id = tc["id"]?.ToString(),
+                            Name = tc["function"]?["name"]?.ToString(),
+                            Arguments = tc["function"]?["arguments"] as JObject,
+                        };
+                        interactions.Add(toolCall);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAI] Exception: {ex.Message}");
-                throw new Exception($"Error communicating with MistralAI API: {ex.Message}", ex);
+                Debug.WriteLine($"[MistralAI] Decode error: {ex.Message}");
             }
+
+            return interactions;
+        }
+
+        /// <inheritdoc/>
+        private AIMetrics DecodeMetrics(string response)
+        {
+            var metrics = new AIMetrics();
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return metrics;
+            }
+
+            try
+            {
+                var responseJson = JObject.Parse(response);
+                var choices = responseJson["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var usage = responseJson["usage"] as JObject;
+
+                metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
+                metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+                metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MistralAI] DecodeMetrics error: {ex.Message}");
+            }
+
+            return metrics;
         }
     }
 }

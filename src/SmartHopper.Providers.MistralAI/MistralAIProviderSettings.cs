@@ -11,9 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Providers.MistralAI
 {

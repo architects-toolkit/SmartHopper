@@ -519,11 +519,13 @@ namespace SmartHopper.Core.Grasshopper.Graph
             spacingY = spacingY / 2;
 
             Debug.WriteLine($"[AlignParentsAndChildren] Starting alignment with spacingY={spacingY}");
+
             // Group nodes by actual X position (columns)
             var byColumn = grid.GroupBy(n => n.Pivot.X)
                                 .OrderBy(g => g.Key)
                                 .Select(g => g.ToList())
                                 .ToList();
+
             // For each layer beyond the first, align parents above each child
             for (int i = 1; i < byColumn.Count; i++)
             {
