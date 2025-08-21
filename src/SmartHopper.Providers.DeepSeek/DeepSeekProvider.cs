@@ -94,6 +94,10 @@ namespace SmartHopper.Providers.DeepSeek
         /// <inheritdoc/>
         public override string Encode(AIRequestCall request)
         {
+            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
+            {
+                return "GET and DELETE requests do not use a request body";
+            }
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
@@ -212,7 +216,8 @@ namespace SmartHopper.Providers.DeepSeek
             }
             else
             {
-                throw new Exception("Type of interaction not supported by DeepSeek");
+                // Non-text interactions default to empty content; specific handling follows below
+                msgContent = string.Empty;
             }
 
             var messageObj = new JObject
@@ -270,8 +275,9 @@ namespace SmartHopper.Providers.DeepSeek
             }
             else if (role == AIAgent.ToolCall)
             {
-                // Omit it
-                return string.Empty;
+                // Encode tool calls as assistant messages with tool_calls
+                roleName = "assistant";
+                // TODO: verify deepseek api accepts this
             }
             else
             {

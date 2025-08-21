@@ -36,17 +36,17 @@ namespace SmartHopper.Infrastructure.AIProviders
         private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
 
         /// <summary>
-        /// Gets the singleton instance of the provider.
-        /// </summary>
-        public static T Instance => InstanceValue.Value;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
         /// Protected constructor to enforce the singleton pattern.
         /// </summary>
         protected AIProvider()
         {
         }
+
+        /// <summary>
+        /// Gets the singleton instance of the provider.
+        /// </summary>
+        public static T Instance => InstanceValue.Value;
     }
 
     /// <summary>

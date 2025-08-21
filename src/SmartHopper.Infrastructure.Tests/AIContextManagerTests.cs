@@ -13,7 +13,6 @@ namespace SmartHopper.Infrastructure.Tests
     using System;
     using System.Collections.Generic;
     using System.Reflection;
-    using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.AIContext;
     using Xunit;
 
@@ -46,14 +45,15 @@ namespace SmartHopper.Infrastructure.Tests
         /// </summary>
         private class MockContextProvider : IAIContextProvider
         {
-            public string ProviderId { get; }
-            public Dictionary<string, string> Context { get; }
-
             public MockContextProvider(string providerId, Dictionary<string, string>? context = null)
             {
-                ProviderId = providerId;
-                Context = context ?? new Dictionary<string, string>();
+                this.ProviderId = providerId;
+                this.Context = context ?? new Dictionary<string, string>();
             }
+
+            public string ProviderId { get; }
+
+            public Dictionary<string, string> Context { get; }
 
             public Dictionary<string, string> GetContext()
             {

@@ -10,14 +10,11 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
-    using System;
     using System.Collections.Generic;
     using System.Reflection;
     using System.Threading.Tasks;
-    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall;
     using SmartHopper.Infrastructure.AITools;
-    using SmartHopper.Infrastructure.AIProviders;
     using Xunit;
 
     /// <summary>

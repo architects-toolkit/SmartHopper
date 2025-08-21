@@ -243,11 +243,14 @@ dotnet_diagnostic.CA1707.severity = none
 # Suppressed because regions are used to group related methods
 dotnet_diagnostic.SA1124.severity = none
 
-# Unused private members
+# IDE0051: Unused private members
 dotnet_diagnostic.IDE0051.severity = warning
 
-# Assigned but not used
+# IDE0052: Assigned but not used
 dotnet_diagnostic.IDE0052.severity = warning
 
-# FxCop: uncalled private code
+# CA1811: uncalled private code
 dotnet_diagnostic.CA1811.severity = warning
+
+# SA1210: Using directives should be ordered alphabetically by the namespaces
+dotnet_diagnostic.SA1210.severity = error
