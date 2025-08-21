@@ -248,7 +248,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="aireturn">The AIReturn instance.</param>
         /// <param name="fields">Dictionary mapping JSON key names to field paths. Use "Request.PropertyName" or "Metrics.PropertyName" for nested properties.</param>
         /// <returns>JObject with mapped values.</returns>
-        public static JObject ToJObject<T>(this AIReturn aireturn, Dictionary<string, string> fields = null)
+        public static JObject ToJObject(this AIReturn aireturn, Dictionary<string, string> fields = null)
         {
             fields ??= new Dictionary<string, string>
             {
