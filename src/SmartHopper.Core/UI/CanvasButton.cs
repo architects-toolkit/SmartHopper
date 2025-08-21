@@ -23,8 +23,8 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
 
 namespace SmartHopper.Core.UI
