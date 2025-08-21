@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {

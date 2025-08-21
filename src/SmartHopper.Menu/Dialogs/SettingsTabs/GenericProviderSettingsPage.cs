@@ -15,6 +15,7 @@ using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {

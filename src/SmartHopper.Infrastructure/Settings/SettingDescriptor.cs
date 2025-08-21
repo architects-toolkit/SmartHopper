@@ -11,7 +11,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace SmartHopper.Infrastructure.AIProviders
+namespace SmartHopper.Infrastructure.Settings
 {
     /// <summary>
     /// Wrapper for lazy evaluation of default values.
