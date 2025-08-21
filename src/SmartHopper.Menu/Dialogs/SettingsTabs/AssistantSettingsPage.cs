@@ -8,11 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs

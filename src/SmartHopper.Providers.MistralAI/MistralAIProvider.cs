@@ -134,6 +134,10 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override string Encode(AIRequestCall request)
         {
+            if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
+            {
+                return "GET and DELETE requests do not use a request body";
+            }
             // Encode request body for Mistral. Supports string and AIText content in interactions.
 
             int maxTokens = this.GetSetting<int>("MaxTokens");

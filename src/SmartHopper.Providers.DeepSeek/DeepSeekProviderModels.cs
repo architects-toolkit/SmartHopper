@@ -14,9 +14,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.DeepSeek
 {
