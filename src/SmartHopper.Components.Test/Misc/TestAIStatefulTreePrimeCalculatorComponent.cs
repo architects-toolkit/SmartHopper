@@ -74,15 +74,15 @@ namespace SmartHopper.Components.Test.Misc
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this._inputTree = new GH_Structure<GH_Integer>();
-                DA.GetDataTree(0, out _inputTree);
+                DA.GetDataTree(0, out this._inputTree);
                 dataCount = this._inputTree.DataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                foreach (var path in _inputTree.Paths)
+                foreach (var path in this._inputTree.Paths)
                 {
-                    var branch = _inputTree.get_Branch(path);
+                    var branch = this._inputTree.get_Branch(path);
                     var resultBranch = new List<GH_Number>();
 
                     Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
@@ -94,14 +94,14 @@ namespace SmartHopper.Components.Test.Misc
                         if (item is GH_Integer ghInt)
                         {
                             int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                            long result = await CalculateNthPrime(n, token);
+                            long result = await this.CalculateNthPrime(n, token);
                             resultBranch.Add(new GH_Number(result));
 
                             Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
                         }
                     }
 
-                    _result.AppendRange(resultBranch, path);
+                    this._result.AppendRange(resultBranch, path);
                 }
             }
 
@@ -143,7 +143,7 @@ namespace SmartHopper.Components.Test.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Output", _result, DA);
+                this._parent.SetPersistentOutput("Output", this._result, DA);
                 message = $"Found prime";
             }
         }

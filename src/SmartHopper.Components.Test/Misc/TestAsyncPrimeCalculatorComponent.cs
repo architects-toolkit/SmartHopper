@@ -69,7 +69,7 @@ namespace SmartHopper.Components.Test.Misc
             {
                 int n = 100;
                 DA.GetData(0, ref n);
-                _nthPrime = Math.Max(1, Math.Min(n, 1000000));
+                this._nthPrime = Math.Max(1, Math.Min(n, 1000000));
                 dataCount = 1;
             }
 
@@ -78,7 +78,7 @@ namespace SmartHopper.Components.Test.Misc
                 int count = 0;
                 long a = 2;
 
-                while (count < _nthPrime)
+                while (count < this._nthPrime)
                 {
                     token.ThrowIfCancellationRequested();
 
@@ -97,7 +97,7 @@ namespace SmartHopper.Components.Test.Misc
                         b++;
                     }
 
-                    //ReportProgress($"{((double)count / _nthPrime * 100):F2}%");
+                    //ReportProgress($"{((double)count / this._nthPrime * 100):F2}%");
 
                     if (isPrime)
                     {
@@ -112,13 +112,13 @@ namespace SmartHopper.Components.Test.Misc
                     }
                 }
 
-                _result = --a;
+                this._result = --a;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                DA.SetData(0, _result);
-                message = $"Found {_nthPrime}th prime: {_result}";
+                DA.SetData(0, this._result);
+                message = $"Found {this._nthPrime}th prime: {this._result}";
             }
         }
     }
