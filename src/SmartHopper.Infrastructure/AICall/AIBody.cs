@@ -69,7 +69,7 @@ namespace SmartHopper.Infrastructure.AICall
                 }
 
                 // Return the modified list without modifying the original this._interactions list
-                return result; 
+                return result;
             }
             set => this._interactions = value;
         }

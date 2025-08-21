@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {
                         ""categoryFilter"": {
-                            ""type"": ""array"", 
+                            ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
                             ""description"": ""Optionally filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'gh_categories' to get the full list of available categories)""
                         },

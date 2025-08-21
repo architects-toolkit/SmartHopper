@@ -208,7 +208,7 @@ namespace SmartHopper.Providers.DeepSeek
             if (interaction is AIInteractionText textInteraction)
             {
                 // For AIInteractionText, only send the actual content
-                msgContent = textInteraction.Content ?? string.Empty; 
+                msgContent = textInteraction.Content ?? string.Empty;
             }
             else
             {
