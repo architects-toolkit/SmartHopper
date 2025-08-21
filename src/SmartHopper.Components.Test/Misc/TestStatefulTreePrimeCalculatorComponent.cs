@@ -67,8 +67,8 @@ namespace SmartHopper.Components.Test.Misc
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
-                _result = new GH_Structure<GH_Number>();
+                this._parent = parent;
+                this._result = new GH_Structure<GH_Number>();
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -80,9 +80,9 @@ namespace SmartHopper.Components.Test.Misc
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                foreach (var path in _inputTree.Paths)
+                foreach (var path in this._inputTree.Paths)
                 {
-                    var branch = _inputTree.get_Branch(path);
+                    var branch = this._inputTree.get_Branch(path);
                     var resultBranch = new List<GH_Number>();
 
                     Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
@@ -101,7 +101,7 @@ namespace SmartHopper.Components.Test.Misc
                         }
                     }
 
-                    _result.AppendRange(resultBranch, path);
+                    this._result.AppendRange(resultBranch, path);
                 }
             }
 
@@ -143,25 +143,7 @@ namespace SmartHopper.Components.Test.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                // Create a data tree with the same structure as the input tree
-                //var resultTree = new GH_Structure<GH_Number>();
-                //foreach (var path in _inputTree.Paths)
-                //{
-                //    var branch = _inputTree.get_Branch(path);
-                //    var resultBranch = new List<GH_Number>();
-
-                //    foreach (var item in branch)
-                //    {
-                //        if (item is GH_Integer ghInt)
-                //        {
-                //            int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                //            resultBranch.Add(new GH_Number(_result.get_Branch(path)[branch.IndexOf(item)].Value));
-                //        }
-                //    }
-
-                //    resultTree.AppendRange(resultBranch, path);
-                //}
-                _parent.SetPersistentOutput("Output", _result, DA);
+                this._parent.SetPersistentOutput("Output", this._result, DA);
                 message = $"Found prime";
             }
         }

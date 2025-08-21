@@ -43,9 +43,9 @@ namespace SmartHopper.Infrastructure.AICall
                 result = result.Where(i => i.Agent != AIAgent.Context).ToList();
 
                 // Inject dynamic context at the beginning if ContextFilter is set
-                if (!string.IsNullOrEmpty(ContextFilter))
+                if (!string.IsNullOrEmpty(this.ContextFilter))
                 {
-                    var contextData = AIContextManager.GetCurrentContext(ContextFilter);
+                    var contextData = AIContextManager.GetCurrentContext(this.ContextFilter);
                     if (contextData.Count > 0)
                     {
                         var contextMessages = contextData
@@ -339,7 +339,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// <returns>The total count of interactions that would be returned by <see cref="Interactions"/>.</returns>
         public int InteractionsCount()
         {
-            return (this._interactions?.Count ?? 0) + (HasContextData() ? 1 : 0);
+            return (this._interactions?.Count ?? 0) + (this.HasContextData() ? 1 : 0);
         }
 
         /// <summary>
@@ -441,12 +441,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private bool HasContextData()
         {
-            if (string.IsNullOrEmpty(ContextFilter))
+            if (string.IsNullOrEmpty(this.ContextFilter))
             {
                 return false;
             }
 
-            var contextData = AIContextManager.GetCurrentContext(ContextFilter);
+            var contextData = AIContextManager.GetCurrentContext(this.ContextFilter);
 
             return contextData.Any(kv => !string.IsNullOrEmpty(kv.Value));
         }
