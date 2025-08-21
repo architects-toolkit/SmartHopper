@@ -287,8 +287,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         public virtual IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
             var ui = ProviderManager.Instance.GetProviderSettings(this.Name);
-            return ui?.GetSettingDescriptors()
-                ?? Enumerable.Empty<SettingDescriptor>();
+            return ui != null ? ui.GetSettingDescriptors() : Enumerable.Empty<SettingDescriptor>();
         }
 
         /// <summary>

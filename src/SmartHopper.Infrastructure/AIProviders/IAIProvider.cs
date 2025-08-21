@@ -11,9 +11,9 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
