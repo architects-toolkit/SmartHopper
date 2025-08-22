@@ -191,29 +191,7 @@ namespace SmartHopper.Core.ComponentBase
             toolCall.Body = new AIBody();
             toolCall.Body.AddInteraction(toolCallInteraction);
 
-            // Surface validation messages from AIToolCall/AIRequestBase validation
-            try
-            {
-                var (isValid, messages) = toolCall.IsValid();
-                if (messages != null && messages.Count > 0)
-                {
-                    int idx = 0;
-                    foreach (var msg in messages)
-                    {
-                        idx++;
-                        var level = msg != null && msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase)
-                            ? GH_RuntimeMessageLevel.Remark
-                            : GH_RuntimeMessageLevel.Error;
-                        var message = msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) ? msg.Replace("(Info) ", string.Empty, StringComparison.OrdinalIgnoreCase) : msg;
-                        this.SetPersistentRuntimeMessage($"tool_validation_{idx}", level, message, false);
-                    }
-                }
-            }
-            catch (Exception valEx)
-            {
-                // Log validation message surfacing issues but do not fail execution
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Validation message processing error: {valEx.Message}");
-            }
+            // Validation/capability messages will be surfaced from AIReturn after execution
 
             AIReturn toolResult;
             JObject result;
@@ -260,6 +238,12 @@ namespace SmartHopper.Core.ComponentBase
             if (toolResult?.Metrics != null)
             {
                 this.StoreResponseMetrics(toolResult.Metrics);
+            }
+
+            // Surface propagated validation/capability messages from AIReturn
+            if (toolResult?.Messages != null && toolResult.Messages.Count > 0)
+            {
+                this.SurfaceMessagesFromReturn(toolResult, "ai");
             }
 
             // Handle tool-level failure
@@ -376,6 +360,47 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         #endregion
+
+        /// <summary>
+        /// Surfaces messages contained in an <see cref="IAIReturn"/> as persistent runtime messages
+        /// with severity inferred from standardized prefixes.
+        /// </summary>
+        /// <param name="aiReturn">The AI return object containing messages.</param>
+        /// <param name="keyPrefix">A key prefix to namespace the persistent message keys.</param>
+        private void SurfaceMessagesFromReturn(IAIReturn aiReturn, string keyPrefix)
+        {
+            if (aiReturn?.Messages == null || aiReturn.Messages.Count == 0)
+            {
+                return;
+            }
+
+            int idx = 0;
+            foreach (var raw in aiReturn.Messages)
+            {
+                idx++;
+
+                var msg = raw ?? string.Empty;
+                GH_RuntimeMessageLevel level = GH_RuntimeMessageLevel.Remark;
+
+                if (msg.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase))
+                {
+                    level = GH_RuntimeMessageLevel.Error;
+                    msg = msg.Substring("(Error)".Length).TrimStart();
+                }
+                else if (msg.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
+                {
+                    level = GH_RuntimeMessageLevel.Warning;
+                    msg = msg.Substring("(Warning)".Length).TrimStart();
+                }
+                else if (msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
+                {
+                    level = GH_RuntimeMessageLevel.Remark;
+                    msg = msg.Substring("(Info)".Length).TrimStart();
+                }
+
+                this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, msg, false);
+            }
+        }
 
     }
 }

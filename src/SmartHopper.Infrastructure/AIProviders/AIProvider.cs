@@ -195,12 +195,12 @@ namespace SmartHopper.Infrastructure.AIProviders
             request = this.PreCall(request);
 
             // Validate request before calling the API
-            (bool isValid, List<string> errors) = request.IsValid();
+            (bool isValid, List<string> messages) = request.IsValid();
             if (!isValid)
             {
                 stopwatch.Stop();
 
-                var error = "The request is not valid: " + string.Join(", ", errors);
+                var error = "The request is not valid: " + string.Join(", ", messages);
 
                 var result = new AIReturn();
                 var metrics = new AIMetrics
@@ -209,13 +209,24 @@ namespace SmartHopper.Infrastructure.AIProviders
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
 
+                // Create error and propagate collected validation/capability messages
                 result.CreateError(error, request);
+                if (messages != null && messages.Count > 0)
+                {
+                    result.Messages.AddRange(messages);
+                }
 
                 return result;
             }
 
             // Execute CallApi
             var response = await this.CallApi(request);
+
+            // Propagate informational validation/capability notes from request validation
+            if (messages != null && messages.Count > 0)
+            {
+                response.Messages.AddRange(messages);
+            }
 
             // Add provider specific metrics
             stopwatch.Stop();

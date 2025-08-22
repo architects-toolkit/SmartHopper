@@ -199,6 +199,17 @@ namespace SmartHopper.Infrastructure.AICall
 
                         // Add the tool result to the result body
                         result.Body.AddLastInteraction(toolResult.Body.GetLastInteraction());
+
+                        // Propagate messages and errors from tool execution into the main AIReturn
+                        if (toolResult.Messages != null && toolResult.Messages.Count > 0)
+                        {
+                            result.Messages.AddRange(toolResult.Messages);
+                        }
+
+                        if (!string.IsNullOrEmpty(toolResult.ErrorMessage))
+                        {
+                            result.Messages.Add($"(Error) {toolResult.ErrorMessage}");
+                        }
                     }
                 }
 
