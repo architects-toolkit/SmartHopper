@@ -42,3 +42,4 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [IAIProviderFactory](./IAIProviderFactory.md)
 - [IAIProviderSettings](./IAIProviderSettings.md)
 - [AIProviderSettings](./AIProviderSettings.md)
+- [AICall](./AICall/index.md)

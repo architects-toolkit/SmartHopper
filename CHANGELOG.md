@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
 - `AIRequestCall`: optional parameter to process pending tool calls natively during execution.
 - Summary documentation at `docs/` (linked in README).
- 
+
 ### Changed
 
 - AI Chat component default system prompt to a generic one.
