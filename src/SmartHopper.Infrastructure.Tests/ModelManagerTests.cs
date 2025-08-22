@@ -71,8 +71,8 @@ namespace SmartHopper.Infrastructure.Tests
             var manager = ModelManager.Instance;
             const string provider = "TestProvider";
             const string model = "TestModel";
-            const AICapability capabilities = AICapability.BasicChat | AICapability.JsonGenerator;
-            const AICapability defaultFor = AICapability.BasicChat;
+            const AICapability capabilities = AICapability.Text2Text | AICapability.Text2Json;
+            const AICapability defaultFor = AICapability.Text2Text;
 
             // Act
             manager.RegisterCapabilities(provider, model, capabilities, defaultFor);
@@ -101,14 +101,14 @@ namespace SmartHopper.Infrastructure.Tests
             var manager = ModelManager.Instance;
 
             // Act & Assert - null/empty provider
-            manager.RegisterCapabilities(null!, "TestModel", AICapability.BasicChat);
-            manager.RegisterCapabilities(string.Empty, "TestModel", AICapability.BasicChat);
-            manager.RegisterCapabilities("   ", "TestModel", AICapability.BasicChat);
+            manager.RegisterCapabilities(null!, "TestModel", AICapability.Text2Text);
+            manager.RegisterCapabilities(string.Empty, "TestModel", AICapability.Text2Text);
+            manager.RegisterCapabilities("   ", "TestModel", AICapability.Text2Text);
 
             // Act & Assert - null/empty model
-            manager.RegisterCapabilities("TestProvider", null!, AICapability.BasicChat);
-            manager.RegisterCapabilities("TestProvider", string.Empty, AICapability.BasicChat);
-            manager.RegisterCapabilities("TestProvider", "   ", AICapability.BasicChat);
+            manager.RegisterCapabilities("TestProvider", null!, AICapability.Text2Text);
+            manager.RegisterCapabilities("TestProvider", string.Empty, AICapability.Text2Text);
+            manager.RegisterCapabilities("TestProvider", "   ", AICapability.Text2Text);
 
             // Verify no models were registered
             Assert.Null(manager.GetCapabilities("TestProvider", "TestModel"));
@@ -172,12 +172,12 @@ namespace SmartHopper.Infrastructure.Tests
             const string chatModel = "ChatModel";
             const string toolsModel = "ToolsModel";
 
-            manager.RegisterCapabilities(provider, chatModel, AICapability.BasicChat, AICapability.BasicChat);
-            manager.RegisterCapabilities(provider, toolsModel, AICapability.JsonGenerator, AICapability.JsonGenerator);
+            manager.RegisterCapabilities(provider, chatModel, AICapability.Text2Text, AICapability.Text2Text);
+            manager.RegisterCapabilities(provider, toolsModel, AICapability.Text2Json, AICapability.Text2Json);
 
             // Act & Assert
-            var defaultChatModel = manager.GetDefaultModel(provider, AICapability.BasicChat);
-            var defaultToolsModel = manager.GetDefaultModel(provider, AICapability.JsonGenerator);
+            var defaultChatModel = manager.GetDefaultModel(provider, AICapability.Text2Text);
+            var defaultToolsModel = manager.GetDefaultModel(provider, AICapability.Text2Json);
 
             Assert.Equal(chatModel, defaultChatModel);
             Assert.Equal(toolsModel, defaultToolsModel);
@@ -199,7 +199,7 @@ namespace SmartHopper.Infrastructure.Tests
             const string registeredProvider = "RegisteredProvider";
             const string unregisteredProvider = "UnregisteredProvider";
 
-            manager.RegisterCapabilities(registeredProvider, "TestModel", AICapability.BasicChat);
+            manager.RegisterCapabilities(registeredProvider, "TestModel", AICapability.Text2Text);
 
             // Act & Assert
             Assert.True(manager.HasProviderCapabilities(registeredProvider));
@@ -224,21 +224,21 @@ namespace SmartHopper.Infrastructure.Tests
             var manager = ModelManager.Instance;
             const string provider = "TestProvider";
             const string model = "TestModel";
-            const AICapability capabilities = AICapability.BasicChat | AICapability.JsonGenerator;
+            const AICapability capabilities = AICapability.Text2Text | AICapability.Text2Json;
 
             manager.RegisterCapabilities(provider, model, capabilities);
 
             // Act & Assert - Valid capabilities
-            Assert.True(manager.ValidateCapabilities(provider, model, AICapability.BasicChat));
-            Assert.True(manager.ValidateCapabilities(provider, model, AICapability.JsonGenerator));
-            Assert.True(manager.ValidateCapabilities(provider, model, AICapability.BasicChat | AICapability.JsonGenerator));
+            Assert.True(manager.ValidateCapabilities(provider, model, AICapability.Text2Text));
+            Assert.True(manager.ValidateCapabilities(provider, model, AICapability.Text2Json));
+            Assert.True(manager.ValidateCapabilities(provider, model, AICapability.Text2Text | AICapability.Text2Json));
 
             // Act & Assert - Invalid capabilities
-            Assert.False(manager.ValidateCapabilities(provider, model, AICapability.ImageGenerator));
-            Assert.False(manager.ValidateCapabilities(provider, model, AICapability.BasicChat | AICapability.ImageGenerator));
+            Assert.False(manager.ValidateCapabilities(provider, model, AICapability.Text2Image));
+            Assert.False(manager.ValidateCapabilities(provider, model, AICapability.Text2Text | AICapability.Text2Image));
 
             // Act & Assert - Unregistered model
-            Assert.False(manager.ValidateCapabilities("UnknownProvider", "UnknownModel", AICapability.BasicChat));
+            Assert.False(manager.ValidateCapabilities("UnknownProvider", "UnknownModel", AICapability.Text2Text));
         }
     }
 }

@@ -31,25 +31,28 @@ namespace SmartHopper.Infrastructure.AIModels
         TextInput = 1 << 0,
         ImageInput = 1 << 1,
         AudioInput = 1 << 2,
+        JsonInput = 1 << 3,
         
         // Output capabilities
-        TextOutput = 1 << 3,
-        ImageOutput = 1 << 4,
-        AudioOutput = 1 << 5,
-        JsonOutput = 1 << 6,
+        TextOutput = 1 << 4,
+        ImageOutput = 1 << 5,
+        AudioOutput = 1 << 6,
+        JsonOutput = 1 << 7,
         
         // Advanced capabilities
-        FunctionCalling = 1 << 7,
-        Reasoning = 1 << 8,
+        FunctionCalling = 1 << 8,
+        Reasoning = 1 << 9,
         
         // Composite capabilities for default definition
-        BasicChat = TextInput | TextOutput,
-        AdvancedChat = BasicChat | FunctionCalling,
-        ReasoningChat = AdvancedChat | Reasoning,
-        JsonGenerator = TextInput | JsonOutput,
-        ImageGenerator = TextInput | ImageOutput,
-        TTS = TextInput | AudioOutput,
-        STT = AudioInput | TextOutput,
+        Text2Text = TextInput | TextOutput,
+        ToolChat = Text2Text | FunctionCalling,
+        ReasoningChat = Text2Text | Reasoning,
+        ToolReasoningChat = Text2Text | Reasoning | FunctionCalling,
+        Text2Json = TextInput | JsonOutput,
+        Text2Image = TextInput | ImageOutput,
+        Text2Speech = TextInput | AudioOutput,
+        Speech2Text = AudioInput | TextOutput,
+        Image2Text = ImageInput | TextOutput,
     }
 
     /// <summary>
@@ -96,13 +99,17 @@ namespace SmartHopper.Infrastructure.AIModels
             {
                 flags.Add("AudioOutput");
             }
-            if ((capabilities & AICapability.FunctionCalling) == AICapability.FunctionCalling)
+            if ((capabilities & AICapability.JsonInput) == AICapability.JsonInput)
             {
-                flags.Add("FunctionCalling");
+                flags.Add("JsonInput");
             }
             if ((capabilities & AICapability.JsonOutput) == AICapability.JsonOutput)
             {
                 flags.Add("JsonOutput");
+            }
+            if ((capabilities & AICapability.FunctionCalling) == AICapability.FunctionCalling)
+            {
+                flags.Add("FunctionCalling");
             }
             if ((capabilities & AICapability.Reasoning) == AICapability.Reasoning)
             {
@@ -121,7 +128,8 @@ namespace SmartHopper.Infrastructure.AIModels
         {
             return (capability & AICapability.TextInput) == AICapability.TextInput ||
                    (capability & AICapability.ImageInput) == AICapability.ImageInput ||
-                   (capability & AICapability.AudioInput) == AICapability.AudioInput;
+                   (capability & AICapability.AudioInput) == AICapability.AudioInput ||
+                   (capability & AICapability.JsonInput) == AICapability.JsonInput;
         }
 
         /// <summary>

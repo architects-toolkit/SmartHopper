@@ -170,7 +170,7 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <param name="provider">The provider name.</param>
         /// <param name="requiredCapability">The required capability.</param>
         /// <returns>The default model name or null if none found.</returns>
-        public string GetDefaultModel(string provider, AICapability requiredCapability = AICapability.BasicChat)
+        public string GetDefaultModel(string provider, AICapability requiredCapability = AICapability.Text2Text)
         {
             if (string.IsNullOrEmpty(provider))
             {

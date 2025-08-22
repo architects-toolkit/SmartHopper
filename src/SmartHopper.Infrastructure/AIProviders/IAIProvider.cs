@@ -88,7 +88,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Gets the default model name for the provider.
         /// </summary>
-        string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true);
+        string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true);
 
         /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.

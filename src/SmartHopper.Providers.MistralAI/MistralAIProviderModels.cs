@@ -144,7 +144,7 @@ namespace SmartHopper.Providers.MistralAI
                     // Map Mistral capabilities to our enum
                     if (modelInfo?.capabilities?.completion_chat == true)
                     {
-                        capabilities |= AICapability.BasicChat;
+                        capabilities |= AICapability.Text2Text;
                     }
 
                     if (modelInfo?.capabilities?.function_calling == true)
@@ -244,8 +244,8 @@ namespace SmartHopper.Providers.MistralAI
         {
             var result = new Dictionary<string, AICapability>();
 
-            result["mistral-small-latest"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
-            result["magistral-small-latest"] = AICapability.ReasoningChat;
+            result["mistral-small-latest"] = AICapability.ToolChat | AICapability.Text2Json;
+            result["magistral-small-latest"] = AICapability.ToolReasoningChat;
 
             return result;
         }
@@ -260,16 +260,16 @@ namespace SmartHopper.Providers.MistralAI
             var result = new Dictionary<string, AICapability>();
 
             // Ministral models
-            result["ministral-8b*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
-            result["ministral-3b*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
+            result["ministral-8b*"] = AICapability.ToolChat | AICapability.Text2Json;
+            result["ministral-3b*"] = AICapability.ToolChat | AICapability.Text2Json;
 
             // Add wildcard patterns for future versions
-            result["mistral-small*"] = AICapability.AdvancedChat | AICapability.JsonGenerator | AICapability.ImageInput;
-            result["mistral-medium*"] = AICapability.AdvancedChat | AICapability.JsonGenerator | AICapability.ImageInput;
-            result["mistral-large*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
-            result["pixtral*"] = AICapability.AdvancedChat | AICapability.ImageInput | AICapability.JsonGenerator;
-            result["codestral*"] = AICapability.AdvancedChat | AICapability.JsonGenerator;
-            result["magistral*"] = AICapability.ReasoningChat | AICapability.JsonGenerator;
+            result["mistral-small*"] = AICapability.ToolChat | AICapability.Text2Json | AICapability.ImageInput;
+            result["mistral-medium*"] = AICapability.ToolChat | AICapability.Text2Json | AICapability.ImageInput;
+            result["mistral-large*"] = AICapability.ToolChat | AICapability.Text2Json;
+            result["pixtral*"] = AICapability.ToolChat | AICapability.ImageInput | AICapability.Text2Json;
+            result["codestral*"] = AICapability.ToolChat | AICapability.Text2Json;
+            result["magistral*"] = AICapability.ToolReasoningChat | AICapability.Text2Json;
 
             return result;
         }

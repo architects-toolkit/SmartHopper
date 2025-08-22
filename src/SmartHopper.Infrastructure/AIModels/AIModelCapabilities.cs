@@ -41,8 +41,8 @@ namespace SmartHopper.Infrastructure.AIModels
 
         /// <summary>
         /// Gets or sets the capabilities for which this model is the default.
-        /// If a model is marked as default for BasicChat, it will be returned as the default
-        /// when requesting a model with BasicChat capabilities for this provider.
+        /// If a model is marked as default for Text2Text, it will be returned as the default
+        /// when requesting a model with Text2Text capabilities for this provider.
         /// </summary>
         public AICapability Default { get; set; } = AICapability.None;
 

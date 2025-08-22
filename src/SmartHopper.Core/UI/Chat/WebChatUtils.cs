@@ -235,7 +235,7 @@ namespace SmartHopper.Core.UI.Chat
                     model: modelName,
                     systemPrompt: systemPrompt,
                     endpoint: endpoint,
-                    capability: AICapability.BasicChat,
+                    capability: AICapability.Text2Text,
                     toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;

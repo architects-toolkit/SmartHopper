@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
 - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
 Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
+- Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
  
  ### Removed
 
