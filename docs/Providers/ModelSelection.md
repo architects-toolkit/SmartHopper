@@ -28,13 +28,14 @@ When selecting a model for a given `provider` and `requiredCapability`:
      - Deprecated: false before true.
      - Name: ascending (ordinal, case-insensitive).
 
-4. __Best of the rest__: any capable model ordered by the same tie-breakers.
+4. __Default-compatible__: any model marked as default for other capabilities but still compatible with the required capability, ordered by the same tie-breakers.
+
+5. __Best of the rest__: any capable model ordered by the same tie-breakers.
 
 Notes:
 
 - Models must be concrete API-ready names. No wildcard resolution.
 - Selection is fully handled by `ModelManager.SelectBestModel()`; the registry is internal for storage only. Callers should go through `IAIProvider.SelectModel(...)`.
-- The policy intentionally excludes a separate "default-compatible" tier to reduce complexity.
 
 ## Is "Last Resort" necessary?
 

@@ -44,36 +44,6 @@ Breaking changes are acceptable; this is a forward-looking plan.
 - Remember to test... Contract tests for `ConversationSession` transcripts with fake providers/tools.
 - Remember to update documentation in... `docs/Providers/ConversationSession.md`, `docs/Providers/AICall/Policies.md`, `docs/Providers/AICall/index.md`
 
-### Suggestion 2 — Unified Model Management & Selection
-
-- Replace the current 3‑step model registration (available/capabilities/defaults) with a single declarative model descriptor per provider.
-- Introduce `AIModel` descriptor managed by `ModelManager`:
-  - `string Name`
-  - `string Provider`
-  - `AICapability Capabilities` (flags)
-  - `AIModelDefaultSelector DefaultFor` (optional) — indicates default usage, e.g. Text2Text, Text2Json, ToolChat, ImageOutput. Multiple allowed.
-  - Optional metadata: `Rank` (tie‑break), `Deprecated`, `Aliases`.
-- Providers expose a list of `AIModel` items (static or API‑fetched) instead of calling three separate registration methods. Example: `OpenAIProviderModels.List()` returns descriptors and `ModelManager` ingests them.
-- Make `AIRequestBase.GetModelToUse()` the single authority for model fallback with this algorithm:
-  1) Use user‑specified model from component if provided (verbatim).
-  2) Else, use provider default model (`DefaultFor` includes a general default like Text2Text) for the current provider.
-  3) Verify required capabilities (`AICapability` set on the request) against the chosen model.
-  4) If not compatible, select the provider’s best default capable model (prefer concrete names; fall back to most specific wildcard/alias; use `Rank` as tie‑break).
-  5) If none found, return a failure with actionable message listing compatible candidates.
-- Thread‑safety requirements:
-  - `ModelManager` and `AIModelCapabilityRegistry` use immutable snapshots for reads and a `ReaderWriterLockSlim` (or similar) for writes.
-  - Public getters return read‑only collections; updates replace the snapshot atomically.
-  - No sync‑over‑async; API discovery performed async and merged on completion.
-- Component guidance:
-  - Components should pass the user’s model input if present; otherwise pass empty and delegate selection to `GetModelToUse()`.
-  - Remove all per‑component fallback chains and capability checks; rely on centralized selection + validation.
-- Forward‑compat metadata: allow descriptors to declare `SupportsStreaming`, `SupportsPromptCaching`, and provider cache semantics (e.g., cache key strategies) to influence selection when features are requested.
-- Impacted areas: Providers under `src/SmartHopper.Providers.*`
-- Phased migration plan:
-  1. Unified model management: introduce `AIModel` descriptors, refactor providers to return descriptor lists, and make `AIRequestBase.GetModelToUse()` the sole authority. Remove all component fallbacks. Ensure `ModelManager`/`AIModelCapabilityRegistry` are thread‑safe.
-- Remember to test... Regression tests for model selection priority and capability validation.
-- Remember to update documentation in... `docs/Providers/index.md`, `docs/Architecture.md`
-
 ### Suggestion 3 — Request/Response policy pipeline
 
 - Policies under `src/SmartHopper.Infrastructure/AICall/Policies/`:
