@@ -65,7 +65,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public IAIReturn PostCall(IAIReturn response) => response;
 
-            public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true) => "dummy_test_model";
+            public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true) => "dummy_test_model";
 
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
@@ -90,7 +90,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 return await Task.FromResult(new Dictionary<string, AICapability>
                 {
-                    ["dummy_model_1"] = AICapability.BasicChat,
+                    ["dummy_model_1"] = AICapability.Text2Text,
                     ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
                 });
             }
@@ -99,7 +99,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 var capabilities = new Dictionary<string, AICapability>
                 {
-                    ["dummy_model_1"] = AICapability.BasicChat,
+                    ["dummy_model_1"] = AICapability.Text2Text,
                     ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
                 };
                 return capabilities.TryGetValue(model, out var capability) ? capability : AICapability.None;
@@ -109,7 +109,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 return new Dictionary<string, AICapability>
                 {
-                    ["dummy_model_1"] = AICapability.BasicChat
+                    ["dummy_model_1"] = AICapability.Text2Text
                 };
             }
         }

@@ -161,8 +161,8 @@ namespace SmartHopper.Providers.OpenAI
         {
             var result = new Dictionary<string, AICapability>();
 
-            result["gpt-5-mini"] = AICapability.BasicChat | AICapability.AdvancedChat | AICapability.JsonGenerator | AICapability.ReasoningChat;
-            result["dall-e-3"] = AICapability.ImageGenerator;
+            result["gpt-5-mini"] = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat;
+            result["dall-e-3"] = AICapability.Text2Image;
 
             return result;
         }

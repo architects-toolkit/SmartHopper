@@ -500,7 +500,7 @@ namespace SmartHopper.Core.UI
                 }
 
                 var providerName = currentProvider.Name;
-                var model = currentProvider.GetDefaultModel(AICapability.ReasoningChat);
+                var model = currentProvider.GetDefaultModel(AICapability.ToolReasoningChat);
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 

@@ -377,7 +377,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public string GetDefaultModel(AICapability requiredCapability = AICapability.BasicChat, bool useSettings = true)
+        public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)
         {
             // Use settings model if matches requiredCapabilites
             if (useSettings && this.GetSetting<string>("Model") != null)

@@ -832,7 +832,7 @@ namespace SmartHopper.Core.UI.Chat
                         this._initialRequest.Model,
                         greetingInteractions,
                         this._initialRequest.Endpoint,
-                        AICapability.BasicChat,
+                        AICapability.Text2Text,
                         "-*"); // Disable all tools for greeting
 
                     // Log provider/model for diagnostics

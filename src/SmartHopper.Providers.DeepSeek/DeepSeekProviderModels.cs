@@ -111,10 +111,10 @@ namespace SmartHopper.Providers.DeepSeek
             var result = new Dictionary<string, AICapability>();
 
             // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AICapability.ReasoningChat;
+            result["deepseek-reasoner"] = AICapability.ToolReasoningChat;
 
-            // Add deepseek-chat model as default for both BasicChat and AdvancedChat
-            result["deepseek-chat"] = AICapability.BasicChat | AICapability.AdvancedChat | AICapability.JsonOutput;
+            // Add deepseek-chat model as default for both Text2Text and ToolChat
+            result["deepseek-chat"] = AICapability.Text2Text | AICapability.ToolChat | AICapability.JsonOutput;
 
             return result;
         }

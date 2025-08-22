@@ -24,7 +24,7 @@ namespace SmartHopper.Infrastructure.AICall
     /// </summary>
     public class AIRequestCall : AIRequestBase
     {
-        private AICapability capability = AICapability.BasicChat;
+        private AICapability capability = AICapability.Text2Text;
 
         /// <inheritdoc/>
         public override AICapability Capability
