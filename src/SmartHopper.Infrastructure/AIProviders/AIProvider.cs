@@ -384,6 +384,17 @@ namespace SmartHopper.Infrastructure.AIProviders
             return null;
         }
 
+        /// <inheritdoc/>
+        public virtual string SelectModel(AICapability requiredCapability, string requestedModel)
+        {
+            // Prefer provider-configured default from settings when compatible
+            var preferredDefault = this.GetDefaultModel(requiredCapability, useSettings: true);
+
+            // Delegate to centralized selection policy to avoid duplication
+            var selected = ModelManager.Instance.SelectBestModel(this.Name, requestedModel, requiredCapability, preferredDefault);
+            return selected ?? string.Empty;
+        }
+
         /// <summary>
         /// Sets a setting value for this provider with automatic provider scoping and persistence.
         /// </summary>

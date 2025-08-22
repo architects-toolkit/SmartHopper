@@ -151,9 +151,8 @@ namespace SmartHopper.Core.ComponentBase
                 return model;
             }
 
-            // Otherwise use centralized default selection via ModelManager
-            var providerName = provider.Name;
-            var selected = ModelManager.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
+            // Otherwise, use provider-level default resolution (respects settings and capabilities)
+            var selected = provider.GetDefaultModel(AICapability.Text2Text, useSettings: true);
             return selected ?? string.Empty;
         }
 

@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Provider-scoped model selection:
+  - Added `IAIProvider.SelectModel(requiredCapability, requestedModel)` to encapsulate model resolution behind provider interface.
+  - `AIProvider` base now implements `SelectModel(...)` delegating to centralized `ModelManager.SelectBestModel` while honoring provider defaults/settings.
+  - `AIRequestBase.GetModelToUse()` refactored to call `provider.SelectModel(...)` instead of `ModelManager.Instance` directly.
+  - Removed remaining direct calls to `ModelManager.Instance.SelectBestModel` outside provider internals.
+- Docs updated: `docs/Providers/IAIProvider.md`, `docs/Providers/AIProvider.md`, `docs/Providers/ModelSelection.md` to reflect provider-scoped model selection guidance.
+
+###! Changed
+
 - AI Chat component default system prompt to a generic one.
 - Settings dialog now organized in tabs.
   - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
@@ -35,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
 Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
 - Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
-- Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
+- - Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
 - Unified model retrieval via `IAIProviderModels.RetrieveModels()` with centralized registration in `ModelManager`. Components (e.g., `AIModelsComponent`) and tests updated to query `ModelManager` instead of calling per-provider legacy methods.
 
 ### Removed
