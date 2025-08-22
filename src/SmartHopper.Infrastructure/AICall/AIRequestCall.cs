@@ -119,7 +119,12 @@ namespace SmartHopper.Infrastructure.AICall
                 var knownRequested = ModelManager.Instance.GetCapabilities(this.Provider, this.RequestedModel);
                 if (knownRequested != null && !knownRequested.HasCapability(effectiveCapability) && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
                 {
-                    messages.Add($"(Warning) Requested model '{this.RequestedModel}' is not capable of {effectiveCapability.ToString()}; using '{resolvedModel}' instead");
+                    messages.Add($"(Info) Requested model '{this.RequestedModel}' is not capable of {effectiveCapability.ToString()}; using '{resolvedModel}' instead");
+                }
+                else if (knownRequested == null && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
+                {
+                    // Requested model is unknown; inform user that a fallback model is being used
+                    messages.Add($"(Info) Requested model '{this.RequestedModel}' is unknown; using '{resolvedModel}' instead. I'm not sure this message is correct");
                 }
             }
 
