@@ -36,6 +36,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// <inheritdoc/>
         public virtual string Model { get => this.GetModelToUse(); set => this.model = value; }
 
+        /// <summary>
+        /// Gets the user-requested model exactly as provided (may be empty, unknown, or incompatible).
+        /// Exposed to derived classes for validation and messaging purposes.
+        /// </summary>
+        protected string RequestedModel => this.model ?? string.Empty;
+
         /// <inheritdoc/>
         public string Endpoint { get; set; }
 
