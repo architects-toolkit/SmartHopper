@@ -141,4 +141,5 @@ Breaking changes are acceptable; this is a forward-looking plan.
 - [ ] Local caching of responses to avoid recomputation
 - [ ] AI tool to generate Grasshopper definitions in GHJSON format
 - [ ] New way to save Grasshopper files in GHJSON format
-- [ ] Improve WebChat UI with full html environment, including dynamic loading messages supporting streaming
+- [ ] Improve WebChat UI with full html environment, including dynamic loading messages, supporting streaming, different interaction type (image, audio, text, toolcall, toolresult...)
+- [ ] Compatibility with parallel tool calling

@@ -27,6 +27,14 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private string? model;
 
+        // Per-request memoization for selected model to avoid repeated selection calls.
+        // The selected model depends on provider, requested model, and effective capability.
+        // If these inputs don't change during the lifetime of the request, reuse the cached selection.
+        private string? cachedSelectedModel;
+        private string? cacheProvider;
+        private string? cacheRequestedModel;
+        private AICapability cacheCapability;
+
         /// <inheritdoc/>
         public virtual string? Provider { get; set; }
 
@@ -126,8 +134,24 @@ namespace SmartHopper.Infrastructure.AICall
                 return string.Empty;
             }
 
+            // Use memoized selection when inputs haven't changed
+            if (!string.IsNullOrEmpty(this.cachedSelectedModel)
+                && string.Equals(this.cacheProvider, this.Provider, StringComparison.Ordinal)
+                && string.Equals(this.cacheRequestedModel, this.model, StringComparison.Ordinal)
+                && this.cacheCapability == this.Capability)
+            {
+                return this.cachedSelectedModel;
+            }
+
             // Delegate selection to provider to hide singleton and centralize policy
             var selected = provider.SelectModel(this.Capability, this.model);
+
+            // Cache selection for subsequent accesses within the same request
+            this.cacheProvider = this.Provider;
+            this.cacheRequestedModel = this.model;
+            this.cacheCapability = this.Capability;
+            this.cachedSelectedModel = selected;
+
             return selected;
         }
     }
