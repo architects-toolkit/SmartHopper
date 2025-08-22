@@ -63,8 +63,8 @@ Data flow:
 
 - Registry: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilityRegistry.cs`
   - Stores capabilities keyed by `provider.model`
-  - Exact and wildcard support (e.g., `mistral-small*`) via provider‑scoped prefix matching
-  - Default selection prioritizes concrete models over wildcards
+  - Exact name and alias matching only; no wildcard resolution in the registry
+  - Model selection and defaults are handled by `ModelManager`; the registry is storage only
 
 ## 5. Context Providers
 

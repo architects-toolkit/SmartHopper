@@ -23,7 +23,7 @@ Location: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs`
 ## Best practices
 
 - Mark at most one default per capability per provider. Use `ModelManager.SetDefault(...)` with `exclusive=true` to enforce this.
-- Keep `Model` concrete (no wildcards). Wildcards belong to registry fallback only.
+- Keep `Model` concrete (no wildcards). Use `Aliases` for alternative names; selection uses exact/alias matching only.
 - Use `Rank` sparingly; it only fine-tunes order after Verified and non-Deprecated.
 
 ## Examples
