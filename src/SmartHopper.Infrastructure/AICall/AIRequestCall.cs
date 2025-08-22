@@ -106,6 +106,23 @@ namespace SmartHopper.Infrastructure.AICall
                 messages.AddRange(capabilityNotes);
             }
 
+            // Validate resolved model against required capability
+            var resolvedModel = this.Model; // Triggers provider-scoped selection
+            if (string.IsNullOrEmpty(resolvedModel))
+            {
+                messages.Add($"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}");
+                hasErrors = true;
+            }
+            else if (!string.IsNullOrEmpty(this.RequestedModel))
+            {
+                // If user requested a model and it is known but incompatible, warn and indicate fallback
+                var knownRequested = ModelManager.Instance.GetCapabilities(this.Provider, this.RequestedModel);
+                if (knownRequested != null && !knownRequested.HasCapability(effectiveCapability) && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
+                {
+                    messages.Add($"(Warning) Requested model '{this.RequestedModel}' is not capable of {effectiveCapability.ToString()}; using '{resolvedModel}' instead");
+                }
+            }
+
             if (string.IsNullOrEmpty(this.Endpoint))
             {
                 messages.Add("Endpoint is required");
