@@ -225,6 +225,7 @@ namespace SmartHopper.Infrastructure.AIModels
         }
 
         /// <summary>
+        /// DO NOT CALL THIS DIRECTLY. USE AIProvider.SelectModel() INSTEAD.
         /// Centralized model selection and fallback.
         /// - If user specified a model:
         ///   * If known and capable -> use it.

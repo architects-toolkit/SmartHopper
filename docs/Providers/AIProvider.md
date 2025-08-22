@@ -21,6 +21,9 @@ Offer a template-method style pipeline for providers: register models, load sett
   - `IEnumerable<SettingDescriptor> GetSettingDescriptors()` via `ProviderManager.GetProviderSettings(Name)`.
 - Default model resolution
   - `GetDefaultModel(requiredCapability, useSettings)` validates capability with `ModelManager`.
+- Provider-scoped model selection
+  - `SelectModel(requiredCapability, requestedModel)` resolves the concrete API-ready model.
+  - Default implementation delegates to centralized `ModelManager.SelectBestModel` to keep policy consistent while hiding the singleton behind the provider interface. Providers may override.
 - HTTP/API orchestration
   - `Call(request)` handles PreCall, validation, `CallApi`, metrics, PostCall.
   - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content.
@@ -34,7 +37,7 @@ Offer a template-method style pipeline for providers: register models, load sett
 ## Extending
 
 Override `Encode/Decode/PreCall/PostCall` and set `DefaultServerUrl`.
-Use `Models` to implement provider-specific model retrieval/capabilities.
+Use `SelectModel(...)` for model resolution in requests/components. Use `Models` to implement provider-specific retrieval/capabilities.
 
 ## Security & reliability
 

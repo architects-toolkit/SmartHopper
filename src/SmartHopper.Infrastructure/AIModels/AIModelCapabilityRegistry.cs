@@ -19,7 +19,7 @@ namespace SmartHopper.Infrastructure.AIModels
     /// Registry containing capability information for all known models.
     /// Thread-safe: uses ConcurrentDictionary for reads/writes.
     /// </summary>
-    public class AIModelCapabilityRegistry
+    protected class AIModelCapabilityRegistry
     {
         /// <summary>
         /// Dictionary of model capabilities keyed by "provider.model".

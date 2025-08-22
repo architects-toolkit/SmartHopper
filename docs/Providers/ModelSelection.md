@@ -4,6 +4,11 @@ Location: `src/SmartHopper.Infrastructure/AIModels/ModelManager.cs`
 
 This page describes the simplified, capability-first model selection policy and how to manage defaults using `SetDefault`.
 
+## Callers: how to select a model
+
+- Always call `provider.SelectModel(requiredCapability, requestedModel)`.
+- Do not call `ModelManager.SelectBestModel` directly from requests/components. The provider base class delegates to it internally by default, keeping policy centralized while maintaining proper abstraction.
+
 ## Policy (capability-first)
 
 When selecting a model for a given `provider` and `requiredCapability`:
@@ -28,7 +33,7 @@ When selecting a model for a given `provider` and `requiredCapability`:
 Notes:
 
 - Models must be concrete API-ready names. No wildcard resolution.
-- Selection is fully handled by `ModelManager.SelectBestModel()`; the registry is internal for storage only.
+- Selection is fully handled by `ModelManager.SelectBestModel()`; the registry is internal for storage only. Callers should go through `IAIProvider.SelectModel(...)`.
 - The policy intentionally excludes a separate "default-compatible" tier to reduce complexity.
 
 ## Is "Last Resort" necessary?

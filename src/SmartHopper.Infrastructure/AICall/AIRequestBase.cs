@@ -117,11 +117,8 @@ namespace SmartHopper.Infrastructure.AICall
                 return string.Empty;
             }
 
-            // Use provider settings default as preferred fallback
-            var preferredDefault = provider.GetDefaultModel(this.Capability, useSettings: true);
-
-            // Centralized selection & fallback in ModelManager
-            var selected = ModelManager.Instance.SelectBestModel(provider.Name, this.model, this.Capability, preferredDefault);
+            // Delegate selection to provider to hide singleton and centralize policy
+            var selected = provider.SelectModel(this.Capability, this.model);
             return selected;
         }
     }
