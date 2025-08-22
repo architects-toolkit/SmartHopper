@@ -75,6 +75,10 @@ namespace SmartHopper.Infrastructure.AITools
             {
                 Debug.WriteLine($"[AIToolManager] Tool call is invalid: {string.Join(", ", errors)}");
                 output.ErrorMessage = $"Tool call is invalid: {string.Join(", ", errors)}";
+                if (errors != null && errors.Count > 0)
+                {
+                    output.Messages.AddRange(errors);
+                }
                 return output;
             }
 
@@ -85,12 +89,25 @@ namespace SmartHopper.Infrastructure.AITools
                 var result = await _tools[toolInfo.Name].Execute(toolCall);
                 Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
                 output.SetBody(result.Body);
+
+                // Propagate tool-level error and messages into wrapper AIReturn
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    output.ErrorMessage = result.ErrorMessage;
+                }
+
+                if (result.Messages != null && result.Messages.Count > 0)
+                {
+                    output.Messages.AddRange(result.Messages);
+                }
+
                 return output;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIToolManager] Error executing tool {toolInfo.Name}: {ex.Message}");
                 output.ErrorMessage = $"Error executing tool '{toolInfo.Name}': {ex.Message}";
+                output.Messages.Add(output.ErrorMessage);
                 return output;
             }
         }

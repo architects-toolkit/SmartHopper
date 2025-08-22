@@ -65,6 +65,9 @@ namespace SmartHopper.Infrastructure.AICall
         public string ErrorMessage { get; set; }
 
         /// <inheritdoc/>
+        public List<string> Messages { get; set; } = new List<string>();
+
+        /// <inheritdoc/>
         public bool Success => string.IsNullOrEmpty(this.ErrorMessage);
 
         /// <inheritdoc/>
