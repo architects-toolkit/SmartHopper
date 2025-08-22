@@ -103,7 +103,10 @@ namespace SmartHopper.Infrastructure.AICall
         {
             if (this.Capability == AICapability.None)
             {
-                return string.Empty;
+                // No capability context has been set yet (e.g., intermediary tool calls reading Model).
+                // In this case, do NOT override: return the user-requested model verbatim.
+                // Model selection (validation/fallback) must happen only when a capability is known.
+                return this.model ?? string.Empty;
             }
             
             if (string.IsNullOrEmpty(this.Provider))

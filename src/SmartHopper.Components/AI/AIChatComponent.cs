@@ -163,7 +163,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Worker class for the AI Chat component.
         /// </summary>
-        private class AIChatWorker : AsyncWorkerBase
+        private sealed class AIChatWorker : AsyncWorkerBase
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;

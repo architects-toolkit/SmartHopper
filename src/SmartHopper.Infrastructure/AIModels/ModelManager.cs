@@ -246,8 +246,11 @@ namespace SmartHopper.Infrastructure.AIModels
         {
             if (string.IsNullOrWhiteSpace(provider) || requiredCapability == AICapability.None)
             {
+                Debug.WriteLine($"[ModelManager.SelectBestModel] Invalid args -> provider='{provider}', requiredCapability='{requiredCapability.ToDetailedString()}'");
                 return string.Empty;
             }
+
+            Debug.WriteLine($"[ModelManager.SelectBestModel] provider='{provider}', userModel='{userModel}', required='{requiredCapability.ToDetailedString()}', preferredDefault='{preferredDefault}'");
 
             // If user specified a model, validate capability if known; allow unknown to pass
             if (!string.IsNullOrWhiteSpace(userModel))
@@ -256,15 +259,18 @@ namespace SmartHopper.Infrastructure.AIModels
                 if (known == null)
                 {
                     // Unknown model -> pass through
+                    Debug.WriteLine($"[ModelManager.SelectBestModel] User model '{userModel}' is unknown for provider '{provider}'. Passing through without override.");
                     return userModel;
                 }
 
                 if (known.HasCapability(requiredCapability))
                 {
                     // Known and capable
+                    Debug.WriteLine($"[ModelManager.SelectBestModel] Using user model '{userModel}' (known and capable: {known.Capabilities.ToDetailedString()})");
                     return userModel;
                 }
                 // else: fall through to fallback selection
+                Debug.WriteLine($"[ModelManager.SelectBestModel] User model '{userModel}' is known but NOT capable of {requiredCapability.ToDetailedString()} (has {known.Capabilities.ToDetailedString()}). Falling back.");
             }
 
             // Build candidate list of models that support the capability
@@ -278,12 +284,18 @@ namespace SmartHopper.Infrastructure.AIModels
                 var preferredCaps = this.GetCapabilities(provider, preferredDefault);
                 if (preferredCaps != null && preferredCaps.HasCapability(requiredCapability))
                 {
+                    Debug.WriteLine($"[ModelManager.SelectBestModel] Using preferredDefault '{preferredDefault}' (capable: {preferredCaps.Capabilities.ToDetailedString()})");
                     return preferredDefault;
+                }
+                else
+                {
+                    Debug.WriteLine($"[ModelManager.SelectBestModel] preferredDefault '{preferredDefault}' is not capable or unknown. Continuing selection.");
                 }
             }
 
             if (candidates.Count == 0)
             {
+                Debug.WriteLine($"[ModelManager.SelectBestModel] No candidates found for provider '{provider}' with capability {requiredCapability.ToDetailedString()}.");
                 return string.Empty;
             }
 
@@ -297,6 +309,7 @@ namespace SmartHopper.Infrastructure.AIModels
                 .FirstOrDefault();
             if (defaultExact != null)
             {
+                Debug.WriteLine($"[ModelManager.SelectBestModel] Selecting provider default (exact) '{defaultExact.Model}'.");
                 return defaultExact.Model;
             }
 
@@ -310,6 +323,7 @@ namespace SmartHopper.Infrastructure.AIModels
                 .FirstOrDefault();
             if (defaultCompatible != null)
             {
+                Debug.WriteLine($"[ModelManager.SelectBestModel] Selecting provider default (compatible) '{defaultCompatible.Model}'.");
                 return defaultCompatible.Model;
             }
 
@@ -322,9 +336,11 @@ namespace SmartHopper.Infrastructure.AIModels
                 .FirstOrDefault();
             if (best != null)
             {
+                Debug.WriteLine($"[ModelManager.SelectBestModel] Selecting best available '{best.Model}'.");
                 return best.Model;
             }
 
+            Debug.WriteLine($"[ModelManager.SelectBestModel] Failed to select a model; returning empty.");
             return string.Empty;
         }
 
