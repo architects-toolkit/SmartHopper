@@ -230,12 +230,18 @@ namespace SmartHopper.Core.UI.Chat
                 Action<string> progressReporter,
                 Guid componentId = default)
             {
+                var requiredCapabilites = AICapability.Text2Text;
+                if (toolFilter != "-*")
+                {
+                    requiredCapabilites = AICapability.ToolChat;
+                }
+                
                 this.initialRequest.Initialize(
                     provider: providerName,
                     model: modelName,
                     systemPrompt: systemPrompt,
                     endpoint: endpoint,
-                    capability: AICapability.Text2Text,
+                    capability: requiredCapabilites,
                     toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
