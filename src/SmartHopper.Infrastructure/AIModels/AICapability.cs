@@ -10,12 +10,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.AIModels
 {
@@ -26,23 +20,23 @@ namespace SmartHopper.Infrastructure.AIModels
     public enum AICapability
     {
         None = 0,
-        
+
         // Input capabilities
         TextInput = 1 << 0,
         ImageInput = 1 << 1,
         AudioInput = 1 << 2,
         JsonInput = 1 << 3,
-        
+
         // Output capabilities
         TextOutput = 1 << 4,
         ImageOutput = 1 << 5,
         AudioOutput = 1 << 6,
         JsonOutput = 1 << 7,
-        
+
         // Advanced capabilities
         FunctionCalling = 1 << 8,
         Reasoning = 1 << 9,
-        
+
         // Composite capabilities for default definition
         Text2Text = TextInput | TextOutput,
         ToolChat = Text2Text | FunctionCalling,
@@ -53,6 +47,7 @@ namespace SmartHopper.Infrastructure.AIModels
         Text2Speech = TextInput | AudioOutput,
         Speech2Text = AudioInput | TextOutput,
         Image2Text = ImageInput | TextOutput,
+        Image2Image = ImageInput | ImageInput | ImageOutput,
     }
 
     /// <summary>
@@ -73,44 +68,53 @@ namespace SmartHopper.Infrastructure.AIModels
             }
 
             var flags = new List<string>();
-            
+
             // Check each individual flag
             if ((capabilities & AICapability.TextInput) == AICapability.TextInput)
             {
                 flags.Add("TextInput");
             }
+
             if ((capabilities & AICapability.TextOutput) == AICapability.TextOutput)
             {
                 flags.Add("TextOutput");
             }
+
             if ((capabilities & AICapability.ImageInput) == AICapability.ImageInput)
             {
                 flags.Add("ImageInput");
             }
+
             if ((capabilities & AICapability.ImageOutput) == AICapability.ImageOutput)
             {
                 flags.Add("ImageOutput");
             }
+
             if ((capabilities & AICapability.AudioInput) == AICapability.AudioInput)
             {
                 flags.Add("AudioInput");
             }
+
             if ((capabilities & AICapability.AudioOutput) == AICapability.AudioOutput)
             {
                 flags.Add("AudioOutput");
             }
+
             if ((capabilities & AICapability.JsonInput) == AICapability.JsonInput)
             {
                 flags.Add("JsonInput");
             }
+
             if ((capabilities & AICapability.JsonOutput) == AICapability.JsonOutput)
             {
                 flags.Add("JsonOutput");
             }
+
             if ((capabilities & AICapability.FunctionCalling) == AICapability.FunctionCalling)
             {
                 flags.Add("FunctionCalling");
             }
+
             if ((capabilities & AICapability.Reasoning) == AICapability.Reasoning)
             {
                 flags.Add("Reasoning");
