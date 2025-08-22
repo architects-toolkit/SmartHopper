@@ -57,7 +57,7 @@ namespace SmartHopper.Components.List
             return new AIListFilterWorker(this, this.AddRuntimeMessage);
         }
 
-        private class AIListFilterWorker : AsyncWorkerBase
+        private sealed class AIListFilterWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;

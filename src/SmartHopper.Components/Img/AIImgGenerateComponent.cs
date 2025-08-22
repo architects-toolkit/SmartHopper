@@ -238,17 +238,17 @@ namespace SmartHopper.Components.Img
                                 {
                                     // Get the image result (could be URL or base64 data)
                                     string imageResult = toolResult["result"]?.ToString() ?? string.Empty;
-                                    
+
                                     // Get revised prompt - now returned directly from new schema
                                     string revisedPrompt = toolResult["revisedPrompt"]?.ToString() ?? prompt;
-                                    
+
                                     // Process the image result (URL or base64)
                                     if (!string.IsNullOrEmpty(imageResult))
                                     {
                                         try
                                         {
                                             Bitmap bitmap;
-                                            
+
                                             // Check if it's a URL or base64 data
                                             if (imageResult.StartsWith("http://") || imageResult.StartsWith("https://"))
                                             {
@@ -268,7 +268,7 @@ namespace SmartHopper.Components.Img
                                                 using var stream = new MemoryStream(imageBytes);
                                                 bitmap = new Bitmap(stream);
                                             }
-                                            
+
                                             // Wrap the bitmap in a Grasshopper-compatible image object
                                             branchResults.Add(new GH_ObjectWrapper(bitmap));
                                             branchRevisedPrompts.Add(new GH_String(revisedPrompt));

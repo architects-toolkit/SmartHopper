@@ -67,17 +67,17 @@ namespace SmartHopper.Components.Grasshopper
 
             if (!run)
             {
-                if (lastNames.Count > 0)
+                if (this.lastNames.Count > 0)
                 {
-                    DA.SetDataList(0, lastNames);
-                    DA.SetDataList(1, lastGuids);
-                    DA.SetData(2, lastJson);
+                    DA.SetDataList(0, this.lastNames);
+                    DA.SetDataList(1, this.lastGuids);
+                    DA.SetData(2, this.lastJson);
                 }
                 else
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
-                        "Set Run to True to execute the component");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
                 }
+
                 return;
             }
 
@@ -106,7 +106,7 @@ namespace SmartHopper.Components.Grasshopper
                 var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                         "Tool 'gh_list_components' did not return a valid result");
                     return;
                 }
@@ -115,9 +115,9 @@ namespace SmartHopper.Components.Grasshopper
                 var guids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var json = toolResult["json"]?.ToString() ?? string.Empty;
 
-                lastNames = names;
-                lastGuids = guids;
-                lastJson = json;
+                this.lastNames = names;
+                this.lastGuids = guids;
+                this.lastJson = json;
 
                 DA.SetDataList(0, names);
                 DA.SetDataList(1, guids);
@@ -125,7 +125,7 @@ namespace SmartHopper.Components.Grasshopper
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
     }

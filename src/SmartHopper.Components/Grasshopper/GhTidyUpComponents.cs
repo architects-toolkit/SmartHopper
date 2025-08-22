@@ -102,21 +102,21 @@ namespace SmartHopper.Components.Grasshopper
 
             if (!(runObj is GH_Boolean run))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
                 return;
             }
 
             if (!run.Value)
             {
-                if (LastErrors.Count > 0)
-                    DA.SetDataList(0, LastErrors);
+                if (this.LastErrors.Count > 0)
+                    DA.SetDataList(0, this.LastErrors);
                 else
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute tidy up");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute tidy up");
                 return;
             }
 
-            LastErrors.Clear();
-            var guids = SelectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
+            this.LastErrors.Clear();
+            var guids = this.SelectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
             if (!guids.Any())
             {
                 this.LastErrors.Add("No components selected");
@@ -162,9 +162,9 @@ namespace SmartHopper.Components.Grasshopper
             }
             catch (Exception ex)
             {
-                LastErrors.Add(ex.Message);
+                this.LastErrors.Add(ex.Message);
             }
-            DA.SetDataList(0, LastErrors);
+            DA.SetDataList(0, this.LastErrors);
         }
     }
 }
