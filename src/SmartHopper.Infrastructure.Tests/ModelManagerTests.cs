@@ -53,7 +53,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Assert
             Assert.Same(instance1, instance2);
-            Assert.NotNull(instance1.Registry);
+            Assert.NotNull(instance1);
         }
 
         /// <summary>

@@ -47,6 +47,41 @@ namespace SmartHopper.Infrastructure.AIModels
         public AICapability Default { get; set; } = AICapability.None;
 
         /// <summary>
+        /// Indicates the model has been verified to work end-to-end in SmartHopper.
+        /// </summary>
+        public bool Verified { get; set; } = false;
+
+        /// <summary>
+        /// Whether the provider supports streaming with this model.
+        /// </summary>
+        public bool SupportsStreaming { get; set; } = false;
+
+        /// <summary>
+        /// Whether the provider supports prompt caching with this model.
+        /// </summary>
+        public bool SupportsPromptCaching { get; set; } = false;
+
+        /// <summary>
+        /// Optional ranking to break ties when multiple models match; higher is preferred.
+        /// </summary>
+        public int Rank { get; set; } = 0;
+
+        /// <summary>
+        /// Indicates whether this model is deprecated.
+        /// </summary>
+        public bool Deprecated { get; set; } = false;
+
+        /// <summary>
+        /// Alternative names that should resolve to this model.
+        /// </summary>
+        public List<string> Aliases { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Provider-defined cache key strategy name or hint (optional).
+        /// </summary>
+        public string CacheKeyStrategy { get; set; } = string.Empty;
+
+        /// <summary>
         /// Checks if this model supports a specific capability.
         /// </summary>
         /// <param name="capability">The capability to check for.</param>
