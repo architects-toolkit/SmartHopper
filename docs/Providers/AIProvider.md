@@ -11,8 +11,8 @@ Offer a template-method style pipeline for providers: register models, load sett
 ## Highlights
 
 - Initialization (`InitializeProviderAsync`)
-  - Retrieves `Models.RetrieveCapabilities()` and `RetrieveDefault()`.
-  - Registers model capabilities and defaults with `ModelManager`.
+  - Retrieves `Models.RetrieveModels()`.
+  - Registers provider models and capabilities with `ModelManager` (single source of truth).
   - Loads default setting values from descriptors and merges with stored settings.
 - Settings helpers
   - `GetSetting<T>(key)` with type conversion and recursion guard.

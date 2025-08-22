@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
 - `AIRequestCall`: optional parameter to process pending tool calls natively during execution.
 - Summary documentation at `docs/` (linked in README).
+- `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
 
 ### Changed
 
@@ -33,13 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
 - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
 Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
-- Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
- 
- ### Removed
+- Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
+- Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
+- Unified model retrieval via `IAIProviderModels.RetrieveModels()` with centralized registration in `ModelManager`. Components (e.g., `AIModelsComponent`) and tests updated to query `ModelManager` instead of calling per-provider legacy methods.
+
+### Removed
 
 - Removed the `TemplateProvider` since it will be explained in documentation.
 - Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
 - Removed `AIToolCall.ReplaceReuseCount()` in favor of unified metrics handling.
+- Removed legacy model retrieval methods across providers/tests/docs: `RetrieveAvailable`, `RetrieveCapabilities`, and `RetrieveDefault`. Providers must expose models exclusively via `RetrieveModels()` during async initialization.
 
 ### Fixed
 

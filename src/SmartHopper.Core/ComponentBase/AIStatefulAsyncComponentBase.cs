@@ -26,6 +26,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -144,9 +145,16 @@ namespace SmartHopper.Core.ComponentBase
                 return string.Empty;
             }
 
-            string actualModel = provider.Models.GetModel(model);
+            // If user specified a model, pass it through
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                return model;
+            }
 
-            return actualModel;
+            // Otherwise use centralized default selection via ModelManager
+            var providerName = provider.Name;
+            var selected = ModelManager.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
+            return selected ?? string.Empty;
         }
 
         #endregion

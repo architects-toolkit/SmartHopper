@@ -58,7 +58,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
             {
-                messages.Add($"(Info) Model '{this.model}' is not capable for this request - the default model '{this.GetModelToUse()}' will be used");
+                messages.Add($"(Info) Using model '{this.GetModelToUse()}' for this request instead of requested '{this.model}' based on provider configuration and model selection policy.");
             }
 
             return (!hasErrors, messages);
@@ -117,45 +117,12 @@ namespace SmartHopper.Infrastructure.AICall
                 return string.Empty;
             }
 
-            var defaultModel = provider.GetDefaultModel(this.Capability);
+            // Use provider settings default as preferred fallback
+            var preferredDefault = provider.GetDefaultModel(this.Capability, useSettings: true);
 
-            if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
-            {
-                return defaultModel;
-            }
-
-            // Validate capabilities and return default if not capable
-            if (!this.ValidModelCapabilities())
-            {
-                return defaultModel;
-            }
-
-            return this.model;
-        }
-
-        /// <summary>
-        /// Validates the model capabilities and mentions the default model that will be used if the specified model is not capable to perform this request.
-        /// </summary>
-        private bool ValidModelCapabilities()
-        {
-            if (this.Capability == AICapability.None)
-            {
-                return true;
-            }
-            
-            if (string.IsNullOrEmpty(this.Provider))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(this.model))
-            {
-                return false;
-            }
-
-            // Validate capabilities
-            bool valid = ModelManager.Instance.ValidateCapabilities(this.Provider, this.model, this.Capability);
-            return valid;
+            // Centralized selection & fallback in ModelManager
+            var selected = ModelManager.Instance.SelectBestModel(provider.Name, this.model, this.Capability, preferredDefault);
+            return selected;
         }
     }
 }

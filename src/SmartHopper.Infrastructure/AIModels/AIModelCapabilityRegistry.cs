@@ -8,6 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -16,18 +17,18 @@ namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
     /// Registry containing capability information for all known models.
+    /// Thread-safe: uses ConcurrentDictionary for reads/writes.
     /// </summary>
     public class AIModelCapabilityRegistry
     {
         /// <summary>
         /// Dictionary of model capabilities keyed by "provider.model".
         /// </summary>
-        public Dictionary<string, AIModelCapabilities> Models { get; } = new Dictionary<string, AIModelCapabilities>();
+        public ConcurrentDictionary<string, AIModelCapabilities> Models { get; } = new ConcurrentDictionary<string, AIModelCapabilities>();
 
         /// <summary>
         /// Gets capabilities for a specific model.
-        /// Supports wildcard matching where models stored with '*' suffix can match more specific model names.
-        /// For example, 'o4-mini*' matches 'o4-mini-2025-04-16' and 'o4-mini'.
+        /// Enforces exact name or alias matching only. Wildcard patterns are not supported.
         /// </summary>
         /// <param name="provider">The provider name.</param>
         /// <param name="model">The model name.</param>
@@ -43,54 +44,20 @@ namespace SmartHopper.Infrastructure.AIModels
                 Debug.WriteLine($"[GetCapabilities] Found exact match for '{key}' with capabilities {capabilities.Capabilities.ToDetailedString()}");
                 return capabilities;
             }
-
-            Debug.WriteLine($"[GetCapabilities] No exact match for '{key}', trying wildcard matching");
-
-            // Try wildcard matching - look for stored keys ending with '*' that match our model prefix
-            var providerPrefix = $"{provider?.ToLower()}.";
+            
+            // Fallback: search by alias within the same provider
+            var providerLower = provider?.ToLower();
             var modelLower = model?.ToLower();
-            Debug.WriteLine($"[GetCapabilities] Wildcard search: providerPrefix='{providerPrefix}', modelLower='{modelLower}'");
-            Debug.WriteLine($"[GetCapabilities] Registry has {this.Models.Count} total models");
+            var byAlias = this.Models.Values
+                .Where(m => m != null && m.Provider.Equals(providerLower))
+                .FirstOrDefault(m => m.Aliases != null && m.Aliases.Any(a => string.Equals(a, modelLower, System.StringComparison.OrdinalIgnoreCase)));
 
-            foreach (var kvp in this.Models)
+            if (byAlias != null)
             {
-                var storedKey = kvp.Key;
-                Debug.WriteLine($"[GetCapabilities] Checking registry key: '{storedKey}'");
-
-                // Skip null keys (shouldn't happen but defensive programming)
-                if (storedKey == null)
-                {
-                    Debug.WriteLine($"[GetCapabilities] Skipping null key");
-                    continue;
-                }
-                
-                // Check if stored key is for same provider and ends with wildcard
-                if (storedKey.StartsWith(providerPrefix) && storedKey.EndsWith("*"))
-                {
-                    Debug.WriteLine($"[GetCapabilities] Found wildcard candidate: '{storedKey}'");
-                    // Extract the model part without provider prefix and wildcard suffix
-                    var storedModelPrefix = storedKey.Substring(providerPrefix.Length, storedKey.Length - providerPrefix.Length - 1);
-                    Debug.WriteLine($"[GetCapabilities] Extracted prefix: '{storedModelPrefix}', checking if '{modelLower}' starts with it");
-                    
-                    // Check if our model name starts with the stored prefix
-                    if (modelLower != null && modelLower.StartsWith(storedModelPrefix))
-                    {
-                        Debug.WriteLine($"[GetCapabilities] MATCH! Returning capabilities: {kvp.Value.Capabilities.ToDetailedString()}");
-                        return kvp.Value;
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[GetCapabilities] No prefix match for '{storedKey}'");
-                    }
-                }
-                else
-                {
-                    Debug.WriteLine($"[GetCapabilities] Key '{storedKey}' doesn't match wildcard criteria");
-                }
+                Debug.WriteLine($"[GetCapabilities] Found alias match for '{key}' -> '{byAlias.GetKey()}'");
+                return byAlias;
             }
-            
-            Debug.WriteLine($"[GetCapabilities] No wildcard match found for '{key}'");
-            
+
             return null;
         }
 
@@ -124,48 +91,8 @@ namespace SmartHopper.Infrastructure.AIModels
         }
 
         /// <summary>
-        /// Resolves a model name, converting wildcard patterns to actual model names when possible.
-        /// </summary>
-        /// <param name="modelName">The model name to resolve (may contain wildcards).</param>
-        /// <param name="provider">The provider name.</param>
-        /// <returns>The resolved model name, or the original if no resolution is possible.</returns>
-        private string ResolveModelName(string modelName, string provider)
-        {
-            if (string.IsNullOrEmpty(modelName) || !modelName.Contains("*"))
-            {
-                // Not a wildcard pattern, return as-is
-                return modelName;
-            }
-
-            Debug.WriteLine($"[ModelManager] Resolving wildcard pattern {modelName} for provider {provider}");
-
-            // Extract the prefix (part before the *)
-            var wildcardPrefix = modelName.Replace("*", "");
-            
-            // Find all non-wildcard models from the same provider that match the prefix
-            var matchingModels = this.Models.Values
-                .Where(m => m != null &&
-                            string.Equals(m.Provider, provider, System.StringComparison.OrdinalIgnoreCase) &&
-                            !m.Model.Contains("*") && // Exclude wildcard patterns
-                            m.Model.ToLower().StartsWith(wildcardPrefix.ToLower()))
-                .OrderBy(m => m.Model) // Consistent ordering
-                .ToList();
-
-            if (matchingModels.Any())
-            {
-                var resolvedModel = matchingModels.First().Model;
-                Debug.WriteLine($"[ModelManager] Resolved {modelName} to {resolvedModel}");
-                return resolvedModel;
-            }
-
-            Debug.WriteLine($"[ModelManager] Could not resolve wildcard {modelName}, returning as-is");
-            return modelName;  // Fallback to original if no match found
-        }
-
-        /// <summary>
         /// Gets the default model for a provider and specific capability.
-        /// First looks for concrete model names, then falls back to wildcard patterns.
-        /// Prioritizes exact capability matches, then compatible models.
+        /// Exact names only; no wildcard resolution. Prioritizes exact default flag; then any compatible default.
         /// </summary>
         /// <param name="provider">The provider name.</param>
         /// <param name="requiredCapability">The required capability.</param>
@@ -186,9 +113,8 @@ namespace SmartHopper.Infrastructure.AIModels
             if (!providerModels.Any())
                 return null;
 
-            // PRIORITY 1: Concrete model names with exact capability match
+            // PRIORITY 1: Exact defaults for the required capability
             var concreteExactModel = providerModels
-                .Where(m => !m.Model.Contains("*"))  // Concrete names only
                 .FirstOrDefault(m => (m.Default & requiredCapability) == requiredCapability);
 
             if (concreteExactModel != null)
@@ -197,9 +123,8 @@ namespace SmartHopper.Infrastructure.AIModels
                 return concreteExactModel.Model;
             }
 
-            // PRIORITY 2: Concrete model names with compatible capability
+            // PRIORITY 2: Any default that is compatible with the required capability
             var concreteCompatibleModel = providerModels
-                .Where(m => !m.Model.Contains("*"))  // Concrete names only
                 .Where(m => m.Default != AICapability.None && m.HasCapability(requiredCapability))
                 .FirstOrDefault();
 
@@ -207,29 +132,6 @@ namespace SmartHopper.Infrastructure.AIModels
             {
                 Debug.WriteLine($"[ModelManager] Found concrete compatible default model {concreteCompatibleModel.Model} for {provider} with capability {requiredCapability.ToDetailedString()}");
                 return concreteCompatibleModel.Model;
-            }
-
-            // PRIORITY 3: Wildcard patterns with exact capability match (resolve to concrete names)
-            var wildcardExactModel = providerModels
-                .Where(m => m.Model.Contains("*"))  // Wildcard patterns only
-                .FirstOrDefault(m => (m.Default & requiredCapability) == requiredCapability);
-
-            if (wildcardExactModel != null)
-            {
-                Debug.WriteLine($"[ModelManager] Found wildcard exact default model {wildcardExactModel.Model} for {provider} with capability {requiredCapability.ToDetailedString()}, attempting resolution");
-                return ResolveModelName(wildcardExactModel.Model, provider);
-            }
-
-            // PRIORITY 4: Wildcard patterns with compatible capability (resolve to concrete names)
-            var wildcardCompatibleModel = providerModels
-                .Where(m => m.Model.Contains("*"))  // Wildcard patterns only
-                .Where(m => m.Default != AICapability.None && m.HasCapability(requiredCapability))
-                .FirstOrDefault();
-
-            if (wildcardCompatibleModel != null)
-            {
-                Debug.WriteLine($"[ModelManager] Found wildcard compatible default model {wildcardCompatibleModel.Model} for {provider} with capability {requiredCapability.ToDetailedString()}, attempting resolution");
-                return ResolveModelName(wildcardCompatibleModel.Model, provider);
             }
 
             Debug.WriteLine($"[ModelManager] No default model found for {provider} with capability {requiredCapability.ToDetailedString()}");

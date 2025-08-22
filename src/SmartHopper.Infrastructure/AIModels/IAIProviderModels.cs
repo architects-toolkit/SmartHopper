@@ -14,40 +14,15 @@ using System.Threading.Tasks;
 namespace SmartHopper.Infrastructure.AIModels
 {
     /// <summary>
-    /// Interface for AI provider model management operations.
+    /// Interface for AI provider model metadata retrieval.
+    /// Providers must return concrete models (no wildcards) with full metadata.
     /// </summary>
     public interface IAIProviderModels
     {
         /// <summary>
-        /// Gets the model to use for AI processing.
+        /// Retrieves all models with full metadata for this provider.
         /// </summary>
-        /// <param name="requestedModel">The requested model, or empty for default.</param>
-        /// <returns>The model to use.</returns>
-        string GetModel(string requestedModel = "");
-
-        /// <summary>
-        /// Retrieves the list of available model names for this provider.
-        /// </summary>
-        /// <returns>A list of available model names.</returns>
-        Task<List<string>> RetrieveAvailable();
-
-        /// <summary>
-        /// Gets all models and their capabilities supported by this provider.
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        Task<Dictionary<string, AICapability>> RetrieveCapabilities();
-
-        /// <summary>
-        /// Gets the capability information for a specific model.
-        /// </summary>
-        /// <param name="model">The model name.</param>
-        /// <returns>Model capabilities or null if not found.</returns>
-        AICapability RetrieveCapabilities(string model);
-
-        /// <summary>
-        /// Gets all default models supported by this provider.
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        Dictionary<string, AICapability> RetrieveDefault();
+        /// <returns>List of model capability records (concrete names only).</returns>
+        Task<List<AIModelCapabilities>> RetrieveModels();
     }
 }
