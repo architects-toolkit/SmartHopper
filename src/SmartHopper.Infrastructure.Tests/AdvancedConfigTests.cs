@@ -72,6 +72,14 @@ namespace SmartHopper.Infrastructure.Tests
 
             public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true) => "dummy_test_model";
 
+            public string SelectModel(AICapability requiredCapability, string requestedModel)
+            {
+                // For tests, prefer requested model when provided; otherwise fall back to default.
+                return string.IsNullOrEmpty(requestedModel)
+                    ? this.GetDefaultModel(requiredCapability, useSettings: true)
+                    : requestedModel;
+            }
+
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
             }

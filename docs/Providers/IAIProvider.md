@@ -28,6 +28,7 @@ Provide a stable interface so components and tools can call any provider in a pr
   - `IAIReturn PostCall(IAIReturn response)`
 - Model selection
   - `string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)`
+  - `string SelectModel(AICapability requiredCapability, string requestedModel)`
 - Settings
   - `void RefreshCachedSettings(Dictionary<string, object> settings)`
   - `IEnumerable<SettingDescriptor> GetSettingDescriptors()`
@@ -35,7 +36,8 @@ Provide a stable interface so components and tools can call any provider in a pr
 ## Usage
 
 - Implement providers by either implementing this interface or deriving from `AIProvider`.
-- Use `Models` to resolve the model from a user request or defaults.
+- Use `SelectModel(requiredCapability, requestedModel)` to resolve the concrete, API-ready model for a request.
+- Use `GetDefaultModel(...)` only for fallback/default display purposes.
 - Implement `Encode/Decode` to translate between SmartHopper models and the provider API schema.
 - Use `PreCall/Call/PostCall` to customize end-to-end request handling.
 
