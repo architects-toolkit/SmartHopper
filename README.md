@@ -134,6 +134,9 @@ No usage examples available at the moment.
 Every great innovation starts with a single contribution. Whether you're a designer, developer, or AI enthusiast, your unique perspective can help shape the future of computational design tools.
 
 Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
+## 🏗 Architecture
+
+See the architecture overview in [docs/Architecture.md](docs/Architecture.md).
 
 ## 📝 Changelog
 
