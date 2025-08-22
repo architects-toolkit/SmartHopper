@@ -137,11 +137,11 @@ namespace SmartHopper.Components.AI
                         return;
                     }
 
-                    // Ensure provider is initialized so models get registered into ModelManager (idempotent)
+                    // Initialize provider (ensures settings and provider state are ready)
                     await provider.InitializeProviderAsync().ConfigureAwait(false);
 
-                    // Retrieve registered models from ModelManager
-                    var caps = ModelManager.Instance.GetProviderModels(provider.Name) ?? new List<AIModelCapabilities>();
+                    // Retrieve models directly from the provider (no global singleton)
+                    var caps = await provider.Models.RetrieveModels().ConfigureAwait(false) ?? new List<AIModelCapabilities>();
                     if (caps == null || caps.Count == 0)
                     {
                         this._result["Success"] = false;
