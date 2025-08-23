@@ -147,7 +147,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("result", parsedResult.Value);
 
                 var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
 
                 output.CreateSuccess(toolBody);
                 return output;

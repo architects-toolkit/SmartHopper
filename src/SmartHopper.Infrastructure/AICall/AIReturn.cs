@@ -99,6 +99,18 @@ namespace SmartHopper.Infrastructure.AICall
                     }
                 }
 
+                // 3) Include body messages (aggregated from interactions and body validation)
+                if (this.Body != null && this.Body.Messages != null)
+                {
+                    foreach (var m in this.Body.Messages)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
+                }
+
                 // 4) Include request messages (request computes validation dynamically)
                 if (this.Request != null && this.Request.Messages != null)
                 {
@@ -325,7 +337,7 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         /// <param name="source">Source return to merge from.</param>
         /// <param name="assumedOrigin">Origin to tag merged messages with (for context).</param>
-        public void MergeRuntimeMessagesFrom(IAIReturn source, AIRuntimeMessageOrigin assumedOrigin = AIRuntimeMessageOrigin.Return)
+        protected void MergeRuntimeMessagesFrom(IAIReturn source, AIRuntimeMessageOrigin assumedOrigin = AIRuntimeMessageOrigin.Return)
         {
             if (source == null)
             {

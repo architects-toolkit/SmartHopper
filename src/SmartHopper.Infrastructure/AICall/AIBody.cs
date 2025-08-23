@@ -113,6 +113,62 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
+        /// Aggregated structured messages from body validation and interaction-specific messages.
+        /// </summary>
+        public List<AIRuntimeMessage> Messages
+        {
+            get
+            {
+                var combined = new List<AIRuntimeMessage>();
+                var seen = new HashSet<string>(System.StringComparer.Ordinal);
+
+                // 1) Body validation messages
+                var (ok, errors) = this.IsValid();
+                if (errors != null)
+                {
+                    foreach (var m in errors)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
+                }
+
+                // 2) Interaction-level messages
+                if (this._interactions != null)
+                {
+                    foreach (var interaction in this._interactions)
+                    {
+                        if (interaction is AIInteractionToolResult tr && tr.Messages != null)
+                        {
+                            foreach (var m in tr.Messages)
+                            {
+                                if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                                {
+                                    combined.Add(m);
+                                }
+                            }
+                        }
+
+                        if (interaction is AIInteractionImage img && img.Messages != null)
+                        {
+                            foreach (var m in img.Messages)
+                            {
+                                if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                                {
+                                    combined.Add(m);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return combined;
+            }
+        }
+
+        /// <summary>
         /// Validates the body.
         /// </summary>
         public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
@@ -261,21 +317,14 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
-        /// </summary>
-        /// <param name="body">The textual content of the interaction.</param>
-        public void AddInteractionToolResult(JObject body, AIMetrics metrics)
-        {
-            this.AddLastInteraction(CreateInteractionToolResult(body, metrics));
-        }
-
-        /// <summary>
-        /// Adds an interaction tool result to the end of the interaction history.
+        /// Adds an interaction tool result to the end of the interaction history, carrying metrics and messages.
         /// </summary>
         /// <param name="body">The JSON result of the tool execution.</param>
-        public void AddInteractionToolResult(JObject body)
+        /// <param name="metrics">Optional metrics associated with the tool execution.</param>
+        /// <param name="messages">Optional structured runtime messages to attach to the tool result.</param>
+        public void AddInteractionToolResult(JObject body, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
         {
-            this.AddLastInteraction(CreateInteractionToolResult(body, null));
+            this.AddLastInteraction(CreateInteractionToolResult(body, metrics, messages));
         }
 
         /// <summary>
@@ -409,12 +458,13 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Creates a new AIInteraction<string> from an agent name and body string.
+        /// Creates a new AIInteractionToolResult from a JSON result, metrics and optional messages.
         /// </summary>
-        /// <param name="body">The textual content.</param>
+        /// <param name="result">The JSON result.</param>
         /// <param name="metrics">The metrics associated with the interaction.</param>
-        /// <returns>The created AIInteraction<string>.</returns>
-        private static AIInteractionToolResult CreateInteractionToolResult(JObject result, AIMetrics metrics)
+        /// <param name="messages">Structured runtime messages to attach.</param>
+        /// <returns>The created AIInteractionToolResult.</returns>
+        private static AIInteractionToolResult CreateInteractionToolResult(JObject result, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
         {
             if (metrics is null)
             {
@@ -426,6 +476,12 @@ namespace SmartHopper.Infrastructure.AICall
                 Result = result,
                 Metrics = metrics,
             };
+
+            if (messages != null)
+            {
+                interaction.Messages = messages;
+            }
+
             return interaction;
         }
 
