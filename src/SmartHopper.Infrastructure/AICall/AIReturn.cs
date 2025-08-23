@@ -33,6 +33,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private AIMetrics PrivateGlobalMetrics { get; set; } = new AIMetrics();
 
+        /// <summary>
+        /// Internal storage for messages.
+        /// </summary>
+        private List<string> PrivateMessages { get; set; } = new List<string>();
+
         /// <inheritdoc/>
         public AIBody Body { get; private set; } = new AIBody();
 
@@ -65,7 +70,85 @@ namespace SmartHopper.Infrastructure.AICall
         public string ErrorMessage { get; set; }
 
         /// <inheritdoc/>
-        public List<string> Messages { get; set; } = new List<string>();
+        public List<string> Messages
+        {
+            get
+            {
+                // Ensure backing list exists
+                this.PrivateMessages ??= new List<string>();
+                var messages = this.PrivateMessages;
+
+                // Reflect ErrorMessage into messages
+                if (!string.IsNullOrEmpty(this.ErrorMessage))
+                {
+                    var formatted = this.ErrorMessage.StartsWith("(", StringComparison.Ordinal)
+                        ? this.ErrorMessage
+                        : $"(Error) {this.ErrorMessage}";
+
+                    // Avoid duplicates (exact match)
+                    if (!messages.Contains(formatted))
+                    {
+                        messages.Add(formatted);
+                    }
+                }
+
+                // Get request Messages and add them to messages
+                if (this.Request != null)
+                {
+                    messages.AddRange(this.Request.Messages);
+                }
+
+                // Add IsValid messages
+                var (isValid, errors) = this.IsValid();
+                if (!isValid)
+                {
+                    messages.AddRange(errors);
+                }
+
+                // Sort messages by (Error) or no ( at the begining, (Warning) and (Info)
+                messages.Sort((a, b) =>
+                {
+                    // Top priority: messages starting with (Error) OR without any '(' prefix
+                    var aTop = a.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !a.StartsWith("(", StringComparison.Ordinal);
+                    var bTop = b.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !b.StartsWith("(", StringComparison.Ordinal);
+                    if (aTop && !bTop)
+                    {
+                        return -1;
+                    }
+                    if (bTop && !aTop)
+                    {
+                        return 1;
+                    }
+
+                    // Next: (Warning)
+                    if (a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return -1;
+                    }
+                    if (b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 1;
+                    }
+
+                    // Next: (Info)
+                    if (a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return -1;
+                    }
+                    if (b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 1;
+                    }
+                    return 0;
+                });
+
+                return messages;
+            }
+            set
+            {
+                this.PrivateMessages = value ?? new List<string>();
+            }
+        }
 
         /// <inheritdoc/>
         public bool Success => string.IsNullOrEmpty(this.ErrorMessage);

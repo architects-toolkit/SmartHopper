@@ -44,16 +44,16 @@ namespace SmartHopper.Infrastructure.AICall
         string ErrorMessage { get; set; }
 
         /// <summary>
+        /// Gets a value indicating whether the evaluation was successful.
+        /// </summary>
+        bool Success { get; }
+
+        /// <summary>
         /// Gets or sets validation messages produced during request preparation and execution.
         /// These are informational, warning, or error notes that should be surfaced by components.
         /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".
         /// </summary>
         List<string> Messages { get; set; }
-
-        /// <summary>
-        /// Gets a value indicating whether the evaluation was successful.
-        /// </summary>
-        bool Success { get; }
 
         /// <summary>
         /// Value indicating whether the structure of this IAIReturn is valid.
