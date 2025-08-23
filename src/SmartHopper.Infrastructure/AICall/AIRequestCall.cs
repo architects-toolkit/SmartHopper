@@ -242,9 +242,6 @@ namespace SmartHopper.Infrastructure.AICall
                             {
                                 result.Body.AddLastInteraction(last);
                             }
-
-                            // Merge tool messages and error into the main return
-                            result.MergeRuntimeMessagesFrom(toolResult, AIRuntimeMessageOrigin.Tool);
                         }
                     }
                 }

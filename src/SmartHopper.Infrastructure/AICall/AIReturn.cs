@@ -331,38 +331,6 @@ namespace SmartHopper.Infrastructure.AICall
             this.PrivateStructuredMessages.Add(new AIRuntimeMessage(severity, origin, text ?? string.Empty));
         }
 
-        /// <summary>
-        /// Merges messages and error indicator from another return into this one.
-        /// Does NOT copy the source ErrorMessage into this.ErrorMessage; it only surfaces it as a message.
-        /// </summary>
-        /// <param name="source">Source return to merge from.</param>
-        /// <param name="assumedOrigin">Origin to tag merged messages with (for context).</param>
-        protected void MergeRuntimeMessagesFrom(IAIReturn source, AIRuntimeMessageOrigin assumedOrigin = AIRuntimeMessageOrigin.Return)
-        {
-            if (source == null)
-            {
-                return;
-            }
-
-            // Merge structured messages from source (they already carry severity and origin)
-            if (source.Messages != null)
-            {
-                foreach (var m in source.Messages)
-                {
-                    if (m != null)
-                    {
-                        this.PrivateStructuredMessages.Add(m);
-                    }
-                }
-            }
-
-            // If the source had an error, surface it as a structured message on this return with the provided origin
-            if (!string.IsNullOrEmpty(source.ErrorMessage))
-            {
-                this.PrivateStructuredMessages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, assumedOrigin, source.ErrorMessage));
-            }
-        }
-
         /// <inheritdoc/>
         public void SetBody(AIBody body)
         {
