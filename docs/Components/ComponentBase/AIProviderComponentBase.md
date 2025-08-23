@@ -21,5 +21,5 @@ Expose provider selection via context menu and store the selection so derived co
 
 ## Related
 
-- [AIComponentAttributes](../Helpers/AIComponentAttributes.md) – draws a provider logo/badge on the component.
+- [AIProviderComponentAttributes](../Helpers/AIProviderComponentAttributes.md) – draws a provider logo/badge on the component.
 - [AIStatefulAsyncComponentBase](./StatefulAsyncComponentBase.md) – combines this base with the async state machine.

@@ -165,7 +165,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public override void CreateAttributes()
         {
-            this.m_attributes = new AIComponentAttributes(this);
+            this.m_attributes = new AIProviderComponentAttributes(this);
         }
 
         /// <summary>

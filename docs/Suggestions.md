@@ -138,9 +138,10 @@ Breaking changes are acceptable; this is a forward-looking plan.
 
 - [ ] AI Provider streaming of responses
 - [ ] AI Provider-side prompt caching
-- [ ] AI Call cancellation token
+- [ ] AI Call cancellation token, callable by the user in components (cancelled state), webchat (with new ui button to cancel current call) and automatically called on closing webchat dialog or rhino
 - [ ] AI Call local caching of responses to avoid recomputation
 - [ ] AI Call compatibility with parallel tool calling
 - [ ] AI tool to generate Grasshopper definitions in GHJSON format
-- [ ] New way to save Grasshopper files in GHJSON format
+- [ ] New way to save Grasshopper files in GHJSON format to disk
 - [ ] Improve WebChat UI with full html environment, including dynamic loading messages, supporting streaming, different interaction type (image, audio, text, toolcall, toolresult...)
+- [ ] Add compatibility in persistant data storage and GhJson to more Grasshopper native data types (colors, points, vectors, lines, plane, circle...)
