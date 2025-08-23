@@ -138,7 +138,7 @@ Breaking changes are acceptable; this is a forward-looking plan.
 
 - [ ] AI Provider streaming of responses
 - [ ] AI Provider-side prompt caching
-- [ ] AI Call cancellation token 
+- [ ] AI Call cancellation token
 - [ ] AI Call local caching of responses to avoid recomputation
 - [ ] AI Call compatibility with parallel tool calling
 - [ ] AI tool to generate Grasshopper definitions in GHJSON format

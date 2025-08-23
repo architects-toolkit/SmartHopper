@@ -96,13 +96,5 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="origin">The message origin.</param>
         /// <param name="text">The message text.</param>
         void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text);
-
-        /// <summary>
-        /// Merges messages (and error indicator as a structured message) from another return.
-        /// Does not copy the source ErrorMessage field directly.
-        /// </summary>
-        /// <param name="source">The source return to merge messages from.</param>
-        /// <param name="assumedOrigin">Origin to tag merged ErrorMessage with, if any.</param>
-        void MergeRuntimeMessagesFrom(IAIReturn source, AIRuntimeMessageOrigin assumedOrigin = AIRuntimeMessageOrigin.Return);
     }
 }

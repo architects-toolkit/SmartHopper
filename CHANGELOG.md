@@ -43,7 +43,7 @@ Providers refactored to use `AIInteractionText.SetResult(...)` for consistent co
   - `AIProvider` base now implements `SelectModel(...)` delegating to centralized `ModelManager.SelectBestModel` while honoring provider defaults/settings.
   - `AIRequestBase.GetModelToUse()` refactored to call `provider.SelectModel(...)` instead of `ModelManager.Instance` directly.
   - Removed remaining direct calls to `ModelManager.Instance.SelectBestModel` outside provider internals.
-  - Propagated model validation messages to components UI. 
+  - Propagated model validation messages to components UI.
 - Docs updated: `docs/Providers/IAIProvider.md`, `docs/Providers/AIProvider.md`, `docs/Providers/ModelSelection.md` to reflect provider-scoped model selection guidance.
 
 ### Removed

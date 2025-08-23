@@ -96,12 +96,6 @@ namespace SmartHopper.Infrastructure.AITools
                     output.ErrorMessage = result.ErrorMessage;
                 }
 
-                if (result.Messages != null && result.Messages.Count > 0)
-                {
-                    // Merge tool messages and surface any tool error as structured message
-                    output.MergeRuntimeMessagesFrom(result, AIRuntimeMessageOrigin.Tool);
-                }
-
                 return output;
             }
             catch (Exception ex)
