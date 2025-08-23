@@ -35,6 +35,7 @@ using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Core.IO;
 using SmartHopper.Infrastructure.Settings;
 using Timer = System.Threading.Timer;
 
@@ -860,7 +861,7 @@ namespace SmartHopper.Core.ComponentBase
                         // Add the properly typed goo value
                         this.SetPersistentOutput(param.Name, gooValue, DA);
 
-                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Successfully restored output '" + param.Name + "' with value '" + gooValue + "' of type '" + this.persistentDataTypes[param.Name] + "'");
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Successfully restored output '{param.Name}' with value '{gooValue}' of runtime type '{gooValue?.GetType()?.FullName ?? "null"}'");
                     }
                     catch (Exception ex)
                     {
@@ -898,41 +899,28 @@ namespace SmartHopper.Core.ComponentBase
                     Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Stored input branch count for '{kvp.Key}': {kvp.Value}");
                 }
 
-                // Store each output with its parameter name
-                foreach (var kvp in this.persistentOutputs)
+                // Build GUID-keyed structure dictionary for v2 persistence
+                var outputsByGuid = new Dictionary<Guid, GH_Structure<IGH_Goo>>();
+                foreach (var p in this.Params.Output)
                 {
-                    string paramName = kvp.Key;
-                    object paramValue = kvp.Value;
-
-                    // Store the value
-                    if (paramValue != null)
+                    if (this.persistentOutputs.TryGetValue(p.Name, out var value) && value is IGH_Structure structure)
                     {
-                        var chunk = new GH_LooseChunk($"Value_{paramName}");
-                        if (paramValue is IGH_Structure structure)
-                        {
 #if DEBUG
-                            LogStructureDetails(structure);
+                        LogStructureDetails(structure);
 #endif
-                            // Use reflection to call Write method
-                            var writeMethod = structure.GetType().GetMethod("Write");
-                            writeMethod?.Invoke(structure, new object[] { chunk });
-                            writer.SetString($"Type_{paramName}", structure.GetType().AssemblyQualifiedName);
-                        }
-                        else
-                        {
-                            break;
-                        }
-
-                        var chunkBytes = chunk.Serialize_Binary();
-
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Serialized chunk size: {chunkBytes.Length} bytes");
-
-                        // Write data
-                        writer.SetByteArray($"Value_{paramName}", chunkBytes);
-
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Stored output '{paramName}' with value '{paramValue}' of type '{paramValue.GetType().FullName}'");
+                        var tree = ConvertToGooTree(structure);
+                        outputsByGuid[p.InstanceGuid] = tree;
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 output for '{p.Name}' ({p.InstanceGuid}) paths={tree.PathCount} items={tree.DataCount}");
+                    }
+                    else if (this.persistentOutputs.TryGetValue(p.Name, out value))
+                    {
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Skipping non-structure output '{p.Name}' of type '{value?.GetType().FullName ?? "null"}'");
                     }
                 }
+
+                // Use safe, versioned persistence
+                var persistence = new GHPersistenceService();
+                persistence.WriteOutputsV2(writer, this, outputsByGuid);
 
                 return true;
             }
@@ -963,53 +951,89 @@ namespace SmartHopper.Core.ComponentBase
             // Clear previous outputs
             this.persistentOutputs.Clear();
 
-            // Restore component specific data
+            // Restore input metadata first
             foreach (var item in reader.Items)
             {
-                string key = item.Name;
-
-                // Restore input hashes
+                var key = item.Name;
                 if (key.StartsWith("InputHash_"))
                 {
                     string paramName = key.Substring("InputHash_".Length);
-
-                    // Store data in local field
                     this.previousInputHashes[paramName] = reader.GetInt32(key);
-
                     Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored input hash for '{paramName}': {this.previousInputHashes[paramName]}");
                 }
-
-                // Restore input branch counts
-                if (key.StartsWith("InputBranchCount_"))
+                else if (key.StartsWith("InputBranchCount_"))
                 {
                     string paramName = key.Substring("InputBranchCount_".Length);
-
-                    // Store data in local field
                     this.previousInputBranchCounts[paramName] = reader.GetInt32(key);
-
                     Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored input branch count for '{paramName}': {this.previousInputBranchCounts[paramName]}");
                 }
+            }
 
-                // Restore outputs
-                if (key.StartsWith("Value_"))
+            // Try safe V2 restore first
+            var persistence = new GHPersistenceService();
+            var v2Outputs = persistence.ReadOutputsV2(reader, this);
+            if (v2Outputs != null && v2Outputs.Count > 0)
+            {
+                foreach (var p in this.Params.Output)
                 {
+                    if (v2Outputs.TryGetValue(p.InstanceGuid, out var tree))
+                    {
+                        this.persistentOutputs[p.Name] = tree;
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Restored V2 output for '{p.Name}' paths={tree.PathCount} items={tree.DataCount}");
+                    }
+                }
+            }
+            else if (PersistenceConstants.EnableLegacyRestore)
+            {
+                // Legacy fallback guarded by feature flag
+                foreach (var item in reader.Items)
+                {
+                    string key = item.Name;
+                    if (!key.StartsWith("Value_")) continue;
                     string paramName = key.Substring("Value_".Length);
 
-                    string typeName = reader.GetString($"Type_{paramName}");
-                    Type type = Type.GetType(typeName);
+                    try
+                    {
+                        string typeName = reader.GetString($"Type_{paramName}");
+                        if (string.IsNullOrWhiteSpace(typeName))
+                        {
+                            Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Missing or empty type name for '{paramName}', skipping restoration.");
+                            continue;
+                        }
 
-                    // Get the binary data and create a chunk from it
-                    byte[] chunkBytes = reader.GetByteArray($"Value_{paramName}");
-                    var chunk = new GH_LooseChunk($"Value_{paramName}");
-                    chunk.Deserialize_Binary(chunkBytes);
+                        Type type = Type.GetType(typeName);
+                        if (type == null)
+                        {
+                            Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Could not resolve type '{typeName}' for '{paramName}', skipping restoration.");
+                            continue;
+                        }
 
-                    // Create an instance of the type and read from chunk
-                    var instance = Activator.CreateInstance(type);
-                    var readMethod = type.GetMethod("Read");
-                    readMethod?.Invoke(instance, new object[] { chunk });
+                        byte[] chunkBytes = reader.GetByteArray($"Value_{paramName}");
+                        if (chunkBytes == null || chunkBytes.Length == 0)
+                        {
+                            Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Empty or missing data chunk for '{paramName}', skipping restoration.");
+                            continue;
+                        }
 
-                    // Store data in local field
-                    this.persistentOutputs[paramName] = instance;
+                        var chunk = new GH_LooseChunk($"Value_{paramName}");
+                        chunk.Deserialize_Binary(chunkBytes);
+
+                        var instance = Activator.CreateInstance(type);
+                        var readMethod = type.GetMethod("Read");
+                        if (instance == null || readMethod == null)
+                        {
+                            Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Unable to create instance or find Read() for '{typeName}', skipping restoration.");
+                            continue;
+                        }
+
+                        readMethod.Invoke(instance, new object[] { chunk });
+                        this.persistentOutputs[paramName] = instance;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Read] Exception while restoring legacy '{paramName}': {ex.Message}");
+                        continue;
+                    }
                 }
             }
 
@@ -1062,6 +1086,42 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 #endif
+
+        /// <summary>
+        /// Converts an <see cref="IGH_Structure"/> into a typed <see cref="GH_Structure{IGH_Goo}"/>.
+        /// Safely casts or converts branch items to IGH_Goo. Never throws.
+        /// </summary>
+        private static GH_Structure<IGH_Goo> ConvertToGooTree(IGH_Structure src)
+        {
+            var dst = new GH_Structure<IGH_Goo>();
+            if (src == null)
+                return dst;
+
+            foreach (var path in src.Paths)
+            {
+                var branch = src.get_Branch(path);
+                if (branch == null)
+                {
+                    dst.EnsurePath(path);
+                    continue;
+                }
+
+                foreach (var item in branch)
+                {
+                    IGH_Goo goo = item as IGH_Goo;
+                    if (goo == null)
+                    {
+                        goo = GH_Convert.ToGoo(item);
+                        if (goo == null)
+                        {
+                            goo = new GH_String(item?.ToString() ?? string.Empty);
+                        }
+                    }
+                    dst.Append(goo, path);
+                }
+            }
+            return dst;
+        }
 
         /// <summary>
         /// Stores a value in the persistent storage.
