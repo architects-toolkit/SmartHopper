@@ -19,10 +19,12 @@
  * - Designed to be extensible for future badges (e.g., automatic model replacement).
  */
 
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
+using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -38,12 +40,17 @@ namespace SmartHopper.Core.ComponentBase
         private const int BADGE_SIZE = 16;               // Size of badges
         private const float MIN_ZOOM_THRESHOLD = 0.5f;   // Minimum zoom to render badges
         private const int BADGE_GAP = 6;                 // Gap between badges
-        private const int FLOAT_OFFSET = 6;              // Vertical offset above component
+        private const int FLOAT_OFFSET = -10;              // Vertical offset above component
 
         // Hover/interaction state for inline labels (generalized)
         private readonly List<RectangleF> badgeRects = new List<RectangleF>();
         private readonly List<string> badgeLabels = new List<string>();
         private int hoverBadgeIndex = -1;
+
+        // Timer-based auto-hide for inline badge labels (disappears after 5s even if still hovered)
+        // Purpose: avoid sticky labels when the cursor remains stationary over a badge.
+        private Timer? badgeLabelTimer;
+        private bool badgeLabelAutoHidden = false;
 
         /// <summary>
         /// Creates a new instance of <see cref="ComponentBadgesAttributes"/>.
@@ -61,6 +68,15 @@ namespace SmartHopper.Core.ComponentBase
         protected override void Layout()
         {
             base.Layout();
+
+            // Ensure the attribute bounds include the floating badges region above the component
+            // so that Grasshopper dispatches mouse events when hovering the badges.
+            var bounds = this.Bounds;
+            float extendTop = FLOAT_OFFSET + BADGE_SIZE;
+            bounds.Y -= extendTop;
+            bounds.Height += extendTop;
+            this.Bounds = bounds;
+
             // Reset hover state when layout changes
             this.badgeRects.Clear();
             this.badgeLabels.Clear();
@@ -77,16 +93,24 @@ namespace SmartHopper.Core.ComponentBase
             base.Render(canvas, graphics, channel);
 
             if (channel != GH_CanvasChannel.Objects)
+            {
                 return;
+            }
 
             if (canvas.Viewport.Zoom < MIN_ZOOM_THRESHOLD)
+            {
                 return;
+            }
 
             if (this.owner is not AIStatefulAsyncComponentBase stateful)
+            {
                 return;
+            }
 
             if (!stateful.TryGetCachedBadgeFlags(out bool showVerified, out bool showDeprecated))
+            {
                 return;
+            }
 
             // Collect badges (built-in + extension point)
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
@@ -133,7 +157,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Draw inline labels last so they appear on top
-            if (this.hoverBadgeIndex >= 0 && this.hoverBadgeIndex < this.badgeRects.Count)
+            if (this.hoverBadgeIndex >= 0 && this.hoverBadgeIndex < this.badgeRects.Count && !this.badgeLabelAutoHidden)
             {
                 var rect = this.badgeRects[this.hoverBadgeIndex];
                 var text = this.badgeLabels[this.hoverBadgeIndex];
@@ -224,15 +248,57 @@ namespace SmartHopper.Core.ComponentBase
                         break;
                     }
                 }
+
                 this.hoverBadgeIndex = newIndex;
             }
 
             if (prevIndex != this.hoverBadgeIndex)
             {
-                this.owner.ExpireSolution(false);
+                // Start/stop 5s auto-hide timer based on hover transitions
+                if (this.hoverBadgeIndex >= 0)
+                {
+                    this.badgeLabelAutoHidden = false;
+                    StartBadgeLabelTimer();
+                }
+                else
+                {
+                    StopBadgeLabelTimer();
+                    this.badgeLabelAutoHidden = false; // reset for next hover
+                }
+
+                this.owner.OnDisplayExpired(false);
             }
 
             return base.RespondToMouseMove(sender, e);
+        }
+
+        /// <summary>
+        /// Starts a one-shot 5s timer to auto-hide the inline badge label and request a repaint.
+        /// </summary>
+        private void StartBadgeLabelTimer()
+        {
+            StopBadgeLabelTimer();
+            this.badgeLabelTimer = new Timer(5000) { AutoReset = false };
+            this.badgeLabelTimer.Elapsed += (_, __) =>
+            {
+                this.badgeLabelAutoHidden = true;
+                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                StopBadgeLabelTimer();
+            };
+            this.badgeLabelTimer.Start();
+        }
+
+        /// <summary>
+        /// Stops and disposes the badge label timer if active.
+        /// </summary>
+        private void StopBadgeLabelTimer()
+        {
+            if (this.badgeLabelTimer != null)
+            {
+                try { this.badgeLabelTimer.Stop(); } catch { /* ignore */ }
+                try { this.badgeLabelTimer.Dispose(); } catch { /* ignore */ }
+                this.badgeLabelTimer = null;
+            }
         }
     }
 }
