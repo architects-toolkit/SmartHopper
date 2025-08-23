@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
@@ -36,9 +37,9 @@ namespace SmartHopper.Infrastructure.AICall
         private AICapability cacheCapability;
 
         /// <summary>
-        /// Internal storage for messages.
+        /// Internal storage for structured messages.
         /// </summary>
-        private List<string> PrivateMessages { get; set; } = new List<string>();
+        private List<AIRuntimeMessage> PrivateMessages { get; set; } = new List<AIRuntimeMessage>();
 
         /// <inheritdoc/>
         public virtual string? Provider { get; set; }
@@ -65,81 +66,68 @@ namespace SmartHopper.Infrastructure.AICall
         public virtual AIBody Body { get; set; } = new AIBody();
 
         /// <inheritdoc/>
-        public List<string> Messages
+        public List<AIRuntimeMessage> Messages
         {
             get
             {
-                // Ensure backing list exists
-                this.PrivateMessages ??= new List<string>();
-                var messages = this.PrivateMessages;
+                // Build combined list without mutating private storage to keep it always up-to-date and deduplicated
+                var combined = new List<AIRuntimeMessage>();
+                var seen = new HashSet<string>(StringComparer.Ordinal);
 
-                // Add IsValid messages
-                var (isValid, errors) = this.IsValid();
-                if (!isValid)
+                // 1) Messages explicitly added to request
+                if (this.PrivateMessages != null)
                 {
-                    messages.AddRange(errors);
+                    foreach (var m in this.PrivateMessages)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
                 }
 
-                // Sort messages by (Error) or no ( at the begining, (Warning) and (Info)
-                messages.Sort((a, b) =>
+                // 2) Dynamic validation messages
+                var (isValid, errors) = this.IsValid();
+                if (errors != null)
                 {
-                    // Top priority: messages starting with (Error) OR without any '(' prefix
-                    var aTop = a.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !a.StartsWith("(", StringComparison.Ordinal);
-                    var bTop = b.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !b.StartsWith("(", StringComparison.Ordinal);
-                    if (aTop && !bTop)
+                    foreach (var m in errors)
                     {
-                        return -1;
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
                     }
-                    if (bTop && !aTop)
-                    {
-                        return 1;
-                    }
+                }
 
-                    // Next: (Warning)
-                    if (a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return -1;
-                    }
-                    if (b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return 1;
-                    }
+                // 3) Sort by severity: Error > Warning > Info
+                int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
+                combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
 
-                    // Next: (Info)
-                    if (a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return -1;
-                    }
-                    if (b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return 1;
-                    }
-                    return 0;
-                });
-
-                return messages;
+                return combined;
             }
+
             set
             {
-                this.PrivateMessages = value ?? new List<string>();
+                this.PrivateMessages = value ?? new List<AIRuntimeMessage>();
             }
         }
 
         /// <inheritdoc/>
-        public virtual (bool IsValid, List<string> Errors) IsValid()
+        public virtual (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
         {
-            var messages = new List<string>();
-            bool hasErrors = false;
+            var messages = new List<AIRuntimeMessage>();
 
             if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
             {
-                messages.Add($"(Info) Model is not specified - the default model '{this.GetModelToUse()}' will be used");
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Model is not specified - the default model '{this.GetModelToUse()}' will be used"));
             }
 
             if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
             {
-                messages.Add($"(Info) Using model '{this.GetModelToUse()}' for this request instead of requested '{this.model}' based on provider configuration and model selection policy.");
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Using model '{this.GetModelToUse()}' for this request instead of requested '{this.model}' based on provider configuration and model selection policy."));
             }
+
+            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
 
             return (!hasErrors, messages);
         }
@@ -219,6 +207,18 @@ namespace SmartHopper.Infrastructure.AICall
             this.cachedSelectedModel = selected;
 
             return selected;
+        }
+
+        /// <summary>
+        /// Helper to build a standardized error return with this request context.
+        /// </summary>
+        /// <param name="message">Error message to set (kept raw).</param>
+        /// <returns>AIReturn with ErrorMessage and Request set.</returns>
+        protected AIReturn BuildErrorReturn(string message)
+        {
+            var ret = new AIReturn();
+            ret.CreateError(message, this);
+            return ret;
         }
     }
 }

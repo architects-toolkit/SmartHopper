@@ -9,7 +9,6 @@
  */
 
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -53,17 +52,57 @@ namespace SmartHopper.Infrastructure.AICall
         /// These are informational, warning, or error notes that should be surfaced by components.
         /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".
         /// </summary>
-        List<string> Messages { get; set; }
+        List<AIRuntimeMessage> Messages { get; set; }
 
         /// <summary>
         /// Value indicating whether the structure of this IAIReturn is valid.
         /// </summary>
-        (bool IsValid, List<string> Errors) IsValid();
+        (bool IsValid, List<AIRuntimeMessage> Errors) IsValid();
 
         /// <summary>
         /// Sets the body of the result.
         /// </summary>
         /// <param name="body">The body to set as result.</param>
         void SetBody(AIBody body);
+
+        /// <summary>
+        /// Creates a standardized provider error while preserving the raw provider message in ErrorMessage.
+        /// Adds a structured message tagged as originating from the provider.
+        /// </summary>
+        /// <param name="rawMessage">Raw provider error message.</param>
+        /// <param name="request">Optional request context.</param>
+        void CreateProviderError(string rawMessage, IAIRequest? request = null);
+
+        /// <summary>
+        /// Creates a standardized network error (e.g., DNS, connectivity) while preserving the raw message.
+        /// Adds a structured message tagged as originating from the network.
+        /// </summary>
+        /// <param name="rawMessage">Raw network error message.</param>
+        /// <param name="request">Optional request context.</param>
+        void CreateNetworkError(string rawMessage, IAIRequest? request = null);
+
+        /// <summary>
+        /// Creates a standardized tool error while preserving the raw message.
+        /// Adds a structured message tagged as originating from a tool.
+        /// </summary>
+        /// <param name="rawMessage">Raw tool error message.</param>
+        /// <param name="request">Optional request context.</param>
+        void CreateToolError(string rawMessage, IAIRequest? request = null);
+
+        /// <summary>
+        /// Adds a structured runtime message without modifying ErrorMessage.
+        /// </summary>
+        /// <param name="severity">The message severity.</param>
+        /// <param name="origin">The message origin.</param>
+        /// <param name="text">The message text.</param>
+        void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text);
+
+        /// <summary>
+        /// Merges messages (and error indicator as a structured message) from another return.
+        /// Does not copy the source ErrorMessage field directly.
+        /// </summary>
+        /// <param name="source">The source return to merge messages from.</param>
+        /// <param name="assumedOrigin">Origin to tag merged ErrorMessage with, if any.</param>
+        void MergeRuntimeMessagesFrom(IAIReturn source, AIRuntimeMessageOrigin assumedOrigin = AIRuntimeMessageOrigin.Return);
     }
 }

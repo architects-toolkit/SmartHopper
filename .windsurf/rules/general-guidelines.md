@@ -24,7 +24,7 @@ trigger: always_on
    5. Archive design decisions (alternatives, rationale, commit refs)
    6. List 3rd‑party deps & integration patterns
    7. Store user preferences & recurring workflows
-   8. Maintain consistency: dedupe, refresh stale entries, remove obsolete
+   8. Maintain consistency of memories: dedupe, refresh stale entries, remove obsolete
 
 # Project specific guidelines
 

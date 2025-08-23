@@ -98,7 +98,8 @@ namespace SmartHopper.Infrastructure.AITools
 
                 if (result.Messages != null && result.Messages.Count > 0)
                 {
-                    output.Messages.AddRange(result.Messages);
+                    // Merge tool messages and surface any tool error as structured message
+                    output.MergeRuntimeMessagesFrom(result, AIRuntimeMessageOrigin.Tool);
                 }
 
                 return output;
@@ -106,8 +107,8 @@ namespace SmartHopper.Infrastructure.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIToolManager] Error executing tool {toolInfo.Name}: {ex.Message}");
-                output.ErrorMessage = $"Error executing tool '{toolInfo.Name}': {ex.Message}";
-                output.Messages.Add(output.ErrorMessage);
+                // Standardize as a tool error and add a structured message tagged with Tool origin
+                output.CreateToolError($"Error executing tool '{toolInfo.Name}': {ex.Message}", toolCall);
                 return output;
             }
         }

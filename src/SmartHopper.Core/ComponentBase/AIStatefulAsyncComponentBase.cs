@@ -362,8 +362,9 @@ namespace SmartHopper.Core.ComponentBase
         #endregion
 
         /// <summary>
-        /// Surfaces messages contained in an <see cref="IAIReturn"/> as persistent runtime messages
-        /// with severity inferred from standardized prefixes.
+        /// Surfaces structured runtime messages contained in an <see cref="IAIReturn"/> as persistent
+        /// Grasshopper runtime messages. Maps <see cref="AIRuntimeMessageSeverity"/> to
+        /// <see cref="GH_RuntimeMessageLevel"/> and prefixes the text with the message <see cref="AIRuntimeMessage.Origin"/>.
         /// </summary>
         /// <param name="aiReturn">The AI return object containing messages.</param>
         /// <param name="keyPrefix">A key prefix to namespace the persistent message keys.</param>
@@ -375,30 +376,23 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             int idx = 0;
-            foreach (var raw in aiReturn.Messages)
+            foreach (var item in aiReturn.Messages)
             {
                 idx++;
 
-                var msg = raw ?? string.Empty;
-                GH_RuntimeMessageLevel level = GH_RuntimeMessageLevel.Remark;
+                // Map structured severity to GH level
+                GH_RuntimeMessageLevel level = item.Severity switch
+                {
+                    AIRuntimeMessageSeverity.Warning => GH_RuntimeMessageLevel.Warning,
+                    AIRuntimeMessageSeverity.Error => GH_RuntimeMessageLevel.Error,
+                    _ => GH_RuntimeMessageLevel.Remark,
+                };
 
-                if (msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
-                {
-                    level = GH_RuntimeMessageLevel.Remark;
-                    msg = msg.Substring("(Info)".Length).TrimStart();
-                }
-                else if (msg.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
-                {
-                    level = GH_RuntimeMessageLevel.Warning;
-                    msg = msg.Substring("(Warning)".Length).TrimStart();
-                }
-                else
-                {
-                    level = GH_RuntimeMessageLevel.Error;
-                    msg = msg.Substring("(Error)".Length).TrimStart();
-                }
+                // Include origin for context, then the message text
+                var originTag = $"[{item.Origin}] ";
+                var msg = (item.Message ?? string.Empty);
 
-                this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, msg, false);
+                this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, originTag + msg, false);
             }
         }
 

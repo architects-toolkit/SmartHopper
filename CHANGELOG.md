@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AIRequestCall`: optional parameter to process pending tool calls natively during execution.
 - Summary documentation at `docs/` (linked in README).
 - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
+- New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
 
 ### Changed
 

@@ -74,28 +74,28 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Value indicating whether the structure of this AIMetrics is valid.
         /// </summary>
-        public (bool IsValid, List<string> Errors) IsValid()
+        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
         {
-            var errors = new List<string>();
+            var errors = new List<AIRuntimeMessage>();
 
             if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
             {
-                errors.Add("Provider and model fields are required");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Provider and model fields are required"));
             }
 
             if (this.InputTokens < 0 || this.OutputTokens < 0)
             {
-                errors.Add("Input and output tokens must be greater than or equal to 0");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Input and output tokens must be greater than or equal to 0"));
             }
 
             if (string.IsNullOrEmpty(this.FinishReason))
             {
-                errors.Add("Finish reason must be set");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Finish reason must be set"));
             }
 
             if (this.CompletionTime < 0)
             {
-                errors.Add("Completion time must be greater than or equal to 0");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Completion time must be greater than or equal to 0"));
             }
 
             return (errors.Count == 0, errors);
