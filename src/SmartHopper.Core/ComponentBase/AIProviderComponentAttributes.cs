@@ -21,19 +21,23 @@ namespace SmartHopper.Core.ComponentBase
     /// Custom attributes for AI components that displays the provider logo
     /// as a badge on the component.
     /// </summary>
-    public class AIComponentAttributes : GH_ComponentAttributes
+    public class AIProviderComponentAttributes : GH_ComponentAttributes
     {
         private readonly AIProviderComponentBase owner;
         private const int BADGESIZE = 16; // Size of the provider logo badge
         private const float MINZOOMTHRESHOLD = 0.5f; // Minimum zoom level to show the badge
         private const int PROVIDERSTRIPHEIGHT = 20; // Height of the provider strip
 
+        // Hover state for inline provider label
+        private RectangleF providerIconRect = RectangleF.Empty;
+        private bool hoverProviderIcon = false;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="AIComponentAttributes"/> class.
-        /// Creates a new instance of AIComponentAttributes.
+        /// Initializes a new instance of the <see cref="AIProviderComponentAttributes"/> class.
+        /// Creates a new instance of AIProviderComponentAttributes.
         /// </summary>
         /// <param name="owner">The AI component that owns these attributes.</param>
-        public AIComponentAttributes(AIProviderComponentBase owner)
+        public AIProviderComponentAttributes(AIProviderComponentBase owner)
             : base(owner)
         {
             this.owner = owner;
@@ -53,6 +57,10 @@ namespace SmartHopper.Core.ComponentBase
                 bounds.Height += PROVIDERSTRIPHEIGHT;
                 this.Bounds = bounds;
             }
+
+            // Reset hover state on layout
+            this.providerIconRect = RectangleF.Empty;
+            this.hoverProviderIcon = false;
         }
 
         /// <summary>
@@ -106,13 +114,48 @@ namespace SmartHopper.Core.ComponentBase
                     bounds.Bottom - PROVIDERSTRIPHEIGHT + ((PROVIDERSTRIPHEIGHT - BADGESIZE) / 2),
                     BADGESIZE,
                     BADGESIZE);
+                this.providerIconRect = iconRect;
 
                 // Draw the provider icon using GH methods
                 if (providerIcon != null)
                 {
                     GH_GraphicsUtil.RenderIcon(graphics, iconRect, providerIcon);
                 }
+
+                // Draw inline label for provider when hovered (rendered after icon)
+                if (this.hoverProviderIcon && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
+                {
+                    var label = $"Provider: {actualProviderName}";
+                    InlineLabelRenderer.DrawInlineLabel(graphics, this.providerIconRect, label);
+                }
             }
         }
+
+        /// <summary>
+        /// Track mouse hover over the provider icon to trigger inline label rendering.
+        /// </summary>
+        public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            bool prev = this.hoverProviderIcon;
+
+            if (sender?.Viewport.Zoom < MINZOOMTHRESHOLD)
+            {
+                this.hoverProviderIcon = false;
+            }
+            else
+            {
+                var pt = e.CanvasLocation;
+                this.hoverProviderIcon = !this.providerIconRect.IsEmpty && this.providerIconRect.Contains(pt);
+            }
+
+            if (prev != this.hoverProviderIcon)
+            {
+                this.owner.ExpireSolution(false);
+            }
+
+            return base.RespondToMouseMove(sender, e);
+        }
+
+        
     }
 }

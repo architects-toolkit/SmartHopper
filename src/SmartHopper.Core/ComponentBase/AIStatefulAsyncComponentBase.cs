@@ -27,6 +27,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -46,6 +47,13 @@ namespace SmartHopper.Core.ComponentBase
         /// AI metrics from the last call.
         /// </summary>
         private AIMetrics responseMetrics;
+
+        /// <summary>
+        /// Cached badge flags (to prevent recomputation during Render/panning).
+        /// </summary>
+        private bool badgeVerified;
+        private bool badgeDeprecated;
+        private bool badgeCacheValid;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
@@ -111,6 +119,9 @@ namespace SmartHopper.Core.ComponentBase
             string? model = null;
             DA.GetData("Model", ref model);
             this.SetModel(model);
+
+            // Update badge cache using current inputs before executing the solution
+            this.UpdateBadgeCache();
 
             base.SolveInstance(DA);
         }
@@ -335,6 +346,107 @@ namespace SmartHopper.Core.ComponentBase
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
             this.SetMetricsOutput(DA);
+
+            // Update badge cache again after solving, so last metrics model is considered
+            this.UpdateBadgeCache();
+        }
+
+        #endregion
+
+        #region UI
+
+        /// <summary>
+        /// Creates the custom attributes for this component, enabling provider and model badges.
+        /// Uses <see cref="ComponentBadgesAttributes"/> to render provider icon (via base) and model state badges.
+        /// </summary>
+        public override void CreateAttributes()
+        {
+            this.m_attributes = new ComponentBadgesAttributes(this);
+        }
+
+        /// <summary>
+        /// Updates the cached badge flags based on the most relevant model and provider.
+        /// Priority for model: last metrics model, then configured/default model.
+        /// </summary>
+        internal void UpdateBadgeCache()
+        {
+            try
+            {
+                // Resolve provider
+                string providerName = this.GetActualAIProviderName();
+                if (providerName == AIProviderComponentBase.DEFAULT_PROVIDER)
+                {
+                    providerName = SmartHopperSettings.Instance.DefaultAIProvider;
+                }
+
+                // Resolve model to badge
+                string modelForBadges = this.GetLastMetricsModel();
+                if (string.IsNullOrWhiteSpace(modelForBadges))
+                {
+                    modelForBadges = this.GetModelToDisplay();
+                }
+
+                if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(modelForBadges))
+                {
+                    this.badgeVerified = false;
+                    this.badgeDeprecated = false;
+                    this.badgeCacheValid = false;
+                    return;
+                }
+
+                var caps = ModelManager.Instance.GetCapabilities(providerName, modelForBadges);
+                if (caps == null)
+                {
+                    this.badgeVerified = false;
+                    this.badgeDeprecated = false;
+                    this.badgeCacheValid = false;
+                    return;
+                }
+
+                this.badgeVerified = caps.Verified;
+                this.badgeDeprecated = caps.Deprecated;
+                this.badgeCacheValid = true;
+            }
+            catch
+            {
+                // On any failure, mark cache invalid to avoid rendering
+                this.badgeVerified = false;
+                this.badgeDeprecated = false;
+                this.badgeCacheValid = false;
+            }
+        }
+
+        /// <summary>
+        /// Tries to get the cached badge flags without recomputation.
+        /// </summary>
+        /// <param name="verified">True if model is verified.</param>
+        /// <param name="deprecated">True if model is deprecated.</param>
+        /// <returns>True if cache is valid; otherwise false.</returns>
+        internal bool TryGetCachedBadgeFlags(out bool verified, out bool deprecated)
+        {
+            verified = this.badgeVerified;
+            deprecated = this.badgeDeprecated;
+            return this.badgeCacheValid;
+        }
+
+        /// <summary>
+        /// Returns the last used model recorded in the component's persisted metrics, if any.
+        /// Used by UI attributes to reflect the actual model previously executed.
+        /// </summary>
+        /// <returns>Last used model name, or empty if not available.</returns>
+        internal string GetLastMetricsModel()
+        {
+            return this.responseMetrics != null ? (this.responseMetrics.Model ?? string.Empty) : string.Empty;
+        }
+
+        /// <summary>
+        /// Returns the configured/input model or the provider's default model for display
+        /// when the component has never run.
+        /// </summary>
+        /// <returns>Configured/default model name, or empty.</returns>
+        internal string GetModelToDisplay()
+        {
+            return this.GetModel() ?? string.Empty;
         }
 
         #endregion
