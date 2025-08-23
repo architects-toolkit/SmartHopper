@@ -101,7 +101,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    output.CreateError("Missing required parameter: prompt");
+                    output.CreateToolError("Missing required parameter: prompt", toolCall);
                     return output;
                 }
 
@@ -126,14 +126,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);
 
-                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                // Early exit on provider error to avoid null deref (standardize as tool error)
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    output.CreateToolError(result.ErrorMessage, toolCall);
+                    return output;
+                }
+
+                // Get the assistant response safely
+                var last = result.Body?.GetLastInteraction(AIAgent.Assistant);
+                if (last == null)
+                {
+                    output.CreateToolError("Provider returned no content", toolCall);
+                    return output;
+                }
+
+                var response = last.ToString();
 
                 // Success case
                 var toolResult = new JObject();
                 toolResult.Add("result", response);
 
                 var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics);
+                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
 
                 output.CreateSuccess(toolBody);
                 return output;

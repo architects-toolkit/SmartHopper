@@ -68,21 +68,21 @@ namespace SmartHopper.Components.Grasshopper
 
             if (!(runObject is GH_Boolean run))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
                 return;
             }
 
             if (!run.Value)
             {
-                if (lastComponentNames.Count > 0)
+                if (this.lastComponentNames.Count > 0)
                 {
-                    DA.SetDataList(0, lastComponentNames);
-                    DA.SetDataList(1, lastComponentGuids);
-                    DA.SetData(2, lastJsonOutput);
+                    DA.SetDataList(0, this.lastComponentNames);
+                    DA.SetDataList(1, this.lastComponentGuids);
+                    DA.SetData(2, this.lastJsonOutput);
                 }
                 else
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
                 }
 
                 return;
@@ -124,15 +124,15 @@ namespace SmartHopper.Components.Grasshopper
                 var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
                     return;
                 }
                 var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
                 var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var json = toolResult["json"]?.ToString() ?? string.Empty;
-                lastComponentNames = componentNames;
-                lastComponentGuids = componentGuids;
-                lastJsonOutput = json;
+                this.lastComponentNames = componentNames;
+                this.lastComponentGuids = componentGuids;
+                this.lastJsonOutput = json;
                 DA.SetDataList(0, componentNames);
                 DA.SetDataList(1, componentGuids);
                 DA.SetData(2, json);
@@ -140,7 +140,7 @@ namespace SmartHopper.Components.Grasshopper
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
     }

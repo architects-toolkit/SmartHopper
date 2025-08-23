@@ -19,6 +19,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.AI
 {
@@ -136,9 +137,12 @@ namespace SmartHopper.Components.AI
                         return;
                     }
 
-                    // Retrieve available models
-                    var models = await provider.Models.RetrieveAvailable().ConfigureAwait(false);
-                    if (models == null || !models.Any())
+                    // Initialize provider (ensures settings and provider state are ready)
+                    await provider.InitializeProviderAsync().ConfigureAwait(false);
+
+                    // Retrieve models directly from the provider (no global singleton)
+                    var caps = await provider.Models.RetrieveModels().ConfigureAwait(false) ?? new List<AIModelCapabilities>();
+                    if (caps == null || caps.Count == 0)
                     {
                         this._result["Success"] = false;
                         this._result["Error"] = "No models available from the selected provider";
@@ -148,7 +152,12 @@ namespace SmartHopper.Components.AI
                     // Convert to GH_Structure for output
                     var tree = new GH_Structure<GH_String>();
                     var path = new GH_Path(0);
-                    foreach (var model in models)
+                    foreach (var model in caps
+                        .OrderByDescending(m => m.Verified)
+                        .ThenByDescending(m => m.Rank)
+                        .ThenBy(m => m.Deprecated)
+                        .ThenBy(m => m.Model, StringComparer.OrdinalIgnoreCase)
+                        .Select(m => m.Model))
                     {
                         tree.Append(new GH_String(model), path);
                     }

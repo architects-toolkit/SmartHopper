@@ -86,41 +86,21 @@ namespace SmartHopper.Infrastructure.AIProviders
                 if (!ModelManager.Instance.HasProviderCapabilities(this.Name))
                 {
                     Debug.WriteLine($"[{this.Name}] Registering model capabilities");
-
-                    // Initialize the models manager asynchronously
-                    var capabilitiesDict = await this.Models.RetrieveCapabilities().ConfigureAwait(false);
-                    var defaultModelsDict = this.Models.RetrieveDefault();
-
-                    // 1) Register every model the API knows about:
-                    foreach (var capability in capabilitiesDict)
+                    // Retrieve full model metadata and register each model
+                    var models = await this.Models.RetrieveModels().ConfigureAwait(false);
+                    if (models != null)
                     {
-                        var defaultFor = FindDefaultCapabilityForModel(capability.Key, defaultModelsDict);
-
-                        ModelManager.Instance.RegisterCapabilities(
-                            this.Name,
-                            capability.Key,
-                            capability.Value,
-                            defaultFor);
-
-                        Debug.WriteLine($"[{this.Name}] Registered model {capability.Key} with capabilities {capability.Value.ToDetailedString()} and default {defaultFor.ToDetailedString()}");
-                    }
-
-                    // 2) Ensure concrete defaults are in the registry:
-                    foreach (var (modelName, defaultCaps) in defaultModelsDict)
-                    {
-                        if (!capabilitiesDict.ContainsKey(modelName))
+                        foreach (var m in models)
                         {
-                            // Use RetrieveCapabilities which now handles wildcard resolution automatically
-                            var capabilities = this.Models.RetrieveCapabilities(modelName);
+                            if (m == null) continue;
+                            // Ensure provider name is set and normalized
+                            if (string.IsNullOrWhiteSpace(m.Provider))
+                            {
+                                m.Provider = this.Name.ToLower();
+                            }
 
-                            ModelManager.Instance.RegisterCapabilities(
-                                this.Name,
-                                modelName,
-                                capabilities,
-                                defaultCaps
-                            );
-
-                            Debug.WriteLine($"[{this.Name}] Registered concrete default model {modelName} with capabilities {capabilities.ToDetailedString()} and default {defaultCaps.ToDetailedString()}");
+                            ModelManager.Instance.SetCapabilities(m);
+                            Debug.WriteLine($"[{this.Name}] Registered model {m.Model} with capabilities {m.Capabilities.ToDetailedString()} and default {m.Default.ToDetailedString()}");
                         }
                     }
                 }
@@ -214,14 +194,11 @@ namespace SmartHopper.Infrastructure.AIProviders
             // Execute PreCall
             request = this.PreCall(request);
 
-            // Validate request before calling the API
-            (bool isValid, List<string> errors) = request.IsValid();
+            // Validate request before calling the API (structured messages)
+            (bool isValid, List<AIRuntimeMessage> messages) = request.IsValid();
             if (!isValid)
             {
                 stopwatch.Stop();
-
-                var error = "The request is not valid: " + string.Join(", ", errors);
-
                 var result = new AIReturn();
                 var metrics = new AIMetrics
                 {
@@ -229,7 +206,9 @@ namespace SmartHopper.Infrastructure.AIProviders
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
 
-                result.CreateError(error, request);
+                // Create error; request validation messages (errors) will appear via AIReturn.Messages (Request.Messages)
+                result.CreateError("The request is not valid", request);
+                result.Metrics = metrics;
 
                 return result;
             }
@@ -402,6 +381,17 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             return null;
+        }
+
+        /// <inheritdoc/>
+        public virtual string SelectModel(AICapability requiredCapability, string requestedModel)
+        {
+            // Prefer provider-configured default from settings when compatible
+            var preferredDefault = this.GetDefaultModel(requiredCapability, useSettings: true);
+
+            // Delegate to centralized selection policy to avoid duplication
+            var selected = ModelManager.Instance.SelectBestModel(this.Name, requestedModel, requiredCapability, preferredDefault);
+            return selected ?? string.Empty;
         }
 
         /// <summary>

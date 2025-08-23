@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
@@ -27,6 +28,19 @@ namespace SmartHopper.Infrastructure.AICall
         /// </summary>
         private string? model;
 
+        // Per-request memoization for selected model to avoid repeated selection calls.
+        // The selected model depends on provider, requested model, and effective capability.
+        // If these inputs don't change during the lifetime of the request, reuse the cached selection.
+        private string? cachedSelectedModel;
+        private string? cacheProvider;
+        private string? cacheRequestedModel;
+        private AICapability cacheCapability;
+
+        /// <summary>
+        /// Internal storage for structured messages.
+        /// </summary>
+        private List<AIRuntimeMessage> PrivateMessages { get; set; } = new List<AIRuntimeMessage>();
+
         /// <inheritdoc/>
         public virtual string? Provider { get; set; }
 
@@ -35,6 +49,12 @@ namespace SmartHopper.Infrastructure.AICall
 
         /// <inheritdoc/>
         public virtual string Model { get => this.GetModelToUse(); set => this.model = value; }
+
+        /// <summary>
+        /// Gets the user-requested model exactly as provided (may be empty, unknown, or incompatible).
+        /// Exposed to derived classes for validation and messaging purposes.
+        /// </summary>
+        protected string RequestedModel => this.model ?? string.Empty;
 
         /// <inheritdoc/>
         public string Endpoint { get; set; }
@@ -46,20 +66,68 @@ namespace SmartHopper.Infrastructure.AICall
         public virtual AIBody Body { get; set; } = new AIBody();
 
         /// <inheritdoc/>
-        public virtual (bool IsValid, List<string> Errors) IsValid()
+        public List<AIRuntimeMessage> Messages
         {
-            var messages = new List<string>();
-            bool hasErrors = false;
+            get
+            {
+                // Build combined list without mutating private storage to keep it always up-to-date and deduplicated
+                var combined = new List<AIRuntimeMessage>();
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+
+                // 1) Messages explicitly added to request
+                if (this.PrivateMessages != null)
+                {
+                    foreach (var m in this.PrivateMessages)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
+                }
+
+                // 2) Dynamic validation messages
+                var (isValid, errors) = this.IsValid();
+                if (errors != null)
+                {
+                    foreach (var m in errors)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
+                }
+
+                // 3) Sort by severity: Error > Warning > Info
+                int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
+                combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
+
+                return combined;
+            }
+
+            set
+            {
+                this.PrivateMessages = value ?? new List<AIRuntimeMessage>();
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        {
+            var messages = new List<AIRuntimeMessage>();
 
             if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
             {
-                messages.Add($"(Info) Model is not specified - the default model '{this.GetModelToUse()}' will be used");
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Model is not specified - the default model '{this.GetModelToUse()}' will be used"));
             }
 
             if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
             {
-                messages.Add($"(Info) Model '{this.model}' is not capable for this request - the default model '{this.GetModelToUse()}' will be used");
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Using model '{this.GetModelToUse()}' for this request instead of requested '{this.model}' based on provider configuration and model selection policy."));
             }
+
+            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
 
             return (!hasErrors, messages);
         }
@@ -103,7 +171,10 @@ namespace SmartHopper.Infrastructure.AICall
         {
             if (this.Capability == AICapability.None)
             {
-                return string.Empty;
+                // No capability context has been set yet (e.g., intermediary tool calls reading Model).
+                // In this case, do NOT override: return the user-requested model verbatim.
+                // Model selection (validation/fallback) must happen only when a capability is known.
+                return this.model ?? string.Empty;
             }
             
             if (string.IsNullOrEmpty(this.Provider))
@@ -117,45 +188,37 @@ namespace SmartHopper.Infrastructure.AICall
                 return string.Empty;
             }
 
-            var defaultModel = provider.GetDefaultModel(this.Capability);
-
-            if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
+            // Use memoized selection when inputs haven't changed
+            if (!string.IsNullOrEmpty(this.cachedSelectedModel)
+                && string.Equals(this.cacheProvider, this.Provider, StringComparison.Ordinal)
+                && string.Equals(this.cacheRequestedModel, this.model, StringComparison.Ordinal)
+                && this.cacheCapability == this.Capability)
             {
-                return defaultModel;
+                return this.cachedSelectedModel;
             }
 
-            // Validate capabilities and return default if not capable
-            if (!this.ValidModelCapabilities())
-            {
-                return defaultModel;
-            }
+            // Delegate selection to provider to hide singleton and centralize policy
+            var selected = provider.SelectModel(this.Capability, this.model);
 
-            return this.model;
+            // Cache selection for subsequent accesses within the same request
+            this.cacheProvider = this.Provider;
+            this.cacheRequestedModel = this.model;
+            this.cacheCapability = this.Capability;
+            this.cachedSelectedModel = selected;
+
+            return selected;
         }
 
         /// <summary>
-        /// Validates the model capabilities and mentions the default model that will be used if the specified model is not capable to perform this request.
+        /// Helper to build a standardized error return with this request context.
         /// </summary>
-        private bool ValidModelCapabilities()
+        /// <param name="message">Error message to set (kept raw).</param>
+        /// <returns>AIReturn with ErrorMessage and Request set.</returns>
+        protected AIReturn BuildErrorReturn(string message)
         {
-            if (this.Capability == AICapability.None)
-            {
-                return true;
-            }
-            
-            if (string.IsNullOrEmpty(this.Provider))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(this.model))
-            {
-                return false;
-            }
-
-            // Validate capabilities
-            bool valid = ModelManager.Instance.ValidateCapabilities(this.Provider, this.model, this.Capability);
-            return valid;
+            var ret = new AIReturn();
+            ret.CreateError(message, this);
+            return ret;
         }
     }
 }

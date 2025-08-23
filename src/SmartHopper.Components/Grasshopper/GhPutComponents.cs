@@ -136,10 +136,11 @@ namespace SmartHopper.Components.Grasshopper
                         }
                         else if (trimmed.StartsWith("- "))
                         {
-                            AddRuntimeMessage(currentLevel, trimmed.Substring(2));
+                            this.AddRuntimeMessage(currentLevel, trimmed.Substring(2));
                         }
                     }
                 }
+
                 if (!success) return;
 
                 // 5. Extract and output component names

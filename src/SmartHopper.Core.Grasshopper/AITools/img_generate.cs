@@ -164,7 +164,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("imageStyle", resultImageInteraction.ImageStyle ?? string.Empty);
 
                 var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, response.Metrics);
+                toolBody.AddInteractionToolResult(toolResult, response.Metrics, response.Messages);
 
                 output.CreateSuccess(toolBody);
                 return output;
