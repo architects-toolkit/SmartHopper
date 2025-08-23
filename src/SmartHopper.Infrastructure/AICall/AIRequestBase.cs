@@ -35,6 +35,11 @@ namespace SmartHopper.Infrastructure.AICall
         private string? cacheRequestedModel;
         private AICapability cacheCapability;
 
+        /// <summary>
+        /// Internal storage for messages.
+        /// </summary>
+        private List<string> PrivateMessages { get; set; } = new List<string>();
+
         /// <inheritdoc/>
         public virtual string? Provider { get; set; }
 
@@ -58,6 +63,67 @@ namespace SmartHopper.Infrastructure.AICall
 
         /// <inheritdoc/>
         public virtual AIBody Body { get; set; } = new AIBody();
+
+        /// <inheritdoc/>
+        public List<string> Messages
+        {
+            get
+            {
+                // Ensure backing list exists
+                this.PrivateMessages ??= new List<string>();
+                var messages = this.PrivateMessages;
+
+                // Add IsValid messages
+                var (isValid, errors) = this.IsValid();
+                if (!isValid)
+                {
+                    messages.AddRange(errors);
+                }
+
+                // Sort messages by (Error) or no ( at the begining, (Warning) and (Info)
+                messages.Sort((a, b) =>
+                {
+                    // Top priority: messages starting with (Error) OR without any '(' prefix
+                    var aTop = a.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !a.StartsWith("(", StringComparison.Ordinal);
+                    var bTop = b.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !b.StartsWith("(", StringComparison.Ordinal);
+                    if (aTop && !bTop)
+                    {
+                        return -1;
+                    }
+                    if (bTop && !aTop)
+                    {
+                        return 1;
+                    }
+
+                    // Next: (Warning)
+                    if (a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return -1;
+                    }
+                    if (b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 1;
+                    }
+
+                    // Next: (Info)
+                    if (a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return -1;
+                    }
+                    if (b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 1;
+                    }
+                    return 0;
+                });
+
+                return messages;
+            }
+            set
+            {
+                this.PrivateMessages = value ?? new List<string>();
+            }
+        }
 
         /// <inheritdoc/>
         public virtual (bool IsValid, List<string> Errors) IsValid()

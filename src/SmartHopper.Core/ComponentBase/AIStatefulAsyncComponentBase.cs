@@ -382,20 +382,20 @@ namespace SmartHopper.Core.ComponentBase
                 var msg = raw ?? string.Empty;
                 GH_RuntimeMessageLevel level = GH_RuntimeMessageLevel.Remark;
 
-                if (msg.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase))
+                if (msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
                 {
-                    level = GH_RuntimeMessageLevel.Error;
-                    msg = msg.Substring("(Error)".Length).TrimStart();
+                    level = GH_RuntimeMessageLevel.Remark;
+                    msg = msg.Substring("(Info)".Length).TrimStart();
                 }
                 else if (msg.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
                 {
                     level = GH_RuntimeMessageLevel.Warning;
                     msg = msg.Substring("(Warning)".Length).TrimStart();
                 }
-                else if (msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
+                else
                 {
-                    level = GH_RuntimeMessageLevel.Remark;
-                    msg = msg.Substring("(Info)".Length).TrimStart();
+                    level = GH_RuntimeMessageLevel.Error;
+                    msg = msg.Substring("(Error)".Length).TrimStart();
                 }
 
                 this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, msg, false);
