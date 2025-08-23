@@ -1,4 +1,4 @@
-# AIComponentAttributes
+# AIProviderComponentAttributes
 
 Custom Grasshopper attributes that add a provider badge to AI components.
 
