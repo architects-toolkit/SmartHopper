@@ -11,10 +11,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.AICall
 {
@@ -68,34 +69,29 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <inheritdoc/>
-        public override (bool IsValid, List<string> Errors) IsValid()
+        public override (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
         {
-            var messages = new List<string>();
-            bool hasErrors = false;
+            var messages = new List<AIRuntimeMessage>();
 
             var (baseValid, baseErrors) = base.IsValid();
             if (!baseValid)
             {
                 messages.AddRange(baseErrors);
-                hasErrors = true;
             }
 
             if (string.IsNullOrEmpty(this.Provider))
             {
-                messages.Add("Provider is required");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Provider is required"));
             }
 
             if (!this.Capability.HasInput() || !this.Capability.HasOutput())
             {
-                messages.Add("Capability field is required with both input and output capabilities");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Capability field is required with both input and output capabilities"));
             }
 
             if (this.ProviderInstance == null)
             {
-                messages.Add($"Unknown provider '{this.Provider}'");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"Unknown provider '{this.Provider}'"));
             }
 
             var effectiveCapability = this.GetEffectiveCapabilities(out var capabilityNotes);
@@ -110,8 +106,7 @@ namespace SmartHopper.Infrastructure.AICall
             var resolvedModel = this.Model; // Triggers provider-scoped selection
             if (string.IsNullOrEmpty(resolvedModel))
             {
-                messages.Add($"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}"));
             }
             else if (!string.IsNullOrEmpty(this.RequestedModel))
             {
@@ -119,53 +114,49 @@ namespace SmartHopper.Infrastructure.AICall
                 var knownRequested = ModelManager.Instance.GetCapabilities(this.Provider, this.RequestedModel);
                 if (knownRequested != null && !knownRequested.HasCapability(effectiveCapability) && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
                 {
-                    messages.Add($"(Info) Requested model '{this.RequestedModel}' is not capable of {effectiveCapability.ToString()}; using '{resolvedModel}' instead");
+                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Requested model '{this.RequestedModel}' is not capable of {effectiveCapability.ToString()}; using '{resolvedModel}' instead"));
                 }
                 else if (knownRequested == null && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
                 {
                     // Requested model is unknown; inform user that a fallback model is being used
-                    messages.Add($"(Info) Requested model '{this.RequestedModel}' is unknown; using '{resolvedModel}' instead. I'm not sure this message is correct");
+                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Warning, AIRuntimeMessageOrigin.Validation, $"Requested model '{this.RequestedModel}' is unknown; using '{resolvedModel}' instead"));
                 }
             }
 
             if (string.IsNullOrEmpty(this.Endpoint))
             {
-                messages.Add("Endpoint is required");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Endpoint is required"));
             }
 
             if (string.IsNullOrEmpty(this.HttpMethod))
             {
-                messages.Add("HttpMethod is required");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "HttpMethod is required"));
             }
 
             if (string.IsNullOrEmpty(this.Authentication))
             {
-                messages.Add("Authentication method is required");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Authentication method is required"));
             }
 
             if (this.Body == null)
             {
-                messages.Add("Body is required");
-                hasErrors = true;
+                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Body is required"));
             }
             else
             {
                 if (effectiveCapability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
                 {
-                    messages.Add("JsonOutput capability requires a non-empty JsonOutputSchema");
-                    hasErrors = true;
+                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "JsonOutput capability requires a non-empty JsonOutputSchema"));
                 }
 
                 var (bodyOk, bodyErr) = this.Body.IsValid();
                 if (!bodyOk)
                 {
                     messages.AddRange(bodyErr);
-                    hasErrors = true;
                 }
             }
+
+            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
 
             return (!hasErrors, messages);
         }
@@ -193,64 +184,117 @@ namespace SmartHopper.Infrastructure.AICall
 
             try
             {
+                // Validate early to avoid provider calls when request is invalid
+                var (rqOk, rqErrors) = this.IsValid();
+                if (!rqOk)
+                {
+                    stopwatch.Stop();
+                    return this.BuildErrorReturn("Request validation failed");
+                }
+
                 // Guard against missing provider
                 if (this.ProviderInstance == null)
                 {
                     stopwatch.Stop();
                     var errorResult = new AIReturn();
-                    errorResult.CreateError("Provider is missing", this);
+                    errorResult.CreateProviderError("Provider is missing", this);
                     return errorResult;
                 }
 
                 // Execute the request from the provider
                 var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
 
+                // Provider returned null result
+                if (result == null)
+                {
+                    stopwatch.Stop();
+                    var none = new AIReturn();
+                    none.CreateProviderError("Provider returned no response", this);
+                    return none;
+                }
+
                 if (processTools)
                 {
-                    var pendingToolCalls = result.Body.PendingToolCallsList();
+                    var pendingToolCalls = result.Body?.PendingToolCallsList();
 
                     // TODO: parallel processing of tool calls
-                    foreach (var toolCall in pendingToolCalls)
+                    if (pendingToolCalls != null)
                     {
-                        // Create an AIToolCall request
-                        var toolCallRequest = new AIToolCall();
-                        toolCallRequest.FromToolCallInteraction(toolCall, this.Provider, this.Model);
-
-                        // Execute the tool call
-                        var toolResult = await toolCallRequest.Exec().ConfigureAwait(false);
-
-                        // Add the tool result to the result body
-                        result.Body.AddLastInteraction(toolResult.Body.GetLastInteraction());
-
-                        // Propagate messages and errors from tool execution into the main AIReturn
-                        if (toolResult.Messages != null && toolResult.Messages.Count > 0)
+                        foreach (var toolCall in pendingToolCalls)
                         {
-                            result.Messages.AddRange(toolResult.Messages);
-                        }
+                            // Create an AIToolCall request
+                            var toolCallRequest = new AIToolCall();
+                            toolCallRequest.FromToolCallInteraction(toolCall, this.Provider, this.Model);
 
-                        if (!string.IsNullOrEmpty(toolResult.ErrorMessage))
-                        {
-                            result.Messages.Add($"(Error) {toolResult.ErrorMessage}");
+                            // Execute the tool call
+                            var toolResult = await toolCallRequest.Exec().ConfigureAwait(false);
+
+                            if (toolResult == null)
+                            {
+                                // Merge a standardized tool error and continue
+                                result.CreateToolError("Tool not found or did not return a value", this);
+                                continue;
+                            }
+
+                            // Add the tool result to the result body if present
+                            var last = toolResult.Body?.GetLastInteraction();
+                            if (last != null)
+                            {
+                                result.Body.AddLastInteraction(last);
+                            }
+
+                            // Merge tool messages and error into the main return
+                            result.MergeRuntimeMessagesFrom(toolResult, AIRuntimeMessageOrigin.Tool);
                         }
                     }
                 }
 
+                // If provider produced no body and no explicit error, standardize it
+                if (result.Body == null && string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    result.CreateProviderError("Provider returned no response", this);
+                }
+
                 return (AIReturn)result;
+            }
+            catch (OperationCanceledException)
+            {
+                stopwatch.Stop();
+                var errorResult = new AIReturn();
+                errorResult.CreateProviderError("Call cancelled or timed out", this);
+                return errorResult;
+            }
+            catch (TimeoutException)
+            {
+                stopwatch.Stop();
+                var errorResult = new AIReturn();
+                errorResult.CreateProviderError("Call cancelled or timed out", this);
+                return errorResult;
             }
             catch (HttpRequestException ex)
             {
                 stopwatch.Stop();
-                var error = $"Error: API request failed - {ex.Message}";
+                // Network-related issues (DNS, connectivity). Keep raw but standardize user-facing message.
+                var raw = this.ExtractProviderErrorMessage(ex);
                 var errorResult = new AIReturn();
-                errorResult.CreateError(error, this);
+                if (ex.InnerException is SocketException)
+                {
+                    errorResult.CreateNetworkError(raw, this);
+                }
+                else
+                {
+                    // Treat other HttpRequestException as network as well
+                    errorResult.CreateNetworkError(raw, this);
+                }
                 return errorResult;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                var error = $"Error: {ex.Message}";
+                // Preserve raw provider/unknown error and standardize
+                var error = this.ExtractProviderErrorMessage(ex);
                 var errorResult = new AIReturn();
-                errorResult.CreateError(error, this);
+                errorResult.CreateProviderError(error, this);
                 return errorResult;
             }
         }
@@ -289,26 +333,38 @@ namespace SmartHopper.Infrastructure.AICall
         /// Returns the effective capabilities and a list of informational notes describing adjustments.
         /// </summary>
         /// <param name="notes">Output list populated with informational messages about inferred capabilities.</param>
-        private AICapability GetEffectiveCapabilities(out List<string> notes)
+        private AICapability GetEffectiveCapabilities(out List<AIRuntimeMessage> notes)
         {
-            notes = new List<string>();
+            notes = new List<AIRuntimeMessage>();
             var effective = this.capability;
 
             // If body requires JSON output but capability lacks it, add it (informational)
             if (this.Body?.RequiresJsonOutput() == true && !effective.HasFlag(AICapability.JsonOutput))
             {
                 effective |= AICapability.JsonOutput;
-                notes.Add("(Info) Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput");
+                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput"));
             }
 
             // If tools are requested but capability lacks FunctionCalling, add it (informational)
             if (!string.IsNullOrEmpty(this.Body?.ToolFilter) && this.Body?.ToolFilter != "-*" && !effective.HasFlag(AICapability.FunctionCalling))
             {
                 effective |= AICapability.FunctionCalling;
-                notes.Add("(Info) Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling");
+                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling"));
             }
 
             return effective;
+        }
+
+        /// <summary>
+        /// Returns the provider exception message as-is, without sanitization or parsing.
+        /// </summary>
+        /// <param name="ex">The thrown exception.</param>
+        /// <returns>The raw exception message.</returns>
+        private string ExtractProviderErrorMessage(Exception ex)
+        {
+            // Prefer inner exception message if available (providers often wrap exceptions)
+            var msg = ex.InnerException?.Message ?? ex.Message;
+            return string.IsNullOrEmpty(msg) ? "Unknown error" : msg;
         }
     }
 }

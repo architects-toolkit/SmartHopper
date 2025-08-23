@@ -136,10 +136,11 @@ Breaking changes are acceptable; this is a forward-looking plan.
 
 ## Future thoughts (suggestions should consider future conditions and try to be flexible to accept them in the future)
 
-- [ ] Provider streaming of responses
-- [ ] Provider-side prompt caching
-- [ ] Local caching of responses to avoid recomputation
+- [ ] AI Provider streaming of responses
+- [ ] AI Provider-side prompt caching
+- [ ] AI Call cancellation token 
+- [ ] AI Call local caching of responses to avoid recomputation
+- [ ] AI Call compatibility with parallel tool calling
 - [ ] AI tool to generate Grasshopper definitions in GHJSON format
 - [ ] New way to save Grasshopper files in GHJSON format
 - [ ] Improve WebChat UI with full html environment, including dynamic loading messages, supporting streaming, different interaction type (image, audio, text, toolcall, toolresult...)
-- [ ] Compatibility with parallel tool calling

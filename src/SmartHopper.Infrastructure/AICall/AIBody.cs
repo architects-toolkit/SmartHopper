@@ -115,13 +115,16 @@ namespace SmartHopper.Infrastructure.AICall
         /// <summary>
         /// Validates the body.
         /// </summary>
-        public (bool IsValid, List<string> Errors) IsValid()
+        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
         {
-            var errors = new List<string>();
+            var errors = new List<AIRuntimeMessage>();
 
             if (this.InteractionsCount() == 0)
             {
-                errors.Add("At least one interaction is required");
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    "At least one interaction is required"));
             }
 
             return (errors.Count == 0, errors);

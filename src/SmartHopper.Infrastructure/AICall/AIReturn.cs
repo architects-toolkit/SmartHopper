@@ -34,9 +34,9 @@ namespace SmartHopper.Infrastructure.AICall
         private AIMetrics PrivateGlobalMetrics { get; set; } = new AIMetrics();
 
         /// <summary>
-        /// Internal storage for messages.
+        /// Internal storage for structured messages.
         /// </summary>
-        private List<string> PrivateMessages { get; set; } = new List<string>();
+        private List<AIRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<AIRuntimeMessage>();
 
         /// <inheritdoc/>
         public AIBody Body { get; private set; } = new AIBody();
@@ -70,83 +70,69 @@ namespace SmartHopper.Infrastructure.AICall
         public string ErrorMessage { get; set; }
 
         /// <inheritdoc/>
-        public List<string> Messages
+        public List<AIRuntimeMessage> Messages
         {
             get
             {
-                // Ensure backing list exists
-                this.PrivateMessages ??= new List<string>();
-                var messages = this.PrivateMessages;
+                // Build a combined list without mutating private storage to avoid duplicates across calls
+                var combined = new List<AIRuntimeMessage>();
+                var seen = new HashSet<string>(StringComparer.Ordinal);
 
-                // Reflect ErrorMessage into messages
+                // 1) Structured messages already added by code paths
+                if (this.PrivateStructuredMessages != null)
+                {
+                    foreach (var m in this.PrivateStructuredMessages)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
+                }
+
+                // 2) Reflect ErrorMessage as a structured error message (mirroring, without mutating storage)
                 if (!string.IsNullOrEmpty(this.ErrorMessage))
                 {
-                    var formatted = this.ErrorMessage.StartsWith("(", StringComparison.Ordinal)
-                        ? this.ErrorMessage
-                        : $"(Error) {this.ErrorMessage}";
-
-                    // Avoid duplicates (exact match)
-                    if (!messages.Contains(formatted))
+                    if (seen.Add(this.ErrorMessage))
                     {
-                        messages.Add(formatted);
+                        combined.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, this.ErrorMessage));
                     }
                 }
 
-                // Get request Messages and add them to messages
-                if (this.Request != null)
+                // 4) Include request messages (request computes validation dynamically)
+                if (this.Request != null && this.Request.Messages != null)
                 {
-                    messages.AddRange(this.Request.Messages);
+                    foreach (var m in this.Request.Messages)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
                 }
 
-                // Add IsValid messages
+                // 5) Add this return's validation messages dynamically (do not store)
                 var (isValid, errors) = this.IsValid();
-                if (!isValid)
+                if (!isValid && errors != null)
                 {
-                    messages.AddRange(errors);
+                    foreach (var m in errors)
+                    {
+                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        {
+                            combined.Add(m);
+                        }
+                    }
                 }
 
-                // Sort messages by (Error) or no ( at the begining, (Warning) and (Info)
-                messages.Sort((a, b) =>
-                {
-                    // Top priority: messages starting with (Error) OR without any '(' prefix
-                    var aTop = a.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !a.StartsWith("(", StringComparison.Ordinal);
-                    var bTop = b.StartsWith("(Error)", StringComparison.OrdinalIgnoreCase) || !b.StartsWith("(", StringComparison.Ordinal);
-                    if (aTop && !bTop)
-                    {
-                        return -1;
-                    }
-                    if (bTop && !aTop)
-                    {
-                        return 1;
-                    }
+                // 6) Sort by severity: Error > Warning > Info
+                int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
+                combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
 
-                    // Next: (Warning)
-                    if (a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return -1;
-                    }
-                    if (b.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Warning)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return 1;
-                    }
-
-                    // Next: (Info)
-                    if (a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return -1;
-                    }
-                    if (b.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return 1;
-                    }
-                    return 0;
-                });
-
-                return messages;
+                return combined;
             }
             set
             {
-                this.PrivateMessages = value ?? new List<string>();
+                this.PrivateStructuredMessages = value ?? new List<AIRuntimeMessage>();
             }
         }
 
@@ -154,18 +140,18 @@ namespace SmartHopper.Infrastructure.AICall
         public bool Success => string.IsNullOrEmpty(this.ErrorMessage);
 
         /// <inheritdoc/>
-        public (bool IsValid, List<string> Errors) IsValid()
+        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
         {
-            var errors = new List<string>();
+            var errors = new List<AIRuntimeMessage>();
 
             if (this.Request == null)
             {
-                errors.Add("Request must not be null");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Request must not be null"));
             }
             else
             {
                 var (rqOk, rqErr) = this.Request.IsValid();
-                if (!rqOk)
+                if (rqErr != null)
                 {
                     errors.AddRange(rqErr);
                 }
@@ -173,12 +159,12 @@ namespace SmartHopper.Infrastructure.AICall
 
             if (this.Metrics == null)
             {
-                errors.Add("Metrics must not be null");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Metrics must not be null"));
             }
             else
             {
                 var (mOk, mErr) = this.Metrics.IsValid();
-                if (!mOk)
+                if (mErr != null)
                 {
                     errors.AddRange(mErr);
                 }
@@ -186,7 +172,7 @@ namespace SmartHopper.Infrastructure.AICall
 
             if (this.Body == null && this.ErrorMessage == null)
             {
-                errors.Add("Either body or error message must be set");
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Either body or error message must be set"));
             }
 
             return (errors.Count == 0, errors);
@@ -293,6 +279,76 @@ namespace SmartHopper.Infrastructure.AICall
             this.Request = request;
             this.ErrorMessage = message;
             this.Status = AICallStatus.Finished;
+        }
+
+        /// <summary>
+        /// Creates a standardized provider error while preserving the raw provider message in <see cref="ErrorMessage"/>.
+        /// Adds a structured message "Provider error: ..." for consistent UI surfacing.
+        /// </summary>
+        /// <param name="rawMessage">Raw provider error message.</param>
+        /// <param name="request">The request context.</param>
+        public void CreateProviderError(string rawMessage, IAIRequest? request = null)
+        {
+            this.CreateError(rawMessage, request);
+            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Provider, $"Provider error: {rawMessage}");
+        }
+
+        /// <summary>
+        /// Creates a standardized network error (e.g., DNS, connectivity) while preserving the raw message.
+        /// </summary>
+        public void CreateNetworkError(string rawMessage, IAIRequest? request = null)
+        {
+            this.CreateError(rawMessage, request);
+            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Network, $"Network error: {rawMessage}");
+        }
+
+        /// <summary>
+        /// Creates a standardized tool error while preserving the raw message.
+        /// </summary>
+        public void CreateToolError(string rawMessage, IAIRequest? request = null)
+        {
+            this.CreateError(rawMessage, request);
+            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Tool, $"Tool error: {rawMessage}");
+        }
+
+        /// <summary>
+        /// Adds a structured message to this return without modifying <see cref="ErrorMessage"/>.
+        /// </summary>
+        public void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text)
+        {
+            this.PrivateStructuredMessages.Add(new AIRuntimeMessage(severity, origin, text ?? string.Empty));
+        }
+
+        /// <summary>
+        /// Merges messages and error indicator from another return into this one.
+        /// Does NOT copy the source ErrorMessage into this.ErrorMessage; it only surfaces it as a message.
+        /// </summary>
+        /// <param name="source">Source return to merge from.</param>
+        /// <param name="assumedOrigin">Origin to tag merged messages with (for context).</param>
+        public void MergeRuntimeMessagesFrom(IAIReturn source, AIRuntimeMessageOrigin assumedOrigin = AIRuntimeMessageOrigin.Return)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            // Merge structured messages from source (they already carry severity and origin)
+            if (source.Messages != null)
+            {
+                foreach (var m in source.Messages)
+                {
+                    if (m != null)
+                    {
+                        this.PrivateStructuredMessages.Add(m);
+                    }
+                }
+            }
+
+            // If the source had an error, surface it as a structured message on this return with the provided origin
+            if (!string.IsNullOrEmpty(source.ErrorMessage))
+            {
+                this.PrivateStructuredMessages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, assumedOrigin, source.ErrorMessage));
+            }
         }
 
         /// <inheritdoc/>
