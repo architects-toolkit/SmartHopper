@@ -43,9 +43,16 @@ namespace SmartHopper.Infrastructure.AICall
         AIBody Body { get; set; }
 
         /// <summary>
+        /// Gets or sets validation messages produced during request preparation and execution.
+        /// These are informational, warning, or error notes that should be surfaced by components.
+        /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".
+        /// </summary>
+        List<AIRuntimeMessage> Messages { get; set; }
+
+        /// <summary>
         /// A value indicating whether the request is valid.
         /// </summary>
-        (bool IsValid, List<string> Errors) IsValid();
+        (bool IsValid, List<AIRuntimeMessage> Errors) IsValid();
 
         /// <summary>
         /// Executes the request and gets the result.

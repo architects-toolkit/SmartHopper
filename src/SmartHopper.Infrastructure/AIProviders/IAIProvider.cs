@@ -91,6 +91,15 @@ namespace SmartHopper.Infrastructure.AIProviders
         string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true);
 
         /// <summary>
+        /// Selects the most appropriate model given a requested model (optional) and a required capability.
+        /// Implementations should respect provider settings and capability compatibility.
+        /// </summary>
+        /// <param name="requiredCapability">The capability required by the request/tool.</param>
+        /// <param name="requestedModel">An optional user/request-specified model name.</param>
+        /// <returns>The selected model name (concrete, API-ready), or empty string when none.</returns>
+        string SelectModel(AICapability requiredCapability, string requestedModel);
+
+        /// <summary>
         /// Refreshes the provider's cached settings by merging the input settings with existing cached settings.
         /// </summary>
         /// <param name="settings">The new settings to merge with existing cached settings.</param>

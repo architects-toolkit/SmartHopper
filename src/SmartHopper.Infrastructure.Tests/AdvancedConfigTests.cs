@@ -35,7 +35,12 @@ namespace SmartHopper.Infrastructure.Tests
 
             public async Task InitializeProviderAsync()
             {
-                await Task.CompletedTask;
+                // Register dummy models into ModelManager following the new unified flow
+                var models = await this.Models.RetrieveModels().ConfigureAwait(false);
+                foreach (var m in models)
+                {
+                    ModelManager.Instance.SetCapabilities(m);
+                }
             }
 
             public DummyProvider()
@@ -67,6 +72,14 @@ namespace SmartHopper.Infrastructure.Tests
 
             public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true) => "dummy_test_model";
 
+            public string SelectModel(AICapability requiredCapability, string requestedModel)
+            {
+                // For tests, prefer requested model when provided; otherwise fall back to default.
+                return string.IsNullOrEmpty(requestedModel)
+                    ? this.GetDefaultModel(requiredCapability, useSettings: true)
+                    : requestedModel;
+            }
+
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
             }
@@ -76,41 +89,29 @@ namespace SmartHopper.Infrastructure.Tests
 
         private class DummyProviderModels : IAIProviderModels
         {
-            public string GetModel(string requestedModel = "")
+            public async Task<List<AIModelCapabilities>> RetrieveModels()
             {
-                return string.IsNullOrEmpty(requestedModel) ? "dummy_model_1" : requestedModel;
-            }
-
-            public async Task<List<string>> RetrieveAvailable()
-            {
-                return await Task.FromResult(new List<string> { "dummy_model_1", "dummy_model_2" });
-            }
-
-            public async Task<Dictionary<string, AICapability>> RetrieveCapabilities()
-            {
-                return await Task.FromResult(new Dictionary<string, AICapability>
+                var list = new List<AIModelCapabilities>
                 {
-                    ["dummy_model_1"] = AICapability.Text2Text,
-                    ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
-                });
-            }
-
-            public AICapability RetrieveCapabilities(string model)
-            {
-                var capabilities = new Dictionary<string, AICapability>
-                {
-                    ["dummy_model_1"] = AICapability.Text2Text,
-                    ["dummy_model_2"] = AICapability.TextInput | AICapability.TextOutput
+                    new AIModelCapabilities
+                    {
+                        Provider = "dummyprovider",
+                        Model = "dummy_model_1",
+                        Capabilities = AICapability.Text2Text,
+                        Default = AICapability.Text2Text,
+                        Verified = true,
+                        Rank = 10,
+                    },
+                    new AIModelCapabilities
+                    {
+                        Provider = "dummyprovider",
+                        Model = "dummy_model_2",
+                        Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                        Verified = false,
+                        Rank = 0,
+                    }
                 };
-                return capabilities.TryGetValue(model, out var capability) ? capability : AICapability.None;
-            }
-
-            public Dictionary<string, AICapability> RetrieveDefault()
-            {
-                return new Dictionary<string, AICapability>
-                {
-                    ["dummy_model_1"] = AICapability.Text2Text
-                };
+                return await Task.FromResult(list);
             }
         }
 

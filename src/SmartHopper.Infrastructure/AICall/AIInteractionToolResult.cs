@@ -18,7 +18,7 @@ namespace SmartHopper.Infrastructure.AICall
 {
     /// <summary>
     /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionText in text generation operations.
+    /// Used as the Result type for AIInteractionTool in tool operations.
     /// </summary>
     public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction
     {
@@ -29,6 +29,12 @@ namespace SmartHopper.Infrastructure.AICall
         /// Gets or sets the result of the tool call.
         /// </summary>
         public JObject Result { get; set; }
+
+        /// <summary>
+        /// Gets or sets the structured runtime messages produced while generating this tool result.
+        /// These are propagated from inner AI calls to improve diagnostics and visibility.
+        /// </summary>
+        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionToolResult.

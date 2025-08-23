@@ -53,7 +53,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Assert
             Assert.Same(instance1, instance2);
-            Assert.NotNull(instance1.Registry);
+            Assert.NotNull(instance1);
         }
 
         /// <summary>
@@ -240,5 +240,271 @@ namespace SmartHopper.Infrastructure.Tests
             // Act & Assert - Unregistered model
             Assert.False(manager.ValidateCapabilities("UnknownProvider", "UnknownModel", AICapability.Text2Text));
         }
+
+        /// <summary>
+        /// Tests that SelectBestModel passes through an unknown user-specified model without overriding it.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SelectBestModel_UserUnknown_PassesThrough [Windows]")]
+#else
+        [Fact(DisplayName = "SelectBestModel_UserUnknown_PassesThrough [Core]")]
+#endif
+        public void SelectBestModel_UserUnknown_PassesThrough()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+            manager.RegisterCapabilities(provider, "KnownModel", AICapability.Text2Text);
+
+            // Act
+            var selected = manager.SelectBestModel(provider, "UnknownModel", AICapability.Text2Text);
+
+            // Assert
+            Assert.Equal("UnknownModel", selected);
+        }
+
+        /// <summary>
+        /// Tests that SelectBestModel uses the user model when it is known and capable.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SelectBestModel_UserKnownCapable_UsesUser [Windows]")]
+#else
+        [Fact(DisplayName = "SelectBestModel_UserKnownCapable_UsesUser [Core]")]
+#endif
+        public void SelectBestModel_UserKnownCapable_UsesUser()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+            const string model = "CapableModel";
+            manager.RegisterCapabilities(provider, model, AICapability.Text2Text);
+
+            // Act
+            var selected = manager.SelectBestModel(provider, model, AICapability.Text2Text);
+
+            // Assert
+            Assert.Equal(model, selected);
+        }
+
+        /// <summary>
+        /// Tests that SelectBestModel falls back to preferredDefault when user model is known but not capable.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SelectBestModel_UserKnownNotCapable_FallbacksToPreferred [Windows]")]
+#else
+        [Fact(DisplayName = "SelectBestModel_UserKnownNotCapable_FallbacksToPreferred [Core]")]
+#endif
+        public void SelectBestModel_UserKnownNotCapable_FallbacksToPreferred()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+            const string notCapable = "JsonOnly";
+            const string preferred = "TextChat";
+            manager.RegisterCapabilities(provider, notCapable, AICapability.Text2Json);
+            manager.RegisterCapabilities(provider, preferred, AICapability.Text2Text);
+
+            // Act
+            var selected = manager.SelectBestModel(provider, notCapable, AICapability.Text2Text, preferred);
+
+            // Assert
+            Assert.Equal(preferred, selected);
+        }
+
+        /// <summary>
+        /// Tests SelectBestModel priority: exact default > compatible default > best available by quality.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SelectBestModel_Priority_DefaultExactThenCompatibleThenBest [Windows]")]
+#else
+        [Fact(DisplayName = "SelectBestModel_Priority_DefaultExactThenCompatibleThenBest [Core]")]
+#endif
+        public void SelectBestModel_Priority_DefaultExactThenCompatibleThenBest()
+        {
+            // Arrange 1: exact default exists
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+
+            // exact default for Text2Text
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "ExactDefault",
+                Capabilities = AICapability.Text2Text,
+                Default = AICapability.Text2Text,
+                Verified = true,
+                Rank = 1,
+                Deprecated = false,
+            });
+
+            // compatible default (default set for another cap but still capable of Text2Text)
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "CompatibleDefault",
+                Capabilities = AICapability.Text2Text | AICapability.Text2Json,
+                Default = AICapability.Text2Json,
+                Verified = true,
+                Rank = 10,
+                Deprecated = false,
+            });
+
+            // a high-rank, non-default candidate
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "BestNonDefault",
+                Capabilities = AICapability.Text2Text,
+                Default = AICapability.None,
+                Verified = true,
+                Rank = 100,
+                Deprecated = false,
+            });
+
+            // Act & Assert 1: exact default wins
+            var selected1 = manager.SelectBestModel(provider, null, AICapability.Text2Text);
+            Assert.Equal("ExactDefault", selected1);
+
+            // Arrange 2: remove exact default flag to test compatible-default path
+            ResetManager();
+            manager = ModelManager.Instance;
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "CompatibleDefault",
+                Capabilities = AICapability.Text2Text | AICapability.Text2Json,
+                Default = AICapability.Text2Json,
+                Verified = true,
+                Rank = 10,
+                Deprecated = false,
+            });
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "BestNonDefault",
+                Capabilities = AICapability.Text2Text,
+                Default = AICapability.None,
+                Verified = true,
+                Rank = 100,
+                Deprecated = false,
+            });
+
+            var selected2 = manager.SelectBestModel(provider, null, AICapability.Text2Text);
+            Assert.Equal("CompatibleDefault", selected2);
+
+            // Arrange 3: no defaults -> choose best by quality (Verified, Rank, !Deprecated)
+            ResetManager();
+            manager = ModelManager.Instance;
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "LowRank",
+                Capabilities = AICapability.Text2Text,
+                Rank = 1,
+                Verified = true,
+                Deprecated = false,
+            });
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "HighRank",
+                Capabilities = AICapability.Text2Text,
+                Rank = 50,
+                Verified = true,
+                Deprecated = false,
+            });
+
+            var selected3 = manager.SelectBestModel(provider, null, AICapability.Text2Text);
+            Assert.Equal("HighRank", selected3);
+        }
+
+        /// <summary>
+        /// Tests SetDefault exclusivity clears default flags on other models of the same provider.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SetDefault_ShouldBeExclusivePerProvider [Windows]")]
+#else
+        [Fact(DisplayName = "SetDefault_ShouldBeExclusivePerProvider [Core]")]
+#endif
+        public void SetDefault_ShouldBeExclusivePerProvider()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+            manager.RegisterCapabilities(provider, "A", AICapability.Text2Text, AICapability.Text2Text);
+            manager.RegisterCapabilities(provider, "B", AICapability.Text2Text);
+
+            // Act: set B as default for Text2Text exclusively
+            manager.SetDefault(provider, "B", AICapability.Text2Text, exclusive: true);
+
+            // Assert
+            var a = manager.GetCapabilities(provider, "A");
+            var b = manager.GetCapabilities(provider, "B");
+            Assert.NotNull(a);
+            Assert.NotNull(b);
+            Assert.False((a!.Default & AICapability.Text2Text) == AICapability.Text2Text);
+            Assert.True((b!.Default & AICapability.Text2Text) == AICapability.Text2Text);
+        }
+
+        /// <summary>
+        /// Tests SetDefault creates a new entry when the model does not exist yet.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SetDefault_ShouldCreateEntryWhenMissing [Windows]")]
+#else
+        [Fact(DisplayName = "SetDefault_ShouldCreateEntryWhenMissing [Core]")]
+#endif
+        public void SetDefault_ShouldCreateEntryWhenMissing()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+
+            // Act
+            manager.SetDefault(provider, "NewModel", AICapability.Text2Text);
+
+            // Assert
+            var created = manager.GetCapabilities(provider, "NewModel");
+            Assert.NotNull(created);
+            Assert.True((created!.Default & AICapability.Text2Text) == AICapability.Text2Text);
+        }
+
+        /// <summary>
+        /// Tests alias-based lookup resolves to the correct model capabilities.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "GetCapabilities_ByAlias_ShouldResolve [Windows]")]
+#else
+        [Fact(DisplayName = "GetCapabilities_ByAlias_ShouldResolve [Core]")]
+#endif
+        public void GetCapabilities_ByAlias_ShouldResolve()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "AliasProvider";
+
+            manager.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
+                Model = "PrimaryModel",
+                Capabilities = AICapability.Text2Text,
+                Aliases = new List<string> { "pmodel", "primary" },
+            });
+
+            // Act
+            var resolved = manager.GetCapabilities(provider, "pmodel");
+
+            // Assert
+            Assert.NotNull(resolved);
+            Assert.Equal("PrimaryModel", resolved!.Model);
+        }
+
     }
 }

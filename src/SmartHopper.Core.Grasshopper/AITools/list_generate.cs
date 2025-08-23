@@ -229,7 +229,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             partialResult.Add("list", new JArray(allItems));
 
                             var partialBody = new AIBody();
-                            partialBody.AddInteractionToolResult(partialResult, result.Metrics);
+                            partialBody.AddInteractionToolResult(partialResult, result.Metrics, result.Messages);
 
                             output.CreateSuccess(partialBody);
                             return output;
@@ -293,7 +293,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("list", new JArray(allItems));
 
                 var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result?.Metrics);
+                toolBody.AddInteractionToolResult(toolResult, result?.Metrics, result?.Messages ?? new List<AIRuntimeMessage>());
 
                 output.CreateSuccess(toolBody);
                 return output;

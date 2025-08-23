@@ -56,7 +56,7 @@ namespace SmartHopper.Components.Text
             return new AITextEvaluateWorker(this, this.AddRuntimeMessage);
         }
 
-        private class AITextEvaluateWorker : AsyncWorkerBase
+        private sealed class AITextEvaluateWorker : AsyncWorkerBase
         {
             private readonly AITextEvaluate parent;
             private Dictionary<string, GH_Structure<GH_String>> inputTree;

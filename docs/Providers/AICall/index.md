@@ -24,3 +24,4 @@ Navigation:
 - Interactions: [./interactions.md](./interactions.md)
 - Requests: [./requests.md](./requests.md)
 - Body, Metrics, Status, Return: [./body-metrics-status.md](./body-metrics-status.md)
+ - Messages and Aggregation: [./messages.md](./messages.md)

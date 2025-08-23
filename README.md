@@ -42,8 +42,6 @@ Check for detailed installation instructions and initial setup in [smarthopper.x
 | Grasshopper Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Chat Input (AiChatInput)<br><sub>Send some data from your Grasshopper to the AI Chat</sub> | ⚪ | - | - | - |
-| AI Chat Output (AiChatOutput)<br><sub>Receive some data from the AI Chat to your Grasshopper</sub> | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -109,6 +107,7 @@ SmartHopper is currently supporting the following AI providers:
 | [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
 | [DeepSeek](https://deepseek.com/) | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) |
 | [Anthropic](https://anthropic.com/) | 🔜 Planned | [Anthropic Console](https://console.anthropic.com/) |
+| [OpenRouter](https://openrouter.ai/) | 🔜 Planned | [OpenRouter](https://openrouter.ai/) |
 
 ## 🔢 Supported Data Types
 
@@ -120,6 +119,7 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 | Number | ✅ Supported |
 | Integer | ✅ Supported |
 | Boolean | ✅ Supported |
+| Colour | 🔜 Planned |
 | Point | 🔜 Planned |
 | Plane | 🔜 Planned |
 | Line | 🔜 Planned |
@@ -127,17 +127,13 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 
 ## 📚 Usage Examples
 
-No usage examples available at the moment.
+Examples are currently under development.
 
 ## 🤝 Contributing
 
 Every great innovation starts with a single contribution. Whether you're a designer, developer, or AI enthusiast, your unique perspective can help shape the future of computational design tools.
 
 Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
-## 🏗 Architecture
-
-See the architecture overview in [docs/Architecture.md](docs/Architecture.md).
-
 ## 📝 Changelog
 
 See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a list of changes and updates.

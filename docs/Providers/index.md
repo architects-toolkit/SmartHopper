@@ -43,3 +43,5 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [IAIProviderSettings](./IAIProviderSettings.md)
 - [AIProviderSettings](./AIProviderSettings.md)
 - [AICall](./AICall/index.md)
+- [AIModelCapabilities](./AIModelCapabilities.md)
+- [Model Selection Policy](./ModelSelection.md)

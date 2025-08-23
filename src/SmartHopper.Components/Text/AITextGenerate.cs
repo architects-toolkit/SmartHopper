@@ -56,7 +56,7 @@ namespace SmartHopper.Components.Text
             return new AITextGenerateWorker(this, this.AddRuntimeMessage);
         }
 
-        private class AITextGenerateWorker : AsyncWorkerBase
+        private sealed class AITextGenerateWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;

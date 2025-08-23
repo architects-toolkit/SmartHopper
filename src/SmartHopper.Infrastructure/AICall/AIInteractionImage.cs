@@ -66,6 +66,12 @@ namespace SmartHopper.Infrastructure.AICall
         public string ImageStyle { get; set; } = "vivid";
 
         /// <summary>
+        /// Structured runtime messages associated with this image interaction.
+        /// Used to propagate warnings, infos, or provider notes alongside the result.
+        /// </summary>
+        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+
+        /// <summary>
         /// Returns a string representation of the AIInteractionImage.
         /// </summary>
         /// <returns>A formatted string containing image metadata.</returns>

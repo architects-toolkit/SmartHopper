@@ -57,7 +57,7 @@ namespace SmartHopper.Components.List
             return new AIListEvaluateWorker(this, this.AddRuntimeMessage);
         }
 
-        private class AIListEvaluateWorker : AsyncWorkerBase
+        private sealed class AIListEvaluateWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_Boolean>> result;

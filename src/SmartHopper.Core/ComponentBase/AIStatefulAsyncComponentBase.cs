@@ -25,6 +25,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.ComponentBase
@@ -144,9 +145,15 @@ namespace SmartHopper.Core.ComponentBase
                 return string.Empty;
             }
 
-            string actualModel = provider.Models.GetModel(model);
+            // If user specified a model, pass it through
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                return model;
+            }
 
-            return actualModel;
+            // Otherwise, use provider-level default resolution (respects settings and capabilities)
+            var selected = provider.GetDefaultModel(AICapability.Text2Text, useSettings: true);
+            return selected ?? string.Empty;
         }
 
         #endregion
@@ -184,29 +191,7 @@ namespace SmartHopper.Core.ComponentBase
             toolCall.Body = new AIBody();
             toolCall.Body.AddInteraction(toolCallInteraction);
 
-            // Surface validation messages from AIToolCall/AIRequestBase validation
-            try
-            {
-                var (isValid, messages) = toolCall.IsValid();
-                if (messages != null && messages.Count > 0)
-                {
-                    int idx = 0;
-                    foreach (var msg in messages)
-                    {
-                        idx++;
-                        var level = msg != null && msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase)
-                            ? GH_RuntimeMessageLevel.Remark
-                            : GH_RuntimeMessageLevel.Error;
-                        var message = msg.StartsWith("(Info)", StringComparison.OrdinalIgnoreCase) ? msg.Replace("(Info) ", string.Empty, StringComparison.OrdinalIgnoreCase) : msg;
-                        this.SetPersistentRuntimeMessage($"tool_validation_{idx}", level, message, false);
-                    }
-                }
-            }
-            catch (Exception valEx)
-            {
-                // Log validation message surfacing issues but do not fail execution
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Validation message processing error: {valEx.Message}");
-            }
+            // Validation/capability messages will be surfaced from AIReturn after execution
 
             AIReturn toolResult;
             JObject result;
@@ -253,6 +238,12 @@ namespace SmartHopper.Core.ComponentBase
             if (toolResult?.Metrics != null)
             {
                 this.StoreResponseMetrics(toolResult.Metrics);
+            }
+
+            // Surface propagated validation/capability messages from AIReturn
+            if (toolResult?.Messages != null && toolResult.Messages.Count > 0)
+            {
+                this.SurfaceMessagesFromReturn(toolResult, "ai");
             }
 
             // Handle tool-level failure
@@ -369,6 +360,41 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         #endregion
+
+        /// <summary>
+        /// Surfaces structured runtime messages contained in an <see cref="IAIReturn"/> as persistent
+        /// Grasshopper runtime messages. Maps <see cref="AIRuntimeMessageSeverity"/> to
+        /// <see cref="GH_RuntimeMessageLevel"/> and prefixes the text with the message <see cref="AIRuntimeMessage.Origin"/>.
+        /// </summary>
+        /// <param name="aiReturn">The AI return object containing messages.</param>
+        /// <param name="keyPrefix">A key prefix to namespace the persistent message keys.</param>
+        private void SurfaceMessagesFromReturn(IAIReturn aiReturn, string keyPrefix)
+        {
+            if (aiReturn?.Messages == null || aiReturn.Messages.Count == 0)
+            {
+                return;
+            }
+
+            int idx = 0;
+            foreach (var item in aiReturn.Messages)
+            {
+                idx++;
+
+                // Map structured severity to GH level
+                GH_RuntimeMessageLevel level = item.Severity switch
+                {
+                    AIRuntimeMessageSeverity.Warning => GH_RuntimeMessageLevel.Warning,
+                    AIRuntimeMessageSeverity.Error => GH_RuntimeMessageLevel.Error,
+                    _ => GH_RuntimeMessageLevel.Remark,
+                };
+
+                // Include origin for context, then the message text
+                var originTag = $"[{item.Origin}] ";
+                var msg = (item.Message ?? string.Empty);
+
+                this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, originTag + msg, false);
+            }
+        }
 
     }
 }
