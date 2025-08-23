@@ -47,7 +47,7 @@ namespace SmartHopper.Infrastructure.AIModels
         Text2Speech = TextInput | AudioOutput,
         Speech2Text = AudioInput | TextOutput,
         Image2Text = ImageInput | TextOutput,
-        Image2Image = ImageInput | ImageInput | ImageOutput,
+        Image2Image = ImageInput | ImageOutput,
     }
 
     /// <summary>
