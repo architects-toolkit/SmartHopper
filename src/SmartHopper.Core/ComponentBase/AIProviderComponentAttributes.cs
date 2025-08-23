@@ -8,12 +8,14 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Drawing;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
+using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -31,6 +33,11 @@ namespace SmartHopper.Core.ComponentBase
         // Hover state for inline provider label
         private RectangleF providerIconRect = RectangleF.Empty;
         private bool hoverProviderIcon = false;
+
+        // Timer-based auto-hide for inline label (disappears after 5s even if still hovered)
+        // Purpose: avoid sticky labels when the cursor remains stationary.
+        private Timer? providerLabelTimer;
+        private bool providerLabelAutoHidden = false;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProviderComponentAttributes"/> class.
@@ -122,10 +129,10 @@ namespace SmartHopper.Core.ComponentBase
                     GH_GraphicsUtil.RenderIcon(graphics, iconRect, providerIcon);
                 }
 
-                // Draw inline label for provider when hovered (rendered after icon)
-                if (this.hoverProviderIcon && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
+                // Draw inline label for provider when hovered and not auto-hidden (rendered after icon)
+                if (this.hoverProviderIcon && !this.providerLabelAutoHidden && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
                 {
-                    var label = $"Provider: {actualProviderName}";
+                    var label = $"Using {actualProviderName} provider";
                     InlineLabelRenderer.DrawInlineLabel(graphics, this.providerIconRect, label);
                 }
             }
@@ -150,12 +157,52 @@ namespace SmartHopper.Core.ComponentBase
 
             if (prev != this.hoverProviderIcon)
             {
-                this.owner.ExpireSolution(false);
+                // Start/stop 5s auto-hide timer based on hover transitions
+                if (this.hoverProviderIcon)
+                {
+                    this.providerLabelAutoHidden = false;
+                    StartProviderLabelTimer();
+                }
+                else
+                {
+                    StopProviderLabelTimer();
+                    this.providerLabelAutoHidden = false; // reset for next hover
+                }
+
+                this.owner.OnDisplayExpired(false);
             }
 
             return base.RespondToMouseMove(sender, e);
         }
 
-        
+        /// <summary>
+        /// Starts a one-shot 5s timer to auto-hide the inline label and request a repaint.
+        /// </summary>
+        private void StartProviderLabelTimer()
+        {
+            StopProviderLabelTimer();
+            this.providerLabelTimer = new Timer(5000) { AutoReset = false };
+            this.providerLabelTimer.Elapsed += (_, __) =>
+            {
+                // Mark as auto-hidden and request display refresh
+                this.providerLabelAutoHidden = true;
+                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                StopProviderLabelTimer();
+            };
+            this.providerLabelTimer.Start();
+        }
+
+        /// <summary>
+        /// Stops and disposes the provider label timer if active.
+        /// </summary>
+        private void StopProviderLabelTimer()
+        {
+            if (this.providerLabelTimer != null)
+            {
+                try { this.providerLabelTimer.Stop(); } catch { /* ignore */ }
+                try { this.providerLabelTimer.Dispose(); } catch { /* ignore */ }
+                this.providerLabelTimer = null;
+            }
+        }
     }
 }

@@ -40,12 +40,12 @@ namespace SmartHopper.Core.ComponentBase
             var width = size.Width + padding * 2f;
             var height = size.Height + padding * 1.5f;
             var x = anchor.Left + (anchor.Width - width) / 2f;
-            var y = anchor.Top - height - 4f; // small gap above
+            var y = anchor.Top - height - 4f; // small gap below
 
             var rect = new RectangleF(x, y, width, height);
-            using (var bg = new SolidBrush(Color.FromArgb(220, 30, 30, 30)))
-            using (var pen = new Pen(Color.FromArgb(160, 255, 255, 255), 1f))
-            using (var fg = new SolidBrush(Color.White))
+            using (var bg = new SolidBrush(Color.FromArgb(240, 255, 255, 255)))
+            using (var pen = new Pen(Color.FromArgb(255, 255, 255, 255), 1f))
+            using (var fg = new SolidBrush(Color.Black))
             {
                 g.FillRectangle(bg, rect);
                 g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
