@@ -66,7 +66,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         public virtual AICapability Capability { get; set; } = AICapability.None;
 
         /// <inheritdoc/>
-        public virtual AIBody Body { get; set; } = new AIBody();
+        public virtual AIBodyImmutable Body { get; set; } = AIBodyImmutable.Empty;
 
         /// <summary>
         /// Indicates that the caller intends to stream this request. This lets validation
@@ -188,26 +188,30 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public virtual void Initialize(string provider, string model,  AIBody body, string endpoint, AICapability capability = AICapability.TextOutput)
+        public virtual void Initialize(string provider, string model, AIBodyImmutable body, string endpoint, AICapability capability = AICapability.TextOutput)
         {
             this.Provider = provider;
             this.Model = model;
             this.Endpoint = endpoint ?? string.Empty;
-            this.Body = body;
+            this.Body = body ?? AIBodyImmutable.Empty;
             this.Capability = capability;
         }
 
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public virtual void Initialize(string provider, string model,  List<IAIInteraction> interactions, string endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
+        public virtual void Initialize(string provider, string model, List<IAIInteraction> interactions, string endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
-            var body = new AIBody();
-            body.Interactions = interactions;
+            var builder = AIBodyBuilder.Create();
+            if (interactions != null)
+            {
+                builder.AddRange(interactions);
+            }
             if (!string.IsNullOrEmpty(toolFilter))
             {
-                body.ToolFilter = toolFilter;
+                builder.WithToolFilter(toolFilter);
             }
+            var body = builder.Build();
             this.Initialize(provider, model, body, endpoint ?? string.Empty, capability);
         }
 

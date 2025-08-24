@@ -149,7 +149,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         /// </summary>
         public void FromToolCallInteraction(AIInteractionToolCall toolCall, string provider = null, string model = null)
         {
-            this.Body.AddLastInteraction(toolCall);
+            this.Body = this.Body.WithAppended(toolCall);
             if (provider != null)
             {
                 this.Provider = provider;

@@ -190,14 +190,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Checks if the body requires JSON output.
-        /// </summary>
-        public bool RequiresJsonOutput()
-        {
-            return !string.IsNullOrEmpty(this.JsonOutputSchema);
-        }
-
-        /// <summary>
         /// Adds an interaction to the start of the interaction history.
         /// </summary>
         /// <param name="interaction">The interaction to add.</param>

@@ -144,7 +144,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             {
                                 continue;
                             }
-                            this.Request.Body.AddLastInteraction(interaction);
+                            this.Request.Body = this.Request.Body.WithAppended(interaction);
                         }
                     }
 
@@ -181,7 +181,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
                             if (toolInteraction != null)
                             {
-                                this.Request.Body.AddLastInteraction(toolInteraction);
+                                this.Request.Body = this.Request.Body.WithAppended(toolInteraction);
                                 this.Observer?.OnToolResult(toolInteraction);
                             }
                             else
@@ -192,7 +192,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 var errInteraction = none.Body?.GetLastInteraction() as AIInteractionToolResult;
                                 if (errInteraction != null)
                                 {
-                                    this.Request.Body.AddLastInteraction(errInteraction);
+                                    this.Request.Body = this.Request.Body.WithAppended(errInteraction);
                                     this.Observer?.OnToolResult(errInteraction);
                                 }
                             }
@@ -225,7 +225,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 {
                                     continue;
                                 }
-                                this.Request.Body.AddLastInteraction(interaction);
+                                this.Request.Body = this.Request.Body.WithAppended(interaction);
                             }
                         }
 
@@ -351,7 +351,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     // During streaming, only persist tool interactions; defer assistant/user text to finalization
                                     if (interaction is AIInteractionToolCall || interaction is AIInteractionToolResult)
                                     {
-                                    this.Request.Body.AddLastInteraction(interaction);
+                                    this.Request.Body = this.Request.Body.WithAppended(interaction);
                                     }
                                     // Notify tool calls immediately for UI
                                     if (interaction is AIInteractionToolCall toolCall)
@@ -405,7 +405,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         {
                                             continue;
                                         }
-                                        this.Request.Body.AddLastInteraction(interaction);
+                                        this.Request.Body = this.Request.Body.WithAppended(interaction);
                                     }
                                 }
 
@@ -446,7 +446,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
                                     if (toolInteraction != null)
                                     {
-                                        this.Request.Body.AddLastInteraction(toolInteraction);
+                                        this.Request.Body = this.Request.Body.WithAppended(toolInteraction);
                                         this.Observer?.OnToolResult(toolInteraction);
                                     }
                                     else
@@ -457,7 +457,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         var errInteraction = noneTool.Body?.GetLastInteraction() as AIInteractionToolResult;
                                         if (errInteraction != null)
                                         {
-                                            this.Request.Body.AddLastInteraction(errInteraction);
+                                            this.Request.Body = this.Request.Body.WithAppended(errInteraction);
                                             this.Observer?.OnToolResult(errInteraction);
                                         }
                                     }
@@ -491,7 +491,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         {
                                             continue;
                                         }
-                                        this.Request.Body.AddLastInteraction(interaction);
+                                        this.Request.Body = this.Request.Body.WithAppended(interaction);
                                     }
                                 }
 

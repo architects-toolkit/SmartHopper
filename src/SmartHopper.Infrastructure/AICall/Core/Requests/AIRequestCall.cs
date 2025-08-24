@@ -149,15 +149,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             }
             else
             {
+                if (this.Body.InteractionsCount == 0)
+                {
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Validation,
+                        "At least one interaction is required"));
+                }
+
                 if (effectiveCapability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
                 {
                     messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "JsonOutput capability requires a non-empty JsonOutputSchema"));
-                }
-
-                var (bodyOk, bodyErr) = this.Body.IsValid();
-                if (!bodyOk)
-                {
-                    messages.AddRange(bodyErr);
                 }
             }
 
@@ -275,7 +277,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <param name="endpoint">Provider endpoint or route. If null, an empty string will be used.</param>
         /// <param name="capability">Desired capabilities for this request (input/output and options).</param>
         /// <param name="toolFilter">Optional tool filter expression (e.g., "-*" to disable all tools).</param>
-        public void Initialize(string provider, string model,  string systemPrompt, string? endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
+        public void Initialize(string provider, string model, string systemPrompt, string? endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
             var interactionList = new List<IAIInteraction>
             {
@@ -291,7 +293,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <param name="interactions">New interactions list that replaces the current body interactions.</param>
         public void OverrideInteractions(List<IAIInteraction> interactions)
         {
-            this.Body.OverrideInteractions(interactions);
+            // Replace interactions by rebuilding immutable body while preserving filters/schema
+            var builder = AIBodyBuilder.Create()
+                .WithToolFilter(this.Body?.ToolFilter)
+                .WithContextFilter(this.Body?.ContextFilter)
+                .WithJsonOutputSchema(this.Body?.JsonOutputSchema);
+            if (interactions != null)
+            {
+                builder.AddRange(interactions);
+            }
+            this.Body = builder.Build();
         }
 
         /// <summary>
@@ -306,7 +317,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             var effective = this.capability;
 
             // If body requires JSON output but capability lacks it, add it (informational)
-            if (this.Body?.RequiresJsonOutput() == true && !effective.HasFlag(AICapability.JsonOutput))
+            if (this.Body?.RequiresJsonOutput == true && !effective.HasFlag(AICapability.JsonOutput))
             {
                 effective |= AICapability.JsonOutput;
                 notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput"));

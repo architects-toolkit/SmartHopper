@@ -10,6 +10,7 @@
 
 using System;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Policies;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
@@ -41,7 +42,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             {
                 normalized = DefaultTimeout;
                 rq.TimeoutSeconds = normalized;
-                rq.Body?.AddInteraction("System", $"Timeout applied: {normalized}s (default)");
+                if (rq.Body != null)
+                {
+                    rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
+                        .AddSystem($"Timeout applied: {normalized}s (default)")
+                        .Build();
+                }
                 return Task.CompletedTask;
             }
 
@@ -49,12 +55,22 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             if (normalized < MinTimeout)
             {
                 rq.TimeoutSeconds = MinTimeout;
-                rq.Body?.AddInteraction("System", $"Timeout increased from {original}s to {MinTimeout}s (minimum)");
+                if (rq.Body != null)
+                {
+                    rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
+                        .AddSystem($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
+                        .Build();
+                }
             }
             else if (normalized > MaxTimeout)
             {
                 rq.TimeoutSeconds = MaxTimeout;
-                rq.Body?.AddInteraction("System", $"Timeout reduced from {original}s to {MaxTimeout}s (maximum)");
+                if (rq.Body != null)
+                {
+                    rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
+                        .AddSystem($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
+                        .Build();
+                }
             }
 
             return Task.CompletedTask;

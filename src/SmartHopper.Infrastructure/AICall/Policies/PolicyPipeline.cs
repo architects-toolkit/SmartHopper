@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Policies.Request;
@@ -56,8 +57,13 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                 }
                 catch (Exception ex)
                 {
-                    // Non-fatal: convert to diagnostic
-                    request?.Body?.AddInteraction("System", $"Request policy {policy.GetType().Name} failed: {ex.Message}");
+                    // Non-fatal: convert to diagnostic (immutable)
+                    if (request?.Body != null)
+                    {
+                        request.Body = AIBodyBuilder.FromImmutable(request.Body)
+                            .AddSystem($"Request policy {policy.GetType().Name} failed: {ex.Message}")
+                            .Build();
+                    }
                     Debug.WriteLine($"[PolicyPipeline] Request policy {policy.GetType().Name} exception: {ex}");
                 }
             }

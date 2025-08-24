@@ -15,7 +15,6 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
-
 namespace SmartHopper.Infrastructure.AICall.Core.Base
 {
     public interface IAIRequest
@@ -41,9 +40,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         AICapability Capability { get; set; }
 
         /// <summary>
-        /// Gets or sets the request body.
+        /// Gets or sets the immutable request body.
         /// </summary>
-        AIBody Body { get; set; }
+        AIBodyImmutable Body { get; set; }
 
         /// <summary>
         /// Indicates the caller intends to stream this request. Enables validation hints for streaming support.
