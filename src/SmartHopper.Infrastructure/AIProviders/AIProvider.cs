@@ -52,6 +52,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Gets the singleton instance of the provider.
         /// </summary>
         public static T Instance => InstanceValue.Value;
+
     }
 
     /// <summary>

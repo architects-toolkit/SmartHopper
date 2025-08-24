@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Policies.Request;
 
 namespace SmartHopper.Infrastructure.AICall.Policies
 {
@@ -32,6 +33,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
         {
             var pipeline = new PolicyPipeline();
             // Request policies can be added here as they are implemented (context injection, capability enforcement, schema attach...)
+            pipeline.RequestPolicies.Add(new SchemaAttachRequestPolicy());
             // Response policies: start with compatibility decode to preserve behavior until new mappers are introduced
             pipeline.ResponsePolicies.Add(new Response.CompatibilityDecodeResponsePolicy());
             return pipeline;
