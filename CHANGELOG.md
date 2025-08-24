@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed incorrect result output in `list_generate` tool.
 - WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
 - DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
+- MistralAI provider: Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
 - Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
 
 ## [0.5.3-alpha] - 2025-08-20

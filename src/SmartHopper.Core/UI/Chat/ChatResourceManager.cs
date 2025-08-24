@@ -293,6 +293,15 @@ namespace SmartHopper.Core.UI.Chat
                 outTokens = interaction.Metrics.OutputTokens;
             }
 
+            // Decide whether to show metrics icon. Hide when metrics are missing or not meaningful (e.g., during streaming).
+            // Consider metrics meaningful if we have token counts or provider+model info.
+            bool hasMeaningfulMetrics =
+                (interaction.Metrics != null) &&
+                ((inTokens > 0) || (outTokens > 0) ||
+                 (!string.IsNullOrWhiteSpace(provider) && !string.IsNullOrWhiteSpace(model)));
+            string metricsClass = hasMeaningfulMetrics ? string.Empty : "hidden";
+            Debug.WriteLine($"[ChatResourceManager] Metrics visibility: {(hasMeaningfulMetrics ? "show" : "hide")}; in={inTokens}, out={outTokens}, provider='{provider}', model='{model}', reason='{finishReason}'");
+
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
             var reasoningPanel = this.RenderReasoning(rawReasoning);
@@ -315,7 +324,8 @@ namespace SmartHopper.Core.UI.Chat
                 .Replace("{{outTokens}}", outTokens.ToString())
                 .Replace("{{provider}}", provider)
                 .Replace("{{model}}", model)
-                .Replace("{{finishReason}}", finishReason);
+                .Replace("{{finishReason}}", finishReason)
+                .Replace("{{metricsClass}}", metricsClass);
 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
 

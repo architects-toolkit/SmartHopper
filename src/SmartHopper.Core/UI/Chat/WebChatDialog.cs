@@ -458,6 +458,17 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="interaction">The AI interaction object containing the message.</param>
         private void AddInteraction(IAIInteraction interaction)
         {
+            try
+            {
+                var metrics = interaction?.Metrics;
+                var contentLen = (interaction as AIInteractionText)?.Content?.Length ?? 0;
+                Debug.WriteLine($"[WebChatDialog] AddInteraction -> agent={interaction?.Agent}, type={interaction?.GetType().Name}, contentLen={contentLen}, metrics={(metrics != null ? $"in={metrics.InputTokens}, out={metrics.OutputTokens}, provider='{metrics.Provider}', model='{metrics.Model}', reason='{metrics.FinishReason}'" : "null")}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] AddInteraction log error: {ex.Message}");
+            }
+
             this._chatHistory.Add(interaction);
             this.AddInteractionToWebView(interaction);
         }
