@@ -39,9 +39,10 @@ This document explains the centralized propagation and aggregation of structured
 
 ## Infrastructure guidance
 
-- `AIToolManager.ExecuteTool(...)` and `AIRequestCall.Exec(processTools)` should not merge tool messages into the main return.
+- `AIToolManager.ExecuteTool(...)` and conversation orchestration should not manually merge tool messages into the main return.
   - Central aggregation via `AIBody` and `AIReturn` replaces previous explicit merges.
   - Tool results are appended as interactions; their messages are discovered during aggregation.
+  - Use `ConversationSession` for multi‑turn/tool flows; it appends tool results as `AIInteractionToolResult` interactions to the session `AIBody`.
 
 ## Example
 

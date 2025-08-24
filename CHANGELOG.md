@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
 - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
 - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
-- `AIRequestCall`: optional parameter to process pending tool calls natively during execution.
 - Summary documentation at `docs/` (linked in README).
 - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
 - New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
 - New component badges to visually identify verified and deprecated models.
+- ConversationSession service (Phase 1, non-streaming) introducing:
+  - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
+  - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()`; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
 
 ### Changed
 
@@ -35,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
 - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
 - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
-Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
+- Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
 - Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
 - Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
 - Unified model retrieval via `IAIProviderModels.RetrieveModels()` with centralized registration in `ModelManager`. Components (e.g., `AIModelsComponent`) and tests updated to query `ModelManager` instead of calling per-provider legacy methods.
@@ -45,7 +47,7 @@ Providers refactored to use `AIInteractionText.SetResult(...)` for consistent co
   - `AIRequestBase.GetModelToUse()` refactored to call `provider.SelectModel(...)` instead of `ModelManager.Instance` directly.
   - Removed remaining direct calls to `ModelManager.Instance.SelectBestModel` outside provider internals.
   - Propagated model validation messages to components UI.
-- Docs updated: `docs/Providers/IAIProvider.md`, `docs/Providers/AIProvider.md`, `docs/Providers/ModelSelection.md` to reflect provider-scoped model selection guidance.
+- `AIRequestCall.Exec()` is now explicitly single-turn (no tool orchestration). Multi-turn and tool processing are handled by `ConversationSession.RunToStableResult` when used explicitly.
 
 ### Removed
 
