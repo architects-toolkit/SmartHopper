@@ -11,6 +11,7 @@
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
@@ -37,7 +38,10 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             if (svc.TryParseSchema(schemaText, out JObject schemaObj, out _))
             {
                 // Canonicalize formatting (minified) so providers get a stable schema string
-                rq.Body.JsonOutputSchema = schemaObj.ToString(Formatting.None);
+                rq.Body = AIBodyBuilder
+                    .FromImmutable(rq.Body)
+                    .WithJsonOutputSchema(schemaObj.ToString(Formatting.None))
+                    .Build();
             }
 
             return Task.CompletedTask;

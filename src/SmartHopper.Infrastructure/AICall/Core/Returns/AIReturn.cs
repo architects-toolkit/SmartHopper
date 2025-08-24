@@ -43,7 +43,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         private List<AIRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<AIRuntimeMessage>();
 
         /// <inheritdoc/>
-        public AIBody Body { get; private set; } = new AIBody();
+        public AIBodyImmutable Body { get; private set; } = AIBodyImmutable.Empty;
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }
@@ -204,7 +204,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// </summary>
         /// <param name="body">The result value.</param>
         /// <param name="request">The request that generated the result.</param>
-        public void CreateSuccess(AIBody body, IAIRequest? request = null)
+        public void CreateSuccess(AIBodyImmutable body, IAIRequest? request = null)
         {
             if (request == null && this.Request != null)
             {
@@ -237,19 +237,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 request = new AIRequestCall();
             }
 
-            if (metrics == null && this.Body.Metrics != null)
-            {
-                metrics = this.Body.Metrics;
-            }
-            else if (metrics == null)
-            {
-                metrics = new AIMetrics();
-            }
-
-            var body = new AIBody
-            {
-                Interactions = result,
-            };
+            // Build immutable body from interactions; metrics are aggregated within the immutable body.
+            var body = AIBodyBuilder.Create()
+                .AddRange(result)
+                .Build();
 
             this.CreateSuccess(body, request);
         }
@@ -335,7 +326,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         }
 
         /// <inheritdoc/>
-        public void SetBody(AIBody body)
+        public void SetBody(AIBodyImmutable body)
         {
             this.Body = body;
         }
@@ -346,7 +337,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="interactions">The list of interactions to set as result.</param>
         public void SetBody(List<IAIInteraction> interactions)
         {
-            this.Body.Interactions = interactions;
+            this.Body = AIBodyBuilder.Create()
+                .AddRange(interactions)
+                .Build();
         }
 
         /// <summary>

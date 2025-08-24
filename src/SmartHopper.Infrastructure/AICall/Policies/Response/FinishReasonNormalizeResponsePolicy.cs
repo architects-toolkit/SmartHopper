@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -39,7 +40,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 string original = metrics?.FinishReason;
                 if (string.IsNullOrWhiteSpace(original))
                 {
-                    var lastAssistant = response.Body?.GetLastInteraction(AIAgent.Assistant);
+                    var lastAssistant = response.Body?.Interactions?.LastOrDefault(i => i?.Agent == AIAgent.Assistant);
                     original = lastAssistant?.Metrics?.FinishReason;
                 }
 

@@ -22,7 +22,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <summary>
         /// Gets the decoded result interactions.
         /// </summary>
-        AIBody Body { get; }
+        AIBodyImmutable Body { get; }
 
         /// <summary>
         /// Gets or sets the request sent to the provider.
@@ -65,7 +65,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// Sets the body of the result.
         /// </summary>
         /// <param name="body">The body to set as result.</param>
-        void SetBody(AIBody body);
+        void SetBody(AIBodyImmutable body);
 
         /// <summary>
         /// Creates a standardized provider error while preserving the raw provider message in ErrorMessage.

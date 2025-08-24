@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.Utils;
 
@@ -41,17 +42,21 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
 
             if (!string.Equals(raw, normalized, StringComparison.Ordinal))
             {
-                rq.Body.ToolFilter = normalized;
+                var builder = AIBodyBuilder.FromImmutable(rq.Body)
+                    .WithToolFilter(normalized);
+
                 // Attach a light diagnostic to the request body for traceability
                 // Note: Request diagnostics are represented as a System interaction in the body
                 if (string.IsNullOrWhiteSpace(raw))
                 {
-                    rq.Body.AddInteraction("System", $"Tool filter was empty; interpreted as '{normalized}'.");
+                    builder = builder.AddSystem($"Tool filter was empty; interpreted as '{normalized}'.");
                 }
                 else
                 {
-                    rq.Body.AddInteraction("System", $"Tool filter normalized from '{raw}' to '{normalized}'.");
+                    builder = builder.AddSystem($"Tool filter normalized from '{raw}' to '{normalized}'.");
                 }
+
+                rq.Body = builder.Build();
             }
 
             return Task.CompletedTask;
