@@ -20,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
 
@@ -42,6 +43,8 @@ namespace SmartHopper.Providers.DeepSeek
         private DeepSeekProvider()
         {
             this.Models = new DeepSeekProviderModels(this);
+            // Register provider-specific JSON schema adapter
+            JsonSchemaAdapterRegistry.Register(new DeepSeekJsonSchemaAdapter());
         }
 
         /// <summary>
@@ -131,58 +134,39 @@ namespace SmartHopper.Providers.DeepSeek
                 ["temperature"] = temperature,
             };
 
-            // Add JSON response format if schema is provided
+            // Add JSON response format if schema is provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
             {
-                // Determine if the provided schema is an array at the root.
-                bool isArraySchema = false;
                 try
                 {
-                    var schemaToken = JToken.Parse(request.Body.JsonOutputSchema);
-                    if (schemaToken.Type == JTokenType.Object)
-                    {
-                        var typeValue = (schemaToken["type"] ?? schemaToken["$ref"])?.ToString();
-                        isArraySchema = string.Equals(typeValue, "array", StringComparison.OrdinalIgnoreCase);
-                    }
-                    else if (schemaToken.Type == JTokenType.Array)
-                    {
-                        // If someone passed a raw array as a schema, treat it as array type
-                        isArraySchema = true;
-                    }
-                }
-                catch
-                {
-                    // If schema cannot be parsed, default to object behavior below
-                }
+                    var svc = JsonSchemaService.Instance;
+                    var schemaObj = JObject.Parse(request.Body.JsonOutputSchema);
+                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+                    svc.SetCurrentWrapperInfo(wrapperInfo);
+                    Debug.WriteLine($"[DeepSeek] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
-                if (isArraySchema)
-                {
-                    // Fix A (quick): Do NOT force json_object for array schemas. Let the model return a plain JSON array string.
-                    requestBody["response_format"] = new JObject { ["type"] = "text" };
-
-                    // Guide the model explicitly to return only a JSON array according to the schema
-                    var systemMessage = new JObject
-                    {
-                        ["role"] = "system",
-                        ["content"] = "Return ONLY a valid JSON array that strictly follows this schema (no wrapping object, no code fences, no extra text): " + request.Body.JsonOutputSchema,
-                    };
-                    convertedMessages.Insert(0, systemMessage);
-                }
-                else
-                {
-                    // Non-array schemas: keep structured output as JSON object
+                    // Enforce structured output
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
 
+                    // Add system guidance including the wrapped schema
                     var systemMessage = new JObject
                     {
                         ["role"] = "system",
-                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + request.Body.JsonOutputSchema,
+                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + wrappedSchema.ToString(Newtonsoft.Json.Formatting.None),
                     };
                     convertedMessages.Insert(0, systemMessage);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[DeepSeek] Failed to parse/handle JSON schema: {ex.Message}");
+                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+                    // Fallback to text response
+                    requestBody["response_format"] = new JObject { ["type"] = "text" };
                 }
             }
             else
             {
+                JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 requestBody["response_format"] = new JObject { ["type"] = "text" };
             }
 
@@ -372,7 +356,7 @@ namespace SmartHopper.Providers.DeepSeek
                     content = contentToken?.ToString() ?? string.Empty;
                 }
 
-                // Clean up DeepSeek's malformed JSON responses for array schemas, and also unwrap if content is an object string containing items/list/enum
+                // Clean up DeepSeek's malformed JSON responses for array schemas
                 content = CleanUpDeepSeekArrayResponse(content);
                 try
                 {
@@ -390,6 +374,14 @@ namespace SmartHopper.Providers.DeepSeek
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DeepSeek] Decode: unwrap attempt failed: {ex.Message}");
+                }
+
+                // Then apply centralized unwrapping using stored wrapper info
+                var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
+                if (wrapperInfo != null && wrapperInfo.IsWrapped)
+                {
+                    Debug.WriteLine($"[DeepSeek] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
                 var interaction = new AIInteractionText();
