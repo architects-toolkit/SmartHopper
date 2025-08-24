@@ -22,7 +22,9 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Core.UI.Chat
@@ -355,3 +357,4 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
+

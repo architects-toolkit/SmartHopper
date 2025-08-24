@@ -16,7 +16,11 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Serialization;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -103,3 +107,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

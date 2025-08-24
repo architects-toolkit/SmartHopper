@@ -14,8 +14,10 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AICall.Core.Base;
+    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.Infrastructure.AICall.Core.Requests;
+    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
@@ -253,3 +255,4 @@ namespace SmartHopper.Infrastructure.Tests
         }
     }
 }
+

@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ConversationSession service (Phase 1, non-streaming) introducing:
   - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
   - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()`; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
+  - Always-on `PolicyPipeline` foundation with request and response policy hooks
+  - Default response policy: `CompatibilityDecodeResponsePolicy` that decodes raw provider JSON via the provider's `Decode(string)` to normalized interactions; exceptions are converted to diagnostics via `AIReturn.AddRuntimeMessage`
+- AICall folder reorganization.
 
 ### Changed
 

@@ -17,10 +17,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -537,3 +538,4 @@ namespace SmartHopper.Providers.DeepSeek
         }
     }
 }
+

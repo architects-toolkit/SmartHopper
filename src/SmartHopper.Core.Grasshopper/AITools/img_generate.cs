@@ -15,7 +15,11 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 
@@ -163,6 +167,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("imageQuality", resultImageInteraction.ImageQuality ?? string.Empty);
                 toolResult.Add("imageStyle", resultImageInteraction.ImageStyle ?? string.Empty);
 
+                // Attach non-breaking result envelope
+                toolResult.WithEnvelope(
+                    ToolResultEnvelope.Create(
+                        tool: "img_generate",
+                        type: ToolResultContentType.Image,
+                        payloadPath: "result",
+                        provider: providerName,
+                        model: modelName,
+                        toolCallId: toolInfo?.Id));
+
                 var toolBody = new AIBody();
                 toolBody.AddInteractionToolResult(toolResult, response.Metrics, response.Messages);
 
@@ -178,3 +192,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

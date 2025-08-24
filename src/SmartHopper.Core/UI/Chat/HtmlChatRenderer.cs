@@ -17,7 +17,11 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using Markdig;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -135,3 +139,4 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
+

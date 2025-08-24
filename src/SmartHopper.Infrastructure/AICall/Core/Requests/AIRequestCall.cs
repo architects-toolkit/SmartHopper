@@ -15,9 +15,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Policies;
 using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Infrastructure.AICall
+
+namespace SmartHopper.Infrastructure.AICall.Core.Requests
 {
     /// <summary>
     /// Represents a fully-specified AI request that providers can execute, including
@@ -175,6 +180,9 @@ namespace SmartHopper.Infrastructure.AICall
 
             try
             {
+                // Always-on: run request policies before validation/provider call
+                await PolicyPipeline.Default.ApplyRequestPoliciesAsync(this).ConfigureAwait(false);
+
                 // Validate early to avoid provider calls when request is invalid
                 var (rqOk, rqErrors) = this.IsValid();
                 if (!rqOk)
@@ -210,7 +218,11 @@ namespace SmartHopper.Infrastructure.AICall
                     result.CreateProviderError("Provider returned no response", this);
                 }
 
-                return (AIReturn)result;
+                // Run response policies to decode/normalize/validate the response
+                var air = (AIReturn)result;
+                await PolicyPipeline.Default.ApplyResponsePoliciesAsync(air).ConfigureAwait(false);
+
+                return air;
             }
             catch (OperationCanceledException)
             {

@@ -13,8 +13,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Metrics;
 
-namespace SmartHopper.Infrastructure.AICall
+namespace SmartHopper.Infrastructure.AICall.Core.Returns
 {
     /// <summary>
     /// Generic container for provider responses, carrying processed and raw results,
@@ -151,6 +155,11 @@ namespace SmartHopper.Infrastructure.AICall
         /// <inheritdoc/>
         public bool Success => string.IsNullOrEmpty(this.ErrorMessage);
 
+        /// <summary>
+        /// Gets the raw JSON returned by the provider, if available.
+        /// </summary>
+        public JObject GetRaw() => this.PrivateEncodedResult;
+
         /// <inheritdoc/>
         public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
         {
@@ -261,15 +270,9 @@ namespace SmartHopper.Infrastructure.AICall
                 request = new AIRequestCall();
             }
 
-            var result = new AIReturn
-            {
-                Request = request,
-                Status = AICallStatus.Finished,
-            };
-
-            result.SetBody(raw);
-
-            this.CreateSuccess(result.Body, request);
+            this.Request = request;
+            this.Status = AICallStatus.Finished;
+            this.SetBody(raw);
         }
 
         /// <summary>
@@ -352,10 +355,8 @@ namespace SmartHopper.Infrastructure.AICall
         /// <param name="raw">The raw response from the provider.</param>
         public void SetBody(JObject raw)
         {
+            // Preserve raw provider JSON. Decoding into interactions is handled by response policies.
             this.PrivateEncodedResult = raw;
-
-            // TODO: Most of the tools do not return json to decode, but json to directly add to the body.
-            this.Body.Interactions = this.Request.ProviderInstance.Decode(raw.ToString());
         }
     }
 

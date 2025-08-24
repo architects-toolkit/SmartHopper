@@ -16,10 +16,9 @@
  */
 
 using System;
-using System.Collections.Generic;
-using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Metrics;
 
-namespace SmartHopper.Infrastructure.AICall
+namespace SmartHopper.Infrastructure.AICall.Core.Base
 {
     public interface IAIInteraction
     {

@@ -12,10 +12,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Infrastructure.AICall
+namespace SmartHopper.Infrastructure.AICall.Core.Requests
 {
     /// <summary>
     /// Represents a fully-specified AI request that providers can execute, including
