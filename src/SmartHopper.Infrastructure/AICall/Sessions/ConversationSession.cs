@@ -21,6 +21,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Core.Requests;
     using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.Streaming;
 
     /// <summary>
@@ -44,6 +45,37 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
             this.Observer = observer;
+        }
+
+        /// <summary>
+        /// Validates the request before starting a session execution path.
+        /// Centralizes wantsStreaming flag and aggregates error messages into an AIReturn.
+        /// </summary>
+        /// <param name="wantsStreaming">Whether the caller intends to stream.</param>
+        /// <returns>Tuple with validity and optional error return.</returns>
+        private (bool IsValid, AIReturn? Error) ValidateBeforeStart(bool wantsStreaming)
+        {
+            // Set streaming intent for validation rules
+            this.Request.WantsStreaming = wantsStreaming;
+
+            var validation = this.Request.IsValid();
+            if (validation.IsValid)
+            {
+                return (true, null);
+            }
+
+            var errorMessages = validation.Errors?
+                .Where(m => m.Severity == AIRuntimeMessageSeverity.Error)
+                .Select(m => m.Message)
+                .ToList();
+
+            var combined = (errorMessages != null && errorMessages.Count > 0)
+                ? string.Join(" \n", errorMessages)
+                : "Request validation failed.";
+
+            var err = new AIReturn();
+            err.CreateError(combined, this.Request);
+            return (false, err);
         }
 
         /// <inheritdoc/>
@@ -70,6 +102,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 this.Observer?.OnStart(this.Request);
+
+                // Centralized validation: early interrupt non-streaming flow if request is invalid
+                var (okRun, errRun) = this.ValidateBeforeStart(wantsStreaming: false);
+                if (!okRun)
+                {
+                    this.Observer?.OnFinal(errRun ?? new AIReturn());
+                    return errRun ?? new AIReturn();
+                }
 
                 int turns = 0;
                 AIReturn lastReturn = null;
@@ -245,6 +285,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 this.Observer?.OnStart(this.Request);
+
+                // Centralized validation: early interrupt streaming if request is invalid (e.g., streaming unsupported)
+                var (okStream, errStream) = this.ValidateBeforeStart(wantsStreaming: true);
+                if (!okStream)
+                {
+                    this.Observer?.OnFinal(errStream ?? new AIReturn());
+                    if (errStream != null)
+                    {
+                        yield return errStream;
+                    }
+                    yield break;
+                }
 
                 int turns = 0;
                 AIReturn lastReturn = null;

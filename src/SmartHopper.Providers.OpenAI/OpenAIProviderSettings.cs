@@ -60,6 +60,14 @@ namespace SmartHopper.Providers.OpenAI
                 }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
                 new SettingDescriptor
                 {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Allow streaming responses for this provider. When enabled, you will receive the response as it is generated",
+                },
+                new SettingDescriptor
+                {
                     Name = "MaxTokens",
                     Type = typeof(int),
                     DefaultValue = 2000,

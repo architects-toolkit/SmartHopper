@@ -59,6 +59,14 @@ namespace SmartHopper.Providers.DeepSeek
                 }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
                 new SettingDescriptor
                 {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Allow streaming responses for this provider. When enabled, you will receive the response as it is generated",
+                },
+                new SettingDescriptor
+                {
                     Name = "MaxTokens",
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",

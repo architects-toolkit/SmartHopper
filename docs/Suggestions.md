@@ -1,6 +1,6 @@
 # Architecture Suggestions (SmartHopper)
 
-This document outlines an idealized refactoring to centralize concerns, reduce duplication, and improve reliability across SmartHopper. It complements existing docs under `docs/Providers/`, `docs/Components/`, `docs/Context/`, and `docs/Tools/`.
+This document outlines an idealized refactoring to centralize concerns, reduce duplication, and improve reliability across SmartHopper. It complements existing docs under `docs/Providers/`, `docs/Components/`, `docs/Context/`, `docs/Tools/`...
 
 Breaking changes are acceptable; this is a forward-looking plan.
 
