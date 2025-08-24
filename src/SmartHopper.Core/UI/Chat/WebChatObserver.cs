@@ -156,6 +156,8 @@ namespace SmartHopper.Core.UI.Chat
                                     _dialog.ReplaceLastMessageByRole(inter.Agent, inter);
 
                                     // Persist to history exactly once per final item
+                                    var m = inter?.Metrics;
+                                    Debug.WriteLine($"[WebChatObserver] OnFinal -> persisting interaction agent={inter?.Agent}, type={inter?.GetType().Name}, metrics={(m != null ? $"in={m.InputTokens}, out={m.OutputTokens}, provider='{m.Provider}', model='{m.Model}', reason='{m.FinishReason}'" : "null")}");
                                     _dialog._chatHistory.Add(inter);
                                 }
                                 catch (Exception innerEx)
@@ -256,7 +258,8 @@ namespace SmartHopper.Core.UI.Chat
                         Reasoning = string.IsNullOrEmpty(ttIn.Reasoning)
                             ? prev?.Reasoning
                             : (prev?.Reasoning ?? string.Empty) + ttIn.Reasoning,
-                        Metrics = ttIn.Metrics ?? prev?.Metrics,
+                        // Suppress metrics during streaming partials to avoid showing metrics icon prematurely
+                        Metrics = null,
                     };
                 }
 
