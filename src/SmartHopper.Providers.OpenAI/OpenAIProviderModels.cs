@@ -45,19 +45,18 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-mini",
+                    Model = "gpt-5-nano",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 95,
                 },
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-nano",
+                    Model = "gpt-5-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 90,
