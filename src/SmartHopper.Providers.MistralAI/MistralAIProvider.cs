@@ -554,6 +554,22 @@ namespace SmartHopper.Providers.MistralAI
 
                 var textBuffer = new StringBuilder();
                 var haveStreamedAny = false;
+                // Collect metrics from streaming (Mistral includes usage in the last chunk per docs)
+                var streamMetrics = new AIMetrics
+                {
+                    Provider = this.provider.Name,
+                    Model = request.Model,
+                };
+                string? lastFinishReason = null;
+
+                // Provider-local aggregate of assistant text
+                var assistantAggregate = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = string.Empty,
+                    Reasoning = string.Empty,
+                    Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
+                };
 
                 await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
                 {
@@ -574,6 +590,29 @@ namespace SmartHopper.Providers.MistralAI
                     if (choice == null)
                     {
                         continue;
+                    }
+
+                    // Capture model if present on any chunk
+                    var modelVal = parsed["model"]?.ToString();
+                    if (!string.IsNullOrEmpty(modelVal))
+                    {
+                        streamMetrics.Model = modelVal;
+                    }
+
+                    // Capture usage metrics if present (Mistral returns usage in the last chunk)
+                    if (parsed["usage"] is JObject usageObj)
+                    {
+                        streamMetrics.InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
+                        streamMetrics.OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+
+                        // Update aggregate metrics as they become available
+                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        {
+                            Provider = this.provider.Name,
+                            Model = streamMetrics.Model,
+                            InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? 0,
+                            OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? 0,
+                        });
                     }
 
                     // Try delta.content (string or array); fallback to message.content
@@ -644,38 +683,81 @@ namespace SmartHopper.Providers.MistralAI
                     if (!string.IsNullOrEmpty(newText))
                     {
                         textBuffer.Append(newText);
-                        var interaction = new AIInteractionText { Agent = AIAgent.Assistant, Content = newText };
+                        // Append to provider-local aggregate and emit a snapshot
+                        assistantAggregate.AppendDelta(contentDelta: newText);
+
+                        var snapshot = new AIInteractionText
+                        {
+                            Agent = assistantAggregate.Agent,
+                            Content = assistantAggregate.Content,
+                            Reasoning = assistantAggregate.Reasoning,
+                            Metrics = new AIMetrics
+                            {
+                                Provider = assistantAggregate.Metrics.Provider,
+                                Model = assistantAggregate.Metrics.Model,
+                                FinishReason = assistantAggregate.Metrics.FinishReason,
+                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            },
+                        };
+
                         var deltaRet = new AIReturn
                         {
                             Request = request,
                             Status = AICallStatus.Streaming,
                         };
-                        deltaRet.SetBody(new List<IAIInteraction> { interaction });
+                        deltaRet.SetBody(new List<IAIInteraction> { snapshot });
                         yield return deltaRet;
                         haveStreamedAny = true;
                     }
 
-                    // Handle finish reason if present to emit final status later
+                    // Handle finish reason if present to emit final status later (record before potential break)
                     var finishReason = choice["finish_reason"]?.ToString();
+                    if (!string.IsNullOrEmpty(finishReason))
+                    {
+                        lastFinishReason = finishReason;
+                    }
                     if (!string.IsNullOrEmpty(finishReason) && string.Equals(finishReason, "stop", StringComparison.OrdinalIgnoreCase))
                     {
                         break;
                     }
                 }
 
-                // Emit final finished state
-                var finalInteractions = new List<IAIInteraction>();
-                if (textBuffer.Length > 0)
-                {
-                    finalInteractions.Add(new AIInteractionText { Agent = AIAgent.Assistant, Content = textBuffer.ToString() });
-                }
-
+                // Emit final finished state with complete assistant interaction
                 var final = new AIReturn
                 {
                     Request = request,
                     Status = AICallStatus.Finished,
                 };
-                final.SetBody(finalInteractions);
+
+                // Attach metrics so UI can display usage after streaming completes
+                streamMetrics.FinishReason = lastFinishReason ?? (haveStreamedAny ? "stop" : streamMetrics.FinishReason);
+                final.Metrics = streamMetrics;
+
+                // Align aggregate finish reason
+                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });
+
+                var finalSnapshot = new AIInteractionText
+                {
+                    Agent = assistantAggregate.Agent,
+                    Content = assistantAggregate.Content,
+                    Reasoning = assistantAggregate.Reasoning,
+                    Metrics = new AIMetrics
+                    {
+                        Provider = assistantAggregate.Metrics.Provider,
+                        Model = assistantAggregate.Metrics.Model,
+                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                    },
+                };
+                final.SetBody(new List<IAIInteraction> { finalSnapshot });
                 yield return final;
             }
         }

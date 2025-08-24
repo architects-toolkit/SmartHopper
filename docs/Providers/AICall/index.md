@@ -19,6 +19,7 @@ Quick flow:
 3) Initialize an `AIRequestCall` with provider, model, endpoint, capability
 4) `Exec()` -> single provider call -> `AIReturn` (no orchestration)
 5) For tools/multi‑turn, use `ConversationSession.RunToStableResult(options)`; it orchestrates provider calls and appends tool results to the session `AIBody`
+5a) For streaming, use `ConversationSession.Stream(options, streamingOptions)` to receive incremental `AIReturn` deltas
 
 ## Choosing Exec vs ConversationSession
 
@@ -43,3 +44,4 @@ Navigation:
 - Body, Metrics, Status, Return: [./body-metrics-status.md](./body-metrics-status.md)
 - Messages and Aggregation: [./messages.md](./messages.md)
 - Conversation Session: [./ConversationSession.md](./ConversationSession.md)
+- Streaming: [./Streaming.md](./Streaming.md)

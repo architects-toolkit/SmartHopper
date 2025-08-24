@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
 - New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
 - New component badges to visually identify verified and deprecated models.
-- ConversationSession service (Phase 1, non-streaming) introducing:
+- ConversationSession service introducing:
   - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
-  - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()`; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
+  - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
   - Always-on `PolicyPipeline` foundation with request and response policy hooks
   - Default response policy: `CompatibilityDecodeResponsePolicy` that decodes raw provider JSON via the provider's `Decode(string)` to normalized interactions; exceptions are converted to diagnostics via `AIReturn.AddRuntimeMessage`
 - AICall folder reorganization.
@@ -77,13 +77,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebChatDialog stability issues in certain scenarios.
 - Build stability after refactor (compilation issues resolved).
 - Infrastructure stability fixes.
-- Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
-- Corrected DataCount in metrics.
-- Fixed incorrect result output in `list_generate` tool.
-- WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
-- DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
-- MistralAI provider: Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
-- Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
+  - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
+  - Corrected DataCount in metrics.
+  - Fixed incorrect result output in `list_generate` tool.
+  - WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
+  - WebChatDialog non-streaming: fixed loss of AI metrics by merging `AIReturn.Metrics` into the final assistant interaction in `WebChatObserver.OnFinal` so per-message metrics are preserved in chat history and UI.
+  - Streaming metrics propagation: after streaming completes, usage metrics (provider, model, input/output tokens, finish_reason) are now displayed in the chat UI. Implemented by:
+    - Requesting OpenAI to include usage in the final stream chunk via `stream_options.include_usage = true` and parsing `prompt_tokens`/`completion_tokens` in `OpenAIProvider` streaming adapter.
+    - Suppressing metrics during partial updates and merging final `AIReturn.Metrics` into the last assistant message in `WebChatObserver.OnFinal` when the final result has no interactions.
+  - DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
+  - MistralAI provider: Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
+  - Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
+  - WebChat: reasoning-only assistant messages now render. `ChatResourceManager` renders the `Reasoning` as a collapsible panel and auto-expands it when there is no answer content, fixing empty message bubbles during streaming.
 
 ## [0.5.3-alpha] - 2025-08-20
 

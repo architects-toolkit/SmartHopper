@@ -45,3 +45,4 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [AICall](./AICall/index.md)
 - [AIModelCapabilities](./AIModelCapabilities.md)
 - [Model Selection Policy](./ModelSelection.md)
+- [Streaming Adapters](./AICall/Streaming.md)

@@ -74,7 +74,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 // Return the modified list without modifying the original this._interactions list
                 return result;
             }
-            set => this._interactions = value;
+            set => this._interactions = value != null ? new List<IAIInteraction>(value) : new List<IAIInteraction>();
         }
 
         /// <summary>
@@ -495,7 +495,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <param name="interactions">The interactions collection to set as the body history.</param>
         public void OverrideInteractions(List<IAIInteraction> interactions)
         {
-            this._interactions = interactions;
+            this._interactions = interactions != null ? new List<IAIInteraction>(interactions) : new List<IAIInteraction>();
         }
 
         /// <summary>

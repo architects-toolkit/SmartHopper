@@ -72,5 +72,35 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             this.Content = content;
             this.Reasoning = reasoning;
         }
+
+        /// <summary>
+        /// Appends streamed deltas to this interaction. Intended for provider-local aggregation
+        /// during streaming so that providers can incrementally build up the assistant message
+        /// without mutating shared chat history.
+        /// </summary>
+        /// <param name="contentDelta">Optional content to append to <see cref="Content"/>.</param>
+        /// <param name="reasoningDelta">Optional reasoning to append to <see cref="Reasoning"/>.</param>
+        /// <param name="metricsDelta">Optional metrics to combine into <see cref="Metrics"/>.</param>
+        public void AppendDelta(string contentDelta = null, string reasoningDelta = null, AIMetrics metricsDelta = null)
+        {
+            if (!string.IsNullOrEmpty(contentDelta))
+            {
+                this.Content = (this.Content ?? string.Empty) + contentDelta;
+            }
+
+            if (!string.IsNullOrEmpty(reasoningDelta))
+            {
+                this.Reasoning = (this.Reasoning ?? string.Empty) + reasoningDelta;
+            }
+
+            if (metricsDelta != null)
+            {
+                if (this.Metrics == null)
+                {
+                    this.Metrics = new AIMetrics();
+                }
+                this.Metrics.Combine(metricsDelta);
+            }
+        }
     }
 }
