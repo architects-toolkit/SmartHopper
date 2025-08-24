@@ -18,10 +18,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <summary>Default state, no call in progress.</summary>
         Idle,
 
-        /// <summary>Processing is the state when the call has started and no data was received yet.</summary>
+        /// <summary>Processing is the state when the call has started and no data was received yet. Non-streaming calls are in this state until the call is finished.</summary>
         Processing,
 
-        /// <summary>Status when the reception of data from the AI is in progress.</summary>
+        /// <summary>Status when the reception of data from the AI is in progress. Streaming calls transition from Processing to Streaming when the first chunk of data is received.</summary>
         Streaming,
 
         /// <summary>Status when the AI is calling a tool.</summary>

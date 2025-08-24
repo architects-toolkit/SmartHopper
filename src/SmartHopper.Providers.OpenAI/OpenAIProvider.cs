@@ -13,15 +13,21 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -59,6 +65,15 @@ namespace SmartHopper.Providers.OpenAI
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Helper to retrieve the configured API key for this provider.
+        /// Exposed to nested streaming adapter to avoid protected access issues.
+        /// </summary>
+        internal string GetApiKey()
+        {
+            return this.GetSetting<string>("ApiKey");
+        }
+
+        /// <summary>
         /// Gets the provider's icon.
         /// </summary>
         public override Image Icon
@@ -71,6 +86,14 @@ namespace SmartHopper.Providers.OpenAI
                     return new Bitmap(ms);
                 }
             }
+        }
+
+        /// <summary>
+        /// Returns a streaming adapter for OpenAI that yields incremental AIReturn deltas.
+        /// </summary>
+        public IStreamingAdapter GetStreamingAdapter()
+        {
+            return new OpenAIStreamingAdapter(this);
         }
 
         /// <inheritdoc/>
@@ -743,6 +766,265 @@ namespace SmartHopper.Providers.OpenAI
             /// Gets or sets the name of the property in the wrapped response that contains the actual data.
             /// </summary>
             public string PropertyName { get; set; } = string.Empty;
+        }
+
+        /// <summary>
+        /// Provider-scoped streaming adapter for OpenAI Chat Completions SSE.
+        /// </summary>
+        private sealed class OpenAIStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
+        {
+            public OpenAIStreamingAdapter(OpenAIProvider provider) : base(provider)
+            {
+            }
+
+            public async IAsyncEnumerable<AIReturn> StreamAsync(
+                AIRequestCall request,
+                StreamingOptions options,
+                [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                if (request == null)
+                {
+                    yield break;
+                }
+
+                // Prepare request via provider (sets endpoint, method, auth kind)
+                request = this.Prepare(request);
+
+                // Only chat completions are supported for streaming for now
+                if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
+                {
+                    var unsupported = new AIReturn();
+                    unsupported.CreateProviderError("Streaming is only supported for /chat/completions in this adapter.", request);
+                    yield return unsupported;
+                    yield break;
+                }
+
+                // Build request body and enable streaming
+                JObject body;
+                try
+                {
+                    body = JObject.Parse(this.Provider.Encode(request));
+                }
+                catch
+                {
+                    body = new JObject();
+                }
+                body["stream"] = true;
+
+                // Build URL with helper
+                var fullUrl = this.BuildFullUrl(request.Endpoint);
+
+                // Configure HTTP client and authentication via helpers
+                using var httpClient = this.CreateHttpClient();
+                AIReturn? authError = null;
+                try
+                {
+                    var apiKey = ((OpenAIProvider)this.Provider).GetApiKey();
+                    this.ApplyAuthentication(httpClient, request.Authentication, apiKey);
+                }
+                catch (Exception ex)
+                {
+                    authError = new AIReturn();
+                    authError.CreateProviderError(ex.Message, request);
+                }
+                if (authError != null)
+                {
+                    yield return authError;
+                    yield break;
+                }
+
+                using var httpRequest = this.CreateSsePost(fullUrl, body.ToString(), "application/json");
+
+                HttpResponseMessage response;
+                AIReturn? sendError = null;
+                try
+                {
+                    response = await this.SendForStreamAsync(httpClient, httpRequest, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    sendError = new AIReturn();
+                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    response = null!;
+                }
+                if (sendError != null)
+                {
+                    yield return sendError;
+                    yield break;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var err = new AIReturn();
+                    err.CreateProviderError($"HTTP {(int)response.StatusCode}: {content}", request);
+                    yield return err;
+                    yield break;
+                }
+
+                // Streaming state
+                var buffer = new StringBuilder();
+                var lastEmit = DateTime.UtcNow;
+                var firstChunk = true;
+                string finalFinishReason = string.Empty;
+
+                // Tool call accumulation (index -> partial)
+                var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+
+                // Helper local function to emit text chunk
+                async IAsyncEnumerable<AIReturn> EmitAsync(string text, bool streamingStatus)
+                {
+                    if (string.IsNullOrEmpty(text)) yield break;
+
+                    var interaction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = text,
+                    };
+
+                    var delta = new AIReturn
+                    {
+                        Request = request,
+                        Status = streamingStatus ? AICallStatus.Streaming : AICallStatus.Processing,
+                    };
+                    delta.SetBody(new List<IAIInteraction> { interaction });
+                    yield return delta;
+                    await Task.Yield();
+                }
+
+                // Helper to maybe flush buffer per options and return deltas to emit
+                async Task<List<AIReturn>> FlushAsync(bool force)
+                {
+                    var results = new List<AIReturn>();
+                    if (buffer.Length == 0) return results;
+                    var elapsed = (DateTime.UtcNow - lastEmit).TotalMilliseconds;
+                    if (force || !options.CoalesceTokens || buffer.Length >= options.PreferredChunkSize || elapsed >= options.CoalesceDelayMs)
+                    {
+                        var text = buffer.ToString();
+                        buffer.Clear();
+                        lastEmit = DateTime.UtcNow;
+                        await foreach (var d in EmitAsync(text, streamingStatus: true).WithCancellation(cancellationToken))
+                        {
+                            results.Add(d);
+                        }
+                    }
+                    return results;
+                }
+
+                // Yield initial processing state (optional)
+                {
+                    var initial = new AIReturn { Request = request, Status = AICallStatus.Processing };
+                    initial.SetBody(new List<IAIInteraction>());
+                    yield return initial;
+                }
+
+                await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
+                {
+                    JObject parsed;
+                    try
+                    {
+                        parsed = JObject.Parse(data);
+                    }
+                    catch
+                    {
+                        // Skip malformed chunk
+                        continue;
+                    }
+
+                    var choices = parsed["choices"] as JArray;
+                    var choice = choices?.FirstOrDefault() as JObject;
+                    var delta = choice?["delta"] as JObject;
+                    var finishReason = choice?["finish_reason"]?.ToString();
+                    if (!string.IsNullOrEmpty(finishReason)) finalFinishReason = finishReason;
+
+                    // Content streaming
+                    var contentDelta = delta?["content"]?.ToString();
+                    if (!string.IsNullOrEmpty(contentDelta))
+                    {
+                        buffer.Append(contentDelta);
+                        if (firstChunk)
+                        {
+                            firstChunk = false;
+                            // Force immediate first emit for snappy UX
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted) { yield return d; }
+                        }
+                        else
+                        {
+                            var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                            foreach (var d in emitted) { yield return d; }
+                        }
+                    }
+
+                    // Tool calls streaming
+                    var tcArray = delta?["tool_calls"] as JArray;
+                    if (tcArray != null)
+                    {
+                        foreach (var t in tcArray.OfType<JObject>())
+                        {
+                            var idx = t["index"]?.Value<int?>() ?? 0;
+                            if (!toolCalls.TryGetValue(idx, out var entry))
+                            {
+                                entry = (Id: string.Empty, Name: string.Empty, Args: new StringBuilder());
+                                toolCalls[idx] = entry;
+                            }
+
+                            // id
+                            var idVal = t["id"]?.ToString();
+                            if (!string.IsNullOrEmpty(idVal)) entry.Id = idVal;
+
+                            var func = t["function"] as JObject;
+                            if (func != null)
+                            {
+                                var name = func["name"]?.ToString();
+                                if (!string.IsNullOrEmpty(name)) entry.Name = name;
+                                var args = func["arguments"]?.ToString();
+                                if (!string.IsNullOrEmpty(args)) entry.Args.Append(args);
+                            }
+
+                            toolCalls[idx] = entry; // update
+                        }
+
+                        // If we know we're heading to tool calls, flush text first
+                        var emittedTc = await FlushAsync(force: true).ConfigureAwait(false);
+                        foreach (var d in emittedTc) { yield return d; }
+
+                        // Emit current tool call snapshot with CallingTools status
+                        var interactions = new List<IAIInteraction>();
+                        foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                        {
+                            var (id, name, argsSb) = kv.Value;
+                            JObject argsObj = null;
+                            var argsStr = argsSb.ToString();
+                            try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
+                            interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                        }
+
+                        var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                        tcDelta.SetBody(interactions);
+                        yield return tcDelta;
+                    }
+                }
+
+                // Final flush
+                var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
+                foreach (var d in finalEmitted) { yield return d; }
+
+                // Emit final Finished marker
+                var final = new AIReturn
+                {
+                    Request = request,
+                    Status = AICallStatus.Finished,
+                };
+                final.Metrics = new AIMetrics
+                {
+                    Provider = this.Provider.Name,
+                    Model = request.Model,
+                    FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
+                };
+                final.SetBody(new List<IAIInteraction>());
+                yield return final;
+            }
         }
     }
 }

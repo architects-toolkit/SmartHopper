@@ -45,7 +45,7 @@ Covers `IAIInteraction` and concrete message types.
 - See also: [Tools](./tools.md) for result aggregation and message handling.
 
 ## AIAgent
- 
+
 - File: `AIAgent.cs`
 - Enum roles: `Context`, `System`, `User`, `Assistant`, `ToolCall`, `ToolResult`, `Unknown`
 - Extension helpers: `.ToString()`, `.ToDescription()`, `FromString(string)`
