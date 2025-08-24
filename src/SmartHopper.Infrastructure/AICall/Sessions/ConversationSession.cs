@@ -8,19 +8,20 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
+    using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.Infrastructure.AICall.Core.Requests;
+    using SmartHopper.Infrastructure.AICall.Core.Returns;
+    using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.Streaming;
 
     /// <summary>
     /// Minimal non-streaming conversation session that delegates to AIRequestCall.Exec.
@@ -28,18 +29,32 @@ using SmartHopper.Infrastructure.AICall.Tools;
     /// </summary>
     public sealed class ConversationSession : IConversationSession
     {
+        /// <summary>
+        /// The cancellation token source for this session.
+        /// </summary>
         private readonly CancellationTokenSource cts = new();
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ConversationSession"/> class.
+        /// </summary>
+        /// <param name="request">The request to execute.</param>
+        /// <param name="observer">The observer to notify of events.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
         public ConversationSession(AIRequestCall request, IConversationObserver? observer = null)
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
             this.Observer = observer;
         }
 
+        /// <inheritdoc/>
         public AIRequestCall Request { get; }
 
+        /// <summary>
+        /// Gets the observer for this session.
+        /// </summary>
         public IConversationObserver? Observer { get; }
 
+        /// <inheritdoc/>
         public void Cancel()
         {
             if (!this.cts.IsCancellationRequested)
@@ -48,6 +63,7 @@ using SmartHopper.Infrastructure.AICall.Tools;
             }
         }
 
+        /// <inheritdoc/>
         public async Task<AIReturn> RunToStableResult(SessionOptions options, CancellationToken cancellationToken = default)
         {
             var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, options.CancellationToken, cancellationToken);
@@ -218,6 +234,204 @@ using SmartHopper.Infrastructure.AICall.Tools;
                 linkedCts.Dispose();
             }
         }
+
+        /// <inheritdoc/>
+        public async IAsyncEnumerable<AIReturn> Stream(
+            SessionOptions options,
+            StreamingOptions streamingOptions,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, options.CancellationToken, cancellationToken);
+            try
+            {
+                this.Observer?.OnStart(this.Request);
+
+                int turns = 0;
+                AIReturn lastReturn = null;
+
+                while (turns < options.MaxTurns)
+                {
+                    var yieldsThisTurn = new List<AIReturn>();
+                    bool endStreaming = false;
+
+                    try
+                    {
+                        linkedCts.Token.ThrowIfCancellationRequested();
+
+                        // Fallback non-adapter streaming: execute provider call and prepare the chunk(s)
+                        var callResult = await this.Request.Exec().ConfigureAwait(false);
+                        if (callResult == null)
+                        {
+                            var none = new AIReturn();
+                            none.CreateProviderError("Provider returned no response", this.Request);
+                            this.Observer?.OnFinal(none);
+                            yieldsThisTurn.Add(none);
+                            endStreaming = true;
+                        }
+                        else
+                        {
+                            this.Observer?.OnPartial(callResult);
+                            lastReturn = callResult;
+                            yieldsThisTurn.Add(callResult);
+
+                            // Merge provider interactions into the session request body (skip dynamic context)
+                            var providerInteractions = callResult.Body?.Interactions;
+                            if (providerInteractions != null && providerInteractions.Count > 0)
+                            {
+                                foreach (var interaction in providerInteractions)
+                                {
+                                    if (interaction.Agent == AIAgent.Context)
+                                    {
+                                        continue;
+                                    }
+                                    this.Request.Body.AddLastInteraction(interaction);
+                                }
+                            }
+
+                            if (!options.ProcessTools)
+                            {
+                                this.Observer?.OnFinal(callResult);
+                                endStreaming = true;
+                            }
+                            else
+                            {
+                                // Process pending tool calls with bounded passes
+                                int toolPass = 0;
+                                while (!endStreaming && toolPass < options.MaxToolPasses)
+                                {
+                                    linkedCts.Token.ThrowIfCancellationRequested();
+
+                                    var pendingToolCalls = this.Request.Body.PendingToolCallsList();
+                                    if (pendingToolCalls == null || pendingToolCalls.Count == 0)
+                                    {
+                                        break; // Stable: no tools to execute
+                                    }
+
+                                    // Sequential execution (AllowParallelTools planned for future)
+                                    foreach (var tc in pendingToolCalls)
+                                    {
+                                        linkedCts.Token.ThrowIfCancellationRequested();
+
+                                        this.Observer?.OnToolCall(tc);
+
+                                        var toolRq = new AIToolCall();
+                                        toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
+                                        var toolRet = await toolRq.Exec().ConfigureAwait(false);
+
+                                        // Append tool result to session body and notify
+                                        var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
+                                        if (toolInteraction != null)
+                                        {
+                                            this.Request.Body.AddLastInteraction(toolInteraction);
+                                            this.Observer?.OnToolResult(toolInteraction);
+                                        }
+                                        else
+                                        {
+                                            // Standardize a tool error if none provided
+                                            var noneTool = new AIReturn();
+                                            noneTool.CreateToolError("Tool not found or did not return a value", toolRq);
+                                            var errInteraction = noneTool.Body?.GetLastInteraction() as AIInteractionToolResult;
+                                            if (errInteraction != null)
+                                            {
+                                                this.Request.Body.AddLastInteraction(errInteraction);
+                                                this.Observer?.OnToolResult(errInteraction);
+                                            }
+                                        }
+                                    }
+
+                                    toolPass++;
+
+                                    // Let the provider consume tool results and possibly request more tools
+                                    linkedCts.Token.ThrowIfCancellationRequested();
+                                    var followUp = await this.Request.Exec().ConfigureAwait(false);
+                                    if (followUp == null)
+                                    {
+                                        var none2 = new AIReturn();
+                                        none2.CreateProviderError("Provider returned no response", this.Request);
+                                        this.Observer?.OnFinal(none2);
+                                        yieldsThisTurn.Add(none2);
+                                        endStreaming = true;
+                                        break;
+                                    }
+
+                                    this.Observer?.OnPartial(followUp);
+                                    lastReturn = followUp;
+                                    yieldsThisTurn.Add(followUp);
+
+                                    var followUpInteractions = followUp.Body?.Interactions;
+                                    if (followUpInteractions != null && followUpInteractions.Count > 0)
+                                    {
+                                        foreach (var interaction in followUpInteractions)
+                                        {
+                                            if (interaction.Agent == AIAgent.Context)
+                                            {
+                                                continue;
+                                            }
+                                            this.Request.Body.AddLastInteraction(interaction);
+                                        }
+                                    }
+
+                                    // If now stable, break inner loop
+                                    if (this.Request.Body.PendingToolCallsCount() == 0)
+                                    {
+                                        break;
+                                    }
+                                }
+
+                                // If stable after provider + tool passes, finalize
+                                if (!endStreaming && this.Request.Body.PendingToolCallsCount() == 0)
+                                {
+                                    this.Observer?.OnFinal(lastReturn ?? new AIReturn());
+                                    endStreaming = true;
+                                }
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException oce)
+                    {
+                        this.Observer?.OnError(oce);
+                        var cancelled = new AIReturn();
+                        cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
+                        yieldsThisTurn.Add(cancelled);
+                        endStreaming = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        this.Observer?.OnError(ex);
+                        var error = new AIReturn();
+                        error.CreateProviderError(ex.Message, this.Request);
+                        yieldsThisTurn.Add(error);
+                        endStreaming = true;
+                    }
+
+                    // Emit any prepared yields outside of try/catch
+                    foreach (var item in yieldsThisTurn)
+                    {
+                        yield return item;
+                    }
+
+                    if (endStreaming)
+                    {
+                        yield break;
+                    }
+
+                    // Otherwise, continue to next turn
+                    turns++;
+                }
+
+                // Max turns reached without stability
+                var final = lastReturn ?? new AIReturn();
+                if (lastReturn == null)
+                {
+                    final.CreateProviderError("Max turns reached without a stable result", this.Request);
+                }
+                this.Observer?.OnFinal(final);
+                yield return final;
+            }
+            finally
+            {
+                linkedCts.Dispose();
+            }
+        }
     }
 }
-

@@ -28,7 +28,7 @@ namespace SmartHopper.Providers.DeepSeek
     /// <summary>
     /// DeepSeek AI provider implementation.
     /// </summary>
-    public class DeepSeekProvider : AIProvider<DeepSeekProvider>
+    public sealed class DeepSeekProvider : AIProvider<DeepSeekProvider>
     {
         /// <summary>
         /// The name of the provider. This will be displayed in the UI and used for provider selection.

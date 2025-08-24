@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Always-on `PolicyPipeline` foundation with request and response policy hooks
   - Default response policy: `CompatibilityDecodeResponsePolicy` that decodes raw provider JSON via the provider's `Decode(string)` to normalized interactions; exceptions are converted to diagnostics via `AIReturn.AddRuntimeMessage`
 - AICall folder reorganization.
+ - Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
 
 ### Changed
 
@@ -51,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed remaining direct calls to `ModelManager.Instance.SelectBestModel` outside provider internals.
   - Propagated model validation messages to components UI.
 - `AIRequestCall.Exec()` is now explicitly single-turn (no tool orchestration). Multi-turn and tool processing are handled by `ConversationSession.RunToStableResult` when used explicitly.
+- OpenAI provider: nested `OpenAIStreamingAdapter` now derives from `AIProviderStreamingAdapter` and reuses shared helpers; streaming behavior and statuses remain unchanged.
 
 ### Removed
 
