@@ -13,7 +13,11 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
-    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
     /// <summary>
     /// Contract for conversation session orchestrator. Minimal non-streaming API.
@@ -36,3 +40,4 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         void Cancel();
     }
 }
+

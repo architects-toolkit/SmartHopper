@@ -8,13 +8,13 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 
-namespace SmartHopper.Infrastructure.AICall
+
+namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
     /// Represents an AI-generated text result with associated metadata.

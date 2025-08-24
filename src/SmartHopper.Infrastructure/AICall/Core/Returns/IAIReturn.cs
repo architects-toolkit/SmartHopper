@@ -9,8 +9,10 @@
  */
 
 using System.Collections.Generic;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Metrics;
 
-namespace SmartHopper.Infrastructure.AICall
+namespace SmartHopper.Infrastructure.AICall.Core.Base
 {
     /// <summary>
     /// Generic result type for AI evaluations, providing a standard interface between tools and components.

@@ -12,11 +12,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Sockets;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AITools;
 
-namespace SmartHopper.Infrastructure.AICall
+namespace SmartHopper.Infrastructure.AICall.Tools
 {
     /// <summary>
     /// Represents a tool call made by an AI model.

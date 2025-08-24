@@ -11,9 +11,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIContext;
 
-namespace SmartHopper.Infrastructure.AICall
+
+namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
     /// Encapsulates the request body sent to AI providers, including the interaction history,

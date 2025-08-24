@@ -17,7 +17,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -228,6 +232,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             var partialResult = new JObject();
                             partialResult.Add("list", new JArray(allItems));
 
+                            // Attach non-breaking result envelope
+                            partialResult.WithEnvelope(
+                                ToolResultEnvelope.Create(
+                                    tool: this.toolName,
+                                    type: ToolResultContentType.List,
+                                    payloadPath: "list",
+                                    provider: providerName,
+                                    model: modelName,
+                                    toolCallId: toolInfo?.Id));
+
                             var partialBody = new AIBody();
                             partialBody.AddInteractionToolResult(partialResult, result.Metrics, result.Messages);
 
@@ -292,6 +306,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject();
                 toolResult.Add("list", new JArray(allItems));
 
+                // Attach non-breaking result envelope
+                toolResult.WithEnvelope(
+                    ToolResultEnvelope.Create(
+                        tool: this.toolName,
+                        type: ToolResultContentType.List,
+                        payloadPath: "list",
+                        provider: providerName,
+                        model: modelName,
+                        toolCallId: toolInfo?.Id));
+
                 var toolBody = new AIBody();
                 toolBody.AddInteractionToolResult(toolResult, result?.Metrics, result?.Messages ?? new List<AIRuntimeMessage>());
 
@@ -308,3 +332,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

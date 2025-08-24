@@ -23,7 +23,11 @@ using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Properties;
@@ -969,3 +973,4 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
+

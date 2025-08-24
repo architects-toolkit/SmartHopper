@@ -16,7 +16,11 @@ using System.Threading.Tasks;
 
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
-    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
     /// <summary>
     /// Minimal non-streaming conversation session that delegates to AIRequestCall.Exec.
@@ -216,3 +220,4 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
     }
 }
+

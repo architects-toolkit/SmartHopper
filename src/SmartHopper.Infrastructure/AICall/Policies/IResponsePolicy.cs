@@ -8,20 +8,18 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace SmartHopper.Infrastructure.AITools
+namespace SmartHopper.Infrastructure.AICall.Policies
 {
     /// <summary>
-    /// Interface for classes that provide AI tools.
-    /// Implement this interface in tool classes to enable auto-discovery.
+    /// Policy that runs after the provider call to normalize/map/validate the response.
     /// </summary>
-    public interface IAIToolProvider
+    public interface IResponsePolicy
     {
         /// <summary>
-        /// Get all tools provided by this class
+        /// Applies the policy to the current response context.
         /// </summary>
-        /// <returns>Collection of AI tools</returns>
-        IEnumerable<AITool> GetTools();
+        Task ApplyAsync(PolicyContext context);
     }
 }

@@ -12,7 +12,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Eto.Forms;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Sessions;
 
 namespace SmartHopper.Core.UI.Chat
@@ -203,3 +206,4 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
+

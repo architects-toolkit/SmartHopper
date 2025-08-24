@@ -22,7 +22,11 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.UI.Chat;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Components.AI
@@ -271,3 +275,4 @@ namespace SmartHopper.Components.AI
         }
     }
 }
+

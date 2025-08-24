@@ -13,7 +13,11 @@ using System.Threading;
 
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
-    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
     /// <summary>
     /// Observer of conversation session lifecycle and streaming deltas.
@@ -34,3 +38,4 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         void OnError(Exception error);
     }
 }
+
