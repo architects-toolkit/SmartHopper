@@ -32,6 +32,15 @@ namespace SmartHopper.Core.UI.Chat
             private readonly WebChatDialog _dialog;
             private readonly HashSet<string> _seen = new HashSet<string>(StringComparer.Ordinal);
 
+            // Centralized streaming state per run (role-agnostic)
+            private sealed class StreamState
+            {
+                public bool Started;
+                public IAIInteraction Aggregated;
+            }
+
+            private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
+
             public WebChatObserver(WebChatDialog dialog)
             {
                 _dialog = dialog;
@@ -59,21 +68,40 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         foreach (var inter in interactions)
                         {
-                            if (!TryAdd(inter))
-                                continue; // dedup
+                            try
+                            {
+                                // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
+                                var key = GetStreamKey(inter);
+                                if (!_streams.TryGetValue(key, out var state))
+                                {
+                                    state = new StreamState { Started = false, Aggregated = null };
+                                }
 
-                            if (inter is AIInteractionToolResult tr)
-                            {
-                                _dialog.AddToolResultMessage(tr);
+                                if (!state.Started)
+                                {
+                                    // First chunk: pre-aggregate and create the initial bubble with that content
+                                    state.Started = true;
+                                    state.Aggregated = MergeForStreaming(state.Aggregated, inter);
+                                    _streams[key] = state;
+                                    _dialog.AddMessageUIOnly(state.Aggregated);
+                                }
+                                else
+                                {
+                                    // Subsequent chunks: merge and replace existing bubble
+                                    state.Aggregated = MergeForStreaming(state.Aggregated, inter);
+                                    _streams[key] = state;
+                                    _dialog.ReplaceLastMessageByRole(inter.Agent, state.Aggregated);
+                                }
+
+                                // Optional UX: surface tool call name in status
+                                if (inter is AIInteractionToolCall call)
+                                {
+                                    _dialog._statusLabel.Text = $"Calling tool: {call.Name}";
+                                }
                             }
-                            else if (inter is AIInteractionToolCall tc)
+                            catch (Exception innerEx)
                             {
-                                _dialog.AddToolCallMessage(tc);
-                            }
-                            else if (inter is AIInteractionText tt)
-                            {
-                                // Only show assistant/user text; system text will be shown via normal flow
-                                _dialog.AddInteraction(tt);
+                                Debug.WriteLine($"[WebChatObserver] OnPartial item error: {innerEx.Message}");
                             }
                         }
                     });
@@ -113,21 +141,27 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        // Push any final interactions (deduped)
+                        // Reset centralized streaming state at finalization
+                        _streams.Clear();
+
+                        // Show final interactions and persist to history once
                         var interactions = result?.Body?.Interactions;
                         if (interactions != null)
                         {
                             foreach (var inter in interactions)
                             {
-                                if (!TryAdd(inter))
-                                    continue;
+                                try
+                                {
+                                    // Update UI via replacement (appends if none exists for the role)
+                                    _dialog.ReplaceLastMessageByRole(inter.Agent, inter);
 
-                                if (inter is AIInteractionToolResult tr)
-                                    _dialog.AddToolResultMessage(tr);
-                                else if (inter is AIInteractionToolCall tc)
-                                    _dialog.AddToolCallMessage(tc);
-                                else if (inter is AIInteractionText tt)
-                                    _dialog.AddInteraction(tt);
+                                    // Persist to history exactly once per final item
+                                    _dialog._chatHistory.Add(inter);
+                                }
+                                catch (Exception innerEx)
+                                {
+                                    Debug.WriteLine($"[WebChatObserver] OnFinal item error: {innerEx.Message}");
+                                }
                             }
                         }
 
@@ -171,6 +205,63 @@ namespace SmartHopper.Core.UI.Chat
                 var key = MakeKey(interaction);
                 if (key == null) return false;
                 return _seen.Add(key);
+            }
+
+            /// <summary>
+            /// Computes a stream key to track independent streaming flows.
+            /// Groups by interaction kind and identity to avoid collisions.
+            /// </summary>
+            private static string GetStreamKey(IAIInteraction interaction)
+            {
+                switch (interaction)
+                {
+                    case AIInteractionToolResult tr:
+                        {
+                            var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
+                            return $"tool.result:{id}";
+                        }
+
+                    case AIInteractionToolCall tc:
+                        {
+                            var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
+                            return $"tool.call:{id}";
+                        }
+
+                    case AIInteractionText tt:
+                        {
+                            // One active text stream per agent
+                            return $"text:{tt.Agent}";
+                        }
+
+                    default:
+                        {
+                            return $"other:{interaction.GetType().Name}:{interaction.Agent}";
+                        }
+                }
+            }
+
+            /// <summary>
+            /// Merges an incoming partial interaction into an aggregated one for UI display.
+            /// Text interactions are accumulated; other types default to replacement.
+            /// </summary>
+            private static IAIInteraction MergeForStreaming(IAIInteraction current, IAIInteraction incoming)
+            {
+                if (incoming is AIInteractionText ttIn)
+                {
+                    var prev = current as AIInteractionText;
+                    return new AIInteractionText
+                    {
+                        Agent = ttIn.Agent,
+                        Content = (prev?.Content ?? string.Empty) + (ttIn.Content ?? string.Empty),
+                        Reasoning = string.IsNullOrEmpty(ttIn.Reasoning)
+                            ? prev?.Reasoning
+                            : (prev?.Reasoning ?? string.Empty) + ttIn.Reasoning,
+                        Metrics = ttIn.Metrics ?? prev?.Metrics,
+                    };
+                }
+
+                // For tool calls/results and others, replace with the latest partial by default
+                return incoming;
             }
 
             private static string MakeKey(IAIInteraction interaction)
