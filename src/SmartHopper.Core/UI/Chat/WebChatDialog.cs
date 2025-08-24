@@ -18,11 +18,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
@@ -32,13 +34,14 @@ namespace SmartHopper.Core.UI.Chat
     /// <summary>
     /// Dialog-based chat interface using WebView for rendering HTML content.
     /// </summary>
-    internal class WebChatDialog : Form
+    internal partial class WebChatDialog : Form
     {
         // UI Components
         private readonly WebView _webView;
         private readonly TextArea _userInputTextArea;
         private readonly Button _sendButton;
         private readonly Button _clearButton;
+        private readonly Button _cancelButton;
         private readonly ProgressBar _progressBar;
         private readonly Label _statusLabel;
 
@@ -48,14 +51,15 @@ namespace SmartHopper.Core.UI.Chat
         private readonly HtmlChatRenderer _htmlRenderer = new HtmlChatRenderer();
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
+        private ConversationSession _currentSession;
+        private System.Threading.CancellationTokenSource _currentCts;
 
         // Chat history and request management
         private readonly AIRequestCall _initialRequest;
         private readonly List<IAIInteraction> _chatHistory = new List<IAIInteraction>();
         private AIReturn _lastReturn = new AIReturn();
 
-        /// <summary>
-        /// Event raised when a new AI response is received.
+        // Event raised when a new AI response is received.
         /// </summary>
         public event EventHandler<AIReturn> ResponseReceived;
 
@@ -172,6 +176,13 @@ namespace SmartHopper.Core.UI.Chat
             };
             this._clearButton.Click += this.ClearButton_Click;
 
+            this._cancelButton = new Button
+            {
+                Text = "Cancel",
+                Enabled = false,
+            };
+            this._cancelButton.Click += this.CancelButton_Click;
+
             this._progressBar = new ProgressBar
             {
                 Indeterminate = true,
@@ -195,6 +206,7 @@ namespace SmartHopper.Core.UI.Chat
             inputLayout.BeginHorizontal();
             inputLayout.Add(this._userInputTextArea, xscale: true);
             inputLayout.Add(this._sendButton);
+            inputLayout.Add(this._cancelButton);
             inputLayout.EndHorizontal();
             mainLayout.Add(inputLayout);
 
@@ -400,7 +412,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="e">The event arguments.</param>
         private void SendButton_Click(object sender, EventArgs e)
         {
-            if (!this._isProcessing)
+            if (!this._isProcessing && this._currentSession == null)
             {
                 this.SendMessage();
             }
@@ -584,7 +596,7 @@ namespace SmartHopper.Core.UI.Chat
         {
             if (interaction is null)
             {
-                Debug.WriteLine($"[WebChatDialog] Skipping empty message for role: {interaction.Agent.ToString()}");
+                Debug.WriteLine("[WebChatDialog] Skipping empty interaction (null)");
                 return;
             }
 
@@ -657,6 +669,12 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
+            if (this._currentSession != null)
+            {
+                Debug.WriteLine("[WebChatDialog] A session is already running. Ignoring Send.");
+                return;
+            }
+
             string userMessage = this._userInputTextArea.Text.Trim();
             if (string.IsNullOrEmpty(userMessage))
             {
@@ -672,6 +690,7 @@ namespace SmartHopper.Core.UI.Chat
             this._isProcessing = true;
             this._sendButton.Enabled = false;
             this._progressBar.Visible = true;
+            this._cancelButton.Enabled = true;
             Application.Instance.AsyncInvoke(() =>
             {
                 this._statusLabel.Text = "Thinking...";
@@ -698,6 +717,7 @@ namespace SmartHopper.Core.UI.Chat
                 this._isProcessing = false;
                 this._sendButton.Enabled = true;
                 this._progressBar.Visible = false;
+                this._cancelButton.Enabled = false;
             }
         }
 
@@ -712,42 +732,54 @@ namespace SmartHopper.Core.UI.Chat
                 var request = this._initialRequest;
                 request.OverrideInteractions(this._chatHistory);
 
-                Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
-                var result = await request.Exec(processTools: true).ConfigureAwait(false);
+                Debug.WriteLine("[WebChatDialog] Running ConversationSession with observer");
+                var observer = new WebChatObserver(this);
+                this._currentCts = new CancellationTokenSource();
+                this._currentSession = new ConversationSession(request, observer);
+                var options = new SessionOptions { ProcessTools = true, CancellationToken = this._currentCts.Token };
+                var result = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
 
-                // Store the last return for external access
+                // Store the last return for external access (observer also sets this on final)
                 this._lastReturn = result;
-
-                if (!result.Success)
-                {
-                    Debug.WriteLine($"[WebChatDialog] AI request failed: {result.ErrorMessage}");
-                    this.AddSystemMessage($"Error: {result.ErrorMessage}", "error");
-                    Application.Instance.AsyncInvoke(() =>
-                    {
-                        this._statusLabel.Text = "Error in response";
-                        this._progressReporter?.Invoke("Error :(");
-                    });
-                    return;
-                }
-
-                // Add returned interactions to chat history and display them
-                if (result.Body.Interactions?.Count > 0)
-                {
-                    foreach (var interaction in result.Body.Interactions)
-                    {
-                        this._chatHistory.Add(interaction);
-                        await Application.Instance.InvokeAsync(() => this.AddInteractionToWebView(interaction));
-                    }
-                }
-
-                // Process any pending tool calls
-                // await this.ProcessPendingToolCalls(result);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error in ProcessAIInteraction: {ex.Message}");
                 throw; // Rethrow to be handled by SendMessage
             }
+            finally
+            {
+                try { this._currentCts?.Cancel(); } catch { }
+                this._currentCts?.Dispose();
+                this._currentCts = null;
+                this._currentSession = null;
+            }
+        }
+
+        /// <summary>
+        /// Cancels the current running session, if any.
+        /// </summary>
+        private void CancelCurrentRun()
+        {
+            try
+            {
+                this._cancelButton.Enabled = false;
+                this._currentCts?.Cancel();
+                this._currentSession?.Cancel();
+                Debug.WriteLine("[WebChatDialog] Cancellation requested");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles the cancel button click event.
+        /// </summary>
+        private void CancelButton_Click(object sender, EventArgs e)
+        {
+            this.CancelCurrentRun();
         }
 
         /// <summary>
@@ -838,8 +870,8 @@ namespace SmartHopper.Core.UI.Chat
                     // Log provider/model for diagnostics
                     Debug.WriteLine($"[WebChatDialog] Generating greeting with provider='{this._initialRequest.Provider}', model='{this._initialRequest.Model}', interactions={greetingInteractions?.Count ?? 0}");
 
-                    // Execute with tools processing disabled and enforce a timeout
-                    var execTask = greetingRequest.Exec(processTools: false);
+                    // Execute with tools processing disabled (tool filter set to "-*") and enforce a timeout
+                    var execTask = greetingRequest.Exec();
                     var timeoutTask = Task.Delay(30000);
                     var completed = await Task.WhenAny(execTask, timeoutTask).ConfigureAwait(false);
                     if (completed == execTask)

@@ -162,25 +162,16 @@ namespace SmartHopper.Infrastructure.AICall
         }
 
         /// <summary>
-        /// Executes the request and gets the result. By default, it doesn't trigger the tool processing.
+        /// Executes a single provider turn and returns the result. No tool orchestration here.
+        /// Conversation orchestration (multi-turn, tools, streaming) is handled by ConversationSession.
         /// </summary>
-        /// <returns>The result of the request in <see cref="AIReturn"/> format.</returns>
+        /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
         public override async Task<AIReturn> Exec()
-        {
-            return await this.Exec(false).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Executes the request and gets the result.
-        /// </summary>
-        /// <param name="processTools">A value indicating whether to process the tool calls.</param>
-        /// <returns>The result of the request in <see cref="AIReturn"/> format.</returns>
-        public async Task<AIReturn> Exec(bool processTools)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            Debug.WriteLine($"[AIRequest.Do] Loading Call method from {this.Provider} with model '{this.Model}' and tools filtered by {this.Body?.ToolFilter ?? "null"}");
+            Debug.WriteLine($"[AIRequest.Exec] Provider='{this.Provider}', Model='{this.Model}', ToolFilter='{this.Body?.ToolFilter ?? "null"}'");
 
             try
             {
@@ -201,7 +192,7 @@ namespace SmartHopper.Infrastructure.AICall
                     return errorResult;
                 }
 
-                // Execute the request from the provider
+                // Execute the request from the provider (single turn)
                 var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
 
                 // Provider returned null result
@@ -211,39 +202,6 @@ namespace SmartHopper.Infrastructure.AICall
                     var none = new AIReturn();
                     none.CreateProviderError("Provider returned no response", this);
                     return none;
-                }
-
-                if (processTools)
-                {
-                    var pendingToolCalls = result.Body?.PendingToolCallsList();
-
-                    // TODO: parallel processing of tool calls
-                    if (pendingToolCalls != null)
-                    {
-                        foreach (var toolCall in pendingToolCalls)
-                        {
-                            // Create an AIToolCall request
-                            var toolCallRequest = new AIToolCall();
-                            toolCallRequest.FromToolCallInteraction(toolCall, this.Provider, this.Model);
-
-                            // Execute the tool call
-                            var toolResult = await toolCallRequest.Exec().ConfigureAwait(false);
-
-                            if (toolResult == null)
-                            {
-                                // Merge a standardized tool error and continue
-                                result.CreateToolError("Tool not found or did not return a value", this);
-                                continue;
-                            }
-
-                            // Add the tool result to the result body if present
-                            var last = toolResult.Body?.GetLastInteraction();
-                            if (last != null)
-                            {
-                                result.Body.AddLastInteraction(last);
-                            }
-                        }
-                    }
                 }
 
                 // If provider produced no body and no explicit error, standardize it
