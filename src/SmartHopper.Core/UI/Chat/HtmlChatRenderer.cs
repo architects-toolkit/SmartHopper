@@ -116,8 +116,6 @@ namespace SmartHopper.Core.UI.Chat
                         interaction);
                     Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
 
-                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML (truncated): {messageHtml?.Substring(0, Math.Min(100, messageHtml.Length))}...");
-
                     return messageHtml;
                 }
                 catch (Exception ex)

@@ -810,6 +810,12 @@ namespace SmartHopper.Providers.OpenAI
                     body = new JObject();
                 }
                 body["stream"] = true;
+                // Ask OpenAI to include token usage in the final streaming chunk
+                // See: stream_options.include_usage = true
+                body["stream_options"] = new JObject
+                {
+                    ["include_usage"] = true,
+                };
 
                 // Build URL with helper
                 var fullUrl = this.BuildFullUrl(request.Endpoint);
@@ -867,6 +873,17 @@ namespace SmartHopper.Providers.OpenAI
                 var lastEmit = DateTime.UtcNow;
                 var firstChunk = true;
                 string finalFinishReason = string.Empty;
+                int promptTokens = 0;
+                int completionTokens = 0;
+
+                // Provider-local aggregate of assistant text
+                var assistantAggregate = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = string.Empty,
+                    Reasoning = string.Empty,
+                    Metrics = new AIMetrics { Provider = this.Provider.Name, Model = request.Model },
+                };
 
                 // Tool call accumulation (index -> partial)
                 var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
@@ -876,10 +893,26 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     if (string.IsNullOrEmpty(text)) yield break;
 
-                    var interaction = new AIInteractionText
+                    // Append to provider-local aggregate
+                    assistantAggregate.AppendDelta(contentDelta: text);
+
+                    // Emit a snapshot copy to avoid aliasing across yields
+                    var snapshot = new AIInteractionText
                     {
-                        Agent = AIAgent.Assistant,
-                        Content = text,
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
                     };
 
                     var delta = new AIReturn
@@ -887,7 +920,7 @@ namespace SmartHopper.Providers.OpenAI
                         Request = request,
                         Status = streamingStatus ? AICallStatus.Streaming : AICallStatus.Processing,
                     };
-                    delta.SetBody(new List<IAIInteraction> { interaction });
+                    delta.SetBody(new List<IAIInteraction> { snapshot });
                     yield return delta;
                     await Task.Yield();
                 }
@@ -936,6 +969,25 @@ namespace SmartHopper.Providers.OpenAI
                     var delta = choice?["delta"] as JObject;
                     var finishReason = choice?["finish_reason"]?.ToString();
                     if (!string.IsNullOrEmpty(finishReason)) finalFinishReason = finishReason;
+
+                    // Usage metrics (only present in final chunk when include_usage=true)
+                    var usage = parsed["usage"] as JObject;
+                    if (usage != null)
+                    {
+                        var pt = usage["prompt_tokens"]?.Value<int?>();
+                        var ct = usage["completion_tokens"]?.Value<int?>();
+                        if (pt.HasValue) promptTokens = pt.Value;
+                        if (ct.HasValue) completionTokens = ct.Value;
+
+                        // Update aggregate metrics
+                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        {
+                            Provider = this.Provider.Name,
+                            Model = request.Model,
+                            InputTokensPrompt = pt ?? 0,
+                            OutputTokensGeneration = ct ?? 0,
+                        });
+                    }
 
                     // Content streaming
                     var contentDelta = delta?["content"]?.ToString();
@@ -1010,19 +1062,44 @@ namespace SmartHopper.Providers.OpenAI
                 var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
                 foreach (var d in finalEmitted) { yield return d; }
 
-                // Emit final Finished marker
+                // Emit final Finished marker with the complete assistant interaction
                 var final = new AIReturn
                 {
                     Request = request,
                     Status = AICallStatus.Finished,
                 };
-                final.Metrics = new AIMetrics
+                var finalMetrics = new AIMetrics
                 {
                     Provider = this.Provider.Name,
                     Model = request.Model,
                     FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
+                    InputTokensPrompt = promptTokens,
+                    OutputTokensGeneration = completionTokens,
                 };
-                final.SetBody(new List<IAIInteraction>());
+                final.Metrics = finalMetrics;
+
+                // Align aggregate metrics finish reason as well
+                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
+
+                // Snapshot the final assistant interaction
+                var finalSnapshot = new AIInteractionText
+                {
+                    Agent = assistantAggregate.Agent,
+                    Content = assistantAggregate.Content,
+                    Reasoning = assistantAggregate.Reasoning,
+                    Metrics = new AIMetrics
+                    {
+                        Provider = assistantAggregate.Metrics.Provider,
+                        Model = assistantAggregate.Metrics.Model,
+                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                    },
+                };
+                final.SetBody(new List<IAIInteraction> { finalSnapshot });
                 yield return final;
             }
         }

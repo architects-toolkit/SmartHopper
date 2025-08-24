@@ -81,14 +81,14 @@ namespace SmartHopper.Core.UI.Chat
                                 {
                                     // First chunk: pre-aggregate and create the initial bubble with that content
                                     state.Started = true;
-                                    state.Aggregated = MergeForStreaming(state.Aggregated, inter);
+                                    state.Aggregated = inter;
                                     _streams[key] = state;
-                                    _dialog.AddMessageUIOnly(state.Aggregated);
+                                    _dialog.AddInteractionToWebView(state.Aggregated);
                                 }
                                 else
                                 {
                                     // Subsequent chunks: merge and replace existing bubble
-                                    state.Aggregated = MergeForStreaming(state.Aggregated, inter);
+                                    state.Aggregated = inter;
                                     _streams[key] = state;
                                     _dialog.ReplaceLastMessageByRole(inter.Agent, state.Aggregated);
                                 }
@@ -141,31 +141,91 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        // Reset centralized streaming state at finalization
-                        _streams.Clear();
-
-                        // Show final interactions and persist to history once
+                        // Final interactions and metrics
                         var interactions = result?.Body?.Interactions;
-                        if (interactions != null)
-                        {
-                            foreach (var inter in interactions)
-                            {
-                                try
-                                {
-                                    // Update UI via replacement (appends if none exists for the role)
-                                    _dialog.ReplaceLastMessageByRole(inter.Agent, inter);
+                        var finalMetrics = result?.Metrics;
 
-                                    // Persist to history exactly once per final item
-                                    var m = inter?.Metrics;
-                                    Debug.WriteLine($"[WebChatObserver] OnFinal -> persisting interaction agent={inter?.Agent}, type={inter?.GetType().Name}, metrics={(m != null ? $"in={m.InputTokens}, out={m.OutputTokens}, provider='{m.Provider}', model='{m.Model}', reason='{m.FinishReason}'" : "null")}");
-                                    _dialog._chatHistory.Add(inter);
-                                }
-                                catch (Exception innerEx)
+                        // 1) Use the provider's final assistant snapshot directly (no concatenation)
+                        AIInteractionText finalAssistant = null;
+                        try
+                        {
+                            if (interactions != null && interactions.Count > 0)
+                            {
+                                for (int i = interactions.Count - 1; i >= 0; i--)
                                 {
-                                    Debug.WriteLine($"[WebChatObserver] OnFinal item error: {innerEx.Message}");
+                                    var it = interactions[i];
+                                    if (it is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
+                                    {
+                                        finalAssistant = new AIInteractionText
+                                        {
+                                            Agent = AIAgent.Assistant,
+                                            Content = tt.Content,
+                                            Reasoning = tt.Reasoning,
+                                            Metrics = tt.Metrics,
+                                        };
+                                        break;
+                                    }
                                 }
                             }
                         }
+                        catch (Exception buildEx)
+                        {
+                            Debug.WriteLine($"[WebChatObserver] OnFinal consolidation error: {buildEx.Message}");
+                        }
+
+                        // 2) Attach metrics to the final assistant or to the last assistant in history if no text was present
+                        if (finalAssistant != null)
+                        {
+                            if (finalMetrics != null)
+                            {
+                                try
+                                {
+                                    if (finalAssistant.Metrics != null)
+                                        finalAssistant.Metrics.Combine(finalMetrics);
+                                    else
+                                        finalAssistant.Metrics = finalMetrics;
+                                }
+                                catch (Exception mergeEx)
+                                {
+                                    Debug.WriteLine($"[WebChatObserver] OnFinal metrics merge error: {mergeEx.Message}");
+                                }
+                            }
+
+                            // Render full assistant text and persist only once
+                            _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalAssistant);
+                            _dialog._chatHistory.Add(finalAssistant);
+                        }
+                        else if (finalMetrics != null)
+                        {
+                            // No assistant text in final: merge metrics into last assistant already shown
+                            try
+                            {
+                                for (int i = _dialog._chatHistory.Count - 1; i >= 0; i--)
+                                {
+                                    var inter = _dialog._chatHistory[i];
+                                    if (inter != null && inter.Agent == AIAgent.Assistant)
+                                    {
+                                        if (inter.Metrics != null)
+                                            inter.Metrics.Combine(finalMetrics);
+                                        else
+                                            inter.Metrics = finalMetrics;
+
+                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, inter);
+                                        _dialog._chatHistory[i] = inter; // persist metrics
+                                        break;
+                                    }
+                                }
+                            }
+                            catch (Exception mergeLastEx)
+                            {
+                                Debug.WriteLine($"[WebChatObserver] OnFinal fallback metrics merge error: {mergeLastEx.Message}");
+                            }
+                        }
+
+                        // 3) Do not re-add tool calls/results here; they were handled via OnToolCall/OnToolResult
+
+                        // 4) Clear streaming state and finish
+                        _streams.Clear();
 
                         _dialog._lastReturn = result ?? new AIReturn();
                         _dialog.ResponseReceived?.Invoke(_dialog, _dialog._lastReturn);
@@ -240,31 +300,6 @@ namespace SmartHopper.Core.UI.Chat
                             return $"other:{interaction.GetType().Name}:{interaction.Agent}";
                         }
                 }
-            }
-
-            /// <summary>
-            /// Merges an incoming partial interaction into an aggregated one for UI display.
-            /// Text interactions are accumulated; other types default to replacement.
-            /// </summary>
-            private static IAIInteraction MergeForStreaming(IAIInteraction current, IAIInteraction incoming)
-            {
-                if (incoming is AIInteractionText ttIn)
-                {
-                    var prev = current as AIInteractionText;
-                    return new AIInteractionText
-                    {
-                        Agent = ttIn.Agent,
-                        Content = (prev?.Content ?? string.Empty) + (ttIn.Content ?? string.Empty),
-                        Reasoning = string.IsNullOrEmpty(ttIn.Reasoning)
-                            ? prev?.Reasoning
-                            : (prev?.Reasoning ?? string.Empty) + ttIn.Reasoning,
-                        // Suppress metrics during streaming partials to avoid showing metrics icon prematurely
-                        Metrics = null,
-                    };
-                }
-
-                // For tool calls/results and others, replace with the latest partial by default
-                return incoming;
             }
 
             private static string MakeKey(IAIInteraction interaction)

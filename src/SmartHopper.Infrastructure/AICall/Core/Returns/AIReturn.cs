@@ -356,6 +356,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         public void SetBody(JObject raw)
         {
             // Preserve raw provider JSON. Decoding into interactions is handled by response policies.
+            // TODO: use response policies.
             this.PrivateEncodedResult = raw;
         }
     }

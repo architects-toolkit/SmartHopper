@@ -506,41 +506,6 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Adds an assistant message to the UI only (does not mutate chat history).
-        /// Useful to create a new assistant bubble for streaming before appending/replacing content.
-        /// </summary>
-        /// <param name="content">Initial content for the message (can be empty).</param>
-        private void AddAssistantMessageUIOnly(string content = "")
-        {
-            var interaction = new AIInteractionText
-            {
-                Agent = AIAgent.Assistant,
-                Content = content,
-                Metrics = new AIMetrics(),
-            };
-
-            // IMPORTANT: Do not call AddInteraction to avoid mutating _chatHistory.
-            this.AddMessageUIOnly(interaction);
-        }
-
-        /// <summary>
-        /// Adds an interaction to the UI only (does not mutate chat history).
-        /// This is used to start a streaming bubble for any role/type in a role-agnostic way.
-        /// </summary>
-        /// <param name="interaction">The interaction to render in the UI.</param>
-        internal void AddMessageUIOnly(IAIInteraction interaction)
-        {
-            if (interaction == null)
-            {
-                Debug.WriteLine("[WebChatDialog] AddMessageUIOnly skipped: interaction is null");
-                return;
-            }
-
-            // IMPORTANT: Do not mutate _chatHistory here. UI-only render.
-            this.AddInteractionToWebView(interaction);
-        }
-
-        /// <summary>
         /// Adds a system message to the chat history and displays it in the WebView.
         /// </summary>
         /// <param name="message">The message text.</param>
@@ -735,6 +700,8 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Don't manage _chatHistory here since this is used by Streaming. Only on final state will _chatHistory be updated.
+
+            // Only used by greeting for now. Will be removed in future.
 
             // Update history by mutating the last assistant entry if present (e.g., replacing a loading message)
             var lastAssistant = this._chatHistory.LastOrDefault(x => x.Agent == AIAgent.Assistant) as AIInteractionText;
@@ -941,7 +908,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 // Make a copy and update chat history
                 var request = this._initialRequest;
-                request.OverrideInteractions(this._chatHistory);
+                request.OverrideInteractions(new System.Collections.Generic.List<IAIInteraction>(this._chatHistory));
 
                 Debug.WriteLine("[WebChatDialog] Preparing ConversationSession with streaming fallback");
                 var observer = new WebChatObserver(this);
@@ -1056,8 +1023,6 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Display system message as collapsible if provided
-
-                // TODO: Why is systemMessageText always null? Is _chatHistory empty?
 
                 var systemMessageText = this._chatHistory
                     .OfType<AIInteractionText>()
