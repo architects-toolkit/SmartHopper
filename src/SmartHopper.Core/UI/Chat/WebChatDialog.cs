@@ -495,6 +495,41 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Adds an assistant message to the UI only (does not mutate chat history).
+        /// Useful to create a new assistant bubble for streaming before appending/replacing content.
+        /// </summary>
+        /// <param name="content">Initial content for the message (can be empty).</param>
+        private void AddAssistantMessageUIOnly(string content = "")
+        {
+            var interaction = new AIInteractionText
+            {
+                Agent = AIAgent.Assistant,
+                Content = content,
+                Metrics = new AIMetrics(),
+            };
+
+            // IMPORTANT: Do not call AddInteraction to avoid mutating _chatHistory.
+            this.AddMessageUIOnly(interaction);
+        }
+
+        /// <summary>
+        /// Adds an interaction to the UI only (does not mutate chat history).
+        /// This is used to start a streaming bubble for any role/type in a role-agnostic way.
+        /// </summary>
+        /// <param name="interaction">The interaction to render in the UI.</param>
+        internal void AddMessageUIOnly(IAIInteraction interaction)
+        {
+            if (interaction == null)
+            {
+                Debug.WriteLine("[WebChatDialog] AddMessageUIOnly skipped: interaction is null");
+                return;
+            }
+
+            // IMPORTANT: Do not mutate _chatHistory here. UI-only render.
+            this.AddInteractionToWebView(interaction);
+        }
+
+        /// <summary>
         /// Adds a system message to the chat history and displays it in the WebView.
         /// </summary>
         /// <param name="message">The message text.</param>
@@ -594,6 +629,27 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Escapes a string so it can be safely embedded as a JavaScript string literal.
+        /// Centralizes all escaping used by DOM update methods.
+        /// </summary>
+        /// <param name="s">Input string.</param>
+        /// <returns>Escaped string safe for JS string literal.</returns>
+        private static string EscapeForJsString(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return string.Empty;
+            }
+
+            return s
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
+        }
+
+        /// <summary>
         /// Adds an interaction to the WebView with the specified role.
         /// </summary>
         /// <param name="interaction">The AI interaction object containing metrics.</param>
@@ -635,12 +691,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine("[WebChatDialog] Executing JavaScript to add message");
 
                 // Escape special characters in the message HTML
-                string escapedHtml = messageHtml
-                    .Replace("\\", "\\\\")
-                    .Replace("\"", "\\\"")
-                    .Replace("\n", "\\n")
-                    .Replace("\r", "\\r")
-                    .Replace("\t", "\\t");
+                string escapedHtml = EscapeForJsString(messageHtml);
 
                 // Try a different approach for executing JavaScript
                 string script = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
@@ -655,6 +706,150 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error adding message to WebView: {ex.Message}");
+                Debug.WriteLine($"[WebChatDialog] Error stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Updates chat history with the provided assistant interaction (mutates the last assistant entry if present,
+        /// otherwise adds a new one) and replaces the last assistant message in the WebView.
+        /// </summary>
+        /// <param name="interaction">Assistant text interaction to persist and render.</param>
+        private void ReplaceLastAssistantMessage(AIInteractionText interaction)
+        {
+            if (interaction == null)
+            {
+                Debug.WriteLine("[WebChatDialog] ReplaceLastAssistantMessage skipped: interaction is null");
+                return;
+            }
+
+            // Don't manage _chatHistory here since this is used by Streaming. Only on final state will _chatHistory be updated.
+
+            // Update history by mutating the last assistant entry if present (e.g., replacing a loading message)
+            var lastAssistant = this._chatHistory.LastOrDefault(x => x.Agent == AIAgent.Assistant) as AIInteractionText;
+            if (lastAssistant != null)
+            {
+                lastAssistant.Content = interaction.Content;
+                lastAssistant.Reasoning = interaction.Reasoning;
+                lastAssistant.Metrics = interaction.Metrics ?? lastAssistant.Metrics;
+            }
+            else
+            {
+                // If not present for any reason, add to history
+                this._chatHistory.Add(interaction);
+            }
+
+            // Update UI
+            this.ReplaceLastMessageByRole(AIAgent.Assistant, interaction);
+        }
+
+        /// <summary>
+        /// Replaces the last message for the given role with the provided interaction's rendered HTML.
+        /// Falls back to appending if no message exists for that role yet.
+        /// </summary>
+        /// <param name="agent">Message role (user, assistant, system, tool).</param>
+        /// <param name="interaction">Interaction to render.</param>
+        private void ReplaceLastMessageByRole(AIAgent agent, IAIInteraction interaction)
+        {
+            if (interaction is null)
+            {
+                Debug.WriteLine("[WebChatDialog] ReplaceLastMessageByRole skipped: interaction is null");
+                return;
+            }
+
+            if (!this._webViewInitialized)
+            {
+                Debug.WriteLine("[WebChatDialog] WebView not initialized yet, queueing role replacement");
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await this._webViewInitializedTcs.Task.ConfigureAwait(false);
+                        Application.Instance.AsyncInvoke(() => this.ReplaceLastMessageByRole(agent, interaction));
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Error waiting for WebView initialization to replace message by role: {ex.Message}");
+                    }
+                });
+                return;
+            }
+
+            try
+            {
+                // Render full message HTML using the renderer
+                string messageHtml = this._htmlRenderer.GenerateMessageHtml(interaction);
+
+                // Escape for safe JS string literal
+                string escapedHtml = EscapeForJsString(messageHtml);
+
+                string roleJs = JsonConvert.SerializeObject(agent.ToString().ToLower());
+                string script =
+                    $"if (typeof replaceLastMessageByRole === 'function') {{ replaceLastMessageByRole({roleJs}, \"{escapedHtml}\"); return 'Message replaced'; }} else if (typeof replaceLastAssistantMessage === 'function' && {roleJs} === 'assistant') {{ replaceLastAssistantMessage(\"{escapedHtml}\"); return 'Assistant message replaced (fallback)'; }} else {{ return 'replace function not found'; }}";
+
+                string result = this._webView.ExecuteScript(script);
+                Debug.WriteLine($"[WebChatDialog] ReplaceLastMessageByRole JS result: {result}");
+
+                // Ensure the latest content is visible
+                this._webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error replacing message by role in WebView: {ex.Message}");
+                Debug.WriteLine($"[WebChatDialog] Error stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Appends an HTML chunk to the last message content for the given role.
+        /// If no message exists for that role, it creates one.
+        /// </summary>
+        /// <param name="agent">Message role (user, assistant, system, tool).</param>
+        /// <param name="htmlChunk">HTML chunk to append (already sanitized/escaped HTML).</param>
+        private void AppendToLastMessageByRole(AIAgent agent, string htmlChunk)
+        {
+            if (string.IsNullOrEmpty(htmlChunk))
+            {
+                Debug.WriteLine("[WebChatDialog] AppendToLastMessageByRole skipped: empty chunk");
+                return;
+            }
+
+            if (!this._webViewInitialized)
+            {
+                Debug.WriteLine("[WebChatDialog] WebView not initialized yet, queueing role append");
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await this._webViewInitializedTcs.Task.ConfigureAwait(false);
+                        Application.Instance.AsyncInvoke(() => this.AppendToLastMessageByRole(agent, htmlChunk));
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Error waiting for WebView initialization to append message by role: {ex.Message}");
+                    }
+                });
+                return;
+            }
+
+            try
+            {
+                // Escape for safe JS string literal
+                string escapedChunk = EscapeForJsString(htmlChunk);
+
+                string roleJs = JsonConvert.SerializeObject(agent.ToString().ToLower());
+                string script =
+                    $"if (typeof appendToLastMessageByRole === 'function') {{ appendToLastMessageByRole({roleJs}, \"{escapedChunk}\"); return 'Chunk appended'; }} else if (typeof appendToLastAssistantMessage === 'function' && {roleJs} === 'assistant') {{ appendToLastAssistantMessage(\"{escapedChunk}\"); return 'Assistant chunk appended (fallback)'; }} else {{ return 'append function not found'; }}";
+
+                string result = this._webView.ExecuteScript(script);
+                Debug.WriteLine($"[WebChatDialog] AppendToLastMessageByRole JS result: {result}");
+
+                // Keep view scrolled
+                this._webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error appending chunk by role in WebView: {ex.Message}");
                 Debug.WriteLine($"[WebChatDialog] Error stack trace: {ex.StackTrace}");
             }
         }
@@ -975,35 +1170,30 @@ namespace SmartHopper.Core.UI.Chat
                     Debug.WriteLine($"[WebChatDialog] Error while logging greeting diagnostics: {diagEx.Message}");
                 }
 
-                // Replace loading message with actual greeting or fallback
+                // Replace loading message with actual greeting or fallback using streaming-style replace
                 await Application.Instance.InvokeAsync(() =>
                 {
-                    // Remove loading message from both history and UI
-                    this.RemoveLastAssistantMessage();
-
-                    // Add the actual greeting message
+                    AIInteractionText finalGreeting = null;
                     if (greetingResult != null && greetingResult.Success &&
                         greetingResult.Body.Interactions?.Count > 0)
                     {
-                        // Find the assistant response in the interactions
-                        var assistantInteraction = greetingResult.Body.Interactions
+                        finalGreeting = greetingResult.Body.Interactions
                             .OfType<AIInteractionText>()
                             .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                    }
 
-                        if (assistantInteraction != null && !string.IsNullOrEmpty(assistantInteraction.Content))
-                        {
-                            this.AddAssistantMessage(assistantInteraction.Content, assistantInteraction.Metrics);
-                        }
-                        else
-                        {
-                            this.AddAssistantMessage(defaultGreeting);
-                        }
-                    }
-                    else
+                    if (finalGreeting == null || string.IsNullOrWhiteSpace(finalGreeting.Content))
                     {
-                        // Fallback to default greeting if AI generation fails or times out
-                        this.AddAssistantMessage(defaultGreeting);
+                        finalGreeting = new AIInteractionText
+                        {
+                            Agent = AIAgent.Assistant,
+                            Content = defaultGreeting,
+                            Metrics = new AIMetrics()
+                        };
                     }
+
+                    // Persist and update UI via the helper
+                    this.ReplaceLastAssistantMessage(finalGreeting);
 
                     this._statusLabel.Text = "Ready";
                     this._progressReporter?.Invoke("Ready");

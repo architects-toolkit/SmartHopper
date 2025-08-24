@@ -60,6 +60,86 @@ function removeLastMessageByRole(role) {
 }
 
 /**
+ * Replaces the last message of a given role with provided HTML. If none exists, appends it.
+ * @param {string} role - Role class to target (e.g., 'assistant', 'user', 'system', 'tool')
+ * @param {string} messageHtml - Full message HTML (wrapper + content)
+ * @returns {boolean} True if replacement/appended, false otherwise
+ */
+function replaceLastMessageByRole(role, messageHtml) {
+    const chatContainer = document.getElementById('chat-container');
+    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
+
+    // Parse incoming HTML into an element
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml || '';
+    const incoming = tempDiv.firstElementChild;
+    if (!incoming) return false;
+
+    if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        chatContainer.replaceChild(incoming, lastMessage);
+    } else {
+        chatContainer.appendChild(incoming);
+    }
+
+    // Re-process dynamic features
+    processCodeBlocks();
+    processLinks();
+    setupMetricsTooltip();
+    scrollToBottom();
+    return true;
+}
+
+/**
+ * Backward-compatible helper expected by C# ReplaceLastAssistantMessage.
+ * @param {string} messageHtml - Full assistant message HTML
+ */
+function replaceLastAssistantMessage(messageHtml) {
+    return replaceLastMessageByRole('assistant', messageHtml);
+}
+
+/**
+ * Appends an HTML chunk to the content of the last message of a given role.
+ * If no message exists, creates a new minimal message using the chunk as content.
+ * @param {string} role - Role class to target
+ * @param {string} htmlChunk - HTML snippet to append inside .message-content
+ * @returns {boolean} True if appended/created, false otherwise
+ */
+function appendToLastMessageByRole(role, htmlChunk) {
+    const chatContainer = document.getElementById('chat-container');
+    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
+
+    if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        const contentEl = lastMessage.querySelector('.message-content');
+        if (contentEl) {
+            contentEl.insertAdjacentHTML('beforeend', htmlChunk || '');
+            processCodeBlocks();
+            processLinks();
+            setupMetricsTooltip();
+            scrollToBottom();
+            return true;
+        }
+    }
+
+    // Fallback: if no message exists, just add the chunk as a new message
+    // (expects caller to provide a full message when needed; this is a safety net)
+    if (typeof addMessage === 'function') {
+        addMessage(htmlChunk || '');
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Convenience wrapper for assistant role chunk appends.
+ * @param {string} htmlChunk
+ */
+function appendToLastAssistantMessage(htmlChunk) {
+    return appendToLastMessageByRole('assistant', htmlChunk);
+}
+
+/**
  * Processes code blocks for potential syntax highlighting
  */
 function processCodeBlocks() {

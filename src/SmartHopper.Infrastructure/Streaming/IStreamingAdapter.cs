@@ -53,11 +53,6 @@ namespace SmartHopper.Infrastructure.Streaming
         public int CoalesceDelayMs { get; set; } = 40;
 
         /// <summary>
-        /// Maximum number of deltas buffered while awaiting consumer readiness.
-        /// </summary>
-        public int MaxBufferedDeltas { get; set; } = 64;
-
-        /// <summary>
         /// Preferred chunk size in characters when coalescing tokens.
         /// </summary>
         public int PreferredChunkSize { get; set; } = 64;

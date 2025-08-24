@@ -12,6 +12,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Runtime.CompilerServices;
     using System.Threading;
@@ -298,6 +299,23 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     yield break;
                 }
 
+                // Try to obtain a provider-specific streaming adapter via reflection to keep provider-agnostic design
+                IStreamingAdapter adapter = null;
+                try
+                {
+                    var provider = this.Request.ProviderInstance;
+                    var mi = provider?.GetType().GetMethod("GetStreamingAdapter", Type.EmptyTypes);
+                    var obj = mi?.Invoke(provider, null);
+                    adapter = obj as IStreamingAdapter;
+                    Debug.WriteLine(adapter != null
+                        ? $"[ConversationSession] Using streaming adapter from provider '{provider?.Name}'"
+                        : $"[ConversationSession] No streaming adapter available for provider '{provider?.Name}', falling back to non-adapter path");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ConversationSession] Error probing streaming adapter: {ex.Message}");
+                }
+
                 int turns = 0;
                 AIReturn lastReturn = null;
 
@@ -306,136 +324,185 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     var yieldsThisTurn = new List<AIReturn>();
                     bool endStreaming = false;
 
-                    try
+                    linkedCts.Token.ThrowIfCancellationRequested();
+
+                    // Adapter streaming branch (no try/catch allowed around yield)
+                    if (adapter != null)
                     {
-                        linkedCts.Token.ThrowIfCancellationRequested();
-
-                        // Fallback non-adapter streaming: execute provider call and prepare the chunk(s)
-                        var callResult = await this.Request.Exec().ConfigureAwait(false);
-                        if (callResult == null)
+                        Debug.WriteLine("[ConversationSession] Streaming via provider adapter...");
+                        await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, linkedCts.Token))
                         {
-                            var none = new AIReturn();
-                            none.CreateProviderError("Provider returned no response", this.Request);
-                            this.Observer?.OnFinal(none);
-                            yieldsThisTurn.Add(none);
-                            endStreaming = true;
-                        }
-                        else
-                        {
-                            this.Observer?.OnPartial(callResult);
-                            lastReturn = callResult;
-                            yieldsThisTurn.Add(callResult);
+                            linkedCts.Token.ThrowIfCancellationRequested();
 
-                            // Merge provider interactions into the session request body (skip dynamic context)
-                            var providerInteractions = callResult.Body?.Interactions;
-                            if (providerInteractions != null && providerInteractions.Count > 0)
+                            // Forward delta
+                            this.Observer?.OnPartial(delta);
+                            lastReturn = delta;
+
+                            // Merge interactions into session body (skip dynamic context)
+                            var interactions = delta.Body?.Interactions;
+                            if (interactions != null && interactions.Count > 0)
                             {
-                                foreach (var interaction in providerInteractions)
+                                foreach (var interaction in interactions)
                                 {
                                     if (interaction.Agent == AIAgent.Context)
                                     {
                                         continue;
                                     }
                                     this.Request.Body.AddLastInteraction(interaction);
+                                    // Notify tool calls immediately for UI
+                                    if (interaction is AIInteractionToolCall toolCall)
+                                    {
+                                        this.Observer?.OnToolCall(toolCall);
+                                    }
                                 }
                             }
 
-                            if (!options.ProcessTools)
+                            // Emit to consumer as we go
+                            yield return delta;
+                        }
+
+                        Debug.WriteLine("[ConversationSession] Provider adapter stream completed.");
+
+                        if (!options.ProcessTools)
+                        {
+                            this.Observer?.OnFinal(lastReturn ?? new AIReturn());
+                            yield break;
+                        }
+                    }
+
+                    // Non-adapter path and tool processing with error handling
+                    try
+                    {
+                        if (adapter == null)
+                        {
+                            // Fallback non-adapter streaming: execute provider call and prepare the chunk(s)
+                            var callResult = await this.Request.Exec().ConfigureAwait(false);
+                            if (callResult == null)
                             {
-                                this.Observer?.OnFinal(callResult);
+                                var none = new AIReturn();
+                                none.CreateProviderError("Provider returned no response", this.Request);
+                                this.Observer?.OnFinal(none);
+                                yieldsThisTurn.Add(none);
                                 endStreaming = true;
                             }
                             else
                             {
-                                // Process pending tool calls with bounded passes
-                                int toolPass = 0;
-                                while (!endStreaming && toolPass < options.MaxToolPasses)
+                                this.Observer?.OnPartial(callResult);
+                                lastReturn = callResult;
+                                yieldsThisTurn.Add(callResult);
+
+                                // Merge provider interactions into the session request body (skip dynamic context)
+                                var providerInteractions = callResult.Body?.Interactions;
+                                if (providerInteractions != null && providerInteractions.Count > 0)
                                 {
-                                    linkedCts.Token.ThrowIfCancellationRequested();
-
-                                    var pendingToolCalls = this.Request.Body.PendingToolCallsList();
-                                    if (pendingToolCalls == null || pendingToolCalls.Count == 0)
+                                    foreach (var interaction in providerInteractions)
                                     {
-                                        break; // Stable: no tools to execute
-                                    }
-
-                                    // Sequential execution (AllowParallelTools planned for future)
-                                    foreach (var tc in pendingToolCalls)
-                                    {
-                                        linkedCts.Token.ThrowIfCancellationRequested();
-
-                                        this.Observer?.OnToolCall(tc);
-
-                                        var toolRq = new AIToolCall();
-                                        toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
-                                        var toolRet = await toolRq.Exec().ConfigureAwait(false);
-
-                                        // Append tool result to session body and notify
-                                        var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
-                                        if (toolInteraction != null)
+                                        if (interaction.Agent == AIAgent.Context)
                                         {
-                                            this.Request.Body.AddLastInteraction(toolInteraction);
-                                            this.Observer?.OnToolResult(toolInteraction);
+                                            continue;
                                         }
-                                        else
-                                        {
-                                            // Standardize a tool error if none provided
-                                            var noneTool = new AIReturn();
-                                            noneTool.CreateToolError("Tool not found or did not return a value", toolRq);
-                                            var errInteraction = noneTool.Body?.GetLastInteraction() as AIInteractionToolResult;
-                                            if (errInteraction != null)
-                                            {
-                                                this.Request.Body.AddLastInteraction(errInteraction);
-                                                this.Observer?.OnToolResult(errInteraction);
-                                            }
-                                        }
-                                    }
-
-                                    toolPass++;
-
-                                    // Let the provider consume tool results and possibly request more tools
-                                    linkedCts.Token.ThrowIfCancellationRequested();
-                                    var followUp = await this.Request.Exec().ConfigureAwait(false);
-                                    if (followUp == null)
-                                    {
-                                        var none2 = new AIReturn();
-                                        none2.CreateProviderError("Provider returned no response", this.Request);
-                                        this.Observer?.OnFinal(none2);
-                                        yieldsThisTurn.Add(none2);
-                                        endStreaming = true;
-                                        break;
-                                    }
-
-                                    this.Observer?.OnPartial(followUp);
-                                    lastReturn = followUp;
-                                    yieldsThisTurn.Add(followUp);
-
-                                    var followUpInteractions = followUp.Body?.Interactions;
-                                    if (followUpInteractions != null && followUpInteractions.Count > 0)
-                                    {
-                                        foreach (var interaction in followUpInteractions)
-                                        {
-                                            if (interaction.Agent == AIAgent.Context)
-                                            {
-                                                continue;
-                                            }
-                                            this.Request.Body.AddLastInteraction(interaction);
-                                        }
-                                    }
-
-                                    // If now stable, break inner loop
-                                    if (this.Request.Body.PendingToolCallsCount() == 0)
-                                    {
-                                        break;
+                                        this.Request.Body.AddLastInteraction(interaction);
                                     }
                                 }
 
-                                // If stable after provider + tool passes, finalize
-                                if (!endStreaming && this.Request.Body.PendingToolCallsCount() == 0)
+                                if (!options.ProcessTools)
                                 {
-                                    this.Observer?.OnFinal(lastReturn ?? new AIReturn());
+                                    this.Observer?.OnFinal(callResult);
                                     endStreaming = true;
                                 }
+                            }
+                        }
+
+                        // If tool processing is enabled, handle bounded tool loop
+                        if (!endStreaming && options.ProcessTools)
+                        {
+                            int toolPass = 0;
+                            while (!endStreaming && toolPass < options.MaxToolPasses)
+                            {
+                                linkedCts.Token.ThrowIfCancellationRequested();
+
+                                var pendingToolCalls = this.Request.Body.PendingToolCallsList();
+                                if (pendingToolCalls == null || pendingToolCalls.Count == 0)
+                                {
+                                    break; // Stable: no tools to execute
+                                }
+
+                                // Sequential execution (AllowParallelTools planned for future)
+                                foreach (var tc in pendingToolCalls)
+                                {
+                                    linkedCts.Token.ThrowIfCancellationRequested();
+
+                                    this.Observer?.OnToolCall(tc);
+
+                                    var toolRq = new AIToolCall();
+                                    toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
+                                    var toolRet = await toolRq.Exec().ConfigureAwait(false);
+
+                                    // Append tool result to session body and notify
+                                    var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
+                                    if (toolInteraction != null)
+                                    {
+                                        this.Request.Body.AddLastInteraction(toolInteraction);
+                                        this.Observer?.OnToolResult(toolInteraction);
+                                    }
+                                    else
+                                    {
+                                        // Standardize a tool error if none provided
+                                        var noneTool = new AIReturn();
+                                        noneTool.CreateToolError("Tool not found or did not return a value", toolRq);
+                                        var errInteraction = noneTool.Body?.GetLastInteraction() as AIInteractionToolResult;
+                                        if (errInteraction != null)
+                                        {
+                                            this.Request.Body.AddLastInteraction(errInteraction);
+                                            this.Observer?.OnToolResult(errInteraction);
+                                        }
+                                    }
+                                }
+
+                                toolPass++;
+
+                                // Let the provider consume tool results and possibly request more tools
+                                linkedCts.Token.ThrowIfCancellationRequested();
+                                var followUp = await this.Request.Exec().ConfigureAwait(false);
+                                if (followUp == null)
+                                {
+                                    var none2 = new AIReturn();
+                                    none2.CreateProviderError("Provider returned no response", this.Request);
+                                    this.Observer?.OnFinal(none2);
+                                    yieldsThisTurn.Add(none2);
+                                    endStreaming = true;
+                                    break;
+                                }
+
+                                this.Observer?.OnPartial(followUp);
+                                lastReturn = followUp;
+                                yieldsThisTurn.Add(followUp);
+
+                                var followUpInteractions = followUp.Body?.Interactions;
+                                if (followUpInteractions != null && followUpInteractions.Count > 0)
+                                {
+                                    foreach (var interaction in followUpInteractions)
+                                    {
+                                        if (interaction.Agent == AIAgent.Context)
+                                        {
+                                            continue;
+                                        }
+                                        this.Request.Body.AddLastInteraction(interaction);
+                                    }
+                                }
+
+                                // If now stable, break inner loop
+                                if (this.Request.Body.PendingToolCallsCount() == 0)
+                                {
+                                    break;
+                                }
+                            }
+
+                            // If stable after provider + tool passes, finalize
+                            if (!endStreaming && this.Request.Body.PendingToolCallsCount() == 0)
+                            {
+                                this.Observer?.OnFinal(lastReturn ?? new AIReturn());
+                                endStreaming = true;
                             }
                         }
                     }

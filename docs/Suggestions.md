@@ -820,6 +820,8 @@ This suggestion centralizes metrics and progress reporting across provider calls
 
 - No PII in logs/metrics; egress controlled and auditable; quotas enforced; schema usage constrained.
 
+---
+
 ## Future thoughts (suggestions should consider future conditions and try to be flexible to accept them in the future)
 
 - [ ] AI Provider-side prompt caching
