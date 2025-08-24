@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New SmartHopper Assistant setting `EnableCanvasButton` (default: `true`) to enable/disable the canvas button.
+- `CanvasButton` now respects `EnableCanvasButton`: when disabled, the button is hidden and non-interactive.
 - New tests for Context Manager and Model Manager.
 - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
 - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.

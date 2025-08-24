@@ -26,6 +26,7 @@ using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.UI
 {
@@ -303,6 +304,13 @@ namespace SmartHopper.Core.UI
         {
             try
             {
+                if (!IsEnabled())
+                {
+                    // Ensure no hover/press state is kept when disabled
+                    isHovering = false;
+                    isPressed = false;
+                    return;
+                }
                 // Update button position based on current canvas and window
                 UpdateButtonPosition(canvas);
                 DrawButton(canvas.Graphics);
@@ -422,6 +430,10 @@ namespace SmartHopper.Core.UI
         /// </summary>
         private static void OnCanvasMouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
         {
+            if (!IsEnabled())
+            {
+                return;
+            }
             if (IsPointInButton(new PointF(e.X, e.Y)))
             {
                 isPressed = true;
@@ -434,6 +446,10 @@ namespace SmartHopper.Core.UI
         /// </summary>
         private static void OnCanvasMouseUp(object sender, System.Windows.Forms.MouseEventArgs e)
         {
+            if (!IsEnabled())
+            {
+                return;
+            }
             if (isPressed && IsPointInButton(new PointF(e.X, e.Y)))
             {
                 isPressed = false;
@@ -455,6 +471,10 @@ namespace SmartHopper.Core.UI
         /// </summary>
         private static void OnCanvasMouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
         {
+            if (!IsEnabled())
+            {
+                return;
+            }
             var wasHovering = isHovering;
             isHovering = IsPointInButton(new PointF(e.X, e.Y));
 
@@ -469,6 +489,10 @@ namespace SmartHopper.Core.UI
         /// </summary>
         private static bool IsPointInButton(PointF point)
         {
+            if (!IsEnabled())
+            {
+                return false;
+            }
             // Check if point is within circular button bounds
             var center = new PointF(
                 buttonBounds.X + (buttonBounds.Width / 2),
@@ -476,6 +500,23 @@ namespace SmartHopper.Core.UI
 
             var distance = Math.Sqrt(Math.Pow(point.X - center.X, 2) + Math.Pow(point.Y - center.Y, 2));
             return distance <= ButtonSize / 2;
+        }
+
+        /// <summary>
+        /// Returns whether the SmartHopper Assistant canvas button is enabled in settings.
+        /// Defaults to true if settings are unavailable.
+        /// </summary>
+        private static bool IsEnabled()
+        {
+            try
+            {
+                return SmartHopperSettings.Instance?.SmartHopperAssistant?.EnableCanvasButton ?? true;
+            }
+            catch
+            {
+                // Be permissive if settings are not yet initialized
+                return true;
+            }
         }
 
         /// <summary>
