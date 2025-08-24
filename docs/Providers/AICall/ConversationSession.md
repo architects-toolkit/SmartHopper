@@ -23,6 +23,9 @@ Purpose: Centralize multi-turn conversation orchestration. Phase 1 introduces a 
   - `CancellationToken`
 - `ConversationSession`
   - Minimal implementation. For Phase 1 it calls `AIRequestCall.Exec()` for provider calls, runs bounded turns/tool passes, and forwards lifecycle events to `IConversationObserver`.
+  - Tool execution
+    - Pending tool calls (`AIInteractionToolCall`) are executed via the Tool Manager during tool passes.
+    - For executing exactly one pending tool call directly, see `AIToolCall` in `src/SmartHopper.Infrastructure/AICall/Tools/AIToolCall.cs` and the Tools docs.
 
 ## Usage
 
@@ -43,3 +46,4 @@ Notes:
 - `Exec()` performs a single provider call. Use `ConversationSession` for orchestration.
 - `ExecCore` preserves the original single-turn execution path used as fallback.
 - Future phases will add streaming adapters and policy pipeline hooks.
+- See also: Tools overview and `AIToolCall` usage in [./tools.md](./tools.md).

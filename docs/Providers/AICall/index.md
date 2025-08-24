@@ -6,10 +6,11 @@ This section documents the core request/response flow used by providers and tool
 - Building blocks:
   - `IAIInteraction` + concrete types for messages and tool I/O
   - `AIBody` container (interactions, tool/context filters, JSON schema)
-  - `IAIRequest` + `AIRequestBase`, `AIRequestCall`, `AIToolCall`
+  - `IAIRequest` + `AIRequestBase`, `AIRequestCall`
   - `IAIReturn` + `AIReturn`
   - `AIMetrics` and `AICallStatus`
   - `AIAgent` roles (Context, System, User, Assistant, ToolCall, ToolResult)
+  - `PolicyPipeline` (always-on request/response policies: validation, decoding, normalization)
 
 Quick flow:
 
@@ -36,7 +37,9 @@ Note: Prefer creating an explicit `ConversationSession` when you need determinis
 Navigation:
 
 - Interactions: [./interactions.md](./interactions.md)
+- Tools: [./tools.md](./tools.md)
 - Requests: [./requests.md](./requests.md)
+- Policy Pipeline: [./policy-pipeline.md](./policy-pipeline.md)
 - Body, Metrics, Status, Return: [./body-metrics-status.md](./body-metrics-status.md)
 - Messages and Aggregation: [./messages.md](./messages.md)
 - Conversation Session: [./ConversationSession.md](./ConversationSession.md)
