@@ -32,10 +32,15 @@ namespace SmartHopper.Infrastructure.AICall.Policies
         private static PolicyPipeline CreateDefault()
         {
             var pipeline = new PolicyPipeline();
+
             // Request policies can be added here as they are implemented (context injection, capability enforcement, schema attach...)
+            pipeline.RequestPolicies.Add(new Request.RequestTimeoutPolicy());
+            pipeline.RequestPolicies.Add(new Request.ToolFilterNormalizationRequestPolicy());
             pipeline.RequestPolicies.Add(new SchemaAttachRequestPolicy());
+
             // Response policies: start with compatibility decode to preserve behavior until new mappers are introduced
             pipeline.ResponsePolicies.Add(new Response.CompatibilityDecodeResponsePolicy());
+            pipeline.ResponsePolicies.Add(new Response.FinishReasonNormalizeResponsePolicy());
             return pipeline;
         }
 

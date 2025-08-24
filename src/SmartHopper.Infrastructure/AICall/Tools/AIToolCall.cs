@@ -80,7 +80,19 @@ namespace SmartHopper.Infrastructure.AICall.Tools
 
             try
             {
-                var result = await AIToolManager.ExecuteTool(this).ConfigureAwait(false);
+                // Respect per-request timeout. We cannot cancel the underlying work if the tool ignores cancellation,
+                // but we do return a standardized timeout error when exceeded.
+                var timeoutSec = this.TimeoutSeconds <= 0 ? 120 : this.TimeoutSeconds;
+                var execTask = AIToolManager.ExecuteTool(this);
+                var completed = await Task.WhenAny(execTask, Task.Delay(TimeSpan.FromSeconds(Math.Min(Math.Max(timeoutSec, 1), 600)))).ConfigureAwait(false);
+                if (completed != execTask)
+                {
+                    var timed = new AIReturn();
+                    timed.CreateToolError("Tool execution cancelled or timed out", this);
+                    return timed;
+                }
+
+                var result = await execTask.ConfigureAwait(false);
                 if (result == null)
                 {
                     var none = new AIReturn();
