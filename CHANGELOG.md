@@ -23,7 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Always-on `PolicyPipeline` foundation with request and response policy hooks
   - Default response policy: `CompatibilityDecodeResponsePolicy` that decodes raw provider JSON via the provider's `Decode(string)` to normalized interactions; exceptions are converted to diagnostics via `AIReturn.AddRuntimeMessage`
 - AICall folder reorganization.
- - Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
+- Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
+- IAIRequest.WantsStreaming flag to indicate streaming intent and surface validation hints.
+- Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
+- `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
+- Provider-level streaming toggle via `IAIProviderSettings.EnableStreaming`. Added `EnableStreaming` setting descriptors to OpenAI, MistralAI, and DeepSeek provider settings (default `true`).
 
 ### Changed
 
@@ -53,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Propagated model validation messages to components UI.
 - `AIRequestCall.Exec()` is now explicitly single-turn (no tool orchestration). Multi-turn and tool processing are handled by `ConversationSession.RunToStableResult` when used explicitly.
 - OpenAI provider: nested `OpenAIStreamingAdapter` now derives from `AIProviderStreamingAdapter` and reuses shared helpers; streaming behavior and statuses remain unchanged.
+- Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
+- `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
+- `AIRequestBase.IsValid()` now blocks streaming when the selected provider disables streaming via settings or when the model is not streaming-capable, surfacing a clear validation error.
 
 ### Removed
 

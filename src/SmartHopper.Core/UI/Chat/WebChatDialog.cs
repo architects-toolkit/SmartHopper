@@ -32,6 +32,7 @@ using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -736,15 +737,67 @@ namespace SmartHopper.Core.UI.Chat
                 var request = this._initialRequest;
                 request.OverrideInteractions(this._chatHistory);
 
-                Debug.WriteLine("[WebChatDialog] Running ConversationSession with observer");
+                Debug.WriteLine("[WebChatDialog] Preparing ConversationSession with streaming fallback");
                 var observer = new WebChatObserver(this);
                 this._currentCts = new CancellationTokenSource();
                 this._currentSession = new ConversationSession(request, observer);
                 var options = new SessionOptions { ProcessTools = true, CancellationToken = this._currentCts.Token };
-                var result = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
 
-                // Store the last return for external access (observer also sets this on final)
-                this._lastReturn = result;
+                // Decide whether streaming should be attempted first
+                bool shouldTryStreaming = false;
+                try
+                {
+                    request.WantsStreaming = true;
+                    var validation = request.IsValid();
+                    shouldTryStreaming = validation.IsValid;
+                    if (!shouldTryStreaming)
+                    {
+                        Debug.WriteLine("[WebChatDialog] Streaming validation failed, will fallback to non-streaming.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Streaming validation threw: {ex.Message}. Falling back.");
+                    shouldTryStreaming = false;
+                }
+                finally
+                {
+                    // Ensure we don't carry the streaming intent into non-streaming execution
+                    request.WantsStreaming = false;
+                }
+
+                if (shouldTryStreaming)
+                {
+                    Debug.WriteLine("[WebChatDialog] Starting streaming path");
+                    var streamingOptions = new StreamingOptions();
+
+                    // Consume the stream to drive incremental UI updates via observer
+                    // Track the last streamed return so we can decide about fallback.
+                    AIReturn lastStreamReturn = null;
+                    await foreach (var r in this._currentSession.Stream(options, streamingOptions, this._currentCts.Token))
+                    {
+                        lastStreamReturn = r;
+                        // No-op: observer handles partial/final UI updates and _lastReturn.
+                    }
+
+                    // If streaming finished with an error or yielded nothing, fallback to non-streaming.
+                    if (lastStreamReturn == null || !lastStreamReturn.Success)
+                    {
+                        Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
+                        // Ensure streaming flag is not set for non-streaming execution
+                        request.WantsStreaming = false;
+                        var fallbackResult = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+                        this._lastReturn = fallbackResult;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("[WebChatDialog] Starting non-streaming path");
+                    var result = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+
+                    // Store the last return for external access (observer also sets this on final)
+                    this._lastReturn = result;
+                }
             }
             catch (Exception ex)
             {

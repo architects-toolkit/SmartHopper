@@ -68,6 +68,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <inheritdoc/>
         public virtual AIBody Body { get; set; } = new AIBody();
 
+        /// <summary>
+        /// Indicates that the caller intends to stream this request. This lets validation
+        /// surface helpful messages about streaming support without blocking non-streaming flows.
+        /// </summary>
+        public virtual bool WantsStreaming { get; set; } = false;
+
         /// <inheritdoc/>
         public List<AIRuntimeMessage> Messages
         {
@@ -128,6 +134,38 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
             {
                 messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Using model '{this.GetModelToUse()}' for this request instead of requested '{this.model}' based on provider configuration and model selection policy."));
+            }
+
+            // Streaming support validation (blocking for streaming flows): when streaming is requested but unsupported, flag as error
+            if (this.WantsStreaming)
+            {
+                var provider = this.Provider;
+                var modelUsed = this.GetModelToUse();
+                if (!string.IsNullOrWhiteSpace(provider))
+                {
+                    // 1) Provider-level toggle must allow streaming
+                    var settings = ProviderManager.Instance.GetProviderSettings(provider);
+                    if (settings != null && settings.EnableStreaming == false)
+                    {
+                        messages.Add(new AIRuntimeMessage(
+                            AIRuntimeMessageSeverity.Error,
+                            AIRuntimeMessageOrigin.Validation,
+                            $"Streaming requested but provider '{provider}' has streaming disabled in settings."));
+                    }
+
+                    // 2) Model must support streaming
+                    if (!string.IsNullOrWhiteSpace(modelUsed))
+                    {
+                        var supports = ModelManager.Instance.ModelSupportsStreaming(provider, modelUsed);
+                        if (!supports)
+                        {
+                            messages.Add(new AIRuntimeMessage(
+                                AIRuntimeMessageSeverity.Error,
+                                AIRuntimeMessageOrigin.Validation,
+                                $"Streaming requested but the selected model '{modelUsed}' on provider '{provider}' does not support streaming."));
+                        }
+                    }
+                }
             }
 
             var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;

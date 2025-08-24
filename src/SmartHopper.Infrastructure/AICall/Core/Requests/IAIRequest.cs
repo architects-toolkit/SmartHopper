@@ -46,6 +46,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         AIBody Body { get; set; }
 
         /// <summary>
+        /// Indicates the caller intends to stream this request. Enables validation hints for streaming support.
+        /// </summary>
+        bool WantsStreaming { get; set; }
+
+        /// <summary>
         /// Gets or sets validation messages produced during request preparation and execution.
         /// These are informational, warning, or error notes that should be surfaced by components.
         /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".

@@ -129,6 +129,9 @@ namespace SmartHopper.Infrastructure.Tests
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
             public bool ValidateSettings(Dictionary<string, object> settings) => true;
+
+            // For tests, just return a constant value. Real implementations should read from persisted settings.
+            public bool EnableStreaming => true;
         }
 
 #if NET7_WINDOWS
