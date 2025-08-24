@@ -74,6 +74,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// </summary>
         public virtual bool WantsStreaming { get; set; } = false;
 
+        /// <summary>
+        /// Per-request timeout in seconds applied to provider HTTP calls and tool execution wrappers.
+        /// Values <= 0 mean "use default". Normalized by RequestTimeoutPolicy.
+        /// </summary>
+        public virtual int TimeoutSeconds { get; set; } = 120;
+
         /// <inheritdoc/>
         public List<AIRuntimeMessage> Messages
         {
