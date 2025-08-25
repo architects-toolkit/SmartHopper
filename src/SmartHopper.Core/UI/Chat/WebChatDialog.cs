@@ -69,6 +69,12 @@ namespace SmartHopper.Core.UI.Chat
         public event EventHandler<AIReturn> ResponseReceived;
 
         /// <summary>
+        /// Event raised whenever the chat state is updated (partial streams, tool events, user messages, or final result).
+        /// Carries a snapshot AIReturn reflecting the current conversation state.
+        /// </summary>
+        public event EventHandler<AIReturn> ChatUpdated;
+
+        /// <summary>
         /// Gets the last AI return received from the chat dialog.
         /// </summary>
         public AIReturn GetLastReturn() => this._lastReturn;
@@ -280,6 +286,32 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Raises a final ChatUpdated snapshot when the dialog closes so listeners can flush state.
+        /// </summary>
+        /// <param name="e">Event args.</param>
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                var snapshot = this._lastReturn;
+                // If we never had a return with interactions, synthesize one from the current history
+                if (snapshot == null || snapshot.Body?.Interactions == null)
+                {
+                    snapshot = new AIReturn();
+                    snapshot.CreateSuccess(new List<IAIInteraction>(this._chatHistory), this._initialRequest);
+                }
+
+                this.ChatUpdated?.Invoke(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] OnClosed ChatUpdated error: {ex.Message}");
+            }
+
+            base.OnClosed(e);
+        }
+
+        /// <summary>
         /// Initializes the WebView control asynchronously.
         /// </summary>
         private async Task InitializeWebViewAsync()
@@ -471,6 +503,19 @@ namespace SmartHopper.Core.UI.Chat
 
             this._chatHistory.Add(interaction);
             this.AddInteractionToWebView(interaction);
+
+            // Raise incremental update snapshot
+            try
+            {
+                var snapshot = new AIReturn();
+                snapshot.CreateSuccess(new List<IAIInteraction>(this._chatHistory), this._initialRequest);
+                this._lastReturn = snapshot;
+                this.ChatUpdated?.Invoke(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] ChatUpdated (user) error: {ex.Message}");
+            }
         }
 
         /// <summary>

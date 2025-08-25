@@ -16,6 +16,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Text;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
@@ -23,10 +24,7 @@ using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Components.AI
@@ -102,9 +100,9 @@ namespace SmartHopper.Components.AI
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "Last Response",
-                "R",
-                "The last response from the AI assistant",
+                "Chat History",
+                "H",
+                "Full chat transcript with timestamps and aggregated metrics",
                 GH_ParamAccess.item);
         }
 
@@ -127,7 +125,7 @@ namespace SmartHopper.Components.AI
         /// <param name="systemPrompt">The system prompt to use.</param>
         private void SetSystemPrompt(string systemPrompt)
         {
-            this._systemPrompt = systemPrompt ?? throw new ArgumentNullException(nameof(systemPrompt));
+            this._systemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? this._defaultSystemPrompt : systemPrompt;
         }
 
         /// <summary>
@@ -217,8 +215,22 @@ namespace SmartHopper.Components.AI
                         endpoint: "ai-chat",
                         systemPrompt: this.component.GetSystemPrompt(),
                         toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
+                        componentId: this.component.InstanceGuid,
                         progressReporter: this.progressReporter,
-                        componentId: this.component.InstanceGuid);
+                        onUpdate: snapshot =>
+                        {
+                            try
+                            {
+                                // Update lastReturn incrementally so SetOutput can render transcript
+                                this.lastReturn = snapshot;
+                                // Nudge GH to keep UI responsive
+                                this.progressReporter?.Invoke("Chatting...");
+                            }
+                            catch (Exception cbEx)
+                            {
+                                Debug.WriteLine($"[AIChatWorker] onUpdate callback error: {cbEx.Message}");
+                            }
+                        });
 
                     // Process the chat
                     await chatWorker.ProcessChatAsync(token).ConfigureAwait(false);
@@ -246,35 +258,49 @@ namespace SmartHopper.Components.AI
             {
                 message = "Ready";
 
-                if (this.lastReturn != null)
+                string historyText = string.Empty;
+                try
                 {
-                    // Get the text result from the AIReturn
-                    var lastInteraction = this.lastReturn.Body?.GetLastInteraction() as AIInteractionText;
-                    if (lastInteraction == null)
+                    var ret = this.lastReturn;
+                    var interactions = ret?.Body?.Interactions;
+                    var sb = new StringBuilder();
+
+                    if (interactions != null && interactions.Count > 0)
                     {
-                        Debug.WriteLine("[AIChatWorker] No last text interaction found; outputting empty response.");
+                        foreach (var interaction in interactions)
+                        {
+                            if (interaction == null) continue;
+                            var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
+                            var role = interaction.Agent.ToDescription();
+                            string content = interaction.ToString();
+
+                            sb.AppendLine($"[{ts}] {role}:");
+                            if (!string.IsNullOrEmpty(content))
+                            {
+                                sb.AppendLine(content.Trim());
+                            }
+                            sb.AppendLine();
+                        }
                     }
-                    string responseText = lastInteraction?.Content ?? string.Empty;
 
-                    // Set the last response output
-                    var responseGoo = new GH_String(responseText);
-                    this.component.SetPersistentOutput("Last Response", responseGoo, DA);
-
-                    // Store metrics for the base class to output
-                    var combinedMetrics = this.lastReturn.Metrics;
-                    if (combinedMetrics != null)
-                    {
-                        this.component.StoreResponseMetrics(combinedMetrics);
-                    }
-
-                    message = $"Ready";
+                    historyText = sb.ToString().TrimEnd();
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Set empty output if no response
-                    this.component.SetPersistentOutput("Last Response", new GH_String(string.Empty), DA);
-                    message = "Ready";
+                    Debug.WriteLine($"[AIChatWorker] Error building chat history: {ex.Message}");
                 }
+
+                // Set the chat history output (incremental updates supported via lastReturn updates)
+                this.component.SetPersistentOutput("Chat History", new GH_String(historyText ?? string.Empty), DA);
+
+                // Store metrics for the base class to output
+                var combined = this.lastReturn?.Metrics;
+                if (combined != null)
+                {
+                    this.component.StoreResponseMetrics(combined);
+                }
+
+                message = "Ready";
             }
         }
     }
