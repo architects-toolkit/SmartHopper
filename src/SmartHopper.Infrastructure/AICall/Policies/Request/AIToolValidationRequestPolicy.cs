@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -24,18 +25,18 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
     /// </summary>
     public sealed class AIToolValidationRequestPolicy : IRequestPolicy
     {
-        public Task ApplyAsync(PolicyContext context)
+        public async Task ApplyAsync(PolicyContext context)
         {
             var rq = context?.Request;
             if (rq?.Body == null)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             var pendingToolCalls = rq.Body.PendingToolCallsList();
             if (pendingToolCalls == null || pendingToolCalls.Count == 0)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             var diagnostics = new List<AIRuntimeMessage>();
@@ -50,9 +51,10 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                     new ToolCapabilityValidator(context.Provider, context.Model),
                 };
 
+                var vctx = ValidationContext.FromPolicyContext(context);
                 foreach (var v in validators)
                 {
-                    var res = v.Validate(call);
+                    var res = await v.ValidateAsync(call, vctx, CancellationToken.None).ConfigureAwait(false);
                     if (res?.Messages != null && res.Messages.Count > 0)
                     {
                         // Scope message to tool context for clarity
@@ -69,7 +71,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
 
             if (diagnostics.Count == 0)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             // 1) Attach to shared policy diagnostics for tracing
@@ -80,7 +82,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             merged.AddRange(diagnostics);
             rq.Messages = merged;
 
-            return Task.CompletedTask;
+            return;
         }
     }
 }

@@ -9,6 +9,9 @@
  */
 
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -25,9 +28,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     {
         public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
 
-        public ValidationResult Validate(AIInteractionToolCall instance)
+        public Task<ValidationResult> ValidateAsync(AIInteractionToolCall instance, ValidationContext context, CancellationToken cancellationToken)
         {
-            var result = new ValidationResult { IsValid = true };
+            cancellationToken.ThrowIfCancellationRequested();
+
             var messages = new List<AIRuntimeMessage>();
 
             if (instance == null)
@@ -36,18 +40,21 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
                     "Tool call instance is null"));
-                result.Messages = messages;
-                result.IsValid = false;
-                return result;
+                var early = new ValidationResult
+                {
+                    Messages = messages,
+                };
+                early.IsValid = false;
+                return Task.FromResult(early);
             }
 
             var tools = AIToolManager.GetTools();
             if (string.IsNullOrWhiteSpace(instance.Name) || !tools.ContainsKey(instance.Name))
             {
                 // Defer unknown tool handling to ToolExistsValidator; avoid double-reporting here
-                result.Messages = messages;
-                result.IsValid = true;
-                return result;
+                var pass = new ValidationResult { Messages = messages };
+                pass.IsValid = true;
+                return Task.FromResult(pass);
             }
 
             var tool = tools[instance.Name];
@@ -56,9 +63,9 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             if (string.IsNullOrWhiteSpace(schemaText))
             {
                 // No schema to validate; treat as pass
-                result.Messages = messages;
-                result.IsValid = true;
-                return result;
+                var ok = new ValidationResult { Messages = messages };
+                ok.IsValid = true;
+                return Task.FromResult(ok);
             }
 
             // Require arguments when schema is present
@@ -82,9 +89,12 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 }
             }
 
-            result.Messages = messages;
+            var result = new ValidationResult
+            {
+                Messages = messages,
+            };
             result.IsValid = !HasAtOrAbove(messages, this.FailOn);
-            return result;
+            return Task.FromResult(result);
         }
 
         private static bool HasAtOrAbove(List<AIRuntimeMessage> messages, AIRuntimeMessageSeverity threshold)

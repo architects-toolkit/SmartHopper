@@ -10,6 +10,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AITools;
@@ -23,9 +26,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     {
         public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
 
-        public ValidationResult Validate(AIInteractionToolCall instance)
+        public Task<ValidationResult> ValidateAsync(AIInteractionToolCall instance, ValidationContext context, CancellationToken cancellationToken)
         {
-            var result = new ValidationResult { IsValid = true };
+            cancellationToken.ThrowIfCancellationRequested();
+
             var messages = new List<AIRuntimeMessage>();
 
             if (instance == null)
@@ -54,9 +58,12 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 }
             }
 
-            result.Messages = messages;
+            var result = new ValidationResult
+            {
+                Messages = messages,
+            };
             result.IsValid = !HasAtOrAbove(messages, this.FailOn);
-            return result;
+            return Task.FromResult(result);
         }
 
         private static bool HasAtOrAbove(List<AIRuntimeMessage> messages, AIRuntimeMessageSeverity threshold)

@@ -10,6 +10,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
@@ -28,6 +31,34 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// Gets or sets the collected messages emitted during validation.
         /// </summary>
         public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+
+        /// <summary>
+        /// Optional structured issues including codes and JSON-like path hints.
+        /// </summary>
+        public List<ValidationIssue> Issues { get; set; } = new List<ValidationIssue>();
+
+        /// <summary>
+        /// Counts by severity for quick gating/metrics.
+        /// </summary>
+        public int ErrorCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Error) ?? 0;
+        public int WarningCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Warning) ?? 0;
+        public int InfoCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Info) ?? 0;
+
+        /// <summary>
+        /// Indicates whether messages have been sanitized to avoid PII leakage.
+        /// </summary>
+        public bool MessagesSanitized { get; set; }
+    }
+
+    /// <summary>
+    /// Structured validation issue with optional code and location path.
+    /// </summary>
+    public sealed class ValidationIssue
+    {
+        public string Code { get; set; }
+        public string Path { get; set; }
+        public AIRuntimeMessageSeverity Severity { get; set; }
+        public string Message { get; set; }
     }
 
     /// <summary>
@@ -47,7 +78,9 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// Validates the instance and returns a result with messages and IsValid computed per <see cref="FailOn"/>.
         /// </summary>
         /// <param name="instance">Instance to validate.</param>
+        /// <param name="context">Ambient validation context (request/response, provider, flags).</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Validation result.</returns>
-        ValidationResult Validate(T instance);
+        Task<ValidationResult> ValidateAsync(T instance, ValidationContext context, CancellationToken cancellationToken);
     }
 }

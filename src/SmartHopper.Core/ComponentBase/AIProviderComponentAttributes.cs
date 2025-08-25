@@ -132,7 +132,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Draw inline label for provider when hovered and not auto-hidden (rendered after icon)
                 if (this.hoverProviderIcon && !this.providerLabelAutoHidden && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
                 {
-                    var label = $"Using {actualProviderName} provider";
+                    var label = $"Connected to {actualProviderName}";
                     InlineLabelRenderer.DrawInlineLabel(graphics, this.providerIconRect, label);
                 }
             }

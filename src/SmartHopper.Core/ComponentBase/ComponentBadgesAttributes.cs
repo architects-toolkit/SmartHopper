@@ -116,11 +116,11 @@ namespace SmartHopper.Core.ComponentBase
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
             if (showVerified)
             {
-                items.Add((DrawVerifiedBadge, "Using a verified model"));
+                items.Add((DrawVerifiedBadge, "Verified model"));
             }
             if (showDeprecated)
             {
-                items.Add((DrawDeprecatedBadge, "Using a deprecated model"));
+                items.Add((DrawDeprecatedBadge, "Deprecated model"));
             }
             foreach (var extra in this.GetAdditionalBadges())
             {

@@ -9,6 +9,9 @@
  */
 
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
@@ -32,9 +35,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
 
         public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
 
-        public ValidationResult Validate(AIInteractionToolCall instance)
+        public Task<ValidationResult> ValidateAsync(AIInteractionToolCall instance, ValidationContext context, CancellationToken cancellationToken)
         {
-            var result = new ValidationResult { IsValid = true };
+            cancellationToken.ThrowIfCancellationRequested();
+
             var messages = new List<AIRuntimeMessage>();
 
             if (instance == null)
@@ -43,35 +47,35 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
                     "Tool call instance is null"));
-                result.Messages = messages;
-                result.IsValid = false;
-                return result;
+                var early = new ValidationResult { Messages = messages };
+                early.IsValid = false;
+                return Task.FromResult(early);
             }
 
             // Without provider/model context, we cannot validate; do not fail here
             if (string.IsNullOrWhiteSpace(this.provider) || string.IsNullOrWhiteSpace(this.model))
             {
-                result.Messages = messages;
-                result.IsValid = true;
-                return result;
+                var pass = new ValidationResult { Messages = messages };
+                pass.IsValid = true;
+                return Task.FromResult(pass);
             }
 
             var tools = AIToolManager.GetTools();
             if (string.IsNullOrWhiteSpace(instance.Name) || !tools.ContainsKey(instance.Name))
             {
                 // Defer to ToolExistsValidator
-                result.Messages = messages;
-                result.IsValid = true;
-                return result;
+                var pass = new ValidationResult { Messages = messages };
+                pass.IsValid = true;
+                return Task.FromResult(pass);
             }
 
             var tool = tools[instance.Name];
             var required = tool.RequiredCapabilities;
             if (required == AICapability.None)
             {
-                result.Messages = messages;
-                result.IsValid = true;
-                return result;
+                var pass = new ValidationResult { Messages = messages };
+                pass.IsValid = true;
+                return Task.FromResult(pass);
             }
 
             var ok = ModelManager.Instance.ValidateCapabilities(this.provider, this.model, required);
@@ -83,9 +87,12 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     $"Selected model '{this.model}' on provider '{this.provider}' does not support required capabilities ({required}) for tool '{instance.Name}'"));
             }
 
-            result.Messages = messages;
+            var result = new ValidationResult
+            {
+                Messages = messages,
+            };
             result.IsValid = !HasAtOrAbove(messages, this.FailOn);
-            return result;
+            return Task.FromResult(result);
         }
 
         private static bool HasAtOrAbove(List<AIRuntimeMessage> messages, AIRuntimeMessageSeverity threshold)

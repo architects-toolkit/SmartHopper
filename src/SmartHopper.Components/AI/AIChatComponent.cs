@@ -41,7 +41,7 @@ namespace SmartHopper.Components.AI
         private string _systemPrompt;
 
         private readonly string _defaultSystemPrompt = """
-            You are a not predefined chat. Follow user instructions.
+            You are a not predefined chat. Follow user instructions. Be concise in your responses.
             """;
 
         /// <summary>
