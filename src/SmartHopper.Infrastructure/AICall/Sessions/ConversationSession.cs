@@ -351,7 +351,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     // During streaming, only persist tool interactions; defer assistant/user text to finalization
                                     if (interaction is AIInteractionToolCall || interaction is AIInteractionToolResult)
                                     {
-                                    this.Request.Body = this.Request.Body.WithAppended(interaction);
+                                        this.Request.Body = this.Request.Body.WithAppended(interaction);
                                     }
                                     // Notify tool calls immediately for UI
                                     if (interaction is AIInteractionToolCall toolCall)
