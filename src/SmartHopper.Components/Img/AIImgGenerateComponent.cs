@@ -21,7 +21,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Img
 {
@@ -44,6 +44,8 @@ namespace SmartHopper.Components.Img
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override AICapability RequiredCapability => AICapability.Text2Image;
 
         /// <summary>
         /// Initializes a new instance of the AIImgGenerateComponent class.

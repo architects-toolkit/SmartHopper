@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New request policy `AIToolValidationRequestPolicy` runs after `ToolFilterNormalizationRequestPolicy`, validates all pending tool calls, and attaches diagnostics to the request and policy context; errors block execution early.
   - `PolicyPipeline.Default` updated to register `AIToolValidationRequestPolicy`.
   - Request validation now considers request-level messages so policy diagnostics can gate execution.
+- Component badges extended to surface model validation state without executing an AI call:
+  - Invalid/Incompatible model badge (red cross) when the configured model lacks the component's required capability or is unknown.
+  - Replaced/Fallback model badge (blue refresh) when the current configured model would be auto-replaced by selection logic.
+- `AIStatefulAsyncComponentBase.RequiredCapability` virtual property (default `Text2Text`) to declare per-component capability requirements.
+- `AIStatefulAsyncComponentBase.TryGetCachedBadgeFlags(out verified, out deprecated, out invalid, out replaced)` to expose the extended badge cache.
 
 ### Changed
 
@@ -72,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
 - `AIRequestBase.IsValid()` now blocks streaming when the selected provider disables streaming via settings or when the model is not streaming-capable, surfacing a clear validation error.
 - Grasshopper AI tools refactor: replaced legacy mutable `AIBody` usage with `AIBodyBuilder` + `AIReturn.CreateSuccess(body, toolCall)` for consistent immutable response construction. Updated tools: `gh_get`, `gh_put`, `gh_list_categories`. Ensured `AIToolCall.FromToolCallInteraction` is used and preserved existing error handling.
+ - Verified badge now requires capability match (`Verified && HasCapability(RequiredCapability)`).
+ - Badge cache computation now evaluates against the currently configured model (immediate UI feedback) and also surfaces replacement intent via selection fallback.
 
 ### Removed
 

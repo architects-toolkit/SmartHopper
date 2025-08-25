@@ -26,6 +26,7 @@ using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIContext;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.AI
 {
@@ -37,6 +38,12 @@ namespace SmartHopper.Components.AI
         private readonly TimeContextProvider timeProvider;
         private readonly EnvironmentContextProvider environmentProvider;
         private string _systemPrompt;
+
+        // Shared across worker instances to support incremental UI updates on recompute
+        private AIReturn _sharedLastReturn;
+        private readonly object _lastReturnLock = new();
+
+        protected override AICapability RequiredCapability => AICapability.ToolChat;
 
         private readonly string _defaultSystemPrompt = """
             Your function is not predefined. Follow user instructions. Be concise in your responses.
@@ -163,12 +170,36 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
         /// <summary>
+        /// Thread-safe setter for the latest chat return snapshot.
+        /// </summary>
+        internal void SetLastReturn(AIReturn snapshot)
+        {
+            if (snapshot == null) return;
+            lock (this._lastReturnLock)
+            {
+                this._sharedLastReturn = snapshot;
+            }
+        }
+
+        /// <summary>
+        /// Thread-safe getter for the latest chat return snapshot.
+        /// </summary>
+        internal AIReturn GetLastReturn()
+        {
+            lock (this._lastReturnLock)
+            {
+                return this._sharedLastReturn;
+            }
+        }
+
+        /// <summary>
         /// Worker class for the AI Chat component.
         /// </summary>
         private sealed class AIChatWorker : AsyncWorkerBase
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;
+            // Keep a local reference but source of truth lives in the component
             private AIReturn lastReturn;
 
             /// <summary>
@@ -223,6 +254,7 @@ namespace SmartHopper.Components.AI
                             {
                                 // Update lastReturn incrementally so SetOutput can render transcript
                                 this.lastReturn = snapshot;
+                                this.component.SetLastReturn(snapshot);
                                 // Nudge GH to keep UI responsive
                                 this.progressReporter?.Invoke("Chatting...");
                             }
@@ -235,8 +267,12 @@ namespace SmartHopper.Components.AI
                     // Process the chat
                     await chatWorker.ProcessChatAsync(token).ConfigureAwait(false);
 
-                    // Get the last return
+                    // Get the last return and persist in the component
                     this.lastReturn = chatWorker.GetLastReturn();
+                    if (this.lastReturn != null)
+                    {
+                        this.component.SetLastReturn(this.lastReturn);
+                    }
 
                     Debug.WriteLine("[AIChatWorker] Web chat worker completed");
                     // this.progressReporter?.Invoke("Web chat completed");
@@ -261,7 +297,8 @@ namespace SmartHopper.Components.AI
                 string historyText = string.Empty;
                 try
                 {
-                    var ret = this.lastReturn;
+                    // Read from the component-level snapshot to survive recomputes
+                    var ret = this.component.GetLastReturn() ?? this.lastReturn;
                     var interactions = ret?.Body?.Interactions;
                     var sb = new StringBuilder();
 
@@ -294,7 +331,7 @@ namespace SmartHopper.Components.AI
                 this.component.SetPersistentOutput("Chat History", new GH_String(historyText ?? string.Empty), DA);
 
                 // Store metrics for the base class to output
-                var combined = this.lastReturn?.Metrics;
+                var combined = (this.component.GetLastReturn() ?? this.lastReturn)?.Metrics;
                 if (combined != null)
                 {
                     this.component.StoreResponseMetrics(combined);
