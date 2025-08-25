@@ -14,9 +14,9 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Text;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
@@ -39,9 +39,7 @@ namespace SmartHopper.Components.AI
         private readonly EnvironmentContextProvider environmentProvider;
         private string _systemPrompt;
 
-        // Shared across worker instances to support incremental UI updates on recompute
-        private AIReturn _sharedLastReturn;
-        private readonly object _lastReturnLock = new();
+        // Removed duplicated last-return storage; use base AIReturn snapshot instead
 
         protected override AICapability RequiredCapability => AICapability.ToolChat;
 
@@ -81,6 +79,9 @@ namespace SmartHopper.Components.AI
             AIContextManager.UnregisterProvider(this.timeProvider);
             AIContextManager.UnregisterProvider(this.environmentProvider);
 
+            // Ensure we detach ChatUpdated handlers for this component's dialog
+            try { WebChatUtils.Unsubscribe(this.InstanceGuid); } catch { /* ignore */ }
+
             base.RemovedFromDocument(document);
         }
 
@@ -110,7 +111,7 @@ namespace SmartHopper.Components.AI
                 "Chat History",
                 "H",
                 "Full chat transcript with timestamps and aggregated metrics",
-                GH_ParamAccess.item);
+                GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -123,7 +124,43 @@ namespace SmartHopper.Components.AI
             DA.GetData("Instructions", ref systemPrompt);
             this.SetSystemPrompt(systemPrompt);
 
+            // Run base state machine/async logic first
             base.SolveInstance(DA);
+
+            // Always reflect the latest AIReturn snapshot in the Chat History output,
+            // even when no workers are currently running (e.g., incremental UI updates).
+            var historyItems = new List<GH_String>();
+            try
+            {
+                var ret = this.GetSnapshot();
+                var interactions = ret?.Body?.Interactions;
+
+                if (interactions != null && interactions.Count > 0)
+                {
+                    foreach (var interaction in interactions)
+                    {
+                        if (interaction == null) continue;
+
+                        Debug.WriteLine($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
+
+                        var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
+                        var role = interaction.Agent.ToDescription();
+                        var content = interaction.ToString() ?? string.Empty;
+
+                        // Inline, single-item per interaction
+                        content = content.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ").Trim();
+                        var line = $"[{ts}] {role}: {content}".Trim();
+                        historyItems.Add(new GH_String(line));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIChatComponent] SolveInstance history build error: {ex.Message}");
+            }
+
+            // Persistently set (or clear) the chat history so downstream updates occur
+            this.SetPersistentOutput("Chat History", historyItems, DA);
         }
 
         /// <summary>
@@ -169,27 +206,14 @@ namespace SmartHopper.Components.AI
         /// </summary>
         public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
-        /// <summary>
-        /// Thread-safe setter for the latest chat return snapshot.
-        /// </summary>
-        internal void SetLastReturn(AIReturn snapshot)
-        {
-            if (snapshot == null) return;
-            lock (this._lastReturnLock)
-            {
-                this._sharedLastReturn = snapshot;
-            }
-        }
+        // No local getters/setters for last return; rely on SetAIReturnSnapshot/GetAIReturnSnapshot from base
 
         /// <summary>
-        /// Thread-safe getter for the latest chat return snapshot.
+        /// Exposes the current AIReturn snapshot from the base class to internal helpers (e.g., nested worker).
         /// </summary>
-        internal AIReturn GetLastReturn()
+        internal AIReturn GetSnapshot()
         {
-            lock (this._lastReturnLock)
-            {
-                return this._sharedLastReturn;
-            }
+            return this.GetAIReturnSnapshot();
         }
 
         /// <summary>
@@ -199,8 +223,7 @@ namespace SmartHopper.Components.AI
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;
-            // Keep a local reference but source of truth lives in the component
-            private AIReturn lastReturn;
+            // No local copy: rely solely on component's AIReturn snapshot
 
             /// <summary>
             /// Initializes a new instance of the <see cref="AIChatWorker"/> class.
@@ -232,17 +255,17 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AIChatWorker] Starting web chat worker");
+                    Debug.WriteLine("[AIChatWorker] Ensuring web chat dialog is open");
                     this.progressReporter?.Invoke("Starting web chat interface...");
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualAIProviderName();
                     Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualAIProviderName()})");
 
-                    // Create a web chat worker
-                    var chatWorker = WebChatUtils.CreateWebChatWorker(
-                        actualProvider,
-                        this.component.GetModel(),
+                    // Ensure dialog is open (non-blocking) and wire incremental updates
+                    WebChatUtils.EnsureDialogOpen(
+                        providerName: actualProvider,
+                        modelName: this.component.GetModel(),
                         endpoint: "ai-chat",
                         systemPrompt: this.component.GetSystemPrompt(),
                         toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
@@ -252,9 +275,14 @@ namespace SmartHopper.Components.AI
                         {
                             try
                             {
-                                // Update lastReturn incrementally so SetOutput can render transcript
-                                this.lastReturn = snapshot;
-                                this.component.SetLastReturn(snapshot);
+                                // Store full AIReturn in the base snapshot so metrics and other
+                                // downstream outputs can be derived from a single source of truth
+                                this.component.SetAIReturnSnapshot(snapshot);
+                                // Force downstream recompute so UI and dependents update promptly
+                                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                                {
+                                    this.component.ExpireSolution(true);
+                                });
                                 // Nudge GH to keep UI responsive
                                 this.progressReporter?.Invoke("Chatting...");
                             }
@@ -264,18 +292,16 @@ namespace SmartHopper.Components.AI
                             }
                         });
 
-                    // Process the chat
-                    await chatWorker.ProcessChatAsync(token).ConfigureAwait(false);
-
-                    // Get the last return and persist in the component
-                    this.lastReturn = chatWorker.GetLastReturn();
-                    if (this.lastReturn != null)
+                    // Immediately refresh local snapshot if dialog already had content
+                    var current = WebChatUtils.TryGetLastReturn(this.component.InstanceGuid);
+                    if (current != null)
                     {
-                        this.component.SetLastReturn(this.lastReturn);
+                        // Keep base snapshot synchronized for metrics output
+                        this.component.SetAIReturnSnapshot(current);
                     }
 
-                    Debug.WriteLine("[AIChatWorker] Web chat worker completed");
-                    // this.progressReporter?.Invoke("Web chat completed");
+                    // This worker is intentionally short-lived; incremental updates will retrigger recomputes
+                    await System.Threading.Tasks.Task.CompletedTask;
                 }
                 catch (Exception ex)
                 {
@@ -294,50 +320,42 @@ namespace SmartHopper.Components.AI
             {
                 message = "Ready";
 
-                string historyText = string.Empty;
+                var historyItems = new List<GH_String>();
                 try
                 {
-                    // Read from the component-level snapshot to survive recomputes
-                    var ret = this.component.GetLastReturn() ?? this.lastReturn;
+                    // Read from the base snapshot (single source of truth)
+                    var ret = this.component.GetSnapshot();
                     var interactions = ret?.Body?.Interactions;
-                    var sb = new StringBuilder();
 
                     if (interactions != null && interactions.Count > 0)
                     {
                         foreach (var interaction in interactions)
                         {
                             if (interaction == null) continue;
+
                             var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
                             var role = interaction.Agent.ToDescription();
-                            string content = interaction.ToString();
+                            var content = interaction.ToString() ?? string.Empty;
 
-                            sb.AppendLine($"[{ts}] {role}:");
-                            if (!string.IsNullOrEmpty(content))
-                            {
-                                sb.AppendLine(content.Trim());
-                            }
-                            sb.AppendLine();
+                            // Inline, single-item per interaction: "0. [12:58] Assistant: Hi there!"
+                            content = content.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ").Trim();
+                            var line = $"[{ts}] {role}: {content}".Trim();
+                            historyItems.Add(new GH_String(line));
                         }
                     }
-
-                    historyText = sb.ToString().TrimEnd();
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIChatWorker] Error building chat history: {ex.Message}");
+                    Debug.WriteLine($"[AIChatWorker] Error building chat history items: {ex.Message}");
                 }
 
-                // Set the chat history output (incremental updates supported via lastReturn updates)
-                this.component.SetPersistentOutput("Chat History", new GH_String(historyText ?? string.Empty), DA);
+                // Set the chat history output as a list of GH_String items
+                this.component.SetPersistentOutput("Chat History", historyItems, DA);
 
-                // Store metrics for the base class to output
-                var combined = (this.component.GetLastReturn() ?? this.lastReturn)?.Metrics;
-                if (combined != null)
-                {
-                    this.component.StoreResponseMetrics(combined);
-                }
+                // Store cumulative metrics snapshot from WebChat without combining
+                // Metrics output is now handled by AIStatefulAsyncComponentBase using AIReturnSnapshot
 
-                message = "Ready";
+                message = "Output data";
             }
         }
     }

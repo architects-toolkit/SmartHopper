@@ -120,7 +120,7 @@ namespace SmartHopper.Core.ComponentBase
             }
             if (showReplaced)
             {
-                items.Add((DrawReplacedBadge, "Model will be replaced (fallback)"));
+                items.Add((DrawReplacedBadge, "Model replaced with a capable one"));
             }
             if (showVerified)
             {
