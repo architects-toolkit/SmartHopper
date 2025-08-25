@@ -100,7 +100,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: true, groupIdenticalBranches: false);
                     Debug.WriteLine($"[DataTreeProcessorEqualPathsTest] Iterations: {iterations}, DataCount: {dataCount}");
 
-                    // Define processing function: sums A and B branch first items and returns under key "Sum"
+                    // Define processing function: pairwise/broadcasted sums using NormalizeBranchLengths
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
                     {
                         await Task.Yield(); // keep async signature
@@ -111,11 +111,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         if (aList == null || bList == null || aList.Count == 0 || bList.Count == 0)
                             return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer>() } };
 
-                        int sum = aList[0].Value + bList[0].Value;
-                        return new Dictionary<string, List<GH_Integer>>
+                        var normalized = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_Integer>> { aList, bList });
+                        var aNorm = normalized[0];
+                        var bNorm = normalized[1];
+                        var sums = new List<GH_Integer>();
+                        for (int i = 0; i < Math.Max(aList.Count, bList.Count); i++)
                         {
-                            { "Sum", new List<GH_Integer> { new GH_Integer(sum) } }
-                        };
+                            int ai = aNorm[i]?.Value ?? 0;
+                            int bi = bNorm[i]?.Value ?? 0;
+                            sums.Add(new GH_Integer(ai + bi));
+                        }
+
+                        return new Dictionary<string, List<GH_Integer>> { { "Sum", sums } };
                     }
 
                     // Execute
