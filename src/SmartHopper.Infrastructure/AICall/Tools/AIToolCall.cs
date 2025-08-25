@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -52,7 +53,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             }
             else
             {
-                // Delegate detailed validation to shared validators
+                // Detailed validation via shared validators (sync-over-async acceptable here; no I/O)
                 var call = this.Body.PendingToolCallsList().First();
                 var validators = new List<IValidator<AIInteractionToolCall>>
                 {
@@ -61,9 +62,10 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                     new ToolCapabilityValidator(this.Provider ?? string.Empty, this.Model ?? string.Empty),
                 };
 
+                var vctx = new ValidationContext();
                 foreach (var v in validators)
                 {
-                    var res = v.Validate(call);
+                    var res = v.ValidateAsync(call, vctx, CancellationToken.None).GetAwaiter().GetResult();
                     if (res?.Messages != null && res.Messages.Count > 0)
                     {
                         messages.AddRange(res.Messages);

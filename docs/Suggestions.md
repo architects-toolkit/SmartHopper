@@ -35,6 +35,7 @@ Breaking changes are acceptable; this is a forward-looking plan.
 - Keep GH adapters in `src/SmartHopper.Core.Grasshopper/AITools/`.
 - `ToolResultNormalizer.Normalize(toolName, JObject)` guarantees consistent top‑level keys and error envelope.
 - Define AI tool(s) for GH authoring: e.g., `gh_generate_definition` producing a `GhJsonSpec`, plus adapters/utilities to save/export GH in GHJSON safely.
+- Define Validators for input/output of tool calls and results. Use Validators before parsing the result in Components to avoid exceptions.
 - Impacted areas: `src/SmartHopper.Infrastructure/AITools/`, `src/SmartHopper.Core.Grasshopper/AITools/`
 - Phased migration plan:
   1. Extract Tool Runtime core; add `ToolResultNormalizer`; keep GH adapters.
@@ -117,227 +118,6 @@ Breaking changes are acceptable; this is a forward-looking plan.
 - WebChat UI improvements: tool badges and progress can be rendered from normalized events.
 - Local caching: tool results can be memoized when inputs are pure and within size limits.
   
-### Suggestion 6 — AIBody immutability via builder (S6)
-
-This suggestion removes hidden side‑effects from `AIBody` (notably context injection during `Interactions` access) and makes requests reproducible, hashable, and policy‑driven.
-
-#### Objectives
-
-- Eliminate implicit mutation and side‑effects when reading `AIBody.Interactions`.
-- Make `AIBody` a small immutable value object suitable for hashing/fingerprinting and caching.
-- Move dynamic enrichment (context injection, schema attach) to explicit Policies.
-- Provide an ergonomic `AIBodyBuilder` for authoring.
-
-#### Current state and pain
-
-- `AIBody` is mutable; `Interactions` getter injects context based on `ContextFilter` at read time (`src/SmartHopper.Infrastructure/AICall/AIBody.cs`).
-- Counts and queries (`InteractionsCount()`, pending tool calls) depend on when/where `Interactions` is read, making behavior timing‑dependent.
-- Hard to compute stable fingerprints for caching/retries; discourages clean policy composition.
-
-#### Proposed types (immutable core + builder)
-
-- `AIBody` (immutable record)
-  - Properties: `IReadOnlyList<IAIInteraction> Interactions`, `string ToolFilter`, `string ContextFilter`, `string JsonOutputSchema`.
-  - No logic that changes returned values based on external state.
-  - Methods: `With(...)` to copy with modifications, `Fingerprint()` to compute stable hash of content (ordered interactions + filters + schema).
-
-- `AIBodyBuilder`
-  - Fluent API to construct/modify bodies:
-    - `AddUser(string)`, `AddAssistant(string)`, `AddToolCall(...)`, `AddToolResult(JObject, messages)`, `SetToolFilter(string)`, `SetContextFilter(string)`, `SetJsonSchema(string)`.
-    - `Build()` returns immutable `AIBody`.
-  - Optional: `From(AIBody)` static factory to fork from an existing body.
-
-- `EffectiveInteractions` concept (outside AIBody)
-  - A Policy computes a concrete list used for encoding: `IReadOnlyList<IAIInteraction> EffectiveInteractions(AIBody body, IContextSnapshot ctx)`.
-  - Replaces today’s implicit injection performed by `AIBody.Interactions` getter.
-
-#### Policy changes (out of AIBody)
-
-- Introduce `ContextInjectionPolicy` (Request policy):
-  - Reads `AIBody.ContextFilter`, pulls values via `AIContextManager`, and prepends a `Context` interaction if non‑empty.
-  - Emits diagnostics (messages) if context keys are missing/empty.
-  - Produces `EffectiveInteractions` for the pipeline.
-
-- `SchemaAttachPolicy` (existing or new):
-  - Attaches `JsonOutputSchema` if provided and validated by `JsonSchemaService` (see Suggestion 4).
-
-#### Backward compatibility plan
-
-- Temporary shim `AIBodyMutable` or `AIBodyFacade`:
-  - Exposes the current mutable API and redirects to `AIBodyBuilder` under the hood.
-  - `Interactions` returns the plain stored list (no injection), and a new helper `GetEffectiveInteractions()` bridges to the policy result.
-
-- API compatibility helpers:
-  - Keep existing static helpers like `AddInteraction(...)` as builder extensions.
-  - Provide `AIBodyExtensions.ToBuilder()` to ease gradual migration.
-
-#### Required refactors beyond Suggestion 6 (touched but implemented separately)
-
-- `AIRequestBase`/`AIRequestCall`:
-  - Consume `EffectiveInteractions` provided by the policy pipeline instead of reading `AIBody.Interactions` directly.
-  - Use `AIBody.Fingerprint()` for retries, caching, and metrics aggregation keys.
-
-- Provider encoders (`OpenAIProvider`, `MistralAIProvider`, `DeepSeekProvider`):
-  - Expect already‑prepared interactions (`EffectiveInteractions`). Remove any ad‑hoc context insertions.
-
-- Components and tools:
-  - Switch to `AIBodyBuilder` in `list_generate.cs`, `script_new.cs`, `gh_generate.cs`, `AIImgGenerateComponent.cs`, etc.
-  - Replace uses of `InteractionsCount()` with `EffectiveInteractionsCount()` from the request context.
-
-These refactors are adjacent to S6 and may be executed in follow‑up PRs to minimize change size.
-
-#### Migration steps (incremental and low‑risk)
-
-1) Introduce new types behind the scenes
-   - Add `AIBody` (immutable) and `AIBodyBuilder`. Keep old `AIBody` type name by aliasing or temporary rename: `AIBodyV2` to avoid conflicts, then swap when all call sites migrate.
-   - Add `ContextInjectionPolicy` and wire it into `AIRequestCall` before provider encoding.
-
-2) Add shims and compile clean
-   - Add `AIBodyFacade` that implements the old API but delegates to the builder.
-   - Ensure tests and components compile with zero behavior changes.
-
-3) Switch pipeline to effective interactions
-   - Change `AIRequestCall` to obtain `EffectiveInteractions` from policies; keep a feature flag to fall back to old path if needed.
-
-4) Migrate priority tools/components
-   - Update high‑traffic tools/components first: `list_generate`, `script_new`, `gh_generate`, `AIImgGenerate`.
-   - Replace `InteractionsCount()` with a request‑time count exposed by the policy pipeline.
-
-5) Remove legacy behavior
-   - Drop side‑effects from any remaining getters; delete compatibility shim after all consumers move.
-
-#### Risks and mitigations
-
-- Hidden dependency on context side‑effects
-  - Mitigation: Search for all `.Interactions` and `.InteractionsCount()` usages and switch to effective variants. Provide analyzer or debug Assert when legacy members are accessed in the new pipeline.
-
-- Fingerprint instability
-  - Mitigation: Define strict ordering and serialization for interactions; exclude volatile metrics from the hash; add deterministic tests.
-
-- Provider behavior changes (slightly different placement of context)
-  - Mitigation: ContextInjectionPolicy mirrors current injection format and position; include tests asserting the first message role and content.
-
-- Temporary duplication of types/APIs
-  - Mitigation: Short‑lived shim with TODOs and warnings; track with a deprecation plan in CHANGELOG.
-
-#### Test plan
-
-- Unit tests
-  - Immutability: ensure `AIBody` cannot be mutated after build.
-  - Context injection: given a `ContextFilter`, verify effective list prepends a single context interaction with expected content.
-  - Pending tool calls and counts computed over effective interactions.
-  - Fingerprint: same logical body yields same hash; different order/content yields different hash.
-
-- Integration tests
-  - Provider encoding receives the expected roles and message order for OpenAI/Mistral/DeepSeek.
-  - Tools (`list_generate`, `script_new`) produce identical outputs pre/post migration.
-
-#### Documentation updates
-
-- Update `docs/Providers/AICall/index.md` with new `AIBody`/`AIBodyBuilder` usage and examples.
-- Update `docs/Providers/AICall/body-metrics-status.md` to clarify effective vs stored interactions and where metrics are aggregated.
-- Expand this suggestion’s section once merged with code references and examples.
-
-#### Alignment with “Future thoughts”
-
-- Streaming: immutable bodies and stable fingerprints simplify stream resumption and idempotent retries.
-- Provider‑side prompt caching: fingerprints provide consistent cache keys; policies can add cache tags/ETags.
-- Cancellation: policies maintain effective state outside the model; cancellation remains orthogonal.
-- Local response caching: `AIBody.Fingerprint()` becomes the primary lookup key; can include context snapshot hash.
-- Parallel tool calling: immutable interaction history avoids race conditions; policies can merge tool results deterministically.
-- GHJSON generation/saving: clearer separation enables schema policies (Suggestion 4) without mutating request bodies.
-
-#### Impacted areas
-
-- `src/SmartHopper.Infrastructure/AICall/`, `src/SmartHopper.Core/ComponentBase/`, Providers under `src/SmartHopper.Providers.*`
-
-#### Phased migration plan (condensed)
-
-1. Land immutable `AIBody` + builder; add `ContextInjectionPolicy`.
-2. Switch `AIRequestCall` to effective interactions behind a feature flag.
-3. Migrate key tools/components; then providers.
-4. Remove legacy/shims; update docs and CHANGELOG.
-
-Remember to test... policy pipeline (schema attach/validate), effective interactions, and fingerprint stability.
-Remember to update documentation in... `docs/Providers/AICall/index.md`, `docs/Providers/AICall/body-metrics-status.md`.
-
-### Suggestion 8 — Validation pipeline with typed validators (S8)
-
-- `IValidator<T>` chains for request, response, and tools.
-- GH‑specific validators (e.g., GhJSON) live in `SmartHopper.Core.Grasshopper` and plug into the pipeline.
-- Impacted areas: `src/SmartHopper.Core.Grasshopper/AITools/`, `src/SmartHopper.Infrastructure/AICall/Policies/`
-- Phased migration plan:
-  1. Introduce `IValidator<T>` chains; move GH validations into validators.
-- Remember to test... Policy pipeline unit tests (validate).
-- Remember to update documentation in... `docs/Providers/AICall/Policies.md`, `docs/Components/index.md`
-
-#### Objectives (S8)
-
-- Establish a uniform validation layer for requests, provider responses, and tool inputs/outputs.
-- Move scattered validation logic (e.g., GH component existence, type compatibility) into typed, composable validators.
-- Make validations observable (metrics), reproducible, and non-PII.
-
-#### Contracts (S8)
-
-- `IValidator<T>`: `Task<ValidationResult> ValidateAsync(T target, ValidationContext ctx, CancellationToken ct)`.
-- `ValidationContext`: `BodyFingerprint`, provider/model, selected policies, external resource hashes, feature flags.
-- `ValidationResult`: counts and categorized messages: `Errors`, `Warnings`, `Info` with paths and codes; no payload excerpts.
-
-#### Validator taxonomy and ordering (S8)
-
-- Request validators: `AIBodyShapeValidator`, `SchemaDefinedValidator` (requires schema for certain tools), `CapabilityMatchValidator`.
-- Response validators: `JsonSchemaResponseValidator`, `ToolCallShapeValidator`, `AssistantContentValidator`.
-- Tool validators: `GhComponentExistsValidator`, `GhTypeCompatibilityValidator`, `FilePathSafetyValidator`.
-- Ordering: cheap structural checks → capability/schema checks → domain-specific validators.
-
-#### Integration points (S8)
-
-- Plugged via the Policy pipeline: `SchemaValidatePolicy` invokes response validators; request/tool validators run pre-dispatch.
-- `ConversationSession` aggregates `ValidationMetrics` per turn and publishes via `AIMetricsService`.
-- GH-specific validators live under `src/SmartHopper.Core.Grasshopper/Validators/` and are registered conditionally.
-
-#### Required refactors beyond S8 (S8)
-
-- Extract current GH validation from `GHJsonAnalyzer.cs` and tools like `gh_generate.cs` into `IValidator<GhJsonSpec>` implementations.
-- Replace ad-hoc checks in components with validator registration calls.
-- Ensure providers no longer perform schema checks; defer to `JsonSchemaService` and validators (S4, S3).
-
-#### Side-effects and mitigations (S8)
-
-- Behavior changes where legacy permissive checks become strict.
-  - Mitigation: start with Warning-only mode; gate strict mode by feature flag per tool.
-- Performance overhead from multiple validators.
-  - Mitigation: memoize compiled schemas; short-circuit on first fatal error; parallelize independent validators where safe.
-
-#### Security & PII (S8)
-
-- Validators must avoid echoing raw content; include only paths, codes, and summaries.
-- File and network validators must respect Security policies (S10) and egress allowlists.
-
-#### Performance (S8)
-
-- Cache compiled schemas and reusable metadata; avoid reflection in hot loops.
-- Batch validation messages and debounce UI emissions.
-
-#### Testing (S8)
-
-- Unit: validator-specific rule coverage (component existence, type compatibility, schema errors).
-- Integration: pipeline invokes validators in order; metrics reflect counts; warnings vs errors behavior.
-- Regression: outputs of `gh_generate` unchanged when errors absent; warnings surfaced but non-blocking.
-
-#### Migration plan (S8)
-
-1) Introduce `IValidator<T>` and baseline validators (`AIBodyShapeValidator`, `JsonSchemaResponseValidator`).
-2) Port GH validations from `GHJsonAnalyzer.cs` to `GhComponentExistsValidator` and `GhTypeCompatibilityValidator`.
-3) Wire validators through `SchemaValidatePolicy` and tool execution prechecks.
-4) Enable strict mode opt-in per component/tool; later make strict-by-default.
-
-#### Acceptance criteria (S8)
-
-- Deterministic validator ordering and consistent results across providers.
-- Non-PII error messages with clear paths and codes.
-- Metrics emitted for validation steps; ability to toggle strictness per feature.
-
 ### Suggestion 10 — Security & data egress controls (S10)
 
 - Redaction policies for requests/responses; tool egress allowlists.
@@ -410,16 +190,48 @@ Remember to update documentation in... `docs/Providers/AICall/index.md`, `docs/P
 
 - No PII in logs/metrics; egress controlled and auditable; quotas enforced; schema usage constrained.
 
+### Suggestion 11 — Settings storage and UI simplification (S11)
+
+- __Pain__: Settings are defined across multiple places (load/save, JSON schema, model, UI), plus lazy-loading complexity.
+- __Direction__: Create a single source of truth via a `SettingDescriptor` catalog (name, type, default, validation, secure, scope), from which we generate:
+  - Load/save binding, JSON schema, and UI widgets.
+  - Versioned migrations and validation.
+  - Reduce/retire lazy loader in favor of explicit async initialization for provider‑specific settings.
+- __First steps__: Inventory all settings; design `SettingDescriptor`; wire `SettingsDialog` to auto‑bind; add migration scaffolding.
+- __Risks__: Breaking persisted settings; UI perf when many settings; cross‑provider differences.
+- __Impacted areas__: `src/SmartHopper.Infrastructure/Settings/`, `SettingsDialog.cs`, Providers `GetSettingDescriptors()`.
+
+### Suggestion 12 — WebChat UI in full HTML with streaming and multimodal (S12)
+
+- __Goal__: Modern HTML/CSS/JS chat with dynamic message loading, token streaming, multimodal items (image, audio, text, toolcall/result), and live provider.model selector in UI (model can be chosen by the user in a dropdown so that every time the user sends a message they can also decide which model will process that request).
+- __Direction__: Host a WebView and serve local assets. Render transcript diffs; support streaming deltas; show tool badges and progress; attachments for media; theming and accessibility.
+- __First steps__: Spike WebView transcript renderer; integrate provider streaming adapter (OpenAI first); define event bus between `ConversationSession` and UI.
+- __Risks__: UI threading (invoke on Rhino UI thread), sandbox/security of embedded web, performance with long transcripts.
+- __Impacted areas__: `src/SmartHopper.Core/UI/Chat/WebChatDialog.cs`, `WebChatUtils.cs`, `src/SmartHopper.Infrastructure/AICall/ConversationSession/`, Providers streaming adapters.
+
+### Suggestion 13 — End‑to‑end cancellation tokens (S13)
+
+- __Goal__: Cancellation tokens propagated everywhere, user‑callable in components (with a Cancelled state), and auto‑cancel on WebChat/Rhino close.
+- __Direction__: Thread tokens through `AIRequestCall.Exec`, provider HTTP calls, tool runtime, and `ConversationSession`. Add cancel controls in components and WebChat; ensure graceful partial result handling and cleanup.
+- __First steps__: Audit APIs to add `CancellationToken` overloads; wire WebChat close → cancel; add component cancel button/state; provider HTTP cancellation compliance.
+- __Risks__: Deadlocks or hangs if sync‑over‑async remains; inconsistent partial results; provider SDK limitations.
+- __Impacted areas__: `src/SmartHopper.Infrastructure/AICall/`, Providers `CallApi`, `AIStatefulAsyncComponentBase`, WebChat.
+
+### Suggestion 14 — GHJSON encode/decode service for native GH types (S14)
+
+- __Goal__: Persist and restore more Grasshopper native types (Color, Point3d, Vector3d, Line, Plane, Circle, …) safely and loss‑aware.
+- __Direction__: Introduce `GhTypeCodec` registry with converters (to/from canonical JSON/string) using culture‑invariant formatting and versioned schemas; integrate with persistent storage and validators.
+- __First steps__: Prioritize a core set of types; implement codecs + round‑trip tests; update `GHJsonLocal.Validate()` to consult the registry; document shapes.
+- __Risks__: Precision/units, culture differences, performance on large graphs, backward compatibility.
+- __Impacted areas__: `src/SmartHopper.Core.Grasshopper/Utils/GHJsonLocal.cs`, persistence/serialization helpers, GH tools that consume/emit GHJSON.
+
 ---
 
 ## Future thoughts (suggestions should consider future conditions and try to be flexible to accept them in the future)
 
 - [ ] AI Provider-side prompt caching
-- [ ] AI Call cancellation token, callable by the user in components (cancelled state), and automatically called on closing webchat dialog or rhino
 - [ ] AI Call local caching of responses to avoid recomputation
 - [ ] AI Call compatibility with parallel tool calling
 - [ ] AI tool to generate Grasshopper definitions in GHJSON format
 - [ ] New way to save Grasshopper files in GHJSON format to disk
-- [ ] Improve WebChat UI with full html environment, including dynamic loading messages, supporting streaming, different interaction type (image, audio, text, toolcall, toolresult...)
-- [ ] Add compatibility in persistant data storage and GhJson to more Grasshopper native data types (colors, points, vectors, lines, plane, circle...) <- they require a way to safely store them as string and restore them to GH_Types
 - [ ] Support new Responses API from OpenAI

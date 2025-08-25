@@ -30,6 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
 - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
 - Provider-level streaming toggle via `IAIProviderSettings.EnableStreaming`. Added `EnableStreaming` setting descriptors to OpenAI, MistralAI, and DeepSeek provider settings (default `true`).
+- AI tool validation system to improve reliability and observability:
+  - Added three validators implementing `IValidator<AIInteractionToolCall>`:
+    - `ToolExistsValidator` (ensures tool is registered)
+    - `ToolJsonSchemaValidator` (validates tool arguments against JSON schema)
+    - `ToolCapabilityValidator` (ensures selected provider/model supports tool-required capabilities)
+  - New request policy `AIToolValidationRequestPolicy` runs after `ToolFilterNormalizationRequestPolicy`, validates all pending tool calls, and attaches diagnostics to the request and policy context; errors block execution early.
+  - `PolicyPipeline.Default` updated to register `AIToolValidationRequestPolicy`.
+  - Request validation now considers request-level messages so policy diagnostics can gate execution.
 
 ### Changed
 
@@ -62,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
 - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
 - `AIRequestBase.IsValid()` now blocks streaming when the selected provider disables streaming via settings or when the model is not streaming-capable, surfacing a clear validation error.
+- Grasshopper AI tools refactor: replaced legacy mutable `AIBody` usage with `AIBodyBuilder` + `AIReturn.CreateSuccess(body, toolCall)` for consistent immutable response construction. Updated tools: `gh_get`, `gh_put`, `gh_list_categories`. Ensured `AIToolCall.FromToolCallInteraction` is used and preserved existing error handling.
 
 ### Removed
 
