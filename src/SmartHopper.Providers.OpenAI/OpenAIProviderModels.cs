@@ -104,7 +104,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageOutput,
                     Default = AICapability.Text2Image,
                     SupportsStreaming = false,
-                    Verified = false,
+                    Verified = true,
                     Rank = 80,
                 },
                 new AIModelCapabilities

@@ -1209,15 +1209,8 @@ namespace SmartHopper.Core.ComponentBase
                                     var gooItem = item as IGH_Goo ?? GH_Convert.ToGoo(item);
                                     if (gooItem != null) list.Add(gooItem);
                                 }
-                                // Guard: only set if list has items
-                                if (list.Count > 0)
-                                {
-                                    DA.SetDataList(paramIndex, list);
-                                }
-                                else
-                                {
-                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Skipping SetDataList for '{param.Name}' because the list is empty");
-                                }
+                                // Always set the list, even if empty, to ensure outputs are cleared when needed
+                                DA.SetDataList(paramIndex, list);
                             }
                             else
                             {

@@ -464,6 +464,9 @@ namespace SmartHopper.Core.UI.Chat
         {
             this._chatHistory.Clear();
 
+            // Emit an empty/reset snapshot so listeners can clear their state immediately
+            this.EmitResetSnapshot();
+
             // Reset the WebView with initial HTML
             try
             {
@@ -481,6 +484,24 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error clearing chat: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Emits an empty AIReturn snapshot to propagate a cleared chat state.
+        /// </summary>
+        private void EmitResetSnapshot()
+        {
+            try
+            {
+                var snapshot = new AIReturn();
+                snapshot.CreateSuccess(new List<IAIInteraction>(), this._initialRequest);
+                this._lastReturn = snapshot;
+                this.ChatUpdated?.Invoke(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] ChatUpdated (reset) error: {ex.Message}");
             }
         }
 

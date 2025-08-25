@@ -152,6 +152,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         messages.Add(new AIRuntimeMessage(
                             AIRuntimeMessageSeverity.Error,
                             AIRuntimeMessageOrigin.Validation,
+                            AIMessageCode.StreamingDisabledProvider,
                             $"Streaming requested but provider '{provider}' has streaming disabled in settings."));
                     }
 
@@ -164,6 +165,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                             messages.Add(new AIRuntimeMessage(
                                 AIRuntimeMessageSeverity.Error,
                                 AIRuntimeMessageOrigin.Validation,
+                                AIMessageCode.StreamingUnsupportedModel,
                                 $"Streaming requested but the selected model '{modelUsed}' on provider '{provider}' does not support streaming."));
                         }
                     }

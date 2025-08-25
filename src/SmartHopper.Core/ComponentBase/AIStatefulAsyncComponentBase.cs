@@ -357,6 +357,16 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
         }
 
+        /// <summary>
+        /// Controls whether the base class should emit metrics during the post-solve phase.
+        /// Derived classes can override to return false when they set metrics synchronously
+        /// within their own SolveInstance implementation.
+        /// </summary>
+        protected virtual bool ShouldEmitMetricsInPostSolve()
+        {
+            return true;
+        }
+
         protected override void BeforeSolveInstance()
         {
             base.BeforeSolveInstance();
@@ -383,7 +393,10 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
-            this.SetMetricsOutput(DA);
+            if (this.ShouldEmitMetricsInPostSolve())
+            {
+                this.SetMetricsOutput(DA);
+            }
 
             // Update badge cache again after solving, so last metrics model is considered
             this.UpdateBadgeCache();
