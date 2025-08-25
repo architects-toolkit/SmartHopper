@@ -77,6 +77,12 @@ namespace SmartHopper.Core.ComponentBase
         {
         }
 
+        /// <summary>
+        /// Required capability for this component. Derived components should override to specify
+        /// the exact capability they need (e.g., Text2Image, ToolChat, etc.). Defaults to Text2Text.
+        /// </summary>
+        protected virtual AICapability RequiredCapability => AICapability.Text2Text;
+
         #region PARAMS
 
         /// <summary>
@@ -166,7 +172,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Otherwise, use provider-level default resolution (respects settings and capabilities)
-            var selected = provider.GetDefaultModel(AICapability.Text2Text, useSettings: true);
+            var selected = provider.GetDefaultModel(this.RequiredCapability, useSettings: true);
             return selected ?? string.Empty;
         }
 
@@ -384,32 +390,55 @@ namespace SmartHopper.Core.ComponentBase
                     providerName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
 
-                // Resolve model to badge
-                string modelForBadges = this.GetLastMetricsModel();
-                if (string.IsNullOrWhiteSpace(modelForBadges))
-                {
-                    modelForBadges = this.GetModelToDisplay();
-                }
+                // Resolve model the user currently configured (for validation/replacement decisions)
+                string configuredModel = this.GetModelToDisplay();
 
-                if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(modelForBadges))
+                if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(configuredModel))
                 {
                     this.badgeVerified = false;
                     this.badgeDeprecated = false;
+                    this.badgeInvalidModel = false;
+                    this.badgeReplacedModel = false;
                     this.badgeCacheValid = false;
                     return;
                 }
 
-                var caps = ModelManager.Instance.GetCapabilities(providerName, modelForBadges);
+                var caps = ModelManager.Instance.GetCapabilities(providerName, configuredModel);
                 if (caps == null)
                 {
+                    // Unknown model -> invalid, not replaced (we don't auto-replace unknowns)
                     this.badgeVerified = false;
                     this.badgeDeprecated = false;
+                    this.badgeInvalidModel = true;
+                    this.badgeReplacedModel = false;
                     this.badgeCacheValid = false;
                     return;
                 }
 
-                this.badgeVerified = caps.Verified;
+                // Capability validation against the component requirement
+                bool capable = caps.HasCapability(this.RequiredCapability);
+
+                // Verified only when model is verified AND capable for this component
+                this.badgeVerified = caps.Verified && capable;
                 this.badgeDeprecated = caps.Deprecated;
+
+                // Invalid flag: known but not capable
+                this.badgeInvalidModel = !capable;
+
+                // Replacement flag: what would the selector choose if we ran now?
+                // Prefer provider/settings default when falling back
+                string preferredDefault = string.Empty;
+                var provider = this.GetActualAIProvider();
+                if (provider != null)
+                {
+                    preferredDefault = provider.GetDefaultModel(this.RequiredCapability, useSettings: true) ?? string.Empty;
+                }
+
+                string best = ModelManager.Instance.SelectBestModel(providerName, configuredModel, this.RequiredCapability, preferredDefault);
+                this.badgeReplacedModel = (!string.IsNullOrWhiteSpace(best)
+                                            && !string.Equals(best, configuredModel, StringComparison.Ordinal)
+                                            && !capable);
+
                 this.badgeCacheValid = true;
             }
             catch
@@ -417,6 +446,8 @@ namespace SmartHopper.Core.ComponentBase
                 // On any failure, mark cache invalid to avoid rendering
                 this.badgeVerified = false;
                 this.badgeDeprecated = false;
+                this.badgeInvalidModel = false;
+                this.badgeReplacedModel = false;
                 this.badgeCacheValid = false;
             }
         }
@@ -431,6 +462,23 @@ namespace SmartHopper.Core.ComponentBase
         {
             verified = this.badgeVerified;
             deprecated = this.badgeDeprecated;
+            return this.badgeCacheValid;
+        }
+
+        /// <summary>
+        /// Tries to get the cached badge flags including invalid and replaced, without recomputation.
+        /// </summary>
+        /// <param name="verified">True if model is verified and capable.</param>
+        /// <param name="deprecated">True if model is deprecated.</param>
+        /// <param name="invalid">True if model is unknown or not capable of the required capability.</param>
+        /// <param name="replaced">True if the selected model would be replaced by a fallback due to capability mismatch.</param>
+        /// <returns>True if cache is valid; otherwise false.</returns>
+        internal bool TryGetCachedBadgeFlags(out bool verified, out bool deprecated, out bool invalid, out bool replaced)
+        {
+            verified = this.badgeVerified;
+            deprecated = this.badgeDeprecated;
+            invalid = this.badgeInvalidModel;
+            replaced = this.badgeReplacedModel;
             return this.badgeCacheValid;
         }
 
