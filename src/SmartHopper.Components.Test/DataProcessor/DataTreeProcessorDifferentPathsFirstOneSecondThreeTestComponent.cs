@@ -101,10 +101,21 @@ namespace SmartHopper.Components.Test.DataProcessor
                         await Task.Yield();
                         var aList = branches.ContainsKey("A") ? branches["A"] : null;
                         var bList = branches.ContainsKey("B") ? branches["B"] : null;
-                        if (aList == null || bList == null)
+                        if (aList == null || bList == null || aList.Count == 0 || bList.Count == 0)
                             return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer>() } };
-                        int sum = aList.Sum(x => x.Value) + bList.Sum(x => x.Value);
-                        return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer> { new GH_Integer(sum) } } };
+
+                        var normalized = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_Integer>> { aList, bList });
+                        var aNorm = normalized[0];
+                        var bNorm = normalized[1];
+                        var sums = new List<GH_Integer>();
+                        for (int i = 0; i < Math.Max(aList.Count, bList.Count); i++)
+                        {
+                            int ai = aNorm[i]?.Value ?? 0;
+                            int bi = bNorm[i]?.Value ?? 0;
+                            sums.Add(new GH_Integer(ai + bi));
+                        }
+
+                        return new Dictionary<string, List<GH_Integer>> { { "Sum", sums } };
                     }
 
                     var result = await DataTreeProcessor.RunFunctionAsync<GH_Integer, GH_Integer>(
@@ -120,17 +131,17 @@ namespace SmartHopper.Components.Test.DataProcessor
                     else
                         _resultTree = new GH_Structure<GH_Integer>();
 
-                    int expected = 2 + (1 + 2 + 3); // 8
-                    // With different paths, expect single result at B's path (pathB)
                     bool ok =
                         _resultTree != null &&
                         _resultTree.PathCount == 1 &&
                         _resultTree.get_Branch(pathB) != null &&
-                        _resultTree.get_Branch(pathB).Count == 1 &&
-                        _resultTree.get_Branch(pathB)[0] is GH_Integer gi && gi.Value == expected;
+                        _resultTree.get_Branch(pathB).Count == 3 &&
+                        _resultTree.get_Branch(pathB)[0] is GH_Integer gi0 && gi0.Value == (2 + 1) &&
+                        _resultTree.get_Branch(pathB)[1] is GH_Integer gi1 && gi1.Value == (2 + 2) &&
+                        _resultTree.get_Branch(pathB)[2] is GH_Integer gi2 && gi2.Value == (2 + 3);
 
                     _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Different paths A={pathA} (1 item), B={pathB} (3 items). Expected path {pathB} with sum {expected}."));
+                    _messages.Add(new GH_String($"Different paths A={pathA} (1 item), B={pathB} (3 items). Expected broadcast at {pathB}: [3,4,5]."));
                     _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
