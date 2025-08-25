@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -107,6 +108,9 @@ namespace SmartHopper.Providers.MistralAI
                 };
 
                 var response = await this.mistralProvider.Call(request).ConfigureAwait(false);
+
+                Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
+
                 if (response == null || !response.Success)
                 {
                     return new List<string>();
