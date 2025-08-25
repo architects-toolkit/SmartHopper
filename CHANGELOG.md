@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AIChatComponent: unified snapshot management using base class snapshot exclusively. Renamed method to `SetAIReturnSnapshot(AIReturn)` for consistency across components. Updated chat transcript output to read from the base snapshot, ensuring live updates and metrics stay in sync.
 - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `GetAIReturnSnapshot()` to keep chat history and metrics consistent.
 - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
+- Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
 
 ### Removed
 
@@ -118,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebChat: reasoning-only assistant messages now render. `ChatResourceManager` renders the `Reasoning` as a collapsible panel and auto-expands it when there is no answer content, fixing empty message bubbles during streaming.
 - AIChatComponent: Prevent NullReferenceException when closing chat without responses. `SetOutput()` now null-checks the last interaction and outputs an empty string (with a debug notice) when none exists.
 - AIChatComponent: Eliminated duplicated/nested branches in "Chat History" output by centralizing output setting in `SolveInstance()` and removing the worker's `SetPersistentOutput` call. Ensures last interaction appears and output updates consistently from a single snapshot source.
- - AIChatComponent: Synchronized outputs. Metrics are now emitted from `SolveInstance()` together with "Chat History" (reading from base snapshot). Base post-solve metrics emission disabled via `ShouldEmitMetricsInPostSolve()` override to avoid duplicates. Fixes intermittent metrics not updating alongside chat during streaming/incremental updates.
+- AIChatComponent: Synchronized outputs. Metrics are now emitted from `SolveInstance()` together with "Chat History" (reading from base snapshot). Base post-solve metrics emission disabled via `ShouldEmitMetricsInPostSolve()` override to avoid duplicates. Fixes intermittent metrics not updating alongside chat during streaming/incremental updates.
+- Prevent crash on GH file open by introducing a safe, versioned persistence (v2) for `StatefulAsyncComponentBase` that stores outputs as canonical string trees keyed by output parameter GUIDs. Legacy output restore is skipped by default and can be enabled via a feature flag.
 
 ## [0.5.3-alpha] - 2025-08-20
 

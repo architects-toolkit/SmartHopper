@@ -11,9 +11,9 @@ Alpha releases are early development versions intended for internal testing and 
 - [ ] Plugin loads in Grasshopper without crashing
 - [ ] Core components function at a basic level
 - [ ] Added clean-up instructions to remove old stored settings
+- [ ] Files can be written and read without errors
 - [ ] CHANGELOG.md is updated with new features and known issues
 - [ ] README.md is updated with basic installation instructions
-- [ ] All dependencies are properly included in the package
 
 ## Beta Release Checklist
 
@@ -67,7 +67,7 @@ General releases are production-ready and should be stable, secure, and well-doc
 ## Additional Considerations
 
 | **Consideration** | **Alpha** | **Beta** | **RC** | **General** |
-|--------------|-------|------|----|---------| 
+|--------------|-------|------|----|---------|
 | **Version Compatibility** | Breaking changes allowed | Minimize breaking changes | Strictly limit breaking changes | No breaking changes without migration guide |
 | **Documentation Requirements** | Basic README | Core feature docs | Full feature documentation | Comprehensive guides and tutorials |
 | **Testing Coverage** | Basic functionality | Extended edge case testing | Performance and cross-platform | Full regression test suite |
