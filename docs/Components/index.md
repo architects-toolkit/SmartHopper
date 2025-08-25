@@ -16,6 +16,7 @@ Expose AI capabilities (chat, list/text generation, image generation, canvas uti
   - [AIProviderComponentBase](./ComponentBase/AIProviderComponentBase.md) — provider/model selection UI and persistence
   - [AIStatefulAsyncComponentBase](./ComponentBase/AIStatefulAsyncComponentBase.md) — AI provider integration + stateful async execution
   - [SelectingComponentBase](./ComponentBase/SelectingComponentBase.md) — adds a "Select Components" button and selection management
+  - AI catalog: [AI Components](./AI/index.md)
 
 ## Behavior
 

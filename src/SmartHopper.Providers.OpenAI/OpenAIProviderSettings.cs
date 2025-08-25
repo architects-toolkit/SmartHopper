@@ -97,7 +97,7 @@ namespace SmartHopper.Providers.OpenAI
                     Type = typeof(string),
                     DefaultValue = "0.5",
                     DisplayName = "Temperature",
-                    Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+                    Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Some models like o-series or gpt-5 do not support this parameter and it will be ignored.",
                 },
             };
         }

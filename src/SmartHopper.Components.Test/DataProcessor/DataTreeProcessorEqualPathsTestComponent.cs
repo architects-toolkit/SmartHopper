@@ -155,13 +155,13 @@ namespace SmartHopper.Components.Test.DataProcessor
                 {
                     _success = new GH_Boolean(false);
                     _messages.Add(new GH_String("Operation was cancelled."));
-                    this.addRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
                     _success = new GH_Boolean(false);
                     _messages.Add(new GH_String($"Exception: {ex.Message}"));
-                    this.addRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
