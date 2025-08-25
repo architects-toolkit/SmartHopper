@@ -47,9 +47,12 @@ namespace SmartHopper.Core.ComponentBase
         private string model;
 
         /// <summary>
-        /// AI metrics from the last call.
+        /// Last AI return snapshot stored by this component.
         /// </summary>
-        private AIMetrics responseMetrics;
+        private AIReturn AIReturnSnapshot;
+        
+        // Flag to ensure we only clear metrics once per new Processing run
+        private bool metricsInitializedForRun;
 
         /// <summary>
         /// Cached badge flags (to prevent recomputation during Render/panning).
@@ -57,6 +60,8 @@ namespace SmartHopper.Core.ComponentBase
         private bool badgeVerified;
         private bool badgeDeprecated;
         private bool badgeCacheValid;
+        private bool badgeInvalidModel;
+        private bool badgeReplacedModel;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
@@ -256,10 +261,10 @@ namespace SmartHopper.Core.ComponentBase
                 toolResult = null;
             }
 
-            // Store metrics if present
-            if (toolResult?.Metrics != null)
+            // Store full AIReturn for downstream metrics/output usage
+            if (toolResult != null)
             {
-                this.StoreResponseMetrics(toolResult.Metrics);
+                this.AIReturnSnapshot = toolResult;
             }
 
             // Surface propagated validation/capability messages from AIReturn
@@ -291,15 +296,29 @@ namespace SmartHopper.Core.ComponentBase
         #region METRICS
 
         /// <summary>
-        /// Stores the given AI response metrics in the component's internal metrics list.
+        /// Replaces the internal last AIReturn snapshot.
+        /// Use this when an external source (e.g., WebChat) provides the full response state.
         /// </summary>
-        /// <param name="metrics">Metrics to store.</param>
-        public void StoreResponseMetrics(AIMetrics metrics)
+        /// <param name="ret">AIReturn snapshot to store.</param>
+        public virtual void SetAIReturnSnapshot(AIReturn ret)
         {
-            if (metrics != null)
+            if (ret == null)
             {
-                this.responseMetrics.Combine(metrics);
+                return;
             }
+
+            this.AIReturnSnapshot = ret;
+        }
+
+        /// <summary>
+        /// Gets the current <see cref="AIReturn"/> snapshot stored in this component.
+        /// Intended for derived components that need to render outputs (e.g., chat history)
+        /// from the same source of truth used for metrics.
+        /// </summary>
+        /// <returns>The current AIReturn snapshot, or null if none.</returns>
+        protected AIReturn GetAIReturnSnapshot()
+        {
+            return this.AIReturnSnapshot;
         }
 
         /// <summary>
@@ -310,23 +329,21 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            if (this.responseMetrics == null)
+            var metrics = this.AIReturnSnapshot?.Metrics;
+            if (metrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
             }
 
-            // Get the actual provider name
-            string actualProvider = this.GetActualAIProviderName();
-
             // Create JSON object with metrics
             var metricsJson = new JObject(
-                new JProperty("ai_provider", actualProvider),
-                new JProperty("ai_model", this.responseMetrics.Model),
-                new JProperty("tokens_input", this.responseMetrics.InputTokens),
-                new JProperty("tokens_output", this.responseMetrics.OutputTokens),
-                new JProperty("finish_reason", this.responseMetrics.FinishReason),
-                new JProperty("completion_time", this.responseMetrics.CompletionTime),
+                new JProperty("ai_provider", metrics.Provider),
+                new JProperty("ai_model", metrics.Model),
+                new JProperty("tokens_input", metrics.InputTokens),
+                new JProperty("tokens_output", metrics.OutputTokens),
+                new JProperty("finish_reason", metrics.FinishReason),
+                new JProperty("completion_time", metrics.CompletionTime),
                 new JProperty("data_count", this.dataCount),
                 new JProperty("iterations_count", this.ProgressInfo.Total));
 
@@ -344,13 +361,23 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.BeforeSolveInstance();
 
-            // Clear previous response metrics only when starting a new run
-            // Fix for boolean toggle issue: Only clear when Run is true AND we have no active workers
-            // This ensures we're truly starting a new processing run, not in the middle of one
-            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0)
+            // Reset the one-time init flag when not processing
+            if (this.CurrentState != ComponentState.Processing)
+            {
+                this.metricsInitializedForRun = false;
+            }
+
+            // Clear previous response metrics only once when truly starting a new Processing run
+            // Conditions:
+            //  - In Processing state
+            //  - Run is true
+            //  - No active workers yet (fresh run)
+            //  - Not already initialized for this run (prevents repeated clears on multiple presolves)
+            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0 && !this.metricsInitializedForRun)
             {
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
-                this.responseMetrics = new AIMetrics();
+                this.AIReturnSnapshot = null;
+                this.metricsInitializedForRun = true;
             }
         }
 
@@ -391,22 +418,11 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 // Resolve model the user currently configured (for validation/replacement decisions)
-                string configuredModel = this.GetModelToDisplay();
+                string configuredModel = this.GetModel();
 
-                if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(configuredModel))
+                // If provider is missing, we cannot resolve anything
+                if (string.IsNullOrWhiteSpace(providerName))
                 {
-                    this.badgeVerified = false;
-                    this.badgeDeprecated = false;
-                    this.badgeInvalidModel = false;
-                    this.badgeReplacedModel = false;
-                    this.badgeCacheValid = false;
-                    return;
-                }
-
-                var caps = ModelManager.Instance.GetCapabilities(providerName, configuredModel);
-                if (caps == null)
-                {
-                    // Unknown model -> invalid, not replaced (we don't auto-replace unknowns)
                     this.badgeVerified = false;
                     this.badgeDeprecated = false;
                     this.badgeInvalidModel = true;
@@ -415,31 +431,74 @@ namespace SmartHopper.Core.ComponentBase
                     return;
                 }
 
-                // Capability validation against the component requirement
-                bool capable = caps.HasCapability(this.RequiredCapability);
-
-                // Verified only when model is verified AND capable for this component
-                this.badgeVerified = caps.Verified && capable;
-                this.badgeDeprecated = caps.Deprecated;
-
-                // Invalid flag: known but not capable
-                this.badgeInvalidModel = !capable;
-
-                // Replacement flag: what would the selector choose if we ran now?
-                // Prefer provider/settings default when falling back
-                string preferredDefault = string.Empty;
-                var provider = this.GetActualAIProvider();
-                if (provider != null)
+                // Build a minimal request to leverage centralized validation/model selection
+                // Use a dummy endpoint and a single system interaction to satisfy validators
+                var interactions = new List<IAIInteraction>
                 {
-                    preferredDefault = provider.GetDefaultModel(this.RequiredCapability, useSettings: true) ?? string.Empty;
+                    new AIInteractionText { Agent = AIAgent.System, Content = "badge-check" },
+                };
+
+                var req = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
+                req.Initialize(providerName, configuredModel ?? string.Empty, interactions, endpoint: "badge_check", capability: this.RequiredCapability, toolFilter: null);
+
+                // This triggers provider-scoped selection/fallback based on capability
+                string resolvedModel = req.Model;
+
+                // Gather validation messages (may include provider/model issues)
+                var (isValid, validationMessages) = req.IsValid();
+
+                // Prefer structured codes; fall back to text checks when Code is Unknown
+                bool hasProviderMissing = validationMessages?.Any(m =>
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    (m.Code == AIMessageCode.ProviderMissing)) == true;
+
+                bool hasUnknownProvider = validationMessages?.Any(m =>
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    (m.Code == AIMessageCode.UnknownProvider)) == true;
+
+                bool hasNoCapableModel = validationMessages?.Any(m =>
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    (m.Code == AIMessageCode.NoCapableModel)) == true;
+
+                bool hasUnknownModel = validationMessages?.Any(m =>
+                    (m.Code == AIMessageCode.UnknownModel)) == true;
+
+                bool hasCapabilityMismatch = validationMessages?.Any(m =>
+                    (m.Code == AIMessageCode.CapabilityMismatch)) == true;
+
+                // Replaced when selection adjusted or an explicit CapabilityMismatch is present
+                this.badgeReplacedModel = (!string.IsNullOrWhiteSpace(configuredModel)
+                                           && !string.IsNullOrWhiteSpace(resolvedModel)
+                                           && !string.Equals(configuredModel, resolvedModel, StringComparison.Ordinal))
+                                          || hasCapabilityMismatch;
+
+                // Invalid when missing/unknown provider, unknown model, no capable model, capability mismatch, or empty configured model
+                this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
+                                         || hasProviderMissing
+                                         || hasUnknownProvider
+                                         || hasUnknownModel
+                                         || hasNoCapableModel
+                                         || hasCapabilityMismatch
+                                         || this.badgeReplacedModel;
+
+                // Read metadata from the resolved model to set Verified/Deprecated when available
+                var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : ModelManager.Instance.GetCapabilities(providerName, resolvedModel);
+                if (resolvedCaps == null)
+                {
+                    // No metadata available for the resolved model – do not render badges
+                    this.badgeVerified = false;
+                    this.badgeDeprecated = false;
+                    this.badgeCacheValid = true;
+                }
+                else
+                {
+                    // Verified/Deprecated reflect the model actually selected for execution; Verified requires capability match
+                    this.badgeVerified = resolvedCaps.Verified && resolvedCaps.HasCapability(this.RequiredCapability);
+                    this.badgeDeprecated = resolvedCaps.Deprecated;
+                    this.badgeCacheValid = true;
                 }
 
-                string best = ModelManager.Instance.SelectBestModel(providerName, configuredModel, this.RequiredCapability, preferredDefault);
-                this.badgeReplacedModel = (!string.IsNullOrWhiteSpace(best)
-                                            && !string.Equals(best, configuredModel, StringComparison.Ordinal)
-                                            && !capable);
-
-                this.badgeCacheValid = true;
+                return;
             }
             catch
             {
@@ -480,26 +539,6 @@ namespace SmartHopper.Core.ComponentBase
             invalid = this.badgeInvalidModel;
             replaced = this.badgeReplacedModel;
             return this.badgeCacheValid;
-        }
-
-        /// <summary>
-        /// Returns the last used model recorded in the component's persisted metrics, if any.
-        /// Used by UI attributes to reflect the actual model previously executed.
-        /// </summary>
-        /// <returns>Last used model name, or empty if not available.</returns>
-        internal string GetLastMetricsModel()
-        {
-            return this.responseMetrics != null ? (this.responseMetrics.Model ?? string.Empty) : string.Empty;
-        }
-
-        /// <summary>
-        /// Returns the configured/input model or the provider's default model for display
-        /// when the component has never run.
-        /// </summary>
-        /// <returns>Configured/default model name, or empty.</returns>
-        internal string GetModelToDisplay()
-        {
-            return this.GetModel() ?? string.Empty;
         }
 
         #endregion
