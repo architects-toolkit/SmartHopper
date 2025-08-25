@@ -10,7 +10,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
@@ -32,10 +37,8 @@ namespace SmartHopper.Providers.OpenAI
         {
             this.openAIProvider = provider;
         }
-        /// <summary>
-        /// Retrieves all models with full metadata (concrete names only) for OpenAI.
-        /// </summary>
-        /// <returns>List of AIModelCapabilities.</returns>
+        
+        /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
             var provider = this.openAIProvider.Name.ToLower();
@@ -45,9 +48,9 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-mini",
+                    Model = "gpt-5-nano",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 95,
@@ -55,11 +58,11 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-nano",
+                    Model = "gpt-5-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text,
+                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 90,
                 },
                 new AIModelCapabilities
@@ -105,7 +108,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageOutput,
                     Default = AICapability.Text2Image,
                     SupportsStreaming = false,
-                    Verified = false,
+                    Verified = true,
                     Rank = 80,
                 },
                 new AIModelCapabilities
@@ -121,6 +124,59 @@ namespace SmartHopper.Providers.OpenAI
             };
 
             return Task.FromResult(models);
+        }
+
+        /// <inheritdoc/>
+        public override async Task<List<string>> RetrieveApiModels()
+        {
+            try
+            {
+                var request = new AIRequestCall
+                {
+                    Endpoint = "/models",
+                };
+
+                var response = await this.openAIProvider.Call(request).ConfigureAwait(false);
+
+                Debug.WriteLine("[OpenAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
+
+                if (response == null || !response.Success)
+                {
+                    return new List<string>();
+                }
+
+                var raw = (response as AIReturn)?.GetRaw();
+                if (raw == null)
+                {
+                    return new List<string>();
+                }
+
+                var data = raw["data"] as JArray;
+                if (data == null)
+                {
+                    return new List<string>();
+                }
+
+                var models = new List<string>();
+                foreach (var item in data.OfType<JObject>())
+                {
+                    var id = item["id"]?.ToString();
+                    var model = id;
+                    if (!string.IsNullOrWhiteSpace(model))
+                    {
+                        models.Add(model);
+                    }
+                }
+
+                return models
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
     }
 }

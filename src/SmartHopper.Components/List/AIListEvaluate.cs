@@ -23,6 +23,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.List
 {
@@ -33,6 +34,8 @@ namespace SmartHopper.Components.List
         protected override Bitmap Icon => Resources.listevaluate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override AICapability RequiredCapability => AICapability.Text2Text;
 
         public AIListEvaluate()
             : base("AI List Evaluate", "AIListEvaluate",

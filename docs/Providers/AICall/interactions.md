@@ -27,23 +27,25 @@ Covers `IAIInteraction` and concrete message types.
   - `SetResult(imageUrl?, imageData?, revisedPrompt?)` (one of url/data required)
 
 ## AIInteractionToolCall
- 
+  
 - File: `AIInteractionToolCall.cs`
 - Purpose: model asks to invoke a tool
 - Fields: `Id`, `Name`, `Arguments` (JObject)
 - Methods: `ToString()` pretty prints name, id and JSON args
 - Agent defaults to `ToolCall`
+- See also: [Tools](./tools.md) for how pending tool calls are executed and orchestrated.
 
 ## AIInteractionToolResult
- 
+  
 - File: `AIInteractionToolResult.cs`
 - Purpose: result of executing a tool
 - Inherits: `AIInteractionToolCall`
 - Adds field: `Result` (JObject)
 - Overrides agent to `ToolResult`
+- See also: [Tools](./tools.md) for result aggregation and message handling.
 
 ## AIAgent
- 
+
 - File: `AIAgent.cs`
 - Enum roles: `Context`, `System`, `User`, `Assistant`, `ToolCall`, `ToolResult`, `Unknown`
 - Extension helpers: `.ToString()`, `.ToDescription()`, `FromString(string)`

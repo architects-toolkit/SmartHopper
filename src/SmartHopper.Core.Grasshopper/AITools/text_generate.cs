@@ -15,7 +15,11 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -108,11 +112,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Use custom instructions if provided, otherwise use default system prompt
                 string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
 
-                // Initiate AIBody
-                var requestBody = new AIBody();
-                requestBody.AddInteraction(AIAgent.System, systemPrompt);
-                requestBody.AddInteraction(AIAgent.User, prompt);
-                requestBody.ContextFilter = contextFilter;
+                // Initiate immutable AIBody
+                var requestBody = AIBodyBuilder.Create()
+                    .AddSystem(systemPrompt)
+                    .AddUser(prompt)
+                    .WithContextFilter(contextFilter)
+                    .Build();
 
                 // Initiate AIRequestCall
                 var request = new AIRequestCall();
@@ -147,8 +152,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject();
                 toolResult.Add("result", response);
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
+                // Attach non-breaking result envelope
+                toolResult.WithEnvelope(
+                    ToolResultEnvelope.Create(
+                        tool: this.toolName,
+                        type: ToolResultContentType.Text,
+                        payloadPath: "result",
+                        provider: providerName,
+                        model: modelName,
+                        toolCallId: toolInfo?.Id));
+
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;
@@ -163,3 +179,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

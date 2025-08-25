@@ -10,7 +10,8 @@
 
 using System;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Infrastructure.AITools

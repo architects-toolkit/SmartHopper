@@ -107,20 +107,28 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            if (!stateful.TryGetCachedBadgeFlags(out bool showVerified, out bool showDeprecated))
+            if (!stateful.TryGetCachedBadgeFlags(out bool showVerified, out bool showDeprecated, out bool showInvalid, out bool showReplaced))
             {
                 return;
             }
 
             // Collect badges (built-in + extension point)
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
+            if (showInvalid)
+            {
+                items.Add((DrawInvalidBadge, "Invalid model"));
+            }
+            if (showReplaced)
+            {
+                items.Add((DrawReplacedBadge, "Model replaced with a capable one"));
+            }
             if (showVerified)
             {
-                items.Add((DrawVerifiedBadge, "Using a verified model"));
+                items.Add((DrawVerifiedBadge, "Verified model"));
             }
             if (showDeprecated)
             {
-                items.Add((DrawDeprecatedBadge, "Using a deprecated model"));
+                items.Add((DrawDeprecatedBadge, "Deprecated model"));
             }
             foreach (var extra in this.GetAdditionalBadges())
             {
@@ -212,6 +220,75 @@ namespace SmartHopper.Core.ComponentBase
                 var lineBottom = new PointF(cx, cy + r * 0.3f);
                 g.DrawLine(pen, lineTop, lineBottom);
                 g.DrawEllipse(pen, cx - 1.5f, cy + r * 0.4f, 3f, 3f);
+            }
+        }
+
+        /// <summary>
+        /// Draw a red circle with a white cross for Invalid/Incompatible model.
+        /// </summary>
+        private static void DrawInvalidBadge(Graphics g, float x, float y)
+        {
+            using (var bg = new SolidBrush(Color.FromArgb(192, 57, 43))) // red
+            using (var pen = new Pen(Color.White, 1.5f))
+            {
+                var rect = new RectangleF(x, y, BADGE_SIZE, BADGE_SIZE);
+                g.FillEllipse(bg, rect);
+
+                // cross
+                float inset = BADGE_SIZE * 0.28f;
+                var p1 = new PointF(x + inset, y + inset);
+                var p2 = new PointF(x + BADGE_SIZE - inset, y + BADGE_SIZE - inset);
+                var p3 = new PointF(x + BADGE_SIZE - inset, y + inset);
+                var p4 = new PointF(x + inset, y + BADGE_SIZE - inset);
+                g.DrawLine(pen, p1, p2);
+                g.DrawLine(pen, p3, p4);
+            }
+        }
+
+        /// <summary>
+        /// Draw a blue circle with a white refresh arrow for Replaced/Fallback model.
+        /// </summary>
+        private static void DrawReplacedBadge(Graphics g, float x, float y)
+        {
+            using (var bg = new SolidBrush(Color.FromArgb(52, 152, 219))) // blue
+            using (var pen = new Pen(Color.White, 1.5f))
+            {
+                var rect = new RectangleF(x, y, BADGE_SIZE, BADGE_SIZE);
+                g.FillEllipse(bg, rect);
+
+                // refresh arrow (arc + arrow head)
+                var cx = x + BADGE_SIZE / 2f;
+                var cy = y + BADGE_SIZE / 2f;
+                float r = BADGE_SIZE * 0.35f;
+
+                using (var path = new System.Drawing.Drawing2D.GraphicsPath())
+                {
+                    var startAngle = -40f;
+                    var sweep = 260f;
+                    path.AddArc(cx - r, cy - r, 2 * r, 2 * r, startAngle, sweep);
+                    g.DrawPath(pen, path);
+                }
+
+                // arrow head at end of arc
+                double endRad = (Math.PI / 180.0) * ( -40f + 260f );
+                var endPt = new PointF(
+                    (float)(cx + r * Math.Cos(endRad)),
+                    (float)(cy + r * Math.Sin(endRad)));
+
+                // small triangle pointing tangentially
+                var dir = new PointF(
+                    (float)(-Math.Sin(endRad)),
+                    (float)( Math.Cos(endRad)));
+                float ah = BADGE_SIZE * 0.18f;
+                var a1 = new PointF(endPt.X, endPt.Y);
+                var a2 = new PointF(endPt.X - dir.X * ah - dir.Y * ah * 0.6f, endPt.Y - dir.Y * ah + dir.X * ah * 0.6f);
+                var a3 = new PointF(endPt.X - dir.X * ah + dir.Y * ah * 0.6f, endPt.Y - dir.Y * ah - dir.X * ah * 0.6f);
+
+                using (var pathHead = new System.Drawing.Drawing2D.GraphicsPath())
+                {
+                    pathHead.AddPolygon(new[] { a1, a2, a3 });
+                    g.FillPath(Brushes.White, pathHead);
+                }
             }
         }
 
