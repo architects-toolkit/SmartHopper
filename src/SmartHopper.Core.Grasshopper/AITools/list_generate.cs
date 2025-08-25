@@ -17,7 +17,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -147,12 +151,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 initialUserPrompt = initialUserPrompt.Replace("<prompt>", prompt);
                 initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString());
 
-                // Initiate AIBody
-                var requestBody = new AIBody();
-                requestBody.JsonOutputSchema = this.listJsonSchema;
-                requestBody.AddInteraction("system", this.systemPrompt);
-                requestBody.AddInteraction("user", initialUserPrompt);
-                requestBody.ContextFilter = contextFilter;
+                // Initiate immutable AIBody
+                var requestBody = AIBodyBuilder.Create()
+                    .WithJsonOutputSchema(this.listJsonSchema)
+                    .AddSystem(this.systemPrompt)
+                    .AddUser(initialUserPrompt)
+                    .WithContextFilter(contextFilter)
+                    .Build();
 
                 // Initiate AIRequestCall
                 var request = new AIRequestCall();
@@ -228,8 +233,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             var partialResult = new JObject();
                             partialResult.Add("list", new JArray(allItems));
 
-                            var partialBody = new AIBody();
-                            partialBody.AddInteractionToolResult(partialResult, result.Metrics, result.Messages);
+                            // Attach non-breaking result envelope
+                            partialResult.WithEnvelope(
+                                ToolResultEnvelope.Create(
+                                    tool: this.toolName,
+                                    type: ToolResultContentType.List,
+                                    payloadPath: "list",
+                                    provider: providerName,
+                                    model: modelName,
+                                    toolCallId: toolInfo?.Id));
+
+                            var partialBody = AIBodyBuilder.Create()
+                                .AddToolResult(partialResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                                .Build();
 
                             output.CreateSuccess(partialBody);
                             return output;
@@ -265,12 +281,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     stillNeeded = count - allItems.Count;
                     Debug.WriteLine($"[ListTools] Requesting {stillNeeded} more items in next iteration");
 
-                    // Add the assistant response to the conversation
-                    request.Body.AddInteraction(AIAgent.Assistant, response);
-
-                    // Add follow-up user message asking for more items
+                    // Add the assistant response and follow-up user message to the conversation immutably
                     var followUpMessage = $"I need {stillNeeded} more items to complete the list. Please generate {stillNeeded} additional items to the ones already provided. Current list has {allItems.Count} items: [{string.Join(", ", allItems.Select(item => $"'{item}'"))}].\n\nGenerate {stillNeeded} NEW items as a JSON array, meeting my initial request: {prompt}.\n\nReturn only the JSON array of the new items, nothing else.";
-                    request.Body.AddInteraction(AIAgent.User, followUpMessage);
+                    request.Body = AIBodyBuilder.FromImmutable(request.Body)
+                        .AddAssistant(response)
+                        .AddUser(followUpMessage)
+                        .Build();
                 }
 
                 if (allItems.Count == 0)
@@ -292,8 +308,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject();
                 toolResult.Add("list", new JArray(allItems));
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result?.Metrics, result?.Messages ?? new List<AIRuntimeMessage>());
+                // Attach non-breaking result envelope
+                toolResult.WithEnvelope(
+                    ToolResultEnvelope.Create(
+                        tool: this.toolName,
+                        type: ToolResultContentType.List,
+                        payloadPath: "list",
+                        provider: providerName,
+                        model: modelName,
+                        toolCallId: toolInfo?.Id));
+
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result?.Metrics, messages: result?.Messages ?? new List<AIRuntimeMessage>())
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;
@@ -308,3 +335,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

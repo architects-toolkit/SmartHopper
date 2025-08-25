@@ -14,8 +14,10 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AICall;
+    using SmartHopper.Infrastructure.AICall.Core.Base;
+    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.Infrastructure.AICall.Core.Requests;
+    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
@@ -64,7 +66,7 @@ namespace SmartHopper.Infrastructure.Tests
             public async Task<IAIReturn> Call(AIRequestCall request)
             {
                 var result = new AIReturn();
-                result.CreateSuccess(new AIBody(), request);
+                result.CreateSuccess(AIBodyImmutable.Empty, request);
                 return await Task.FromResult(result);
             }
 
@@ -113,6 +115,17 @@ namespace SmartHopper.Infrastructure.Tests
                 };
                 return await Task.FromResult(list);
             }
+
+            public async Task<List<string>> RetrieveApiModels()
+            {
+                // Return the names corresponding to the dummy models above
+                var list = new List<string>
+                {
+                    "dummy_model_1",
+                    "dummy_model_2"
+                };
+                return await Task.FromResult(list);
+            }
         }
 
         private class DummySettings : IAIProviderSettings
@@ -127,6 +140,9 @@ namespace SmartHopper.Infrastructure.Tests
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
             public bool ValidateSettings(Dictionary<string, object> settings) => true;
+
+            // For tests, just return a constant value. Real implementations should read from persisted settings.
+            public bool EnableStreaming => true;
         }
 
 #if NET7_WINDOWS
@@ -253,3 +269,4 @@ namespace SmartHopper.Infrastructure.Tests
         }
     }
 }
+

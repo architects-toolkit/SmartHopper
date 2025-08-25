@@ -298,6 +298,11 @@ hr {
     display: none; /* Hidden by default */
 }
 
+/* Force-hide metrics icon when suppressed (e.g., during streaming) */
+.metrics-icon.hidden {
+    display: none !important;
+}
+
 /* Only show metrics icon for AI messages */
 .message.assistant .metrics-icon {
     display: inline-block;

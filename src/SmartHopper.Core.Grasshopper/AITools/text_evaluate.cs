@@ -16,7 +16,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -113,11 +117,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<text>", text);
 
-                // Initiate AIBody
-                var requestBody = new AIBody();
-                requestBody.AddInteraction(AIAgent.System, this.systemPrompt);
-                requestBody.AddInteraction(AIAgent.User, userPrompt);
-                requestBody.ContextFilter = contextFilter;
+                // Initiate immutable AIBody
+                var requestBody = AIBodyBuilder.Create()
+                    .AddSystem(this.systemPrompt)
+                    .AddUser(userPrompt)
+                    .WithContextFilter(contextFilter)
+                    .Build();
 
                 // Initiate AIRequestCall
                 var request = new AIRequestCall();
@@ -146,8 +151,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject();
                 toolResult.Add("result", parsedResult.Value);
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;
@@ -162,3 +168,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

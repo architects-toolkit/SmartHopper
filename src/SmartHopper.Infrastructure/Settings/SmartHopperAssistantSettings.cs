@@ -18,12 +18,6 @@ namespace SmartHopper.Infrastructure.Settings
     public class SmartHopperAssistantSettings
     {
         /// <summary>
-        /// Gets or sets a value indicating whether AI-generated greetings are enabled in chat.
-        /// </summary>
-        [JsonProperty]
-        public bool EnableAIGreeting { get; set; } = true;
-
-        /// <summary>
         /// Gets or sets the AI provider to use for SmartHopper Assistant features.
         /// </summary>
         [JsonProperty]
@@ -34,5 +28,18 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         [JsonProperty]
         public string AssistantModel { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the SmartHopper Assistant canvas button is enabled.
+        /// Defaults to <see langword="true"/>.
+        /// </summary>
+        [JsonProperty]
+        public bool EnableCanvasButton { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether AI-generated greetings are enabled in chat.
+        /// </summary>
+        [JsonProperty]
+        public bool EnableAIGreeting { get; set; } = true;
     }
 }

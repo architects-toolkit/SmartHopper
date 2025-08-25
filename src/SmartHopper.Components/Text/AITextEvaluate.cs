@@ -21,6 +21,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AIModels;
 using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
@@ -32,6 +33,8 @@ namespace SmartHopper.Components.Text
         protected override CommonDrawing::Bitmap Icon => Resources.textevaluate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override AICapability RequiredCapability => AICapability.Text2Text;
 
         public AITextEvaluate()
             : base("AI Text Evaluate", "AITextEvaluate",

@@ -208,6 +208,34 @@ namespace SmartHopper.Infrastructure.AIModels
 
         #endregion
 
+        #region Streaming capability
+
+        /// <summary>
+        /// Returns whether the specified provider/model pair supports provider-side streaming.
+        /// Unknown models are treated as not supporting streaming (safe fallback).
+        /// </summary>
+        /// <param name="provider">Provider name.</param>
+        /// <param name="model">Model name.</param>
+        /// <returns>True only when the model is registered and explicitly marked as supporting streaming.</returns>
+        public bool ModelSupportsStreaming(string provider, string model)
+        {
+            if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(model))
+            {
+                return false;
+            }
+
+            var caps = this.GetCapabilities(provider, model);
+            if (caps == null)
+            {
+                Debug.WriteLine($"[ModelManager] Streaming check: '{provider}.{model}' not registered -> treating as non-streaming");
+                return false;
+            }
+
+            return caps.SupportsStreaming;
+        }
+
+        #endregion
+
         #region Model Listing and Selection
 
         /// <summary>

@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Test.Badges
         protected override Bitmap Icon => null;
 
         /// <inheritdoc />
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TestBadgesOneComponent"/> class.
@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Badges
         public TestBadgesOneComponent()
             : base("Test Badges: One", "TBadges1",
                    "Renders a single sample badge above the component for visual verification.",
-                   "SmartHopper", "Testing")
+                   "SmartHopper", "Testing Badges")
         {
         }
 

@@ -11,23 +11,28 @@
 namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
 {
     /// <summary>
-    /// Model for SmartHopper Assistant settings (CanvasButton and related functionality)
+    /// Model for SmartHopper Assistant settings (CanvasButton and related functionality).
     /// </summary>
     public class AssistantSettings
     {
         /// <summary>
-        /// Gets or sets whether AI-generated greetings are enabled in chat
-        /// </summary>
-        public bool EnableAIGreeting { get; set; } = false;
-
-        /// <summary>
-        /// Gets or sets the AI provider to use for SmartHopper Assistant
+        /// Gets or sets the AI provider to use for SmartHopper Assistant.
         /// </summary>
         public string AssistantProvider { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the AI model to use for SmartHopper Assistant
+        /// Gets or sets the AI model to use for SmartHopper Assistant.
         /// </summary>
         public string AssistantModel { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether the Canvas button is enabled.
+        /// </summary>
+        public bool EnableCanvasButton { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether AI-generated greetings are enabled in chat.
+        /// </summary>
+        public bool EnableAIGreeting { get; set; } = false;
     }
 }

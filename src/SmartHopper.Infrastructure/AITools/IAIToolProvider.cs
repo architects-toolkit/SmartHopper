@@ -9,7 +9,6 @@
  */
 
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.AITools
 {

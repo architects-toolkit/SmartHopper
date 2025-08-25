@@ -19,7 +19,12 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
@@ -47,6 +52,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Gets the singleton instance of the provider.
         /// </summary>
         public static T Instance => InstanceValue.Value;
+
     }
 
     /// <summary>
@@ -181,6 +187,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public virtual AIRequestCall PreCall(AIRequestCall request)
         {
+            // Ensure provider is attached if missing so callers can simply do provider.Call(request)
+            if (request != null && string.IsNullOrWhiteSpace(request.Provider))
+            {
+                request.Provider = this.Name;
+            }
+
             return request;
         }
 
@@ -533,6 +545,17 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using (var httpClient = new HttpClient())
             {
+                // Apply per-request timeout (policy should normalize, but clamp defensively)
+                try
+                {
+                    var seconds = request?.TimeoutSeconds ?? 120;
+                    httpClient.Timeout = TimeSpan.FromSeconds(seconds);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[{this.Name}] Warning: could not set HttpClient timeout: {ex.Message}");
+                }
+
                 // Set up authentication
                 if (authentication.ToLower(CultureInfo.InvariantCulture) == "bearer")
                 {
@@ -659,3 +682,4 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
     }
 }
+

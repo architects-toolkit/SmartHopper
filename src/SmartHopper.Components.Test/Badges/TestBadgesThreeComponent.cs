@@ -34,12 +34,12 @@ namespace SmartHopper.Components.Test.Badges
         protected override Bitmap Icon => null;
 
         /// <inheritdoc />
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestBadgesThreeComponent()
             : base("Test Badges: Three", "TBadges3",
                    "Renders three sample badges above the component for visual verification.",
-                   "SmartHopper", "Testing")
+                   "SmartHopper", "Testing Badges")
         {
         }
 

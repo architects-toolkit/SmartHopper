@@ -24,9 +24,14 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 - Tools should return consistent keys (e.g., `list` for list_generate) and clear error messages.
 - Use provider/model capability checks via the model registry when needed.
 
-## Flow
+## Tool Result Envelope
 
+- Tools should attach a metadata envelope to their JSON result under the reserved root key `"__envelope"`.
+- The actual payload remains at predictable keys (e.g., `result`, `list`).
+- See `docs/Tools/ToolResultEnvelope.md` for schema, rationale, and examples.
+
+## Flow
 1. Component builds `AIBody` with tool filters/schemas as needed.
 2. Provider formats tool definitions into its API shape.
-3. Model may call a tool → tool executes → results appended to the interaction stream.
-4. Components read normalized results from `AIReturn<T>`.
+3. If a tool is executed: the tool builds a payload, attaches `ToolResultEnvelope` to the root, and appends it via `AIBody.AddInteractionToolResult(...)` to the interaction stream.
+4. Components read normalized results (including the envelope) from `AIReturn<T>`.
