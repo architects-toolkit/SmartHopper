@@ -99,7 +99,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 {
                     if (seen.Add(this.ErrorMessage))
                     {
-                        combined.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, this.ErrorMessage));
+                        combined.Add(new AIRuntimeMessage(
+                            AIRuntimeMessageSeverity.Error,
+                            AIRuntimeMessageOrigin.Return,
+                            this.ErrorMessage));
                     }
                 }
 
@@ -167,12 +170,18 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
 
             if (this.Request == null)
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Request must not be null"));
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Return,
+                    "Request must not be null"));
             }
 
             if (this.Metrics == null)
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Metrics must not be null"));
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Return,
+                    "Metrics must not be null"));
             }
             else
             {
