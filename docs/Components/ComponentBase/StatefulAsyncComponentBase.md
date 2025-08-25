@@ -26,4 +26,4 @@ Unify long‑running execution with a clear state machine so components behave p
 - [StateManager](../Helpers/StateManager.md) – defines states and friendly messages.
 - [AsyncComponentBase](./AsyncComponentBase.md) – lower‑level async base.
 - [ProgressInfo](../Helpers/ProgressInfo.md) – report incremental progress.
- - [IO Persistence (V2)](../IO/Persistence.md) – safe, versioned storage of output trees used by this base
+- [IO Persistence (V2)](../IO/Persistence.md) – safe, versioned storage of output trees used by this base
