@@ -98,6 +98,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 case "/models":
                     request.HttpMethod = "GET";
+                    request.RequestKind = AIRequestKind.Backoffice;
                     break;
                 default:
                     // Setup proper httpmethod, content type, and authentication

@@ -187,6 +187,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public virtual AIRequestCall PreCall(AIRequestCall request)
         {
+            // Ensure provider is attached if missing so callers can simply do provider.Call(request)
+            if (request != null && string.IsNullOrWhiteSpace(request.Provider))
+            {
+                request.Provider = this.Name;
+            }
+
             return request;
         }
 

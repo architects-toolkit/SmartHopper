@@ -50,6 +50,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         bool WantsStreaming { get; set; }
 
         /// <summary>
+        /// Distinguishes between normal generation requests and provider backoffice/metadata requests.
+        /// Defaults to <see cref="AIRequestKind.Generation"/>. When set to <see cref="AIRequestKind.Backoffice"/>,
+        /// providers may bypass model/body validation for metadata endpoints (e.g., "/models").
+        /// </summary>
+        AIRequestKind RequestKind { get; set; }
+
+        /// <summary>
         /// Gets or sets validation messages produced during request preparation and execution.
         /// These are informational, warning, or error notes that should be surfaced by components.
         /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".

@@ -68,11 +68,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <inheritdoc/>
         public virtual AIBodyImmutable Body { get; set; } = AIBodyImmutable.Empty;
 
-        /// <summary>
-        /// Indicates that the caller intends to stream this request. This lets validation
-        /// surface helpful messages about streaming support without blocking non-streaming flows.
-        /// </summary>
+        /// <inheritdoc/>
         public virtual bool WantsStreaming { get; set; } = false;
+
+        /// <inheritdoc/>
+        public virtual AIRequestKind RequestKind { get; set; } = AIRequestKind.Generation;
 
         /// <summary>
         /// Per-request timeout in seconds applied to provider HTTP calls and tool execution wrappers.

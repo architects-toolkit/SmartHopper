@@ -115,6 +115,7 @@ namespace SmartHopper.Providers.OpenAI
             else if (request.Endpoint == "/models")
             {
                 request.HttpMethod = "GET";
+                request.RequestKind = AIRequestKind.Backoffice;
             }
             else
             {

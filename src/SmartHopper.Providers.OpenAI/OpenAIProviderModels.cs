@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -136,6 +137,9 @@ namespace SmartHopper.Providers.OpenAI
                 };
 
                 var response = await this.openAIProvider.Call(request).ConfigureAwait(false);
+
+                Debug.WriteLine("[OpenAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
+
                 if (response == null || !response.Success)
                 {
                     return new List<string>();
