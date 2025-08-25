@@ -115,6 +115,17 @@ namespace SmartHopper.Infrastructure.Tests
                 };
                 return await Task.FromResult(list);
             }
+
+            public async Task<List<string>> RetrieveApiModels()
+            {
+                // Return the names corresponding to the dummy models above
+                var list = new List<string>
+                {
+                    "dummy_model_1",
+                    "dummy_model_2"
+                };
+                return await Task.FromResult(list);
+            }
         }
 
         private class DummySettings : IAIProviderSettings
