@@ -17,7 +17,11 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -124,11 +128,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["moved"] = JArray.FromObject(moved)
                 };
+                var immutableBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)
+                    .Build();
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
-
-                output.CreateSuccess(toolBody);
+                output.CreateSuccess(immutableBody, toolCall);
                 return output;
             }
             catch (Exception ex)

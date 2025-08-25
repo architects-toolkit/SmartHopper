@@ -10,7 +10,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
@@ -33,10 +38,7 @@ namespace SmartHopper.Providers.MistralAI
             this.mistralProvider = provider;
         }
 
-        /// <summary>
-        /// Retrieves all models with full metadata (concrete names only) for MistralAI.
-        /// </summary>
-        /// <returns>List of AIModelCapabilities.</returns>
+        /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
             var provider = this.mistralProvider.Name.ToLower();
@@ -93,6 +95,60 @@ namespace SmartHopper.Providers.MistralAI
             };
 
             return Task.FromResult(models);
+        }
+
+        /// <inheritdoc/>
+        public override async Task<List<string>> RetrieveApiModels()
+        {
+            try
+            {
+                var request = new AIRequestCall
+                {
+                    Endpoint = "/models",
+                };
+
+                var response = await this.mistralProvider.Call(request).ConfigureAwait(false);
+
+                Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
+
+                if (response == null || !response.Success)
+                {
+                    return new List<string>();
+                }
+
+                var raw = (response as AIReturn)?.GetRaw();
+                if (raw == null)
+                {
+                    return new List<string>();
+                }
+
+                var data = raw["data"] as JArray;
+                if (data == null)
+                {
+                    return new List<string>();
+                }
+
+                var models = new List<string>();
+                foreach (var item in data.OfType<JObject>())
+                {
+                    var id = item["id"]?.ToString();
+                    var name = item["name"]?.ToString();
+                    var model = !string.IsNullOrWhiteSpace(id) ? id : name;
+                    if (!string.IsNullOrWhiteSpace(model))
+                    {
+                        models.Add(model);
+                    }
+                }
+
+                return models
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
     }
 }

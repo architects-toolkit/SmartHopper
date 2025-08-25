@@ -14,8 +14,9 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -98,8 +99,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 var toolCall = new AIToolCall();
                 toolCall.Endpoint = "gh_list_components";
-                toolCall.Body = new AIBody();
-                toolCall.Body.AddInteraction(toolCallInteraction);
+                toolCall.FromToolCallInteraction(toolCallInteraction);
 
                 var aiResult = toolCall.Exec().GetAwaiter().GetResult();
                 var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
@@ -130,3 +130,4 @@ namespace SmartHopper.Components.Grasshopper
         }
     }
 }
+

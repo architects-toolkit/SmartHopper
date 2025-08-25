@@ -18,8 +18,23 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// </summary>
     public interface IAIProviderSettings
     {
+        /// <summary>
+        /// Gets the setting descriptors that will be used to create the Settings dialog.
+        /// </summary>
+        /// <returns>The setting descriptors.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
 
+        /// <summary>
+        /// Validates the settings.
+        /// </summary>
+        /// <param name="settings">The settings to validate.</param>
+        /// <returns>True if the settings are valid, false otherwise.</returns>
         bool ValidateSettings(Dictionary<string, object> settings);
+
+        /// <summary>
+        /// Gets a value indicating whether streaming is enabled for this provider.
+        /// Implementations should source this from the persisted provider settings (EnableStreaming).
+        /// </summary>
+        bool EnableStreaming { get; }
     }
 }

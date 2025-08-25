@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -22,7 +21,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Text
 {
@@ -31,6 +30,8 @@ namespace SmartHopper.Components.Text
         public override Guid ComponentGuid => new Guid("D4723EA1-3BB9-4C9F-9AB2-EF1234567890");
         protected override Bitmap Icon => Resources.textlistgenerate;
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override AICapability RequiredCapability => AICapability.Text2Json;
 
         public AITextListGenerate()
             : base(

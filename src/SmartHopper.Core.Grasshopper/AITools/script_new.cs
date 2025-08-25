@@ -19,7 +19,11 @@ using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -166,13 +170,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""additionalProperties"": false
                 }".Replace('"', '"');
 
-                // Build AIRequestCall with schema and context filter
-                var requestBody = new AIBody
-                {
-                    JsonOutputSchema = jsonSchema,
-                    ContextFilter = contextFilter,
-                };
-                requestBody.AddInteraction(AIAgent.System, $"""
+                // Build AIRequestCall with schema and context filter using immutable body
+                var bodyBuilder = AIBodyBuilder.Create()
+                    .WithJsonOutputSchema(jsonSchema)
+                    .WithContextFilter(contextFilter)
+                    .AddSystem($"""
                     You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
                     
                     Your response MUST be a valid JSON object with the following structure:
@@ -181,8 +183,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     - outputs: Array of output parameters with name, type, and description
                     
                     The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
-                    """);
-                requestBody.AddInteraction(AIAgent.User, prompt);
+                    """)
+                    .AddUser(prompt);
+                var immutableRequestBody = bodyBuilder.Build();
 
                 var request = new AIRequestCall();
                 request.Initialize(
@@ -190,7 +193,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     endpoint: endpoint,
-                    body: requestBody);
+                    body: immutableRequestBody);
 
                 var result = await request.Exec().ConfigureAwait(false);
                 if (!result.Success)
@@ -311,10 +314,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult.Add("inputs", scriptInputs);
                     toolResult.Add("outputs", scriptOutputs);
 
-                    var toolBody = new AIBody();
-                    toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
-
-                    output.CreateSuccess(toolBody);
+                    var outBuilder = AIBodyBuilder.Create();
+                    outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, result.Messages);
+                    var outImmutable = outBuilder.Build();
+                    output.CreateSuccess(outImmutable, toolCall);
                     return output;
                 }
                 output.CreateError("Failed to retrieve placed component GUID.");

@@ -13,12 +13,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.JsonSchemas;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -27,10 +37,7 @@ namespace SmartHopper.Providers.OpenAI
     /// </summary>
     public sealed class OpenAIProvider : AIProvider<OpenAIProvider>
     {
-        /// <summary>
-        /// Thread-local storage for schema wrapper information during request/response cycle.
-        /// </summary>
-        private static readonly ThreadLocal<SchemaWrapperInfo> CurrentWrapperInfo = new ThreadLocal<SchemaWrapperInfo>();
+        // Schema wrapper information is centralized in JsonSchemaService via AsyncLocal.
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenAIProvider"/> class.
@@ -38,6 +45,8 @@ namespace SmartHopper.Providers.OpenAI
         private OpenAIProvider()
         {
             this.Models = new OpenAIProviderModels(this);
+            // Register provider-specific JSON schema adapter
+            JsonSchemaAdapterRegistry.Register(new OpenAIJsonSchemaAdapter());
         }
 
         /// <summary>
@@ -56,6 +65,15 @@ namespace SmartHopper.Providers.OpenAI
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Helper to retrieve the configured API key for this provider.
+        /// Exposed to nested streaming adapter to avoid protected access issues.
+        /// </summary>
+        internal string GetApiKey()
+        {
+            return this.GetSetting<string>("ApiKey");
+        }
+
+        /// <summary>
         /// Gets the provider's icon.
         /// </summary>
         public override Image Icon
@@ -68,6 +86,14 @@ namespace SmartHopper.Providers.OpenAI
                     return new Bitmap(ms);
                 }
             }
+        }
+
+        /// <summary>
+        /// Returns a streaming adapter for OpenAI that yields incremental AIReturn deltas.
+        /// </summary>
+        public IStreamingAdapter GetStreamingAdapter()
+        {
+            return new OpenAIStreamingAdapter(this);
         }
 
         /// <inheritdoc/>
@@ -89,6 +115,7 @@ namespace SmartHopper.Providers.OpenAI
             else if (request.Endpoint == "/models")
             {
                 request.HttpMethod = "GET";
+                request.RequestKind = AIRequestKind.Backoffice;
             }
             else
             {
@@ -251,8 +278,10 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     // Image generation response - create a dummy request for processing
                     var dummyRequest = new AIRequestCall();
-                    dummyRequest.Body = new AIBody();
-                    dummyRequest.Body.Interactions = new List<IAIInteraction> { new AIInteractionImage { Agent = AIAgent.User } };
+                    var body = AIBodyBuilder.Create()
+                        .Add(new AIInteractionImage { Agent = AIAgent.Assistant })
+                        .Build();
+                    dummyRequest.Body = body;
                     return this.ProcessImageGenerationResponseData(responseJson, dummyRequest);
                 }
                 else if (responseJson["choices"] != null)
@@ -308,11 +337,11 @@ namespace SmartHopper.Providers.OpenAI
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
-                    var (wrappedSchema, wrapperInfo) = WrapSchemaForOpenAI(schemaObj);
-
-                    // Store wrapper info for response unwrapping
-                    CurrentWrapperInfo.Value = wrapperInfo;
-                    Debug.WriteLine($"[OpenAI] Schema wrapper info stored: IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    var svc = JsonSchemaService.Instance;
+                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+                    // Store wrapper info for response unwrapping centrally
+                    svc.SetCurrentWrapperInfo(wrapperInfo);
+                    Debug.WriteLine($"[OpenAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     requestBody["response_format"] = new JObject
                     {
@@ -329,13 +358,13 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
                     // Continue without schema if parsing fails
-                    CurrentWrapperInfo.Value = new SchemaWrapperInfo { IsWrapped = false };
+                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
             }
             else
             {
                 // No schema, so no wrapping needed
-                CurrentWrapperInfo.Value = new SchemaWrapperInfo { IsWrapped = false };
+                JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
             }
 
             // Add tools if requested
@@ -524,11 +553,11 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 // Implement schema unwrapping if needed
-                var wrapperInfo = CurrentWrapperInfo.Value;
+                var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[OpenAI] Unwrapping response content using wrapper info: Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
-                    content = UnwrapResponseContent(content, wrapperInfo);
+                    Debug.WriteLine($"[OpenAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                     Debug.WriteLine($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
                 }
 
@@ -616,130 +645,340 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
-        /// Wraps non-object root schemas to meet OpenAI Structured Outputs requirements.
-        /// OpenAI requires root schemas to be objects, so we wrap arrays and other types.
+        /// Provider-scoped streaming adapter for OpenAI Chat Completions SSE.
         /// </summary>
-        /// <param name="originalSchema">The original JSON schema.</param>
-        /// <returns>Tuple with wrapped schema and wrapper info for response unwrapping.</returns>
-        private static (JObject schema, SchemaWrapperInfo wrapperInfo) WrapSchemaForOpenAI(JObject originalSchema)
+        private sealed class OpenAIStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
-            var schemaType = originalSchema["type"]?.ToString();
-
-            // If it's already an object, return as-is
-            if ("object".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
+            public OpenAIStreamingAdapter(OpenAIProvider provider) : base(provider)
             {
-                return (originalSchema, new SchemaWrapperInfo { IsWrapped = false });
             }
 
-            // For arrays, wrap in an object with "items" property
-            if ("array".Equals(schemaType, StringComparison.OrdinalIgnoreCase))
+            public async IAsyncEnumerable<AIReturn> StreamAsync(
+                AIRequestCall request,
+                StreamingOptions options,
+                [EnumeratorCancellation] CancellationToken cancellationToken = default)
             {
-                var wrappedSchema = new JObject
+                if (request == null)
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JObject
-                    {
-                        ["items"] = originalSchema,
-                    },
-                    ["required"] = new JArray { "items" },
-                    ["additionalProperties"] = false,
+                    yield break;
+                }
+
+                // Prepare request via provider (sets endpoint, method, auth kind)
+                request = this.Prepare(request);
+
+                // Only chat completions are supported for streaming for now
+                if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
+                {
+                    var unsupported = new AIReturn();
+                    unsupported.CreateProviderError("Streaming is only supported for /chat/completions in this adapter.", request);
+                    yield return unsupported;
+                    yield break;
+                }
+
+                // Build request body and enable streaming
+                JObject body;
+                try
+                {
+                    body = JObject.Parse(this.Provider.Encode(request));
+                }
+                catch
+                {
+                    body = new JObject();
+                }
+                body["stream"] = true;
+                // Ask OpenAI to include token usage in the final streaming chunk
+                // See: stream_options.include_usage = true
+                body["stream_options"] = new JObject
+                {
+                    ["include_usage"] = true,
                 };
 
-                return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items" });
-            }
+                // Build URL with helper
+                var fullUrl = this.BuildFullUrl(request.Endpoint);
 
-            // For other primitive types (string, number, integer, boolean), wrap them
-            if (new[] { "string", "number", "integer", "boolean" }.Contains(schemaType))
-            {
-                var wrappedSchema = new JObject
+                // Configure HTTP client and authentication via helpers
+                using var httpClient = this.CreateHttpClient();
+                AIReturn? authError = null;
+                try
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JObject
-                    {
-                        ["value"] = originalSchema,
-                    },
-                    ["required"] = new JArray { "value" },
-                    ["additionalProperties"] = false,
+                    var apiKey = ((OpenAIProvider)this.Provider).GetApiKey();
+                    this.ApplyAuthentication(httpClient, request.Authentication, apiKey);
+                }
+                catch (Exception ex)
+                {
+                    authError = new AIReturn();
+                    authError.CreateProviderError(ex.Message, request);
+                }
+                if (authError != null)
+                {
+                    yield return authError;
+                    yield break;
+                }
+
+                using var httpRequest = this.CreateSsePost(fullUrl, body.ToString(), "application/json");
+
+                HttpResponseMessage response;
+                AIReturn? sendError = null;
+                try
+                {
+                    response = await this.SendForStreamAsync(httpClient, httpRequest, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    sendError = new AIReturn();
+                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    response = null!;
+                }
+                if (sendError != null)
+                {
+                    yield return sendError;
+                    yield break;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var err = new AIReturn();
+                    err.CreateProviderError($"HTTP {(int)response.StatusCode}: {content}", request);
+                    yield return err;
+                    yield break;
+                }
+
+                // Streaming state
+                var buffer = new StringBuilder();
+                var lastEmit = DateTime.UtcNow;
+                var firstChunk = true;
+                string finalFinishReason = string.Empty;
+                int promptTokens = 0;
+                int completionTokens = 0;
+
+                // Provider-local aggregate of assistant text
+                var assistantAggregate = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = string.Empty,
+                    Reasoning = string.Empty,
+                    Metrics = new AIMetrics { Provider = this.Provider.Name, Model = request.Model },
                 };
 
-                return (wrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType, PropertyName = "value" });
-            }
+                // Tool call accumulation (index -> partial)
+                var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
 
-            // For unknown types, wrap generically
-            var genericWrappedSchema = new JObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JObject
+                // Helper local function to emit text chunk
+                async IAsyncEnumerable<AIReturn> EmitAsync(string text, bool streamingStatus)
                 {
-                    ["data"] = originalSchema,
-                },
-                ["required"] = new JArray { "data" },
-                ["additionalProperties"] = false,
-            };
+                    if (string.IsNullOrEmpty(text)) yield break;
 
-            return (genericWrappedSchema, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data" });
-        }
+                    // Append to provider-local aggregate
+                    assistantAggregate.AppendDelta(contentDelta: text);
 
-        /// <summary>
-        /// Unwraps OpenAI responses that were wrapped due to schema transformation.
-        /// </summary>
-        /// <param name="content">The response content from OpenAI.</param>
-        /// <param name="wrapperInfo">Information about how the schema was wrapped.</param>
-        /// <returns>The unwrapped content in original format.</returns>
-        private static string UnwrapResponseContent(string content, SchemaWrapperInfo wrapperInfo)
-        {
-            if (!wrapperInfo.IsWrapped || string.IsNullOrWhiteSpace(content))
-            {
-                return content;
-            }
-
-            try
-            {
-                var responseObj = JObject.Parse(content);
-                var unwrappedValue = responseObj[wrapperInfo.PropertyName];
-
-                if (unwrappedValue != null)
-                {
-                    // For arrays and objects, return as JSON string
-                    if (unwrappedValue.Type == JTokenType.Array || unwrappedValue.Type == JTokenType.Object)
+                    // Emit a snapshot copy to avoid aliasing across yields
+                    var snapshot = new AIInteractionText
                     {
-                        return unwrappedValue.ToString(Newtonsoft.Json.Formatting.None);
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+
+                    var delta = new AIReturn
+                    {
+                        Request = request,
+                        Status = streamingStatus ? AICallStatus.Streaming : AICallStatus.Processing,
+                    };
+                    delta.SetBody(new List<IAIInteraction> { snapshot });
+                    yield return delta;
+                    await Task.Yield();
+                }
+
+                // Helper to maybe flush buffer per options and return deltas to emit
+                async Task<List<AIReturn>> FlushAsync(bool force)
+                {
+                    var results = new List<AIReturn>();
+                    if (buffer.Length == 0) return results;
+                    var elapsed = (DateTime.UtcNow - lastEmit).TotalMilliseconds;
+                    if (force || !options.CoalesceTokens || buffer.Length >= options.PreferredChunkSize || elapsed >= options.CoalesceDelayMs)
+                    {
+                        var text = buffer.ToString();
+                        buffer.Clear();
+                        lastEmit = DateTime.UtcNow;
+                        await foreach (var d in EmitAsync(text, streamingStatus: true).WithCancellation(cancellationToken))
+                        {
+                            results.Add(d);
+                        }
+                    }
+                    return results;
+                }
+
+                // Yield initial processing state (optional)
+                {
+                    var initial = new AIReturn { Request = request, Status = AICallStatus.Processing };
+                    initial.SetBody(new List<IAIInteraction>());
+                    yield return initial;
+                }
+
+                await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
+                {
+                    JObject parsed;
+                    try
+                    {
+                        parsed = JObject.Parse(data);
+                    }
+                    catch
+                    {
+                        // Skip malformed chunk
+                        continue;
                     }
 
-                    // For primitive values, return the value directly
-                    return unwrappedValue.ToString();
+                    var choices = parsed["choices"] as JArray;
+                    var choice = choices?.FirstOrDefault() as JObject;
+                    var delta = choice?["delta"] as JObject;
+                    var finishReason = choice?["finish_reason"]?.ToString();
+                    if (!string.IsNullOrEmpty(finishReason)) finalFinishReason = finishReason;
+
+                    // Usage metrics (only present in final chunk when include_usage=true)
+                    var usage = parsed["usage"] as JObject;
+                    if (usage != null)
+                    {
+                        var pt = usage["prompt_tokens"]?.Value<int?>();
+                        var ct = usage["completion_tokens"]?.Value<int?>();
+                        if (pt.HasValue) promptTokens = pt.Value;
+                        if (ct.HasValue) completionTokens = ct.Value;
+
+                        // Update aggregate metrics
+                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        {
+                            Provider = this.Provider.Name,
+                            Model = request.Model,
+                            InputTokensPrompt = pt ?? 0,
+                            OutputTokensGeneration = ct ?? 0,
+                        });
+                    }
+
+                    // Content streaming
+                    var contentDelta = delta?["content"]?.ToString();
+                    if (!string.IsNullOrEmpty(contentDelta))
+                    {
+                        buffer.Append(contentDelta);
+                        if (firstChunk)
+                        {
+                            firstChunk = false;
+                            // Force immediate first emit for snappy UX
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted) { yield return d; }
+                        }
+                        else
+                        {
+                            var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                            foreach (var d in emitted) { yield return d; }
+                        }
+                    }
+
+                    // Tool calls streaming
+                    var tcArray = delta?["tool_calls"] as JArray;
+                    if (tcArray != null)
+                    {
+                        foreach (var t in tcArray.OfType<JObject>())
+                        {
+                            var idx = t["index"]?.Value<int?>() ?? 0;
+                            if (!toolCalls.TryGetValue(idx, out var entry))
+                            {
+                                entry = (Id: string.Empty, Name: string.Empty, Args: new StringBuilder());
+                                toolCalls[idx] = entry;
+                            }
+
+                            // id
+                            var idVal = t["id"]?.ToString();
+                            if (!string.IsNullOrEmpty(idVal)) entry.Id = idVal;
+
+                            var func = t["function"] as JObject;
+                            if (func != null)
+                            {
+                                var name = func["name"]?.ToString();
+                                if (!string.IsNullOrEmpty(name)) entry.Name = name;
+                                var args = func["arguments"]?.ToString();
+                                if (!string.IsNullOrEmpty(args)) entry.Args.Append(args);
+                            }
+
+                            toolCalls[idx] = entry; // update
+                        }
+
+                        // If we know we're heading to tool calls, flush text first
+                        var emittedTc = await FlushAsync(force: true).ConfigureAwait(false);
+                        foreach (var d in emittedTc) { yield return d; }
+
+                        // Emit current tool call snapshot with CallingTools status
+                        var interactions = new List<IAIInteraction>();
+                        foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                        {
+                            var (id, name, argsSb) = kv.Value;
+                            JObject argsObj = null;
+                            var argsStr = argsSb.ToString();
+                            try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
+                            interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                        }
+
+                        var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                        tcDelta.SetBody(interactions);
+                        yield return tcDelta;
+                    }
                 }
+
+                // Final flush
+                var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
+                foreach (var d in finalEmitted) { yield return d; }
+
+                // Emit final Finished marker with the complete assistant interaction
+                var final = new AIReturn
+                {
+                    Request = request,
+                    Status = AICallStatus.Finished,
+                };
+                var finalMetrics = new AIMetrics
+                {
+                    Provider = this.Provider.Name,
+                    Model = request.Model,
+                    FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
+                    InputTokensPrompt = promptTokens,
+                    OutputTokensGeneration = completionTokens,
+                };
+                final.Metrics = finalMetrics;
+
+                // Align aggregate metrics finish reason as well
+                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
+
+                // Snapshot the final assistant interaction
+                var finalSnapshot = new AIInteractionText
+                {
+                    Agent = assistantAggregate.Agent,
+                    Content = assistantAggregate.Content,
+                    Reasoning = assistantAggregate.Reasoning,
+                    Metrics = new AIMetrics
+                    {
+                        Provider = assistantAggregate.Metrics.Provider,
+                        Model = assistantAggregate.Metrics.Model,
+                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                    },
+                };
+                final.SetBody(new List<IAIInteraction> { finalSnapshot });
+                yield return final;
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OpenAI] Failed to unwrap response: {ex.Message}");
-
-                // Return original content if unwrapping fails
-            }
-
-            return content;
-        }
-
-        /// <summary>
-        /// Information about schema wrapping for response unwrapping.
-        /// </summary>
-        private class SchemaWrapperInfo
-        {
-            /// <summary>
-            /// Gets or sets a value indicating whether the response content is wrapped.
-            /// </summary>
-            public bool IsWrapped { get; set; }
-
-            /// <summary>
-            /// Gets or sets the type of wrapper applied to the response content.
-            /// Expected values could include "array", "object", or other schema-related types.
-            /// </summary>
-            public string WrapperType { get; set; } = string.Empty;
-
-            /// <summary>
-            /// Gets or sets the name of the property in the wrapped response that contains the actual data.
-            /// </summary>
-            public string PropertyName { get; set; } = string.Empty;
         }
     }
 }
+

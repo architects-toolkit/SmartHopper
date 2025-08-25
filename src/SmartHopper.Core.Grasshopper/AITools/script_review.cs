@@ -16,7 +16,11 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
@@ -146,12 +150,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     codedIssues.Add("Warning: script language not recognized; static checks may be incomplete.");
                 }
 
-                // AI-based code review using AIRequestCall/AIReturn flow
-                var requestBody = new AIBody
-                {
-                    ContextFilter = contextFilter,
-                };
-                requestBody.AddInteraction(AIAgent.System, "You are a code review assistant. Provide concise feedback on the code.");
+                // AI-based code review using AIRequestCall/AIReturn flow with immutable body
+                var builder = AIBodyBuilder.Create()
+                    .WithContextFilter(contextFilter)
+                    .AddSystem("You are a code review assistant. Provide concise feedback on the code.");
 
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
@@ -162,7 +164,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
                 }
-                requestBody.AddInteraction(AIAgent.User, userPrompt);
+                builder.AddUser(userPrompt);
+                var immutableBody = builder.Build();
 
                 var request = new AIRequestCall();
                 request.Initialize(
@@ -170,7 +173,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput,
                     endpoint: endpoint,
-                    body: requestBody);
+                    body: immutableBody);
 
                 var result = await request.Exec().ConfigureAwait(false);
                 if (!result.Success)
@@ -187,10 +190,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("codedIssues", new JArray(codedIssues));
                 toolResult.Add("aiReview", response);
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
-
-                output.CreateSuccess(toolBody);
+                var outBuilder = AIBodyBuilder.Create();
+                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, result.Messages);
+                var outImmutable = outBuilder.Build();
+                output.CreateSuccess(outImmutable, toolCall);
                 return output;
             }
             catch (Exception ex)

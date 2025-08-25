@@ -20,11 +20,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     /// </summary>
     public class AssistantSettingsPage : Panel
     {
-        private readonly CheckBox _enableAIGreetingCheckBox;
-
         private readonly DropDown _assistantProviderComboBox;
 
         private readonly TextBox _assistantModelTextBox;
+
+        private readonly CheckBox _enableCanvasButtonCheckBox;
+
+        private readonly CheckBox _enableAIGreetingCheckBox;
 
         private readonly IAIProvider[] _providers;
 
@@ -37,15 +39,20 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             _providers = providers;
 
             // Create controls
-            _enableAIGreetingCheckBox = new CheckBox
-            {
-                Text = "Enable AI-generated greetings in chat"
-            };
-
             _assistantProviderComboBox = new DropDown();
             _assistantModelTextBox = new TextBox
             {
                 PlaceholderText = "Enter model name or leave empty for default"
+            };
+
+            _enableCanvasButtonCheckBox = new CheckBox
+            {
+                Text = "Enable canvas button"
+            };
+
+            _enableAIGreetingCheckBox = new CheckBox
+            {
+                Text = "Enable AI-generated greetings in chat"
             };
 
             // Populate provider dropdown
@@ -67,20 +74,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Label
             {
                 Text = "Configure settings for the SmartHopper Canvas Assistant. Talk to it by clicking on the top-right button in the canvas.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
-            });
-
-            // Add spacing
-            layout.Add(new Panel { Height = 10 });
-
-            // AI Greeting section
-            layout.Add(_enableAIGreetingCheckBox);
-            layout.Add(new Label
-            {
-                Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation. Disable it to prevent extra tokens being used.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
@@ -136,6 +129,34 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
+            // Canvas Button section
+            layout.Add(_enableCanvasButtonCheckBox);
+            layout.Add(new Label
+            {
+                Text = "When enabled, the canvas button will show at the top-right corner of the canvas.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
+
+            // Add end spacing
+            layout.Add(new Panel { Height = 10 });
+
+            // AI Greeting section
+            layout.Add(_enableAIGreetingCheckBox);
+            layout.Add(new Label
+            {
+                Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation. Disable it to prevent extra tokens being used.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500  // Max width for better text wrapping
+            });
+
+            // Add spacing
+            layout.Add(new Panel { Height = 10 });
+
             Content = new Scrollable { Content = layout };
         }
 
@@ -145,9 +166,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="settings">Assistant settings to load</param>
         public void LoadSettings(AssistantSettings settings)
         {
-            // Set greeting checkbox
-            _enableAIGreetingCheckBox.Checked = settings.EnableAIGreeting;
-
             // Set assistant provider
             if (!string.IsNullOrEmpty(settings.AssistantProvider))
             {
@@ -167,6 +185,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Set assistant model in text box
             _assistantModelTextBox.Text = settings.AssistantModel ?? string.Empty;
+
+            // Set canvas button checkbox
+            _enableCanvasButtonCheckBox.Checked = settings.EnableCanvasButton;
+
+            // Set greeting checkbox
+            _enableAIGreetingCheckBox.Checked = settings.EnableAIGreeting;
         }
 
         /// <summary>
@@ -175,9 +199,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="settings">Assistant settings to update</param>
         public void SaveSettings(AssistantSettings settings)
         {
-            // Save greeting setting
-            settings.EnableAIGreeting = _enableAIGreetingCheckBox.Checked ?? false;
-
             // Save assistant provider
             if (_assistantProviderComboBox.SelectedIndex >= 0)
             {
@@ -186,6 +207,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Save assistant model (trim whitespace)
             settings.AssistantModel = _assistantModelTextBox.Text?.Trim() ?? string.Empty;
+
+            // Save canvas button setting
+            settings.EnableCanvasButton = _enableCanvasButtonCheckBox.Checked ?? false;
+
+            // Save greeting setting
+            settings.EnableAIGreeting = _enableAIGreetingCheckBox.Checked ?? false;
         }
     }
 }

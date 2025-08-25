@@ -18,27 +18,35 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
     /// Dialog-based chat interface using WebView for rendering HTML content.
     /// </summary>
-    internal class WebChatDialog : Form
+    internal partial class WebChatDialog : Form
     {
         // UI Components
         private readonly WebView _webView;
         private readonly TextArea _userInputTextArea;
         private readonly Button _sendButton;
         private readonly Button _clearButton;
+        private readonly Button _cancelButton;
         private readonly ProgressBar _progressBar;
         private readonly Label _statusLabel;
 
@@ -48,16 +56,23 @@ namespace SmartHopper.Core.UI.Chat
         private readonly HtmlChatRenderer _htmlRenderer = new HtmlChatRenderer();
         private bool _webViewInitialized = false;
         private readonly TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
+        private ConversationSession _currentSession;
+        private System.Threading.CancellationTokenSource _currentCts;
 
         // Chat history and request management
         private readonly AIRequestCall _initialRequest;
         private readonly List<IAIInteraction> _chatHistory = new List<IAIInteraction>();
         private AIReturn _lastReturn = new AIReturn();
 
-        /// <summary>
-        /// Event raised when a new AI response is received.
+        // Event raised when a new AI response is received.
         /// </summary>
         public event EventHandler<AIReturn> ResponseReceived;
+
+        /// <summary>
+        /// Event raised whenever the chat state is updated (partial streams, tool events, user messages, or final result).
+        /// Carries a snapshot AIReturn reflecting the current conversation state.
+        /// </summary>
+        public event EventHandler<AIReturn> ChatUpdated;
 
         /// <summary>
         /// Gets the last AI return received from the chat dialog.
@@ -172,6 +187,13 @@ namespace SmartHopper.Core.UI.Chat
             };
             this._clearButton.Click += this.ClearButton_Click;
 
+            this._cancelButton = new Button
+            {
+                Text = "Cancel",
+                Enabled = false,
+            };
+            this._cancelButton.Click += this.CancelButton_Click;
+
             this._progressBar = new ProgressBar
             {
                 Indeterminate = true,
@@ -195,6 +217,7 @@ namespace SmartHopper.Core.UI.Chat
             inputLayout.BeginHorizontal();
             inputLayout.Add(this._userInputTextArea, xscale: true);
             inputLayout.Add(this._sendButton);
+            inputLayout.Add(this._cancelButton);
             inputLayout.EndHorizontal();
             mainLayout.Add(inputLayout);
 
@@ -263,6 +286,32 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Raises a final ChatUpdated snapshot when the dialog closes so listeners can flush state.
+        /// </summary>
+        /// <param name="e">Event args.</param>
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                var snapshot = this._lastReturn;
+                // If we never had a return with interactions, synthesize one from the current history
+                if (snapshot == null || snapshot.Body?.Interactions == null)
+                {
+                    snapshot = new AIReturn();
+                    snapshot.CreateSuccess(new List<IAIInteraction>(this._chatHistory), this._initialRequest);
+                }
+
+                this.ChatUpdated?.Invoke(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] OnClosed ChatUpdated error: {ex.Message}");
+            }
+
+            base.OnClosed(e);
+        }
+
+        /// <summary>
         /// Initializes the WebView control asynchronously.
         /// </summary>
         private async Task InitializeWebViewAsync()
@@ -271,9 +320,8 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine("[WebChatDialog] Starting WebView initialization from background thread");
 
-                // Get the HTML content on the background thread
-                string html = this._htmlRenderer.GetInitialHtml();
-                Debug.WriteLine($"[WebChatDialog] HTML prepared, length: {html?.Length ?? 0}");
+                // Prepare initial HTML (handled by helper on UI thread)
+                Debug.WriteLine("[WebChatDialog] Preparing initial HTML via helper");
 
                 // Create a task completion source for tracking document loading
                 var loadCompletionSource = new TaskCompletionSource<bool>();
@@ -296,8 +344,8 @@ namespace SmartHopper.Core.UI.Chat
 
                         this._webView.DocumentLoaded += loadHandler;
 
-                        // Load the HTML content
-                        this._webView.LoadHtml(html);
+                        // Load initial HTML and start conversation via helper
+                        this.LoadInitialHtmlAndSystemMessage();
 
                         Debug.WriteLine("[WebChatDialog] HTML loaded into WebView, waiting for load completion");
                     }
@@ -328,21 +376,7 @@ namespace SmartHopper.Core.UI.Chat
                 this._webViewInitialized = true;
                 this._webViewInitializedTcs.TrySetResult(true);
 
-                // Add the welcome message on a background thread
-                await Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Application.Instance.InvokeAsync(() =>
-                        {
-                            this.InitializeNewConversation();
-                        }).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[WebChatDialog] Error adding welcome message: {ex.Message}");
-                    }
-                }).ConfigureAwait(false);
+                // Welcome message already handled by LoadInitialHtmlAndSystemMessage
 
                 Debug.WriteLine("[WebChatDialog] WebView initialization completed successfully");
             }
@@ -400,7 +434,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="e">The event arguments.</param>
         private void SendButton_Click(object sender, EventArgs e)
         {
-            if (!this._isProcessing)
+            if (!this._isProcessing && this._currentSession == null)
             {
                 this.SendMessage();
             }
@@ -415,23 +449,40 @@ namespace SmartHopper.Core.UI.Chat
         {
             this._chatHistory.Clear();
 
+            // Emit an empty/reset snapshot so listeners can clear their state immediately
+            this.EmitResetSnapshot();
+
             // Reset the WebView with initial HTML
             try
             {
                 Debug.WriteLine("[WebChatDialog] Clearing chat and reloading HTML");
-
-                // Get the HTML content directly
-                string html = this._htmlRenderer.GetInitialHtml();
-
-                // Load HTML into WebView
-                this._webView.LoadHtml(html);
-
-                // Add system message to start the conversation
-                this.InitializeNewConversation();
+                // Use centralized helper and queue if needed until WebView is ready
+                this.RunWhenWebViewReady(() =>
+                {
+                    this.LoadInitialHtmlAndSystemMessage();
+                });
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error clearing chat: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Emits an empty AIReturn snapshot to propagate a cleared chat state.
+        /// </summary>
+        private void EmitResetSnapshot()
+        {
+            try
+            {
+                var snapshot = new AIReturn();
+                snapshot.CreateSuccess(new List<IAIInteraction>(), this._initialRequest);
+                this._lastReturn = snapshot;
+                this.ChatUpdated?.Invoke(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] ChatUpdated (reset) error: {ex.Message}");
             }
         }
 
@@ -441,8 +492,22 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="interaction">The AI interaction object containing the message.</param>
         private void AddInteraction(IAIInteraction interaction)
         {
+            try
+            {
+                var metrics = interaction?.Metrics;
+                var contentLen = (interaction as AIInteractionText)?.Content?.Length ?? 0;
+                Debug.WriteLine($"[WebChatDialog] AddInteraction -> agent={interaction?.Agent}, type={interaction?.GetType().Name}, contentLen={contentLen}, metrics={(metrics != null ? $"in={metrics.InputTokens}, out={metrics.OutputTokens}, provider='{metrics.Provider}', model='{metrics.Model}', reason='{metrics.FinishReason}'" : "null")}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] AddInteraction log error: {ex.Message}");
+            }
+
             this._chatHistory.Add(interaction);
             this.AddInteractionToWebView(interaction);
+
+            // Raise incremental update snapshot
+            this.BuildAndEmitSnapshot();
         }
 
         /// <summary>
@@ -577,6 +642,194 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Escapes a string so it can be safely embedded as a JavaScript string literal.
+        /// Centralizes all escaping used by DOM update methods.
+        /// </summary>
+        /// <param name="s">Input string.</param>
+        /// <returns>Escaped string safe for JS string literal.</returns>
+        private static string EscapeForJsString(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return string.Empty;
+            }
+
+            return s
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
+        }
+
+        /// <summary>
+        /// Runs the given UI action once the WebView has completed initialization.
+        /// If already initialized, invokes immediately on the UI thread.
+        /// </summary>
+        private void RunWhenWebViewReady(Action uiAction)
+        {
+            if (uiAction == null) return;
+
+            if (this._webViewInitialized)
+            {
+                Application.Instance.AsyncInvoke(uiAction);
+                return;
+            }
+
+            // Queue until WebView is ready
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await this._webViewInitializedTcs.Task.ConfigureAwait(false);
+                    Application.Instance.AsyncInvoke(uiAction);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] RunWhenWebViewReady error: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Converts an agent to the lowercase JS role string and JSON-encodes it for safe embedding.
+        /// </summary>
+        private static string RoleToJs(AIAgent agent)
+        {
+            return JsonConvert.SerializeObject(agent.ToString().ToLower());
+        }
+
+        /// <summary>
+        /// Executes a JS snippet safely and optionally scrolls to the bottom.
+        /// </summary>
+        private string ExecuteScriptSafe(string js, bool scroll = true)
+        {
+            try
+            {
+                var result = this._webView.ExecuteScript(js);
+                if (scroll)
+                {
+                    this._webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] ExecuteScriptSafe error: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Updates the status label and progress reporter.
+        /// </summary>
+        private void SetStatus(string labelText, string progressText)
+        {
+            Application.Instance.AsyncInvoke(() =>
+            {
+                this._statusLabel.Text = labelText ?? string.Empty;
+                this._progressReporter?.Invoke(progressText ?? string.Empty);
+            });
+        }
+
+        /// <summary>
+        /// Builds a snapshot AIReturn from current chat history and emits ChatUpdated.
+        /// </summary>
+        private void BuildAndEmitSnapshot()
+        {
+            try
+            {
+                var snapshot = new AIReturn();
+                snapshot.CreateSuccess(new List<IAIInteraction>(this._chatHistory), this._initialRequest);
+                this._lastReturn = snapshot;
+                this.ChatUpdated?.Invoke(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] BuildAndEmitSnapshot error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Types of DOM updates supported by the renderer.
+        /// </summary>
+        private enum DomUpdateKind { Add, ReplaceRole, AppendRole }
+
+        /// <summary>
+        /// Centralized DOM update: renders/escapes and executes the proper JS function.
+        /// For AppendRole, provide htmlChunk (already HTML) and it will be escaped for JS.
+        /// </summary>
+        private void RenderAndUpdateDom(IAIInteraction interaction, DomUpdateKind kind, AIAgent? agent = null, string htmlChunk = null)
+        {
+            if (interaction == null && kind != DomUpdateKind.AppendRole)
+            {
+                Debug.WriteLine("[WebChatDialog] RenderAndUpdateDom skipped: interaction is null");
+                return;
+            }
+
+            this.RunWhenWebViewReady(() =>
+            {
+                try
+                {
+                    string js;
+                    switch (kind)
+                    {
+                        case DomUpdateKind.Add:
+                        {
+                            string messageHtml = this._htmlRenderer.GenerateMessageHtml(interaction);
+                            string escapedHtml = EscapeForJsString(messageHtml);
+                            js = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
+                            this.ExecuteScriptSafe(js, scroll: true);
+                            break;
+                        }
+                        case DomUpdateKind.ReplaceRole:
+                        {
+                            if (agent == null) { Debug.WriteLine("[WebChatDialog] ReplaceRole missing agent"); return; }
+                            string messageHtml = this._htmlRenderer.GenerateMessageHtml(interaction);
+                            string escapedHtml = EscapeForJsString(messageHtml);
+                            string roleJs = RoleToJs(agent.Value);
+                            js = $"if (typeof replaceLastMessageByRole === 'function') {{ replaceLastMessageByRole({roleJs}, \"{escapedHtml}\"); return 'Message replaced'; }} else if (typeof replaceLastAssistantMessage === 'function' && {roleJs} === 'assistant') {{ replaceLastAssistantMessage(\"{escapedHtml}\"); return 'Assistant message replaced (fallback)'; }} else {{ return 'replace function not found'; }}";
+                            this.ExecuteScriptSafe(js, scroll: true);
+                            break;
+                        }
+                        case DomUpdateKind.AppendRole:
+                        {
+                            if (agent == null) { Debug.WriteLine("[WebChatDialog] AppendRole missing agent"); return; }
+                            if (string.IsNullOrEmpty(htmlChunk)) { Debug.WriteLine("[WebChatDialog] AppendRole empty chunk"); return; }
+                            string escapedChunk = EscapeForJsString(htmlChunk);
+                            string roleJs = RoleToJs(agent.Value);
+                            js = $"if (typeof appendToLastMessageByRole === 'function') {{ appendToLastMessageByRole({roleJs}, \"{escapedChunk}\"); return 'Chunk appended'; }} else if (typeof appendToLastAssistantMessage === 'function' && {roleJs} === 'assistant') {{ appendToLastAssistantMessage(\"{escapedChunk}\"); return 'Assistant chunk appended (fallback)'; }} else {{ return 'append function not found'; }}";
+                            this.ExecuteScriptSafe(js, scroll: true);
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] RenderAndUpdateDom error: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Loads initial HTML into the WebView and starts a new conversation (system + greeting).
+        /// Assumes UI thread.
+        /// </summary>
+        private void LoadInitialHtmlAndSystemMessage()
+        {
+            try
+            {
+                string html = this._htmlRenderer.GetInitialHtml();
+                this._webView.LoadHtml(html);
+                this.InitializeNewConversation();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] LoadInitialHtmlAndSystemMessage error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Adds an interaction to the WebView with the specified role.
         /// </summary>
         /// <param name="interaction">The AI interaction object containing metrics.</param>
@@ -584,62 +837,81 @@ namespace SmartHopper.Core.UI.Chat
         {
             if (interaction is null)
             {
-                Debug.WriteLine($"[WebChatDialog] Skipping empty message for role: {interaction.Agent.ToString()}");
+                Debug.WriteLine("[WebChatDialog] Skipping empty interaction (null)");
                 return;
             }
 
-            if (!this._webViewInitialized)
+            Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView -> {interaction.Agent}");
+            this.RenderAndUpdateDom(interaction, DomUpdateKind.Add);
+        }
+
+        /// <summary>
+        /// Updates chat history with the provided assistant interaction (mutates the last assistant entry if present,
+        /// otherwise adds a new one) and replaces the last assistant message in the WebView.
+        /// </summary>
+        /// <param name="interaction">Assistant text interaction to persist and render.</param>
+        private void ReplaceLastAssistantMessage(AIInteractionText interaction)
+        {
+            if (interaction == null)
             {
-                // Queue the message to be added after initialization
-                Debug.WriteLine($"[WebChatDialog] WebView not initialized yet, queueing message: {interaction.Agent}");
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        await this._webViewInitializedTcs.Task.ConfigureAwait(false);
-                        Debug.WriteLine($"[WebChatDialog] WebView now initialized, adding queued message: {interaction.Agent}");
-                        Application.Instance.AsyncInvoke(() => this.AddInteractionToWebView(interaction));
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[WebChatDialog] Error waiting for WebView initialization to add message: {ex.Message}");
-                    }
-                });
+                Debug.WriteLine("[WebChatDialog] ReplaceLastAssistantMessage skipped: interaction is null");
                 return;
             }
 
-            try
+            // Don't manage _chatHistory here since this is used by Streaming. Only on final state will _chatHistory be updated.
+
+            // Only used by greeting for now. Will be removed in future.
+
+            // Update history by mutating the last assistant entry if present (e.g., replacing a loading message)
+            var lastAssistant = this._chatHistory.LastOrDefault(x => x.Agent == AIAgent.Assistant) as AIInteractionText;
+            if (lastAssistant != null)
             {
-                // Generate HTML for the message
-                Debug.WriteLine($"[WebChatDialog] Generating HTML for message: {interaction.Agent.ToString()}");
-                string messageHtml = this._htmlRenderer.GenerateMessageHtml(interaction);
-
-                // Execute JavaScript to add the message to the WebView
-                Debug.WriteLine("[WebChatDialog] Executing JavaScript to add message");
-
-                // Escape special characters in the message HTML
-                string escapedHtml = messageHtml
-                    .Replace("\\", "\\\\")
-                    .Replace("\"", "\\\"")
-                    .Replace("\n", "\\n")
-                    .Replace("\r", "\\r")
-                    .Replace("\t", "\\t");
-
-                // Try a different approach for executing JavaScript
-                string script = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
-                string result = this._webView.ExecuteScript(script);
-
-                Debug.WriteLine($"[WebChatDialog] JavaScript execution result: {result}");
-
-                // Scroll to bottom
-                this._webView.ExecuteScript("if (typeof scrollToBottom === 'function') { scrollToBottom(); }");
-                Debug.WriteLine("[WebChatDialog] Message added successfully");
+                lastAssistant.Content = interaction.Content;
+                lastAssistant.Reasoning = interaction.Reasoning;
+                lastAssistant.Metrics = interaction.Metrics ?? lastAssistant.Metrics;
             }
-            catch (Exception ex)
+            else
             {
-                Debug.WriteLine($"[WebChatDialog] Error adding message to WebView: {ex.Message}");
-                Debug.WriteLine($"[WebChatDialog] Error stack trace: {ex.StackTrace}");
+                // If not present for any reason, add to history
+                this._chatHistory.Add(interaction);
             }
+
+            // Update UI
+            this.ReplaceLastMessageByRole(AIAgent.Assistant, interaction);
+        }
+
+        /// <summary>
+        /// Replaces the last message for the given role with the provided interaction's rendered HTML.
+        /// Falls back to appending if no message exists for that role yet.
+        /// </summary>
+        /// <param name="agent">Message role (user, assistant, system, tool).</param>
+        /// <param name="interaction">Interaction to render.</param>
+        private void ReplaceLastMessageByRole(AIAgent agent, IAIInteraction interaction)
+        {
+            if (interaction is null)
+            {
+                Debug.WriteLine("[WebChatDialog] ReplaceLastMessageByRole skipped: interaction is null");
+                return;
+            }
+
+            this.RenderAndUpdateDom(interaction, DomUpdateKind.ReplaceRole, agent);
+        }
+
+        /// <summary>
+        /// Appends an HTML chunk to the last message content for the given role.
+        /// If no message exists for that role, it creates one.
+        /// </summary>
+        /// <param name="agent">Message role (user, assistant, system, tool).</param>
+        /// <param name="htmlChunk">HTML chunk to append (already sanitized/escaped HTML).</param>
+        private void AppendToLastMessageByRole(AIAgent agent, string htmlChunk)
+        {
+            if (string.IsNullOrEmpty(htmlChunk))
+            {
+                Debug.WriteLine("[WebChatDialog] AppendToLastMessageByRole skipped: empty chunk");
+                return;
+            }
+
+            this.RenderAndUpdateDom(null, DomUpdateKind.AppendRole, agent, htmlChunk);
         }
 
         /// <summary>
@@ -650,10 +922,13 @@ namespace SmartHopper.Core.UI.Chat
             if (!this._webViewInitialized)
             {
                 Debug.WriteLine("[WebChatDialog] Cannot send message, WebView not initialized");
-                Application.Instance.AsyncInvoke(() =>
-                {
-                    this._statusLabel.Text = "WebView is still initializing. Please wait...";
-                });
+                this.SetStatus("WebView is still initializing. Please wait...", "Please wait...");
+                return;
+            }
+
+            if (this._currentSession != null)
+            {
+                Debug.WriteLine("[WebChatDialog] A session is already running. Ignoring Send.");
                 return;
             }
 
@@ -672,11 +947,8 @@ namespace SmartHopper.Core.UI.Chat
             this._isProcessing = true;
             this._sendButton.Enabled = false;
             this._progressBar.Visible = true;
-            Application.Instance.AsyncInvoke(() =>
-            {
-                this._statusLabel.Text = "Thinking...";
-                this._progressReporter?.Invoke("Thinking...");
-            });
+            this._cancelButton.Enabled = true;
+            this.SetStatus("Thinking...", "Thinking...");
 
             try
             {
@@ -686,11 +958,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine($"[WebChatDialog] Error getting response: {ex.Message}");
                 this.AddSystemMessage($"Error: {ex.Message}", "error");
-                Application.Instance.AsyncInvoke(() =>
-                {
-                    this._statusLabel.Text = "Error occurred";
-                    this._progressReporter?.Invoke("Error :(");
-                });
+                this.SetStatus("Error occurred", "Error :(");
             }
             finally
             {
@@ -698,6 +966,7 @@ namespace SmartHopper.Core.UI.Chat
                 this._isProcessing = false;
                 this._sendButton.Enabled = true;
                 this._progressBar.Visible = false;
+                this._cancelButton.Enabled = false;
             }
         }
 
@@ -710,44 +979,108 @@ namespace SmartHopper.Core.UI.Chat
             {
                 // Make a copy and update chat history
                 var request = this._initialRequest;
-                request.OverrideInteractions(this._chatHistory);
+                request.OverrideInteractions(new System.Collections.Generic.List<IAIInteraction>(this._chatHistory));
 
-                Debug.WriteLine("[WebChatDialog] Getting response from AI provider");
-                var result = await request.Exec(processTools: true).ConfigureAwait(false);
+                Debug.WriteLine("[WebChatDialog] Preparing ConversationSession with streaming fallback");
+                var observer = new WebChatObserver(this);
+                this._currentCts = new CancellationTokenSource();
+                this._currentSession = new ConversationSession(request, observer);
+                var options = new SessionOptions { ProcessTools = true, CancellationToken = this._currentCts.Token };
 
-                // Store the last return for external access
-                this._lastReturn = result;
-
-                if (!result.Success)
+                // Decide whether streaming should be attempted first
+                bool shouldTryStreaming = false;
+                try
                 {
-                    Debug.WriteLine($"[WebChatDialog] AI request failed: {result.ErrorMessage}");
-                    this.AddSystemMessage($"Error: {result.ErrorMessage}", "error");
-                    Application.Instance.AsyncInvoke(() =>
+                    request.WantsStreaming = true;
+                    var validation = request.IsValid();
+                    shouldTryStreaming = validation.IsValid;
+                    if (!shouldTryStreaming)
                     {
-                        this._statusLabel.Text = "Error in response";
-                        this._progressReporter?.Invoke("Error :(");
-                    });
-                    return;
-                }
-
-                // Add returned interactions to chat history and display them
-                if (result.Body.Interactions?.Count > 0)
-                {
-                    foreach (var interaction in result.Body.Interactions)
-                    {
-                        this._chatHistory.Add(interaction);
-                        await Application.Instance.InvokeAsync(() => this.AddInteractionToWebView(interaction));
+                        Debug.WriteLine("[WebChatDialog] Streaming validation failed, will fallback to non-streaming.");
                     }
                 }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] Streaming validation threw: {ex.Message}. Falling back.");
+                    shouldTryStreaming = false;
+                }
+                finally
+                {
+                    // Ensure we don't carry the streaming intent into non-streaming execution
+                    request.WantsStreaming = false;
+                }
 
-                // Process any pending tool calls
-                // await this.ProcessPendingToolCalls(result);
+                if (shouldTryStreaming)
+                {
+                    Debug.WriteLine("[WebChatDialog] Starting streaming path");
+                    var streamingOptions = new StreamingOptions();
+
+                    // Consume the stream to drive incremental UI updates via observer
+                    // Track the last streamed return so we can decide about fallback.
+                    AIReturn lastStreamReturn = null;
+                    await foreach (var r in this._currentSession.Stream(options, streamingOptions, this._currentCts.Token))
+                    {
+                        lastStreamReturn = r;
+                        // No-op: observer handles partial/final UI updates and _lastReturn.
+                    }
+
+                    // If streaming finished with an error or yielded nothing, fallback to non-streaming.
+                    if (lastStreamReturn == null || !lastStreamReturn.Success)
+                    {
+                        Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
+                        // Ensure streaming flag is not set for non-streaming execution
+                        request.WantsStreaming = false;
+                        var fallbackResult = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+                        this._lastReturn = fallbackResult;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("[WebChatDialog] Starting non-streaming path");
+                    var result = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+
+                    // Store the last return for external access (observer also sets this on final)
+                    this._lastReturn = result;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error in ProcessAIInteraction: {ex.Message}");
                 throw; // Rethrow to be handled by SendMessage
             }
+            finally
+            {
+                try { this._currentCts?.Cancel(); } catch { }
+                this._currentCts?.Dispose();
+                this._currentCts = null;
+                this._currentSession = null;
+            }
+        }
+
+        /// <summary>
+        /// Cancels the current running session, if any.
+        /// </summary>
+        private void CancelCurrentRun()
+        {
+            try
+            {
+                this._cancelButton.Enabled = false;
+                this._currentCts?.Cancel();
+                this._currentSession?.Cancel();
+                Debug.WriteLine("[WebChatDialog] Cancellation requested");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles the cancel button click event.
+        /// </summary>
+        private void CancelButton_Click(object sender, EventArgs e)
+        {
+            this.CancelCurrentRun();
         }
 
         /// <summary>
@@ -761,8 +1094,6 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Display system message as collapsible if provided
-
-                // TODO: Why is systemMessageText always null? Is _chatHistory empty?
 
                 var systemMessageText = this._chatHistory
                     .OfType<AIInteractionText>()
@@ -780,11 +1111,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (!settings.SmartHopperAssistant.EnableAIGreeting)
                 {
                     // Skip greeting entirely if disabled
-                    await Application.Instance.InvokeAsync(() =>
-                    {
-                        this._statusLabel.Text = "Ready";
-                        this._progressReporter?.Invoke("Ready");
-                    });
+                    this.SetStatus("Ready", "Ready");
                     return;
                 }
 
@@ -792,8 +1119,7 @@ namespace SmartHopper.Core.UI.Chat
                 await Application.Instance.InvokeAsync(() =>
                 {
                     this.AddAssistantMessage("💬 Loading message...");
-                    this._statusLabel.Text = "Generating greeting...";
-                    this._progressReporter?.Invoke("Generating greeting...");
+                    this.SetStatus("Generating greeting...", "Generating greeting...");
                 });
 
                 // Generate AI greeting message using a context-aware custom prompt
@@ -838,8 +1164,8 @@ namespace SmartHopper.Core.UI.Chat
                     // Log provider/model for diagnostics
                     Debug.WriteLine($"[WebChatDialog] Generating greeting with provider='{this._initialRequest.Provider}', model='{this._initialRequest.Model}', interactions={greetingInteractions?.Count ?? 0}");
 
-                    // Execute with tools processing disabled and enforce a timeout
-                    var execTask = greetingRequest.Exec(processTools: false);
+                    // Execute with tools processing disabled (tool filter set to "-*") and enforce a timeout
+                    var execTask = greetingRequest.Exec();
                     var timeoutTask = Task.Delay(30000);
                     var completed = await Task.WhenAny(execTask, timeoutTask).ConfigureAwait(false);
                     if (completed == execTask)
@@ -886,38 +1212,32 @@ namespace SmartHopper.Core.UI.Chat
                     Debug.WriteLine($"[WebChatDialog] Error while logging greeting diagnostics: {diagEx.Message}");
                 }
 
-                // Replace loading message with actual greeting or fallback
+                // Replace loading message with actual greeting or fallback using streaming-style replace
                 await Application.Instance.InvokeAsync(() =>
                 {
-                    // Remove loading message from both history and UI
-                    this.RemoveLastAssistantMessage();
-
-                    // Add the actual greeting message
+                    AIInteractionText finalGreeting = null;
                     if (greetingResult != null && greetingResult.Success &&
                         greetingResult.Body.Interactions?.Count > 0)
                     {
-                        // Find the assistant response in the interactions
-                        var assistantInteraction = greetingResult.Body.Interactions
+                        finalGreeting = greetingResult.Body.Interactions
                             .OfType<AIInteractionText>()
                             .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-
-                        if (assistantInteraction != null && !string.IsNullOrEmpty(assistantInteraction.Content))
-                        {
-                            this.AddAssistantMessage(assistantInteraction.Content, assistantInteraction.Metrics);
-                        }
-                        else
-                        {
-                            this.AddAssistantMessage(defaultGreeting);
-                        }
                     }
-                    else
+
+                    if (finalGreeting == null || string.IsNullOrWhiteSpace(finalGreeting.Content))
                     {
-                        // Fallback to default greeting if AI generation fails or times out
-                        this.AddAssistantMessage(defaultGreeting);
+                        finalGreeting = new AIInteractionText
+                        {
+                            Agent = AIAgent.Assistant,
+                            Content = defaultGreeting,
+                            Metrics = new AIMetrics()
+                        };
                     }
 
-                    this._statusLabel.Text = "Ready";
-                    this._progressReporter?.Invoke("Ready");
+                    // Persist and update UI via the helper
+                    this.ReplaceLastAssistantMessage(finalGreeting);
+
+                    this.SetStatus("Ready", "Ready");
                 }).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -930,10 +1250,10 @@ namespace SmartHopper.Core.UI.Chat
                     // Clear any loading messages and add fallback greeting
                     this.RemoveLastAssistantMessage();
                     this.AddAssistantMessage(defaultGreeting);
-                    this._statusLabel.Text = "Ready";
-                    this._progressReporter?.Invoke("Ready");
+                    this.SetStatus("Ready", "Ready");
                 }).ConfigureAwait(false);
             }
         }
     }
 }
+

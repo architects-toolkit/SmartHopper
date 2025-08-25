@@ -22,7 +22,9 @@ using System.Threading.Tasks;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Core.UI.Chat
@@ -36,6 +38,11 @@ namespace SmartHopper.Core.UI.Chat
         /// Dictionary to track open chat dialogs by component instance ID.
         /// </summary>
         private static readonly Dictionary<Guid, WebChatDialog> OpenDialogs = new ();
+
+        /// <summary>
+        /// Tracks ChatUpdated subscriptions to avoid duplicate handlers per component.
+        /// </summary>
+        private static readonly Dictionary<Guid, EventHandler<AIReturn>> UpdateHandlers = new ();
 
         /// <summary>
         /// Static constructor to set up application shutdown handling.
@@ -71,6 +78,12 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             try
                             {
+                                // Detach update handler if any
+                                if (UpdateHandlers.TryGetValue(dialogId, out var handler))
+                                {
+                                    try { dialog.ChatUpdated -= handler; } catch { /* ignore */ }
+                                    UpdateHandlers.Remove(dialogId);
+                                }
                                 dialog?.Close();
                             }
                             catch (Exception ex)
@@ -93,14 +106,181 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Unsubscribes any ChatUpdated handler associated with the given component ID and
+        /// removes the handler from internal tracking. Safe to call even if no dialog is open.
+        /// </summary>
+        /// <param name="componentId">The component instance ID.</param>
+        public static void Unsubscribe(Guid componentId)
+        {
+            try
+            {
+                if (componentId == Guid.Empty)
+                {
+                    return;
+                }
+
+                if (OpenDialogs.TryGetValue(componentId, out var dialog))
+                {
+                    if (UpdateHandlers.TryGetValue(componentId, out var handler))
+                    {
+                        try { dialog.ChatUpdated -= handler; } catch { /* ignore */ }
+                        UpdateHandlers.Remove(componentId);
+                    }
+                }
+                else
+                {
+                    // No open dialog, just clear any stale handler reference
+                    if (UpdateHandlers.ContainsKey(componentId))
+                    {
+                        UpdateHandlers.Remove(componentId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatUtils] Unsubscribe error for {componentId}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the current last return for an open dialog, if any; otherwise null.
+        /// </summary>
+        public static AIReturn? TryGetLastReturn(Guid componentId)
+        {
+            try
+            {
+                if (componentId != Guid.Empty && OpenDialogs.TryGetValue(componentId, out var dialog))
+                {
+                    return dialog.GetLastReturn();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatUtils] TryGetLastReturn error for {componentId}: {ex.Message}");
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Ensures the Eto.Forms Application is initialized and attached.
+        /// </summary>
+        private static void EnsureEtoApplication()
+        {
+            if (Application.Instance == null)
+            {
+                Debug.WriteLine("[WebChatUtils] Initializing Eto.Forms application");
+                var platform = Eto.Platform.Detect;
+                new Application(platform).Attach();
+            }
+        }
+
+        /// <summary>
+        /// Brings a dialog to front, ensuring it is visible and focused.
+        /// </summary>
+        private static void BringToFrontAndFocus(WebChatDialog dialog)
+        {
+            dialog.EnsureVisibility();
+            dialog.BringToFront();
+            dialog.Focus();
+        }
+
+        /// <summary>
+        /// Attaches (or replaces) a ChatUpdated handler for a component/dialog pair and tracks it.
+        /// </summary>
+        private static void AttachOrReplaceUpdateHandler(
+            Guid componentId,
+            WebChatDialog dialog,
+            Action<string>? progressReporter,
+            Action<AIReturn>? onUpdate,
+            bool pushCurrentImmediately = false)
+        {
+            if (onUpdate == null)
+            {
+                return;
+            }
+
+            if (UpdateHandlers.TryGetValue(componentId, out var oldHandler))
+            {
+                try { dialog.ChatUpdated -= oldHandler; } catch { /* ignore */ }
+            }
+
+            EventHandler<AIReturn> handler = (s, snapshot) =>
+            {
+                try
+                {
+                    progressReporter?.Invoke("Chatting...");
+                    onUpdate?.Invoke(snapshot);
+                }
+                catch (Exception updEx)
+                {
+                    Debug.WriteLine($"[WebChatUtils] ChatUpdated handler error: {updEx.Message}");
+                }
+            };
+
+            dialog.ChatUpdated += handler;
+            UpdateHandlers[componentId] = handler;
+
+            if (pushCurrentImmediately)
+            {
+                try
+                {
+                    var current = dialog.GetLastReturn();
+                    if (current != null)
+                    {
+                        onUpdate(current);
+                    }
+                }
+                catch { /* ignore */ }
+            }
+        }
+
+        /// <summary>
+        /// Wires dialog closed cleanup and optionally completes a TaskCompletionSource with the last return.
+        /// </summary>
+        private static void WireClosedCleanup(Guid componentId, WebChatDialog dialog, TaskCompletionSource<AIReturn>? tcs = null)
+        {
+            dialog.Closed += (sender, e) =>
+            {
+                Debug.WriteLine("[WebChatUtils] Dialog closed");
+                try
+                {
+                    if (componentId != default)
+                    {
+                        OpenDialogs.Remove(componentId);
+                        if (UpdateHandlers.ContainsKey(componentId))
+                        {
+                            UpdateHandlers.Remove(componentId);
+                        }
+                    }
+
+                    var last = dialog.GetLastReturn();
+                    tcs?.TrySetResult(last);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatUtils] Closed cleanup error: {ex.Message}");
+                }
+            };
+        }
+
+        /// <summary>
+        /// Computes required capability from a tool filter.
+        /// </summary>
+        private static AICapability ComputeRequiredCapabilities(string toolFilter)
+        {
+            return toolFilter != "-*" ? AICapability.ToolChat : AICapability.Text2Text;
+        }
+
+        /// <summary>
         /// Shows a web-based chat dialog for the specified AI request.
         /// If a dialog is already open for the specified component, it will be focused instead of creating a new one.
         /// </summary>
         /// <param name="request">The AI request call containing provider, model, and configuration.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
+        /// <param name="onUpdate">Optional callback invoked on incremental chat updates with an AIReturn snapshot.</param>
         /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId, Action<string>? progressReporter = null)
+        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId, Action<string>? progressReporter = null, Action<AIReturn>? onUpdate = null)
         {
             if (componentId == Guid.Empty)
             {
@@ -119,70 +299,62 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        // Initialize Eto.Forms application if needed
-                        if (Application.Instance == null)
-                        {
-                            Debug.WriteLine("[WebChatUtils] Initializing Eto.Forms application");
-                            var platform = Eto.Platform.Detect;
-                            new Application(platform).Attach();
-                        }
+                        EnsureEtoApplication();
 
-                        // Check if a dialog is already open for this component
+                        // Reuse existing dialog if present
                         if (componentId != default && OpenDialogs.TryGetValue(componentId, out WebChatDialog existingDialog))
                         {
                             Debug.WriteLine("[WebChatUtils] Reusing existing dialog for component");
-
-                            // Use the cross-platform EnsureVisibility method to make the dialog visible
-                            existingDialog.EnsureVisibility();
-
-                            // Get the last return from the existing dialog
-                            var existingReturn = existingDialog.GetLastReturn();
-                            tcs.TrySetResult(existingReturn);
+                            BringToFrontAndFocus(existingDialog);
+                            AttachOrReplaceUpdateHandler(componentId, existingDialog, progressReporter, onUpdate);
+                            tcs.TrySetResult(existingDialog.GetLastReturn());
                             return;
                         }
 
                         Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
                         var dialog = new WebChatDialog(request, progressReporter);
-
-                        // If component ID is provided, store the dialog
                         if (componentId != default)
                         {
                             OpenDialogs[componentId] = dialog;
                         }
 
-                        // Handle dialog closing
-                        dialog.Closed += (sender, e) =>
-                        {
-                            Debug.WriteLine("[WebChatUtils] Dialog closed");
+                        // Closed cleanup + result propagation
+                        WireClosedCleanup(componentId, dialog, tcs);
 
-                            // Remove dialog from tracking
+                        // Incremental updates
+                        if (onUpdate != null)
+                        {
+                            EventHandler<AIReturn> handler = (sender, snapshot) =>
+                            {
+                                try
+                                {
+                                    lastReturn = snapshot;
+                                    progressReporter?.Invoke("Chatting...");
+                                    onUpdate?.Invoke(snapshot);
+                                }
+                                catch (Exception updEx)
+                                {
+                                    Debug.WriteLine($"[WebChatUtils] ChatUpdated handler error: {updEx.Message}");
+                                }
+                            };
+                            dialog.ChatUpdated += handler;
                             if (componentId != default)
                             {
-                                OpenDialogs.Remove(componentId);
+                                UpdateHandlers[componentId] = handler;
                             }
+                        }
 
-                            // Complete the task with the last return
-                            lastReturn = dialog.GetLastReturn();
-                            tcs.TrySetResult(lastReturn);
-                        };
-
-                        // Handle response received
+                        // Final response received (optional)
                         dialog.ResponseReceived += (sender, result) =>
                         {
                             Debug.WriteLine("[WebChatUtils] Response received from dialog");
                             lastReturn = result;
                         };
 
-                        // Configure the dialog window
                         dialog.Title = $"SmartHopper AI Chat - {request.Model} ({request.Provider})";
-
-                        // Show the dialog as a non-modal window
                         Debug.WriteLine("[WebChatUtils] Showing dialog");
                         dialog.Show();
-
-                        // Ensure the dialog is visible and active
-                        dialog.BringToFront();
-                        dialog.Focus();
+                        BringToFrontAndFocus(dialog);
                     }
                     catch (Exception ex)
                     {
@@ -202,6 +374,85 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Ensures a non-modal web chat dialog is open and focused for the given component. This method returns immediately
+        /// and wires the ChatUpdated event (at most once per component) to provide incremental updates.
+        /// </summary>
+        /// <param name="providerName">AI provider name.</param>
+        /// <param name="modelName">Model name.</param>
+        /// <param name="endpoint">Custom endpoint identifier.</param>
+        /// <param name="systemPrompt">Optional system prompt.</param>
+        /// <param name="toolFilter">Tool filter for capabilities.</param>
+        /// <param name="componentId">The unique component instance ID.</param>
+        /// <param name="progressReporter">Progress reporter that will also be invoked on updates.</param>
+        /// <param name="onUpdate">Callback for incremental updates.</param>
+        public static void EnsureDialogOpen(
+            string providerName,
+            string modelName,
+            string endpoint,
+            string systemPrompt,
+            string toolFilter,
+            Guid componentId,
+            Action<string> progressReporter = null!,
+            Action<AIReturn>? onUpdate = null)
+        {
+            if (componentId == Guid.Empty)
+            {
+                componentId = Guid.NewGuid();
+            }
+
+            // Build request like WebChatWorker does
+            var requiredCapabilites = ComputeRequiredCapabilities(toolFilter);
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: providerName,
+                model: modelName,
+                systemPrompt: systemPrompt,
+                endpoint: endpoint,
+                capability: requiredCapabilites,
+                toolFilter: toolFilter);
+
+            try
+            {
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        EnsureEtoApplication();
+
+                        if (OpenDialogs.TryGetValue(componentId, out var existing))
+                        {
+                            BringToFrontAndFocus(existing);
+                            AttachOrReplaceUpdateHandler(componentId, existing, progressReporter, onUpdate, pushCurrentImmediately: true);
+                            return;
+                        }
+
+                        var dialog = new WebChatDialog(request, progressReporter);
+                        OpenDialogs[componentId] = dialog;
+
+                        WireClosedCleanup(componentId, dialog);
+
+                        AttachOrReplaceUpdateHandler(componentId, dialog, progressReporter, onUpdate);
+
+                        dialog.Title = $"SmartHopper AI Chat - {request.Model} ({request.Provider})";
+                        dialog.Show();
+                        BringToFrontAndFocus(dialog);
+                        progressReporter?.Invoke("Ready");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatUtils] EnsureDialogOpen UI error: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatUtils] EnsureDialogOpen error: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Worker class for processing web chat interactions asynchronously.
         /// </summary>
         public class WebChatWorker
@@ -210,6 +461,7 @@ namespace SmartHopper.Core.UI.Chat
             private readonly Action<string> progressReporter;
             private readonly Guid componentId;
             private AIReturn? lastReturn;
+            private readonly Action<AIReturn>? onUpdateCallback;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="WebChatWorker"/> class.
@@ -228,13 +480,10 @@ namespace SmartHopper.Core.UI.Chat
                 string systemPrompt,
                 string toolFilter,
                 Action<string> progressReporter,
-                Guid componentId = default)
+                Guid componentId = default,
+                Action<AIReturn>? onUpdate = null)
             {
-                var requiredCapabilites = AICapability.Text2Text;
-                if (toolFilter != "-*")
-                {
-                    requiredCapabilites = AICapability.ToolChat;
-                }
+                var requiredCapabilites = ComputeRequiredCapabilities(toolFilter);
                 
                 this.initialRequest.Initialize(
                     provider: providerName,
@@ -245,6 +494,7 @@ namespace SmartHopper.Core.UI.Chat
                     toolFilter: toolFilter);
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
+                this.onUpdateCallback = onUpdate;
             }
 
             /// <summary>
@@ -278,7 +528,15 @@ namespace SmartHopper.Core.UI.Chat
                     this.lastReturn = await ShowWebChatDialog(
                         request: this.initialRequest,
                         componentId: this.componentId,
-                        progressReporter: reporter).ConfigureAwait(false);
+                        progressReporter: reporter,
+                        onUpdate: snapshot =>
+                        {
+                            // Keep lastReturn updated incrementally and expire the component solution
+                            this.lastReturn = snapshot;
+                            reporter?.Invoke("Chatting...");
+                            // Propagate snapshot to caller if provided
+                            try { this.onUpdateCallback?.Invoke(snapshot); } catch (Exception cbEx) { Debug.WriteLine($"[WebChatWorker] onUpdate callback error: {cbEx.Message}"); }
+                        }).ConfigureAwait(false);
                     reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)
@@ -337,7 +595,8 @@ namespace SmartHopper.Core.UI.Chat
             string systemPrompt,
             string toolFilter,
             Guid componentId,
-            Action<string> progressReporter = null!)
+            Action<string> progressReporter = null!,
+            Action<AIReturn>? onUpdate = null)
         {
             if (componentId == Guid.Empty)
             {
@@ -351,7 +610,9 @@ namespace SmartHopper.Core.UI.Chat
                 systemPrompt,
                 toolFilter,
                 progressReporter,
-                componentId);
+                componentId,
+                onUpdate);
         }
     }
 }
+

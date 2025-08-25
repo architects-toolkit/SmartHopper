@@ -32,10 +32,13 @@ namespace SmartHopper.Infrastructure.AIProviders
             this._provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
-        /// <summary>
-        /// Retrieves all models with full metadata (concrete names only) for this provider.
-        /// </summary>
-        /// <returns>List of AIModelCapabilities.</returns>
+        /// <inheritdoc/>
         public abstract Task<List<AIModelCapabilities>> RetrieveModels();
+
+        /// <inheritdoc/>
+        public virtual Task<List<string>> RetrieveApiModels()
+        {
+            return Task.FromResult(new List<string>());
+        }
     }
 }
