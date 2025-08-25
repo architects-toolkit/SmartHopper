@@ -17,7 +17,11 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -364,10 +368,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["json"] = json,
                 };
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
+                var body = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult)
+                    .Build();
 
-                output.CreateSuccess(toolBody);
+                output.CreateSuccess(body, toolCall);
                 return Task.FromResult(output);
             }
             catch (Exception ex)

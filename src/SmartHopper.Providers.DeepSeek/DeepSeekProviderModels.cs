@@ -33,10 +33,7 @@ namespace SmartHopper.Providers.DeepSeek
             this.deepSeekProvider = provider;
         }
 
-        /// <summary>
-        /// Retrieves all models with full metadata (concrete names only) for DeepSeek.
-        /// </summary>
-        /// <returns>List of AIModelCapabilities.</returns>
+        /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
             var provider = this.deepSeekProvider.Name.ToLower();

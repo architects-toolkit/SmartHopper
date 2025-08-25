@@ -1171,7 +1171,30 @@ namespace SmartHopper.Core.ComponentBase
                             if (value is IGH_Structure tree)
                             {
                                 Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Using existing tree of type: {tree.GetType().FullName}");
-                                DA.SetDataTree(paramIndex, tree);
+                                // Guard: only set data if the tree has at least one branch and at least one item
+                                bool hasBranch = tree.PathCount > 0;
+                                bool hasItems = false;
+                                if (hasBranch)
+                                {
+                                    foreach (var path in tree.Paths)
+                                    {
+                                        var branch = tree.get_Branch(path);
+                                        if (branch != null && branch.Count > 0)
+                                        {
+                                            hasItems = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!hasBranch || !hasItems)
+                                {
+                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Skipping SetDataTree for '{param.Name}' because tree is empty (hasBranch={hasBranch}, hasItems={hasItems})");
+                                }
+                                else
+                                {
+                                    DA.SetDataTree(paramIndex, tree);
+                                }
                             }
                             else
                             {
@@ -1231,6 +1254,36 @@ namespace SmartHopper.Core.ComponentBase
                                 Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Final value type before tree append: {value?.GetType()?.FullName ?? "null"}");
                                 newTree.Append(value as IGH_Goo, new GH_Path(0));
                                 DA.SetDataTree(paramIndex, newTree);
+                            }
+                        }
+                        else if (param.Access == GH_ParamAccess.list)
+                        {
+                            // Handle list outputs properly
+                            Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Setting list output for '{param.Name}'");
+                            if (value is System.Collections.IEnumerable enumerable && !(value is string))
+                            {
+                                var list = new List<IGH_Goo>();
+                                foreach (var item in enumerable)
+                                {
+                                    if (item == null) continue;
+                                    var gooItem = item as IGH_Goo ?? GH_Convert.ToGoo(item);
+                                    if (gooItem != null) list.Add(gooItem);
+                                }
+                                // Always set the list, even if empty, to ensure outputs are cleared when needed
+                                DA.SetDataList(paramIndex, list);
+                            }
+                            else
+                            {
+                                // Single value provided to a list output; wrap it
+                                var single = value as IGH_Goo ?? GH_Convert.ToGoo(value);
+                                if (single != null)
+                                {
+                                    DA.SetDataList(paramIndex, new List<IGH_Goo> { single });
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Unable to convert value for list output '{param.Name}'");
+                                }
                             }
                         }
                         else
@@ -1487,11 +1540,16 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void ExpireDownStreamObjects()
         {
-            // Only expire downstream objects if we're in the completed state, which means that data is ready to output
-            // This prevents the flash of null data until the new solution is ready
-            if (this.currentState == ComponentState.Completed)
+            // Prefer expiring when data is ready:
+            // - Always allow in Completed state
+            // - Also allow in Processing during the post-solve pass (after outputs have been set)
+            bool allowDuringProcessing = this.currentState == ComponentState.Processing
+                                         && !this.InPreSolve
+                                         && (this._setData == 1 || (this.persistentOutputs != null && this.persistentOutputs.Count > 0));
+
+            if (this.currentState == ComponentState.Completed || allowDuringProcessing)
             {
-                Debug.WriteLine("[StatefulAsyncComponentBase] Expiring downstream objects");
+                Debug.WriteLine($"[StatefulAsyncComponentBase] Expiring downstream objects (state: {this.currentState}, InPreSolve: {this.InPreSolve}, setData: {this._setData})");
                 base.ExpireDownStreamObjects();
             }
 

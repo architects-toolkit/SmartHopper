@@ -13,6 +13,7 @@ Provide a convenient base that keeps a reference to the provider and centralizes
 - Ctor: `(IAIProvider provider)`
 - Abstract: `IEnumerable<SettingDescriptor> GetSettingDescriptors()`
 - Abstract: `bool ValidateSettings(Dictionary<string, object> settings)`
+- Property: `bool EnableStreaming { get; }` — reads the provider's persisted `EnableStreaming` setting with fallback to the descriptor default.
 
 ## Relationships
 
@@ -22,3 +23,4 @@ Provide a convenient base that keeps a reference to the provider and centralizes
 ## Notes
 
 - Secret settings are handled via `SmartHopperSettings` encryption; descriptors mark secrets.
+- Providers should expose an `EnableStreaming` boolean descriptor (typically default `true`). The base class will surface the effective value via this property.

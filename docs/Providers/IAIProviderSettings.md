@@ -12,6 +12,12 @@ Declare settings schema for a provider and validate user input before persistenc
 
 - `IEnumerable<SettingDescriptor> GetSettingDescriptors()` — name, description, default, secret flag, allowed values, etc.
 - `bool ValidateSettings(Dictionary<string, object> settings)` — enforce required/allowed values and sanitization.
+- `bool EnableStreaming { get; }` — provider-level toggle to allow/disable streaming responses.
+
+## Streaming toggle
+
+- Implementations should expose an `EnableStreaming` setting descriptor (type `bool`).
+- The base `AIProviderSettings` reads the persisted setting value; providers typically default this to `true` via their descriptors.
 
 ## Relationships
 

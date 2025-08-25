@@ -14,6 +14,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
@@ -22,8 +23,10 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.UI.Chat;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIContext;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.AI
 {
@@ -36,8 +39,12 @@ namespace SmartHopper.Components.AI
         private readonly EnvironmentContextProvider environmentProvider;
         private string _systemPrompt;
 
+        // Removed duplicated last-return storage; use base AIReturn snapshot instead
+
+        protected override AICapability RequiredCapability => AICapability.ToolChat;
+
         private readonly string _defaultSystemPrompt = """
-            You are a not predefined chat. Follow user instructions.
+            Your function is not predefined. Follow user instructions. Be concise in your responses.
             """;
 
         /// <summary>
@@ -72,6 +79,9 @@ namespace SmartHopper.Components.AI
             AIContextManager.UnregisterProvider(this.timeProvider);
             AIContextManager.UnregisterProvider(this.environmentProvider);
 
+            // Ensure we detach ChatUpdated handlers for this component's dialog
+            try { WebChatUtils.Unsubscribe(this.InstanceGuid); } catch { /* ignore */ }
+
             base.RemovedFromDocument(document);
         }
 
@@ -98,10 +108,10 @@ namespace SmartHopper.Components.AI
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "Last Response",
-                "R",
-                "The last response from the AI assistant",
-                GH_ParamAccess.item);
+                "Chat History",
+                "H",
+                "Full chat transcript with timestamps and aggregated metrics",
+                GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -114,7 +124,45 @@ namespace SmartHopper.Components.AI
             DA.GetData("Instructions", ref systemPrompt);
             this.SetSystemPrompt(systemPrompt);
 
+            // Run base state machine/async logic first
             base.SolveInstance(DA);
+
+            // Always reflect the latest AIReturn snapshot in the Chat History output,
+            // even when no workers are currently running (e.g., incremental UI updates).
+            var historyItems = new List<GH_String>();
+            try
+            {
+                var ret = this.GetSnapshot();
+                var interactions = ret?.Body?.Interactions;
+
+                if (interactions != null && interactions.Count > 0)
+                {
+                    foreach (var interaction in interactions)
+                    {
+                        if (interaction == null) continue;
+
+                        Debug.WriteLine($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
+
+                        var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
+                        var role = interaction.Agent.ToDescription();
+                        var content = interaction.ToString() ?? string.Empty;
+
+                        // Inline, single-item per interaction
+                        content = content.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ").Trim();
+                        var line = $"[{ts}] {role}: {content}".Trim();
+                        historyItems.Add(new GH_String(line));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIChatComponent] SolveInstance history build error: {ex.Message}");
+            }
+
+            // Persistently set (or clear) the chat history so downstream updates occur
+            this.SetPersistentOutput("Chat History", historyItems, DA);
+            // Set metrics synchronously with chat history to ensure consistent downstream updates
+            this.SetMetricsOutput(DA);
         }
 
         /// <summary>
@@ -123,7 +171,7 @@ namespace SmartHopper.Components.AI
         /// <param name="systemPrompt">The system prompt to use.</param>
         private void SetSystemPrompt(string systemPrompt)
         {
-            this._systemPrompt = systemPrompt ?? throw new ArgumentNullException(nameof(systemPrompt));
+            this._systemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? this._defaultSystemPrompt : systemPrompt;
         }
 
         /// <summary>
@@ -160,6 +208,24 @@ namespace SmartHopper.Components.AI
         /// </summary>
         public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
+        // No local getters/setters for last return; rely on SetAIReturnSnapshot/GetAIReturnSnapshot from base
+
+        /// <summary>
+        /// Exposes the current AIReturn snapshot from the base class to internal helpers (e.g., nested worker).
+        /// </summary>
+        internal AIReturn GetSnapshot()
+        {
+            return this.GetAIReturnSnapshot();
+        }
+
+        /// <summary>
+        /// Disable base post-solve metrics emission; metrics are emitted synchronously in SolveInstance.
+        /// </summary>
+        protected override bool ShouldEmitMetricsInPostSolve()
+        {
+            return false;
+        }
+
         /// <summary>
         /// Worker class for the AI Chat component.
         /// </summary>
@@ -167,7 +233,7 @@ namespace SmartHopper.Components.AI
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;
-            private AIReturn lastReturn;
+            // No local copy: rely solely on component's AIReturn snapshot
 
             /// <summary>
             /// Initializes a new instance of the <see cref="AIChatWorker"/> class.
@@ -199,31 +265,53 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AIChatWorker] Starting web chat worker");
+                    Debug.WriteLine("[AIChatWorker] Ensuring web chat dialog is open");
                     this.progressReporter?.Invoke("Starting web chat interface...");
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualAIProviderName();
                     Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualAIProviderName()})");
 
-                    // Create a web chat worker
-                    var chatWorker = WebChatUtils.CreateWebChatWorker(
-                        actualProvider,
-                        this.component.GetModel(),
+                    // Ensure dialog is open (non-blocking) and wire incremental updates
+                    WebChatUtils.EnsureDialogOpen(
+                        providerName: actualProvider,
+                        modelName: this.component.GetModel(),
                         endpoint: "ai-chat",
                         systemPrompt: this.component.GetSystemPrompt(),
                         toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
+                        componentId: this.component.InstanceGuid,
                         progressReporter: this.progressReporter,
-                        componentId: this.component.InstanceGuid);
+                        onUpdate: snapshot =>
+                        {
+                            try
+                            {
+                                // Store full AIReturn in the base snapshot so metrics and other
+                                // downstream outputs can be derived from a single source of truth
+                                this.component.SetAIReturnSnapshot(snapshot);
+                                // Force downstream recompute so UI and dependents update promptly
+                                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                                {
+                                    this.component.ExpireSolution(true);
+                                });
+                                // Nudge GH to keep UI responsive
+                                this.progressReporter?.Invoke("Chatting...");
+                            }
+                            catch (Exception cbEx)
+                            {
+                                Debug.WriteLine($"[AIChatWorker] onUpdate callback error: {cbEx.Message}");
+                            }
+                        });
 
-                    // Process the chat
-                    await chatWorker.ProcessChatAsync(token).ConfigureAwait(false);
+                    // Immediately refresh local snapshot if dialog already had content
+                    var current = WebChatUtils.TryGetLastReturn(this.component.InstanceGuid);
+                    if (current != null)
+                    {
+                        // Keep base snapshot synchronized for metrics output
+                        this.component.SetAIReturnSnapshot(current);
+                    }
 
-                    // Get the last return
-                    this.lastReturn = chatWorker.GetLastReturn();
-
-                    Debug.WriteLine("[AIChatWorker] Web chat worker completed");
-                    // this.progressReporter?.Invoke("Web chat completed");
+                    // This worker is intentionally short-lived; incremental updates will retrigger recomputes
+                    await System.Threading.Tasks.Task.CompletedTask;
                 }
                 catch (Exception ex)
                 {
@@ -240,34 +328,11 @@ namespace SmartHopper.Components.AI
             /// <param name="message">Output message.</param>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                message = "Ready";
-
-                if (this.lastReturn != null)
-                {
-                    // Get the text result from the AIReturn
-                    var lastInteraction = this.lastReturn.Body.GetLastInteraction() as AIInteractionText;
-                    string responseText = lastInteraction.Content ?? string.Empty;
-
-                    // Set the last response output
-                    var responseGoo = new GH_String(responseText);
-                    this.component.SetPersistentOutput("Last Response", responseGoo, DA);
-
-                    // Store metrics for the base class to output
-                    var combinedMetrics = this.lastReturn.Metrics;
-                    if (combinedMetrics != null)
-                    {
-                        this.component.StoreResponseMetrics(combinedMetrics);
-                    }
-
-                    message = $"Ready";
-                }
-                else
-                {
-                    // Set empty output if no response
-                    this.component.SetPersistentOutput("Last Response", new GH_String(string.Empty), DA);
-                    message = "Ready";
-                }
+                // Output is set exclusively in AIChatComponent.SolveInstance to avoid duplication/nested branches.
+                // Worker only reports status here.
+                message = "Output data";
             }
         }
     }
 }
+

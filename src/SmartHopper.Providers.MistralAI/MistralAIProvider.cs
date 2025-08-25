@@ -13,10 +13,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.JsonSchemas;
+using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -25,6 +37,8 @@ namespace SmartHopper.Providers.MistralAI
         private MistralAIProvider()
         {
             this.Models = new MistralAIProviderModels(this);
+            // Register provider-specific JSON schema adapter
+            JsonSchemaAdapterRegistry.Register(new MistralAIJsonSchemaAdapter());
         }
 
         /// <summary>
@@ -43,6 +57,15 @@ namespace SmartHopper.Providers.MistralAI
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Helper to retrieve the configured API key for this provider.
+        /// Exposed to nested streaming adapter to avoid protected access issues.
+        /// </summary>
+        internal string GetApiKey()
+        {
+            return this.GetSetting<string>("ApiKey");
+        }
+
+        /// <summary>
         /// Gets the provider's icon.
         /// </summary>
         public override Image Icon
@@ -57,6 +80,14 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
+        /// <summary>
+        /// Returns a streaming adapter for MistralAI that yields incremental AIReturn deltas.
+        /// </summary>
+        public IStreamingAdapter GetStreamingAdapter()
+        {
+            return new MistralAIStreamingAdapter(this);
+        }
+
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)
         {
@@ -67,6 +98,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 case "/models":
                     request.HttpMethod = "GET";
+                    request.RequestKind = AIRequestKind.Backoffice;
                     break;
                 default:
                     // Setup proper httpmethod, content type, and authentication
@@ -250,22 +282,39 @@ namespace SmartHopper.Providers.MistralAI
                 ["temperature"] = temperature,
             };
 
-            // Add JSON schema if provided
+            // Add JSON schema if provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(jsonSchema))
             {
-                // Add response format for structured output
-                requestBody["response_format"] = new JObject
+                try
                 {
-                    ["type"] = "json_object",
-                };
+                    var schemaObj = JObject.Parse(jsonSchema);
+                    var svc = JsonSchemaService.Instance;
+                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+                    // Store wrapper info for response unwrapping centrally
+                    svc.SetCurrentWrapperInfo(wrapperInfo);
+                    Debug.WriteLine($"[MistralAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
-                // Add schema as a system message to guide the model
-                var systemMessage = new JObject
+                    // Mistral supports json_object response_format; we guide with a system message including wrapped schema
+                    requestBody["response_format"] = new JObject { ["type"] = "json_object" };
+
+                    var systemMessage = new JObject
+                    {
+                        ["role"] = "system",
+                        ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + wrappedSchema.ToString(Newtonsoft.Json.Formatting.None),
+                    };
+                    convertedMessages.Insert(0, systemMessage);
+                }
+                catch (Exception ex)
                 {
-                    ["role"] = "system",
-                    ["content"] = "The response must be a valid JSON object that strictly follows this schema: " + jsonSchema,
-                };
-                convertedMessages.Insert(0, systemMessage);
+                    Debug.WriteLine($"[MistralAI] Failed to parse JSON schema: {ex.Message}");
+                    // Continue without schema if parsing fails
+                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+                }
+            }
+            else
+            {
+                // No schema, so no wrapping needed
+                JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
             }
 
             // Add tools if requested
@@ -354,6 +403,14 @@ namespace SmartHopper.Providers.MistralAI
                     content = contentToken.ToString();
                 }
 
+                // Unwrap response content if schema was wrapped centrally
+                var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
+                if (wrapperInfo != null && wrapperInfo.IsWrapped)
+                {
+                    Debug.WriteLine($"[MistralAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
+                }
+
                 var interaction = new AIInteractionText();
                 interaction.SetResult(
                     agent: AIAgent.Assistant,
@@ -415,6 +472,323 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             return metrics;
+        }
+
+        /// <summary>
+        /// Streaming adapter for MistralAI chat completions using SSE.
+        /// </summary>
+        private sealed class MistralAIStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
+        {
+            private readonly MistralAIProvider provider;
+
+            public MistralAIStreamingAdapter(MistralAIProvider provider) : base(provider)
+            {
+                this.provider = provider;
+            }
+
+            public async IAsyncEnumerable<AIReturn> StreamAsync(
+                AIRequestCall request,
+                StreamingOptions options,
+                [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                if (request == null)
+                {
+                    yield break;
+                }
+
+                // Prepare through provider pipeline (sets endpoint/method/auth)
+                request = this.Prepare(request);
+
+                // Support chat completions endpoint only
+                if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
+                {
+                    var unsupported = new AIReturn();
+                    unsupported.CreateError($"Streaming not supported for endpoint '{request.Endpoint}'. Use /chat/completions.", request);
+                    yield return unsupported;
+                    yield break;
+                }
+
+                // Build request body and enable streaming
+                JObject bodyObj;
+                AIReturn? bodyError = null;
+                try
+                {
+                    var body = this.provider.Encode(request);
+                    bodyObj = string.IsNullOrWhiteSpace(body) ? new JObject() : JObject.Parse(body);
+                }
+                catch (Exception ex)
+                {
+                    bodyObj = new JObject();
+                    bodyError = new AIReturn();
+                    bodyError.CreateProviderError($"Failed to prepare streaming body: {ex.Message}", request);
+                }
+                if (bodyError != null)
+                {
+                    yield return bodyError;
+                    yield break;
+                }
+
+                bodyObj["stream"] = true;
+
+                var url = this.BuildFullUrl(request.Endpoint);
+                using var client = this.CreateHttpClient();
+                AIReturn? authError = null;
+                try
+                {
+                    this.ApplyAuthentication(client, request.Authentication, this.provider.GetApiKey());
+                }
+                catch (Exception ex)
+                {
+                    authError = new AIReturn();
+                    authError.CreateProviderError(ex.Message, request);
+                }
+                if (authError != null)
+                {
+                    yield return authError;
+                    yield break;
+                }
+
+                using var httpReq = this.CreateSsePost(url, bodyObj.ToString());
+                HttpResponseMessage response;
+                AIReturn? sendError = null;
+                try
+                {
+                    response = await this.SendForStreamAsync(client, httpReq, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    sendError = new AIReturn();
+                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    response = null!;
+                }
+                if (sendError != null)
+                {
+                    yield return sendError;
+                    yield break;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var err = new AIReturn();
+                    err.CreateProviderError($"HTTP {(int)response.StatusCode}: {content}", request);
+                    yield return err;
+                    yield break;
+                }
+
+                // Emit initial processing state (helps UI prepare)
+                var initial = new AIReturn { Request = request, Status = AICallStatus.Processing };
+                initial.SetBody(new List<IAIInteraction>());
+                yield return initial;
+
+                var textBuffer = new StringBuilder();
+                var haveStreamedAny = false;
+                // Collect metrics from streaming (Mistral includes usage in the last chunk per docs)
+                var streamMetrics = new AIMetrics
+                {
+                    Provider = this.provider.Name,
+                    Model = request.Model,
+                };
+                string? lastFinishReason = null;
+
+                // Provider-local aggregate of assistant text
+                var assistantAggregate = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = string.Empty,
+                    Reasoning = string.Empty,
+                    Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
+                };
+
+                await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
+                {
+                    JObject parsed;
+                    try
+                    {
+                        parsed = JObject.Parse(data);
+                    }
+                    catch
+                    {
+                        // Skip malformed chunk
+                        continue;
+                    }
+
+                    // Mistral chat stream is expected to contain choices[].delta or choices[].message fragments
+                    var choices = parsed["choices"] as JArray;
+                    var choice = choices?.FirstOrDefault() as JObject;
+                    if (choice == null)
+                    {
+                        continue;
+                    }
+
+                    // Capture model if present on any chunk
+                    var modelVal = parsed["model"]?.ToString();
+                    if (!string.IsNullOrEmpty(modelVal))
+                    {
+                        streamMetrics.Model = modelVal;
+                    }
+
+                    // Capture usage metrics if present (Mistral returns usage in the last chunk)
+                    if (parsed["usage"] is JObject usageObj)
+                    {
+                        streamMetrics.InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
+                        streamMetrics.OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+
+                        // Update aggregate metrics as they become available
+                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        {
+                            Provider = this.provider.Name,
+                            Model = streamMetrics.Model,
+                            InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? 0,
+                            OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? 0,
+                        });
+                    }
+
+                    // Try delta.content (string or array); fallback to message.content
+                    string newText = string.Empty;
+                    var delta = choice["delta"] as JObject;
+                    if (delta != null)
+                    {
+                        var contentToken = delta["content"];
+                        if (contentToken is JArray contentArray)
+                        {
+                            foreach (var part in contentArray.OfType<JObject>())
+                            {
+                                if (string.Equals(part["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var t = part["text"]?.ToString();
+                                    if (!string.IsNullOrEmpty(t)) newText += t;
+                                }
+                            }
+                        }
+                        else if (contentToken != null)
+                        {
+                            newText = contentToken.ToString();
+                        }
+
+                        // Minimal tool call streaming support
+                        if (delta["tool_calls"] is JArray tcs && tcs.Count > 0)
+                        {
+                            var toolInteractions = new List<IAIInteraction>();
+                            foreach (var tcTok in tcs.OfType<JObject>())
+                            {
+                                var toolCall = new AIInteractionToolCall
+                                {
+                                    Id = tcTok["id"]?.ToString(),
+                                    Name = tcTok["function"]?[(object)"name"]?.ToString(),
+                                    Arguments = tcTok["function"]?[(object)"arguments"] as JObject,
+                                    Agent = AIAgent.ToolCall,
+                                };
+                                toolInteractions.Add(toolCall);
+                            }
+
+                            var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                            tcDelta.SetBody(toolInteractions);
+                            yield return tcDelta;
+                            haveStreamedAny = true;
+                        }
+                    }
+                    else
+                    {
+                        var message = choice["message"] as JObject;
+                        var content = message?["content"];
+                        if (content is JArray contentArray)
+                        {
+                            foreach (var part in contentArray.OfType<JObject>())
+                            {
+                                if (string.Equals(part["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var t = part["text"]?.ToString();
+                                    if (!string.IsNullOrEmpty(t)) newText += t;
+                                }
+                            }
+                        }
+                        else if (content != null)
+                        {
+                            newText = content.ToString();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(newText))
+                    {
+                        textBuffer.Append(newText);
+                        // Append to provider-local aggregate and emit a snapshot
+                        assistantAggregate.AppendDelta(contentDelta: newText);
+
+                        var snapshot = new AIInteractionText
+                        {
+                            Agent = assistantAggregate.Agent,
+                            Content = assistantAggregate.Content,
+                            Reasoning = assistantAggregate.Reasoning,
+                            Metrics = new AIMetrics
+                            {
+                                Provider = assistantAggregate.Metrics.Provider,
+                                Model = assistantAggregate.Metrics.Model,
+                                FinishReason = assistantAggregate.Metrics.FinishReason,
+                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            },
+                        };
+
+                        var deltaRet = new AIReturn
+                        {
+                            Request = request,
+                            Status = AICallStatus.Streaming,
+                        };
+                        deltaRet.SetBody(new List<IAIInteraction> { snapshot });
+                        yield return deltaRet;
+                        haveStreamedAny = true;
+                    }
+
+                    // Handle finish reason if present to emit final status later (record before potential break)
+                    var finishReason = choice["finish_reason"]?.ToString();
+                    if (!string.IsNullOrEmpty(finishReason))
+                    {
+                        lastFinishReason = finishReason;
+                    }
+                    if (!string.IsNullOrEmpty(finishReason) && string.Equals(finishReason, "stop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                }
+
+                // Emit final finished state with complete assistant interaction
+                var final = new AIReturn
+                {
+                    Request = request,
+                    Status = AICallStatus.Finished,
+                };
+
+                // Attach metrics so UI can display usage after streaming completes
+                streamMetrics.FinishReason = lastFinishReason ?? (haveStreamedAny ? "stop" : streamMetrics.FinishReason);
+                final.Metrics = streamMetrics;
+
+                // Align aggregate finish reason
+                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });
+
+                var finalSnapshot = new AIInteractionText
+                {
+                    Agent = assistantAggregate.Agent,
+                    Content = assistantAggregate.Content,
+                    Reasoning = assistantAggregate.Reasoning,
+                    Metrics = new AIMetrics
+                    {
+                        Provider = assistantAggregate.Metrics.Provider,
+                        Model = assistantAggregate.Metrics.Model,
+                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                    },
+                };
+                final.SetBody(new List<IAIInteraction> { finalSnapshot });
+                yield return final;
+            }
         }
     }
 }

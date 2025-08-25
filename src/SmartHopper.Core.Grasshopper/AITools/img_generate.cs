@@ -15,7 +15,11 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 
@@ -100,21 +104,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Create image interaction for request
-                var imageInteraction = new AIInteractionImage
-                {
-                    Agent = AIAgent.User,
-                };
-
-                imageInteraction.CreateRequest(
-                    prompt: prompt,
-                    size: size,
-                    quality: quality,
-                    style: style);
-
-                // Create request body with image interaction
-                var requestBody = new AIBody();
-                requestBody.AddInteraction(imageInteraction);
+                // Create immutable request body with image interaction
+                var requestBody = AIBodyBuilder.Create()
+                    .AddImageRequest(prompt: prompt, size: size, quality: quality, style: style)
+                    .Build();
 
                 // Create AI request for image generation
                 var aiRequest = new AIRequestCall();
@@ -163,8 +156,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("imageQuality", resultImageInteraction.ImageQuality ?? string.Empty);
                 toolResult.Add("imageStyle", resultImageInteraction.ImageStyle ?? string.Empty);
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, response.Metrics, response.Messages);
+                // Attach non-breaking result envelope
+                toolResult.WithEnvelope(
+                    ToolResultEnvelope.Create(
+                        tool: "img_generate",
+                        type: ToolResultContentType.Image,
+                        payloadPath: "result",
+                        provider: providerName,
+                        model: modelName,
+                        toolCallId: toolInfo?.Id));
+
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: "img_generate", metrics: response.Metrics, messages: response.Messages)
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;
@@ -178,3 +182,4 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
+

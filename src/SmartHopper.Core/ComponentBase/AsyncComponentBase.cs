@@ -201,6 +201,8 @@ namespace SmartHopper.Core.ComponentBase
 
                 Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {this._state}");
                 this.OnSolveInstancePostSolve(DA);
+                // Do not expire downstream during an active solution.
+                // Expiration is handled after tasks completion via the continuation in AfterSolveInstance.
             }
 
             if (this._state != 0)
@@ -244,24 +246,27 @@ namespace SmartHopper.Core.ComponentBase
                             // Ensure state is valid even on error
                             if (this._state == 0)
                             {
-                                this._state = this.Workers.Count;
-                                this._setData = 1;
+                                // When tasks fault, still proceed to post-solve once to surface messages
+                                int workerCount = this.Workers.Count;
+                                Debug.WriteLine($"[AsyncComponentBase] Faulted: setting state to Workers.Count ({workerCount}) and enabling output phase");
+                                Interlocked.Exchange(ref this._state, workerCount);
+                                Interlocked.Exchange(ref this._setData, 1);
+                                // Preserve LIFO output order
+                                this.Workers.Reverse();
                             }
                         }
                         else
                         {
-                            // Only increment state and set data if we haven't already
+                            // All tasks completed successfully; set state to total workers so post-solve can decrement to zero
                             if (this._state == 0 && this._setData == 0)
                             {
-                                Interlocked.Increment(ref this._state);
-                                if (this._state == this.Workers.Count)
-                                {
-                                    Interlocked.Exchange(ref this._setData, 1);
-                                    this.Workers.Reverse();
-                                }
+                                int workerCount = this.Workers.Count;
+                                Interlocked.Exchange(ref this._state, workerCount);
+                                Interlocked.Exchange(ref this._setData, 1);
+                                // Process outputs in reverse (LIFO) to match expected ordering
+                                this.Workers.Reverse();
+                                Debug.WriteLine($"[AsyncComponentBase] All tasks completed. Preparing output phase: State set to {workerCount}, SetData=1");
                             }
-
-                            Debug.WriteLine($"[AsyncComponentBase] All tasks completed successfully. State: {this._state}, SetData: {this._setData}, Workers: {this.Workers.Count}");
                         }
 
                         // Schedule component update on UI thread

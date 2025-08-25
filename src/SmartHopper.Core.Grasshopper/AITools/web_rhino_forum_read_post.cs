@@ -10,11 +10,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -75,7 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
                 int id = idNullable.Value;
-                var httpClient = new HttpClient();
+                using var httpClient = new HttpClient();
                 var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
                 var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
@@ -87,10 +88,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["post"] = json
                 };
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
-
-                output.CreateSuccess(toolBody);
+                var builder = AIBodyBuilder.Create();
+                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
+                var immutable = builder.Build();
+                output.CreateSuccess(immutable, toolCall);
                 return output;
             }
             catch (Exception ex)

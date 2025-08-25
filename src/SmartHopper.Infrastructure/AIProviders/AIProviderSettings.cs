@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.AIProviders
@@ -29,5 +30,40 @@ namespace SmartHopper.Infrastructure.AIProviders
         public abstract IEnumerable<SettingDescriptor> GetSettingDescriptors();
 
         public abstract bool ValidateSettings(Dictionary<string, object> settings);
+
+        /// <inheritdoc/>
+        public virtual bool EnableStreaming
+        {
+            get
+            {
+                try
+                {
+                    // Try persisted value first
+                    var value = SmartHopperSettings.Instance.GetSetting(this.provider.Name, "EnableStreaming");
+                    if (value is bool b)
+                    {
+                        return b;
+                    }
+                    if (value != null && bool.TryParse(value.ToString(), out bool parsed))
+                    {
+                        return parsed;
+                    }
+
+                    // Fallback to descriptor default if available
+                    var descriptor = this.GetSettingDescriptors()?.FirstOrDefault(d => d.Name == "EnableStreaming");
+                    if (descriptor?.DefaultValue is bool defBool)
+                    {
+                        return defBool;
+                    }
+                }
+                catch
+                {
+                    // Ignore and fall through to default
+                }
+
+                // Safe default: disabled
+                return false;
+            }
+        }
     }
 }

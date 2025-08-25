@@ -21,7 +21,11 @@ using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Markdig;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -214,16 +218,30 @@ namespace SmartHopper.Core.UI.Chat
 
         /// <summary>
         /// Renders the reasoning panel (if any) as a collapsible HTML details block.
+        /// Accepts either a raw response containing <think> tags or a plain reasoning string.
         /// </summary>
-        /// <param name="rawResponse">Raw markdown response including <think> tags.</param>
+        /// <param name="reasoning">Reasoning text. May already be plain text (no <think>) or include <think>...</think> wrapper.</param>
+        /// <param name="expand">If true, the panel will be rendered expanded (open attribute).</param>
         /// <returns>HTML for reasoning panel or empty string.</returns>
-        private string RenderReasoning(string rawResponse)
+        private string RenderReasoning(string reasoning, bool expand)
         {
-            var m = Regex.Match(rawResponse, @"<think>([\s\S]*?)</think>", RegexOptions.Singleline);
-            if (!m.Success) return "";
-            var reasoningMd = m.Groups[1].Value;
+            if (string.IsNullOrWhiteSpace(reasoning)) return string.Empty;
+
+            // If input contains <think>...</think>, extract inner content; otherwise use as-is
+            string reasoningMd;
+            var m = Regex.Match(reasoning, @"<think>([\s\S]*?)</think>", RegexOptions.Singleline);
+            if (m.Success)
+            {
+                reasoningMd = m.Groups[1].Value;
+            }
+            else
+            {
+                reasoningMd = reasoning;
+            }
+
             var reasoningHtml = Markdown.ToHtml(reasoningMd, this._markdownPipeline);
-            return $"<details class=\"think\"><summary>Reasoning</summary>{reasoningHtml}</details>";
+            var openAttr = expand ? " open" : string.Empty;
+            return $"<details class=\"think\"{openAttr}><summary>Reasoning</summary>{reasoningHtml}</details>";
         }
 
         /// <summary>
@@ -289,9 +307,19 @@ namespace SmartHopper.Core.UI.Chat
                 outTokens = interaction.Metrics.OutputTokens;
             }
 
+            // Decide whether to show metrics icon. Hide when metrics are missing or not meaningful (e.g., during streaming).
+            // Consider metrics meaningful if we have token counts or provider+model info.
+            bool hasMeaningfulMetrics =
+                (interaction.Metrics != null) &&
+                ((inTokens > 0) || (outTokens > 0) ||
+                 (!string.IsNullOrWhiteSpace(provider) && !string.IsNullOrWhiteSpace(model)));
+            string metricsClass = hasMeaningfulMetrics ? string.Empty : "hidden";
+            Debug.WriteLine($"[ChatResourceManager] Metrics visibility: {(hasMeaningfulMetrics ? "show" : "hide")}; in={inTokens}, out={outTokens}, provider='{provider}', model='{model}', reason='{finishReason}'");
+
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
-            var reasoningPanel = this.RenderReasoning(rawReasoning);
+            // Render reasoning panel. Auto-expand when there is no visible answer content.
+            var reasoningPanel = this.RenderReasoning(rawReasoning, string.IsNullOrWhiteSpace(rawContent));
             Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
             string answerHtml = Markdown.ToHtml(rawContent, this._markdownPipeline);
             Debug.WriteLine($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
@@ -311,7 +339,8 @@ namespace SmartHopper.Core.UI.Chat
                 .Replace("{{outTokens}}", outTokens.ToString())
                 .Replace("{{provider}}", provider)
                 .Replace("{{model}}", model)
-                .Replace("{{finishReason}}", finishReason);
+                .Replace("{{finishReason}}", finishReason)
+                .Replace("{{metricsClass}}", metricsClass);
 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
 
@@ -388,3 +417,4 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
+

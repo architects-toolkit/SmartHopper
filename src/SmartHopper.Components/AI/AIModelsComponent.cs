@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
@@ -137,21 +138,53 @@ namespace SmartHopper.Components.AI
                         return;
                     }
 
+                    if (token.IsCancellationRequested) return;
+
                     // Initialize provider (ensures settings and provider state are ready)
                     await provider.InitializeProviderAsync().ConfigureAwait(false);
 
-                    // Retrieve models directly from the provider (no global singleton)
+                    if (token.IsCancellationRequested) return;
+
+                    // Try dynamic API retrieval first
+                    List<string> apiModels = null;
+                    try
+                    {
+                        apiModels = await provider.Models.RetrieveApiModels().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // Ignore, we will fallback
+                    }
+
+                    var tree = new GH_Structure<GH_String>();
+                    var path = new GH_Path(0);
+
+                    if (apiModels != null && apiModels.Count > 0)
+                    {
+                        foreach (var model in apiModels
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
+                        {
+                            tree.Append(new GH_String(model), path);
+                        }
+
+                        this._result["Models"] = tree;
+                        this._result["Success"] = true;
+                        this._result["Info"] = "Using dynamic model list from provider API";
+                        Debug.WriteLine("[AIModelsComponent] Using dynamic model list from provider API. Total amount of models: " + apiModels.Count);
+                        return;
+                    }
+
+                    // Fallback to static capabilities
                     var caps = await provider.Models.RetrieveModels().ConfigureAwait(false) ?? new List<AIModelCapabilities>();
                     if (caps == null || caps.Count == 0)
                     {
                         this._result["Success"] = false;
                         this._result["Error"] = "No models available from the selected provider";
+                        Debug.WriteLine("[AIModelsComponent] No models available from the selected provider");
                         return;
                     }
 
-                    // Convert to GH_Structure for output
-                    var tree = new GH_Structure<GH_String>();
-                    var path = new GH_Path(0);
                     foreach (var model in caps
                         .OrderByDescending(m => m.Verified)
                         .ThenByDescending(m => m.Rank)
@@ -164,11 +197,14 @@ namespace SmartHopper.Components.AI
 
                     this._result["Models"] = tree;
                     this._result["Success"] = true;
+                    this._result["Warning"] = "Provider API models unavailable. Using fallback static model list.";
+                    Debug.WriteLine("[AIModelsComponent] Provider API models unavailable. Using fallback static model list. Total amount of models: " + caps.Count);
                 }
                 catch (Exception ex)
                 {
                     this._result["Success"] = false;
                     this._result["Error"] = ex.Message;
+                    Debug.WriteLine("[AIModelsComponent] Error: " + ex.Message);
                 }
             }
 
@@ -183,7 +219,22 @@ namespace SmartHopper.Components.AI
                 {
                     if (this._result.TryGetValue("Models", out var models) && models is GH_Structure<GH_String> tree)
                     {
+                        // Tree branches are already appended in sorted order during DoWorkAsync
                         this._parent.SetPersistentOutput("Models", tree, DA);
+
+                        if (this._result.TryGetValue("Info", out var info) && info is string infoMsg)
+                        {
+                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, infoMsg);
+                        }
+                        if (this._result.TryGetValue("Warning", out var warn) && warn is string warnMsg)
+                        {
+                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warnMsg);
+                        }
+                        if (this._result.TryGetValue("Error", out var err) && err is string errMsg)
+                        {
+                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errMsg);
+                        }
+
                         message = "Models output set successfully";
                     }
                     else
@@ -193,8 +244,11 @@ namespace SmartHopper.Components.AI
                 }
                 else
                 {
-                    this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Error occurred while retrieving models");
-                    message = "Error occurred while retrieving models";
+                    var err = this._result.TryGetValue("Error", out var errObj) && errObj is string errMsg
+                        ? errMsg
+                        : "Error occurred while retrieving models";
+                    this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, err);
+                    message = err;
                 }
             }
         }
