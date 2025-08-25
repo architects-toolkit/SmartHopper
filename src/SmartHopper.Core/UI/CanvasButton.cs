@@ -82,6 +82,9 @@ namespace SmartHopper.Core.UI
         private static bool isHovering;
         private static bool isPressed;
 
+        // Stable dialog ID so the canvas button always reuses the same chat dialog
+        private static readonly Guid CanvasChatDialogId = new Guid("B0D0B0F1-1A2B-4C5D-9E0F-112233445566");
+
         /// <summary>
         /// Initializes static members of the <see cref="CanvasButton"/> class.
         /// Static constructor to auto-initialize when first accessed.
@@ -552,7 +555,7 @@ namespace SmartHopper.Core.UI
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
                     toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
-                    componentId: Guid.NewGuid());
+                    componentId: CanvasChatDialogId);
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 
