@@ -138,7 +138,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 messages.AddRange(this.PrivateMessages);
             }
 
-            // Streaming support validation (blocking for streaming flows): when streaming is requested but unsupported, flag as error
+            // Streaming support validation (blocking for streaming flows): when streaming is requested but unsupported, flag as error to fallback to non-streaming
             if (this.WantsStreaming)
             {
                 var provider = this.Provider;

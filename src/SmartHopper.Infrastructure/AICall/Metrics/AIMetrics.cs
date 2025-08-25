@@ -80,22 +80,38 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
 
             if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Provider and model fields are required"));
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    "Provider and model fields are required",
+                    false));
             }
 
             if (this.InputTokens < 0 || this.OutputTokens < 0)
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Input and output tokens must be greater than or equal to 0"));
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    "Input and output tokens must be greater than or equal to 0",
+                    false));
             }
 
             if (string.IsNullOrEmpty(this.FinishReason))
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Finish reason must be set"));
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    "Finish reason must be set",
+                    false));
             }
 
             if (this.CompletionTime < 0)
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Completion time must be greater than or equal to 0"));
+                errors.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    "Completion time must be greater than or equal to 0",
+                    false));
             }
 
             return (errors.Count == 0, errors);

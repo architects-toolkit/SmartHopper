@@ -50,11 +50,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <param name="severity">Message severity.</param>
         /// <param name="origin">Message origin.</param>
         /// <param name="message">Message text.</param>
-        public AIRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string message)
+        /// <param name="surfaceable">Whether this message should be shown to end users in the UI. Defaults to true.</param>
+        public AIRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string message, bool surfaceable = true)
         {
             this.Severity = severity;
             this.Origin = origin;
             this.Message = message ?? string.Empty;
+            this.Surfaceable = surfaceable;
         }
 
         /// <summary>
@@ -71,6 +73,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// Gets the message content.
         /// </summary>
         public string Message { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether this message should be surfaced to the end user in the UI.
+        /// Diagnostic-only messages can set this to false.
+        /// </summary>
+        public bool Surfaceable { get; }
 
         /// <summary>
         /// Formats to legacy string representation with standardized prefix.

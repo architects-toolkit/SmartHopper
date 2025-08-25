@@ -497,6 +497,12 @@ namespace SmartHopper.Core.ComponentBase
             {
                 idx++;
 
+                // Only surface messages intended for end users
+                if (item == null || !item.Surfaceable)
+                {
+                    continue;
+                }
+
                 // Map structured severity to GH level
                 GH_RuntimeMessageLevel level = item.Severity switch
                 {

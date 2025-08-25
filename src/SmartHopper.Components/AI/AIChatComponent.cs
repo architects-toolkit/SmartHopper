@@ -41,7 +41,7 @@ namespace SmartHopper.Components.AI
         private string _systemPrompt;
 
         private readonly string _defaultSystemPrompt = """
-            You are a not predefined chat. Follow user instructions. Be concise in your responses.
+            Your function is not predefined. Follow user instructions. Be concise in your responses.
             """;
 
         /// <summary>
@@ -249,8 +249,12 @@ namespace SmartHopper.Components.AI
                 if (this.lastReturn != null)
                 {
                     // Get the text result from the AIReturn
-                    var lastInteraction = this.lastReturn.Body.GetLastInteraction() as AIInteractionText;
-                    string responseText = lastInteraction.Content ?? string.Empty;
+                    var lastInteraction = this.lastReturn.Body?.GetLastInteraction() as AIInteractionText;
+                    if (lastInteraction == null)
+                    {
+                        Debug.WriteLine("[AIChatWorker] No last text interaction found; outputting empty response.");
+                    }
+                    string responseText = lastInteraction?.Content ?? string.Empty;
 
                     // Set the last response output
                     var responseGoo = new GH_String(responseText);
