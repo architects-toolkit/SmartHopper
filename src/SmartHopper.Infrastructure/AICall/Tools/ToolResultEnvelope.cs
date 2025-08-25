@@ -33,41 +33,41 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         /// <summary>
         /// Tool name that produced this result (e.g. "list_generate").
         /// </summary>
-        [JsonProperty("tool")] 
+        [JsonProperty("tool")]
         public string Tool { get; set; }
 
         /// <summary>
         /// Optional provider id and model id used for the final call that produced this result.
         /// </summary>
-        [JsonProperty("provider")] 
+        [JsonProperty("provider")]
         public string Provider { get; set; }
 
-        [JsonProperty("model")] 
+        [JsonProperty("model")]
         public string Model { get; set; }
 
         /// <summary>
         /// Optional tool call identifier to correlate with AIInteractionToolCall.Id
         /// </summary>
-        [JsonProperty("toolCallId")] 
+        [JsonProperty("toolCallId")]
         public string ToolCallId { get; set; }
 
         /// <summary>
         /// Content type describing the payload.
         /// </summary>
-        [JsonProperty("contentType")] 
+        [JsonProperty("contentType")]
         public ToolResultContentType ContentType { get; set; } = ToolResultContentType.Unknown;
 
         /// <summary>
         /// Optional JSON path (dot-notation) to the payload within the root object (default: "result").
         /// </summary>
-        [JsonProperty("payloadPath")] 
+        [JsonProperty("payloadPath")]
         public string PayloadPath { get; set; } = "result";
 
         /// <summary>
         /// Optional reference or inline schema describing the payload.
         /// String can be a JSON schema string or a schema id/uri.
         /// </summary>
-        [JsonProperty("schemaRef")] 
+        [JsonProperty("schemaRef")]
         public string SchemaRef { get; set; }
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         /// <summary>
         /// UTC timestamp when the envelope was created.
         /// </summary>
-        [JsonProperty("createdUtc")] 
+        [JsonProperty("createdUtc")]
         public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 
         /// <summary>
