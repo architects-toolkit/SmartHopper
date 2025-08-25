@@ -202,8 +202,10 @@ namespace SmartHopper.Core.ComponentBase
             toolCall.Provider = providerName;
             toolCall.Model = model;
             toolCall.Endpoint = toolName;
-            toolCall.Body = new AIBody();
-            toolCall.Body.AddInteraction(toolCallInteraction);
+            var immutableBody = AIBodyBuilder.Create()
+                .Add(toolCallInteraction)
+                .Build();
+            toolCall.Body = immutableBody;
 
             // Validation/capability messages will be surfaced from AIReturn after execution
 

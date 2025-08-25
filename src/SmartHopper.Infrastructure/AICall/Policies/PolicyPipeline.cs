@@ -37,6 +37,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             // Request policies can be added here as they are implemented (context injection, capability enforcement, schema attach...)
             pipeline.RequestPolicies.Add(new Request.RequestTimeoutPolicy());
             pipeline.RequestPolicies.Add(new Request.ToolFilterNormalizationRequestPolicy());
+            pipeline.RequestPolicies.Add(new Request.AIToolValidationRequestPolicy());
             pipeline.RequestPolicies.Add(new SchemaAttachRequestPolicy());
 
             // Response policies: start with compatibility decode to preserve behavior until new mappers are introduced

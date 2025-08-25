@@ -96,11 +96,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var toolResult = new JObject();
                 toolResult["updated"] = JToken.FromObject(updated);
+                var immutableBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)
+                    .Build();
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
-
-                output.CreateSuccess(toolBody);
+                output.CreateSuccess(immutableBody, toolCall);
                 return output;
             }
             catch (Exception ex)
@@ -111,4 +111,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

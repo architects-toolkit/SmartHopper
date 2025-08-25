@@ -117,11 +117,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<text>", text);
 
-                // Initiate AIBody
-                var requestBody = new AIBody();
-                requestBody.AddInteraction(AIAgent.System, this.systemPrompt);
-                requestBody.AddInteraction(AIAgent.User, userPrompt);
-                requestBody.ContextFilter = contextFilter;
+                // Initiate immutable AIBody
+                var requestBody = AIBodyBuilder.Create()
+                    .AddSystem(this.systemPrompt)
+                    .AddUser(userPrompt)
+                    .WithContextFilter(contextFilter)
+                    .Build();
 
                 // Initiate AIRequestCall
                 var request = new AIRequestCall();
@@ -150,8 +151,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject();
                 toolResult.Add("result", parsedResult.Value);
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;

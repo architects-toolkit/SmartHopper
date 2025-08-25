@@ -89,58 +89,22 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Provider is required"));
             }
 
-            if (!this.Capability.HasInput() || !this.Capability.HasOutput())
-            {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Capability field is required with both input and output capabilities"));
-            }
-
             if (this.ProviderInstance == null)
             {
                 messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"Unknown provider '{this.Provider}'"));
             }
 
-            var effectiveCapability = this.GetEffectiveCapabilities(out var capabilityNotes);
-
-            // Append any capability notes (informational)
-            if (capabilityNotes.Count > 0)
-            {
-                messages.AddRange(capabilityNotes);
-            }
-
-            // Validate resolved model against required capability
+            // Validate resolved model selection (provider-scoped). Empty means no capable model was found.
+            var effectiveCapability = this.GetEffectiveCapabilities(out _);
             var resolvedModel = this.Model; // Triggers provider-scoped selection
             if (string.IsNullOrEmpty(resolvedModel))
             {
                 messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}"));
             }
-            else if (!string.IsNullOrEmpty(this.RequestedModel))
-            {
-                // If user requested a model and it is known but incompatible, warn and indicate fallback
-                var knownRequested = ModelManager.Instance.GetCapabilities(this.Provider, this.RequestedModel);
-                if (knownRequested != null && !knownRequested.HasCapability(effectiveCapability) && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
-                {
-                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Requested model '{this.RequestedModel}' is not capable of {effectiveCapability.ToString()}; using '{resolvedModel}' instead"));
-                }
-                else if (knownRequested == null && !string.Equals(this.RequestedModel, resolvedModel, StringComparison.Ordinal))
-                {
-                    // Requested model is unknown; inform user that a fallback model is being used
-                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Warning, AIRuntimeMessageOrigin.Validation, $"Requested model '{this.RequestedModel}' is unknown; using '{resolvedModel}' instead"));
-                }
-            }
 
             if (string.IsNullOrEmpty(this.Endpoint))
             {
                 messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Endpoint is required"));
-            }
-
-            if (string.IsNullOrEmpty(this.HttpMethod))
-            {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "HttpMethod is required"));
-            }
-
-            if (string.IsNullOrEmpty(this.Authentication))
-            {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Authentication method is required"));
             }
 
             if (this.Body == null)

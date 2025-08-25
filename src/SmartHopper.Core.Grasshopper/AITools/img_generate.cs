@@ -104,21 +104,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Create image interaction for request
-                var imageInteraction = new AIInteractionImage
-                {
-                    Agent = AIAgent.User,
-                };
-
-                imageInteraction.CreateRequest(
-                    prompt: prompt,
-                    size: size,
-                    quality: quality,
-                    style: style);
-
-                // Create request body with image interaction
-                var requestBody = new AIBody();
-                requestBody.AddInteraction(imageInteraction);
+                // Create immutable request body with image interaction
+                var requestBody = AIBodyBuilder.Create()
+                    .AddImageRequest(prompt: prompt, size: size, quality: quality, style: style)
+                    .Build();
 
                 // Create AI request for image generation
                 var aiRequest = new AIRequestCall();
@@ -177,8 +166,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         model: modelName,
                         toolCallId: toolInfo?.Id));
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, response.Metrics, response.Messages);
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: "img_generate", metrics: response.Metrics, messages: response.Messages)
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;

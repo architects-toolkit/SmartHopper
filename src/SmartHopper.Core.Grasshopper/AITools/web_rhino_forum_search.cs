@@ -75,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("Missing 'query' parameter.");
                     return output;
                 }
-                var httpClient = new HttpClient();
+                using var httpClient = new HttpClient();
                 var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
                 var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
@@ -110,10 +110,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["count"] = result.Count
                 };
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
-
-                output.CreateSuccess(toolBody);
+                var builder = AIBodyBuilder.Create();
+                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
+                var immutable = builder.Build();
+                output.CreateSuccess(immutable, toolCall);
                 return output;
             }
             catch (Exception ex)
@@ -124,4 +124,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

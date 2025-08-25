@@ -121,7 +121,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 var toolCall = new AIToolCall();
                 toolCall.Endpoint = "gh_get";
-                toolCall.Body.AddInteraction(toolCallInteraction);
+                toolCall.FromToolCallInteraction(toolCallInteraction);
 
                 var aiResult = toolCall.Exec().GetAwaiter().GetResult();
                 var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
