@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Test.Badges
         public TestBadgesTwoComponent()
             : base("Test Badges: Two", "TBadges2",
                    "Renders two sample badges above the component for visual verification.",
-                   "SmartHopper", "Testing")
+                   "SmartHopper", "Testing Badges")
         {
         }
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New test component `DataTreeProcessorEqualPathsTestComponent` under `SmartHopper.Components.Test/DataProcessor/` to manually validate `DataTreeProcessor.RunFunctionAsync` with equal-path, single-item trees. Outputs result tree, success flag, and messages.
 - New SmartHopper Assistant setting `EnableCanvasButton` (default: `true`) to enable/disable the canvas button.
 - `CanvasButton` now respects `EnableCanvasButton`: when disabled, the button is hidden and non-interactive.
 - New tests for Context Manager and Model Manager.
