@@ -67,7 +67,7 @@ General releases are production-ready and should be stable, secure, and well-doc
 ## Additional Considerations
 
 | **Consideration** | **Alpha** | **Beta** | **RC** | **General** |
-|--------------|-------|------|----|---------| 
+|--------------|-------|------|----|---------|
 | **Version Compatibility** | Breaking changes allowed | Minimize breaking changes | Strictly limit breaking changes | No breaking changes without migration guide |
 | **Documentation Requirements** | Basic README | Core feature docs | Full feature documentation | Comprehensive guides and tutorials |
 | **Testing Coverage** | Basic functionality | Extended edge case testing | Performance and cross-platform | Full regression test suite |
