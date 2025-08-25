@@ -20,9 +20,15 @@ namespace SmartHopper.Infrastructure.AIModels
     public interface IAIProviderModels
     {
         /// <summary>
-        /// Retrieves all models with full metadata for this provider.
+        /// Retrieves locally defined models with full metadata for this provider.
         /// </summary>
-        /// <returns>List of model capability records (concrete names only).</returns>
+        /// <returns>List of model capability records.</returns>
         Task<List<AIModelCapabilities>> RetrieveModels();
+
+        /// <summary>
+        /// Retrieves api list of models
+        /// </summary>
+        /// <returns>List of available model names.</returns>
+        Task<List<string>> RetrieveApiModels();
     }
 }
