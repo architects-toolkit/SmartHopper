@@ -86,12 +86,20 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
             if (string.IsNullOrEmpty(this.Provider))
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Provider is required"));
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ProviderMissing,
+                    "Provider is required"));
             }
 
             if (this.ProviderInstance == null)
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"Unknown provider '{this.Provider}'"));
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.UnknownProvider,
+                    $"Unknown provider '{this.Provider}'"));
             }
 
             // Validate resolved model selection (provider-scoped). Empty means no capable model was found.
@@ -99,17 +107,66 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             var resolvedModel = this.Model; // Triggers provider-scoped selection
             if (string.IsNullOrEmpty(resolvedModel))
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}"));
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.NoCapableModel,
+                    $"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}"));
+            }
+
+            // Additional diagnostics based on user-requested model vs selected model
+            // - UnknownModel: requested model not registered for provider
+            // - CapabilityMismatch: requested known but not capable; selection replaced it
+            var requestedModel = this.RequestedModel;
+            if (!string.IsNullOrWhiteSpace(this.Provider) && !string.IsNullOrWhiteSpace(requestedModel))
+            {
+                var requestedCaps = ModelManager.Instance.GetCapabilities(this.Provider, requestedModel);
+                if (requestedCaps == null)
+                {
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Warning,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.UnknownModel,
+                        $"Requested model '{requestedModel}' is not registered for provider '{this.Provider}'."));
+                }
+                else if (!requestedCaps.HasCapability(effectiveCapability))
+                {
+                    // If a fallback was selected, surface the replacement
+                    if (!string.IsNullOrWhiteSpace(resolvedModel) && !string.Equals(resolvedModel, requestedModel, StringComparison.Ordinal))
+                    {
+                        messages.Add(new AIRuntimeMessage(
+                            AIRuntimeMessageSeverity.Warning,
+                            AIRuntimeMessageOrigin.Validation,
+                            AIMessageCode.CapabilityMismatch,
+                            $"Requested model '{requestedModel}' does not support {effectiveCapability.ToString()}; selected '{resolvedModel}' instead."));
+                    }
+                    else
+                    {
+                        messages.Add(new AIRuntimeMessage(
+                            AIRuntimeMessageSeverity.Warning,
+                            AIRuntimeMessageOrigin.Validation,
+                            AIMessageCode.CapabilityMismatch,
+                            $"Requested model '{requestedModel}' does not support {effectiveCapability.ToString()}"));
+                    }
+                }
             }
 
             if (string.IsNullOrEmpty(this.Endpoint))
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Endpoint is required"));
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
+                    "Endpoint is required"));
             }
 
             if (this.Body == null)
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Body is required"));
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
+                    "Body is required"));
             }
             else
             {
@@ -118,12 +175,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     messages.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.BodyInvalid,
                         "At least one interaction is required"));
                 }
 
                 if (effectiveCapability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
                 {
-                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "JsonOutput capability requires a non-empty JsonOutputSchema"));
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.BodyInvalid,
+                        "JsonOutput capability requires a non-empty JsonOutputSchema"));
                 }
             }
 

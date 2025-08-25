@@ -161,6 +161,8 @@ namespace SmartHopper.Components.AI
 
             // Persistently set (or clear) the chat history so downstream updates occur
             this.SetPersistentOutput("Chat History", historyItems, DA);
+            // Set metrics synchronously with chat history to ensure consistent downstream updates
+            this.SetMetricsOutput(DA);
         }
 
         /// <summary>
@@ -214,6 +216,14 @@ namespace SmartHopper.Components.AI
         internal AIReturn GetSnapshot()
         {
             return this.GetAIReturnSnapshot();
+        }
+
+        /// <summary>
+        /// Disable base post-solve metrics emission; metrics are emitted synchronously in SolveInstance.
+        /// </summary>
+        protected override bool ShouldEmitMetricsInPostSolve()
+        {
+            return false;
         }
 
         /// <summary>
@@ -318,43 +328,8 @@ namespace SmartHopper.Components.AI
             /// <param name="message">Output message.</param>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                message = "Ready";
-
-                var historyItems = new List<GH_String>();
-                try
-                {
-                    // Read from the base snapshot (single source of truth)
-                    var ret = this.component.GetSnapshot();
-                    var interactions = ret?.Body?.Interactions;
-
-                    if (interactions != null && interactions.Count > 0)
-                    {
-                        foreach (var interaction in interactions)
-                        {
-                            if (interaction == null) continue;
-
-                            var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
-                            var role = interaction.Agent.ToDescription();
-                            var content = interaction.ToString() ?? string.Empty;
-
-                            // Inline, single-item per interaction: "0. [12:58] Assistant: Hi there!"
-                            content = content.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ").Trim();
-                            var line = $"[{ts}] {role}: {content}".Trim();
-                            historyItems.Add(new GH_String(line));
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[AIChatWorker] Error building chat history items: {ex.Message}");
-                }
-
-                // Set the chat history output as a list of GH_String items
-                this.component.SetPersistentOutput("Chat History", historyItems, DA);
-
-                // Store cumulative metrics snapshot from WebChat without combining
-                // Metrics output is now handled by AIStatefulAsyncComponentBase using AIReturnSnapshot
-
+                // Output is set exclusively in AIChatComponent.SolveInstance to avoid duplication/nested branches.
+                // Worker only reports status here.
                 message = "Output data";
             }
         }
