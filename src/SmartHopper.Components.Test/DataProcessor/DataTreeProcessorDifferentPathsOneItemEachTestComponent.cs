@@ -130,19 +130,16 @@ namespace SmartHopper.Components.Test.DataProcessor
                         _resultTree = new GH_Structure<GH_Integer>();
 
                     int expected = 2 + 5; // 7
-                    // With different paths and independent processing, expect the pairwise result to be present at both paths
+                    // Expect the result to be present only at the path of input A
                     bool ok =
                         _resultTree != null &&
-                        _resultTree.PathCount == 2 &&
+                        _resultTree.PathCount == 1 &&
                         _resultTree.get_Branch(pathA) != null &&
                         _resultTree.get_Branch(pathA).Count == 1 &&
-                        _resultTree.get_Branch(pathA)[0] is GH_Integer giA && giA.Value == expected &&
-                        _resultTree.get_Branch(pathB) != null &&
-                        _resultTree.get_Branch(pathB).Count == 1 &&
-                        _resultTree.get_Branch(pathB)[0] is GH_Integer giB && giB.Value == expected;
+                        _resultTree.get_Branch(pathA)[0] is GH_Integer giA && giA.Value == expected;
 
                     _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Different paths A={pathA}, B={pathB}. Expected both paths with sum {expected}."));
+                    _messages.Add(new GH_String($"Different paths A={pathA}, B={pathB}. Expected only path A with sum {expected}."));
                     _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
