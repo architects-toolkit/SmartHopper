@@ -368,10 +368,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["json"] = json,
                 };
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
+                var body = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult)
+                    .Build();
 
-                output.CreateSuccess(toolBody);
+                output.CreateSuccess(body, toolCall);
                 return Task.FromResult(output);
             }
             catch (Exception ex)
@@ -382,4 +383,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

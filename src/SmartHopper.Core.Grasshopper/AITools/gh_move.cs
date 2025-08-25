@@ -116,10 +116,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["updated"] = JArray.FromObject(movedList.Select(g => g.ToString()))
                 };
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult);
-
-                output.CreateSuccess(toolBody);
+                var builder = AIBodyBuilder.Create();
+                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
+                var immutable = builder.Build();
+                output.CreateSuccess(immutable, toolCall);
                 return output;
             }
             catch (Exception ex)
@@ -130,4 +130,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

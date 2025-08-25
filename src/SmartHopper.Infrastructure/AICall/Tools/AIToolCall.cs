@@ -17,6 +17,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Validation;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall.Tools
@@ -40,26 +41,33 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 messages.AddRange(baseErrors);
             }
 
-            if (this.Body.Interactions.Count == 0)
+            // Gate: require exactly one pending tool call in the body
+            var pendingCount = this.Body?.PendingToolCallsCount() ?? 0;
+            if (pendingCount != 1)
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Body cannot be empty"));
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    "Body must have exactly one pending tool call"));
             }
-
-            if (this.Body.PendingToolCallsCount() != 1)
+            else
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, "Body must have exactly one pending tool call"));
-            }
-
-            foreach (var toolCall in this.Body.PendingToolCallsList())
-            {
-                if (string.IsNullOrEmpty(toolCall.Name))
+                // Delegate detailed validation to shared validators
+                var call = this.Body.PendingToolCallsList().First();
+                var validators = new List<IValidator<AIInteractionToolCall>>
                 {
-                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Validation, $"Tool name is required for tool call {toolCall.Id}"));
-                }
+                    new ToolExistsValidator(),
+                    new ToolJsonSchemaValidator(),
+                    new ToolCapabilityValidator(this.Provider ?? string.Empty, this.Model ?? string.Empty),
+                };
 
-                if (toolCall.Arguments == null)
+                foreach (var v in validators)
                 {
-                    messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Tool arguments are not set for tool call {toolCall.Id}"));
+                    var res = v.Validate(call);
+                    if (res?.Messages != null && res.Messages.Count > 0)
+                    {
+                        messages.AddRange(res.Messages);
+                    }
                 }
             }
 
@@ -72,7 +80,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         public override async Task<AIReturn> Exec()
         {
             // Validate early
-            var (ok, errors) = this.IsValid();
+            var (ok, _) = this.IsValid();
             if (!ok)
             {
                 return this.BuildErrorReturn("Tool call validation failed");

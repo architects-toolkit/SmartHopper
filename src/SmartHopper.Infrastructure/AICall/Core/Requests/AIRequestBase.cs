@@ -132,14 +132,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         {
             var messages = new List<AIRuntimeMessage>();
 
-            if (string.IsNullOrEmpty(this.model) && this.Capability != AICapability.None)
+            // Consider any request-level messages already attached (e.g., from policies)
+            if (this.PrivateMessages != null && this.PrivateMessages.Count > 0)
             {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Model is not specified - the default model '{this.GetModelToUse()}' will be used"));
-            }
-
-            if (!string.IsNullOrEmpty(this.model) && this.model != this.GetModelToUse())
-            {
-                messages.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, $"Using model '{this.GetModelToUse()}' for this request instead of requested '{this.model}' based on provider configuration and model selection policy."));
+                messages.AddRange(this.PrivateMessages);
             }
 
             // Streaming support validation (blocking for streaming flows): when streaming is requested but unsupported, flag as error

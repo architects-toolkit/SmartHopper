@@ -30,6 +30,24 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
+        /// Gets the last interaction matching the specified agent, or null if none.
+        /// Mirrors legacy AIBody.GetLastInteraction(AIAgent).
+        /// </summary>
+        public static IAIInteraction GetLastInteraction(this AIBodyImmutable body, AIAgent agent)
+        {
+            return body?.Interactions?.LastOrDefault(i => i.Agent == agent);
+        }
+
+        /// <summary>
+        /// Gets the last interaction whose agent name matches the provided string, or null if none.
+        /// Mirrors legacy AIBody.GetLastInteraction(string).
+        /// </summary>
+        public static IAIInteraction GetLastInteraction(this AIBodyImmutable body, string agent)
+        {
+            return body?.Interactions?.LastOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
         /// Computes the number of pending tool calls by matching tool call Ids
         /// against tool result Ids in the interactions list.
         /// </summary>

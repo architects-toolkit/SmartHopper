@@ -112,11 +112,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Use custom instructions if provided, otherwise use default system prompt
                 string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
 
-                // Initiate AIBody
-                var requestBody = new AIBody();
-                requestBody.AddInteraction(AIAgent.System, systemPrompt);
-                requestBody.AddInteraction(AIAgent.User, prompt);
-                requestBody.ContextFilter = contextFilter;
+                // Initiate immutable AIBody
+                var requestBody = AIBodyBuilder.Create()
+                    .AddSystem(systemPrompt)
+                    .AddUser(prompt)
+                    .WithContextFilter(contextFilter)
+                    .Build();
 
                 // Initiate AIRequestCall
                 var request = new AIRequestCall();
@@ -161,8 +162,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         model: modelName,
                         toolCallId: toolInfo?.Id));
 
-                var toolBody = new AIBody();
-                toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                    .Build();
 
                 output.CreateSuccess(toolBody);
                 return output;

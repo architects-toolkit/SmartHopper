@@ -277,8 +277,10 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     // Image generation response - create a dummy request for processing
                     var dummyRequest = new AIRequestCall();
-                    dummyRequest.Body = new AIBody();
-                    dummyRequest.Body.Interactions = new List<IAIInteraction> { new AIInteractionImage { Agent = AIAgent.User } };
+                    var body = AIBodyBuilder.Create()
+                        .Add(new AIInteractionImage { Agent = AIAgent.Assistant })
+                        .Build();
+                    dummyRequest.Body = body;
                     return this.ProcessImageGenerationResponseData(responseJson, dummyRequest);
                 }
                 else if (responseJson["choices"] != null)

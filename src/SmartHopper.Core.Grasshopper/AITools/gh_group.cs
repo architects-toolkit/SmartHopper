@@ -141,10 +141,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString()))
                     };
 
-                    var toolBody = new AIBody();
-                    toolBody.AddInteractionToolResult(toolResult);
+                    var body = AIBodyBuilder.Create()
+                        .AddToolResult(toolResult)
+                        .Build();
 
-                    output.CreateSuccess(toolBody);
+                    output.CreateSuccess(body, toolCall);
                     }
                     else
                     {
@@ -162,4 +163,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

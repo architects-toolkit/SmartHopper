@@ -169,14 +169,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             {
                 errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Request must not be null"));
             }
-            else
-            {
-                var (rqOk, rqErr) = this.Request.IsValid();
-                if (rqErr != null)
-                {
-                    errors.AddRange(rqErr);
-                }
-            }
 
             if (this.Metrics == null)
             {
