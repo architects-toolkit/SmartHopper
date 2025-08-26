@@ -36,12 +36,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 var response = context.Response;
                 var metrics = response.Metrics; // aggregated snapshot
 
-                // Try to get existing finish reason or fallback to last assistant interaction
+                // Try to get existing finish reason or fallback to last interaction
                 string original = metrics?.FinishReason;
+                var lastInteraction = response.Body?.Interactions?.LastOrDefault();
                 if (string.IsNullOrWhiteSpace(original))
                 {
-                    var lastAssistant = response.Body?.Interactions?.LastOrDefault(i => i?.Agent == AIAgent.Assistant);
-                    original = lastAssistant?.Metrics?.FinishReason;
+                    original = lastInteraction?.Metrics?.FinishReason;
                 }
 
                 // Normalize common values; default to "stop" if still missing
@@ -53,8 +53,20 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                     usedDefault = true;
                 }
 
-                // Persist normalized finish reason into global metrics without disturbing other fields
-                response.Metrics = new AIMetrics { FinishReason = normalized };
+                // Replace only the finish reason in the last interaction if applicable
+                if (lastInteraction != null && lastInteraction.Metrics != null)
+                {
+                    lastInteraction.Metrics.FinishReason = normalized;
+                }
+                else if (lastInteraction != null)
+                {
+                    lastInteraction.Metrics = new AIMetrics { FinishReason = normalized };
+                }
+
+                // Replace the last interaction in the response
+                response.SetBody(AIBodyBuilder.FromImmutable(response.Body)
+                        .ReplaceLast(lastInteraction)
+                        .Build());
 
                 // Attach diagnostics when applicable
                 if (usedDefault)

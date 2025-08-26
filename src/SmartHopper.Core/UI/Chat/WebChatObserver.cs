@@ -193,16 +193,40 @@ namespace SmartHopper.Core.UI.Chat
 
                             // Render full assistant text and persist only once
                             _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalAssistant);
-                            _dialog._chatHistory.Add(finalAssistant);
+
+                            // Persist into conversation state via _lastReturn snapshot
+                            var current = _dialog._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
+                            var updated = new List<IAIInteraction>(current);
+
+                            int lastIdx = -1;
+                            for (int i = updated.Count - 1; i >= 0; i--)
+                            {
+                                if (updated[i]?.Agent == AIAgent.Assistant)
+                                {
+                                    lastIdx = i;
+                                    break;
+                                }
+                            }
+
+                            if (lastIdx >= 0)
+                                updated[lastIdx] = finalAssistant;
+                            else
+                                updated.Add(finalAssistant);
+
+                            var snapshot = new AIReturn();
+                            snapshot.CreateSuccess(updated, _dialog._initialRequest);
+                            _dialog._lastReturn = snapshot;
                         }
                         else if (finalMetrics != null)
                         {
                             // No assistant text in final: merge metrics into last assistant already shown
                             try
                             {
-                                for (int i = _dialog._chatHistory.Count - 1; i >= 0; i--)
+                                var current = _dialog._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
+                                var updated = new List<IAIInteraction>(current);
+                                for (int i = updated.Count - 1; i >= 0; i--)
                                 {
-                                    var inter = _dialog._chatHistory[i];
+                                    var inter = updated[i];
                                     if (inter != null && inter.Agent == AIAgent.Assistant)
                                     {
                                         if (inter.Metrics != null)
@@ -211,7 +235,11 @@ namespace SmartHopper.Core.UI.Chat
                                             inter.Metrics = finalMetrics;
 
                                         _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, inter);
-                                        _dialog._chatHistory[i] = inter; // persist metrics
+                                        updated[i] = inter; // persist metrics
+
+                                        var snapshot = new AIReturn();
+                                        snapshot.CreateSuccess(updated, _dialog._initialRequest);
+                                        _dialog._lastReturn = snapshot;
                                         break;
                                     }
                                 }
@@ -227,7 +255,14 @@ namespace SmartHopper.Core.UI.Chat
                         // 4) Clear streaming state and finish
                         _streams.Clear();
 
-                        _dialog._lastReturn = result ?? new AIReturn();
+                        // If we haven't produced a snapshot above, fall back to building from provider result interactions
+                        if (_dialog._lastReturn == null || _dialog._lastReturn.Body?.Interactions == null)
+                        {
+                            var fromProvider = result?.Body?.Interactions ?? new List<IAIInteraction>();
+                            var snapshot = new AIReturn();
+                            snapshot.CreateSuccess(new List<IAIInteraction>(fromProvider), _dialog._initialRequest);
+                            _dialog._lastReturn = snapshot;
+                        }
                         _dialog.ResponseReceived?.Invoke(_dialog, _dialog._lastReturn);
                         _dialog._statusLabel.Text = "Ready";
                     }

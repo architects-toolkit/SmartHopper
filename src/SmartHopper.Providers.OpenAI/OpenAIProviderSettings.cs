@@ -49,7 +49,7 @@ namespace SmartHopper.Providers.OpenAI
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your OpenAI API key",
+                    Description = "Your OpenAI API key. Get one at https://platform.openai.com/",
                 },
                 new SettingDescriptor
                 {

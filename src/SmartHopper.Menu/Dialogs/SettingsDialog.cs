@@ -138,7 +138,7 @@ namespace SmartHopper.Menu.Dialogs
             // Add SmartHopper Assistant tab
             tabControl.Pages.Add(new TabPage
             {
-                Text = "Canvas Assistant",
+                Text = "The Button",
                 Content = _assistantPage,
             });
 

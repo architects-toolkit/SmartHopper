@@ -260,21 +260,19 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
             
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return interactions;
             }
             
             try
-            {
-                var responseJson = JObject.Parse(response);
-                
+            {       
                 // Handle different response types based on the response structure
-                if (responseJson["data"] != null)
+                if (response["data"] != null)
                 {
                     // Image generation response - create a dummy request for processing
                     var dummyRequest = new AIRequestCall();
@@ -282,12 +280,12 @@ namespace SmartHopper.Providers.OpenAI
                         .Add(new AIInteractionImage { Agent = AIAgent.Assistant })
                         .Build();
                     dummyRequest.Body = body;
-                    return this.ProcessImageGenerationResponseData(responseJson, dummyRequest);
+                    return this.ProcessImageGenerationResponseData(response, dummyRequest);
                 }
-                else if (responseJson["choices"] != null)
+                else if (response["choices"] != null)
                 {
                     // Chat completion response
-                    return this.ProcessChatCompletionsResponseData(responseJson);
+                    return this.ProcessChatCompletionsResponseData(response);
                 }
             }
             catch (Exception ex)
@@ -441,30 +439,21 @@ namespace SmartHopper.Providers.OpenAI
             return requestPayload.ToString();
         }
 
-        /// <inheritdoc/>
-        public override IAIReturn PostCall(IAIReturn response)
-        {
-            // The base implementation already handles the processing
-            // Just return the response as-is since processing is done in Call method
-            return response;
-        }
-
         /// <summary>
         /// Decodes metrics from OpenAI response.
         /// </summary>
-        private AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(JObject response)
         {
             var metrics = new AIMetrics();
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return metrics;
             }
 
             try
             {
-                var responseJson = JObject.Parse(response);
-                var usage = responseJson["usage"] as JObject;
+                var usage = response["usage"] as JObject;
 
                 if (usage != null)
                 {
@@ -474,7 +463,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 // Handle finish reason for chat completions
-                var choices = responseJson["choices"] as JArray;
+                var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 if (firstChoice != null)
                 {
@@ -567,7 +556,7 @@ namespace SmartHopper.Providers.OpenAI
                     content: content,
                     reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
-                var metrics = this.DecodeMetrics(responseJson.ToString());
+                var metrics = this.DecodeMetrics(responseJson);
 
                 interaction.Metrics = metrics;
 
@@ -952,7 +941,6 @@ namespace SmartHopper.Providers.OpenAI
                     InputTokensPrompt = promptTokens,
                     OutputTokensGeneration = completionTokens,
                 };
-                final.Metrics = finalMetrics;
 
                 // Align aggregate metrics finish reason as well
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });

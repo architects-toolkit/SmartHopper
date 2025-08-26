@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Name = "ApiKey",
                     DisplayName = "API Key",
-                    Description = "Your API key for the DeepSeek service",
+                    Description = "Your API key for DeepSeek. Get one at https://platform.deepseek.com/",
                     IsSecret = true, // Set to true for sensitive data like API keys
                     Type = typeof(string),
                 },

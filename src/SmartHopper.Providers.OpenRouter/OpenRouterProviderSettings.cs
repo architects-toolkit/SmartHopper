@@ -47,7 +47,7 @@ namespace SmartHopper.Providers.OpenRouter
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your OpenRouter API key",
+                    Description = "Your OpenRouter API key. Get one at https://openrouter.ai/",
                 },
                 new SettingDescriptor
                 {

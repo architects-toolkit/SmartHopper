@@ -61,7 +61,6 @@ namespace SmartHopper.Core.UI.Chat
 
         // Chat history and request management
         private readonly AIRequestCall _initialRequest;
-        private readonly List<IAIInteraction> _chatHistory = new List<IAIInteraction>();
         private AIReturn _lastReturn = new AIReturn();
 
         /// <summary>
@@ -86,11 +85,15 @@ namespace SmartHopper.Core.UI.Chat
         public AIMetrics GetCombinedMetrics()
         {
             var combinedMetrics = new AIMetrics();
-            foreach (var interaction in this._chatHistory)
+            var interactions = this._lastReturn?.Body?.Interactions;
+            if (interactions != null)
             {
-                if (interaction.Metrics != null)
+                foreach (var interaction in interactions)
                 {
-                    combinedMetrics.Combine(interaction.Metrics);
+                    if (interaction.Metrics != null)
+                    {
+                        combinedMetrics.Combine(interaction.Metrics);
+                    }
                 }
             }
             return combinedMetrics;
@@ -295,11 +298,12 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 var snapshot = this._lastReturn;
-                // If we never had a return with interactions, synthesize one from the current history
+                // If we never had a return with interactions, synthesize an empty one
                 if (snapshot == null || snapshot.Body?.Interactions == null)
                 {
                     snapshot = new AIReturn();
-                    snapshot.CreateSuccess(new List<IAIInteraction>(this._chatHistory), this._initialRequest);
+                    snapshot.CreateSuccess(new List<IAIInteraction>(), this._initialRequest);
+                    this._lastReturn = snapshot;
                 }
 
                 this.ChatUpdated?.Invoke(this, snapshot);
@@ -448,8 +452,6 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="e">The event arguments.</param>
         private void ClearButton_Click(object sender, EventArgs e)
         {
-            this._chatHistory.Clear();
-
             // Emit an empty/reset snapshot so listeners can clear their state immediately
             this.EmitResetSnapshot();
 
@@ -504,11 +506,20 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[WebChatDialog] AddInteraction log error: {ex.Message}");
             }
 
-            this._chatHistory.Add(interaction);
+            // Build new interactions snapshot based on last return
+            var current = this._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
+            var updated = new List<IAIInteraction>(current);
+            updated.Add(interaction);
+
+            var snapshot = new AIReturn();
+            snapshot.CreateSuccess(updated, this._initialRequest);
+            this._lastReturn = snapshot;
+
+            // Update UI incrementally
             this.AddInteractionToWebView(interaction);
 
-            // Raise incremental update snapshot
-            this.BuildAndEmitSnapshot();
+            // Emit updated snapshot
+            this.ChatUpdated?.Invoke(this, snapshot);
         }
 
         /// <summary>
@@ -594,16 +605,30 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                // Find the last message of the specified role in chat history
-                var lastMessage = this._chatHistory.LastOrDefault(m => m.Agent == agent);
-                if (lastMessage == null)
+                // Copy current interactions and find the last message of the specified role
+                var current = this._lastReturn?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
+                int idx = -1;
+                for (int i = current.Count - 1; i >= 0; i--)
+                {
+                    if (current[i]?.Agent == agent)
+                    {
+                        idx = i;
+                        break;
+                    }
+                }
+
+                if (idx < 0)
                 {
                     Debug.WriteLine($"[WebChatDialog] No {agent.ToString()} messages found to remove");
                     return false;
                 }
 
-                // Remove from chat history
-                bool removedFromHistory = this._chatHistory.Remove(lastMessage);
+                current.RemoveAt(idx);
+
+                // Update snapshot after removing the last message
+                var snapshot = new AIReturn();
+                snapshot.CreateSuccess(current, this._initialRequest);
+                this._lastReturn = snapshot;
 
                 // Remove from WebView using JavaScript
                 bool removedFromUI = false;
@@ -623,8 +648,11 @@ namespace SmartHopper.Core.UI.Chat
                     }
                 }
 
-                Debug.WriteLine($"[WebChatDialog] Removed last {agent.ToString()} message - History: {removedFromHistory}, UI: {removedFromUI}");
-                return removedFromHistory; // Return true if removed from history, even if UI removal failed
+                // Emit updated snapshot
+                this.ChatUpdated?.Invoke(this, snapshot);
+
+                Debug.WriteLine($"[WebChatDialog] Removed last {agent.ToString()} message - UI: {removedFromUI}");
+                return true; // Removed from history regardless of UI result
             }
             catch (Exception ex)
             {
@@ -741,7 +769,8 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 var snapshot = new AIReturn();
-                snapshot.CreateSuccess(new List<IAIInteraction>(this._chatHistory), this._initialRequest);
+                var interactions = this._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
+                snapshot.CreateSuccess(new List<IAIInteraction>(interactions), this._initialRequest);
                 this._lastReturn = snapshot;
                 this.ChatUpdated?.Invoke(this, snapshot);
             }
@@ -859,26 +888,36 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
-            // Don't manage _chatHistory here since this is used by Streaming. Only on final state will _chatHistory be updated.
-
             // Only used by greeting for now. Will be removed in future.
 
-            // Update history by mutating the last assistant entry if present (e.g., replacing a loading message)
-            var lastAssistant = this._chatHistory.LastOrDefault(x => x.Agent == AIAgent.Assistant) as AIInteractionText;
-            if (lastAssistant != null)
+            // Create updated interactions: replace last assistant message, or append if missing
+            var current = this._lastReturn?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
+            int idx = -1;
+            for (int i = current.Count - 1; i >= 0; i--)
             {
-                lastAssistant.Content = interaction.Content;
-                lastAssistant.Reasoning = interaction.Reasoning;
-                lastAssistant.Metrics = interaction.Metrics ?? lastAssistant.Metrics;
+                if (current[i]?.Agent == AIAgent.Assistant)
+                {
+                    idx = i;
+                    break;
+                }
+            }
+
+            if (idx >= 0)
+            {
+                current[idx] = interaction;
             }
             else
             {
-                // If not present for any reason, add to history
-                this._chatHistory.Add(interaction);
+                current.Add(interaction);
             }
 
-            // Update UI
+            var snapshot = new AIReturn();
+            snapshot.CreateSuccess(current, this._initialRequest);
+            this._lastReturn = snapshot;
+
+            // Update UI and emit snapshot
             this.ReplaceLastMessageByRole(AIAgent.Assistant, interaction);
+            this.ChatUpdated?.Invoke(this, snapshot);
         }
 
         /// <summary>
@@ -978,9 +1017,10 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                // Make a copy and update chat history
+                // Make a copy and update request interactions from the last return
                 var request = this._initialRequest;
-                request.OverrideInteractions(new System.Collections.Generic.List<IAIInteraction>(this._chatHistory));
+                var baseInteractions = this._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
+                request.OverrideInteractions(new System.Collections.Generic.List<IAIInteraction>(baseInteractions));
 
                 Debug.WriteLine("[WebChatDialog] Preparing ConversationSession with streaming fallback");
                 var observer = new WebChatObserver(this);
@@ -1095,10 +1135,10 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Ensure the system prompt from the initial request is added to chat history and UI
-                // 1) Prefer any existing system message already in the in-memory chat history
+                // 1) Prefer any existing system message already in the current interactions
                 // 2) Otherwise, pick the first system message from the initial request body
                 // 3) Add it to the chat so it shows in the UI and is part of the first AI turn context
-                var systemMessageText = this._chatHistory
+                var systemMessageText = this._lastReturn?.Body?.Interactions?
                     .OfType<AIInteractionText>()
                     .FirstOrDefault(x => x.Agent == AIAgent.System);
 

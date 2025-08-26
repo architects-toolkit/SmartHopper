@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.MistralAI
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your MistralAI API key",
+                    Description = "Your MistralAI API key. Get one at https://console.mistral.ai/",
                 },
                 new SettingDescriptor
                 {

@@ -333,19 +333,18 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return interactions;
             }
 
             try
             {
-                var responseJson = JObject.Parse(response);
-                var choices = responseJson["choices"] as JArray;
+                var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
 
@@ -447,20 +446,19 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        private AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(JObject response)
         {
             var metrics = new AIMetrics();
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return metrics;
             }
 
             try
             {
-                var responseJson = JObject.Parse(response);
-                var choices = responseJson["choices"] as JArray;
+                var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
-                var usage = responseJson["usage"] as JObject;
+                var usage = response["usage"] as JObject;
 
                 metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
                 metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
@@ -764,7 +762,6 @@ namespace SmartHopper.Providers.MistralAI
 
                 // Attach metrics so UI can display usage after streaming completes
                 streamMetrics.FinishReason = lastFinishReason ?? (haveStreamedAny ? "stop" : streamMetrics.FinishReason);
-                final.Metrics = streamMetrics;
 
                 // Align aggregate finish reason
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });

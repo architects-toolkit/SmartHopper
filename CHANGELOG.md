@@ -24,7 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
   - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
   - Always-on `PolicyPipeline` foundation with request and response policy hooks
-  - Default response policy: `CompatibilityDecodeResponsePolicy` that decodes raw provider JSON via the provider's `Decode(string)` to normalized interactions; exceptions are converted to diagnostics via `AIReturn.AddRuntimeMessage`
 - AICall folder reorganization.
 - Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
 - `AIProviderStreamingAdapter.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` helper to apply request-scoped headers (excluding Authorization) from `AIRequestCall.Headers`.

@@ -52,24 +52,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             return b;
         }
 
-        /// <summary>
-        /// Creates a builder initialized from the legacy mutable body.
-        /// Context interactions (Agent == Context) are filtered out to avoid mixing implicit enrichment.
-        /// </summary>
-        public static AIBodyBuilder FromMutable(AIBody legacy)
-        {
-            var b = new AIBodyBuilder();
-            if (legacy != null)
-            {
-                var raw = legacy.Interactions ?? new List<IAIInteraction>();
-                b.interactions.AddRange(raw.Where(i => i != null && i.Agent != AIAgent.Context));
-                b.toolFilter = legacy.ToolFilter ?? b.toolFilter;
-                b.contextFilter = legacy.ContextFilter ?? b.contextFilter;
-                b.jsonOutputSchema = legacy.JsonOutputSchema ?? b.jsonOutputSchema;
-            }
-            return b;
-        }
-
         public AIBodyBuilder WithToolFilter(string filter)
         {
             this.toolFilter = filter ?? this.toolFilter;
@@ -156,6 +138,68 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Messages = messages ?? new List<AIRuntimeMessage>(),
             };
             return Add(tr);
+        }
+
+        public AIBodyBuilder AddError(string content, AIMetrics metrics = null)
+        {
+            var m = metrics ?? new AIMetrics();
+            var it = new AIInteractionError
+            {
+                Content = content,
+                Metrics = m,
+            };
+            return Add(it);
+        }
+
+        public AIBodyBuilder ReplaceLast(IAIInteraction interaction)
+        {
+            this.interactions[this.interactions.Count - 1] = interaction;
+            return this;
+        }
+
+        public AIBodyBuilder ReplaceLastRange(List<IAIInteraction> interactionList)
+        {
+            // Delegate to IReadOnlyList overload to centralize logic
+            return ReplaceLastRange((IReadOnlyList<IAIInteraction>)interactionList);
+        }
+
+        public AIBodyBuilder ReplaceLastRange(IReadOnlyList<IAIInteraction> interactionList)
+        {
+            // Overload accepting IReadOnlyList; mirrors List<IAIInteraction> behavior
+            if (interactionList == null || interactionList.Count == 0)
+            {
+                return this;
+            }
+
+            // Normalize to non-null items (consistent with AddRange behavior)
+            var items = interactionList.Where(i => i != null).ToList();
+            if (items.Count == 0)
+            {
+                return this;
+            }
+
+            int removeCount = items.Count;
+            int existingCount = this.interactions.Count;
+
+            if (removeCount >= existingCount)
+            {
+                // If replacing equal or more than existing, reset and add the new ones
+                this.interactions.Clear();
+            }
+            else
+            {
+                // Remove the last 'removeCount' items
+                this.interactions.RemoveRange(existingCount - removeCount, removeCount);
+            }
+
+            this.interactions.AddRange(items);
+            return this;
+        }
+
+        public AIBodyBuilder SetCompletionTime(double completionTime)
+        {
+            this.interactions.Last().Metrics.CompletionTime = completionTime;
+            return this;
         }
 
         public AIBodyImmutable Build()

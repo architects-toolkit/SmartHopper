@@ -11,11 +11,10 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Settings;
 
@@ -68,7 +67,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Gets the decoded list of interactions given the encoded response. Interactions include the response, tool calls and metrics.
         /// </summary>
-        List<IAIInteraction> Decode(string response);
+        List<IAIInteraction> Decode(JObject response);
 
         /// <summary>
         /// Gets the pre-call request for the provider.

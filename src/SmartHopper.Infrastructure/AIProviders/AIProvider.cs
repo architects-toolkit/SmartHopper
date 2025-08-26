@@ -182,7 +182,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public abstract List<IAIInteraction> Decode(string response);
+        public abstract List<IAIInteraction> Decode(JObject response);
 
         /// <inheritdoc/>
         public virtual AIRequestCall PreCall(AIRequestCall request)
@@ -219,8 +219,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 };
 
                 // Create error; request validation messages (errors) will appear via AIReturn.Messages (Request.Messages)
-                result.CreateError("The request is not valid", request);
-                result.Metrics = metrics;
+                result.CreateError("The request is not valid", request, metrics);
 
                 return result;
             }
@@ -230,11 +229,7 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             // Add provider specific metrics
             stopwatch.Stop();
-            response.Metrics = new AIMetrics {
-                CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                Provider = this.Name,
-                Model = request.Model,
-            };
+            response.SetCompletionTime(stopwatch.Elapsed.TotalSeconds);
 
             // Execute PostCall
             response = this.PostCall(response);

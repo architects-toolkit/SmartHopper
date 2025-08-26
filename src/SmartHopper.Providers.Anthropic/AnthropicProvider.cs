@@ -121,8 +121,6 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             request.ContentType = "application/json";
-
-            // Anthropic uses x-api-key; centralized in base CallApi/streaming adapter
             request.Authentication = "x-api-key";
 
             if (!request.Headers.ContainsKey("anthropic-version"))
@@ -356,16 +354,15 @@ namespace SmartHopper.Providers.Anthropic
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
-            if (string.IsNullOrWhiteSpace(response)) return interactions;
+            if (response == null) return interactions;
 
             try
             {
-                var json = JObject.Parse(response);
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
-                var content = json["content"] as JArray;
+                var content = response["content"] as JArray;
                 string contentText = string.Empty;
                 var toolCalls = new List<IAIInteraction>();
 
@@ -420,19 +417,18 @@ namespace SmartHopper.Providers.Anthropic
             return interactions;
         }
 
-        private AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(JObject response)
         {
             var m = new AIMetrics();
-            if (string.IsNullOrWhiteSpace(response)) return m;
+            if (response == null) return m;
             try
             {
-                var json = JObject.Parse(response);
-                if (json["usage"] is JObject usage)
+                if (response["usage"] is JObject usage)
                 {
                     m.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? m.InputTokensPrompt;
                     m.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? m.OutputTokensGeneration;
                 }
-                m.FinishReason = json["stop_reason"]?.ToString() ?? m.FinishReason;
+                m.FinishReason = response["stop_reason"]?.ToString() ?? m.FinishReason;
             }
             catch (Exception ex)
             {
@@ -600,7 +596,6 @@ namespace SmartHopper.Providers.Anthropic
 
                 var final = new AIReturn { Request = request, Status = AICallStatus.Finished };
                 streamMetrics.FinishReason = lastFinishReason ?? streamMetrics.FinishReason;
-                final.Metrics = streamMetrics;
 
                 var finalInteraction = new AIInteractionText
                 {

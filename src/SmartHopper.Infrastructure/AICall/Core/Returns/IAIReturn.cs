@@ -32,9 +32,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         IAIRequest Request { get; set; }
 
         /// <summary>
-        /// Gets or sets the metrics about this call.
+        /// Gets the metrics about this call.
         /// </summary>
-        AIMetrics Metrics { get; set; }
+        AIMetrics Metrics { get; }
 
         /// <summary>
         /// Gets or sets the current status of the request.
@@ -100,5 +100,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="origin">The message origin.</param>
         /// <param name="text">The message text.</param>
         void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text);
+
+        /// <summary>
+        /// Sets the completion time to the last interaction.
+        /// </summary>
+        /// <param name="completionTime">The completion time to set.</param>
+        void SetCompletionTime(double completionTime);
     }
 }
