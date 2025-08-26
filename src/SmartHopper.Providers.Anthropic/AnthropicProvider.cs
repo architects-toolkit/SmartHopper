@@ -141,39 +141,15 @@ namespace SmartHopper.Providers.Anthropic
             {
                 if (interaction is AIInteractionText text)
                 {
-                    var message = new JObject
-                    {
-                        ["role"] = MapRole(interaction.Agent),
-                        ["content"] = new JArray(new JObject
-                        {
-                            ["type"] = "text",
-                            ["text"] = text.Content ?? string.Empty,
-                        }),
-                    };
-                    return message.ToString();
+                    return BuildTextMessage(MapRole(interaction.Agent), text.Content ?? string.Empty).ToString();
                 }
                 else if (interaction is AIInteractionToolResult toolResult)
                 {
-                    // Represent tool results as user content block for simplicity
-                    var message = new JObject
-                    {
-                        ["role"] = "user",
-                        ["content"] = new JArray(new JObject
-                        {
-                            ["type"] = "text",
-                            ["text"] = toolResult.Result?.ToString() ?? string.Empty,
-                        }),
-                    };
-                    return message.ToString();
+                    return BuildToolResultMessage(toolResult).ToString();
                 }
 
                 // Fallback empty text message
-                var fallback = new JObject
-                {
-                    ["role"] = MapRole(interaction.Agent),
-                    ["content"] = new JArray(new JObject { ["type"] = "text", ["text"] = string.Empty }),
-                };
-                return fallback.ToString();
+                return BuildTextMessage(MapRole(interaction.Agent), string.Empty).ToString();
             }
             catch (Exception ex)
             {
@@ -187,6 +163,83 @@ namespace SmartHopper.Providers.Anthropic
             if (agent == AIAgent.System || agent == AIAgent.Context) return "system";
             if (agent == AIAgent.Assistant || agent == AIAgent.ToolCall) return "assistant";
             return "user";
+        }
+
+        /// <summary>
+        /// Builds a standard Anthropic text message with the given role and text content.
+        /// </summary>
+        private static JObject BuildTextMessage(string role, string text)
+        {
+            return new JObject
+            {
+                ["role"] = role,
+                ["content"] = new JArray(new JObject
+                {
+                    ["type"] = "text",
+                    ["text"] = text ?? string.Empty,
+                }),
+            };
+        }
+
+        /// <summary>
+        /// Builds an Anthropic tool_result message from an AIInteractionToolResult.
+        /// </summary>
+        private static JObject BuildToolResultMessage(AIInteractionToolResult toolResult)
+        {
+            var resultText = toolResult.Result?.ToString(Formatting.None) ?? string.Empty;
+            var trBlock = new JObject
+            {
+                ["type"] = "tool_result",
+                ["tool_use_id"] = toolResult.Id ?? string.Empty,
+                ["content"] = new JArray(new JObject
+                {
+                    ["type"] = "text",
+                    ["text"] = resultText,
+                })
+            };
+            return new JObject
+            {
+                ["role"] = "user",
+                ["content"] = new JArray(trBlock),
+            };
+        }
+
+        /// <summary>
+        /// Extracts the textual representation of a tool_result content block, preserving non-text JSON as stringified JSON.
+        /// </summary>
+        private static string ExtractToolResultText(JToken resultContent)
+        {
+            if (resultContent == null) return string.Empty;
+            if (resultContent is JArray rcArr)
+            {
+                var parts = new List<string>();
+                foreach (var item in rcArr)
+                {
+                    if (item is JObject o)
+                    {
+                        var ttype = o["type"]?.ToString();
+                        if (string.Equals(ttype, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var t = o["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(t)) parts.Add(t);
+                        }
+                        else
+                        {
+                            parts.Add(o.ToString(Formatting.None));
+                        }
+                    }
+                    else
+                    {
+                        parts.Add(item?.ToString(Formatting.None) ?? string.Empty);
+                    }
+                }
+                return string.Join(string.Empty, parts);
+            }
+
+            // Could be a plain string or structured JSON
+            return resultContent.Type == JTokenType.Object || resultContent.Type == JTokenType.Array
+                ? resultContent.ToString(Formatting.None)
+                : resultContent.ToString();
         }
 
         /// <inheritdoc/>
@@ -222,43 +275,17 @@ namespace SmartHopper.Providers.Anthropic
                         }
                         else
                         {
-                            var textBlock = new JObject
-                            {
-                                ["type"] = "text",
-                                ["text"] = text.Content ?? string.Empty,
-                            };
-                            messages.Add(new JObject
-                            {
-                                ["role"] = role,
-                                ["content"] = new JArray(textBlock),
-                            });
+                            messages.Add(BuildTextMessage(role, text.Content ?? string.Empty));
                         }
                     }
                     else if (interaction is AIInteractionImage img)
                     {
                         // Encode original prompt as text; image content ignored for now
-                        messages.Add(new JObject
-                        {
-                            ["role"] = "user",
-                            ["content"] = new JArray(new JObject
-                            {
-                                ["type"] = "text",
-                                ["text"] = img.OriginalPrompt ?? string.Empty,
-                            })
-                        });
+                        messages.Add(BuildTextMessage("user", img.OriginalPrompt ?? string.Empty));
                     }
                     else if (interaction is AIInteractionToolResult toolResult)
                     {
-                        // Simplify: include tool result as user text
-                        messages.Add(new JObject
-                        {
-                            ["role"] = "user",
-                            ["content"] = new JArray(new JObject
-                            {
-                                ["type"] = "text",
-                                ["text"] = toolResult.Result?.ToString() ?? string.Empty,
-                            })
-                        });
+                        messages.Add(BuildToolResultMessage(toolResult));
                     }
                 }
                 catch (Exception ex)
@@ -364,7 +391,8 @@ namespace SmartHopper.Providers.Anthropic
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
                 var content = response["content"] as JArray;
                 string contentText = string.Empty;
-                var toolCalls = new List<IAIInteraction>();
+                var toolCalls = new List<AIInteractionToolCall>();
+                var toolResults = new List<AIInteractionToolResult>();
 
                 if (content != null)
                 {
@@ -388,6 +416,41 @@ namespace SmartHopper.Providers.Anthropic
                             };
                             toolCalls.Add(toolCall);
                         }
+                        else if (string.Equals(type, "tool_result", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Decode Anthropic tool_result block to AIInteractionToolResult
+                            var tr = new AIInteractionToolResult
+                            {
+                                Id = block["tool_use_id"]?.ToString() ?? block["id"]?.ToString(),
+                                Agent = AIAgent.ToolResult,
+                            };
+
+                            // Attempt to map back the tool name/args from a prior tool_use in the same message
+                            if (!string.IsNullOrEmpty(tr.Id))
+                            {
+                                var matchingCall = toolCalls.FirstOrDefault(c => string.Equals(c.Id, tr.Id, StringComparison.Ordinal));
+                                if (matchingCall != null)
+                                {
+                                    tr.Name = matchingCall.Name;
+                                    tr.Arguments = matchingCall.Arguments;
+                                }
+                            }
+
+                            // Extract result content; it can be string or array of text blocks
+                            var resultText = ExtractToolResultText(block["content"]);
+
+                            // Convert to JObject; if not JSON, wrap as { "value": "..." }
+                            try
+                            {
+                                tr.Result = string.IsNullOrWhiteSpace(resultText) ? new JObject() : JObject.Parse(resultText);
+                            }
+                            catch
+                            {
+                                tr.Result = new JObject { ["value"] = resultText ?? string.Empty };
+                            }
+
+                            toolResults.Add(tr);
+                        }
                     }
                     contentText = string.Join(string.Empty, textParts);
                 }
@@ -406,7 +469,11 @@ namespace SmartHopper.Providers.Anthropic
 
                 if (toolCalls.Count > 0)
                 {
-                    interactions.AddRange(toolCalls);
+                    interactions.AddRange(toolCalls.Cast<IAIInteraction>());
+                }
+                if (toolResults.Count > 0)
+                {
+                    interactions.AddRange(toolResults.Cast<IAIInteraction>());
                 }
             }
             catch (Exception ex)
