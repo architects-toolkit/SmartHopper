@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-0%2E6%2E0--dev%2E250825-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-1%2E0%2E0--dev%2E250826-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
@@ -22,11 +22,11 @@ SmartHopper is a Grasshopper3D plugin that enables AI to directly interact with 
 
 You can install SmartHopper from the Rhino Package Manager:
 
-   - Open Rhino 8
-   - Type `PackageManager` in the command line
-   - In the Package Manager, select "include pre-releases"
-   - Search for "SmartHopper"
-   - Click "Install"
+- Open Rhino 8
+- Type `PackageManager` in the command line
+- In the Package Manager, select "include pre-releases"
+- Search for "SmartHopper"
+- Click "Install"
 
 Check for detailed installation instructions and initial setup in [smarthopper.xyz/#installation](https://smarthopper.xyz/#installation).
 
@@ -106,8 +106,8 @@ SmartHopper is currently supporting the following AI providers:
 | [MistralAI](https://mistral.ai/) | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) |
 | [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
 | [DeepSeek](https://deepseek.com/) | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) |
-| [Anthropic](https://anthropic.com/) | 🔜 Planned | [Anthropic Console](https://console.anthropic.com/) |
-| [OpenRouter](https://openrouter.ai/) | 🔜 Planned | [OpenRouter](https://openrouter.ai/) |
+| [Anthropic](https://anthropic.com/) | ✅ Supported | [Anthropic Console](https://console.anthropic.com/) |
+| [OpenRouter](https://openrouter.ai/) | ✅ Supported | [OpenRouter](https://openrouter.ai/) |
 
 ## 🔢 Supported Data Types
 
