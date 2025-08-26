@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
@@ -73,13 +74,24 @@ namespace SmartHopper.Providers.Anthropic
         {
             get
             {
-                // Minimal placeholder icon to avoid resource dependency.
-                var bmp = new Bitmap(16, 16);
-                using (var g = Graphics.FromImage(bmp))
+                try
                 {
-                    g.Clear(Color.Black);
+                    var bytes = Properties.Resources.anthropic_icon;
+                    if (bytes != null && bytes.Length > 0)
+                    {
+                        using (var ms = new MemoryStream(bytes))
+                        using (var img = Image.FromStream(ms))
+                        {
+                            // Create a decoupled Bitmap so the MemoryStream can be disposed safely
+                            return new Bitmap(img);
+                        }
+                    }
                 }
-                return bmp;
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Anthropic] Icon load error: {ex.Message}");
+                }
+                return new Bitmap(1, 1);
             }
         }
 

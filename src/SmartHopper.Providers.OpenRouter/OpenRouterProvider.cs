@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -56,7 +57,22 @@ namespace SmartHopper.Providers.OpenRouter
         {
             get
             {
-                // TODO: Replace with embedded resource icon (Properties.Resources.openrouter_icon)
+                try
+                {
+                    var bytes = Properties.Resources.openrouter_icon;
+                    if (bytes != null && bytes.Length > 0)
+                    {
+                        using (var ms = new MemoryStream(bytes))
+                        using (var img = Image.FromStream(ms))
+                        {
+                            return new Bitmap(img);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenRouter] Icon load error: {ex.Message}");
+                }
                 return new Bitmap(1, 1);
             }
         }
@@ -126,12 +142,23 @@ namespace SmartHopper.Providers.OpenRouter
                 temperature = 0.5;
             }
 
+            // Provider selection settings
+            bool allowFallbacks = this.GetSetting<bool>("AllowFallbacks"); // default true
+            string sort = this.GetSetting<string>("Sort") ?? "price";      // default price
+            string dataCollection = this.GetSetting<string>("DataCollection") ?? "deny"; // default deny
+
             var body = new JObject
             {
                 ["model"] = request.Model,
                 ["input"] = messages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
+                ["provider"] = new JObject
+                {
+                    ["allow_fallbacks"] = allowFallbacks,
+                    ["sort"] = sort,
+                    ["data_collection"] = dataCollection,
+                }
             };
 
             // Note: schema/response_format and tools can be added later once mapped for OpenRouter Responses API
