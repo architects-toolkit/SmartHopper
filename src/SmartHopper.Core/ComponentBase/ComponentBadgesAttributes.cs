@@ -10,12 +10,16 @@
 
 /*
  * ComponentBadgesAttributes: Custom Grasshopper component attributes that render
- * AI model status badges (Verified/Deprecated) as floating circles above the component.
+ * AI model status badges as floating circles above the component.
+ *
+ * UI policy:
+ * - Show at most ONE primary badge for clarity, with priority: Replaced > Invalid > Verified.
+ * - Deprecated may co-exist with any primary badge (or be shown alone if no primary).
  *
  * Purpose: Extend component UI to show model state directly on the component.
  * - Uses last used model from metrics when available; otherwise falls back to the
  *   configured (input/default) model.
- * - Queries ModelManager for AIModelCapabilities to determine Verified/Deprecated flags.
+ * - Queries ModelManager for AIModelCapabilities to determine flags.
  * - Designed to be extensible for future badges (e.g., automatic model replacement).
  */
 
@@ -112,28 +116,38 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            // Collect badges (built-in + extension point)
+            // Collect badges using single-primary policy.
+            // Priority: Replaced > Invalid > Verified. Deprecated can co-exist.
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
-            if (showInvalid)
-            {
-                items.Add((DrawInvalidBadge, "Invalid model"));
-            }
+
+            // Determine primary badge by priority
+            (System.Action<Graphics, float, float> draw, string label)? primary = null;
             if (showReplaced)
             {
-                items.Add((DrawReplacedBadge, "Model replaced with a capable one"));
+                primary = (DrawReplacedBadge, "Model replaced with a capable one");
             }
-            if (showVerified)
+            else if (showInvalid)
             {
-                items.Add((DrawVerifiedBadge, "Verified model"));
+                primary = (DrawInvalidBadge, "Invalid model");
             }
+            else if (showVerified)
+            {
+                primary = (DrawVerifiedBadge, "Verified model");
+            }
+
+            if (primary.HasValue)
+            {
+                items.Add(primary.Value);
+            }
+
+            // Deprecated can be shown alongside any primary (or alone if no primary)
             if (showDeprecated)
             {
                 items.Add((DrawDeprecatedBadge, "Deprecated model"));
             }
-            foreach (var extra in this.GetAdditionalBadges())
-            {
-                items.Add(extra);
-            }
+
+            // Note: Additional badges from extensions are intentionally not added
+            // to preserve the one-primary-badge policy for UI clarity.
 
             if (items.Count == 0)
             {
