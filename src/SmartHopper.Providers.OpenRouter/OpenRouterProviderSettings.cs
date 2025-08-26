@@ -227,7 +227,7 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            Debug.WriteLine($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}, Max Tokens: {maxTokens}, Referer: {referer}, AppTitle: {appTitle}");
+            Debug.WriteLine($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}, Max Tokens: {maxTokens}");
 
             return true;
         }
