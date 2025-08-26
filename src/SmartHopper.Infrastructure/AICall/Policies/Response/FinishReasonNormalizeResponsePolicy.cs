@@ -114,6 +114,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["end"] = "stop",
                 ["eos"] = "stop",
                 ["stop_sequence"] = "stop",
+                ["end_turn"] = "stop",
 
                 // length
                 ["length"] = "length",
@@ -127,6 +128,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["timeout"] = "timeout",
                 ["time_out"] = "timeout",
                 ["deadline_exceeded"] = "timeout",
+                ["pause_turn"] = "timeout",
 
                 // cancelled
                 ["cancelled"] = "cancelled",
@@ -135,17 +137,20 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["user_cancelled"] = "cancelled",
                 ["aborted"] = "cancelled",
                 ["abort"] = "cancelled",
+                ["stop_sequence"] = "cancelled",
 
                 // tool calls
                 ["tool_call"] = "tool_calls",
                 ["tool_calls"] = "tool_calls",
                 ["function_call"] = "tool_calls",
                 ["function_calls"] = "tool_calls",
+                ["tool_use"] = "tool_calls",
 
                 // safety/content filter
                 ["content_filter"] = "content_filter",
                 ["safety"] = "content_filter",
                 ["filtered"] = "content_filter",
+                ["refusal"] = "content_filter",
 
                 // provider reported error state
                 ["error"] = "error",
