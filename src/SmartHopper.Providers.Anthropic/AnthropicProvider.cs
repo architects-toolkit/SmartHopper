@@ -207,21 +207,34 @@ namespace SmartHopper.Providers.Anthropic
             string? toolFilter = request.Body.ToolFilter;
 
             var messages = new JArray();
+            // Anthropic requires system instructions at top-level "system", not as a message role.
+            // We collect all system/context texts and combine them into a single string separated by "\n---\n".
+            var systemTexts = new List<string>();
             foreach (var interaction in request.Body.Interactions)
             {
                 try
                 {
                     if (interaction is AIInteractionText text)
                     {
-                        messages.Add(new JObject
+                        var role = MapRole(interaction.Agent);
+                        if (string.Equals(role, "system", StringComparison.Ordinal))
                         {
-                            ["role"] = MapRole(interaction.Agent),
-                            ["content"] = new JArray(new JObject
+                            // Collect system/context content for top-level system field (as plain text)
+                            systemTexts.Add(text.Content ?? string.Empty);
+                        }
+                        else
+                        {
+                            var textBlock = new JObject
                             {
                                 ["type"] = "text",
                                 ["text"] = text.Content ?? string.Empty,
-                            })
-                        });
+                            };
+                            messages.Add(new JObject
+                            {
+                                ["role"] = role,
+                                ["content"] = new JArray(textBlock),
+                            });
+                        }
                     }
                     else if (interaction is AIInteractionImage img)
                     {
@@ -277,17 +290,9 @@ namespace SmartHopper.Providers.Anthropic
                     // Anthropic supports json_object response format; we also add a system instruction for strictness
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
 
-                    var systemMessage = new JObject
-                    {
-                        ["role"] = "system",
-                        ["content"] = new JArray(new JObject
-                        {
-                            ["type"] = "text",
-                            ["text"] = "The response must be a valid JSON object that strictly follows this schema: " + wrappedSchema.ToString(Formatting.None),
-                        })
-                    };
-                    // Prepend system constraint
-                    messages.Insert(0, systemMessage);
+                    // Add schema constraint as a top-level system instruction (merged with other system texts)
+                    var schemaInstructionText = "The response must be a valid JSON object that strictly follows this schema: " + wrappedSchema.ToString(Formatting.None);
+                    systemTexts.Add(schemaInstructionText);
                 }
                 catch (Exception ex)
                 {
@@ -298,6 +303,17 @@ namespace SmartHopper.Providers.Anthropic
             else
             {
                 JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+            }
+
+            // After collecting both conversation system texts and optional schema instruction,
+            // set the top-level system string, joining entries with "\n---\n".
+            if (systemTexts.Count > 0)
+            {
+                var combinedSystem = string.Join("\n---\n", systemTexts.Where(s => !string.IsNullOrWhiteSpace(s)));
+                if (!string.IsNullOrWhiteSpace(combinedSystem))
+                {
+                    requestBody["system"] = combinedSystem;
+                }
             }
 
             // Add tools if requested: map OpenAI-style tools to Anthropic 'tools'
@@ -325,7 +341,7 @@ namespace SmartHopper.Providers.Anthropic
                         if (toolsAnthropic.Count > 0)
                         {
                             requestBody["tools"] = toolsAnthropic;
-                            requestBody["tool_choice"] = "auto";
+                            requestBody["tool_choice"] = new JObject { ["type"] = "auto" };
                         }
                     }
                 }
