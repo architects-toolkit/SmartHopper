@@ -87,6 +87,33 @@ namespace SmartHopper.Providers.OpenRouter
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Some underlying models may ignore this parameter.",
                 },
+                // Provider selection controls
+                new SettingDescriptor
+                {
+                    Name = "AllowFallbacks",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Allow Fallbacks",
+                    Description = "Allow OpenRouter to fall back to compatible models if the preferred model is unavailable.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "Sort",
+                    Type = typeof(string),
+                    DefaultValue = "price",
+                    DisplayName = "Sort Strategy",
+                    Description = "Provider selection sort: price, throughput, or latency.",
+                    AllowedValues = new object[] { "price", "throughput", "latency" },
+                },
+                new SettingDescriptor
+                {
+                    Name = "DataCollection",
+                    Type = typeof(string),
+                    DefaultValue = "deny",
+                    DisplayName = "Data Collection",
+                    Description = "Allow or deny provider data collection (allow|deny). Defaults to deny.",
+                    AllowedValues = new object[] { "deny", "allow" },
+                },
             };
         }
 
@@ -105,6 +132,9 @@ namespace SmartHopper.Providers.OpenRouter
             string? model = null;
             int? maxTokens = null;
             double? temperature = null;
+            bool? allowFallbacks = null;
+            string? sort = null;
+            string? dataCollection = null;
 
             // API key (no strict validation here)
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -154,6 +184,45 @@ namespace SmartHopper.Providers.OpenRouter
                         StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
                     }
 
+                    return false;
+                }
+            }
+
+            // AllowFallbacks (bool) optional
+            if (settings.TryGetValue("AllowFallbacks", out var allowFallbacksObj) && allowFallbacksObj != null)
+            {
+                if (bool.TryParse(allowFallbacksObj.ToString(), out bool parsedAllowFallbacks))
+                {
+                    allowFallbacks = parsedAllowFallbacks;
+                }
+            }
+
+            // Sort (string) must be one of: price, throughput, latency
+            if (settings.TryGetValue("Sort", out var sortObj) && sortObj != null)
+            {
+                sort = sortObj.ToString()?.Trim().ToLowerInvariant();
+                var allowedSort = new[] { "price", "throughput", "latency" };
+                if (!allowedSort.Contains(sort))
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Sort must be one of: price, throughput, latency.", "Validation Error");
+                    }
+                    return false;
+                }
+            }
+
+            // DataCollection (string) must be one of: deny, allow
+            if (settings.TryGetValue("DataCollection", out var dataCollectionObj) && dataCollectionObj != null)
+            {
+                dataCollection = dataCollectionObj.ToString()?.Trim().ToLowerInvariant();
+                var allowedDc = new[] { "deny", "allow" };
+                if (!allowedDc.Contains(dataCollection))
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Data Collection must be either 'deny' or 'allow'.", "Validation Error");
+                    }
                     return false;
                 }
             }

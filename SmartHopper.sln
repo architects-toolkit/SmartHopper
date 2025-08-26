@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.DeepS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.Anthropic", "src\SmartHopper.Providers.Anthropic\SmartHopper.Providers.Anthropic.csproj", "{F72711F8-7CC4-46B4-9F94-368ECE62FAAA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.OpenRouter", "src\SmartHopper.Providers.OpenRouter\SmartHopper.Providers.OpenRouter.csproj", "{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -168,6 +170,18 @@ Global
 		{F72711F8-7CC4-46B4-9F94-368ECE62FAAA}.Release|x64.Build.0 = Release|Any CPU
 		{F72711F8-7CC4-46B4-9F94-368ECE62FAAA}.Release|x86.ActiveCfg = Release|Any CPU
 		{F72711F8-7CC4-46B4-9F94-368ECE62FAAA}.Release|x86.Build.0 = Release|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Debug|x64.Build.0 = Debug|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Debug|x86.Build.0 = Debug|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Release|x64.ActiveCfg = Release|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Release|x64.Build.0 = Release|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Release|x86.ActiveCfg = Release|Any CPU
+		{B7B03DDF-7342-9BBA-E63A-8B911F79F8F3}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
