@@ -42,7 +42,7 @@ namespace SmartHopper.Providers.Anthropic
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your Anthropic API key",
+                    Description = "Your Anthropic API key. Get one at https://console.anthropic.com/",
                 },
                 new SettingDescriptor
                 {

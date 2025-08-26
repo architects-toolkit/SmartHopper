@@ -44,7 +44,6 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             pipeline.RequestPolicies.Add(new SchemaValidateRequestPolicy());
 
             // Response policies: start with compatibility decode to preserve behavior until new mappers are introduced
-            pipeline.ResponsePolicies.Add(new Response.CompatibilityDecodeResponsePolicy());
             pipeline.ResponsePolicies.Add(new Response.SchemaValidateResponsePolicy());
             pipeline.ResponsePolicies.Add(new Response.FinishReasonNormalizeResponsePolicy());
             return pipeline;

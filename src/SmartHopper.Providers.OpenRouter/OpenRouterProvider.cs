@@ -226,23 +226,21 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return interactions;
             }
 
             try
             {
-                var json = JObject.Parse(response);
-
                 // Try OpenRouter Responses-style outputs first
                 string content = string.Empty;
 
                 // Some Responses implementations return an "output" array with text items
-                if (json["output"] is JArray outputArr && outputArr.Count > 0)
+                if (response["output"] is JArray outputArr && outputArr.Count > 0)
                 {
                     var parts = new List<string>();
                     foreach (var item in outputArr.OfType<JObject>())
@@ -253,30 +251,30 @@ namespace SmartHopper.Providers.OpenRouter
                     }
                     content = string.Join("", parts);
                 }
-                else if (json["response"] != null)
+                else if (response["response"] != null)
                 {
-                    content = json["response"]?.ToString() ?? string.Empty;
+                    content = response["response"]?.ToString() ?? string.Empty;
                 }
-                else if (json["choices"] is JArray choices && choices.Count > 0)
+                else if (response["choices"] is JArray choices && choices.Count > 0)
                 {
                     // Fallback to OpenAI-like decoding if proxy returns that shape
                     var first = choices[0] as JObject;
                     content = first?["message"]?["content"]?.ToString() ?? string.Empty;
                 }
-                else if (json["message"]? ["content"] != null)
+                else if (response["message"]? ["content"] != null)
                 {
-                    content = json["message"]?["content"]?.ToString() ?? string.Empty;
+                    content = response["message"]?["content"]?.ToString() ?? string.Empty;
                 }
                 else
                 {
-                    content = json.ToString();
+                    content = response.ToString();
                 }
 
                 var result = new AIInteractionText();
                 result.SetResult(agent: AIAgent.Assistant, content: content);
 
                 // Attempt to read usage metrics if present (alignment with common shapes)
-                var usage = json["usage"] as JObject;
+                var usage = response["usage"] as JObject;
                 if (usage != null)
                 {
                     result.Metrics = new Infrastructure.AICall.Metrics.AIMetrics
@@ -299,12 +297,6 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             return interactions;
-        }
-
-        /// <inheritdoc/>
-        public override IAIReturn PostCall(IAIReturn response)
-        {
-            return response;
         }
     }
 }
