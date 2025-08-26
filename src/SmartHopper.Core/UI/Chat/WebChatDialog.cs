@@ -63,6 +63,10 @@ namespace SmartHopper.Core.UI.Chat
         private readonly AIRequestCall _initialRequest;
         private AIReturn _lastReturn = new AIReturn();
 
+        // DOM update reentrancy guard/queue to avoid nested ExecuteScript calls causing recursion
+        private bool _isDomUpdating = false;
+        private readonly Queue<Action> _domUpdateQueue = new Queue<Action>();
+
         /// <summary>
         /// Event raised when a new AI response is received.
         /// </summary>
@@ -158,8 +162,11 @@ namespace SmartHopper.Core.UI.Chat
                         // Copy to host clipboard
                         Clipboard.Instance.Text = text;
                         Debug.WriteLine($"[WebChatDialog] Copied to clipboard via host: {text}");
-                        // Trigger JS toast
-                        this._webView.ExecuteScriptAsync("showToast('Code copied to clipboard :)');");
+                        // Trigger JS toast via serialized DOM update queue to avoid re-entrancy
+                        this.RunWhenWebViewReady(() =>
+                        {
+                            this.ProcessDomUpdate(() => this.ExecuteScriptSafe("showToast('Code copied to clipboard :)');", scroll: false));
+                        });
                     }
                 }
                 catch (Exception ex)
@@ -287,6 +294,46 @@ namespace SmartHopper.Core.UI.Chat
 
                 Debug.WriteLine("[WebChatDialog] Window visibility ensured");
             });
+        }
+
+        /// <summary>
+        /// Serializes DOM updates to the WebView to prevent re-entrant recursion.
+        /// Any update scheduled while another is running will be queued and executed in order.
+        /// </summary>
+        private void ProcessDomUpdate(Action updateAction)
+        {
+            if (updateAction == null)
+            {
+                return;
+            }
+
+            // Always enqueue first; if already updating, just return.
+            this._domUpdateQueue.Enqueue(updateAction);
+            if (this._isDomUpdating)
+            {
+                return;
+            }
+
+            this._isDomUpdating = true;
+            try
+            {
+                while (this._domUpdateQueue.Count > 0)
+                {
+                    var next = this._domUpdateQueue.Dequeue();
+                    try
+                    {
+                        next();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] ProcessDomUpdate step error: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                this._isDomUpdating = false;
+            }
         }
 
         /// <summary>
@@ -639,8 +686,11 @@ namespace SmartHopper.Core.UI.Chat
                         // Role class in HTML is lowercase (e.g., 'assistant', 'user', 'system')
                         string sanitizedRole = JsonConvert.SerializeObject(agent.ToString().ToLower());
                         string script = $"if (typeof removeLastMessageByRole === 'function') {{ return removeLastMessageByRole({sanitizedRole}); }} else {{ return false; }}";
-                        string result = this._webView.ExecuteScript(script);
-                        removedFromUI = bool.TryParse(result, out bool jsResult) && jsResult;
+                        // Execute the removal via the serialized DOM update queue; result is not required
+                        this.RunWhenWebViewReady(() =>
+                        {
+                            this.ProcessDomUpdate(() => this.ExecuteScriptSafe(script, scroll: false));
+                        });
                     }
                     catch (Exception ex)
                     {
@@ -809,7 +859,7 @@ namespace SmartHopper.Core.UI.Chat
                             string messageHtml = this._htmlRenderer.GenerateMessageHtml(interaction);
                             string escapedHtml = EscapeForJsString(messageHtml);
                             js = $"if (typeof addMessage === 'function') {{ addMessage(\"{escapedHtml}\"); return 'Message added'; }} else {{ return 'addMessage function not found'; }}";
-                            this.ExecuteScriptSafe(js, scroll: true);
+                            this.ProcessDomUpdate(() => this.ExecuteScriptSafe(js, scroll: true));
                             break;
                         }
                         case DomUpdateKind.ReplaceRole:
@@ -819,7 +869,7 @@ namespace SmartHopper.Core.UI.Chat
                             string escapedHtml = EscapeForJsString(messageHtml);
                             string roleJs = RoleToJs(agent.Value);
                             js = $"if (typeof replaceLastMessageByRole === 'function') {{ replaceLastMessageByRole({roleJs}, \"{escapedHtml}\"); return 'Message replaced'; }} else if (typeof replaceLastAssistantMessage === 'function' && {roleJs} === 'assistant') {{ replaceLastAssistantMessage(\"{escapedHtml}\"); return 'Assistant message replaced (fallback)'; }} else {{ return 'replace function not found'; }}";
-                            this.ExecuteScriptSafe(js, scroll: true);
+                            this.ProcessDomUpdate(() => this.ExecuteScriptSafe(js, scroll: true));
                             break;
                         }
                         case DomUpdateKind.AppendRole:
@@ -829,7 +879,7 @@ namespace SmartHopper.Core.UI.Chat
                             string escapedChunk = EscapeForJsString(htmlChunk);
                             string roleJs = RoleToJs(agent.Value);
                             js = $"if (typeof appendToLastMessageByRole === 'function') {{ appendToLastMessageByRole({roleJs}, \"{escapedChunk}\"); return 'Chunk appended'; }} else if (typeof appendToLastAssistantMessage === 'function' && {roleJs} === 'assistant') {{ appendToLastAssistantMessage(\"{escapedChunk}\"); return 'Assistant chunk appended (fallback)'; }} else {{ return 'append function not found'; }}";
-                            this.ExecuteScriptSafe(js, scroll: true);
+                            this.ProcessDomUpdate(() => this.ExecuteScriptSafe(js, scroll: true));
                             break;
                         }
                     }
