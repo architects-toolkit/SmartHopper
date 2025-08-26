@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AIStatefulAsyncComponentBase.TryGetCachedBadgeFlags(out verified, out deprecated, out invalid, out replaced)` to expose the extended badge cache.
 - Introduced `AIMessageCode` enum and `AIRuntimeMessage.Code` property for machine‑readable diagnostics. Default code is `Unknown (0)` to keep all existing emits backward compatible.
 - Shared `HttpHeadersHelper.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` utility under `src/SmartHopper.Infrastructure/Utils/` to centralize extra header application across streaming and non‑streaming calls (excludes reserved headers).
+- New `Anthropic` and `OpenRouter` providers.
 
 ### Changed
 
@@ -92,7 +93,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `GetAIReturnSnapshot()` to keep chat history and metrics consistent.
 - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
 - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
-
 - Authentication refactor and centralized API key handling:
   - Providers select the auth scheme in `PreCall(...)`, while API keys are resolved internally by providers (never placed on `AIRequestCall`).
   - `AIProvider.CallApi(...)` now supports `"none"`, `"bearer"` and `"x-api-key"` (applies header using provider API key).
