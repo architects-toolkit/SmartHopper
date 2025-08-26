@@ -531,20 +531,44 @@ namespace SmartHopper.Core.UI
             {
                 Debug.WriteLine("[CanvasButton] Triggering AI chat dialog");
 
-                // Get the current provider from settings
+                // Resolve provider and model from SmartHopperAssistant settings with fallbacks
                 var providerManager = ProviderManager.Instance;
-                var defaultProviderName = providerManager.GetDefaultAIProvider();
-                var currentProvider = providerManager.GetProvider(defaultProviderName);
+                var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
 
-                if (currentProvider == null)
+                var requestedProviderName = assistant?.AssistantProvider;
+                // Treat "(Default)" as request to use configured default provider
+                var isDefaultProviderSelected = string.Equals(requestedProviderName, "(Default)", StringComparison.Ordinal);
+                var providerNameToUse = (!string.IsNullOrWhiteSpace(requestedProviderName) && !isDefaultProviderSelected)
+                    ? requestedProviderName
+                    : providerManager.GetDefaultAIProvider();
+
+                var provider = providerManager.GetProvider(providerNameToUse);
+
+                // If a requested provider is not available, fall back to the default provider
+                if (provider == null)
+                {
+                    var fallbackProviderName = providerManager.GetDefaultAIProvider();
+                    if (!string.Equals(fallbackProviderName, providerNameToUse, StringComparison.OrdinalIgnoreCase))
+                    {
+                        provider = providerManager.GetProvider(fallbackProviderName);
+                    }
+                }
+
+                if (provider == null)
                 {
                     Debug.WriteLine("[CanvasButton] No AI provider available");
                     StyledMessageDialog.ShowError("No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.", "SmartHopper Assistant");
                     return;
                 }
 
-                var providerName = currentProvider.Name;
-                var model = currentProvider.GetDefaultModel(AICapability.ToolReasoningChat);
+                var providerName = provider.Name;
+                var requestedModel = assistant?.AssistantModel;
+                // If user selected (Default) provider, always use provider default model
+                var model = isDefaultProviderSelected
+                    ? provider.GetDefaultModel(AICapability.ToolReasoningChat)
+                    : (!string.IsNullOrWhiteSpace(requestedModel)
+                        ? requestedModel
+                        : provider.GetDefaultModel(AICapability.ToolReasoningChat));
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 
