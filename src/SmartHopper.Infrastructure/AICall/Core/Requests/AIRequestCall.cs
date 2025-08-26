@@ -50,6 +50,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         public string Authentication { get; set; } = "bearer";
 
         /// <summary>
+        /// Additional HTTP headers to include in the request. Keys are case-insensitive.
+        /// Useful for provider-specific requirements (e.g., version headers).
+        /// Reserved headers are applied internally and ignored here: 'Authorization', 'x-api-key'.
+        /// </summary>
+        public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Gets or sets the content type to use for the request.
         /// </summary>
         public string ContentType { get; set; } = "application/json";
