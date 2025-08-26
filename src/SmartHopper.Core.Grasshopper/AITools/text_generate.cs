@@ -45,8 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Default system prompt for the AI tool provided by this class.
         /// </summary>
         private readonly string defaultSystemPrompt =
-            "You are a helpful AI assistant. Generate clear, relevant, and well-structured text based on the user's prompt. " +
-            "Provide thoughtful and accurate responses that directly address what the user is asking for.";
+            "You are the engine of a Grasshopper component running inside Rhino3D. You will receive some user prompts and you have to do what the user asks for.\nGenerate clear, relevant, and well-structured text based on the user's prompt.\nProvide thoughtful and accurate responses that directly address what the user is asking for.";
 
         /// <summary>
         /// Get all tools provided by this class.

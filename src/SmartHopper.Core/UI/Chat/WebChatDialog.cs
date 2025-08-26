@@ -64,7 +64,8 @@ namespace SmartHopper.Core.UI.Chat
         private readonly List<IAIInteraction> _chatHistory = new List<IAIInteraction>();
         private AIReturn _lastReturn = new AIReturn();
 
-        // Event raised when a new AI response is received.
+        /// <summary>
+        /// Event raised when a new AI response is received.
         /// </summary>
         public event EventHandler<AIReturn> ResponseReceived;
 
@@ -1093,15 +1094,32 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                // Display system message as collapsible if provided
-
+                // Ensure the system prompt from the initial request is added to chat history and UI
+                // 1) Prefer any existing system message already in the in-memory chat history
+                // 2) Otherwise, pick the first system message from the initial request body
+                // 3) Add it to the chat so it shows in the UI and is part of the first AI turn context
                 var systemMessageText = this._chatHistory
                     .OfType<AIInteractionText>()
                     .FirstOrDefault(x => x.Agent == AIAgent.System);
 
-                if (systemMessageText != null)
+                if (systemMessageText == null)
                 {
-                    this.AddSystemMessage(systemMessageText.Content);
+                    var requestSystem = this._initialRequest?.Body?.Interactions?
+                        .OfType<AIInteractionText>()
+                        .FirstOrDefault(x => x.Agent == AIAgent.System);
+
+                    if (requestSystem != null && !string.IsNullOrWhiteSpace(requestSystem.Content))
+                    {
+                        // Insert into history and render
+                        this.AddSystemMessage(requestSystem.Content);
+                        systemMessageText = requestSystem;
+                    }
+                }
+                else
+                {
+                    // Already in history: render to UI without duplicating and emit a snapshot
+                    this.AddInteractionToWebView(systemMessageText);
+                    this.BuildAndEmitSnapshot();
                 }
 
                 // Check if AI greeting is enabled in settings
@@ -1126,11 +1144,11 @@ namespace SmartHopper.Core.UI.Chat
                 string greetingPrompt;
                 if (systemMessageText != null && !string.IsNullOrEmpty(systemMessageText.Content))
                 {
-                    greetingPrompt = $"You are a chat assistant with specialized knowledge and capabilities. The user has provided the following system instructions that define your role and expertise:\n\n{systemMessageText.Content}\n\nBased on these instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
+                    greetingPrompt = $"You are a chat assistant. The user has provided the following instructions:\n---\n{systemMessageText.Content}\n---\nBased on the instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
                 }
                 else
                 {
-                    greetingPrompt = "You are SmartHopper AI, an AI assistant for Grasshopper3D and computational design. Generate a brief, friendly greeting message that welcomes the user and offers assistance. Keep it concise, professional, and inviting.";
+                    greetingPrompt = "Your job is to generate a brief, friendly greeting message that welcomes the user to the chat. This is a generic purpose chat. Keep the greeting concise: one or two sentences maximum.";
                 }
 
                 var greetingInteractions = new List<IAIInteraction>();
