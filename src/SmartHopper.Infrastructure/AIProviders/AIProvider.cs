@@ -556,23 +556,43 @@ namespace SmartHopper.Infrastructure.AIProviders
                     Debug.WriteLine($"[{this.Name}] Warning: could not set HttpClient timeout: {ex.Message}");
                 }
 
-                // Set up authentication
-                if (authentication.ToLower(CultureInfo.InvariantCulture) == "bearer")
+                // Set up authentication from request
+                var auth = authentication?.Trim().ToLowerInvariant();
+
+                // Centralized API key handling: fetch from provider settings
+                var apiKey = this.GetSetting<string>("ApiKey");
+
+                if (string.IsNullOrWhiteSpace(auth) || auth == "none")
                 {
-                    string apiKey = this.GetSetting<string>("ApiKey");
+                    // no auth
+                }
+                else if (auth == "bearer")
+                {
                     if (string.IsNullOrWhiteSpace(apiKey))
                     {
-                        throw new Exception($"{this.Name} API key is not configured or is invalid.");
+                        throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
                     }
-
-                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                }
+                else if (auth == "x-api-key")
+                {
+                    if (string.IsNullOrWhiteSpace(apiKey))
+                    {
+                        throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
+                    }
+                    httpClient.DefaultRequestHeaders.Remove("x-api-key");
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                 }
                 else
                 {
-                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Only 'bearer' is currently supported.");
+                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key'.");
                 }
 
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                // Apply additional request-scoped headers via shared helper.
+                // Reserved headers are applied internally via authentication helpers: 'Authorization', 'x-api-key'.
+                HttpHeadersHelper.ApplyExtraHeaders(httpClient, request.Headers);
 
                 try
                 {

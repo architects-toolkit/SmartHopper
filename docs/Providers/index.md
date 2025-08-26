@@ -38,6 +38,7 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [ProviderManager](./ProviderManager.md)
 - [IAIProvider](./IAIProvider.md)
 - [AIProvider](./AIProvider.md)
+- [Authentication](./Authentication.md)
 - [AIProviderModels](./AIProviderModels.md)
 - [IAIProviderFactory](./IAIProviderFactory.md)
 - [IAIProviderSettings](./IAIProviderSettings.md)

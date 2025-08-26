@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Default response policy: `CompatibilityDecodeResponsePolicy` that decodes raw provider JSON via the provider's `Decode(string)` to normalized interactions; exceptions are converted to diagnostics via `AIReturn.AddRuntimeMessage`
 - AICall folder reorganization.
 - Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
+- `AIProviderStreamingAdapter.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` helper to apply request-scoped headers (excluding Authorization) from `AIRequestCall.Headers`.
 - IAIRequest.WantsStreaming flag to indicate streaming intent and surface validation hints.
 - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
 - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
@@ -45,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AIStatefulAsyncComponentBase.RequiredCapability` virtual property (default `Text2Text`) to declare per-component capability requirements.
 - `AIStatefulAsyncComponentBase.TryGetCachedBadgeFlags(out verified, out deprecated, out invalid, out replaced)` to expose the extended badge cache.
 - Introduced `AIMessageCode` enum and `AIRuntimeMessage.Code` property for machine‑readable diagnostics. Default code is `Unknown (0)` to keep all existing emits backward compatible.
+- Shared `HttpHeadersHelper.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` utility under `src/SmartHopper.Infrastructure/Utils/` to centralize extra header application across streaming and non‑streaming calls (excludes reserved headers).
 
 ### Changed
 
@@ -90,6 +92,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `GetAIReturnSnapshot()` to keep chat history and metrics consistent.
 - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
 - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
+
+- Authentication refactor and centralized API key handling:
+  - Providers select the auth scheme in `PreCall(...)`, while API keys are resolved internally by providers (never placed on `AIRequestCall`).
+  - `AIProvider.CallApi(...)` now supports `"none"`, `"bearer"` and `"x-api-key"` (applies header using provider API key).
+  - Streaming adapters apply auth via `AIProviderStreamingAdapter.ApplyAuthentication(...)` using provider-internal keys; `ApplyExtraHeaders(...)` now excludes reserved headers (`Authorization`, `x-api-key`).
+- Unified extra header handling via `HttpHeadersHelper`: both `AIProvider.CallApi(...)` and `AIProviderStreamingAdapter.ApplyExtraHeaders(...)` now delegate to the shared helper to eliminate duplication and ensure consistent reserved header filtering for streaming and non-streaming paths.
+
+### Security
+
+- Prevented secret leakage by centralizing API key usage inside provider internals for both non-streaming and streaming flows.
+- `AIRequestCall`, `AIReturn`, and logs do not contain API keys; reserved headers are applied internally only.
+
+### Deprecated
+
+- `CustomizeHttpClientHeaders` is deprecated for authentication/header setup. Providers must stop overriding it for auth and use request-scoped headers instead.
 
 ### Removed
 

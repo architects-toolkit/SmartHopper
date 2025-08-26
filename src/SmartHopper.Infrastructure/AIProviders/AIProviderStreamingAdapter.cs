@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -87,7 +88,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Applies authentication headers to the provided HttpClient.
         /// </summary>
         /// <param name="client">The target HttpClient.</param>
-        /// <param name="authentication">Authentication scheme (e.g., "bearer").</param>
+        /// <param name="authentication">Authentication scheme (e.g., "bearer", "x-api-key").</param>
         /// <param name="apiKey">API key or token if required by the scheme.</param>
         protected void ApplyAuthentication(HttpClient client, string authentication, string apiKey)
         {
@@ -100,6 +101,9 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             switch (authentication.Trim().ToLowerInvariant())
             {
+                case "none":
+                    // no auth
+                    break;
                 case "bearer":
                     if (string.IsNullOrWhiteSpace(apiKey))
                     {
@@ -107,8 +111,16 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                     break;
+                case "x-api-key":
+                    if (string.IsNullOrWhiteSpace(apiKey))
+                    {
+                        throw new InvalidOperationException($"{this.Provider.Name} API key is not configured or is invalid.");
+                    }
+                    client.DefaultRequestHeaders.Remove("x-api-key");
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+                    break;
                 default:
-                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Only 'bearer' is currently supported.");
+                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key'.");
             }
         }
 
