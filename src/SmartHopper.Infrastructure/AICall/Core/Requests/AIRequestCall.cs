@@ -14,12 +14,16 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Execution;
 using SmartHopper.Infrastructure.AICall.Policies;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.Streaming;
 
 
 namespace SmartHopper.Infrastructure.AICall.Core.Requests
@@ -206,11 +210,21 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         }
 
         /// <summary>
-        /// Executes a single provider turn and returns the result. No tool orchestration here.
-        /// Conversation orchestration (multi-turn, tools, streaming) is handled by ConversationSession.
+        /// Executes a single provider turn without streaming (backward compatibility).
         /// </summary>
         /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
         public override async Task<AIReturn> Exec()
+        {
+            return await this.Exec(stream: false).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Executes a single provider turn and returns the result. No tool orchestration here.
+        /// Conversation orchestration (multi-turn, tools, streaming) is handled by ConversationSession.
+        /// </summary>
+        /// <param name="stream">If true, uses streaming mode via provider's streaming adapter.</param>
+        /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
+        public async Task<AIReturn> Exec(bool stream = false)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -240,7 +254,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 }
 
                 // Execute the request from the provider (single turn)
-                var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
+                IAIReturn result;
+                if (stream)
+                {
+                    // Use streaming mode
+                    result = await this.ExecStreamingInternal().ConfigureAwait(false);
+                }
+                else
+                {
+                    // Use non-streaming mode
+                    result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
+                }
 
                 // Provider returned null result
                 if (result == null)
@@ -280,6 +304,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             catch (HttpRequestException ex)
             {
                 stopwatch.Stop();
+
                 // Network-related issues (DNS, connectivity). Keep raw but standardize user-facing message.
                 var raw = this.ExtractProviderErrorMessage(ex);
                 var errorResult = new AIReturn();
@@ -303,6 +328,69 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 errorResult.CreateProviderError(error, this);
                 return errorResult;
             }
+        }
+
+        /// <summary>
+        /// Internal implementation for streaming execution using the provider's streaming adapter.
+        /// </summary>
+        /// <returns>Aggregated AIReturn from the streaming results.</returns>
+        private async Task<AIReturn> ExecStreamingInternal()
+        {
+            // Get the streaming adapter from the provider
+            var executor = new DefaultProviderExecutor();
+            var adapter = executor.TryGetStreamingAdapter(this);
+
+            if (adapter == null)
+            {
+                // Provider doesn't support streaming, fall back to regular execution
+                Debug.WriteLine($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
+                var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
+                return (AIReturn)result;
+            }
+
+            // Use streaming adapter to get deltas and aggregate them
+            var finalReturn = new AIReturn();
+            var streamingOptions = new StreamingOptions
+            {
+                // Coalesce smaller token chunks into brief batches for smoother UI
+                CoalesceTokens = true,
+                CoalesceDelayMs = 40,
+                PreferredChunkSize = 64,
+            };
+
+            try
+            {
+                await foreach (var delta in adapter.StreamAsync(this, streamingOptions, CancellationToken.None))
+                {
+                    // Aggregate the streaming deltas into the final return
+                    if (delta != null)
+                    {
+                        // Take the last complete delta as our final result
+                        finalReturn = delta;
+                        
+                        // If this delta contains a complete interaction, we can consider it final
+                        if (delta.Body?.GetNewInteractions()?.Any() == true)
+                        {
+                            var newInteractions = delta.Body.GetNewInteractions();
+                            var lastInteraction = newInteractions.LastOrDefault();
+                            
+                            // If it's a complete text response (not a partial), use this as final
+                            if (lastInteraction is AIInteractionText textInteraction && 
+                                !string.IsNullOrEmpty(textInteraction.Content))
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIRequest.ExecStreamingInternal] Streaming failed: {ex.Message}");
+                finalReturn.CreateProviderError($"Streaming failed: {ex.Message}", this);
+            }
+
+            return finalReturn;
         }
 
         /// <summary>

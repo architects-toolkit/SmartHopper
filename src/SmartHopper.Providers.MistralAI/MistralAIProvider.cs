@@ -598,7 +598,13 @@ namespace SmartHopper.Providers.MistralAI
                     Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
                 };
 
-                await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
+                // Determine idle timeout from request (fallback to 60s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                await foreach (var data in this.ReadSseDataAsync(
+                    response,
+                    idleTimeout,
+                    null,
+                    cancellationToken).WithCancellation(cancellationToken))
                 {
                     JObject parsed;
                     try

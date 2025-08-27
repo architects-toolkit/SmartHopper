@@ -18,12 +18,13 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Fluent builder for <see cref="AIBodyImmutable"/>. Produces immutable instances without
+    /// Fluent builder for <see cref="AIBody"/>. Produces immutable instances without
     /// implicit context injection or side effects.
     /// </summary>
     public sealed class AIBodyBuilder
     {
         private readonly List<IAIInteraction> interactions = new List<IAIInteraction>();
+        private readonly List<int> interactionsNew = new List<int>();
 
         private string toolFilter = "-*";
         private string contextFilter = "-*";
@@ -36,7 +37,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Creates a builder initialized from an existing immutable body.
         /// </summary>
-        public static AIBodyBuilder FromImmutable(AIBodyImmutable body)
+        public static AIBodyBuilder FromImmutable(AIBody body)
         {
             var b = new AIBodyBuilder();
             if (body != null)
@@ -75,6 +76,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             if (interaction != null)
             {
                 this.interactions.Add(interaction);
+                this.interactionsNew.Add(this.interactions.Count - 1);
             }
             return this;
         }
@@ -85,7 +87,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 foreach (var i in items)
                 {
-                    if (i != null) this.interactions.Add(i);
+                    this.Add(i);
                 }
             }
             return this;
@@ -153,7 +155,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
         public AIBodyBuilder ReplaceLast(IAIInteraction interaction)
         {
-            this.interactions[this.interactions.Count - 1] = interaction;
+            int idx = this.interactions.Count - 1;
+            this.interactions[idx] = interaction;
+            this.interactionsNew.Add(idx);
             return this;
         }
 
@@ -185,11 +189,22 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 // If replacing equal or more than existing, reset and add the new ones
                 this.interactions.Clear();
+                // All positions from 0 to items.Count-1 are considered new
+                for (int i = 0; i < items.Count; i++)
+                {
+                    this.interactionsNew.Add(i);
+                }
             }
             else
             {
                 // Remove the last 'removeCount' items
-                this.interactions.RemoveRange(existingCount - removeCount, removeCount);
+                int startIndex = existingCount - removeCount;
+                this.interactions.RemoveRange(startIndex, removeCount);
+                // Mark the indices that will be replaced as new (they will occupy the same positions)
+                for (int i = 0; i < items.Count; i++)
+                {
+                    this.interactionsNew.Add(startIndex + i);
+                }
             }
 
             this.interactions.AddRange(items);
@@ -202,10 +217,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             return this;
         }
 
-        public AIBodyImmutable Build()
+        public AIBody Build()
         {
             var snapshot = this.interactions?.ToArray() ?? Array.Empty<IAIInteraction>();
-            return new AIBodyImmutable(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema);
+            // Create a copy of indices to ensure immutability of AIBody
+            var newIndices = new List<int>(this.interactionsNew);
+            return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices);
         }
     }
 }

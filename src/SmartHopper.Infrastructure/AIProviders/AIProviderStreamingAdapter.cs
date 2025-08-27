@@ -156,6 +156,29 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         protected async IAsyncEnumerable<string> ReadSseDataAsync(HttpResponseMessage response, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            await foreach (var payload in this.ReadSseDataAsync(response, idleTimeout: null, isTerminalData: null, cancellationToken))
+            {
+                yield return payload;
+            }
+        }
+
+        /// <summary>
+        /// Reads Server-Sent Events (SSE) with optional idle-timeout and terminal predicate.
+        /// - Yields the content following the 'data:' prefix.
+        /// - Stops when a '[DONE]' event is received.
+        /// - If <paramref name="isTerminalData"/> returns true for the payload, the stream ends.
+        /// - If <paramref name="idleTimeout"/> elapses without a new line, the stream ends gracefully.
+        /// </summary>
+        /// <param name="response">HTTP response with SSE stream.</param>
+        /// <param name="idleTimeout">Optional inactivity timeout. When reached, the stream is disposed and reading stops.</param>
+        /// <param name="isTerminalData">Optional predicate to detect provider-specific terminal payloads.</param>
+        /// <param name="cancellationToken">Cancellation token to stop reading.</param>
+        protected async IAsyncEnumerable<string> ReadSseDataAsync(
+            HttpResponseMessage response,
+            TimeSpan? idleTimeout,
+            Func<string, bool> isTerminalData,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
             if (response == null) throw new ArgumentNullException(nameof(response));
 
             if (!response.IsSuccessStatusCode)
@@ -166,13 +189,40 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             using var reader = new StreamReader(stream, Encoding.UTF8);
+            using var ctr = cancellationToken.Register(() => { try { stream.Dispose(); } catch { } });
 
-            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                var line = await reader.ReadLineAsync().ConfigureAwait(false);
+                Task<string> readTask = reader.ReadLineAsync();
+                if (idleTimeout.HasValue)
+                {
+                    var timeoutTask = Task.Delay(idleTimeout.Value, cancellationToken);
+                    var completed = await Task.WhenAny(readTask, timeoutTask).ConfigureAwait(false);
+                    if (completed != readTask)
+                    {
+                        // Idle timeout -> dispose stream to unblock and end gracefully
+                        try { stream.Dispose(); } catch { }
+                        yield break;
+                    }
+                }
+
+                string line = null;
+                try
+                {
+                    line = await readTask.ConfigureAwait(false);
+                }
+                catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+                {
+                    yield break;
+                }
+                catch (IOException) when (cancellationToken.IsCancellationRequested)
+                {
+                    yield break;
+                }
+
                 if (line == null)
                 {
-                    break;
+                    yield break; // End of stream reached
                 }
 
                 if (line.Length == 0)
@@ -187,6 +237,16 @@ namespace SmartHopper.Infrastructure.AIProviders
                     if (payload == "[DONE]")
                     {
                         yield break;
+                    }
+
+                    if (isTerminalData != null)
+                    {
+                        bool terminal = false;
+                        try { terminal = isTerminalData(payload); } catch { /* ignore predicate errors */ }
+                        if (terminal)
+                        {
+                            yield break;
+                        }
                     }
 
                     yield return payload;

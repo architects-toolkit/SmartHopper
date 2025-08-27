@@ -66,7 +66,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         public virtual AICapability Capability { get; set; } = AICapability.None;
 
         /// <inheritdoc/>
-        public virtual AIBodyImmutable Body { get; set; } = AIBodyImmutable.Empty;
+        public virtual AIBody Body { get; set; } = AIBody.Empty;
 
         /// <inheritdoc/>
         public virtual bool WantsStreaming { get; set; } = false;
@@ -186,12 +186,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public virtual void Initialize(string provider, string model, AIBodyImmutable body, string endpoint, AICapability capability = AICapability.TextOutput)
+        public virtual void Initialize(string provider, string model, AIBody body, string endpoint, AICapability capability = AICapability.TextOutput)
         {
             this.Provider = provider;
             this.Model = model;
             this.Endpoint = endpoint ?? string.Empty;
-            this.Body = body ?? AIBodyImmutable.Empty;
+            this.Body = body ?? AIBody.Empty;
             this.Capability = capability;
         }
 

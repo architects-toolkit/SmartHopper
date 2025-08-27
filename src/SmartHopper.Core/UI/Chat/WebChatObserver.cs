@@ -11,8 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Eto.Forms;
-using SmartHopper.Infrastructure.AICall.Core.Base;
+using Rhino;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -48,7 +47,7 @@ namespace SmartHopper.Core.UI.Chat
 
             public void OnStart(AIRequestCall request)
             {
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     _dialog._statusLabel.Text = "Thinking...";
                     _dialog._progressBar.Visible = true;
@@ -56,53 +55,95 @@ namespace SmartHopper.Core.UI.Chat
                 });
             }
 
-            public void OnPartial(AIReturn delta)
+            public void OnDelta(IAIInteraction interaction)
             {
+                if (interaction == null)
+                    return;
+
                 try
                 {
-                    var interactions = delta?.Body?.Interactions;
-                    if (interactions == null || interactions.Count == 0)
-                        return;
-
-                    Application.Instance.AsyncInvoke(() =>
+                    RhinoApp.InvokeOnUiThread(() =>
                     {
-                        foreach (var inter in interactions)
+                        try
                         {
-                            try
+                            // For delta updates, always update the streaming content
+                            var key = GetStreamKey(interaction);
+                            if (!_streams.TryGetValue(key, out var state))
                             {
-                                // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
-                                var key = GetStreamKey(inter);
-                                if (!_streams.TryGetValue(key, out var state))
-                                {
-                                    state = new StreamState { Started = false, Aggregated = null };
-                                }
-
-                                if (!state.Started)
-                                {
-                                    // First chunk: pre-aggregate and create the initial bubble with that content
-                                    state.Started = true;
-                                    state.Aggregated = inter;
-                                    _streams[key] = state;
-                                    _dialog.AddInteractionToWebView(state.Aggregated);
-                                }
-                                else
-                                {
-                                    // Subsequent chunks: merge and replace existing bubble
-                                    state.Aggregated = inter;
-                                    _streams[key] = state;
-                                    _dialog.ReplaceLastMessageByRole(inter.Agent, state.Aggregated);
-                                }
-
-                                // Optional UX: surface tool call name in status
-                                if (inter is AIInteractionToolCall call)
-                                {
-                                    _dialog._statusLabel.Text = $"Calling tool: {call.Name}";
-                                }
+                                state = new StreamState { Started = false, Aggregated = null };
                             }
-                            catch (Exception innerEx)
+
+                            if (!state.Started)
                             {
-                                Debug.WriteLine($"[WebChatObserver] OnPartial item error: {innerEx.Message}");
+                                // First delta: create initial bubble
+                                state.Started = true;
+                                state.Aggregated = interaction;
+                                this._streams[key] = state;
+                                this._dialog.AddInteractionToWebView(state.Aggregated);
                             }
+                            else
+                            {
+                                // Subsequent deltas: update existing bubble
+                                state.Aggregated = interaction;
+                                this._streams[key] = state;
+                                this._dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                            }
+                        }
+                        catch (Exception innerEx)
+                        {
+                            Debug.WriteLine($"[WebChatObserver] OnDelta processing error: {innerEx.Message}");
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatObserver] OnDelta error: {ex.Message}");
+                }
+            }
+
+            public void OnPartial(IAIInteraction interaction)
+            {
+                if (interaction == null)
+                    return;
+
+                try
+                {
+                    RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        try
+                        {
+                            // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
+                            var key = GetStreamKey(interaction);
+                            if (!_streams.TryGetValue(key, out var state))
+                            {
+                                state = new StreamState { Started = false, Aggregated = null };
+                            }
+
+                            if (!state.Started)
+                            {
+                                // First chunk: pre-aggregate and create the initial bubble with that content
+                                state.Started = true;
+                                state.Aggregated = interaction;
+                                _streams[key] = state;
+                                _dialog.AddInteractionToWebView(state.Aggregated);
+                            }
+                            else
+                            {
+                                // Subsequent chunks: merge and replace existing bubble
+                                state.Aggregated = interaction;
+                                _streams[key] = state;
+                                _dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                            }
+
+                            // Optional UX: surface tool call name in status
+                            if (interaction is AIInteractionToolCall call)
+                            {
+                                _dialog._statusLabel.Text = $"Calling tool: {call.Name}";
+                            }
+                        }
+                        catch (Exception innerEx)
+                        {
+                            Debug.WriteLine($"[WebChatObserver] OnPartial processing error: {innerEx.Message}");
                         }
                     });
                 }
@@ -117,7 +158,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (toolCall == null) return;
                 if (!TryAdd(toolCall)) return;
 
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     _dialog.AddToolCallMessage(toolCall);
                     _dialog._statusLabel.Text = $"Calling tool: {toolCall.Name}";
@@ -129,7 +170,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (toolResult == null) return;
                 if (!TryAdd(toolResult)) return;
 
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     _dialog.AddToolResultMessage(toolResult);
                 });
@@ -137,134 +178,23 @@ namespace SmartHopper.Core.UI.Chat
 
             public void OnFinal(AIReturn result)
             {
-                Application.Instance.AsyncInvoke(() =>
+                Debug.WriteLine($"[WebChatObserver] OnFinal: {result?.Body?.Interactions?.Count ?? 0} interactions, {result?.Body?.GetNewInteractions().Count ?? 0} new ones");
+
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
-                        // Final interactions and metrics
-                        var interactions = result?.Body?.Interactions;
-                        var finalMetrics = result?.Metrics;
+                        // Delegate history to ConversationSession; UI only emits notifications.
+                        var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
+                        var lastReturn = this._dialog._currentSession.GetReturn();
 
-                        // 1) Use the provider's final assistant snapshot directly (no concatenation)
-                        AIInteractionText finalAssistant = null;
-                        try
-                        {
-                            if (interactions != null && interactions.Count > 0)
-                            {
-                                for (int i = interactions.Count - 1; i >= 0; i--)
-                                {
-                                    var it = interactions[i];
-                                    if (it is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
-                                    {
-                                        finalAssistant = new AIInteractionText
-                                        {
-                                            Agent = AIAgent.Assistant,
-                                            Content = tt.Content,
-                                            Reasoning = tt.Reasoning,
-                                            Metrics = tt.Metrics,
-                                        };
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception buildEx)
-                        {
-                            Debug.WriteLine($"[WebChatObserver] OnFinal consolidation error: {buildEx.Message}");
-                        }
+                        // Notify listeners with session-managed snapshots
+                        this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
 
-                        // 2) Attach metrics to the final assistant or to the last assistant in history if no text was present
-                        if (finalAssistant != null)
-                        {
-                            if (finalMetrics != null)
-                            {
-                                try
-                                {
-                                    if (finalAssistant.Metrics != null)
-                                        finalAssistant.Metrics.Combine(finalMetrics);
-                                    else
-                                        finalAssistant.Metrics = finalMetrics;
-                                }
-                                catch (Exception mergeEx)
-                                {
-                                    Debug.WriteLine($"[WebChatObserver] OnFinal metrics merge error: {mergeEx.Message}");
-                                }
-                            }
-
-                            // Render full assistant text and persist only once
-                            _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalAssistant);
-
-                            // Persist into conversation state via _lastReturn snapshot
-                            var current = _dialog._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
-                            var updated = new List<IAIInteraction>(current);
-
-                            int lastIdx = -1;
-                            for (int i = updated.Count - 1; i >= 0; i--)
-                            {
-                                if (updated[i]?.Agent == AIAgent.Assistant)
-                                {
-                                    lastIdx = i;
-                                    break;
-                                }
-                            }
-
-                            if (lastIdx >= 0)
-                                updated[lastIdx] = finalAssistant;
-                            else
-                                updated.Add(finalAssistant);
-
-                            var snapshot = new AIReturn();
-                            snapshot.CreateSuccess(updated, _dialog._initialRequest);
-                            _dialog._lastReturn = snapshot;
-                        }
-                        else if (finalMetrics != null)
-                        {
-                            // No assistant text in final: merge metrics into last assistant already shown
-                            try
-                            {
-                                var current = _dialog._lastReturn?.Body?.Interactions ?? new List<IAIInteraction>();
-                                var updated = new List<IAIInteraction>(current);
-                                for (int i = updated.Count - 1; i >= 0; i--)
-                                {
-                                    var inter = updated[i];
-                                    if (inter != null && inter.Agent == AIAgent.Assistant)
-                                    {
-                                        if (inter.Metrics != null)
-                                            inter.Metrics.Combine(finalMetrics);
-                                        else
-                                            inter.Metrics = finalMetrics;
-
-                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, inter);
-                                        updated[i] = inter; // persist metrics
-
-                                        var snapshot = new AIReturn();
-                                        snapshot.CreateSuccess(updated, _dialog._initialRequest);
-                                        _dialog._lastReturn = snapshot;
-                                        break;
-                                    }
-                                }
-                            }
-                            catch (Exception mergeLastEx)
-                            {
-                                Debug.WriteLine($"[WebChatObserver] OnFinal fallback metrics merge error: {mergeLastEx.Message}");
-                            }
-                        }
-
-                        // 3) Do not re-add tool calls/results here; they were handled via OnToolCall/OnToolResult
-
-                        // 4) Clear streaming state and finish
-                        _streams.Clear();
-
-                        // If we haven't produced a snapshot above, fall back to building from provider result interactions
-                        if (_dialog._lastReturn == null || _dialog._lastReturn.Body?.Interactions == null)
-                        {
-                            var fromProvider = result?.Body?.Interactions ?? new List<IAIInteraction>();
-                            var snapshot = new AIReturn();
-                            snapshot.CreateSuccess(new List<IAIInteraction>(fromProvider), _dialog._initialRequest);
-                            _dialog._lastReturn = snapshot;
-                        }
-                        _dialog.ResponseReceived?.Invoke(_dialog, _dialog._lastReturn);
-                        _dialog._statusLabel.Text = "Ready";
+                        // Clear streaming state and finish
+                        this._streams.Clear();
+                        this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
+                        this._dialog._statusLabel.Text = "Ready";
                     }
                     catch (Exception ex)
                     {
@@ -275,19 +205,19 @@ namespace SmartHopper.Core.UI.Chat
 
             public void OnError(Exception ex)
             {
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
                         if (ex is OperationCanceledException)
                         {
-                            _dialog.AddSystemMessage("Cancelled.", "info");
-                            _dialog._statusLabel.Text = "Cancelled";
+                            this._dialog.AddSystemMessage("Cancelled.", "info");
+                            this._dialog._statusLabel.Text = "Cancelled";
                         }
                         else
                         {
-                            _dialog.AddSystemMessage($"Error: {ex.Message}", "error");
-                            _dialog._statusLabel.Text = "Error";
+                            this._dialog.AddSystemMessage($"Error: {ex.Message}", "error");
+                            this._dialog._statusLabel.Text = "Error";
                         }
                     }
                     catch (Exception uiEx)

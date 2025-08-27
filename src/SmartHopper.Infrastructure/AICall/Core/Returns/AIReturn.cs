@@ -38,7 +38,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         private List<AIRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<AIRuntimeMessage>();
 
         /// <inheritdoc/>
-        public AIBodyImmutable Body { get; private set; } = AIBodyImmutable.Empty;
+        public AIBody Body { get; private set; } = AIBody.Empty;
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }
@@ -191,7 +191,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// </summary>
         /// <param name="body">The result value.</param>
         /// <param name="request">The request that generated the result.</param>
-        public void CreateSuccess(AIBodyImmutable body, IAIRequest? request = null)
+        public void CreateSuccess(AIBody body, IAIRequest? request = null)
         {
             if (request == null && this.Request != null)
             {
@@ -335,7 +335,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         }
 
         /// <inheritdoc/>
-        public void SetBody(AIBodyImmutable body)
+        public void SetBody(AIBody body)
         {
             this.Body = body;
         }

@@ -66,7 +66,7 @@ namespace SmartHopper.Infrastructure.Tests
             public async Task<IAIReturn> Call(AIRequestCall request)
             {
                 var result = new AIReturn();
-                result.CreateSuccess(AIBodyImmutable.Empty, request);
+                result.CreateSuccess(AIBody.Empty, request);
                 return await Task.FromResult(result);
             }
 

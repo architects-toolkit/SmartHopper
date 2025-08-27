@@ -21,20 +21,51 @@ using SmartHopper.Infrastructure.AICall.Tools;
 
     /// <summary>
     /// Observer of conversation session lifecycle and streaming deltas.
-    /// Non-streaming minimal contract; streaming will be added in Suggestion 9.
+    /// Provides comprehensive event notifications for all conversation stages.
     /// </summary>
     public interface IConversationObserver
     {
+        /// <summary>
+        /// Called when the conversation session starts.
+        /// </summary>
+        /// <param name="request"></param>
         void OnStart(AIRequestCall request);
 
-        void OnPartial(AIReturn delta);
+        /// <summary>
+        /// Called for streaming text deltas during live response generation.
+        /// Used for live UI updates of partial text content.
+        /// </summary>
+        /// <param name="interaction">The partial interaction being streamed.</param>
+        void OnDelta(IAIInteraction interaction);
 
+        /// <summary>
+        /// Called when an interaction is completed, but there will be more.
+        /// </summary>
+        /// <param name="interaction">The completed partial interaction.</param>
+        void OnPartial(IAIInteraction interaction);
+
+        /// <summary>
+        /// Called when a tool call is made.
+        /// </summary>
+        /// <param name="toolCall"></param>
         void OnToolCall(AIInteractionToolCall toolCall);
 
+        /// <summary>
+        /// Called when a tool result is returned.
+        /// </summary>
+        /// <param name="toolResult"></param>
         void OnToolResult(AIInteractionToolResult toolResult);
 
+        /// <summary>
+        /// Called when the final result is available and the conversation is stable.
+        /// </summary>
+        /// <param name="finalResult"></param>
         void OnFinal(AIReturn finalResult);
 
+        /// <summary>
+        /// Called when an error occurs during the conversation.
+        /// </summary>
+        /// <param name="error"></param>
         void OnError(Exception error);
     }
 }
