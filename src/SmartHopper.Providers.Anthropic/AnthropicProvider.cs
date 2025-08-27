@@ -612,7 +612,13 @@ namespace SmartHopper.Providers.Anthropic
                 var streamMetrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model };
                 string? lastFinishReason = null;
 
-                await foreach (var data in this.ReadSseDataAsync(responseMsg, cancellationToken).WithCancellation(cancellationToken))
+                // Determine idle timeout from request (fallback to 60s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                await foreach (var data in this.ReadSseDataAsync(
+                    responseMsg,
+                    idleTimeout,
+                    p => p != null && p.Contains("\"type\":\"message_stop\"", StringComparison.OrdinalIgnoreCase),
+                    cancellationToken).WithCancellation(cancellationToken))
                 {
                     JObject parsed;
                     try

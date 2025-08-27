@@ -43,7 +43,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <summary>
         /// Gets or sets the immutable request body.
         /// </summary>
-        AIBodyImmutable Body { get; set; }
+        AIBody Body { get; set; }
 
         /// <summary>
         /// Indicates the caller intends to stream this request. Enables validation hints for streaming support.

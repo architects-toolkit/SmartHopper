@@ -816,7 +816,13 @@ namespace SmartHopper.Providers.OpenAI
                     yield return initial;
                 }
 
-                await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
+                // Determine idle timeout from request (fallback to 60s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                await foreach (var data in this.ReadSseDataAsync(
+                    response,
+                    idleTimeout,
+                    null,
+                    cancellationToken).WithCancellation(cancellationToken))
                 {
                     JObject parsed;
                     try
@@ -833,7 +839,8 @@ namespace SmartHopper.Providers.OpenAI
                     var choice = choices?.FirstOrDefault() as JObject;
                     var delta = choice?["delta"] as JObject;
                     var finishReason = choice?["finish_reason"]?.ToString();
-                    if (!string.IsNullOrEmpty(finishReason)) finalFinishReason = finishReason;
+                    bool hasFinish = !string.IsNullOrEmpty(finishReason);
+                    if (hasFinish) finalFinishReason = finishReason;
 
                     // Usage metrics (only present in final chunk when include_usage=true)
                     var usage = parsed["usage"] as JObject;

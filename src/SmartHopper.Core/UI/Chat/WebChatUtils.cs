@@ -555,26 +555,6 @@ namespace SmartHopper.Core.UI.Chat
                 return this.lastReturn;
             }
 
-            /// <summary>
-            /// Gets the combined metrics from all interactions in the chat history.
-            /// </summary>
-            /// <returns>Combined AI metrics from all chat interactions.</returns>
-            public AIMetrics GetCombinedMetrics()
-            {
-                if (this.lastReturn != null && this.lastReturn.Body?.Interactions?.Count > 0)
-                {
-                    var combinedMetrics = new AIMetrics();
-                    foreach (var interaction in this.lastReturn.Body.Interactions)
-                    {
-                        if (interaction.Metrics != null)
-                        {
-                            combinedMetrics.Combine(interaction.Metrics);
-                        }
-                    }
-                    return combinedMetrics;
-                }
-                return new AIMetrics();
-            }
         }
 
         /// <summary>
