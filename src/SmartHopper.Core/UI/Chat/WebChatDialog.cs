@@ -40,14 +40,8 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     internal partial class WebChatDialog : Form
     {
-        // UI Components
+        // UI Component: full WebView-based UI
         private readonly WebView _webView;
-        private readonly TextArea _userInputTextArea;
-        private readonly Button _sendButton;
-        private readonly Button _clearButton;
-        private readonly Button _cancelButton;
-        private readonly ProgressBar _progressBar;
-        private readonly Label _statusLabel;
 
         // Chat Dialog
         private bool _isProcessing;
@@ -80,63 +74,19 @@ namespace SmartHopper.Core.UI.Chat
             {
                 this._progressReporter = progressReporter;
 
-                this._currentSession = new ConversationSession(request);
+                // Create session with attached observer from the start
+                this._currentSession = new ConversationSession(request, new WebChatObserver(this));
 
                 // Window basics
                 this.ClientSize = new Size(720, 640);
                 this.MinimumSize = new Size(560, 420);
                 this.Padding = new Padding(6);
 
-                // Controls
+                // WebView-only content
                 this._webView = new WebView();
                 this._webView.DocumentLoaded += this.WebView_DocumentLoaded;
-                this._userInputTextArea = new TextArea
-                {
-                    Wrap = true,
-                    AcceptsTab = true,
-                    SpellCheck = false,
-                    Height = 80
-                };
-                this._userInputTextArea.KeyDown += this.UserInputTextArea_KeyDown;
-
-                this._sendButton = new Button { Text = "Send" };
-                this._sendButton.Click += (s, e) => this.SendMessage();
-
-                this._clearButton = new Button { Text = "Clear" };
-                this._clearButton.Click += this.ClearButton_Click;
-
-                this._cancelButton = new Button { Text = "Cancel", Enabled = false };
-                this._cancelButton.Click += this.CancelButton_Click;
-
-                this._progressBar = new ProgressBar { Indeterminate = true, Visible = false };
-                this._statusLabel = new Label { Text = "Initializing..." };
-
-                // Layout
-                var buttonsRow = new StackLayout
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Items =
-                    {
-                        this._sendButton,
-                        this._clearButton,
-                        this._cancelButton,
-                        new StackLayoutItem(this._progressBar, HorizontalAlignment.Stretch, true),
-                        this._statusLabel,
-                    }
-                };
-
-                this.Content = new StackLayout
-                {
-                    Orientation = Orientation.Vertical,
-                    Spacing = 6,
-                    Items =
-                    {
-                        new StackLayoutItem(this._webView, HorizontalAlignment.Stretch, true),
-                        this._userInputTextArea,
-                        buttonsRow
-                    }
-                };
+                this._webView.DocumentLoading += this.WebView_DocumentLoading;
+                this.Content = this._webView;
 
                 // Initialize web view and optionally start greeting
                 _ = this.InitializeWebViewAsync();
@@ -167,6 +117,25 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine($"[WebChatDialog] EnsureVisibility error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Minimal query string parser (avoids System.Web dependency).
+        /// </summary>
+        private static Dictionary<string, string> ParseQueryString(string query)
+        {
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(query)) return dict;
+            var q = query.StartsWith("?") ? query.Substring(1) : query;
+            foreach (var pair in q.Split('&'))
+            {
+                if (string.IsNullOrEmpty(pair)) continue;
+                var kv = pair.Split(new[] { '=' }, 2);
+                var key = Uri.UnescapeDataString(kv[0] ?? string.Empty);
+                var val = kv.Length > 1 ? Uri.UnescapeDataString(kv[1]) : string.Empty;
+                if (!string.IsNullOrEmpty(key)) dict[key] = val;
+            }
+            return dict;
         }
 
         /// <summary>
@@ -258,7 +227,8 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._webViewInitialized = true;
                     try { this._webViewInitializedTcs.TrySetResult(true); } catch { }
-                    try { this._statusLabel.Text = this._pendingStatusAfter ?? "Ready"; } catch { }
+                    // Reflect status in web UI
+                    try { this.ExecuteScript($"setStatus({JsonConvert.SerializeObject(this._pendingStatusAfter ?? "Ready")}); setProcessing(false);"); } catch { }
                 });
             }
             catch (Exception ex)
@@ -336,31 +306,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Handles sending a user message from the input box.
         /// </summary>
-        private void SendMessage()
-        {
-            try
-            {
-                var text = (this._userInputTextArea?.Text ?? string.Empty).Trim();
-                if (string.IsNullOrWhiteSpace(text)) return;
-
-                // Store the user message before clearing the input
-                this._pendingUserMessage = text;
-
-                // Clear input early for UX
-                this._userInputTextArea.Text = string.Empty;
-
-                // Append to UI immediately
-                var userInter = new AIInteractionText { Agent = AIAgent.User, Content = text };
-                this.AddInteractionToWebView(userInter);
-
-                // Kick off processing asynchronously
-                Task.Run(() => this.ProcessAIInteraction());
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WebChatDialog] SendMessage error: {ex.Message}");
-            }
-        }
+        // No no-arg SendMessage: messages come from WebView events and call SendMessage(string)
 
         /// <summary>
         /// Event raised when a new AI response is received.
@@ -407,13 +353,6 @@ namespace SmartHopper.Core.UI.Chat
             {
                 try
                 {
-                    if (!string.IsNullOrEmpty(statusBefore))
-                    {
-                        this._statusLabel.Text = statusBefore;
-                    }
-
-                    this._progressBar.Visible = showProgress;
-
                     // Load the HTML into the WebView
                     this._webView.LoadHtml(html, new Uri("https://smarthopper.local/"));
 
@@ -422,13 +361,6 @@ namespace SmartHopper.Core.UI.Chat
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[WebChatDialog] LoadInitialHtmlIntoWebView UI error: {ex.Message}");
-                }
-                finally
-                {
-                    if (showProgress)
-                    {
-                        this._progressBar.Visible = false;
-                    }
                 }
             });
         }
@@ -455,48 +387,26 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Handles the Clear button click event.
         /// </summary>
-        private void ClearButton_Click(object sender, EventArgs e)
+        private void ClearChat()
         {
             try
             {
                 this.CancelCurrentRun();
-
-                // Reload initial HTML to clear the chat UI
-                this.RunWhenWebViewReady(() =>
-                {
-                    this.LoadInitialHtmlIntoWebView(showProgress: false, setWebViewInitialized: false, statusBefore: null, statusAfter: "Ready");
-                });
-
-                // Emit a reset snapshot to notify listeners
+                // Clear messages in-place without reloading the WebView
+                this.RunWhenWebViewReady(() => this.ExecuteScript("clearMessages(); setStatus('Ready'); setProcessing(false);"));
+                // Emit a reset snapshot to notify listeners (no greeting on clear)
                 this.EmitResetSnapshot();
-
-                // Optionally start greeting again
-                Task.Run(() => this.InitializeNewConversation());
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] ClearButton_Click error: {ex.Message}");
+                Debug.WriteLine($"[WebChatDialog] ClearChat error: {ex.Message}");
             }
         }
 
         /// <summary>
         /// Send on Enter, allow newline with Shift+Enter.
         /// </summary>
-        private void UserInputTextArea_KeyDown(object sender, KeyEventArgs e)
-        {
-            try
-            {
-                if (e.Key == Keys.Enter && (e.Modifiers & Keys.Shift) == 0)
-                {
-                    e.Handled = true;
-                    this.SendMessage();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WebChatDialog] UserInputTextArea_KeyDown error: {ex.Message}");
-            }
-        }
+        // No local key handling: input is fully handled in WebView HTML/JS
 
         /// <summary>
         /// Processes an AI interaction using the new AICall models and handles tool calls automatically.
@@ -506,7 +416,8 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 Debug.WriteLine("[WebChatDialog] Processing AI interaction with existing session reuse");
-                var observer = new WebChatObserver(this);
+
+                // Observer already attached at construction time
                 this._currentCts = new CancellationTokenSource();
 
                 // Reuse existing session if available, otherwise create new one
@@ -536,6 +447,16 @@ namespace SmartHopper.Core.UI.Chat
                     sessionRequest.WantsStreaming = true;
                     var validation = sessionRequest.IsValid();
                     shouldTryStreaming = validation.IsValid;
+                    Debug.WriteLine($"[WebChatDialog] Request validation: IsValid={validation.IsValid}, Errors={validation.Errors?.Count ?? 0}");
+                    if (validation.Errors != null)
+                    {
+                        try
+                        {
+                            var msgs = string.Join(" | ", validation.Errors.Select(err => $"{err.Severity}:{err.Message}"));
+                            Debug.WriteLine($"[WebChatDialog] Validation messages: {msgs}");
+                        }
+                        catch { /* ignore logging errors */ }
+                    }
                     if (!shouldTryStreaming)
                     {
                         Debug.WriteLine("[WebChatDialog] Streaming validation failed, will fallback to non-streaming.");
@@ -587,7 +508,13 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error in ProcessAIInteraction: {ex.Message}");
-                throw; // Rethrow to be handled by SendMessage
+                try
+                {
+                    this.AddSystemMessage($"Error: {ex.Message}", "error");
+                    this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Error'); setProcessing(false);") );
+                    this.BuildAndEmitSnapshot();
+                }
+                catch { /* ignore secondary errors */ }
             }
             finally
             {
@@ -605,7 +532,6 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                this._cancelButton.Enabled = false;
                 this._currentCts?.Cancel();
                 this._currentSession?.Cancel();
                 Debug.WriteLine("[WebChatDialog] Cancellation requested");
@@ -619,7 +545,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Handles the cancel button click event.
         /// </summary>
-        private void CancelButton_Click(object sender, EventArgs e)
+        private void CancelChat()
         {
             this.CancelCurrentRun();
         }
@@ -653,25 +579,170 @@ namespace SmartHopper.Core.UI.Chat
                 if (!settings.SmartHopperAssistant.EnableAIGreeting)
                 {
                     // Skip greeting entirely if disabled
-                    RhinoApp.InvokeOnUiThread(() => { this._statusLabel.Text = "Ready"; });
+                    this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);") );
                     return;
                 }
 
-                // Optional: update status while greeting is generated; UI message will come via session observer events
-                RhinoApp.InvokeOnUiThread(() => { this._statusLabel.Text = "Starting..."; });
+                // Do not show processing here; OnStart from the session/observer will manage status/spinner during real runs
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error in InitializeNewConversation: {ex.Message}");
 
                 // Let session/observer handle any fallback; only ensure status is not left in a loading state
-                RhinoApp.InvokeOnUiThread(() => { this._statusLabel.Text = "Ready"; });
+                this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);") );
             }
             finally
             {
-                try { this._currentCts?.Cancel(); } catch { }
-                this._currentCts?.Dispose();
-                this._currentCts = null;
+                // No-op: do not cancel any CTS here; conversation runs are managed elsewhere
+            }
+        }
+
+        /// <summary>
+        /// Intercepts navigation events from the WebView to handle sh:// commands from JS.
+        /// </summary>
+        private void WebView_DocumentLoading(object sender, WebViewLoadingEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"[WebChatDialog] WebView_DocumentLoading called");
+                var uri = e?.Uri;
+                if (uri == null) 
+                {
+                    Debug.WriteLine($"[WebChatDialog] Navigation URI is null");
+                    return;
+                }
+                
+                Debug.WriteLine($"[WebChatDialog] Navigation URI: {uri} (scheme: {uri.Scheme})");
+                
+                if (uri.Scheme.Equals("sh", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine($"[WebChatDialog] Intercepting sh:// scheme, cancelling navigation");
+                    e.Cancel = true;
+                    var query = ParseQueryString(uri.Query);
+                    var type = (query.TryGetValue("type", out var t) ? t : string.Empty).ToLowerInvariant();
+                    Debug.WriteLine($"[WebChatDialog] sh:// event type: '{type}', query params: {string.Join(", ", query.Keys)}");
+                    
+                    switch (type)
+                    {
+                        case "send":
+                            {
+                                var text = query.TryGetValue("text", out var txt) ? txt : string.Empty;
+                                Debug.WriteLine($"[WebChatDialog] Handling send event, text length: {text.Length}");
+                                // Defer to next UI tick to avoid executing scripts during navigation event
+                                Application.Instance.AsyncInvoke(() =>
+                                {
+                                    try { this.SendMessage(text); }
+                                    catch (Exception ex) { Debug.WriteLine($"[WebChatDialog] Deferred SendMessage error: {ex.Message}"); }
+                                });
+                                break;
+                            }
+                        case "clear":
+                            Debug.WriteLine($"[WebChatDialog] Handling clear event");
+                            // Defer to next UI tick to avoid executing scripts during navigation event
+                            Application.Instance.AsyncInvoke(() =>
+                            {
+                                try { this.ClearChat(); }
+                                catch (Exception ex) { Debug.WriteLine($"[WebChatDialog] Deferred ClearChat error: {ex.Message}"); }
+                            });
+                            break;
+                        case "cancel":
+                            Debug.WriteLine($"[WebChatDialog] Handling cancel event");
+                            // Defer to next UI tick to avoid executing scripts during navigation event
+                            Application.Instance.AsyncInvoke(() =>
+                            {
+                                try { this.CancelChat(); }
+                                catch (Exception ex) { Debug.WriteLine($"[WebChatDialog] Deferred CancelChat error: {ex.Message}"); }
+                            });
+                            break;
+                        default:
+                            Debug.WriteLine($"[WebChatDialog] Unknown sh:// event type: '{type}'");
+                            break;
+                    }
+                }
+                else if (uri.Scheme.Equals("clipboard", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine($"[WebChatDialog] Intercepting clipboard:// scheme");
+                    // Handle copy-to-clipboard from JS
+                    e.Cancel = true;
+                    var query = ParseQueryString(uri.Query);
+                    var text = query.TryGetValue("text", out var t) ? t : string.Empty;
+                    Debug.WriteLine($"[WebChatDialog] Clipboard text length: {text.Length}");
+                    try
+                    {
+                        RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            try
+                            {
+                                var cb = new Clipboard();
+                                cb.Text = text;
+                                Debug.WriteLine($"[WebChatDialog] Text copied to clipboard successfully");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[WebChatDialog] Clipboard set failed: {ex.Message}");
+                            }
+                        });
+                        this.RunWhenWebViewReady(() => this.ExecuteScript("showToast('Copied to clipboard');"));
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Clipboard handling error: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[WebChatDialog] Allowing normal navigation to: {uri}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] WebView_DocumentLoading error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles a user message submitted from the WebView.
+        /// </summary>
+        private void SendMessage(string text)
+        {
+            try
+            {
+                Debug.WriteLine($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
+                if (string.IsNullOrWhiteSpace(text)) 
+                {
+                    Debug.WriteLine($"[WebChatDialog] SendMessage: text is null or whitespace, returning");
+                    return;
+                }
+                var trimmed = (text ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(trimmed)) return;
+
+                // Store the user message before processing
+                this._pendingUserMessage = trimmed;
+
+                // Append to UI immediately
+                var userInter = new AIInteractionText { Agent = AIAgent.User, Content = trimmed };
+                this.AddInteractionToWebView(userInter);
+
+                // Kick off processing asynchronously
+                Debug.WriteLine("[WebChatDialog] Scheduling ProcessAIInteraction task");
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        Debug.WriteLine("[WebChatDialog] ProcessAIInteraction task starting");
+                        await this.ProcessAIInteraction().ConfigureAwait(false);
+                        Debug.WriteLine("[WebChatDialog] ProcessAIInteraction task finished");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] ProcessAIInteraction task error: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] SendMessage(text) error: {ex.Message}");
             }
         }
     }

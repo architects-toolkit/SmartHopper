@@ -47,10 +47,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public int InteractionsCount => this.Interactions?.Count ?? 0;
 
-        /// <summary>
-        /// List of indices of newly added or replaced interactions.
-        /// </summary>
-        public List<int> InteractionsNew { get; init; } = new List<int>();
+        // NOTE: Do not redeclare InteractionsNew here.
+        // The record primary constructor already defines the InteractionsNew property.
+        // Redeclaring it with a default initializer would discard values passed via the constructor,
+        // causing 'new' markers to be lost.
 
         /// <summary>
         /// Whether a structured JSON response is requested.

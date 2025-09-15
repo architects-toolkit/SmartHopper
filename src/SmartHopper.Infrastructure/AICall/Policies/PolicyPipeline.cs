@@ -144,7 +144,17 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             {
                 try
                 {
+                    try
+                    {
+                        Debug.WriteLine($"[PolicyPipeline] before {policy.GetType().Name}: interactions={response?.Body?.InteractionsCount ?? 0}, new={string.Join(",", response?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    }
+                    catch { /* logging only */ }
                     await policy.ApplyAsync(context).ConfigureAwait(false);
+                    try
+                    {
+                        Debug.WriteLine($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response?.Body?.InteractionsCount ?? 0}, new={string.Join(",", response?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    }
+                    catch { /* logging only */ }
                 }
                 catch (Exception ex)
                 {

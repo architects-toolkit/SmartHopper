@@ -9,25 +9,32 @@
     </style>
 </head>
 <body>
+    <div id="status-bar">
+        <span id="status-text">Ready</span>
+        <span id="spinner" class="spinner hidden"></span>
+    </div>
+
     <div id='chat-container'></div>
-    
+
+    <div id="input-bar">
+        <textarea id="user-input" placeholder="Type a message..." rows="3"></textarea>
+        <div class="actions">
+            <button id="send-button" type="button">Send</button>
+            <button id="clear-button" type="button">Clear</button>
+            <button id="cancel-button" type="button">Cancel</button>
+        </div>
+    </div>
+
     <script type="text/javascript">
         {{jsChat}}
     </script>
     <script>
         // Message template is injected here by the server
         const MESSAGE_TEMPLATE = '{{messageTemplate}}';
-        
+
         // Ensure the document is ready before executing any functions
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Document loaded and ready');
-            
-            // Add a test message to verify functionality
-            if (typeof addMessage === 'function') {
-                console.log('addMessage function found');
-            } else {
-                console.log('addMessage function NOT found');
-            }
+            // Hooked in chat-script.js
         });
     </script>
 </body>

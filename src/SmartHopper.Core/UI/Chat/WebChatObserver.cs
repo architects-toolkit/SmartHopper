@@ -11,7 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Rhino;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -47,11 +49,15 @@ namespace SmartHopper.Core.UI.Chat
 
             public void OnStart(AIRequestCall request)
             {
+                Debug.WriteLine("[WebChatObserver] OnStart called");
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    _dialog._statusLabel.Text = "Thinking...";
-                    _dialog._progressBar.Visible = true;
-                    _dialog._cancelButton.Enabled = true;
+                    Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
+                    _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
+
+                    // Insert a temporary loading bubble for assistant to be replaced on first content
+                    _dialog.ExecuteScript("addLoadingMessage('assistant', 'Thinking…');");
+                    Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
             }
 
@@ -66,7 +72,13 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         try
                         {
-                            // For delta updates, always update the streaming content
+                            // For delta updates, only handle assistant text content
+                            if (interaction is not AIInteractionText tt || tt.Agent != AIAgent.Assistant)
+                            {
+                                return;
+                            }
+
+                            // Update the streaming content
                             var key = GetStreamKey(interaction);
                             if (!_streams.TryGetValue(key, out var state))
                             {
@@ -75,11 +87,11 @@ namespace SmartHopper.Core.UI.Chat
 
                             if (!state.Started)
                             {
-                                // First delta: create initial bubble
+                                // First delta: replace the temporary loading bubble
                                 state.Started = true;
                                 state.Aggregated = interaction;
                                 this._streams[key] = state;
-                                this._dialog.AddInteractionToWebView(state.Aggregated);
+                                this._dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
                             }
                             else
                             {
@@ -119,26 +131,29 @@ namespace SmartHopper.Core.UI.Chat
                                 state = new StreamState { Started = false, Aggregated = null };
                             }
 
-                            if (!state.Started)
+                            if (interaction is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
                             {
-                                // First chunk: pre-aggregate and create the initial bubble with that content
-                                state.Started = true;
-                                state.Aggregated = interaction;
-                                _streams[key] = state;
-                                _dialog.AddInteractionToWebView(state.Aggregated);
-                            }
-                            else
-                            {
-                                // Subsequent chunks: merge and replace existing bubble
-                                state.Aggregated = interaction;
-                                _streams[key] = state;
-                                _dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                                if (!state.Started)
+                                {
+                                    // First assistant chunk: replace the temporary loading bubble
+                                    state.Started = true;
+                                    state.Aggregated = interaction;
+                                    _streams[key] = state;
+                                    _dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                                }
+                                else
+                                {
+                                    // Subsequent assistant chunks: update existing bubble
+                                    state.Aggregated = interaction;
+                                    _streams[key] = state;
+                                    _dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                                }
                             }
 
                             // Optional UX: surface tool call name in status
                             if (interaction is AIInteractionToolCall call)
                             {
-                                _dialog._statusLabel.Text = $"Calling tool: {call.Name}";
+                                _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
                             }
                         }
                         catch (Exception innerEx)
@@ -161,7 +176,7 @@ namespace SmartHopper.Core.UI.Chat
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     _dialog.AddToolCallMessage(toolCall);
-                    _dialog._statusLabel.Text = $"Calling tool: {toolCall.Name}";
+                    _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
                 });
             }
 
@@ -188,13 +203,34 @@ namespace SmartHopper.Core.UI.Chat
                         var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
                         var lastReturn = this._dialog._currentSession.GetReturn();
 
+                        // Replace the loading bubble with final assistant content if available
+                        try
+                        {
+                            var finalAssistant = result?.Body?.Interactions?
+                                .OfType<AIInteractionText>()
+                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                            if (finalAssistant != null)
+                            {
+                                this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalAssistant);
+                            }
+                            else
+                            {
+                                // No assistant text produced: remove any remaining assistant loading bubble
+                                this._dialog.ExecuteScript("removeLastLoadingMessageByRole('assistant');");
+                            }
+                        }
+                        catch (Exception repEx)
+                        {
+                            Debug.WriteLine($"[WebChatObserver] OnFinal replace/remove loading bubble error: {repEx.Message}");
+                        }
+
                         // Notify listeners with session-managed snapshots
                         this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
 
                         // Clear streaming state and finish
                         this._streams.Clear();
                         this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
-                        this._dialog._statusLabel.Text = "Ready";
+                        this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                     }
                     catch (Exception ex)
                     {
@@ -212,12 +248,12 @@ namespace SmartHopper.Core.UI.Chat
                         if (ex is OperationCanceledException)
                         {
                             this._dialog.AddSystemMessage("Cancelled.", "info");
-                            this._dialog._statusLabel.Text = "Cancelled";
+                            this._dialog.ExecuteScript("setStatus('Cancelled'); setProcessing(false);");
                         }
                         else
                         {
                             this._dialog.AddSystemMessage($"Error: {ex.Message}", "error");
-                            this._dialog._statusLabel.Text = "Error";
+                            this._dialog.ExecuteScript("setStatus('Error'); setProcessing(false);");
                         }
                     }
                     catch (Exception uiEx)
