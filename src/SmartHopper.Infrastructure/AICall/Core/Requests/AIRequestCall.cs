@@ -283,7 +283,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
                 // Run response policies to decode/normalize/validate the response
                 var air = (AIReturn)result;
+                try
+                {
+                    Debug.WriteLine($"[AIRequest.Exec] before policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                }
+                catch { /* logging only */ }
                 await PolicyPipeline.Default.ApplyResponsePoliciesAsync(air).ConfigureAwait(false);
+                try
+                {
+                    Debug.WriteLine($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                }
+                catch { /* logging only */ }
 
                 return air;
             }

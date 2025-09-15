@@ -245,6 +245,46 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
+        /// Updates the _lastReturn with current conversation state, preserving new interaction markers from a source return.
+        /// </summary>
+        private void UpdateLastReturn(AIReturn sourceWithNewMarkers)
+        {
+            if (sourceWithNewMarkers?.Body == null)
+            {
+                this.UpdateLastReturn();
+                return;
+            }
+
+            // Create a new body from session state but preserve the new interaction markers from the source
+            var newMarkers = sourceWithNewMarkers.Body.InteractionsNew ?? new List<int>();
+            var sessionBody = this.Request.Body;
+            
+            // Map the new markers to the current session body positions
+            var mappedMarkers = new List<int>();
+            if (sessionBody?.Interactions != null && newMarkers.Count > 0)
+            {
+                // Assume the new interactions are at the end of the session body
+                int sessionCount = sessionBody.Interactions.Count;
+                int newCount = newMarkers.Count;
+                for (int i = 0; i < newCount; i++)
+                {
+                    mappedMarkers.Add(sessionCount - newCount + i);
+                }
+            }
+
+            // Create a new body with the mapped markers
+            var bodyWithMarkers = new AIBody(
+                sessionBody?.Interactions ?? Array.Empty<IAIInteraction>(),
+                sessionBody?.ToolFilter ?? "-*",
+                sessionBody?.ContextFilter ?? "-*",
+                sessionBody?.JsonOutputSchema,
+                mappedMarkers
+            );
+            
+            this._lastReturn.SetBody(bodyWithMarkers);
+        }
+
+        /// <summary>
         /// Prepares a return with only new interactions for streaming deltas.
         /// </summary>
         private AIReturn PrepareNewOnlyReturn(AIReturn source)
@@ -277,6 +317,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     continue;
                 }
+                try
+                {
+                    Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : (interaction is AIInteractionToolCall tc ? $"tool:{tc.Name}" : interaction is AIInteractionToolResult tr ? $"tool_result:{tr.Name}" : string.Empty))}");
+                }
+                catch { /* logging only */ }
                 this.Request.Body = this.Request.Body.WithAppended(interaction);
             }
         }
@@ -507,9 +552,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = callResult.Body?.GetNewInteractions();
             this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
             
-            // Update our last return
+            // Update our last return, preserving the new interaction markers from the provider response
             this._lastReturn = callResult;
-            this.UpdateLastReturn();
+            this.UpdateLastReturn(callResult);
 
             this.NotifyPartial(callResult);
             return callResult;
@@ -654,7 +699,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         var finalStable = last ?? new AIReturn();
                         this._lastReturn = finalStable;
                         this.UpdateLastReturn();
-                        this.NotifyFinal(this.GetHistoryReturn());
+                        // Pass the result that includes 'new' markers to the observer
+                        this.NotifyFinal(finalStable);
                         return finalStable;
                     }
 
@@ -666,7 +712,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var final = last ?? this.CreateError("Max turns reached without a stable result");
                 this._lastReturn = final;
                 this.UpdateLastReturn();
-                this.NotifyFinal(this.GetHistoryReturn());
+                // Pass the result with markers
+                this.NotifyFinal(final);
                 return final;
             }
             catch (OperationCanceledException oce)
@@ -782,7 +829,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                             if (!options.ProcessTools)
                             {
-                                this.NotifyFinal(this.GetHistoryReturn());
+                                // Pass the provider result so InteractionsNew markers are preserved for the observer/UI
+                                this.NotifyFinal(streamingResult);
                                 toYield = streamingResult;
                                 shouldBreak = true;
                             }
@@ -801,7 +849,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 // Check if conversation is stable
                                 if (this.Request.Body.PendingToolCallsCount() == 0)
                                 {
-                                    this.NotifyFinal(this.GetHistoryReturn());
+                                    // Notify final with the last provider result (or the current streaming result)
+                                    this.NotifyFinal(lastReturn ?? streamingResult);
                                     shouldBreak = true;
                                 }
                             }
@@ -859,7 +908,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
                 this._lastReturn = final;
                 this.UpdateLastReturn();
-                this.NotifyFinal(this.GetHistoryReturn());
+                // Notify final with the last provider result to keep 'new' markers
+                this.NotifyFinal(final);
                 yield return final;
             }
             finally

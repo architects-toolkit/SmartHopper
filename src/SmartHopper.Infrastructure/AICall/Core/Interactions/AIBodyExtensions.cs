@@ -90,7 +90,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public static AIBody WithAppended(this AIBody body, IAIInteraction interaction)
         {
-            var builder = AIBodyBuilder.FromImmutable(body);
+            // When mutating an existing immutable body for session history, clear previous 'new' markers
+            // so only the newly appended item is considered new.
+            var builder = AIBodyBuilder.FromImmutable(body).ClearNewMarkers();
             builder.Add(interaction);
             return builder.Build();
         }
@@ -100,7 +102,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public static AIBody WithAppendedRange(this AIBody body, IEnumerable<IAIInteraction> interactions)
         {
-            var builder = AIBodyBuilder.FromImmutable(body);
+            // Clear previous 'new' markers so only the appended range is considered new
+            var builder = AIBodyBuilder.FromImmutable(body).ClearNewMarkers();
             builder.AddRange(interactions);
             return builder.Build();
         }

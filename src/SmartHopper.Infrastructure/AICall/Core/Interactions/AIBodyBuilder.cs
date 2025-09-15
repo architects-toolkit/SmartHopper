@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -42,6 +43,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             var b = new AIBodyBuilder();
             if (body != null)
             {
+                try
+                {
+                    Debug.WriteLine($"[AIBodyBuilder.FromImmutable] input: interactions={body.InteractionsCount}, new={body.InteractionsNew?.Count ?? 0} [{string.Join(",", body.InteractionsNew ?? new List<int>())}]");
+                }
+                catch { /* logging only */ }
                 if (body.Interactions != null)
                 {
                     b.interactions.AddRange(body.Interactions);
@@ -49,6 +55,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 b.toolFilter = body.ToolFilter ?? b.toolFilter;
                 b.contextFilter = body.ContextFilter ?? b.contextFilter;
                 b.jsonOutputSchema = body.JsonOutputSchema ?? b.jsonOutputSchema;
+                // Preserve 'new' interaction markers so downstream mutations don't clear them
+                if (body.InteractionsNew != null && body.InteractionsNew.Count > 0)
+                {
+                    b.interactionsNew.AddRange(body.InteractionsNew);
+                }
+                try
+                {
+                    Debug.WriteLine($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
+                }
+                catch { /* logging only */ }
             }
             return b;
         }
@@ -77,6 +93,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 this.interactions.Add(interaction);
                 this.interactionsNew.Add(this.interactions.Count - 1);
+                try
+                {
+                    Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}");
+                }
+                catch { /* logging only */ }
             }
             return this;
         }
@@ -158,6 +179,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             int idx = this.interactions.Count - 1;
             this.interactions[idx] = interaction;
             this.interactionsNew.Add(idx);
+            try
+            {
+                Debug.WriteLine($"[AIBodyBuilder.ReplaceLast] idx={idx}, type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}");
+            }
+            catch { /* logging only */ }
             return this;
         }
 
@@ -193,6 +219,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 for (int i = 0; i < items.Count; i++)
                 {
                     this.interactionsNew.Add(i);
+                    try
+                    {
+                        var it = items[i];
+                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(reset)] idx={i}, type={it?.GetType().Name}, agent={it?.Agent.ToString() ?? "?"}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}");
+                    }
+                    catch { /* logging only */ }
                 }
             }
             else
@@ -204,6 +236,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 for (int i = 0; i < items.Count; i++)
                 {
                     this.interactionsNew.Add(startIndex + i);
+                    try
+                    {
+                        var it = items[i];
+                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(slice)] idx={startIndex + i}, type={it?.GetType().Name}, agent={it?.Agent.ToString() ?? "?"}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}");
+                    }
+                    catch { /* logging only */ }
                 }
             }
 
@@ -214,6 +252,22 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public AIBodyBuilder SetCompletionTime(double completionTime)
         {
             this.interactions.Last().Metrics.CompletionTime = completionTime;
+            try
+            {
+                Debug.WriteLine($"[AIBodyBuilder.SetCompletionTime] interactions={this.interactions.Count}, new={string.Join(",", this.interactionsNew)} completionTime={completionTime:F3}");
+            }
+            catch { /* logging only */ }
+            return this;
+        }
+
+        /// <summary>
+        /// Clears any currently tracked 'new' interaction indices. Useful when cloning an existing body
+        /// to perform a new mutation (e.g., appending to session history) where only the appended items
+        /// should be considered new.
+        /// </summary>
+        public AIBodyBuilder ClearNewMarkers()
+        {
+            this.interactionsNew.Clear();
             return this;
         }
 
@@ -221,7 +275,19 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var snapshot = this.interactions?.ToArray() ?? Array.Empty<IAIInteraction>();
             // Create a copy of indices to ensure immutability of AIBody
-            var newIndices = new List<int>(this.interactionsNew);
+            var newIndices = new List<int>();
+            var seen = new HashSet<int>();
+            for (int i = 0; i < this.interactionsNew.Count; i++)
+            {
+                var idx = this.interactionsNew[i];
+                if (idx < 0 || idx >= snapshot.Length) continue; // clamp to valid range
+                if (seen.Add(idx)) newIndices.Add(idx); // de-duplicate while preserving order
+            }
+            try
+            {
+                Debug.WriteLine($"[AIBodyBuilder.Build] building body: interactions={snapshot.Length}, new={string.Join(",", newIndices)}");
+            }
+            catch { /* logging only */ }
             return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices);
         }
     }

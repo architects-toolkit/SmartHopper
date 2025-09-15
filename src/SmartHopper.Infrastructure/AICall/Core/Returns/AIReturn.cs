@@ -221,6 +221,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Body = body;
             this.Request = request;
             this.Status = AICallStatus.Finished;
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+            }
+            catch { /* logging only */ }
         }
 
         /// <summary>
@@ -385,6 +390,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             b.AddRange(interactions);
      
             this.Body = b.Build();
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+            }
+            catch { /* logging only */ }
         }
 
         /// <summary>

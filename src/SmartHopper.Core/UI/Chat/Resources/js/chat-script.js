@@ -13,15 +13,26 @@
  * @param {string} messageHtml - HTML content of the message
  */
 function addMessage(messageHtml) {
+    console.log('[JS] addMessage called with HTML length:', messageHtml ? messageHtml.length : 0);
     const chatContainer = document.getElementById('chat-container');
+    if (!chatContainer) {
+        console.error('[JS] addMessage: chat-container element not found');
+        return;
+    }
     
     // Create a temporary div to parse the HTML
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = messageHtml;
-    
-    // Append the parsed HTML to the chat container
-    chatContainer.appendChild(tempDiv.firstChild);
-    
+
+    // Use firstElementChild to avoid appending a text node from leading whitespace
+    const node = tempDiv.firstElementChild || tempDiv.firstChild;
+    if (node) {
+        chatContainer.appendChild(node);
+        console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
+    } else {
+        console.error('[JS] addMessage: no valid node found in HTML');
+    }
+
     // Process any code blocks for syntax highlighting
     processCodeBlocks();
     
@@ -39,6 +50,33 @@ function addMessage(messageHtml) {
     if (lastMsg && (lastMsg.classList.contains('tool') || lastMsg.classList.contains('system'))) {
         lastMsg.addEventListener('click', () => lastMsg.classList.toggle('expanded'));
     }
+}
+
+/**
+ * Adds a temporary loading bubble for a given role (defaults to assistant).
+ * The bubble carries the 'loading' class so CSS shows a spinner via ::before.
+ * @param {string} role
+ * @param {string} text
+ */
+function addLoadingMessage(role, text) {
+    console.log('[JS] addLoadingMessage called, role:', role, 'text:', text);
+    const chatContainer = document.getElementById('chat-container');
+    if (!chatContainer) {
+        console.error('[JS] addLoadingMessage: chat-container element not found');
+        return;
+    }
+    role = (role || 'assistant').toLowerCase();
+    const content = (text || 'Thinking…');
+    const wrapper = document.createElement('div');
+    wrapper.className = `message ${role} loading`;
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.textContent = content;
+    contentDiv.dataset.copyContent = content;
+    wrapper.appendChild(contentDiv);
+    chatContainer.appendChild(wrapper);
+    console.log('[JS] addLoadingMessage: loading bubble added for role:', role);
+    scrollToBottom();
 }
 
 /**
@@ -60,26 +98,54 @@ function removeLastMessageByRole(role) {
 }
 
 /**
+ * Removes the last loading message for a given role (e.g., the temporary Thinking… bubble)
+ * @param {string} role - 'assistant' | 'user' | 'system'
+ * @returns {boolean} True if a loading message was found and removed
+ */
+function removeLastLoadingMessageByRole(role) {
+    try {
+        const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return false;
+        const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}.loading`));
+        if (messages.length === 0) return false;
+        const last = messages[messages.length - 1];
+        last.remove();
+        console.log('[JS] removeLastLoadingMessageByRole: removed loading bubble for role:', role);
+        return true;
+    } catch (err) {
+        console.error('[JS] removeLastLoadingMessageByRole error:', err);
+        return false;
+    }
+}
+
+/**
  * Replaces the last message of a given role with provided HTML. If none exists, appends it.
  * @param {string} role - Role class to target (e.g., 'assistant', 'user', 'system', 'tool')
  * @param {string} messageHtml - Full message HTML (wrapper + content)
  * @returns {boolean} True if replacement/appended, false otherwise
  */
 function replaceLastMessageByRole(role, messageHtml) {
+    console.log('[JS] replaceLastMessageByRole called, role:', role, 'HTML length:', messageHtml ? messageHtml.length : 0);
     const chatContainer = document.getElementById('chat-container');
     const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
+    console.log('[JS] replaceLastMessageByRole: found', messages.length, 'existing messages for role:', role);
 
     // Parse incoming HTML into an element
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = messageHtml || '';
     const incoming = tempDiv.firstElementChild;
-    if (!incoming) return false;
+    if (!incoming) {
+        console.error('[JS] replaceLastMessageByRole: no valid element in HTML');
+        return false;
+    }
 
     if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
         chatContainer.replaceChild(incoming, lastMessage);
+        console.log('[JS] replaceLastMessageByRole: replaced existing message');
     } else {
         chatContainer.appendChild(incoming);
+        console.log('[JS] replaceLastMessageByRole: appended new message');
     }
 
     // Re-process dynamic features
@@ -312,6 +378,119 @@ function showToast(message) {
         toast.classList.remove('visible');
         setTimeout(() => document.body.removeChild(toast), 300);
     }, 2000);
+}
+
+// Full WebView UI wiring
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('[JS] DOMContentLoaded event fired');
+    try {
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-button');
+        const clearBtn = document.getElementById('clear-button');
+        const cancelBtn = document.getElementById('cancel-button');
+
+        console.log('[JS] Element search results:', {
+            input: !!input,
+            sendBtn: !!sendBtn,
+            clearBtn: !!clearBtn,
+            cancelBtn: !!cancelBtn
+        });
+
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => {
+                console.log('[JS] Send button clicked');
+                const text = (input && input.value || '').trim();
+                console.log('[JS] Input text:', text);
+                if (!text) {
+                    console.log('[JS] No text to send, returning');
+                    return;
+                }
+                // Host will append the user message; just notify and clear input for UX
+                const url = `sh://event?type=send&text=${encodeURIComponent(text)}`;
+                console.log('[JS] Navigating to:', url);
+                window.location.href = url;
+                if (input) input.value = '';
+                console.log('[JS] Input cleared');
+            });
+            console.log('[JS] Send button click handler attached');
+        } else {
+            console.error('[JS] Send button not found!');
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                console.log('[JS] Clear button clicked');
+                window.location.href = 'sh://event?type=clear';
+            });
+            console.log('[JS] Clear button click handler attached');
+        } else {
+            console.error('[JS] Clear button not found!');
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                console.log('[JS] Cancel button clicked');
+                window.location.href = 'sh://event?type=cancel';
+            });
+            console.log('[JS] Cancel button click handler attached');
+        } else {
+            console.error('[JS] Cancel button not found!');
+        }
+
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    console.log('[JS] Enter key pressed, triggering send');
+                    e.preventDefault();
+                    if (sendBtn) sendBtn.click();
+                }
+            });
+            console.log('[JS] Input keydown handler attached');
+        } else {
+            console.error('[JS] Input element not found!');
+        }
+
+        console.log('[JS] DOMContentLoaded wiring completed successfully');
+    } catch (err) {
+        console.error('[JS] DOMContentLoaded wiring error:', err);
+    }
+});
+
+// Host-controlled helpers
+function setStatus(text) {
+    console.log('[JS] setStatus called with text:', text);
+    const el = document.getElementById('status-text');
+    if (el) {
+        el.textContent = text || '';
+        console.log('[JS] setStatus: status updated');
+    } else {
+        console.error('[JS] setStatus: status-text element not found');
+    }
+}
+
+function setProcessing(on) {
+    console.log('[JS] setProcessing called with value:', on);
+    const spinner = document.getElementById('spinner');
+    if (spinner) {
+        spinner.classList.toggle('hidden', !on);
+        console.log('[JS] setProcessing: spinner', on ? 'shown' : 'hidden');
+    } else {
+        console.error('[JS] setProcessing: spinner element not found');
+    }
+}
+
+/**
+ * Clears all messages from the chat container
+ */
+function clearMessages() {
+    console.log('[JS] clearMessages called');
+    const chatContainer = document.getElementById('chat-container');
+    if (!chatContainer) {
+        console.error('[JS] clearMessages: chat-container element not found');
+        return;
+    }
+    chatContainer.innerHTML = '';
+    console.log('[JS] clearMessages: all messages cleared');
 }
 
 // Copy handler: only override when one or more FULL messages are selected
