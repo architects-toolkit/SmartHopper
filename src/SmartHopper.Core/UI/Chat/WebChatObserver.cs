@@ -40,6 +40,58 @@ namespace SmartHopper.Core.UI.Chat
                 public IAIInteraction Aggregated;
             }
 
+        /// <summary>
+        /// Aggregates assistant text across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
+        /// Rules:
+        /// - First chunk: start stream, set aggregated = first content.
+        /// - Subsequent chunks:
+        ///   - If incoming starts with current -> provider is cumulative: replace with incoming.
+        ///   - Else if current starts with incoming -> regression/noise: ignore to prevent trimming flicker.
+        ///   - Else -> treat as incremental delta: append incoming to current.
+        /// </summary>
+        private static void CoalesceAssistantTextChunk(AIInteractionText incoming, string key, ref StreamState state)
+        {
+            if (!state.Started || state.Aggregated is not AIInteractionText aggExisting)
+            {
+                state.Started = true;
+                state.Aggregated = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = incoming?.Content ?? string.Empty,
+                    // Hide metrics while streaming to avoid showing 0/0 interim values.
+                    // Final metrics will be applied in OnFinal when the response completes.
+                    Metrics = null,
+                    Time = incoming?.Time ?? DateTime.UtcNow,
+                };
+                return;
+            }
+
+            var current = aggExisting.Content ?? string.Empty;
+            var incomingText = incoming?.Content ?? string.Empty;
+
+            if (string.IsNullOrEmpty(incomingText))
+            {
+                // Nothing to add; keep existing
+                return;
+            }
+
+            // Cumulative stream: incoming contains full text so far
+            if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
+            {
+                aggExisting.Content = incomingText;
+                return;
+            }
+
+            // Regression/noise: ignore to avoid trimming visual content
+            if (current.StartsWith(incomingText, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            // Incremental delta: append
+            aggExisting.Content = current + incomingText;
+        }
+
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
             public WebChatObserver(WebChatDialog dialog)
@@ -78,27 +130,19 @@ namespace SmartHopper.Core.UI.Chat
                                 return;
                             }
 
-                            // Update the streaming content
                             var key = GetStreamKey(interaction);
                             if (!_streams.TryGetValue(key, out var state))
                             {
                                 state = new StreamState { Started = false, Aggregated = null };
                             }
 
-                            if (!state.Started)
+                            // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
+                            CoalesceAssistantTextChunk(tt, key, ref state);
+
+                            this._streams[key] = state;
+                            if (state.Aggregated != null)
                             {
-                                // First delta: replace the temporary loading bubble
-                                state.Started = true;
-                                state.Aggregated = interaction;
-                                this._streams[key] = state;
-                                this._dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
-                            }
-                            else
-                            {
-                                // Subsequent deltas: update existing bubble
-                                state.Aggregated = interaction;
-                                this._streams[key] = state;
-                                this._dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                                this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, state.Aggregated);
                             }
                         }
                         catch (Exception innerEx)
@@ -133,20 +177,13 @@ namespace SmartHopper.Core.UI.Chat
 
                             if (interaction is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
                             {
-                                if (!state.Started)
+                                // Coalesce text across partials
+                                CoalesceAssistantTextChunk(tt, key, ref state);
+
+                                _streams[key] = state;
+                                if (state.Aggregated != null)
                                 {
-                                    // First assistant chunk: replace the temporary loading bubble
-                                    state.Started = true;
-                                    state.Aggregated = interaction;
-                                    _streams[key] = state;
-                                    _dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
-                                }
-                                else
-                                {
-                                    // Subsequent assistant chunks: update existing bubble
-                                    state.Aggregated = interaction;
-                                    _streams[key] = state;
-                                    _dialog.ReplaceLastMessageByRole(interaction.Agent, state.Aggregated);
+                                    _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, state.Aggregated);
                                 }
                             }
 
@@ -206,12 +243,36 @@ namespace SmartHopper.Core.UI.Chat
                         // Replace the loading bubble with final assistant content if available
                         try
                         {
-                            var finalAssistant = result?.Body?.Interactions?
-                                .OfType<AIInteractionText>()
-                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-                            if (finalAssistant != null)
+                            // Prefer aggregated streaming text if present to avoid shrinking due to partial final chunks
+                            AIInteractionText finalToRender = null;
+
+                            // Stream key used for assistant text
+                            var assistantKey = "text:" + AIAgent.Assistant.ToString();
+                            if (this._streams.TryGetValue(assistantKey, out var state) && state?.Aggregated is AIInteractionText agg && !string.IsNullOrWhiteSpace(agg.Content))
                             {
-                                this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalAssistant);
+                                // Apply final metrics to the aggregated text before rendering
+                                var finalAssistant = result?.Body?.Interactions?
+                                    .OfType<AIInteractionText>()
+                                    .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                                if (finalAssistant != null)
+                                {
+                                    agg.Metrics = finalAssistant.Metrics;
+                                    // Optionally take final timestamp if available
+                                    agg.Time = finalAssistant.Time != default ? finalAssistant.Time : agg.Time;
+                                }
+                                finalToRender = agg;
+                            }
+                            else
+                            {
+                                // Fallback to assistant text from the result
+                                finalToRender = result?.Body?.Interactions?
+                                    .OfType<AIInteractionText>()
+                                    .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                            }
+
+                            if (finalToRender != null)
+                            {
+                                this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalToRender);
                             }
                             else
                             {

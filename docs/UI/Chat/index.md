@@ -70,18 +70,10 @@ Each message uses role classes like `.message.user`, `.message.assistant`, `.mes
 
 All UI work (including `ExecuteScript`) is marshaled via `RhinoApp.InvokeOnUiThread(...)`. DOM updates are serialized by the dialog to avoid re-entrancy into the WebView’s script engine.
 
-## Styling (minimal additions)
-
-The CSS now includes minimal styles for:
-
-- `#status-bar` and `#status-text`
-- `.spinner` and `.hidden`
-- `#input-bar` (+ buttons and textarea)
-
 ## Clipboard
 
 `chat-script.js` uses `clipboard://copy?text=...` for code-block copy. The host intercepts it and sets system clipboard text, then shows a toast in the WebView.
 
 ## Consumers
 
-- `CanvasButton` and `AIChatComponent` continue to open/reuse the dialog via `WebChatUtils`. They receive incremental `ChatUpdated` snapshots to surface transcript/metrics in Grasshopper.
+- `CanvasButton` and `AIChatComponent` open/reuse the dialog via `WebChatUtils`. They receive incremental `ChatUpdated` snapshots to surface transcript/metrics in Grasshopper.

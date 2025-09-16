@@ -495,14 +495,10 @@ namespace SmartHopper.Core.UI.Chat
                     Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
                     // Ensure streaming flag is not set for non-streaming execution
                     sessionRequest.WantsStreaming = false;
-                    var fallbackResult = await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
-
-                    // Merge: append the provider-tracked new interactions
-                    var newOnes = fallbackResult?.Body?.GetNewInteractions() ?? new List<IAIInteraction>();
-                    foreach (var inter in newOnes)
-                    {
-                        this.AddInteractionToWebView(inter);
-                    }
+                    // Run non-streaming to completion. The ConversationSession observer (WebChatObserver)
+                    // handles UI updates via OnPartial/OnFinal (replace loading bubble, emit snapshot).
+                    // Do NOT manually append interactions here to avoid duplicate assistant messages.
+                    await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)

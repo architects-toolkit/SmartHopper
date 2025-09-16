@@ -149,8 +149,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Agent = AIAgent.User, 
                 Content = userMessage 
             };
-            
-            this.Request.Body = this.Request.Body.WithAppended(userInteraction);
+            // Append user input to session history without marking it as 'new'
+            this.AppendToSessionHistory(userInteraction);
             this.UpdateLastReturn();
         }
 
@@ -162,7 +162,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             if (interaction != null)
             {
-                this.Request.Body = this.Request.Body.WithAppended(interaction);
+                // Append generic interaction to session history without marking it as 'new'
+                this.AppendToSessionHistory(interaction);
                 this.UpdateLastReturn();
             }
         }
@@ -238,10 +239,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         /// <summary>
         /// Updates the _lastReturn with current conversation state.
+        /// Creates a fresh snapshot return to avoid mutating any provider returns.
         /// </summary>
         private void UpdateLastReturn()
         {
-            this._lastReturn.SetBody(this.Request.Body);
+            var snapshot = new AIReturn();
+            snapshot.SetBody(this.Request.Body);
+            this._lastReturn = snapshot;
         }
 
         /// <summary>
@@ -255,33 +259,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return;
             }
 
-            // Create a new body from session state but preserve the new interaction markers from the source
-            var newMarkers = sourceWithNewMarkers.Body.InteractionsNew ?? new List<int>();
+            // Preserve the source return object for observer events, but keep the session snapshot
+            // without 'new' markers (history only), so future returns don't re-mark items as new.
             var sessionBody = this.Request.Body;
-            
-            // Map the new markers to the current session body positions
-            var mappedMarkers = new List<int>();
-            if (sessionBody?.Interactions != null && newMarkers.Count > 0)
-            {
-                // Assume the new interactions are at the end of the session body
-                int sessionCount = sessionBody.Interactions.Count;
-                int newCount = newMarkers.Count;
-                for (int i = 0; i < newCount; i++)
-                {
-                    mappedMarkers.Add(sessionCount - newCount + i);
-                }
-            }
+            var bodyHistoryOnly = AIBodyBuilder
+                .FromImmutable(sessionBody)
+                .ClearNewMarkers() // ensure no 'new' markers bleed into the snapshot
+                .Build();
 
-            // Create a new body with the mapped markers
-            var bodyWithMarkers = new AIBody(
-                sessionBody?.Interactions ?? Array.Empty<IAIInteraction>(),
-                sessionBody?.ToolFilter ?? "-*",
-                sessionBody?.ContextFilter ?? "-*",
-                sessionBody?.JsonOutputSchema,
-                mappedMarkers
-            );
-            
-            this._lastReturn.SetBody(bodyWithMarkers);
+            var snapshot = new AIReturn();
+            snapshot.SetBody(bodyHistoryOnly);
+            this._lastReturn = snapshot;
         }
 
         /// <summary>
@@ -322,7 +310,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : (interaction is AIInteractionToolCall tc ? $"tool:{tc.Name}" : interaction is AIInteractionToolResult tr ? $"tool_result:{tr.Name}" : string.Empty))}");
                 }
                 catch { /* logging only */ }
-                this.Request.Body = this.Request.Body.WithAppended(interaction);
+                // Append provider-returned interactions to session as history (not new)
+                this.AppendToSessionHistory(interaction);
             }
         }
 
@@ -356,6 +345,33 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private void NotifyToolResult(AIInteractionToolResult toolResult) => this.Observer?.OnToolResult(toolResult);
         private void NotifyStart(AIRequestCall request) => this.Observer?.OnStart(request);
         private void NotifyError(Exception error) => this.Observer?.OnError(error);
+
+        /// <summary>
+        /// Appends a single interaction to the session history without marking it as new.
+        /// </summary>
+        private void AppendToSessionHistory(IAIInteraction interaction)
+        {
+            if (interaction == null) return;
+            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
+                .ClearNewMarkers()
+                .AsHistory();
+            builder.Add(interaction, markAsNew: false);
+            this.Request.Body = builder.Build();
+        }
+
+        /// <summary>
+        /// Appends a range of interactions to the session history without marking them as new.
+        /// </summary>
+        private void AppendRangeToSessionHistory(IEnumerable<IAIInteraction> interactions)
+        {
+            if (interactions == null) return;
+            var items = interactions.Where(i => i != null).Select(i => (interaction: i, isNew: false)).ToList();
+            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
+                .ClearNewMarkers()
+                .AsHistory();
+            builder.AddRange(items);
+            this.Request.Body = builder.Build();
+        }
 
         /// <summary>
         /// Creates a standardized error AIReturn.
@@ -474,8 +490,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (greetingText != null && !string.IsNullOrWhiteSpace(greetingText.Content))
                 {
-                    // Persist greeting into conversation history
-                    this.Request.Body = this.Request.Body.WithAppended(greetingText);
+                    // Persist greeting into conversation history as history (not new)
+                    this.AppendToSessionHistory(greetingText);
                     this.UpdateLastReturn();
 
                     // Emit partial with only the greeting interaction for clean UI append
@@ -590,7 +606,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
                     if (toolInteraction != null)
                     {
-                        this.Request.Body = this.Request.Body.WithAppended(toolInteraction);
+                        // Append tool result to session as history (not new)
+                        this.AppendToSessionHistory(toolInteraction);
                         this.NotifyToolResult(toolInteraction);
                     }
                     else
@@ -600,7 +617,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         var errInteraction = none.Body?.GetLastInteraction() as AIInteractionToolResult;
                         if (errInteraction != null)
                         {
-                            this.Request.Body = this.Request.Body.WithAppended(errInteraction);
+                            this.AppendToSessionHistory(errInteraction);
                             this.NotifyToolResult(errInteraction);
                         }
                     }
@@ -783,76 +800,129 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     linkedCts.Token.ThrowIfCancellationRequested();
                     // Prepare variables to avoid yielding inside try/catch blocks
-                    AIReturn streamingResult = null;
+                    List<AIReturn> deltaYields = null;   // per-chunk streaming yields
                     List<AIReturn> pendingToolYields = null;
-                    AIReturn toYield = null;
+                    AIReturn finalProviderYield = null;  // final provider result for this turn
                     AIReturn errorYield = null;
-                    bool yieldStreamingResult = false;
                     bool shouldBreak = false;
 
                     try
                     {
-                        // Use streaming execution via Exec(stream: true)
-                        streamingResult = await this.ExecProviderStreamingAsync(linkedCts.Token).ConfigureAwait(false);
-                        if (streamingResult == null)
+                        // Try to obtain a streaming adapter and stream deltas inline
+                        var executor = new DefaultProviderExecutor();
+                        var adapter = executor.TryGetStreamingAdapter(this.Request);
+
+                        if (adapter == null)
                         {
-                            var err = this.CreateError("Provider returned no response");
-                            this.NotifyFinal(err);
-                            errorYield = err;
-                            shouldBreak = true;
-                        }
-                        else
-                        {
-                            // Merge new interactions into session body
-                            var newInteractions = streamingResult.Body?.GetNewInteractions();
-                            this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
-
-                            // Update last return and notify with deltas
-                            this._lastReturn = streamingResult;
-                            this.UpdateLastReturn();
-
-                            // For streaming, emit delta notifications
-                            this.NotifyDelta(this.PrepareNewOnlyReturn(streamingResult));
-                            lastReturn = streamingResult;
-
-                            // Handle tool calls if present
-                            if (newInteractions != null)
+                            // Provider doesn't support streaming: fall back to non-streaming single turn
+                            var nonStream = await this.ExecProviderAsync(linkedCts.Token).ConfigureAwait(false);
+                            if (nonStream == null)
                             {
-                                foreach (var interaction in newInteractions)
-                                {
-                                    if (interaction is AIInteractionToolCall toolCall)
-                                    {
-                                        this.NotifyToolCall(toolCall);
-                                    }
-                                }
-                            }
-
-                            if (!options.ProcessTools)
-                            {
-                                // Pass the provider result so InteractionsNew markers are preserved for the observer/UI
-                                this.NotifyFinal(streamingResult);
-                                toYield = streamingResult;
+                                var err = this.CreateError("Provider returned no response");
+                                this.NotifyFinal(err);
+                                errorYield = err;
                                 shouldBreak = true;
                             }
                             else
                             {
-                                // Process pending tools if any
+                                // Merge and notify as a partial (single shot)
+                                var newInteractions = nonStream.Body?.GetNewInteractions();
+                                this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
+                                this._lastReturn = nonStream;
+                                this.UpdateLastReturn();
+                                this.NotifyPartial(this.PrepareNewOnlyReturn(nonStream));
+                                lastReturn = nonStream;
+
+                                if (!options.ProcessTools)
+                                {
+                                    this.NotifyFinal(nonStream);
+                                    finalProviderYield = nonStream;
+                                    shouldBreak = true;
+                                }
+                                else
+                                {
+                                    pendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token).ConfigureAwait(false);
+                                    if (pendingToolYields.Count > 0)
+                                    {
+                                        lastReturn = pendingToolYields.Last();
+                                    }
+                                    if (this.Request.Body.PendingToolCallsCount() == 0)
+                                    {
+                                        this.NotifyFinal(lastReturn ?? nonStream);
+                                        shouldBreak = true;
+                                    }
+                                    finalProviderYield = nonStream;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Streaming path: forward each chunk to observer and caller
+                            deltaYields = new List<AIReturn>();
+                            AIReturn lastDelta = null;
+
+                            await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, linkedCts.Token))
+                            {
+                                if (delta == null)
+                                {
+                                    continue;
+                                }
+
+                                // Merge chunk into session state and notify as partial
+                                var newInteractions = delta.Body?.GetNewInteractions();
+                                this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
+                                this._lastReturn = delta;
+                                this.UpdateLastReturn();
+                                this.NotifyPartial(this.PrepareNewOnlyReturn(delta));
+
+                                // Surface tool call notifications immediately upon appearance
+                                if (newInteractions != null)
+                                {
+                                    foreach (var interaction in newInteractions)
+                                    {
+                                        if (interaction is AIInteractionToolCall toolCall)
+                                        {
+                                            this.NotifyToolCall(toolCall);
+                                        }
+                                    }
+                                }
+
+                                // Queue yield for the caller
+                                deltaYields.Add(delta);
+                                lastDelta = delta;
+                                lastReturn = delta;
+                            }
+
+                            // No deltas received -> error
+                            if (lastDelta == null)
+                            {
+                                var err = this.CreateError("Provider returned no response");
+                                this.NotifyFinal(err);
+                                errorYield = err;
+                                shouldBreak = true;
+                            }
+                            else if (!options.ProcessTools)
+                            {
+                                // Finalize this turn with the last delta
+                                this.NotifyFinal(lastDelta);
+                                finalProviderYield = lastDelta;
+                                shouldBreak = true;
+                            }
+                            else
+                            {
+                                // Process tools after streaming completes
                                 pendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token).ConfigureAwait(false);
                                 if (pendingToolYields.Count > 0)
                                 {
                                     lastReturn = pendingToolYields.Last();
                                 }
-
-                                // We will also emit the current streaming result
-                                yieldStreamingResult = true;
-
-                                // Check if conversation is stable
+                                // If stable, finish the turn
                                 if (this.Request.Body.PendingToolCallsCount() == 0)
                                 {
-                                    // Notify final with the last provider result (or the current streaming result)
-                                    this.NotifyFinal(lastReturn ?? streamingResult);
+                                    this.NotifyFinal(lastReturn ?? lastDelta);
                                     shouldBreak = true;
                                 }
+                                finalProviderYield = lastDelta;
                             }
                         }
                     }
@@ -874,6 +944,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     }
 
                     // Perform all yields outside the try/catch blocks to satisfy iterator constraints
+                    if (deltaYields != null && deltaYields.Count > 0)
+                    {
+                        foreach (var dy in deltaYields)
+                        {
+                            yield return dy;
+                        }
+                    }
+
                     if (pendingToolYields != null && pendingToolYields.Count > 0)
                     {
                         foreach (var toolYield in pendingToolYields)
@@ -882,13 +960,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                     }
 
-                    if (toYield != null)
+                    if (finalProviderYield != null)
                     {
-                        yield return toYield;
-                    }
-                    else if (yieldStreamingResult && streamingResult != null)
-                    {
-                        yield return streamingResult;
+                        yield return finalProviderYield;
                     }
 
                     if (errorYield != null)
