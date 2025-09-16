@@ -11,12 +11,13 @@ trigger: always_on
    3. Maximizes security (see OWASP Top 10)
    4. Maximizes performance
    5. Eases future maintenance
-3. Conduct a brief threat review on all external inputs and secrets; reference OWASP/T12 checklist.
-4. In your post-edit summary, include:
+3. When you get stuck in a maze of reasoning, you should stop, give the user a full summary of what you've found, and ask for help.
+4. Conduct a brief threat review on all external inputs and secrets; reference OWASP/T12 checklist.
+5. In your post-edit summary, include:
    - Alternative solutions considered, highlighting the rationale for the chosen approach
    - Best practices applied
    - Suggestions for future improvements
-5. Persist rich context into the Memory DB:
+6. Persist rich context into the Memory DB:
    1. Capture key docs & code snippets (with URLs & summaries)
    2. Document high-level architecture & module roles
    3. Record project conventions (standards, naming, structure, configs)
