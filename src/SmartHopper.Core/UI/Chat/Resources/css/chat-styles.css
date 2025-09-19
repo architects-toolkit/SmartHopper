@@ -15,6 +15,42 @@ body {
     padding: 10px;
     background-color: #f5f5f5;
     line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: 100vh;
+}
+
+/* Status bar */
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    padding: 6px 10px;
+    border-radius: 6px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#status-text {
+    font-size: 0.9em;
+    color: #555;
+}
+
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #e0e0e0;
+    border-top-color: #0366d6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.hidden {
+    display: none !important;
 }
 
 #chat-container {
@@ -22,6 +58,52 @@ body {
     flex-direction: column;
     max-width: 100%;
     margin: 0 auto;
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+
+/* Input bar */
+#input-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    padding: 8px;
+    border-radius: 6px;
+    margin-top: 8px;
+    position: sticky;
+    bottom: 0;
+}
+
+#input-bar textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 60px;
+    max-height: 200px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px;
+    font-family: inherit;
+    font-size: 0.95em;
+}
+
+#input-bar .actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+#input-bar .actions button {
+    border: 1px solid #ddd;
+    background: #fafafa;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+#input-bar .actions button:hover {
+    background: #f0f0f0;
 }
 
 .message {

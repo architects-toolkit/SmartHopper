@@ -36,12 +36,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 var response = context.Response;
                 var metrics = response.Metrics; // aggregated snapshot
 
-                // Try to get existing finish reason or fallback to last assistant interaction
+                // Try to get existing finish reason or fallback to last interaction
                 string original = metrics?.FinishReason;
+                var lastInteraction = response.Body?.Interactions?.LastOrDefault();
                 if (string.IsNullOrWhiteSpace(original))
                 {
-                    var lastAssistant = response.Body?.Interactions?.LastOrDefault(i => i?.Agent == AIAgent.Assistant);
-                    original = lastAssistant?.Metrics?.FinishReason;
+                    original = lastInteraction?.Metrics?.FinishReason;
                 }
 
                 // Normalize common values; default to "stop" if still missing
@@ -53,8 +53,20 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                     usedDefault = true;
                 }
 
-                // Persist normalized finish reason into global metrics without disturbing other fields
-                response.Metrics = new AIMetrics { FinishReason = normalized };
+                // Replace only the finish reason in the last interaction if applicable
+                if (lastInteraction != null && lastInteraction.Metrics != null)
+                {
+                    lastInteraction.Metrics.FinishReason = normalized;
+                }
+                else if (lastInteraction != null)
+                {
+                    lastInteraction.Metrics = new AIMetrics { FinishReason = normalized };
+                }
+
+                // Replace the last interaction in the response
+                response.SetBody(AIBodyBuilder.FromImmutable(response.Body)
+                        .ReplaceLast(lastInteraction)
+                        .Build());
 
                 // Attach diagnostics when applicable
                 if (usedDefault)
@@ -114,6 +126,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["end"] = "stop",
                 ["eos"] = "stop",
                 ["stop_sequence"] = "stop",
+                ["end_turn"] = "stop",
 
                 // length
                 ["length"] = "length",
@@ -127,6 +140,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["timeout"] = "timeout",
                 ["time_out"] = "timeout",
                 ["deadline_exceeded"] = "timeout",
+                ["pause_turn"] = "timeout",
 
                 // cancelled
                 ["cancelled"] = "cancelled",
@@ -141,11 +155,13 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["tool_calls"] = "tool_calls",
                 ["function_call"] = "tool_calls",
                 ["function_calls"] = "tool_calls",
+                ["tool_use"] = "tool_calls",
 
                 // safety/content filter
                 ["content_filter"] = "content_filter",
                 ["safety"] = "content_filter",
                 ["filtered"] = "content_filter",
+                ["refusal"] = "content_filter",
 
                 // provider reported error state
                 ["error"] = "error",

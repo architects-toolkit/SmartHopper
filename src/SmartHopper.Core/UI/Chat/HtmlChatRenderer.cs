@@ -95,7 +95,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         /// <param name="interaction">The AIInteraction containing metrics data.</param>
         /// <returns>HTML representation of the message.</returns>
-        public string GenerateMessageHtml(IAIInteraction interaction)
+        public string RenderInteraction(IAIInteraction interaction)
         {
             Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
 

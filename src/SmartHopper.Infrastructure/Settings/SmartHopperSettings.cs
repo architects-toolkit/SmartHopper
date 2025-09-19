@@ -52,6 +52,12 @@ namespace SmartHopper.Infrastructure.Settings
         public SmartHopperAssistantSettings SmartHopperAssistant { get; set; }
 
         /// <summary>
+        /// Raised after settings are successfully saved to disk and providers refreshed.
+        /// Subscribers can react to settings updates (e.g., UI toggles).
+        /// </summary>
+        public event EventHandler? SettingsSaved;
+
+        /// <summary>
         /// Gets or sets version of the encryption method used. 1 = legacy AES, 2 = OS secure store.
         /// </summary>
         [JsonProperty]
@@ -894,6 +900,16 @@ namespace SmartHopper.Infrastructure.Settings
 
                 // After saving, refresh all providers
                 this.RefreshProvidersLocalStorage();
+
+                // Notify listeners that settings have been saved/updated
+                try
+                {
+                    SettingsSaved?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception evEx)
+                {
+                    Debug.WriteLine($"[Settings] Error notifying SettingsSaved listeners: {evEx.Message}");
+                }
             }
             catch (Exception ex)
             {

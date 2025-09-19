@@ -10,12 +10,16 @@
 
 /*
  * ComponentBadgesAttributes: Custom Grasshopper component attributes that render
- * AI model status badges (Verified/Deprecated) as floating circles above the component.
+ * AI model status badges as floating circles above the component.
+ *
+ * UI policy:
+ * - Show at most ONE primary badge for clarity, with priority: Replaced > Invalid > Verified.
+ * - Deprecated may co-exist with any primary badge (or be shown alone if no primary).
  *
  * Purpose: Extend component UI to show model state directly on the component.
  * - Uses last used model from metrics when available; otherwise falls back to the
  *   configured (input/default) model.
- * - Queries ModelManager for AIModelCapabilities to determine Verified/Deprecated flags.
+ * - Queries ModelManager for AIModelCapabilities to determine flags.
  * - Designed to be extensible for future badges (e.g., automatic model replacement).
  */
 
@@ -112,25 +116,42 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            // Collect badges (built-in + extension point)
+            // Collect badges using single-primary policy for built-ins.
+            // Priority: Replaced > Invalid > Verified. Deprecated can co-exist.
+            // In addition, render any custom badges contributed by derived attributes
+            // via GetAdditionalBadges().
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
-            if (showInvalid)
-            {
-                items.Add((DrawInvalidBadge, "Invalid model"));
-            }
+
+            // Determine primary badge by priority
+            (System.Action<Graphics, float, float> draw, string label)? primary = null;
             if (showReplaced)
             {
-                items.Add((DrawReplacedBadge, "Model replaced with a capable one"));
+                primary = (DrawReplacedBadge, "Model replaced with a capable one");
             }
-            if (showVerified)
+            else if (showInvalid)
             {
-                items.Add((DrawVerifiedBadge, "Verified model"));
+                primary = (DrawInvalidBadge, "Invalid model");
             }
+            else if (showVerified)
+            {
+                primary = (DrawVerifiedBadge, "Verified model");
+            }
+
+            if (primary.HasValue)
+            {
+                items.Add(primary.Value);
+            }
+
+            // Deprecated can be shown alongside any primary (or alone if no primary)
             if (showDeprecated)
             {
                 items.Add((DrawDeprecatedBadge, "Deprecated model"));
             }
-            foreach (var extra in this.GetAdditionalBadges())
+
+            // Append any additional custom badges provided by derived classes.
+            // The single-primary policy applies only to built-in badges above; custom
+            // badges are additive and will always render if provided.
+            foreach (var extra in GetAdditionalBadges())
             {
                 items.Add(extra);
             }
@@ -259,7 +280,7 @@ namespace SmartHopper.Core.ComponentBase
                 // refresh arrow (arc + arrow head)
                 var cx = x + BADGE_SIZE / 2f;
                 var cy = y + BADGE_SIZE / 2f;
-                float r = BADGE_SIZE * 0.35f;
+                float r = BADGE_SIZE * 0.3f;
 
                 using (var path = new System.Drawing.Drawing2D.GraphicsPath())
                 {
@@ -271,18 +292,34 @@ namespace SmartHopper.Core.ComponentBase
 
                 // arrow head at end of arc
                 double endRad = (Math.PI / 180.0) * ( -40f + 260f );
-                var endPt = new PointF(
-                    (float)(cx + r * Math.Cos(endRad)),
-                    (float)(cy + r * Math.Sin(endRad)));
 
-                // small triangle pointing tangentially
+                // Calculate direction vector
                 var dir = new PointF(
                     (float)(-Math.Sin(endRad)),
-                    (float)( Math.Cos(endRad)));
-                float ah = BADGE_SIZE * 0.18f;
-                var a1 = new PointF(endPt.X, endPt.Y);
-                var a2 = new PointF(endPt.X - dir.X * ah - dir.Y * ah * 0.6f, endPt.Y - dir.Y * ah + dir.X * ah * 0.6f);
-                var a3 = new PointF(endPt.X - dir.X * ah + dir.Y * ah * 0.6f, endPt.Y - dir.Y * ah - dir.X * ah * 0.6f);
+                    (float)(Math.Cos(endRad)));
+                
+                // Arrow head dimensions
+                float ah = BADGE_SIZE * 0.25f;
+                float arrowWidth = ah * 0.6f;
+                
+                // Calculate the base point (where arrow connects to the arc)
+                var basePt = new PointF(
+                    (float)(cx + r * Math.Cos(endRad - 0.1f)),
+                    (float)(cy + r * Math.Sin(endRad - 0.1f)));
+                
+                // Calculate the tip point (moved forward along the direction vector)
+                var tipPt = new PointF(
+                    basePt.X + dir.X * ah,
+                    basePt.Y + dir.Y * ah);
+                
+                // Calculate the two base points for the arrow head
+                var a1 = tipPt;
+                var a2 = new PointF(
+                    basePt.X + dir.Y * arrowWidth,
+                    basePt.Y - dir.X * arrowWidth);
+                var a3 = new PointF(
+                    basePt.X - dir.Y * arrowWidth,
+                    basePt.Y + dir.X * arrowWidth);
 
                 using (var pathHead = new System.Drawing.Drawing2D.GraphicsPath())
                 {

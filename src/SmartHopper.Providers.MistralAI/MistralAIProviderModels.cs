@@ -102,6 +102,7 @@ namespace SmartHopper.Providers.MistralAI
         {
             try
             {
+                Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: preparing request to /models");
                 var request = new AIRequestCall
                 {
                     Endpoint = "/models",
@@ -109,44 +110,79 @@ namespace SmartHopper.Providers.MistralAI
 
                 var response = await this.mistralProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: call returned Success={response?.Success}, Error='{response?.ErrorMessage}'");
 
                 if (response == null || !response.Success)
                 {
+                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: response null or not success; returning empty list");
                     return new List<string>();
                 }
 
                 var raw = (response as AIReturn)?.GetRaw();
                 if (raw == null)
                 {
+                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: raw payload is null; returning empty list");
                     return new List<string>();
                 }
 
                 var data = raw["data"] as JArray;
                 if (data == null)
                 {
+                    Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: 'data' array not found. Raw keys: {string.Join(", ", raw.Properties().Select(p => p.Name))}");
                     return new List<string>();
                 }
 
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: data items count = {data.Count}");
+
                 var models = new List<string>();
-                foreach (var item in data.OfType<JObject>())
+                int added = 0, skipped = 0, index = 0;
+                foreach (var token in data)
                 {
-                    var id = item["id"]?.ToString();
-                    var name = item["name"]?.ToString();
-                    var model = !string.IsNullOrWhiteSpace(id) ? id : name;
-                    if (!string.IsNullOrWhiteSpace(model))
+                    index++;
+                    if (token is not JObject item)
                     {
-                        models.Add(model);
+                        skipped++;
+                        Debug.WriteLine($"[MistralAIProviderModels] Item #{index} is not an object (type={token?.Type}); skipping");
+                        continue;
+                    }
+
+                    try
+                    {
+                        var id = item["id"]?.ToString();
+                        var name = item["name"]?.ToString();
+                        var model = !string.IsNullOrWhiteSpace(id) ? id : name;
+
+                        if (!string.IsNullOrWhiteSpace(model))
+                        {
+                            models.Add(model);
+                            added++;
+                        }
+                        else
+                        {
+                            skipped++;
+                            var keys = string.Join(", ", item.Properties().Select(p => p.Name));
+                            Debug.WriteLine($"[MistralAIProviderModels] Item #{index} missing 'id' and 'name'. Keys: [{keys}]");
+                        }
+                    }
+                    catch (Exception exItem)
+                    {
+                        skipped++;
+                        Debug.WriteLine($"[MistralAIProviderModels] Exception parsing item #{index}: {exItem.Message}");
                     }
                 }
 
-                return models
+                var distinctSorted = models
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
                     .ToList();
+
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: extracted {distinctSorted.Count} models (added={added}, skipped={skipped})");
+
+                return distinctSorted;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: exception thrown; returning empty list. Details: {ex}");
                 return new List<string>();
             }
         }

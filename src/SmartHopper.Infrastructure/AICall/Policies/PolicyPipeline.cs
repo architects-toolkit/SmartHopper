@@ -44,7 +44,6 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             pipeline.RequestPolicies.Add(new SchemaValidateRequestPolicy());
 
             // Response policies: start with compatibility decode to preserve behavior until new mappers are introduced
-            pipeline.ResponsePolicies.Add(new Response.CompatibilityDecodeResponsePolicy());
             pipeline.ResponsePolicies.Add(new Response.SchemaValidateResponsePolicy());
             pipeline.ResponsePolicies.Add(new Response.FinishReasonNormalizeResponsePolicy());
             return pipeline;
@@ -145,7 +144,17 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             {
                 try
                 {
+                    try
+                    {
+                        Debug.WriteLine($"[PolicyPipeline] before {policy.GetType().Name}: interactions={response?.Body?.InteractionsCount ?? 0}, new={string.Join(",", response?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    }
+                    catch { /* logging only */ }
                     await policy.ApplyAsync(context).ConfigureAwait(false);
+                    try
+                    {
+                        Debug.WriteLine($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response?.Body?.InteractionsCount ?? 0}, new={string.Join(",", response?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    }
+                    catch { /* logging only */ }
                 }
                 catch (Exception ex)
                 {

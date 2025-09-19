@@ -33,17 +33,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         private JObject PrivateEncodedResult { get; set; }
 
         /// <summary>
-        /// Internal storage for global metrics.
-        /// </summary>
-        private AIMetrics PrivateGlobalMetrics { get; set; } = new AIMetrics();
-
-        /// <summary>
         /// Internal storage for structured messages.
         /// </summary>
         private List<AIRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<AIRuntimeMessage>();
 
         /// <inheritdoc/>
-        public AIBodyImmutable Body { get; private set; } = AIBodyImmutable.Empty;
+        public AIBody Body { get; private set; } = AIBody.Empty;
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }
@@ -54,16 +49,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             get
             {
                 var metrics = this.Body.Metrics ?? new AIMetrics();
-                metrics.Combine(this.PrivateGlobalMetrics);
                 return metrics;
-            }
-
-            set
-            {
-                Debug.WriteLine($"[AIReturn] Setting global metrics: {value}");
-                var metrics = this.PrivateGlobalMetrics ?? new AIMetrics();
-                metrics.Combine(value);
-                this.PrivateGlobalMetrics = metrics;
             }
         }
 
@@ -205,7 +191,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// </summary>
         /// <param name="body">The result value.</param>
         /// <param name="request">The request that generated the result.</param>
-        public void CreateSuccess(AIBodyImmutable body, IAIRequest? request = null)
+        public void CreateSuccess(AIBody body, IAIRequest? request = null)
         {
             if (request == null && this.Request != null)
             {
@@ -216,9 +202,30 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 request = new AIRequestCall();
             }
 
+            // Get provider and model from request
+            var provider = request?.Provider ?? "Unknown";
+            var model = request?.Model ?? "Unknown";
+
+            // Extract and update provider and model from interactions
+            foreach (var interaction in body.Interactions)
+            {
+                interaction.Metrics.Provider = provider;
+                interaction.Metrics.Model = model;
+            }
+
+            // Create a new body from new interactions
+            body = AIBodyBuilder.FromImmutable(body)
+                .ReplaceLastRange(body.Interactions)
+                .Build();
+
             this.Body = body;
             this.Request = request;
             this.Status = AICallStatus.Finished;
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+            }
+            catch { /* logging only */ }
         }
 
         /// <summary>
@@ -238,6 +245,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 request = new AIRequestCall();
             }
 
+            // Get provider and model from request
+            var provider = request?.Provider ?? "Unknown";
+            var model = request?.Model ?? "Unknown";
+
+            // Update provider and model to interactions
+            foreach (var interaction in result)
+            {
+                interaction.Metrics.Provider = provider;
+                interaction.Metrics.Model = model;
+            }
+
             // Build immutable body from interactions; metrics are aggregated within the immutable body.
             var body = AIBodyBuilder.Create()
                 .AddRange(result)
@@ -251,17 +269,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// </summary>
         /// <param name="raw">The raw response from the provider.</param>
         /// <param name="request">The request that generated the result.</param>
-        public void CreateSuccess(JObject raw, IAIRequest? request = null)
+        public void CreateSuccess(JObject raw, IAIRequest request)
         {
-            if (request == null && this.Request != null)
-            {
-                request = this.Request;
-            }
-            else if (request == null)
-            {
-                request = new AIRequestCall();
-            }
-
             this.Request = request;
             this.Status = AICallStatus.Finished;
             this.SetBody(raw);
@@ -272,7 +281,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// </summary>
         /// <param name="message">The error message.</param>
         /// <param name="request">The request that generated the error.</param>
-        public void CreateError(string message, IAIRequest? request = null)
+        public void CreateError(string message, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null && this.Request != null)
             {
@@ -286,6 +295,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Request = request;
             this.ErrorMessage = message;
             this.Status = AICallStatus.Finished;
+
+            this.Body = AIBodyBuilder.Create()
+                .AddError(message, metrics)
+                .Build();
         }
 
         /// <summary>
@@ -327,7 +340,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         }
 
         /// <inheritdoc/>
-        public void SetBody(AIBodyImmutable body)
+        public void SetBody(AIBody body)
         {
             this.Body = body;
         }
@@ -349,9 +362,50 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="raw">The raw response from the provider.</param>
         public void SetBody(JObject raw)
         {
-            // Preserve raw provider JSON. Decoding into interactions is handled by response policies.
-            // TODO: use response policies.
+            // Request must be set before calling this method
+            if (this.Request == null)
+            {
+                throw new InvalidOperationException("Request is null and required for decoding raw response");
+            }
+
             this.PrivateEncodedResult = raw;
+
+            // Build the new immutable body
+            var b = new AIBodyBuilder();
+
+            // Call provider-specific decoder
+            var interactions = this.Request.ProviderInstance.Decode(raw);
+
+            // Get provider and model from request
+            var provider = this.Request.Provider ?? "Unknown";
+            var model = this.Request.Model ?? "Unknown";
+
+            // Update provider and model to interactions
+            foreach (var interaction in interactions)
+            {
+                interaction.Metrics.Provider = provider;
+                interaction.Metrics.Model = model;
+            }
+
+            b.AddRange(interactions);
+     
+            this.Body = b.Build();
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+            }
+            catch { /* logging only */ }
+        }
+
+        /// <summary>
+        /// Sets the completion time to the last interaction.
+        /// </summary>
+        /// <param name="completionTime">The completion time to set.</param>
+        public void SetCompletionTime(double completionTime)
+        {
+            this.Body = AIBodyBuilder.FromImmutable(this.Body)
+                .SetCompletionTime(completionTime)
+                .Build();
         }
     }
 

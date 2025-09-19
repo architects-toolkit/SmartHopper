@@ -1,139 +1,84 @@
-# SmartHopper - AI-Powered Grasshopper3D Plugin
+# SmartHopper - an AI-Powered Grasshopper3D Assistant (and more...)
 
-[![Version](https://img.shields.io/badge/version-0%2E6%2E0--dev%2E250825-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
-[![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
-[![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
-[![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-lightgrey?logo=openai)](https://openai.com/)
-[![DeepSeek](https://img.shields.io/badge/AI--powered-DeepSeek-blue?logo=deepseek)](https://deepseek.com/)
-[![License](https://img.shields.io/badge/license-LGPLv3-white)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0--dev-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
+[![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
+[![License](https://img.shields.io/badge/license-LGPL%20v3-white?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/blob/main/LICENSE)
 
-SmartHopper is a Grasshopper3D plugin that enables AI to directly interact with your canvas! Ask for help, search on the McNeel forum, reorganize components, toggle preview on or off, and much more, just by chatting with your customizable AI assistant. Additionally, this plugins includes multiple components that correspond to individual AI tools, so that you can integrate text- or list-based operations directly into your definition.
+> **Design with AI directly on your Grasshopper canvas — chat, generate, organize, and build smarter definitions faster.**
 
-## 🎯 Key Features
+![SmartHopper hero placeholder](https://placehold.co/1200x400/111111/FFFFFF?text=SmartHopper+%E2%80%94+AI+for+Grasshopper+3D)
 
-- 🔍 **Direct AI Access to Grasshopper Files**: SmartHopper allows AI to read and understand your Grasshopper definitions through GhJSON conversion, enabling intelligent analysis and manipulation of parametric models.
-- 🧠 **AI-Powered Workflow Enhancement**: Leverage AI to generate text, evaluate designs, filter data, and more - all within your familiar Grasshopper environment.
-- 🤖 **Multiple AI Provider Support**: Choose between [**MistralAI**](https://mistral.ai/), [**OpenAI**](https://openai.com/) and [**DeepSeek**](https://deepseek.com/) APIs. You need to [provide your own API keys](#️-Available-Providers).
-- 🔄 **Bidirectional Integration**: Not only can AI read your Grasshopper, but it can also generate and place definitions directly on your canvas *[coming soon]*.
+SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered components into Grasshopper3D.
+
+- ✨ Two strong points
+
+  - 🔧 **AI‑powered components**
+    Use Grasshopper in a way that was impossible before AI — generate text, sort lists, create images, structure JSON, write scripts, and more.
+
+  - 💬 **Canvas assistant**
+    An on‑canvas AI chat truly aware of your components and connected to the McNeel forum for real answers.
+
+- 🤝 Compatible providers
+
+  - ![MistralAI](src/SmartHopper.Providers.MistralAI/Resources/mistralai_icon.png) [MistralAI](https://mistral.ai/)
+  - ![OpenAI](src/SmartHopper.Providers.OpenAI/Resources/openai_icon.png) [OpenAI](https://openai.com/)
+  - ![DeepSeek](src/SmartHopper.Providers.DeepSeek/Resources/deepseek_icon.png) [DeepSeek](https://deepseek.com/)
+  - ![Anthropic](src/SmartHopper.Providers.Anthropic/Resources/anthropic_icon.png) [Anthropic](https://anthropic.com/)
+  - ![OpenRouter](src/SmartHopper.Providers.OpenRouter/Resources/openrouter_icon.png) [OpenRouter](https://openrouter.ai/)
+
+- Open Source — and it will always be.
 
 ## 💻 Installation
 
-You can install SmartHopper from the Rhino Package Manager:
+Follow the official installation guide at [smarthopper.xyz/#installation](https://smarthopper.xyz/#installation).
 
-   - Open Rhino 8
-   - Type `PackageManager` in the command line
-   - In the Package Manager, select "include pre-releases"
-   - Search for "SmartHopper"
-   - Click "Install"
+Quick start via Rhino Package Manager (Yak):
 
-Check for detailed installation instructions and initial setup in [smarthopper.xyz/#installation](https://smarthopper.xyz/#installation).
+- Open Rhino 8
+- Run `PackageManager`
+- Enable “Include pre-releases” (this is still alpha)
+- Search for “SmartHopper” and install
 
-## 📊 Development Status
+## 🚀 How to use (TODO)
 
-### Components
+Use this section as a guided tour. We’ll keep it concise and visual. You can help us improve it by opening a PR.
 
-| Component | Planned | In Progress | Testing | Released 🎉 |
-|-----------|:-------:|:-----------:|:-------:|:------------------------:|
-| Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Optionally filter them by runtime messages: errors, warnings, remarks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
-| AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Image Generate (AiImageGenerate)<br><sub>Generate images using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Script Review (AiScriptReview)<br><sub>Make a review of a script, using AI</sub> | ⚪ | - | - | - |
-| AI Script Edit (AiScriptEdit)<br><sub>Modify an existing script using AI</sub> | ⚪ | - | - | - |
-| AI Script New (AiScriptNew)<br><sub>Generate a script using AI</sub> | ⚪ | - | - | - |
-| AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | ⚪ | - | - | - |
-| AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | ⚪ | - | - | - |
-| AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Models (AiModels)<br><sub>Retrieve the list of available models for a specific provider</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Image Viewer (ImageViewer)<br><sub>Display bitmap images on the canvas and save them to disk</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| JSON schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | ⚪ | - | - | - |
-| JSON object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | ⚪ | - | - | - |
-| JSON array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | ⚪ | - | - | - |
-| Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | ⚪ | - | - | - |
-| Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | ⚪ | - | - | - |
-| Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | ⚪ | - | - | - |
+### ⚡ Getting started in 60 seconds
 
-### AI Tools
+- Install, enable a provider, drop a component, run.
 
-AI Tools are the interface between AI and Grasshopper, allowing to, for example, read your selected components, get the available Grasshopper components, or write a new script. All these tools are available to the provider to use while chatting in the AI Chat component.
+![Quickstart](https://placehold.co/960x540?text=Quickstart)
 
-| Tool Name | Description | Planned | In Progress | Testing | Released 🎉 |
-|-----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
-| text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
-| text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| img_generate | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_evaluate | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
-| script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
-| json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
-| web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_get_rhino_forum_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
-| get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
-| gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_move_obj | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_generate | Generate Grasshopper definitions using AI | ⚪ | - | - | - |
-| gh_connect | Connect Grasshopper components | ⚪ | - | - | - |
-| gh_group | Group components and set a meaningful title | ⚪ | - | - | - |
+### 💬 Canvas assistant (AI chat)
 
-Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
+- Start a chat, tidy up components, search the McNeel forum, or generate a script.
 
-## ➡️ Available Providers
+![Canvas chat](https://placehold.co/960x540?text=Canvas+Assistant)
 
-SmartHopper is currently supporting the following AI providers:
+### 🧩 AI components
 
-| Provider | Status | Link to API registration |
-|----------|:------:|-------------------|
-| [MistralAI](https://mistral.ai/) | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) |
-| [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
-| [DeepSeek](https://deepseek.com/) | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) |
-| [Anthropic](https://anthropic.com/) | 🔜 Planned | [Anthropic Console](https://console.anthropic.com/) |
-| [OpenRouter](https://openrouter.ai/) | 🔜 Planned | [OpenRouter](https://openrouter.ai/) |
+- Examples: Text Generate, List Generate, JSON Generate, Image Generate, Script New/Review/Edit.
 
-## 🔢 Supported Data Types
+![AI Components](https://placehold.co/960x540?text=AI+Components)
 
-SmartHopper is designed to work with various Grasshopper-native data types. Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
+### 🔐 Provider setup
 
-| Data Type | Status |
-|-----------|:------:|
-| Text | ✅ Supported |
-| Number | ✅ Supported |
-| Integer | ✅ Supported |
-| Boolean | ✅ Supported |
-| Colour | 🔜 Planned |
-| Point | 🔜 Planned |
-| Plane | 🔜 Planned |
-| Line | 🔜 Planned |
-| Circle | 🔜 Planned |
+- Configure an API key for your preferred provider in Settings.
 
-## 📚 Usage Examples
+![Providers setup](https://placehold.co/960x540?text=Providers+Setup)
 
-Examples are currently under development.
+More examples and recipes coming soon on the website and docs.
+
+Developer details (AI tools, providers, data types, status) can be found in [dev.md](dev.md).
 
 ## 🤝 Contributing
 
 Every great innovation starts with a single contribution. Whether you're a designer, developer, or AI enthusiast, your unique perspective can help shape the future of computational design tools.
 
 Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
+
 ## 📝 Changelog
 
 See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a list of changes and updates.

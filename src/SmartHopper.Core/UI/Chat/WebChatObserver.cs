@@ -11,7 +11,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Eto.Forms;
+using System.Linq;
+using Rhino;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -39,70 +40,226 @@ namespace SmartHopper.Core.UI.Chat
                 public IAIInteraction Aggregated;
             }
 
+            // Tracks UI state for the temporary thinking bubble and whether we've already
+            // appended an assistant message to the chat. This ensures correct ordering:
+            // tool calls/results first, assistant response appended at the end.
+            private bool _thinkingBubbleActive;
+            private bool _assistantBubbleAdded;
+
+        /// <summary>
+        /// Aggregates assistant text across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
+        /// Rules:
+        /// - First chunk: start stream, set aggregated = first content.
+        /// - Subsequent chunks:
+        ///   - If incoming starts with current -> provider is cumulative: replace with incoming.
+        ///   - Else if current starts with incoming -> regression/noise: ignore to prevent trimming flicker.
+        ///   - Else -> treat as incremental delta: append incoming to current.
+        /// </summary>
+        private static void CoalesceAssistantTextChunk(AIInteractionText incoming, string key, ref StreamState state)
+        {
+            if (!state.Started || state.Aggregated is not AIInteractionText aggExisting)
+            {
+                state.Started = true;
+                state.Aggregated = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = incoming?.Content ?? string.Empty,
+                    // Hide metrics while streaming to avoid showing 0/0 interim values.
+                    // Final metrics will be applied in OnFinal when the response completes.
+                    Metrics = null,
+                    Time = incoming?.Time ?? DateTime.UtcNow,
+                };
+                return;
+            }
+
+            var current = aggExisting.Content ?? string.Empty;
+            var incomingText = incoming?.Content ?? string.Empty;
+
+            if (string.IsNullOrEmpty(incomingText))
+            {
+                // Nothing to add; keep existing
+                return;
+            }
+
+            // Cumulative stream: incoming contains full text so far
+            if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
+            {
+                aggExisting.Content = incomingText;
+                return;
+            }
+
+            // Regression/noise: ignore to avoid trimming visual content
+            if (current.StartsWith(incomingText, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            // Incremental delta: append
+            aggExisting.Content = current + incomingText;
+        }
+
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
             public WebChatObserver(WebChatDialog dialog)
             {
                 _dialog = dialog;
+                _thinkingBubbleActive = false;
+                _assistantBubbleAdded = false;
             }
 
             public void OnStart(AIRequestCall request)
             {
-                Application.Instance.AsyncInvoke(() =>
+                Debug.WriteLine("[WebChatObserver] OnStart called");
+                RhinoApp.InvokeOnUiThread(() =>
                 {
-                    _dialog._statusLabel.Text = "Thinking...";
-                    _dialog._progressBar.Visible = true;
-                    _dialog._cancelButton.Enabled = true;
+                    Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
+                    _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
+
+                    // Insert a temporary loading bubble for assistant to be replaced on first content
+                    _dialog.ExecuteScript("addLoadingMessage('assistant', 'Thinking…');");
+                    _thinkingBubbleActive = true;
+                    _assistantBubbleAdded = false;
+                    Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
             }
 
-            public void OnPartial(AIReturn delta)
+            /// <summary>
+            /// Removes the temporary thinking bubble if it is currently visible.
+            /// Must be called on the UI thread.
+            /// </summary>
+            private void RemoveThinkingBubbleIfActive()
             {
+                if (!_thinkingBubbleActive)
+                {
+                    return;
+                }
                 try
                 {
-                    var interactions = delta?.Body?.Interactions;
-                    if (interactions == null || interactions.Count == 0)
-                        return;
+                    _dialog.ExecuteScript("removeLastLoadingMessageByRole('assistant');");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatObserver] RemoveThinkingBubbleIfActive error: {ex.Message}");
+                }
+                finally
+                {
+                    _thinkingBubbleActive = false;
+                }
+            }
 
-                    Application.Instance.AsyncInvoke(() =>
+            public void OnDelta(IAIInteraction interaction)
+            {
+                if (interaction == null)
+                    return;
+
+                try
+                {
+                    RhinoApp.InvokeOnUiThread(() =>
                     {
-                        foreach (var inter in interactions)
+                        try
                         {
-                            try
+                            // For delta updates, only handle assistant text content
+                            if (interaction is not AIInteractionText tt || tt.Agent != AIAgent.Assistant)
                             {
-                                // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
-                                var key = GetStreamKey(inter);
-                                if (!_streams.TryGetValue(key, out var state))
-                                {
-                                    state = new StreamState { Started = false, Aggregated = null };
-                                }
+                                return;
+                            }
 
-                                if (!state.Started)
+                            var key = GetStreamKey(interaction);
+                            if (!_streams.TryGetValue(key, out var state))
+                            {
+                                state = new StreamState { Started = false, Aggregated = null };
+                            }
+
+                            // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
+                            CoalesceAssistantTextChunk(tt, key, ref state);
+
+                            this._streams[key] = state;
+                            if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
+                            {
+                                // On first assistant content, remove thinking bubble (if still visible)
+                                RemoveThinkingBubbleIfActive();
+
+                                if (!_assistantBubbleAdded)
                                 {
-                                    // First chunk: pre-aggregate and create the initial bubble with that content
-                                    state.Started = true;
-                                    state.Aggregated = inter;
-                                    _streams[key] = state;
-                                    _dialog.AddInteractionToWebView(state.Aggregated);
+                                    // First assistant chunk: append message at the end to preserve order
+                                    this._dialog.AddInteractionToWebView(aggText);
+                                    _assistantBubbleAdded = true;
                                 }
                                 else
                                 {
-                                    // Subsequent chunks: merge and replace existing bubble
-                                    state.Aggregated = inter;
-                                    _streams[key] = state;
-                                    _dialog.ReplaceLastMessageByRole(inter.Agent, state.Aggregated);
+                                    // Subsequent chunks: update the last assistant message
+                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
                                 }
+                            }
+                        }
+                        catch (Exception innerEx)
+                        {
+                            Debug.WriteLine($"[WebChatObserver] OnDelta processing error: {innerEx.Message}");
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatObserver] OnDelta error: {ex.Message}");
+                }
+            }
 
-                                // Optional UX: surface tool call name in status
-                                if (inter is AIInteractionToolCall call)
+            public void OnPartial(IAIInteraction interaction)
+            {
+                if (interaction == null)
+                    return;
+
+                try
+                {
+                    RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        try
+                        {
+                            // Tiny UX tweak: any first partial (of any type) should clear the thinking bubble.
+                            // The helper is idempotent and will only remove it once.
+                            RemoveThinkingBubbleIfActive();
+
+                            // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
+                            var key = GetStreamKey(interaction);
+                            if (!_streams.TryGetValue(key, out var state))
+                            {
+                                state = new StreamState { Started = false, Aggregated = null };
+                            }
+
+                            if (interaction is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
+                            {
+                                // Coalesce text across partials
+                                CoalesceAssistantTextChunk(tt, key, ref state);
+
+                                _streams[key] = state;
+                                if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                                 {
-                                    _dialog._statusLabel.Text = $"Calling tool: {call.Name}";
+                                    // On first assistant content, remove thinking bubble and append new assistant message
+                                    RemoveThinkingBubbleIfActive();
+
+                                    if (!_assistantBubbleAdded)
+                                    {
+                                        _dialog.AddInteractionToWebView(aggText);
+                                        _assistantBubbleAdded = true;
+                                    }
+                                    else
+                                    {
+                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
+                                    }
                                 }
                             }
-                            catch (Exception innerEx)
+
+                            // Optional UX: surface tool call name in status
+                            if (interaction is AIInteractionToolCall call)
                             {
-                                Debug.WriteLine($"[WebChatObserver] OnPartial item error: {innerEx.Message}");
+                                // Any first partial event (tool call) should also remove thinking bubble
+                                RemoveThinkingBubbleIfActive();
+                                _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
                             }
+                        }
+                        catch (Exception innerEx)
+                        {
+                            Debug.WriteLine($"[WebChatObserver] OnPartial processing error: {innerEx.Message}");
                         }
                     });
                 }
@@ -117,10 +274,11 @@ namespace SmartHopper.Core.UI.Chat
                 if (toolCall == null) return;
                 if (!TryAdd(toolCall)) return;
 
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
+                    RemoveThinkingBubbleIfActive();
                     _dialog.AddToolCallMessage(toolCall);
-                    _dialog._statusLabel.Text = $"Calling tool: {toolCall.Name}";
+                    _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
                 });
             }
 
@@ -129,107 +287,80 @@ namespace SmartHopper.Core.UI.Chat
                 if (toolResult == null) return;
                 if (!TryAdd(toolResult)) return;
 
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
+                    RemoveThinkingBubbleIfActive();
                     _dialog.AddToolResultMessage(toolResult);
                 });
             }
 
             public void OnFinal(AIReturn result)
             {
-                Application.Instance.AsyncInvoke(() =>
+                Debug.WriteLine($"[WebChatObserver] OnFinal: {result?.Body?.Interactions?.Count ?? 0} interactions, {result?.Body?.GetNewInteractions().Count ?? 0} new ones");
+
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
-                        // Final interactions and metrics
-                        var interactions = result?.Body?.Interactions;
-                        var finalMetrics = result?.Metrics;
+                        // Delegate history to ConversationSession; UI only emits notifications.
+                        var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
+                        var lastReturn = this._dialog._currentSession.GetReturn();
 
-                        // 1) Use the provider's final assistant snapshot directly (no concatenation)
-                        AIInteractionText finalAssistant = null;
+                        // Ensure thinking bubble is removed before final rendering
+                        RemoveThinkingBubbleIfActive();
+
                         try
                         {
-                            if (interactions != null && interactions.Count > 0)
+                            // Determine streaming state and final assistant data
+                            var assistantKey = "text:" + AIAgent.Assistant.ToString();
+                            AIInteractionText aggregated = null;
+                            if (this._streams.TryGetValue(assistantKey, out var state) && state?.Aggregated is AIInteractionText agg && !string.IsNullOrWhiteSpace(agg.Content))
                             {
-                                for (int i = interactions.Count - 1; i >= 0; i--)
+                                aggregated = agg;
+                            }
+
+                            var finalAssistant = result?.Body?.Interactions?
+                                .OfType<AIInteractionText>()
+                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                            // If we already appended an assistant bubble during streaming, only update metrics/time and replace
+                            if (_assistantBubbleAdded)
+                            {
+                                if (aggregated != null && finalAssistant != null)
                                 {
-                                    var it = interactions[i];
-                                    if (it is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
-                                    {
-                                        finalAssistant = new AIInteractionText
-                                        {
-                                            Agent = AIAgent.Assistant,
-                                            Content = tt.Content,
-                                            Reasoning = tt.Reasoning,
-                                            Metrics = tt.Metrics,
-                                        };
-                                        break;
-                                    }
+                                    aggregated.Metrics = finalAssistant.Metrics;
+                                    aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
+                                }
+
+                                // Replace existing assistant message with aggregated (preferred) or finalAssistant fallback
+                                var toRender = aggregated ?? finalAssistant;
+                                if (toRender != null)
+                                {
+                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, toRender);
+                                }
+                            }
+                            else
+                            {
+                                // No assistant bubble yet (no streaming or no non-empty deltas): append final once
+                                if (finalAssistant != null)
+                                {
+                                    this._dialog.AddInteractionToWebView(finalAssistant);
+                                    _assistantBubbleAdded = true;
                                 }
                             }
                         }
-                        catch (Exception buildEx)
+                        catch (Exception repEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnFinal consolidation error: {buildEx.Message}");
+                            Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                         }
 
-                        // 2) Attach metrics to the final assistant or to the last assistant in history if no text was present
-                        if (finalAssistant != null)
-                        {
-                            if (finalMetrics != null)
-                            {
-                                try
-                                {
-                                    if (finalAssistant.Metrics != null)
-                                        finalAssistant.Metrics.Combine(finalMetrics);
-                                    else
-                                        finalAssistant.Metrics = finalMetrics;
-                                }
-                                catch (Exception mergeEx)
-                                {
-                                    Debug.WriteLine($"[WebChatObserver] OnFinal metrics merge error: {mergeEx.Message}");
-                                }
-                            }
+                        // Notify listeners with session-managed snapshots
+                        this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
 
-                            // Render full assistant text and persist only once
-                            _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalAssistant);
-                            _dialog._chatHistory.Add(finalAssistant);
-                        }
-                        else if (finalMetrics != null)
-                        {
-                            // No assistant text in final: merge metrics into last assistant already shown
-                            try
-                            {
-                                for (int i = _dialog._chatHistory.Count - 1; i >= 0; i--)
-                                {
-                                    var inter = _dialog._chatHistory[i];
-                                    if (inter != null && inter.Agent == AIAgent.Assistant)
-                                    {
-                                        if (inter.Metrics != null)
-                                            inter.Metrics.Combine(finalMetrics);
-                                        else
-                                            inter.Metrics = finalMetrics;
-
-                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, inter);
-                                        _dialog._chatHistory[i] = inter; // persist metrics
-                                        break;
-                                    }
-                                }
-                            }
-                            catch (Exception mergeLastEx)
-                            {
-                                Debug.WriteLine($"[WebChatObserver] OnFinal fallback metrics merge error: {mergeLastEx.Message}");
-                            }
-                        }
-
-                        // 3) Do not re-add tool calls/results here; they were handled via OnToolCall/OnToolResult
-
-                        // 4) Clear streaming state and finish
-                        _streams.Clear();
-
-                        _dialog._lastReturn = result ?? new AIReturn();
-                        _dialog.ResponseReceived?.Invoke(_dialog, _dialog._lastReturn);
-                        _dialog._statusLabel.Text = "Ready";
+                        // Clear streaming state and finish
+                        this._streams.Clear();
+                        this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
+                        this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                     }
                     catch (Exception ex)
                     {
@@ -240,19 +371,19 @@ namespace SmartHopper.Core.UI.Chat
 
             public void OnError(Exception ex)
             {
-                Application.Instance.AsyncInvoke(() =>
+                RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
                         if (ex is OperationCanceledException)
                         {
-                            _dialog.AddSystemMessage("Cancelled.", "info");
-                            _dialog._statusLabel.Text = "Cancelled";
+                            this._dialog.AddSystemMessage("Cancelled.", "info");
+                            this._dialog.ExecuteScript("setStatus('Cancelled'); setProcessing(false);");
                         }
                         else
                         {
-                            _dialog.AddSystemMessage($"Error: {ex.Message}", "error");
-                            _dialog._statusLabel.Text = "Error";
+                            this._dialog.AddSystemMessage($"Error: {ex.Message}", "error");
+                            this._dialog.ExecuteScript("setStatus('Error'); setProcessing(false);");
                         }
                     }
                     catch (Exception uiEx)

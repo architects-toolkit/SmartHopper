@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Name = "ApiKey",
                     DisplayName = "API Key",
-                    Description = "Your API key for the DeepSeek service",
+                    Description = "Your API key for DeepSeek. Get one at https://platform.deepseek.com/",
                     IsSecret = true, // Set to true for sensitive data like API keys
                     Type = typeof(string),
                 },
@@ -162,7 +162,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 // Ensure temperature is between 0.0 and 2.0 (both included)
-                if (temperature <= 0.0 || temperature >= 2.0)
+                if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs)
                     {
