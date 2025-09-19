@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New SmartHopper Assistant setting `EnableCanvasButton` (default: `true`) to enable/disable the canvas button.
   - `CanvasButton` now respects `EnableCanvasButton`: when disabled, the button is hidden and non-interactive.
   - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
+  - CanvasButton now initializes the chat provider and model from SmartHopper settings (consistent with app-wide configuration).
 
 - Conversation and policies:
   - ConversationSession service introducing:
@@ -51,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Component badges extended to surface model validation state without executing an AI call:
     - Invalid/Incompatible model badge (red cross) when the configured model lacks the component's required capability or is unknown.
     - Replaced/Fallback model badge (blue refresh) when the current configured model would be auto-replaced by selection logic.
+    - Badge display logic simplified to prioritize a single, most relevant badge for clarity.
   - `AIStatefulAsyncComponentBase.RequiredCapability` virtual property (default `Text2Text`) to declare per-component capability requirements.
   - `AIStatefulAsyncComponentBase.TryGetCachedBadgeFlags(out verified, out deprecated, out invalid, out replaced)` to expose the extended badge cache.
 
@@ -63,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Providers:
   - New `Anthropic` and `OpenRouter` providers.
   - Anthropic provider: Full round-trip support for tool results. Decodes `tool_result` content blocks to `AIInteractionToolResult` and encodes tool results back to Anthropic-compliant `tool_result` blocks (`{"type":"tool_result","tool_use_id":"...","content":[{"type":"text","text":"..."}]}`).
+  - Updated provider icons using the latest Lobe Icons set.
 
 - Documentation:
   - Summary documentation at `docs/` (linked in README).
@@ -85,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
     - Added tab for Trusted Providers configuration.
   - CanvasButton chat now reuses a single `WebChatDialog` via a stable `componentId`, preventing multiple dialog instances from opening on repeated clicks.
+  - Updated the About dialog to reflect the list of currently supported AI providers.
 
 - Security/authentication and headers:
   - Improved API key encryption. Includes migration method.
@@ -143,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
   - WebChatDialog greeting flow is now fully event-driven via `ConversationSession` observer callbacks. The UI no longer inserts or replaces a temporary greeting bubble; it only updates the status label during generation and renders greeting content from partial/final events.
   - Interaction override behavior clarified: greeting generation uses the initial request interactions (e.g., system prompt) to preserve context; normal user-initiated turns override from the current conversation history (last return interactions).
+  - Improved default prompts in WebChat for clearer assistant behavior and tool guidance.
 
 - Streaming adapters internals:
   - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).
@@ -194,10 +199,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - AIChat/WebChatDialog: Ensure the initial system prompt is added as the first system message in chat history and rendered in the UI on dialog initialization.
   - WebChatDialog: fixed compile-time errors by implementing missing methods (`InitializeWebViewAsync`, `ExecuteScript`, `RenderAndUpdateDom`) and UI handlers (`ClearButton_Click`, `SendButton_Click`, `UserInputTextArea_KeyDown`); added internal `DomUpdateKind` enum; ensured all UI/WebView operations marshal to Rhino's main UI thread.
   - HtmlChatRenderer: restored compatibility by adding `RenderInteraction(...)` wrapper used by `WebChatDialog`.
+  - Introduced an internal DOM update queue to avoid running multiple WebView scripts concurrently, preventing race conditions and render glitches.
+  - Fixed a loop in tool-call execution that could cause repeated or stuck tool-handling cycles.
 
 - Providers:
-  - DeepSeek provider: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
-  - MistralAI provider: Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
+  - DeepSeek: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
+  - MistralAI:
+    - Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
+    - Fixed retrieval of available models when the API did not return the expected model list.
+  - Anthropic: Fixed mapping/placement of system messages to ensure correct role semantics and prompt conditioning.
 
 - Components – AIChat:
   - AIChatComponent: Prevent NullReferenceException when closing chat without responses. `SetOutput()` now null-checks the last interaction and outputs an empty string (with a debug notice) when none exists.
