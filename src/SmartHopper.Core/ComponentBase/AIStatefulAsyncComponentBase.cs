@@ -30,6 +30,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -62,6 +63,11 @@ namespace SmartHopper.Core.ComponentBase
         private bool badgeCacheValid;
         private bool badgeInvalidModel;
         private bool badgeReplacedModel;
+
+        /// <summary>
+        /// Component lifetime cancellation token source. Cancelled when the component is removed from the canvas.
+        /// </summary>
+        private readonly System.Threading.CancellationTokenSource _lifetimeCts = new System.Threading.CancellationTokenSource();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
@@ -225,7 +231,10 @@ namespace SmartHopper.Core.ComponentBase
 
             try
             {
-                toolResult = await toolCall.Exec().ConfigureAwait(false);
+                using (AIProvider.CallScope.Begin(this._lifetimeCts.Token))
+                {
+                    toolResult = await toolCall.Exec().ConfigureAwait(false);
+                }
 
                 // Extract the result from the AIReturn
                 var toolResultInteraction = toolResult.Body.Interactions
@@ -617,6 +626,16 @@ namespace SmartHopper.Core.ComponentBase
 
                 this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, originTag + msg, false);
             }
+        }
+
+        /// <summary>
+        /// Ensures any in-flight provider calls are cancelled when the component is removed.
+        /// </summary>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            try { this._lifetimeCts.Cancel(); } catch { }
+            try { this._lifetimeCts.Dispose(); } catch { }
+            base.RemovedFromDocument(document);
         }
 
     }
