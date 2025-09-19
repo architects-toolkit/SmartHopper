@@ -273,7 +273,7 @@ namespace SmartHopper.Core.ComponentBase
                 // refresh arrow (arc + arrow head)
                 var cx = x + BADGE_SIZE / 2f;
                 var cy = y + BADGE_SIZE / 2f;
-                float r = BADGE_SIZE * 0.35f;
+                float r = BADGE_SIZE * 0.3f;
 
                 using (var path = new System.Drawing.Drawing2D.GraphicsPath())
                 {
@@ -285,18 +285,34 @@ namespace SmartHopper.Core.ComponentBase
 
                 // arrow head at end of arc
                 double endRad = (Math.PI / 180.0) * ( -40f + 260f );
-                var endPt = new PointF(
-                    (float)(cx + r * Math.Cos(endRad)),
-                    (float)(cy + r * Math.Sin(endRad)));
 
-                // small triangle pointing tangentially
+                // Calculate direction vector
                 var dir = new PointF(
                     (float)(-Math.Sin(endRad)),
-                    (float)( Math.Cos(endRad)));
-                float ah = BADGE_SIZE * 0.18f;
-                var a1 = new PointF(endPt.X, endPt.Y);
-                var a2 = new PointF(endPt.X - dir.X * ah - dir.Y * ah * 0.6f, endPt.Y - dir.Y * ah + dir.X * ah * 0.6f);
-                var a3 = new PointF(endPt.X - dir.X * ah + dir.Y * ah * 0.6f, endPt.Y - dir.Y * ah - dir.X * ah * 0.6f);
+                    (float)(Math.Cos(endRad)));
+                
+                // Arrow head dimensions
+                float ah = BADGE_SIZE * 0.25f;
+                float arrowWidth = ah * 0.6f;
+                
+                // Calculate the base point (where arrow connects to the arc)
+                var basePt = new PointF(
+                    (float)(cx + r * Math.Cos(endRad - 0.1f)),
+                    (float)(cy + r * Math.Sin(endRad - 0.1f)));
+                
+                // Calculate the tip point (moved forward along the direction vector)
+                var tipPt = new PointF(
+                    basePt.X + dir.X * ah,
+                    basePt.Y + dir.Y * ah);
+                
+                // Calculate the two base points for the arrow head
+                var a1 = tipPt;
+                var a2 = new PointF(
+                    basePt.X + dir.Y * arrowWidth,
+                    basePt.Y - dir.X * arrowWidth);
+                var a3 = new PointF(
+                    basePt.X - dir.Y * arrowWidth,
+                    basePt.Y + dir.X * arrowWidth);
 
                 using (var pathHead = new System.Drawing.Drawing2D.GraphicsPath())
                 {

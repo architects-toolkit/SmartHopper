@@ -489,7 +489,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
                                          || hasProviderMissing
                                          || hasUnknownProvider
-                                         || hasUnknownModel
+                                        //  || hasUnknownModel
                                          || hasNoCapableModel
                                          || hasCapabilityMismatch
                                          || this.badgeReplacedModel;
