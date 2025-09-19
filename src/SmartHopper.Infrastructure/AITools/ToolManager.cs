@@ -89,6 +89,27 @@ namespace SmartHopper.Infrastructure.AITools
                 Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolInfo.Name}");
                 var result = await _tools[toolInfo.Name].Execute(toolCall);
                 Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
+
+                // Ensure tool result interactions carry the original tool call id/name for provider schemas (e.g., OpenAI tool_call_id)
+                try
+                {
+                    var results = result?.Body?.Interactions?
+                        .OfType<SmartHopper.Infrastructure.AICall.Core.Interactions.AIInteractionToolResult>()
+                        .ToList();
+                    if (results != null && results.Count > 0)
+                    {
+                        foreach (var r in results)
+                        {
+                            if (string.IsNullOrWhiteSpace(r.Id)) r.Id = toolInfo.Id;
+                            if (string.IsNullOrWhiteSpace(r.Name)) r.Name = toolInfo.Name;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AIToolManager] Warning: failed to propagate tool call id/name into result: {ex.Message}");
+                }
+
                 output.SetBody(result.Body);
 
                 // Propagate tool-level error and messages into wrapper AIReturn
