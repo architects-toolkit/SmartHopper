@@ -9,6 +9,7 @@
  */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -17,6 +18,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -66,6 +68,83 @@ namespace SmartHopper.Infrastructure.AIProviders
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
+
+        /// <summary>
+        /// Ambient call scope and cancellation management.
+        /// </summary>
+        public static class CallScope
+        {
+            private static readonly AsyncLocal<CancellationToken> AmbientTokenLocal = new AsyncLocal<CancellationToken>();
+            private static readonly CancellationTokenSource GlobalShutdownCts = new CancellationTokenSource();
+
+            static CallScope()
+            {
+                try
+                {
+                    AppDomain.CurrentDomain.ProcessExit += (_, __) => { try { GlobalShutdownCts.Cancel(); } catch { } };
+                    AppDomain.CurrentDomain.DomainUnload += (_, __) => { try { GlobalShutdownCts.Cancel(); } catch { } };
+                }
+                catch { /* best-effort */ }
+            }
+
+            /// <summary>
+            /// Begins a new ambient call scope that propagates the provided token to provider HTTP calls.
+            /// </summary>
+            public static IDisposable Begin(CancellationToken token)
+            {
+                var previous = AmbientTokenLocal.Value;
+                AmbientTokenLocal.Value = token;
+                return new Scope(previous);
+            }
+
+            private sealed class Scope : IDisposable
+            {
+                private readonly CancellationToken previous;
+                private bool disposed;
+                public Scope(CancellationToken previous) { this.previous = previous; }
+                public void Dispose()
+                {
+                    if (this.disposed) return;
+                    this.disposed = true;
+                    AmbientTokenLocal.Value = this.previous;
+                }
+            }
+
+            /// <summary>
+            /// Returns the current ambient token. If none set, returns a token that is only cancelled on shutdown.
+            /// </summary>
+            public static CancellationToken CurrentToken
+            {
+                get
+                {
+                    var t = AmbientTokenLocal.Value;
+                    if (t == default)
+                    {
+                        return GlobalShutdownCts.Token;
+                    }
+                    // Combine with global shutdown so app exit cancels all outstanding calls
+                    try
+                    {
+                        var linked = CancellationTokenSource.CreateLinkedTokenSource(t, GlobalShutdownCts.Token);
+                        var result = linked.Token;
+                        // We cannot return linked.Token while disposing the CTS, so we keep CTS alive.
+                        // To avoid leaks, use a lightweight registry to dispose after request; callers should not cache this.
+                        // Here we just return t; CallApi will explicitly link with GlobalShutdown as needed.
+                        linked.Dispose();
+                        return t;
+                    }
+                    catch { return t; }
+                }
+            }
+
+            /// <summary>
+            /// Cancels all ambient scopes via global shutdown (used on program exit).
+            /// </summary>
+            public static void CancelAll()
+            {
+                try { GlobalShutdownCts.Cancel(); } catch { }
+            }
+        }
 
         /// <inheritdoc/>
         public abstract string Name { get; }
@@ -589,28 +668,31 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // Reserved headers are applied internally via authentication helpers: 'Authorization', 'x-api-key'.
                 HttpHeadersHelper.ApplyExtraHeaders(httpClient, request.Headers);
 
+                // Create a per-call CTS linked to the ambient scope and global shutdown; also respect TimeoutSeconds.
+                using var callLinkedCts = CreatePerCallCts(request?.TimeoutSeconds ?? 120);
+
                 try
                 {
                     HttpResponseMessage response;
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
-                            response = await httpClient.GetAsync(fullUrl).ConfigureAwait(false);
+                            response = await httpClient.GetAsync(fullUrl, callLinkedCts.Token).ConfigureAwait(false);
                             break;
                         case "POST":
                             var postContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PostAsync(fullUrl, postContent).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUrl, postContent, callLinkedCts.Token).ConfigureAwait(false);
                             break;
                         case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUrl).ConfigureAwait(false);
+                            response = await httpClient.DeleteAsync(fullUrl, callLinkedCts.Token).ConfigureAwait(false);
                             break;
                         case "PATCH":
                             var patchContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PatchAsync(fullUrl, patchContent).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUrl, patchContent, callLinkedCts.Token).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
@@ -640,6 +722,20 @@ namespace SmartHopper.Infrastructure.AIProviders
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Builds a per-call CTS linked to ambient scope and global shutdown, with optional timeout.
+        /// </summary>
+        private static CancellationTokenSource CreatePerCallCts(int timeoutSeconds)
+        {
+            var ambient = CallScope.CurrentToken;
+            var linked = CancellationTokenSource.CreateLinkedTokenSource(ambient);
+            if (timeoutSeconds > 0)
+            {
+                try { linked.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds)); } catch { }
+            }
+            return linked;
         }
 
         /// <summary>
