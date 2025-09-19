@@ -30,7 +30,6 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Execution;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Sessions;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
 
@@ -474,35 +473,32 @@ namespace SmartHopper.Core.UI.Chat
                     sessionRequest.WantsStreaming = false;
                 }
 
-                using (AIProvider.CallScope.Begin(this._currentCts.Token))
+                AIReturn lastStreamReturn = null;
+                if (shouldTryStreaming)
                 {
-                    AIReturn lastStreamReturn = null;
-                    if (shouldTryStreaming)
+                    Debug.WriteLine("[WebChatDialog] Starting streaming path");
+                    var streamingOptions = new StreamingOptions();
+
+                    // Consume the stream to drive incremental UI updates via observer
+                    // Track the last streamed return so we can decide about fallback.
+                    await foreach (var r in this._currentSession.Stream(options, streamingOptions, this._currentCts.Token))
                     {
-                        Debug.WriteLine("[WebChatDialog] Starting streaming path");
-                        var streamingOptions = new StreamingOptions();
+                        lastStreamReturn = r;
 
-                        // Consume the stream to drive incremental UI updates via observer
-                        // Track the last streamed return so we can decide about fallback.
-                        await foreach (var r in this._currentSession.Stream(options, streamingOptions, this._currentCts.Token))
-                        {
-                            lastStreamReturn = r;
-
-                            // No-op: observer handles partial/final UI updates.
-                        }
+                        // No-op: observer handles partial/final UI updates.
                     }
+                }
 
-                    // If streaming finished with an error or yielded nothing or no streaming was attempted, fallback to non-streaming.
-                    if (lastStreamReturn == null || !lastStreamReturn.Success || !shouldTryStreaming)
-                    {
-                        Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
-                        // Ensure streaming flag is not set for non-streaming execution
-                        sessionRequest.WantsStreaming = false;
-                        // Run non-streaming to completion. The ConversationSession observer (WebChatObserver)
-                        // handles UI updates via OnPartial/OnFinal (replace loading bubble, emit snapshot).
-                        // Do NOT manually append interactions here to avoid duplicate assistant messages.
-                        await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
-                    }
+                // If streaming finished with an error or yielded nothing or no streaming was attempted, fallback to non-streaming.
+                if (lastStreamReturn == null || !lastStreamReturn.Success || !shouldTryStreaming)
+                {
+                    Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
+                    // Ensure streaming flag is not set for non-streaming execution
+                    sessionRequest.WantsStreaming = false;
+                    // Run non-streaming to completion. The ConversationSession observer (WebChatObserver)
+                    // handles UI updates via OnPartial/OnFinal (replace loading bubble, emit snapshot).
+                    // Do NOT manually append interactions here to avoid duplicate assistant messages.
+                    await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -523,15 +519,6 @@ namespace SmartHopper.Core.UI.Chat
                 this._currentCts = null;
                 // Keep the session alive for reuse - do not set to null
             }
-        }
-
-        /// <summary>
-        /// Ensure any active calls are cancelled when the dialog is closed.
-        /// </summary>
-        protected override void OnClosed(EventArgs e)
-        {
-            try { this.CancelCurrentRun(); } catch { }
-            base.OnClosed(e);
         }
 
         /// <summary>
