@@ -306,6 +306,14 @@ namespace SmartHopper.Infrastructure.AIProviders
             // Execute CallApi
             var response = await this.CallApi(request);
 
+            // For backoffice/admin-style calls, return raw without chat decoding or timestamping
+            if (request?.RequestKind == AIRequestKind.Backoffice)
+            {
+                // Stop local timing but avoid setting completion time in response as requested
+                stopwatch.Stop();
+                return response;
+            }
+
             // Add provider specific metrics
             stopwatch.Stop();
             response.SetCompletionTime(stopwatch.Elapsed.TotalSeconds);
@@ -708,7 +716,17 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
 
                     // Prepare the AIReturn
-                    var rawJObject = JObject.Parse(content);
+                    JObject rawJObject;
+                    try
+                    {
+                        rawJObject = JObject.Parse(content);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
+                        throw;
+                    }
+
                     var aiReturn = new AIReturn();
                     aiReturn.CreateSuccess(
                         raw: rawJObject,
