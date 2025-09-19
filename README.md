@@ -1,8 +1,9 @@
 # SmartHopper - AI-Powered Grasshopper3D Plugin
 
-[![Version](https://img.shields.io/badge/version-1%2E0%2E0--dev%2E250827-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-1%2E0%2E0--dev%2E250915-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Test results](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=.NET%20CI&logo=dotnet)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
+[![Ready to use](https://img.shields.io/badge/ready_to_use-no-red)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Grasshopper](https://img.shields.io/badge/plugin_for-Grasshopper3D-darkgreen?logo=rhinoceros)](https://www.rhino3d.com/)
 [![MistralAI](https://img.shields.io/badge/AI--powered-MistralAI-orange?logo=mistralai)](https://mistral.ai/)
 [![OpenAI](https://img.shields.io/badge/AI--powered-OpenAI-lightgrey?logo=openai)](https://openai.com/)
@@ -106,8 +107,10 @@ SmartHopper is currently supporting the following AI providers:
 | [MistralAI](https://mistral.ai/) | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) |
 | [OpenAI](https://openai.com/) | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) |
 | [DeepSeek](https://deepseek.com/) | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) |
-| [Anthropic](https://anthropic.com/) | ✅ Supported | [Anthropic Console](https://console.anthropic.com/) |
+| [Anthropic](https://anthropic.com/) | ✅ Supported | [Claude Console](https://platform.claude.com/) |
 | [OpenRouter](https://openrouter.ai/) | ✅ Supported | [OpenRouter](https://openrouter.ai/) |
+
+Do you want more providers? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
 ## 🔢 Supported Data Types
 
