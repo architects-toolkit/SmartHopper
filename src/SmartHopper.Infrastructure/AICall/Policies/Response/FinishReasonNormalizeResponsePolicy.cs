@@ -149,7 +149,6 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 ["user_cancelled"] = "cancelled",
                 ["aborted"] = "cancelled",
                 ["abort"] = "cancelled",
-                ["stop_sequence"] = "cancelled",
 
                 // tool calls
                 ["tool_call"] = "tool_calls",

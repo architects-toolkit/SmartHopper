@@ -385,7 +385,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                             var lastInteraction = newInteractions.LastOrDefault();
                             
                             // If it's a complete text response (not a partial), use this as final
-                            if (lastInteraction is AIInteractionText textInteraction && 
+                            if (lastInteraction is AIInteractionText textInteraction &&
                                 !string.IsNullOrEmpty(textInteraction.Content))
                             {
                                 break;
