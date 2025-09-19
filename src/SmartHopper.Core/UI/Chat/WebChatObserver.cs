@@ -40,6 +40,12 @@ namespace SmartHopper.Core.UI.Chat
                 public IAIInteraction Aggregated;
             }
 
+            // Tracks UI state for the temporary thinking bubble and whether we've already
+            // appended an assistant message to the chat. This ensures correct ordering:
+            // tool calls/results first, assistant response appended at the end.
+            private bool _thinkingBubbleActive;
+            private bool _assistantBubbleAdded;
+
         /// <summary>
         /// Aggregates assistant text across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
         /// Rules:
@@ -97,6 +103,8 @@ namespace SmartHopper.Core.UI.Chat
             public WebChatObserver(WebChatDialog dialog)
             {
                 _dialog = dialog;
+                _thinkingBubbleActive = false;
+                _assistantBubbleAdded = false;
             }
 
             public void OnStart(AIRequestCall request)
@@ -109,8 +117,34 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Insert a temporary loading bubble for assistant to be replaced on first content
                     _dialog.ExecuteScript("addLoadingMessage('assistant', 'Thinking…');");
+                    _thinkingBubbleActive = true;
+                    _assistantBubbleAdded = false;
                     Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
+            }
+
+            /// <summary>
+            /// Removes the temporary thinking bubble if it is currently visible.
+            /// Must be called on the UI thread.
+            /// </summary>
+            private void RemoveThinkingBubbleIfActive()
+            {
+                if (!_thinkingBubbleActive)
+                {
+                    return;
+                }
+                try
+                {
+                    _dialog.ExecuteScript("removeLastLoadingMessageByRole('assistant');");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatObserver] RemoveThinkingBubbleIfActive error: {ex.Message}");
+                }
+                finally
+                {
+                    _thinkingBubbleActive = false;
+                }
             }
 
             public void OnDelta(IAIInteraction interaction)
@@ -140,9 +174,22 @@ namespace SmartHopper.Core.UI.Chat
                             CoalesceAssistantTextChunk(tt, key, ref state);
 
                             this._streams[key] = state;
-                            if (state.Aggregated != null)
+                            if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                             {
-                                this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, state.Aggregated);
+                                // On first assistant content, remove thinking bubble (if still visible)
+                                RemoveThinkingBubbleIfActive();
+
+                                if (!_assistantBubbleAdded)
+                                {
+                                    // First assistant chunk: append message at the end to preserve order
+                                    this._dialog.AddInteractionToWebView(aggText);
+                                    _assistantBubbleAdded = true;
+                                }
+                                else
+                                {
+                                    // Subsequent chunks: update the last assistant message
+                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
+                                }
                             }
                         }
                         catch (Exception innerEx)
@@ -168,6 +215,10 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         try
                         {
+                            // Tiny UX tweak: any first partial (of any type) should clear the thinking bubble.
+                            // The helper is idempotent and will only remove it once.
+                            RemoveThinkingBubbleIfActive();
+
                             // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
                             var key = GetStreamKey(interaction);
                             if (!_streams.TryGetValue(key, out var state))
@@ -181,15 +232,28 @@ namespace SmartHopper.Core.UI.Chat
                                 CoalesceAssistantTextChunk(tt, key, ref state);
 
                                 _streams[key] = state;
-                                if (state.Aggregated != null)
+                                if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                                 {
-                                    _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, state.Aggregated);
+                                    // On first assistant content, remove thinking bubble and append new assistant message
+                                    RemoveThinkingBubbleIfActive();
+
+                                    if (!_assistantBubbleAdded)
+                                    {
+                                        _dialog.AddInteractionToWebView(aggText);
+                                        _assistantBubbleAdded = true;
+                                    }
+                                    else
+                                    {
+                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
+                                    }
                                 }
                             }
 
                             // Optional UX: surface tool call name in status
                             if (interaction is AIInteractionToolCall call)
                             {
+                                // Any first partial event (tool call) should also remove thinking bubble
+                                RemoveThinkingBubbleIfActive();
                                 _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
                             }
                         }
@@ -212,6 +276,7 @@ namespace SmartHopper.Core.UI.Chat
 
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    RemoveThinkingBubbleIfActive();
                     _dialog.AddToolCallMessage(toolCall);
                     _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
                 });
@@ -224,6 +289,7 @@ namespace SmartHopper.Core.UI.Chat
 
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    RemoveThinkingBubbleIfActive();
                     _dialog.AddToolResultMessage(toolResult);
                 });
             }
@@ -240,49 +306,52 @@ namespace SmartHopper.Core.UI.Chat
                         var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
                         var lastReturn = this._dialog._currentSession.GetReturn();
 
-                        // Replace the loading bubble with final assistant content if available
+                        // Ensure thinking bubble is removed before final rendering
+                        RemoveThinkingBubbleIfActive();
+
                         try
                         {
-                            // Prefer aggregated streaming text if present to avoid shrinking due to partial final chunks
-                            AIInteractionText finalToRender = null;
-
-                            // Stream key used for assistant text
+                            // Determine streaming state and final assistant data
                             var assistantKey = "text:" + AIAgent.Assistant.ToString();
+                            AIInteractionText aggregated = null;
                             if (this._streams.TryGetValue(assistantKey, out var state) && state?.Aggregated is AIInteractionText agg && !string.IsNullOrWhiteSpace(agg.Content))
                             {
-                                // Apply final metrics to the aggregated text before rendering
-                                var finalAssistant = result?.Body?.Interactions?
-                                    .OfType<AIInteractionText>()
-                                    .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-                                if (finalAssistant != null)
-                                {
-                                    agg.Metrics = finalAssistant.Metrics;
-                                    // Optionally take final timestamp if available
-                                    agg.Time = finalAssistant.Time != default ? finalAssistant.Time : agg.Time;
-                                }
-                                finalToRender = agg;
-                            }
-                            else
-                            {
-                                // Fallback to assistant text from the result
-                                finalToRender = result?.Body?.Interactions?
-                                    .OfType<AIInteractionText>()
-                                    .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                                aggregated = agg;
                             }
 
-                            if (finalToRender != null)
+                            var finalAssistant = result?.Body?.Interactions?
+                                .OfType<AIInteractionText>()
+                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                            // If we already appended an assistant bubble during streaming, only update metrics/time and replace
+                            if (_assistantBubbleAdded)
                             {
-                                this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, finalToRender);
+                                if (aggregated != null && finalAssistant != null)
+                                {
+                                    aggregated.Metrics = finalAssistant.Metrics;
+                                    aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
+                                }
+
+                                // Replace existing assistant message with aggregated (preferred) or finalAssistant fallback
+                                var toRender = aggregated ?? finalAssistant;
+                                if (toRender != null)
+                                {
+                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, toRender);
+                                }
                             }
                             else
                             {
-                                // No assistant text produced: remove any remaining assistant loading bubble
-                                this._dialog.ExecuteScript("removeLastLoadingMessageByRole('assistant');");
+                                // No assistant bubble yet (no streaming or no non-empty deltas): append final once
+                                if (finalAssistant != null)
+                                {
+                                    this._dialog.AddInteractionToWebView(finalAssistant);
+                                    _assistantBubbleAdded = true;
+                                }
                             }
                         }
                         catch (Exception repEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnFinal replace/remove loading bubble error: {repEx.Message}");
+                            Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                         }
 
                         // Notify listeners with session-managed snapshots
