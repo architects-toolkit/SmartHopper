@@ -567,11 +567,36 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     foreach (JObject tc in tcs)
                     {
+                        // OpenAI returns function.arguments as a JSON string; parse it into a JObject
+                        JObject argsObj = null;
+                        try
+                        {
+                            var argsToken = tc["function"]?["arguments"];
+                            string argsStr = argsToken?.Type == JTokenType.String
+                                ? argsToken.ToString()
+                                : argsToken?.ToString();
+                            if (!string.IsNullOrWhiteSpace(argsStr))
+                            {
+                                argsObj = JObject.Parse(argsStr);
+                            }
+                            else
+                            {
+                                // Prefer an empty object over null to simplify tool-side logic
+                                argsObj = new JObject();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[OpenAI] Warning: failed to parse tool_call arguments: {ex.Message}");
+                            // Fallback to empty object to avoid null reference issues in tools
+                            argsObj = new JObject();
+                        }
+
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
                             Name = tc["function"]?["name"]?.ToString(),
-                            Arguments = tc["function"]?["arguments"] as JObject,
+                            Arguments = argsObj,
                         };
                         interactions.Add(toolCall);
                     }

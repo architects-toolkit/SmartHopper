@@ -17,6 +17,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Core.Base;
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -60,7 +61,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private readonly bool _generateGreeting;
 
         /// <summary>
-        /// The greeting return if greeting was generated.
+        /// The greeting return if greeting generation was requested and completed.
         /// </summary>
         private AIReturn? _greetingReturn;
 
@@ -612,14 +613,23 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     }
                     else
                     {
-                        var none = new AIReturn();
-                        none.CreateToolError("Tool not found or did not return a value", toolRq);
-                        var errInteraction = none.Body?.GetLastInteraction() as AIInteractionToolResult;
-                        if (errInteraction != null)
+                        // Synthesize a tool result so the pending call is resolved and provider can proceed
+                        var errorMessage = !string.IsNullOrWhiteSpace(toolRet?.ErrorMessage)
+                            ? toolRet.ErrorMessage
+                            : "Tool execution failed or returned no result";
+
+                        var synthetic = new AIInteractionToolResult
                         {
-                            this.AppendToSessionHistory(errInteraction);
-                            this.NotifyToolResult(errInteraction);
-                        }
+                            Id = tc.Id,
+                            Name = tc.Name,
+                            Result = new JObject
+                            {
+                                ["error"] = errorMessage,
+                            },
+                        };
+
+                        this.AppendToSessionHistory(synthetic);
+                        this.NotifyToolResult(synthetic);
                     }
                 }
 
@@ -860,6 +870,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             // Streaming path: forward each chunk to observer and caller
                             deltaYields = new List<AIReturn>();
                             AIReturn lastDelta = null;
+                            AIReturn lastToolCallsDelta = null; // track latest tool-calls snapshot to persist once post-stream
 
                             await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, linkedCts.Token))
                             {
@@ -868,22 +879,25 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     continue;
                                 }
 
-                                // Merge chunk into session state and notify as partial
+                                // Notify UI with partials only (do not persist deltas into session yet)
                                 var newInteractions = delta.Body?.GetNewInteractions();
-                                this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
-                                this._lastReturn = delta;
-                                this.UpdateLastReturn();
                                 this.NotifyPartial(this.PrepareNewOnlyReturn(delta));
 
-                                // Surface tool call notifications immediately upon appearance
+                                // Surface tool call notifications immediately upon appearance and remember latest snapshot
                                 if (newInteractions != null)
                                 {
+                                    bool sawToolCall = false;
                                     foreach (var interaction in newInteractions)
                                     {
                                         if (interaction is AIInteractionToolCall toolCall)
                                         {
+                                            sawToolCall = true;
                                             this.NotifyToolCall(toolCall);
                                         }
+                                    }
+                                    if (sawToolCall)
+                                    {
+                                        lastToolCallsDelta = delta; // keep the most recent aggregated tool_calls state
                                     }
                                 }
 
@@ -893,7 +907,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 lastReturn = delta;
                             }
 
-                            // No deltas received -> error
+                            // After streaming ends, either error (no deltas) or persist final snapshot then continue
                             if (lastDelta == null)
                             {
                                 var err = this.CreateError("Provider returned no response");
@@ -901,28 +915,59 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 errorYield = err;
                                 shouldBreak = true;
                             }
-                            else if (!options.ProcessTools)
-                            {
-                                // Finalize this turn with the last delta
-                                this.NotifyFinal(lastDelta);
-                                finalProviderYield = lastDelta;
-                                shouldBreak = true;
-                            }
                             else
                             {
-                                // Process tools after streaming completes
-                                pendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token).ConfigureAwait(false);
-                                if (pendingToolYields.Count > 0)
+                                // Persist a single, stable snapshot into the session after streaming ends
+                                try
                                 {
-                                    lastReturn = pendingToolYields.Last();
+                                    // 1) Persist final tool-calls snapshot once (if any)
+                                    var toolCallsToPersist = lastToolCallsDelta?.Body?.GetNewInteractions()?.OfType<AIInteractionToolCall>()?.ToList();
+                                    if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
+                                    {
+                                        Debug.WriteLine($"[ConversationSession.Stream] Persisting tool calls once after stream: count={toolCallsToPersist.Count}");
+                                        this.AppendRangeToSessionHistory(toolCallsToPersist);
+                                    }
+
+                                    // 2) Persist final assistant text once (if present)
+                                    var finalAssistantText = lastDelta.Body?.GetNewInteractions()?.OfType<AIInteractionText>()?.LastOrDefault();
+                                    if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
+                                    {
+                                        Debug.WriteLine($"[ConversationSession.Stream] Persisting final assistant text after stream: len={finalAssistantText.Content?.Length ?? 0}");
+                                        this.AppendToSessionHistory(finalAssistantText);
+                                    }
+
+                                    // Update last return snapshot to reflect persisted history
+                                    this._lastReturn = lastDelta;
+                                    this.UpdateLastReturn();
                                 }
-                                // If stable, finish the turn
-                                if (this.Request.Body.PendingToolCallsCount() == 0)
+                                catch (Exception ex)
                                 {
-                                    this.NotifyFinal(lastReturn ?? lastDelta);
+                                    Debug.WriteLine($"[ConversationSession.Stream] Error persisting final streaming snapshot: {ex.Message}");
+                                }
+
+                                if (!options.ProcessTools)
+                                {
+                                    // Finalize this turn with the last delta
+                                    this.NotifyFinal(lastDelta);
+                                    finalProviderYield = lastDelta;
                                     shouldBreak = true;
                                 }
-                                finalProviderYield = lastDelta;
+                                else
+                                {
+                                    // Process tools after streaming completes
+                                    pendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token).ConfigureAwait(false);
+                                    if (pendingToolYields.Count > 0)
+                                    {
+                                        lastReturn = pendingToolYields.Last();
+                                    }
+                                    // If stable, finish the turn
+                                    if (this.Request.Body.PendingToolCallsCount() == 0)
+                                    {
+                                        this.NotifyFinal(lastReturn ?? lastDelta);
+                                        shouldBreak = true;
+                                    }
+                                    finalProviderYield = lastDelta;
+                                }
                             }
                         }
                     }
