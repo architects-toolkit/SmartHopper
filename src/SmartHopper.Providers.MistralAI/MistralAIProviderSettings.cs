@@ -156,7 +156,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
 
                 // Ensure temperature is between 0.0 and 3.0 (both included)
-                if (temperature <= 0.0 || temperature >= 3.0)
+                if (temperature < 0.0 || temperature > 3.0)
                 {
                     if (showErrorDialogs)
                     {

@@ -177,7 +177,7 @@ namespace SmartHopper.Providers.OpenRouter
                     temperature = parsedTemperature;
                 }
 
-                if (temperature <= 0.0 || temperature >= 2.0)
+                if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs)
                     {

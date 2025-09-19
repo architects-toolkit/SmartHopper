@@ -189,7 +189,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 // Ensure temperature is between 0.0 and 2.0 (both included)
-                if (temperature <= 0.0 || temperature >= 2.0)
+                if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs)
                     {
