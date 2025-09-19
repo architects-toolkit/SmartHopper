@@ -145,10 +145,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="userMessage">The user message content.</param>
         public void AddInteraction(string userMessage)
         {
-            var userInteraction = new AIInteractionText 
-            { 
-                Agent = AIAgent.User, 
-                Content = userMessage 
+            var userInteraction = new AIInteractionText
+            {
+                Agent = AIAgent.User,
+                Content = userMessage
             };
             // Append user input to session history without marking it as 'new'
             this.AppendToSessionHistory(userInteraction);
@@ -224,8 +224,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         public AIMetrics GetCombinedMetrics(bool newInteractionsOnly = false)
         {
             var combined = new AIMetrics();
-            var interactions = newInteractionsOnly 
-                ? this.GetNewInteractionList() 
+            var interactions = newInteractionsOnly
+                ? this.GetNewInteractionList()
                 : this.GetHistoryInteractionList();
             
             foreach (var interaction in interactions)

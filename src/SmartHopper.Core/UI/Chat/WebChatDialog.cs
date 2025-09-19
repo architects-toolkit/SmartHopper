@@ -603,7 +603,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine($"[WebChatDialog] WebView_DocumentLoading called");
                 var uri = e?.Uri;
-                if (uri == null) 
+                if (uri == null)
                 {
                     Debug.WriteLine($"[WebChatDialog] Navigation URI is null");
                     return;
@@ -705,7 +705,7 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 Debug.WriteLine($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
-                if (string.IsNullOrWhiteSpace(text)) 
+                if (string.IsNullOrWhiteSpace(text))
                 {
                     Debug.WriteLine($"[WebChatDialog] SendMessage: text is null or whitespace, returning");
                     return;

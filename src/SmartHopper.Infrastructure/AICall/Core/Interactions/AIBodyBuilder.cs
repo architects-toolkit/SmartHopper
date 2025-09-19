@@ -294,6 +294,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public AIBodyBuilder ReplaceLast(IAIInteraction interaction, bool markAsNew)
         {
+            // Ergonomics: if there is no last item, treat replace as add.
+            if (this.interactions.Count == 0)
+            {
+                return this.Add(interaction, markAsNew);
+            }
+
             int idx = this.interactions.Count - 1;
             this.interactions[idx] = interaction;
             if (markAsNew)
@@ -444,7 +450,24 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
         public AIBodyBuilder SetCompletionTime(double completionTime)
         {
-            this.interactions.Last().Metrics.CompletionTime = completionTime;
+            // Guard against empty collections and ensure metrics exists
+            if (this.interactions.Count == 0)
+            {
+                return this;
+            }
+
+            var last = this.interactions[this.interactions.Count - 1];
+            if (last == null)
+            {
+                return this;
+            }
+
+            if (last.Metrics == null)
+            {
+                last.Metrics = new AIMetrics();
+            }
+
+            last.Metrics.CompletionTime = completionTime;
             try
             {
                 Debug.WriteLine($"[AIBodyBuilder.SetCompletionTime] interactions={this.interactions.Count}, new={string.Join(",", this.interactionsNew)} completionTime={completionTime:F3}");
