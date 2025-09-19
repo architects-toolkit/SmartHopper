@@ -144,7 +144,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI and DeepSeek.",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic and OpenRouter (in order of implementation).",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word
             };
@@ -211,6 +211,18 @@ namespace SmartHopper.Menu.Dialogs
                 }
             };
 
+            var lobeIconsLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- LobeHub for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("Lobe Icons", "https://github.com/lobehub/lobe-icons"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
+                }
+            };
+
             var logoDesignThanksLabel = new Label
             {
                 Text = "Acknowledgement to Jordina Roca Musach for the SmartHopper logo design.",
@@ -272,6 +284,7 @@ namespace SmartHopper.Menu.Dialogs
                         speckleLink,
                         ghptLink,
                         materialIconsLink,
+                        lobeIconsLink,
                         null, // spacing
                         logoDesignThanksLabel,
                         null, // spacing

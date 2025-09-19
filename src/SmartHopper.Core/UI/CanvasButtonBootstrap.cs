@@ -9,6 +9,8 @@
  */
 
 using System.Runtime.CompilerServices;
+using Rhino;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.UI
 {
@@ -20,7 +22,31 @@ namespace SmartHopper.Core.UI
         [ModuleInitializer]
         public static void Init()
         {
-            CanvasButton.EnsureInitialized();
+            // Only trigger initialization process if setting is enabled (defaults to true if unset)
+            try
+            {
+                if (SmartHopperSettings.Instance?.SmartHopperAssistant?.EnableCanvasButton ?? true)
+                {
+                    CanvasButton.EnsureInitialized();
+                }
+
+                // Subscribe to settings saved to dynamically toggle the canvas button visibility
+                SmartHopperSettings.Instance.SettingsSaved += OnSettingsSaved;
+            }
+            catch
+            {
+                // Be permissive on errors: initialize by default
+                CanvasButton.EnsureInitialized();
+            }
+        }
+
+        private static void OnSettingsSaved(object? sender, System.EventArgs e)
+        {
+            // Always marshal to Rhino UI thread for UI operations
+            RhinoApp.InvokeOnUiThread(() =>
+            {
+                CanvasButton.UpdateEnabledStateFromSettings();
+            });
         }
     }
 }

@@ -182,7 +182,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public abstract List<IAIInteraction> Decode(string response);
+        public abstract List<IAIInteraction> Decode(JObject response);
 
         /// <inheritdoc/>
         public virtual AIRequestCall PreCall(AIRequestCall request)
@@ -219,8 +219,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 };
 
                 // Create error; request validation messages (errors) will appear via AIReturn.Messages (Request.Messages)
-                result.CreateError("The request is not valid", request);
-                result.Metrics = metrics;
+                result.CreateError("The request is not valid", request, metrics);
 
                 return result;
             }
@@ -228,13 +227,17 @@ namespace SmartHopper.Infrastructure.AIProviders
             // Execute CallApi
             var response = await this.CallApi(request);
 
+            // For backoffice/admin-style calls, return raw without chat decoding or timestamping
+            if (request?.RequestKind == AIRequestKind.Backoffice)
+            {
+                // Stop local timing but avoid setting completion time in response as requested
+                stopwatch.Stop();
+                return response;
+            }
+
             // Add provider specific metrics
             stopwatch.Stop();
-            response.Metrics = new AIMetrics {
-                CompletionTime = stopwatch.Elapsed.TotalSeconds,
-                Provider = this.Name,
-                Model = request.Model,
-            };
+            response.SetCompletionTime(stopwatch.Elapsed.TotalSeconds);
 
             // Execute PostCall
             response = this.PostCall(response);
@@ -556,23 +559,43 @@ namespace SmartHopper.Infrastructure.AIProviders
                     Debug.WriteLine($"[{this.Name}] Warning: could not set HttpClient timeout: {ex.Message}");
                 }
 
-                // Set up authentication
-                if (authentication.ToLower(CultureInfo.InvariantCulture) == "bearer")
+                // Set up authentication from request
+                var auth = authentication?.Trim().ToLowerInvariant();
+
+                // Centralized API key handling: fetch from provider settings
+                var apiKey = this.GetSetting<string>("ApiKey");
+
+                if (string.IsNullOrWhiteSpace(auth) || auth == "none")
                 {
-                    string apiKey = this.GetSetting<string>("ApiKey");
+                    // no auth
+                }
+                else if (auth == "bearer")
+                {
                     if (string.IsNullOrWhiteSpace(apiKey))
                     {
-                        throw new Exception($"{this.Name} API key is not configured or is invalid.");
+                        throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
                     }
-
-                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                }
+                else if (auth == "x-api-key")
+                {
+                    if (string.IsNullOrWhiteSpace(apiKey))
+                    {
+                        throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
+                    }
+                    httpClient.DefaultRequestHeaders.Remove("x-api-key");
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                 }
                 else
                 {
-                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Only 'bearer' is currently supported.");
+                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key'.");
                 }
 
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                // Apply additional request-scoped headers via shared helper.
+                // Reserved headers are applied internally via authentication helpers: 'Authorization', 'x-api-key'.
+                HttpHeadersHelper.ApplyExtraHeaders(httpClient, request.Headers);
 
                 try
                 {
@@ -611,7 +634,17 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
 
                     // Prepare the AIReturn
-                    var rawJObject = JObject.Parse(content);
+                    JObject rawJObject;
+                    try
+                    {
+                        rawJObject = JObject.Parse(content);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
+                        throw;
+                    }
+
                     var aiReturn = new AIReturn();
                     aiReturn.CreateSuccess(
                         raw: rawJObject,

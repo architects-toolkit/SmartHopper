@@ -88,6 +88,7 @@ namespace SmartHopper.Menu.Dialogs
 
             this._assistantSettings = new AssistantSettings
             {
+                EnableCanvasButton = this._settings.SmartHopperAssistant.EnableCanvasButton,
                 EnableAIGreeting = this._settings.SmartHopperAssistant.EnableAIGreeting,
                 AssistantProvider = this._settings.SmartHopperAssistant.AssistantProvider,
                 AssistantModel = this._settings.SmartHopperAssistant.AssistantModel,
@@ -138,7 +139,7 @@ namespace SmartHopper.Menu.Dialogs
             // Add SmartHopper Assistant tab
             tabControl.Pages.Add(new TabPage
             {
-                Text = "Canvas Assistant",
+                Text = "The Button",
                 Content = _assistantPage,
             });
 
@@ -204,6 +205,7 @@ namespace SmartHopper.Menu.Dialogs
                 // Update global settings from models
                 _settings.DefaultAIProvider = _generalSettings.DefaultAIProvider;
                 _settings.DebounceTime = _generalSettings.DebounceTime;
+                _settings.SmartHopperAssistant.EnableCanvasButton = _assistantSettings.EnableCanvasButton;
                 _settings.SmartHopperAssistant.EnableAIGreeting = _assistantSettings.EnableAIGreeting;
                 _settings.SmartHopperAssistant.AssistantProvider = _assistantSettings.AssistantProvider;
                 _settings.SmartHopperAssistant.AssistantModel = _assistantSettings.AssistantModel;

@@ -298,23 +298,21 @@ namespace SmartHopper.Providers.DeepSeek
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override List<IAIInteraction> Decode(JObject response)
         {
             // Decode DeepSeek chat completion response into a list of interactions (text only).
             // DeepSeek does not support image generation; we return a single AIInteractionText
             // representing the assistant message, and map any tool calls onto that interaction.
             var interactions = new List<IAIInteraction>();
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return interactions;
             }
 
             try
             {
-                var responseJson = JObject.Parse(response);
-
-                var choices = responseJson["choices"] as JArray;
+                var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
                 if (message == null)
@@ -424,15 +422,13 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         /// <param name="response">The response to decode.</param>
         /// <returns>The decoded metrics.</returns>
-        private AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(JObject response)
         {
-            var responseString = response;
-            var responseJson = JObject.Parse(responseString);
             Debug.WriteLine("[DeepSeek] PostCall: parsed response for metrics");
 
-            var choices = responseJson["choices"] as JArray;
+            var choices = response["choices"] as JArray;
             var firstChoice = choices?.FirstOrDefault() as JObject;
-            var usage = responseJson["usage"] as JObject;
+            var usage = response["usage"] as JObject;
 
             // Create a new metrics instance
             var metrics = new AIMetrics();

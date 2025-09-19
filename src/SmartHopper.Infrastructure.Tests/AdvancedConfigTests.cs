@@ -14,7 +14,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AICall.Core.Requests;
     using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -59,14 +59,14 @@ namespace SmartHopper.Infrastructure.Tests
 
             public string Encode(List<IAIInteraction> interactions) => "{\"test\":\"encoded_interactions\"}";
 
-            public List<IAIInteraction> Decode(string response) => new List<IAIInteraction>();
+            public List<IAIInteraction> Decode(JObject response) => new List<IAIInteraction>();
 
             public AIRequestCall PreCall(AIRequestCall request) => request;
 
             public async Task<IAIReturn> Call(AIRequestCall request)
             {
                 var result = new AIReturn();
-                result.CreateSuccess(AIBodyImmutable.Empty, request);
+                result.CreateSuccess(AIBody.Empty, request);
                 return await Task.FromResult(result);
             }
 

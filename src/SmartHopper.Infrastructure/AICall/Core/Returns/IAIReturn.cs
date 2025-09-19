@@ -24,7 +24,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <summary>
         /// Gets the decoded result interactions.
         /// </summary>
-        AIBodyImmutable Body { get; }
+        AIBody Body { get; }
 
         /// <summary>
         /// Gets or sets the request sent to the provider.
@@ -32,9 +32,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         IAIRequest Request { get; set; }
 
         /// <summary>
-        /// Gets or sets the metrics about this call.
+        /// Gets the metrics about this call.
         /// </summary>
-        AIMetrics Metrics { get; set; }
+        AIMetrics Metrics { get; }
 
         /// <summary>
         /// Gets or sets the current status of the request.
@@ -67,7 +67,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// Sets the body of the result.
         /// </summary>
         /// <param name="body">The body to set as result.</param>
-        void SetBody(AIBodyImmutable body);
+        void SetBody(AIBody body);
 
         /// <summary>
         /// Creates a standardized provider error while preserving the raw provider message in ErrorMessage.
@@ -100,5 +100,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="origin">The message origin.</param>
         /// <param name="text">The message text.</param>
         void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text);
+
+        /// <summary>
+        /// Sets the completion time to the last interaction.
+        /// </summary>
+        /// <param name="completionTime">The completion time to set.</param>
+        void SetCompletionTime(double completionTime);
     }
 }

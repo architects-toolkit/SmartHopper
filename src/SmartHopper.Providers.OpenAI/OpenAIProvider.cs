@@ -260,21 +260,19 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override List<IAIInteraction> Decode(string response)
+        public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
             
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return interactions;
             }
             
             try
-            {
-                var responseJson = JObject.Parse(response);
-                
+            {       
                 // Handle different response types based on the response structure
-                if (responseJson["data"] != null)
+                if (response["data"] != null)
                 {
                     // Image generation response - create a dummy request for processing
                     var dummyRequest = new AIRequestCall();
@@ -282,12 +280,12 @@ namespace SmartHopper.Providers.OpenAI
                         .Add(new AIInteractionImage { Agent = AIAgent.Assistant })
                         .Build();
                     dummyRequest.Body = body;
-                    return this.ProcessImageGenerationResponseData(responseJson, dummyRequest);
+                    return this.ProcessImageGenerationResponseData(response, dummyRequest);
                 }
-                else if (responseJson["choices"] != null)
+                else if (response["choices"] != null)
                 {
                     // Chat completion response
-                    return this.ProcessChatCompletionsResponseData(responseJson);
+                    return this.ProcessChatCompletionsResponseData(response);
                 }
             }
             catch (Exception ex)
@@ -441,30 +439,21 @@ namespace SmartHopper.Providers.OpenAI
             return requestPayload.ToString();
         }
 
-        /// <inheritdoc/>
-        public override IAIReturn PostCall(IAIReturn response)
-        {
-            // The base implementation already handles the processing
-            // Just return the response as-is since processing is done in Call method
-            return response;
-        }
-
         /// <summary>
         /// Decodes metrics from OpenAI response.
         /// </summary>
-        private AIMetrics DecodeMetrics(string response)
+        private AIMetrics DecodeMetrics(JObject response)
         {
             var metrics = new AIMetrics();
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (response == null)
             {
                 return metrics;
             }
 
             try
             {
-                var responseJson = JObject.Parse(response);
-                var usage = responseJson["usage"] as JObject;
+                var usage = response["usage"] as JObject;
 
                 if (usage != null)
                 {
@@ -474,7 +463,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 // Handle finish reason for chat completions
-                var choices = responseJson["choices"] as JArray;
+                var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 if (firstChoice != null)
                 {
@@ -567,7 +556,7 @@ namespace SmartHopper.Providers.OpenAI
                     content: content,
                     reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
-                var metrics = this.DecodeMetrics(responseJson.ToString());
+                var metrics = this.DecodeMetrics(responseJson);
 
                 interaction.Metrics = metrics;
 
@@ -578,11 +567,36 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     foreach (JObject tc in tcs)
                     {
+                        // OpenAI returns function.arguments as a JSON string; parse it into a JObject
+                        JObject argsObj = null;
+                        try
+                        {
+                            var argsToken = tc["function"]?["arguments"];
+                            string argsStr = argsToken?.Type == JTokenType.String
+                                ? argsToken.ToString()
+                                : argsToken?.ToString();
+                            if (!string.IsNullOrWhiteSpace(argsStr))
+                            {
+                                argsObj = JObject.Parse(argsStr);
+                            }
+                            else
+                            {
+                                // Prefer an empty object over null to simplify tool-side logic
+                                argsObj = new JObject();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[OpenAI] Warning: failed to parse tool_call arguments: {ex.Message}");
+                            // Fallback to empty object to avoid null reference issues in tools
+                            argsObj = new JObject();
+                        }
+
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
                             Name = tc["function"]?["name"]?.ToString(),
-                            Arguments = tc["function"]?["arguments"] as JObject,
+                            Arguments = argsObj,
                         };
                         interactions.Add(toolCall);
                     }
@@ -827,7 +841,13 @@ namespace SmartHopper.Providers.OpenAI
                     yield return initial;
                 }
 
-                await foreach (var data in this.ReadSseDataAsync(response, cancellationToken).WithCancellation(cancellationToken))
+                // Determine idle timeout from request (fallback to 60s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                await foreach (var data in this.ReadSseDataAsync(
+                    response,
+                    idleTimeout,
+                    null,
+                    cancellationToken).WithCancellation(cancellationToken))
                 {
                     JObject parsed;
                     try
@@ -844,7 +864,8 @@ namespace SmartHopper.Providers.OpenAI
                     var choice = choices?.FirstOrDefault() as JObject;
                     var delta = choice?["delta"] as JObject;
                     var finishReason = choice?["finish_reason"]?.ToString();
-                    if (!string.IsNullOrEmpty(finishReason)) finalFinishReason = finishReason;
+                    bool hasFinish = !string.IsNullOrEmpty(finishReason);
+                    if (hasFinish) finalFinishReason = finishReason;
 
                     // Usage metrics (only present in final chunk when include_usage=true)
                     var usage = parsed["usage"] as JObject;
@@ -952,7 +973,6 @@ namespace SmartHopper.Providers.OpenAI
                     InputTokensPrompt = promptTokens,
                     OutputTokensGeneration = completionTokens,
                 };
-                final.Metrics = finalMetrics;
 
                 // Align aggregate metrics finish reason as well
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });

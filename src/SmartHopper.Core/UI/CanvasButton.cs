@@ -15,12 +15,14 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.GUI.Canvas;
+using Rhino;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
@@ -82,6 +84,9 @@ namespace SmartHopper.Core.UI
         private static bool isHovering;
         private static bool isPressed;
 
+        // Track hooked canvases to allow proper unhooking
+        private static readonly HashSet<GH_Canvas> hookedCanvases = new HashSet<GH_Canvas>();
+
         // Stable dialog ID so the canvas button always reuses the same chat dialog
         private static readonly Guid CanvasChatDialogId = new Guid("B0D0B0F1-1A2B-4C5D-9E0F-112233445566");
 
@@ -120,6 +125,9 @@ namespace SmartHopper.Core.UI
 
                 try
                 {
+                    // Unhook all canvas events
+                    UnhookAllCanvasEvents();
+
                     // Unsubscribe from events
                     Instances.CanvasCreated -= OnCanvasCreated;
 
@@ -149,8 +157,16 @@ namespace SmartHopper.Core.UI
                 // Wait for Grasshopper to be available
                 await WaitForGrasshopperAsync().ConfigureAwait(false);
 
-                // Initialize the button system
-                Initialize();
+                // Initialize the button system only if enabled by settings
+                if (IsEnabled())
+                {
+                    // Ensure initialization happens on the UI thread
+                    RhinoApp.InvokeOnUiThread(() => Initialize());
+                }
+                else
+                {
+                    Debug.WriteLine("[CanvasButton] Skipping initialization because EnableCanvasButton is disabled");
+                }
             }
             catch (Exception ex)
             {
@@ -277,6 +293,11 @@ namespace SmartHopper.Core.UI
         /// </summary>
         private static void OnCanvasCreated(GH_Canvas canvas)
         {
+            if (!IsEnabled())
+            {
+                return;
+            }
+
             HookCanvasEvents(canvas);
         }
 
@@ -287,16 +308,64 @@ namespace SmartHopper.Core.UI
         {
             try
             {
+                if (hookedCanvases.Contains(canvas))
+                {
+                    return; // Already hooked
+                }
+
                 canvas.CanvasPostPaintOverlay += OnCanvasPostPaintOverlay;
                 canvas.MouseDown += OnCanvasMouseDown;
                 canvas.MouseUp += OnCanvasMouseUp;
                 canvas.MouseMove += OnCanvasMouseMove;
 
+                hookedCanvases.Add(canvas);
                 Debug.WriteLine("[CanvasButton] Canvas events hooked successfully");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[CanvasButton] Error hooking canvas events: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Unhooks canvas events for the specified canvas.
+        /// </summary>
+        private static void UnhookCanvasEvents(GH_Canvas canvas)
+        {
+            try
+            {
+                canvas.CanvasPostPaintOverlay -= OnCanvasPostPaintOverlay;
+                canvas.MouseDown -= OnCanvasMouseDown;
+                canvas.MouseUp -= OnCanvasMouseUp;
+                canvas.MouseMove -= OnCanvasMouseMove;
+
+                hookedCanvases.Remove(canvas);
+                Debug.WriteLine("[CanvasButton] Canvas events unhooked successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CanvasButton] Error unhooking canvas events: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Unhooks canvas events for all currently hooked canvases.
+        /// </summary>
+        private static void UnhookAllCanvasEvents()
+        {
+            try
+            {
+                // Create a snapshot to avoid modifying collection during iteration
+                var canvases = new List<GH_Canvas>(hookedCanvases);
+                foreach (var c in canvases)
+                {
+                    UnhookCanvasEvents(c);
+                }
+                hookedCanvases.Clear();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CanvasButton] Error unhooking all canvas events: {ex.Message}");
             }
         }
 
@@ -523,6 +592,39 @@ namespace SmartHopper.Core.UI
         }
 
         /// <summary>
+        /// Applies the current EnableCanvasButton setting by initializing or disposing the canvas button system.
+        /// Safe to call multiple times; does nothing if state already matches.
+        /// </summary>
+        public static void UpdateEnabledStateFromSettings()
+        {
+            try
+            {
+                RhinoApp.InvokeOnUiThread(() =>
+                {
+                    lock (LockObject)
+                    {
+                        var shouldEnable = IsEnabled();
+                        if (shouldEnable && !isInitialized)
+                        {
+                            Initialize();
+                        }
+                        else if (!shouldEnable && isInitialized)
+                        {
+                            Dispose();
+                        }
+
+                        // Refresh active canvas to reflect UI change immediately
+                        try { Instances.ActiveCanvas?.Refresh(); } catch { }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CanvasButton] Error updating enabled state: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Triggers the AI chat dialog with the predefined system prompt.
         /// </summary>
         private static async Task TriggerChatDialog()
@@ -531,20 +633,44 @@ namespace SmartHopper.Core.UI
             {
                 Debug.WriteLine("[CanvasButton] Triggering AI chat dialog");
 
-                // Get the current provider from settings
+                // Resolve provider and model from SmartHopperAssistant settings with fallbacks
                 var providerManager = ProviderManager.Instance;
-                var defaultProviderName = providerManager.GetDefaultAIProvider();
-                var currentProvider = providerManager.GetProvider(defaultProviderName);
+                var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
 
-                if (currentProvider == null)
+                var requestedProviderName = assistant?.AssistantProvider;
+                // Treat "(Default)" as request to use configured default provider
+                var isDefaultProviderSelected = string.Equals(requestedProviderName, "(Default)", StringComparison.Ordinal);
+                var providerNameToUse = (!string.IsNullOrWhiteSpace(requestedProviderName) && !isDefaultProviderSelected)
+                    ? requestedProviderName
+                    : providerManager.GetDefaultAIProvider();
+
+                var provider = providerManager.GetProvider(providerNameToUse);
+
+                // If a requested provider is not available, fall back to the default provider
+                if (provider == null)
+                {
+                    var fallbackProviderName = providerManager.GetDefaultAIProvider();
+                    if (!string.Equals(fallbackProviderName, providerNameToUse, StringComparison.OrdinalIgnoreCase))
+                    {
+                        provider = providerManager.GetProvider(fallbackProviderName);
+                    }
+                }
+
+                if (provider == null)
                 {
                     Debug.WriteLine("[CanvasButton] No AI provider available");
                     StyledMessageDialog.ShowError("No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.", "SmartHopper Assistant");
                     return;
                 }
 
-                var providerName = currentProvider.Name;
-                var model = currentProvider.GetDefaultModel(AICapability.ToolReasoningChat);
+                var providerName = provider.Name;
+                var requestedModel = assistant?.AssistantModel;
+                // If user selected (Default) provider, always use provider default model
+                var model = isDefaultProviderSelected
+                    ? provider.GetDefaultModel(AICapability.ToolReasoningChat)
+                    : (!string.IsNullOrWhiteSpace(requestedModel)
+                        ? requestedModel
+                        : provider.GetDefaultModel(AICapability.ToolReasoningChat));
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 

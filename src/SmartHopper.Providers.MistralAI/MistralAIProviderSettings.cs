@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.MistralAI
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your MistralAI API key",
+                    Description = "Your MistralAI API key. Get one at https://console.mistral.ai/",
                 },
                 new SettingDescriptor
                 {
@@ -156,7 +156,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
 
                 // Ensure temperature is between 0.0 and 3.0 (both included)
-                if (temperature <= 0.0 || temperature >= 3.0)
+                if (temperature < 0.0 || temperature > 3.0)
                 {
                     if (showErrorDialogs)
                     {

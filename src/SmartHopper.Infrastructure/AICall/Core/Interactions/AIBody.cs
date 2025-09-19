@@ -8,140 +8,89 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AIContext;
-
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Encapsulates the request body sent to AI providers, including the interaction history,
-    /// optional tool and context filters, and an optional JSON output schema.
-    /// The <see cref="Interactions"/> getter injects dynamic context messages at the beginning
-    /// when <see cref="ContextFilter"/> is set and matching context is available.
+    /// Immutable representation of an AI request body.
+    /// - No implicit side effects or dynamic context injection
+    /// - Suitable for stable hashing/fingerprints
+    /// Construct via <see cref="AIBodyBuilder"/>.
     /// </summary>
-    public class AIBody
+    public sealed record AIBody
+    (
+        IReadOnlyList<IAIInteraction> Interactions,
+        string ToolFilter,
+        string ContextFilter,
+        string JsonOutputSchema,
+        List<int> InteractionsNew
+    )
     {
         /// <summary>
-        /// Private storage for the list of interactions.
+        /// An empty immutable body with defaults: ToolFilter="-*", ContextFilter="-*".
         /// </summary>
-        private List<IAIInteraction> _interactions = new List<IAIInteraction>();
+        public static AIBody Empty { get; } = new(
+            Array.Empty<IAIInteraction>(),
+            "-*",
+            "-*",
+            null,
+            new List<int>()
+        );
 
         /// <summary>
-        /// Gets or sets the interaction list. When getting, a copy of the internal list is returned;
-        /// if <see cref="ContextFilter"/> is set and context has content, a synthesized context interaction is
-        /// inserted at index 0 of the returned list without mutating the internal storage.
+        /// Count of interactions (no dynamic context injection here).
         /// </summary>
-        public List<IAIInteraction> Interactions
+        public int InteractionsCount => this.Interactions?.Count ?? 0;
+
+        // NOTE: Do not redeclare InteractionsNew here.
+        // The record primary constructor already defines the InteractionsNew property.
+        // Redeclaring it with a default initializer would discard values passed via the constructor,
+        // causing 'new' markers to be lost.
+
+        /// <summary>
+        /// Whether a structured JSON response is requested.
+        /// </summary>
+        public bool RequiresJsonOutput => !string.IsNullOrEmpty(this.JsonOutputSchema);
+
+        /// <summary>
+        /// Aggregated metrics across interactions.
+        /// </summary>
+        public AIMetrics Metrics
         {
             get
             {
-                var result = new List<IAIInteraction>(this._interactions ?? new List<IAIInteraction>());
-
-                // Remove context interaction if present
-                result = result.Where(i => i.Agent != AIAgent.Context).ToList();
-
-                // Inject dynamic context at the beginning if ContextFilter is set
-                if (!string.IsNullOrEmpty(this.ContextFilter))
+                var m = new AIMetrics();
+                if (this.Interactions == null) return m;
+                foreach (var i in this.Interactions)
                 {
-                    var contextData = AIContextManager.GetCurrentContext(this.ContextFilter);
-                    if (contextData.Count > 0)
+                    if (i?.Metrics != null)
                     {
-                        var contextMessages = contextData
-                            .Where(kv => !string.IsNullOrEmpty(kv.Value))
-                            .Select(kv => $"- {kv.Key}: {kv.Value}");
-
-                        if (contextMessages.Any())
-                        {
-                            var contextMessage = "Conversation context:\n\n" +
-                                                 string.Join("\n", contextMessages);
-
-                            var contextInteraction = new AIInteractionText
-                            {
-                                Agent = AIAgent.Context,
-                                Content = contextMessage,
-                            };
-
-                            result.Insert(0, contextInteraction);
-                        }
+                        m.Combine(i.Metrics);
                     }
                 }
-
-                // Return the modified list without modifying the original this._interactions list
-                return result;
-            }
-            set => this._interactions = value != null ? new List<IAIInteraction>(value) : new List<IAIInteraction>();
-        }
-
-        /// <summary>
-        /// Gets or sets the tool filter.
-        /// Defaults to no tools.
-        /// </summary>
-        public string ToolFilter { get; set; } = "-*";
-
-        /// <summary>
-        /// Gets or sets the context filter.
-        /// Defaults to no context.
-        /// </summary>
-        public string ContextFilter { get; set; } = "-*";
-
-        /// <summary>
-        /// Gets or sets the output JSON schema.
-        /// </summary>
-        public string JsonOutputSchema { get; set; }
-
-        /// <summary>
-        /// Gets the aggregated metrics for all interactions.
-        /// </summary>
-        public AIMetrics Metrics {
-            get
-            {
-                var metrics = new AIMetrics();
-                if (this._interactions.Count == 0)
-                {
-                    return metrics;
-                }
-                
-                foreach (var interaction in this._interactions)
-                {
-                    metrics.Combine(interaction.Metrics);
-                }
-
-                return metrics;
+                return m;
             }
         }
 
         /// <summary>
-        /// Aggregated structured messages from body validation and interaction-specific messages.
+        /// Aggregated structured messages from interaction-level details (e.g., tool/image validation).
+        /// Body-level validation should be executed by policies/validators.
         /// </summary>
         public List<AIRuntimeMessage> Messages
         {
             get
             {
                 var combined = new List<AIRuntimeMessage>();
-                var seen = new HashSet<string>(System.StringComparer.Ordinal);
+                var seen = new HashSet<string>(StringComparer.Ordinal);
 
-                // 1) Body validation messages
-                var (ok, errors) = this.IsValid();
-                if (errors != null)
+                if (this.Interactions != null)
                 {
-                    foreach (var m in errors)
-                    {
-                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
-                        {
-                            combined.Add(m);
-                        }
-                    }
-                }
-
-                // 2) Interaction-level messages
-                if (this._interactions != null)
-                {
-                    foreach (var interaction in this._interactions)
+                    foreach (var interaction in this.Interactions)
                     {
                         if (interaction is AIInteractionToolResult tr && tr.Messages != null)
                         {
@@ -172,337 +121,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Validates the body.
+        /// Clears the list of indices marked as new in this body.
         /// </summary>
-        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public void ResetNew()
         {
-            var errors = new List<AIRuntimeMessage>();
-
-            if (this.InteractionsCount() == 0)
-            {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    "At least one interaction is required"));
-            }
-
-            return (errors.Count == 0, errors);
-        }
-
-        /// <summary>
-        /// Adds an interaction to the start of the interaction history.
-        /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
-        public void AddFirstInteraction(IAIInteraction interaction)
-        {
-            this._interactions ??= new List<IAIInteraction>();
-            this._interactions.Insert(0, interaction);
-        }
-
-        /// <summary>
-        /// Adds interactions to the start of the interaction history.
-        /// </summary>
-        /// <param name="interactions">The interactions to add.</param>
-        public void AddFirstInteraction(List<IAIInteraction> interactions)
-        {
-            this._interactions ??= new List<IAIInteraction>();
-            this._interactions.InsertRange(0, interactions);
-        }
-
-        /// <summary>
-        /// Adds an interaction to the start of the interaction history using an agent name and a body string.
-        /// </summary>
-        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
-        /// <param name="body">The textual content of the interaction.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>
-        public void AddFirstInteraction(string agent, string body, AIMetrics metrics)
-        {
-            this.AddFirstInteraction(CreateInteractionText(agent, body, metrics));
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history.
-        /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
-        public void AddLastInteraction(IAIInteraction interaction)
-        {
-            this._interactions ??= new List<IAIInteraction>();
-            this._interactions.Add(interaction);
-        }
-
-        /// <summary>
-        /// Adds interactions to the end of the interaction history.
-        /// </summary>
-        /// <param name="interactions">The interactions to add.</param>
-        public void AddLastInteraction(List<IAIInteraction> interactions)
-        {
-            this._interactions ??= new List<IAIInteraction>();
-            this._interactions.AddRange(interactions);
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
-        /// </summary>
-        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
-        /// <param name="body">The textual content of the interaction.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>
-        public void AddLastInteraction(string agent, string body, AIMetrics metrics)
-        {
-            this.AddLastInteraction(CreateInteractionText(agent, body, metrics));
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history.
-        /// </summary>
-        /// <param name="interaction">The interaction to add.</param>
-        public void AddInteraction(IAIInteraction interaction)
-        {
-            this.AddLastInteraction(interaction);
-        }
-
-        /// <summary>
-        /// Adds interactions to the end of the interaction history.
-        /// </summary>
-        /// <param name="interactions">The interactions to add.</param>
-        public void AddInteraction(List<IAIInteraction> interactions)
-        {
-            this.AddLastInteraction(interactions);
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history using an agent and a body string.
-        /// </summary>
-        /// <param name="agent">The agent.</param>
-        /// <param name="body">The textual content of the interaction.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>>
-        public void AddInteraction(AIAgent agent, string body, AIMetrics metrics)
-        {
-            this.AddLastInteraction(CreateInteractionText(agent, body, metrics));
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history using an agent and a body string.
-        /// </summary>
-        /// <param name="agent">The agent.</param>
-        /// <param name="body">The textual content of the interaction.</param>
-        public void AddInteraction(AIAgent agent, string body)
-        {
-            this.AddLastInteraction(CreateInteractionText(agent, body, null));
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
-        /// </summary>
-        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
-        /// <param name="body">The textual content of the interaction.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>>
-        public void AddInteraction(string agent, string body, AIMetrics metrics)
-        {
-            this.AddLastInteraction(CreateInteractionText(agent, body, metrics));
-        }
-
-        /// <summary>
-        /// Adds an interaction to the end of the interaction history using an agent name and a body string.
-        /// </summary>
-        /// <param name="agent">The agent name (e.g., "User", "Assistant", "System").</param>
-        /// <param name="body">The textual content of the interaction.</param>
-        public void AddInteraction(string agent, string body)
-        {
-            this.AddLastInteraction(CreateInteractionText(agent, body, null));
-        }
-
-        /// <summary>
-        /// Adds an interaction tool result to the end of the interaction history, carrying metrics and messages.
-        /// </summary>
-        /// <param name="body">The JSON result of the tool execution.</param>
-        /// <param name="metrics">Optional metrics associated with the tool execution.</param>
-        /// <param name="messages">Optional structured runtime messages to attach to the tool result.</param>
-        public void AddInteractionToolResult(JObject body, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
-        {
-            this.AddLastInteraction(CreateInteractionToolResult(body, metrics, messages));
-        }
-
-        /// <summary>
-        /// Gets the first interaction.
-        /// </summary>
-        /// <returns>The first interaction if present; otherwise, null.</returns>
-        public IAIInteraction GetFirstInteraction()
-        {
-            return this.Interactions.FirstOrDefault();
-        }
-
-        /// <summary>
-        /// Gets the first interaction by the specified agent.
-        /// </summary>
-        /// <param name="agent">The agent to match.</param>
-        /// <returns>The first matching interaction if present; otherwise, null.</returns>
-        public IAIInteraction GetFirstInteraction(AIAgent agent)
-        {
-            return this.Interactions.FirstOrDefault(i => i.Agent == agent);
-        }
-
-        /// <summary>
-        /// Gets the first interaction whose agent name matches the provided string.
-        /// </summary>
-        /// <param name="agent">Agent name to match.</param>
-        /// <returns>The first matching interaction if present; otherwise, null.</returns>
-        public IAIInteraction GetFirstInteraction(string agent)
-        {
-            return this.Interactions.FirstOrDefault(i => i.Agent.ToString() == agent);
-        }
-
-        /// <summary>
-        /// Gets the last interaction.
-        /// </summary>
-        /// <returns>The last interaction if present; otherwise, null.</returns>
-        public IAIInteraction GetLastInteraction()
-        {
-            return this.Interactions.LastOrDefault();
-        }
-
-        /// <summary>
-        /// Gets the last interaction by the specified agent.
-        /// </summary>
-        /// <param name="agent">The agent to match.</param>
-        /// <returns>The last matching interaction if present; otherwise, null.</returns>
-        public IAIInteraction GetLastInteraction(AIAgent agent)
-        {
-            return this.Interactions.LastOrDefault(i => i.Agent == agent);
-        }
-
-        /// <summary>
-        /// Gets the last interaction whose agent name matches the provided string.
-        /// </summary>
-        /// <param name="agent">Agent name to match.</param>
-        /// <returns>The last matching interaction if present; otherwise, null.</returns>
-        public IAIInteraction GetLastInteraction(string agent)
-        {
-            return this.Interactions.LastOrDefault(i => i.Agent.ToString() == agent);
-        }
-
-        /// <summary>
-        /// Gets the number of interactions, including a synthesized context interaction when applicable.
-        /// </summary>
-        /// <returns>The total count of interactions that would be returned by <see cref="Interactions"/>.</returns>
-        public int InteractionsCount()
-        {
-            return (this._interactions?.Count ?? 0) + (this.HasContextData() ? 1 : 0);
-        }
-
-        /// <summary>
-        /// Checks if there are pending tool calls by matching AIInteractionToolCall.Id with AIInteractionToolResult.Id.
-        /// </summary>
-        /// <returns>The count of pending tool calls.</returns>
-        public int PendingToolCallsCount()
-        {
-            var toolCalls = this.Interactions.OfType<AIInteractionToolCall>();
-            var toolResults = this.Interactions.OfType<AIInteractionToolResult>();
-            var resultIds = new HashSet<string>(toolResults.Select(tr => tr.Id));
-
-            int matched = toolCalls.Count(tc => resultIds.Contains(tc.Id));
-            int pending = toolCalls.Count() - matched;
-            return pending;
-        }
-
-        /// <summary>
-        /// Gets the list of pending tool calls by matching AIInteractionToolCall.Id with AIInteractionToolResult.Id.
-        /// </summary>
-        /// <returns>The list of pending tool calls.</returns>
-        public List<AIInteractionToolCall> PendingToolCallsList()
-        {
-            var toolCalls = this.Interactions.OfType<AIInteractionToolCall>();
-            var toolResults = this.Interactions.OfType<AIInteractionToolResult>();
-            var resultIds = new HashSet<string>(toolResults.Select(tr => tr.Id));
-
-            return toolCalls.Where(tc => !resultIds.Contains(tc.Id)).ToList();
-        }
-
-        /// <summary>
-        /// Creates a new AIInteraction<string> from an agent name and body string.
-        /// </summary>
-        /// <param name="agent">The agent name.</param>
-        /// <param name="body">The textual content.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>
-        /// <returns>The created AIInteraction<string>.</returns>
-        private static AIInteractionText CreateInteractionText(AIAgent agent, string body, AIMetrics metrics)
-        {
-            if (metrics is null)
-            {
-                metrics = new AIMetrics();
-            }
-
-            var interaction = new AIInteractionText
-            {
-                Agent = agent,
-                Content = body,
-                Metrics = metrics,
-            };
-            return interaction;
-        }
-
-        /// <summary>
-        /// Creates a new AIInteraction<string> from an agent name and body string.
-        /// </summary>
-        /// <param name="agent">The agent name.</param>
-        /// <param name="body">The textual content.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>
-        /// <returns>The created AIInteraction<string>.</returns>
-        private static AIInteractionText CreateInteractionText(string agent, string body, AIMetrics metrics)
-        {
-            return CreateInteractionText(AIAgentExtensions.FromString(agent), body, metrics);
-        }
-
-        /// <summary>
-        /// Creates a new AIInteractionToolResult from a JSON result, metrics and optional messages.
-        /// </summary>
-        /// <param name="result">The JSON result.</param>
-        /// <param name="metrics">The metrics associated with the interaction.</param>
-        /// <param name="messages">Structured runtime messages to attach.</param>
-        /// <returns>The created AIInteractionToolResult.</returns>
-        private static AIInteractionToolResult CreateInteractionToolResult(JObject result, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
-        {
-            if (metrics is null)
-            {
-                metrics = new AIMetrics();
-            }
-
-            var interaction = new AIInteractionToolResult
-            {
-                Result = result,
-                Metrics = metrics,
-            };
-
-            if (messages != null)
-            {
-                interaction.Messages = messages;
-            }
-
-            return interaction;
-        }
-
-        /// <summary>
-        /// Replaces the internal interactions list with the provided list.
-        /// Does not inject context; context is added dynamically via the Interactions getter when accessed.
-        /// </summary>
-        /// <param name="interactions">The interactions collection to set as the body history.</param>
-        public void OverrideInteractions(List<IAIInteraction> interactions)
-        {
-            this._interactions = interactions != null ? new List<IAIInteraction>(interactions) : new List<IAIInteraction>();
-        }
-
-        /// <summary>
-        /// Checks if there is context data to inject.
-        /// </summary>
-        private bool HasContextData()
-        {
-            if (string.IsNullOrEmpty(this.ContextFilter))
-            {
-                return false;
-            }
-
-            var contextData = AIContextManager.GetCurrentContext(this.ContextFilter);
-
-            return contextData.Any(kv => !string.IsNullOrEmpty(kv.Value));
+            this.InteractionsNew?.Clear();
         }
     }
 }

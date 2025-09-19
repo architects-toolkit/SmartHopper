@@ -5,7 +5,7 @@ This page explains the always-on request/response policy pipeline that runs arou
 - Location: `src/SmartHopper.Infrastructure/AICall/Policies/`
 - Core types:
   - `PolicyPipeline` — orchestrates request and response policies
-  - Default response policy: `CompatibilityDecodeResponsePolicy`
+  - Default response policy: TODO update
 
 ## What policies do
 
@@ -14,10 +14,7 @@ This page explains the always-on request/response policy pipeline that runs arou
 
 ## Default pipeline behavior
 
-- The default pipeline includes `CompatibilityDecodeResponsePolicy` which:
-  - Attempts to decode raw provider JSON (`AIReturn.Raw`) using `ProviderInstance.Decode(...)`.
-  - On success: appends decoded interactions to the `AIReturn.Body`.
-  - On failure: does not throw; attaches a warning message preserving the raw payload for later inspection.
+TODO update
 
 ## Developer guidance
 

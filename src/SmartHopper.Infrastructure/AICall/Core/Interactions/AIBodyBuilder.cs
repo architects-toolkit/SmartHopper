@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -18,12 +19,15 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Fluent builder for <see cref="AIBodyImmutable"/>. Produces immutable instances without
+    /// Fluent builder for <see cref="AIBody"/>. Produces immutable instances without
     /// implicit context injection or side effects.
     /// </summary>
     public sealed class AIBodyBuilder
     {
         private readonly List<IAIInteraction> interactions = new List<IAIInteraction>();
+        private readonly List<int> interactionsNew = new List<int>();
+        // Default behavior matches legacy: appended/replaced interactions are marked as 'new'
+        private bool defaultMarkAsNew = true;
 
         private string toolFilter = "-*";
         private string contextFilter = "-*";
@@ -36,11 +40,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Creates a builder initialized from an existing immutable body.
         /// </summary>
-        public static AIBodyBuilder FromImmutable(AIBodyImmutable body)
+        public static AIBodyBuilder FromImmutable(AIBody body)
         {
             var b = new AIBodyBuilder();
             if (body != null)
             {
+                try
+                {
+                    Debug.WriteLine($"[AIBodyBuilder.FromImmutable] input: interactions={body.InteractionsCount}, new={body.InteractionsNew?.Count ?? 0} [{string.Join(",", body.InteractionsNew ?? new List<int>())}]");
+                }
+                catch { /* logging only */ }
                 if (body.Interactions != null)
                 {
                     b.interactions.AddRange(body.Interactions);
@@ -48,24 +57,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 b.toolFilter = body.ToolFilter ?? b.toolFilter;
                 b.contextFilter = body.ContextFilter ?? b.contextFilter;
                 b.jsonOutputSchema = body.JsonOutputSchema ?? b.jsonOutputSchema;
-            }
-            return b;
-        }
-
-        /// <summary>
-        /// Creates a builder initialized from the legacy mutable body.
-        /// Context interactions (Agent == Context) are filtered out to avoid mixing implicit enrichment.
-        /// </summary>
-        public static AIBodyBuilder FromMutable(AIBody legacy)
-        {
-            var b = new AIBodyBuilder();
-            if (legacy != null)
-            {
-                var raw = legacy.Interactions ?? new List<IAIInteraction>();
-                b.interactions.AddRange(raw.Where(i => i != null && i.Agent != AIAgent.Context));
-                b.toolFilter = legacy.ToolFilter ?? b.toolFilter;
-                b.contextFilter = legacy.ContextFilter ?? b.contextFilter;
-                b.jsonOutputSchema = legacy.JsonOutputSchema ?? b.jsonOutputSchema;
+                // Preserve 'new' interaction markers so downstream mutations don't clear them
+                if (body.InteractionsNew != null && body.InteractionsNew.Count > 0)
+                {
+                    b.interactionsNew.AddRange(body.InteractionsNew);
+                }
+                try
+                {
+                    Debug.WriteLine($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
+                }
+                catch { /* logging only */ }
             }
             return b;
         }
@@ -88,11 +89,47 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             return this;
         }
 
+        /// <summary>
+        /// Sets the default newness applied by Add/Replace operations when an explicit flag is not provided.
+        /// </summary>
+        public AIBodyBuilder WithDefaultNewness(bool markAsNew)
+        {
+            this.defaultMarkAsNew = markAsNew;
+            return this;
+        }
+
+        /// <summary>
+        /// Convenience: subsequent Add/Replace operations will be considered history (not new).
+        /// </summary>
+        public AIBodyBuilder AsHistory() => this.WithDefaultNewness(false);
+
+        /// <summary>
+        /// Convenience: subsequent Add/Replace operations will be considered new.
+        /// </summary>
+        public AIBodyBuilder AsNew() => this.WithDefaultNewness(true);
+
         public AIBodyBuilder Add(IAIInteraction interaction)
+        {
+            return this.Add(interaction, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
+        /// Adds an interaction and optionally marks it as new.
+        /// </summary>
+        public AIBodyBuilder Add(IAIInteraction interaction, bool markAsNew)
         {
             if (interaction != null)
             {
                 this.interactions.Add(interaction);
+                if (markAsNew)
+                {
+                    this.interactionsNew.Add(this.interactions.Count - 1);
+                }
+                try
+                {
+                    Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                }
+                catch { /* logging only */ }
             }
             return this;
         }
@@ -103,7 +140,22 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 foreach (var i in items)
                 {
-                    if (i != null) this.interactions.Add(i);
+                    this.Add(i, this.defaultMarkAsNew);
+                }
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a range of interactions with per-item newness control.
+        /// </summary>
+        public AIBodyBuilder AddRange(IEnumerable<(IAIInteraction interaction, bool isNew)> items)
+        {
+            if (items != null)
+            {
+                foreach (var (interaction, isNew) in items)
+                {
+                    this.Add(interaction, isNew);
                 }
             }
             return this;
@@ -119,18 +171,44 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Reasoning = reasoning,
                 Metrics = m,
             };
-            return Add(it);
+            return Add(it, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
+        /// Adds a text interaction with explicit newness.
+        /// </summary>
+        public AIBodyBuilder AddText(AIAgent agent, string content, bool markAsNew, AIMetrics metrics = null, string reasoning = null)
+        {
+            var m = metrics ?? new AIMetrics();
+            var it = new AIInteractionText
+            {
+                Agent = agent,
+                Content = content,
+                Reasoning = reasoning,
+                Metrics = m,
+            };
+            return Add(it, markAsNew);
         }
 
         public AIBodyBuilder AddUser(string content) => AddText(AIAgent.User, content);
+        public AIBodyBuilder AddUser(string content, bool markAsNew) => AddText(AIAgent.User, content, markAsNew);
         public AIBodyBuilder AddAssistant(string content) => AddText(AIAgent.Assistant, content);
+        public AIBodyBuilder AddAssistant(string content, bool markAsNew) => AddText(AIAgent.Assistant, content, markAsNew);
         public AIBodyBuilder AddSystem(string content) => AddText(AIAgent.System, content);
+        public AIBodyBuilder AddSystem(string content, bool markAsNew) => AddText(AIAgent.System, content, markAsNew);
 
         public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null)
         {
             var img = new AIInteractionImage { Agent = AIAgent.User };
             img.CreateRequest(prompt, size, quality, style);
-            return Add(img);
+            return Add(img, this.defaultMarkAsNew);
+        }
+
+        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null)
+        {
+            var img = new AIInteractionImage { Agent = AIAgent.User };
+            img.CreateRequest(prompt, size, quality, style);
+            return Add(img, markAsNew);
         }
 
         public AIBodyBuilder AddToolCall(string id, string name, JObject args, AIMetrics metrics = null)
@@ -142,7 +220,19 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Arguments = args,
                 Metrics = metrics ?? new AIMetrics(),
             };
-            return Add(tc);
+            return Add(tc, this.defaultMarkAsNew);
+        }
+
+        public AIBodyBuilder AddToolCall(string id, string name, JObject args, bool markAsNew, AIMetrics metrics = null)
+        {
+            var tc = new AIInteractionToolCall
+            {
+                Id = id,
+                Name = name,
+                Arguments = args,
+                Metrics = metrics ?? new AIMetrics(),
+            };
+            return Add(tc, markAsNew);
         }
 
         public AIBodyBuilder AddToolResult(JObject result, string id = null, string name = null, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
@@ -155,13 +245,305 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Metrics = metrics ?? new AIMetrics(),
                 Messages = messages ?? new List<AIRuntimeMessage>(),
             };
-            return Add(tr);
+            return Add(tr, this.defaultMarkAsNew);
         }
 
-        public AIBodyImmutable Build()
+        public AIBodyBuilder AddToolResult(JObject result, bool markAsNew, string id = null, string name = null, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
+        {
+            var tr = new AIInteractionToolResult
+            {
+                Id = id,
+                Name = name,
+                Result = result,
+                Metrics = metrics ?? new AIMetrics(),
+                Messages = messages ?? new List<AIRuntimeMessage>(),
+            };
+            return Add(tr, markAsNew);
+        }
+
+        public AIBodyBuilder AddError(string content, AIMetrics metrics = null)
+        {
+            var m = metrics ?? new AIMetrics();
+            var it = new AIInteractionError
+            {
+                Content = content,
+                Metrics = m,
+            };
+            return Add(it, this.defaultMarkAsNew);
+        }
+
+        public AIBodyBuilder AddError(string content, bool markAsNew, AIMetrics metrics = null)
+        {
+            var m = metrics ?? new AIMetrics();
+            var it = new AIInteractionError
+            {
+                Content = content,
+                Metrics = m,
+            };
+            return Add(it, markAsNew);
+        }
+
+        public AIBodyBuilder ReplaceLast(IAIInteraction interaction)
+        {
+            // Delegate to overload honoring the builder's default newness
+            return this.ReplaceLast(interaction, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
+        /// Replaces the last interaction and optionally marks it as new.
+        /// </summary>
+        public AIBodyBuilder ReplaceLast(IAIInteraction interaction, bool markAsNew)
+        {
+            // Ergonomics: if there is no last item, treat replace as add.
+            if (this.interactions.Count == 0)
+            {
+                return this.Add(interaction, markAsNew);
+            }
+
+            int idx = this.interactions.Count - 1;
+            this.interactions[idx] = interaction;
+            if (markAsNew)
+            {
+                this.interactionsNew.Add(idx);
+            }
+            try
+            {
+                Debug.WriteLine($"[AIBodyBuilder.ReplaceLast] idx={idx}, type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+            }
+            catch { /* logging only */ }
+            return this;
+        }
+
+        public AIBodyBuilder ReplaceLastRange(List<IAIInteraction> interactionList)
+        {
+            // Delegate to IReadOnlyList overload to centralize logic
+            return ReplaceLastRange((IReadOnlyList<IAIInteraction>)interactionList);
+        }
+
+        public AIBodyBuilder ReplaceLastRange(IReadOnlyList<IAIInteraction> interactionList)
+        {
+            // Delegate to overload honoring the builder's default newness
+            return this.ReplaceLastRange(interactionList, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
+        /// Replaces the last range of interactions and applies a single newness to all replacements.
+        /// </summary>
+        public AIBodyBuilder ReplaceLastRange(IReadOnlyList<IAIInteraction> interactionList, bool markAsNew)
+        {
+            if (interactionList == null || interactionList.Count == 0)
+            {
+                return this;
+            }
+
+            // Normalize to non-null items (consistent with AddRange behavior)
+            var items = interactionList.Where(i => i != null).ToList();
+            if (items.Count == 0)
+            {
+                return this;
+            }
+
+            int removeCount = items.Count;
+            int existingCount = this.interactions.Count;
+
+            if (removeCount >= existingCount)
+            {
+                // If replacing equal or more than existing, reset and add the new ones
+                this.interactions.Clear();
+
+                // All positions from 0 to items.Count-1 are considered new
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (markAsNew)
+                    {
+                        this.interactionsNew.Add(i);
+                    }
+                    try
+                    {
+                        var it = items[i];
+                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(reset,flag)] idx={i}, type={it?.GetType().Name}, agent={it?.Agent.ToString() ?? "?"}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                    }
+                    catch { /* logging only */ }
+                }
+            }
+            else
+            {
+                int startIndex = existingCount - removeCount;
+                this.interactions.RemoveRange(startIndex, removeCount);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (markAsNew)
+                    {
+                        this.interactionsNew.Add(startIndex + i);
+                    }
+                    try
+                    {
+                        var it = items[i];
+                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(slice,flag)] idx={startIndex + i}, type={it?.GetType().Name}, agent={it?.Agent.ToString() ?? "?"}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                    }
+                    catch { /* logging only */ }
+                }
+            }
+
+            this.interactions.AddRange(items);
+            return this;
+        }
+
+        /// <summary>
+        /// Replaces the last range with per-item newness control.
+        /// </summary>
+        public AIBodyBuilder ReplaceLastRange(IReadOnlyList<(IAIInteraction interaction, bool isNew)> interactionList)
+        {
+            if (interactionList == null || interactionList.Count == 0)
+            {
+                return this;
+            }
+
+            var items = interactionList.Where(i => i.interaction != null).ToList();
+            if (items.Count == 0)
+            {
+                return this;
+            }
+
+            int removeCount = items.Count;
+            int existingCount = this.interactions.Count;
+
+            if (removeCount >= existingCount)
+            {
+                this.interactions.Clear();
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (items[i].isNew)
+                    {
+                        this.interactionsNew.Add(i);
+                    }
+                    try
+                    {
+                        var it = items[i].interaction;
+                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(reset,mixed)] idx={i}, type={it?.GetType().Name}, agent={it?.Agent.ToString() ?? "?"}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
+                    }
+                    catch { /* logging only */ }
+                }
+            }
+            else
+            {
+                int startIndex = existingCount - removeCount;
+                this.interactions.RemoveRange(startIndex, removeCount);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (items[i].isNew)
+                    {
+                        this.interactionsNew.Add(startIndex + i);
+                    }
+                    try
+                    {
+                        var it = items[i].interaction;
+                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(slice,mixed)] idx={startIndex + i}, type={it?.GetType().Name}, agent={it?.Agent.ToString() ?? "?"}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
+                    }
+                    catch { /* logging only */ }
+                }
+            }
+
+            this.interactions.AddRange(items.Select(x => x.interaction));
+            return this;
+        }
+
+        public AIBodyBuilder SetCompletionTime(double completionTime)
+        {
+            // Guard against empty collections and ensure metrics exists
+            if (this.interactions.Count == 0)
+            {
+                return this;
+            }
+
+            var last = this.interactions[this.interactions.Count - 1];
+            if (last == null)
+            {
+                return this;
+            }
+
+            if (last.Metrics == null)
+            {
+                last.Metrics = new AIMetrics();
+            }
+
+            last.Metrics.CompletionTime = completionTime;
+            try
+            {
+                Debug.WriteLine($"[AIBodyBuilder.SetCompletionTime] interactions={this.interactions.Count}, new={string.Join(",", this.interactionsNew)} completionTime={completionTime:F3}");
+            }
+            catch { /* logging only */ }
+            return this;
+        }
+
+        /// <summary>
+        /// Clears any currently tracked 'new' interaction indices. Useful when cloning an existing body
+        /// to perform a new mutation (e.g., appending to session history) where only the appended items
+        /// should be considered new.
+        /// </summary>
+        public AIBodyBuilder ClearNewMarkers()
+        {
+            this.interactionsNew.Clear();
+            return this;
+        }
+
+        /// <summary>
+        /// Explicitly mark the provided indices as new in the current builder state.
+        /// </summary>
+        public AIBodyBuilder MarkIndicesAsNew(IEnumerable<int> indices)
+        {
+            if (indices == null) return this;
+            foreach (var idx in indices)
+            {
+                this.interactionsNew.Add(idx);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Marks the last interaction as new, if any.
+        /// </summary>
+        public AIBodyBuilder MarkLastAsNew()
+        {
+            if (this.interactions.Count > 0)
+            {
+                this.interactionsNew.Add(this.interactions.Count - 1);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Marks the last N interactions as new, clamped to available range.
+        /// </summary>
+        public AIBodyBuilder MarkLastNAsNew(int n)
+        {
+            if (n <= 0 || this.interactions.Count == 0) return this;
+            int start = Math.Max(0, this.interactions.Count - n);
+            for (int i = start; i < this.interactions.Count; i++)
+            {
+                this.interactionsNew.Add(i);
+            }
+            return this;
+        }
+
+        public AIBody Build()
         {
             var snapshot = this.interactions?.ToArray() ?? Array.Empty<IAIInteraction>();
-            return new AIBodyImmutable(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema);
+            // Create a copy of indices to ensure immutability of AIBody
+            var newIndices = new List<int>();
+            var seen = new HashSet<int>();
+            for (int i = 0; i < this.interactionsNew.Count; i++)
+            {
+                var idx = this.interactionsNew[i];
+                if (idx < 0 || idx >= snapshot.Length) continue; // clamp to valid range
+                if (seen.Add(idx)) newIndices.Add(idx); // de-duplicate while preserving order
+            }
+            try
+            {
+                Debug.WriteLine($"[AIBodyBuilder.Build] building body: interactions={snapshot.Length}, new={string.Join(",", newIndices)}");
+            }
+            catch { /* logging only */ }
+            return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices);
         }
     }
 }
