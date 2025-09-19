@@ -116,8 +116,10 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            // Collect badges using single-primary policy.
+            // Collect badges using single-primary policy for built-ins.
             // Priority: Replaced > Invalid > Verified. Deprecated can co-exist.
+            // In addition, render any custom badges contributed by derived attributes
+            // via GetAdditionalBadges().
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
 
             // Determine primary badge by priority
@@ -146,8 +148,13 @@ namespace SmartHopper.Core.ComponentBase
                 items.Add((DrawDeprecatedBadge, "Deprecated model"));
             }
 
-            // Note: Additional badges from extensions are intentionally not added
-            // to preserve the one-primary-badge policy for UI clarity.
+            // Append any additional custom badges provided by derived classes.
+            // The single-primary policy applies only to built-in badges above; custom
+            // badges are additive and will always render if provided.
+            foreach (var extra in GetAdditionalBadges())
+            {
+                items.Add(extra);
+            }
 
             if (items.Count == 0)
             {
