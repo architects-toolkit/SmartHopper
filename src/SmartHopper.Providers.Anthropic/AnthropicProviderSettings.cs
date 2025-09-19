@@ -124,7 +124,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     temperature = parsed;
                 }
-                if (temperature <= 0.0 || temperature >= 2.0)
+                if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs) StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
                     return false;
