@@ -38,9 +38,82 @@ function addMessage(messageHtml) {
     } else {
         console.error('[JS] addMessage: no valid node found in HTML');
     }
-
     // Finalize: reprocess dynamic features and auto-scroll if needed
     finalizeMessageInsertion(node, wasAtBottom);
+}
+
+/**
+ * Upserts a message DOM node identified by a stable key. If a node with the same key exists,
+ * it is replaced; otherwise, the node is appended (just above any persistent loading bubble).
+ * @param {string} key - Stable identity for the message
+ * @param {string} messageHtml - HTML string for the message
+ */
+function upsertMessage(key, messageHtml) {
+    console.log('[JS] upsertMessage called with key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
+    const chatContainer = document.getElementById('chat-container');
+    if (!chatContainer) {
+        console.error('[JS] upsertMessage: chat-container element not found');
+        return false;
+    }
+    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
+
+    // Parse incoming HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml || '';
+    const incoming = tempDiv.firstElementChild || tempDiv.firstChild;
+    if (!incoming) {
+        console.error('[JS] upsertMessage: no valid node in messageHtml');
+        return false;
+    }
+    try { incoming.dataset.key = key || ''; } catch {}
+
+    // Find existing by data-key (avoid querySelector escaping issues by scanning)
+    const messages = Array.from(chatContainer.querySelectorAll('.message'));
+    const existing = messages.find(m => (m.dataset && m.dataset.key) === (key || '')) || null;
+
+    if (existing) {
+        chatContainer.replaceChild(incoming, existing);
+        console.log('[JS] upsertMessage: replaced existing message for key:', key);
+    } else {
+        insertAboveThinkingIfPresent(chatContainer, incoming);
+        console.log('[JS] upsertMessage: appended new message for key:', key);
+    }
+
+    finalizeMessageInsertion(incoming, wasAtBottom);
+    return true;
+}
+
+/**
+ * Removes the last persistent thinking/loading message if present.
+ * @returns {boolean} True if a loader was found and removed
+ */
+function removeThinkingMessage() {
+    try {
+        const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return false;
+        const loaders = Array.from(chatContainer.querySelectorAll('.message.loading'));
+        if (loaders.length === 0) return false;
+        const lastLoader = loaders[loaders.length - 1];
+        chatContainer.removeChild(lastLoader);
+        console.log('[JS] removeThinkingMessage: removed last loading bubble');
+        return true;
+    } catch (e) {
+        console.warn('[JS] removeThinkingMessage error:', e);
+        return false;
+    }
+}
+
+/**
+ * Returns the number of message nodes in the chat container.
+ */
+function getMessageCount() {
+    try {
+        const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return 0;
+        return chatContainer.querySelectorAll('.message').length;
+    } catch (e) {
+        return 0;
+    }
 }
 
 /**

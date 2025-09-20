@@ -610,6 +610,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         // Append tool result to session as history (not new)
                         this.AppendToSessionHistory(toolInteraction);
                         this.NotifyToolResult(toolInteraction);
+
+                        // Emit partial delta containing the persisted tool result so UI can append it now
+                        try
+                        {
+                            var deltaBody = AIBodyBuilder.Create().Add(toolInteraction).Build();
+                            var deltaReturn = new AIReturn();
+                            deltaReturn.SetBody(deltaBody);
+                            this.NotifyPartial(deltaReturn);
+                        }
+                        catch (Exception dex)
+                        {
+                            Debug.WriteLine($"[ConversationSession.ProcessPendingToolsAsync] Error emitting tool result delta: {dex.Message}");
+                        }
                     }
                     else
                     {
@@ -630,6 +643,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                         this.AppendToSessionHistory(synthetic);
                         this.NotifyToolResult(synthetic);
+                        // Emit partial delta for synthetic result as well
+                        try
+                        {
+                            var deltaBody = AIBodyBuilder.Create().Add(synthetic).Build();
+                            var deltaReturn = new AIReturn();
+                            deltaReturn.SetBody(deltaBody);
+                            this.NotifyPartial(deltaReturn);
+                        }
+                        catch (Exception dex)
+                        {
+                            Debug.WriteLine($"[ConversationSession.ProcessPendingToolsAsync] Error emitting synthetic tool result delta: {dex.Message}");
+                        }
                     }
                 }
 
@@ -939,6 +964,31 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     // Update last return snapshot to reflect persisted history
                                     this._lastReturn = lastDelta;
                                     this.UpdateLastReturn();
+
+                                    // Emit a partial delta containing the persisted interactions in history order
+                                    try
+                                    {
+                                        var persistedList = new List<IAIInteraction>();
+                                        if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
+                                        {
+                                            persistedList.AddRange(toolCallsToPersist);
+                                        }
+                                        if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
+                                        {
+                                            persistedList.Add(finalAssistantText);
+                                        }
+                                        if (persistedList.Count > 0)
+                                        {
+                                            var deltaBody = AIBodyBuilder.Create().AddRange(persistedList).Build();
+                                            var deltaReturn = new AIReturn();
+                                            deltaReturn.SetBody(deltaBody);
+                                            this.NotifyPartial(deltaReturn);
+                                        }
+                                    }
+                                    catch (Exception deltaEx)
+                                    {
+                                        Debug.WriteLine($"[ConversationSession.Stream] Error emitting persisted delta: {deltaEx.Message}");
+                                    }
                                 }
                                 catch (Exception ex)
                                 {
