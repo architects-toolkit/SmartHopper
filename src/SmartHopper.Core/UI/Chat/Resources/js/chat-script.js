@@ -8,6 +8,10 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+// Scroll thresholds (pixels)
+const SCROLL_BOTTOM_THRESHOLD = 30; // consider near-bottom within this distance
+const SCROLL_SHOW_BTN_THRESHOLD = 5; // show scroll-to-bottom button when farther than this
+
 /**
  * Adds a message to the chat container
  * @param {string} messageHtml - HTML content of the message
@@ -19,6 +23,7 @@ function addMessage(messageHtml) {
         console.error('[JS] addMessage: chat-container element not found');
         return;
     }
+    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
     
     // Create a temporary div to parse the HTML
     const tempDiv = document.createElement('div');
@@ -27,29 +32,15 @@ function addMessage(messageHtml) {
     // Use firstElementChild to avoid appending a text node from leading whitespace
     const node = tempDiv.firstElementChild || tempDiv.firstChild;
     if (node) {
-        chatContainer.appendChild(node);
+        // Insert above the persistent thinking message if present; otherwise append
+        insertAboveThinkingIfPresent(chatContainer, node);
         console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
     } else {
         console.error('[JS] addMessage: no valid node found in HTML');
     }
 
-    // Process any code blocks for syntax highlighting
-    processCodeBlocks();
-    
-    // Make links open in a new window
-    processLinks();
-    
-    // Setup metrics tooltips
-    setupMetricsTooltip();
-    
-    // Scroll to the bottom of the chat
-    scrollToBottom();
-    
-    // Enable collapsible for tool messages and system messages
-    const lastMsg = chatContainer.lastElementChild;
-    if (lastMsg && (lastMsg.classList.contains('tool') || lastMsg.classList.contains('system'))) {
-        lastMsg.addEventListener('click', () => lastMsg.classList.toggle('expanded'));
-    }
+    // Finalize: reprocess dynamic features and auto-scroll if needed
+    finalizeMessageInsertion(node, wasAtBottom);
 }
 
 /**
@@ -68,54 +59,22 @@ function addLoadingMessage(role, text) {
     role = (role || 'assistant').toLowerCase();
     const content = (text || 'Thinking…');
     const wrapper = document.createElement('div');
-    wrapper.className = `message ${role} loading`;
+
+    // If role is 'loading' or falsy, create a generic loading message without role class
+    if (!role || String(role).toLowerCase() === 'loading') {
+        wrapper.className = 'message loading';
+    } else {
+        wrapper.className = `message ${role} loading`;
+    }
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     contentDiv.textContent = content;
     contentDiv.dataset.copyContent = content;
+    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
     wrapper.appendChild(contentDiv);
-    chatContainer.appendChild(wrapper);
+    insertAboveThinkingIfPresent(chatContainer, wrapper);
     console.log('[JS] addLoadingMessage: loading bubble added for role:', role);
-    scrollToBottom();
-}
-
-/**
- * Removes the last message of a specific role from the chat container
- * @param {string} role - The role of the message to remove (user, assistant, system)
- * @returns {boolean} True if a message was removed, false otherwise
- */
-function removeLastMessageByRole(role) {
-    const chatContainer = document.getElementById('chat-container');
-    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
-    
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        lastMessage.remove();
-        return true;
-    }
-    
-    return false;
-}
-
-/**
- * Removes the last loading message for a given role (e.g., the temporary Thinking… bubble)
- * @param {string} role - 'assistant' | 'user' | 'system'
- * @returns {boolean} True if a loading message was found and removed
- */
-function removeLastLoadingMessageByRole(role) {
-    try {
-        const chatContainer = document.getElementById('chat-container');
-        if (!chatContainer) return false;
-        const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}.loading`));
-        if (messages.length === 0) return false;
-        const last = messages[messages.length - 1];
-        last.remove();
-        console.log('[JS] removeLastLoadingMessageByRole: removed loading bubble for role:', role);
-        return true;
-    } catch (err) {
-        console.error('[JS] removeLastLoadingMessageByRole error:', err);
-        return false;
-    }
+    finalizeMessageInsertion(wrapper, wasAtBottom);
 }
 
 /**
@@ -139,6 +98,8 @@ function replaceLastMessageByRole(role, messageHtml) {
         return false;
     }
 
+    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
+
     if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
         chatContainer.replaceChild(incoming, lastMessage);
@@ -148,61 +109,9 @@ function replaceLastMessageByRole(role, messageHtml) {
         console.log('[JS] replaceLastMessageByRole: appended new message');
     }
 
-    // Re-process dynamic features
-    processCodeBlocks();
-    processLinks();
-    setupMetricsTooltip();
-    scrollToBottom();
+    // Finalize: reprocess dynamic features and auto-scroll if needed
+    finalizeMessageInsertion(incoming, wasAtBottom);
     return true;
-}
-
-/**
- * Backward-compatible helper expected by C# ReplaceLastAssistantMessage.
- * @param {string} messageHtml - Full assistant message HTML
- */
-function replaceLastAssistantMessage(messageHtml) {
-    return replaceLastMessageByRole('assistant', messageHtml);
-}
-
-/**
- * Appends an HTML chunk to the content of the last message of a given role.
- * If no message exists, creates a new minimal message using the chunk as content.
- * @param {string} role - Role class to target
- * @param {string} htmlChunk - HTML snippet to append inside .message-content
- * @returns {boolean} True if appended/created, false otherwise
- */
-function appendToLastMessageByRole(role, htmlChunk) {
-    const chatContainer = document.getElementById('chat-container');
-    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
-
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        const contentEl = lastMessage.querySelector('.message-content');
-        if (contentEl) {
-            contentEl.insertAdjacentHTML('beforeend', htmlChunk || '');
-            processCodeBlocks();
-            processLinks();
-            setupMetricsTooltip();
-            scrollToBottom();
-            return true;
-        }
-    }
-
-    // Fallback: if no message exists, just add the chunk as a new message
-    // (expects caller to provide a full message when needed; this is a safety net)
-    if (typeof addMessage === 'function') {
-        addMessage(htmlChunk || '');
-        return true;
-    }
-    return false;
-}
-
-/**
- * Convenience wrapper for assistant role chunk appends.
- * @param {string} htmlChunk
- */
-function appendToLastAssistantMessage(htmlChunk) {
-    return appendToLastMessageByRole('assistant', htmlChunk);
 }
 
 /**
@@ -246,27 +155,115 @@ function processLinks() {
  * Scrolls the window to the bottom
  */
 function scrollToBottom() {
-    window.scrollTo(0, document.body.scrollHeight);
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer && typeof chatContainer.scrollTop === 'number') {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    } else {
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+    hideNewMessagesIndicator();
 }
 
 /**
- * Creates a new message using a template
- * @param {string} role - The role of the message sender (user, assistant, system)
- * @param {string} displayName - The display name of the sender
- * @param {string} content - The HTML content of the message
- * @param {string} timestamp - The formatted date-time of the message
- * @returns {string} The HTML for the message
+ * Determines whether the chat container is scrolled to (or near) the bottom.
+ * @param {HTMLElement} container
+ * @param {number} threshold Pixels threshold to still consider as bottom (default 30)
  */
-function createMessageFromTemplate(role, displayName, content, timestamp) {
-    if (typeof MESSAGE_TEMPLATE !== 'undefined') {
-        return MESSAGE_TEMPLATE
-            .replace('{{role}}', role)
-            .replace('{{displayName}}', displayName)
-            .replace('{{content}}', content)
-            .replace('{{timestamp}}', timestamp);
+function isAtBottom(container, threshold = SCROLL_BOTTOM_THRESHOLD) {
+    if (!container) return true;
+    const distanceFromBottom = container.scrollHeight - (container.scrollTop + container.clientHeight);
+    return distanceFromBottom <= threshold;
+}
+
+/**
+ * Shows the new messages indicator and updates scroll controls.
+ */
+function showNewMessagesIndicator() {
+    const indicator = document.getElementById('new-messages-indicator');
+    if (indicator) indicator.classList.remove('hidden');
+    updateScrollControls();
+}
+
+/**
+ * Hides the new messages indicator.
+ */
+function hideNewMessagesIndicator() {
+    const indicator = document.getElementById('new-messages-indicator');
+    if (indicator) indicator.classList.add('hidden');
+}
+
+/**
+ * Updates visibility of scroll-to-bottom button based on current scroll position.
+ */
+function updateScrollControls() {
+    const chatContainer = document.getElementById('chat-container');
+    const btn = document.getElementById('scroll-bottom-btn');
+    if (!btn || !chatContainer) return;
+    if (isAtBottom(chatContainer, SCROLL_SHOW_BTN_THRESHOLD)) {
+        btn.classList.add('hidden');
+        hideNewMessagesIndicator();
+    } else {
+        btn.classList.remove('hidden');
     }
-    
-    return "error";
+}
+
+/**
+ * Finalizes a message insertion by reprocessing dynamic features and deciding auto-scroll behavior.
+ * @param {HTMLElement} rootNode - The root node of the newly added/replaced content.
+ * @param {boolean} wasAtBottom - Whether the chat was at bottom before the DOM change.
+ */
+function finalizeMessageInsertion(rootNode, wasAtBottom) {
+    try {
+        // Re-process dynamic features
+        processCodeBlocks();
+        processLinks();
+        setupMetricsTooltip();
+        if (rootNode) {
+            if (typeof setupCollapsibleHandlers === 'function') {
+                console.log('[JS] finalizeMessageInsertion: binding collapsibles on', rootNode.className || '(no class)');
+                setupCollapsibleHandlers(rootNode);
+            } else {
+                console.warn('[JS] finalizeMessageInsertion: setupCollapsibleHandlers is not defined');
+            }
+        }
+    } finally {
+        console.log('[JS] finalizeMessageInsertion: wasAtBottom =', !!wasAtBottom);
+        // Auto-scroll decision
+        if (wasAtBottom) {
+            scrollToBottom();
+        } else {
+            showNewMessagesIndicator();
+        }
+    }
+}
+
+/**
+ * Inserts the given node either above the last persistent thinking (loading) message
+ * or appends it to the end when no loader is the last child.
+ * This keeps the thinking bubble as the last item while new messages stack above it.
+ * @param {HTMLElement} chatContainer
+ * @param {HTMLElement} node
+ */
+function insertAboveThinkingIfPresent(chatContainer, node) {
+    try {
+        const loaders = Array.from(chatContainer.querySelectorAll('.message.loading'));
+        const lastLoader = loaders.length > 0 ? loaders[loaders.length - 1] : null;
+        const isLastChildLoader = lastLoader && chatContainer.lastElementChild === lastLoader;
+        if (isLastChildLoader) {
+            chatContainer.insertBefore(node, lastLoader);
+        } else {
+            chatContainer.appendChild(node);
+        }
+        console.log('[JS] insertAboveThinkingIfPresent:', {
+            foundLoader: !!lastLoader,
+            isLastChildLoader: !!isLastChildLoader,
+            action: isLastChildLoader ? 'insertBefore(loader)' : 'append',
+            nodeClass: node && node.className
+        });
+    } catch (err) {
+        console.error('[JS] insertAboveThinkingIfPresent error:', err);
+        try { chatContainer.appendChild(node); } catch {}
+    }
 }
 
 /**
@@ -388,12 +385,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const sendBtn = document.getElementById('send-button');
         const clearBtn = document.getElementById('clear-button');
         const cancelBtn = document.getElementById('cancel-button');
+        const chatContainer = document.getElementById('chat-container');
+        const newIndicator = document.getElementById('new-messages-indicator');
+        const scrollBtn = document.getElementById('scroll-bottom-btn');
 
         console.log('[JS] Element search results:', {
             input: !!input,
             sendBtn: !!sendBtn,
             clearBtn: !!clearBtn,
-            cancelBtn: !!cancelBtn
+            cancelBtn: !!cancelBtn,
+            chatContainer: !!chatContainer,
+            newIndicator: !!newIndicator,
+            scrollBtn: !!scrollBtn
         });
 
         if (sendBtn) {
@@ -450,7 +453,32 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[JS] Input element not found!');
         }
 
+        // Scroll controls: click to jump to bottom from indicator or button
+        if (newIndicator) {
+            newIndicator.addEventListener('click', () => {
+                scrollToBottom();
+            });
+        }
+        if (scrollBtn) {
+            scrollBtn.addEventListener('click', () => {
+                scrollToBottom();
+            });
+        }
+
+        // Update scroll controls on container scroll and window resize
+        if (chatContainer) {
+            chatContainer.addEventListener('scroll', () => updateScrollControls());
+            // Initialize based on current position
+            updateScrollControls();
+        }
+        window.addEventListener('resize', () => updateScrollControls());
+
         console.log('[JS] DOMContentLoaded wiring completed successfully');
+
+        // Signal host that the page is ready for injections
+        window.SH_READY = true;
+        console.log('[JS] SH_READY set to true');
+
     } catch (err) {
         console.error('[JS] DOMContentLoaded wiring error:', err);
     }

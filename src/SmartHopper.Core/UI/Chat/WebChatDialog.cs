@@ -211,7 +211,11 @@ namespace SmartHopper.Core.UI.Chat
             this.RunWhenWebViewReady(() =>
             {
                 var html = this._htmlRenderer.RenderInteraction(interaction);
-                this.ExecuteScript($"addMessage({JsonConvert.SerializeObject(html)});");
+                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+                Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
+                var script = $"addMessage({JsonConvert.SerializeObject(html)});";
+                Debug.WriteLine($"[WebChatDialog] ExecuteScript addMessage len={script.Length} preview={(script.Length > 140 ? script.Substring(0, 140) + "..." : script)}");
+                this.ExecuteScript(script);
             });
         }
 
@@ -227,6 +231,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._webViewInitialized = true;
                     try { this._webViewInitializedTcs.TrySetResult(true); } catch { }
+
                     // Reflect status in web UI
                     try { this.ExecuteScript($"setStatus({JsonConvert.SerializeObject(this._pendingStatusAfter ?? "Ready")}); setProcessing(false);"); } catch { }
                 });
@@ -247,7 +252,11 @@ namespace SmartHopper.Core.UI.Chat
             {
                 var html = this._htmlRenderer.RenderInteraction(interaction);
                 var role = agent.ToString().ToLower();
-                this.ExecuteScript($"replaceLastMessageByRole('{role}', {JsonConvert.SerializeObject(html)});");
+                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+                Debug.WriteLine($"[WebChatDialog] ReplaceLastMessageByRole role={role} htmlLen={html?.Length ?? 0} preview={preview}");
+                var script = $"replaceLastMessageByRole('{role}', {JsonConvert.SerializeObject(html)});";
+                Debug.WriteLine($"[WebChatDialog] ExecuteScript replaceLastMessageByRole len={script.Length} preview={(script.Length > 140 ? script.Substring(0, 140) + "..." : script)}");
+                this.ExecuteScript(script);
             });
         }
 
@@ -392,8 +401,10 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 this.CancelCurrentRun();
+
                 // Clear messages in-place without reloading the WebView
                 this.RunWhenWebViewReady(() => this.ExecuteScript("clearMessages(); setStatus('Ready'); setProcessing(false);"));
+
                 // Emit a reset snapshot to notify listeners (no greeting on clear)
                 this.EmitResetSnapshot();
             }
@@ -517,6 +528,7 @@ namespace SmartHopper.Core.UI.Chat
                 try { this._currentCts?.Cancel(); } catch { }
                 this._currentCts?.Dispose();
                 this._currentCts = null;
+
                 // Keep the session alive for reuse - do not set to null
             }
         }
@@ -565,6 +577,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (!string.IsNullOrWhiteSpace(systemMessageText))
                 {
                     // Render system prompt to UI once and emit a snapshot
+                    Debug.WriteLine($"[WebChatDialog] InitializeNewConversation: system message length={systemMessageText.Length}, preview={(systemMessageText.Length > 120 ? systemMessageText.Substring(0,120) + "..." : systemMessageText)}");
                     var sysInter = new AIInteractionText { Agent = AIAgent.System, Content = systemMessageText };
                     this.AddInteractionToWebView(sysInter);
                     this.BuildAndEmitSnapshot();
@@ -608,9 +621,9 @@ namespace SmartHopper.Core.UI.Chat
                     Debug.WriteLine($"[WebChatDialog] Navigation URI is null");
                     return;
                 }
-                
+
                 Debug.WriteLine($"[WebChatDialog] Navigation URI: {uri} (scheme: {uri.Scheme})");
-                
+
                 if (uri.Scheme.Equals("sh", StringComparison.OrdinalIgnoreCase))
                 {
                     Debug.WriteLine($"[WebChatDialog] Intercepting sh:// scheme, cancelling navigation");
@@ -618,7 +631,7 @@ namespace SmartHopper.Core.UI.Chat
                     var query = ParseQueryString(uri.Query);
                     var type = (query.TryGetValue("type", out var t) ? t : string.Empty).ToLowerInvariant();
                     Debug.WriteLine($"[WebChatDialog] sh:// event type: '{type}', query params: {string.Join(", ", query.Keys)}");
-                    
+
                     switch (type)
                     {
                         case "send":
@@ -633,6 +646,7 @@ namespace SmartHopper.Core.UI.Chat
                                 });
                                 break;
                             }
+
                         case "clear":
                             Debug.WriteLine($"[WebChatDialog] Handling clear event");
                             // Defer to next UI tick to avoid executing scripts during navigation event
@@ -642,8 +656,10 @@ namespace SmartHopper.Core.UI.Chat
                                 catch (Exception ex) { Debug.WriteLine($"[WebChatDialog] Deferred ClearChat error: {ex.Message}"); }
                             });
                             break;
+
                         case "cancel":
                             Debug.WriteLine($"[WebChatDialog] Handling cancel event");
+
                             // Defer to next UI tick to avoid executing scripts during navigation event
                             Application.Instance.AsyncInvoke(() =>
                             {
@@ -651,6 +667,7 @@ namespace SmartHopper.Core.UI.Chat
                                 catch (Exception ex) { Debug.WriteLine($"[WebChatDialog] Deferred CancelChat error: {ex.Message}"); }
                             });
                             break;
+
                         default:
                             Debug.WriteLine($"[WebChatDialog] Unknown sh:// event type: '{type}'");
                             break;
@@ -659,6 +676,7 @@ namespace SmartHopper.Core.UI.Chat
                 else if (uri.Scheme.Equals("clipboard", StringComparison.OrdinalIgnoreCase))
                 {
                     Debug.WriteLine($"[WebChatDialog] Intercepting clipboard:// scheme");
+
                     // Handle copy-to-clipboard from JS
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);

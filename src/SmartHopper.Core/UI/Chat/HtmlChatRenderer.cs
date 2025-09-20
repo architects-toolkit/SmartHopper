@@ -101,7 +101,31 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                string displayRole = interaction.Agent.ToDescription();
+                // Decide role CSS class and display label. Tool interactions should be rendered as role "tool"
+                // so they inherit collapsible behavior from CSS/JS. For other interactions, rely on the
+                // agent-derived defaults.
+                string roleClass;
+                string displayRole;
+                switch (interaction)
+                {
+                    case AIInteractionToolCall call:
+                        roleClass = "tool";
+                        displayRole = string.IsNullOrWhiteSpace(call?.Name)
+                            ? "Tool Call"
+                            : $"Tool Call: {call.Name}";
+                        break;
+                    case AIInteractionToolResult result:
+                        roleClass = "tool";
+                        var resultName = (result?.Name) ?? string.Empty;
+                        displayRole = string.IsNullOrWhiteSpace(resultName)
+                            ? "Tool Result"
+                            : $"Tool Result: {resultName}";
+                        break;
+                    default:
+                        roleClass = interaction.Agent.ToString().ToLower();
+                        displayRole = interaction.Agent.ToDescription();
+                        break;
+                }
 
                 try
                 {
@@ -110,11 +134,13 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Use the resource manager to create the message HTML
                     string messageHtml = _resourceManager.CreateMessageHtml(
-                        interaction.Agent.ToString().ToLower(),
+                        roleClass,
                         displayRole,
                         timestamp,
                         interaction);
-                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
+                    Debug.WriteLine($"[HtmlChatRenderer] roleClass='{roleClass}', displayRole='{displayRole}'");
+                    var preview = messageHtml != null ? (messageHtml.Length > 120 ? messageHtml.Substring(0, 120) + "..." : messageHtml) : "(null)";
+                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}, preview={preview}");
 
                     return messageHtml;
                 }

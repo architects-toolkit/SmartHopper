@@ -114,9 +114,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
                     _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
-
-                    // Insert a temporary loading bubble for assistant to be replaced on first content
-                    _dialog.ExecuteScript("addLoadingMessage('assistant', 'Thinking…');");
+                    
+                    // Insert a persistent generic loading bubble that remains until stop state
+                    _dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
                     _thinkingBubbleActive = true;
                     _assistantBubbleAdded = false;
                     Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
@@ -124,7 +124,7 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
-            /// Removes the temporary thinking bubble if it is currently visible.
+            /// Removes the persistent thinking bubble if it is currently visible.
             /// Must be called on the UI thread.
             /// </summary>
             private void RemoveThinkingBubbleIfActive()
@@ -135,7 +135,8 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 try
                 {
-                    _dialog.ExecuteScript("removeLastLoadingMessageByRole('assistant');");
+                    // Remove the generic loader via JS helper
+                    _dialog.ExecuteScript("removeThinkingMessage();");
                 }
                 catch (Exception ex)
                 {
@@ -176,9 +177,6 @@ namespace SmartHopper.Core.UI.Chat
                             this._streams[key] = state;
                             if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                             {
-                                // On first assistant content, remove thinking bubble (if still visible)
-                                RemoveThinkingBubbleIfActive();
-
                                 if (!_assistantBubbleAdded)
                                 {
                                     // First assistant chunk: append message at the end to preserve order
@@ -215,9 +213,7 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         try
                         {
-                            // Tiny UX tweak: any first partial (of any type) should clear the thinking bubble.
-                            // The helper is idempotent and will only remove it once.
-                            RemoveThinkingBubbleIfActive();
+                            // Keep the thinking bubble during processing; do not remove on partials
 
                             // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
                             var key = GetStreamKey(interaction);
@@ -234,9 +230,6 @@ namespace SmartHopper.Core.UI.Chat
                                 _streams[key] = state;
                                 if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                                 {
-                                    // On first assistant content, remove thinking bubble and append new assistant message
-                                    RemoveThinkingBubbleIfActive();
-
                                     if (!_assistantBubbleAdded)
                                     {
                                         _dialog.AddInteractionToWebView(aggText);
@@ -252,8 +245,6 @@ namespace SmartHopper.Core.UI.Chat
                             // Optional UX: surface tool call name in status
                             if (interaction is AIInteractionToolCall call)
                             {
-                                // Any first partial event (tool call) should also remove thinking bubble
-                                RemoveThinkingBubbleIfActive();
                                 _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
                             }
                         }
@@ -375,6 +366,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
+                        // Ensure the persistent thinking bubble is removed on any terminal error/cancel
+                        RemoveThinkingBubbleIfActive();
+
                         if (ex is OperationCanceledException)
                         {
                             this._dialog.AddSystemMessage("Cancelled.", "info");
