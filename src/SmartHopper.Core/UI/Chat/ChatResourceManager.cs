@@ -257,45 +257,39 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="model">AI model name (for AI responses)</param>
         /// <param name="finishReason">AI response finish reason (for AI responses)</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string role, string displayName, string timestamp, IAIInteraction interaction)
+        public string CreateMessageHtml(string timestamp, IAIInteraction interaction)
         {
-            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
-
-            // TODO: Render different types of interaction (AIInteractionText and AIInteractionImage and AIInteractionToolCall and AIInteractionToolResult)
-
             // TODO: Handle case for processing state (loading message)
 
             // TODO: Handle case for AIReturn.Success = false (with errors)
 
-            // Get content from interaction based on type
+            // Get content and reasoning from interaction via IAIRenderInteraction when available
             string rawContent = string.Empty;
             string rawReasoning = string.Empty;
+            string roleClass = string.Empty;
+            string displayName = string.Empty;
             string provider = string.Empty;
             string model = string.Empty;
             string finishReason = "unknown";
             int inTokens = 0;
             int outTokens = 0;
 
-            switch (interaction)
+            if (interaction is IAIRenderInteraction renderable)
             {
-                case AIInteractionText textInteraction:
-                    rawContent = textInteraction.Content ?? string.Empty;
-                    rawReasoning = textInteraction.Reasoning ?? string.Empty;
-                    break;
-                case AIInteractionToolResult toolResult:
-                    rawContent = toolResult.Result.ToString();
-                    break;
-                case AIInteractionToolCall toolCall:
-                    rawContent = $"Tool Call: {toolCall.Name}";
-                    break;
-                case AIInteractionImage imageInteraction:
-                    rawContent = imageInteraction.ImageUrl ?? "[Image]";
-                    break;
-                default:
-                    rawContent = interaction.ToString();
-                    rawReasoning = string.Empty;
-                    break;
+                rawContent = renderable.GetRawContentForRender() ?? string.Empty;
+                rawReasoning = renderable.GetRawReasoningForRender() ?? string.Empty;
+                roleClass = renderable.GetRoleClassForRender();
+                displayName = renderable.GetDisplayNameForRender();
             }
+            else
+            {
+                rawContent = interaction?.ToString() ?? string.Empty;
+                rawReasoning = string.Empty;
+                roleClass = interaction.Agent.ToString().ToLower();
+                displayName = interaction.Agent.ToDescription();
+            }
+
+            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role='{roleClass}', displayName='{displayName}', timestamp='{timestamp}'");
 
             // Extract metrics if available
             if (interaction.Metrics != null)
@@ -330,7 +324,7 @@ namespace SmartHopper.Core.UI.Chat
             string template = this.GetMessageTemplate();
 
             string result = template
-                .Replace("{{role}}", role)
+                .Replace("{{role}}", roleClass)
                 .Replace("{{displayName}}", displayName)
                 .Replace("{{timestamp}}", timestamp)
                 .Replace("{{htmlContent}}", reasoningPanel + answerHtml)

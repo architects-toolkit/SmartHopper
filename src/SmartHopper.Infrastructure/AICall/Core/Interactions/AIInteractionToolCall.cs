@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionToolCall : IAIInteraction, IAIKeyedInteraction
+    public class AIInteractionToolCall : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
         public virtual AIAgent Agent { get; set; } = AIAgent.ToolCall;
@@ -91,6 +91,38 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             var args = (this.Arguments != null ? this.Arguments.ToString() : string.Empty).Trim();
             return $"tool.call:{id}:{args}";
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction.
+        /// </summary>
+        public virtual string GetRoleClassForRender()
+        {
+            return "tool";
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public virtual string GetDisplayNameForRender()
+        {
+            return string.IsNullOrWhiteSpace(this.Name) ? "Tool Call" : $"Tool Call: {this.Name}";
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON args).
+        /// </summary>
+        public virtual string GetRawContentForRender()
+        {
+            return this.Arguments != null && this.Arguments.HasValues ? JsonConvert.SerializeObject(this.Arguments, Formatting.Indented) : string.Empty;
+        }
+
+        /// <summary>
+        /// Tool calls do not include reasoning by default.
+        /// </summary>
+        public virtual string GetRawReasoningForRender()
+        {
+            return string.Empty;
         }
     }
 }

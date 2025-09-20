@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
   - New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
   - IAIRequest.WantsStreaming flag to indicate streaming intent and surface validation hints.
+  - New IAIKeyedInteraction interface to identify interactions by key.
+  - New IAIRenderInteraction interface to render interactions.
 
 - Model management:
   - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.

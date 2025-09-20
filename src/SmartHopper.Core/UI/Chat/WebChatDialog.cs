@@ -680,6 +680,7 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 var text = query.TryGetValue("text", out var txt) ? txt : string.Empty;
                                 Debug.WriteLine($"[WebChatDialog] Handling send event, text length: {text.Length}");
+
                                 // Defer to next UI tick to avoid executing scripts during navigation event
                                 Application.Instance.AsyncInvoke(() =>
                                 {

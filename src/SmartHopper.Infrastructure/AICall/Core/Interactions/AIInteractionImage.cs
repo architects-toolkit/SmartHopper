@@ -21,7 +21,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated image result with associated metadata.
     /// Used as the Result type for AIInteractionImage in image generation operations.
     /// </summary>
-    public class AIInteractionImage : IAIInteraction, IAIKeyedInteraction
+    public class AIInteractionImage : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
         public AIAgent Agent { get; set; }
@@ -169,6 +169,49 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 var hash = sha.ComputeHash(bytes);
                 return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
             }
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction. Defaults to assistant.
+        /// </summary>
+        public string GetRoleClassForRender()
+        {
+            var role = (this.Agent == 0 ? AIAgent.Assistant : this.Agent).ToString().ToLower();
+            return role;
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public string GetDisplayNameForRender()
+        {
+            var agent = this.Agent == 0 ? AIAgent.Assistant : this.Agent;
+            return agent.ToDescription();
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction. Embeds the image.
+        /// </summary>
+        public string GetRawContentForRender()
+        {
+            if (!string.IsNullOrWhiteSpace(this.ImageUrl))
+            {
+                return $"![generated image]({this.ImageUrl})";
+            }
+            if (!string.IsNullOrWhiteSpace(this.ImageData))
+            {
+                // Assume PNG if unknown; browsers will render data URIs
+                return $"![generated image](data:image/png;base64,{this.ImageData})";
+            }
+            return this.ToString();
+        }
+
+        /// <summary>
+        /// Images do not include reasoning by default.
+        /// </summary>
+        public string GetRawReasoningForRender()
+        {
+            return string.Empty;
         }
     }
 }
