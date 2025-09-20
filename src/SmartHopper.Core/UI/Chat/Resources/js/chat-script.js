@@ -238,6 +238,116 @@ function finalizeMessageInsertion(rootNode, wasAtBottom) {
 }
 
 /**
+ * Sets up collapse/expand handlers for system/tool messages under the given root node.
+ * - Shows the header-integrated chevron only when content overflows the collapsed height.
+ * - Toggles `.expanded` on the `.message` element and updates aria-expanded.
+ * - Supports mouse click and keyboard (Enter/Space) on the chevron.
+ * - Clicking the header (excluding the chevron) also toggles for convenience.
+ * @param {HTMLElement} rootNode
+ */
+function setupCollapsibleHandlers(rootNode) {
+    try {
+        const scope = rootNode && rootNode.classList && rootNode.classList.contains('message')
+            ? [rootNode]
+            : Array.from((rootNode || document).querySelectorAll('.message.tool, .message.system'));
+
+        scope.forEach(msg => {
+            if (!msg || (msg.dataset && msg.dataset.collapsibleBound === '1')) return;
+
+            // Only applicable to tool/system messages
+            if (!(msg.classList.contains('tool') || msg.classList.contains('system'))) return;
+
+            const btn = msg.querySelector('.toggle-arrow');
+            const content = msg.querySelector('.message-content');
+            const header = msg.querySelector('.message-header');
+            if (!btn || !content) return;
+
+            // Link button to content for a11y
+            if (!content.id) {
+                content.id = 'mc-' + Math.random().toString(36).slice(2, 10);
+            }
+            btn.setAttribute('aria-controls', content.id);
+
+            const refresh = () => {
+                try {
+                    const overflow = content.scrollHeight > (content.clientHeight + 2);
+                    if (!overflow) {
+                        // If not overflowing, hide toggle and mark as expanded to remove gradient overlay
+                        btn.style.display = 'none';
+                        msg.classList.add('expanded');
+                        btn.setAttribute('aria-expanded', 'true');
+                    } else {
+                        btn.style.display = '';
+                        const expanded = msg.classList.contains('expanded');
+                        btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                    }
+                } catch (e) {
+                    console.warn('[JS] setupCollapsibleHandlers.refresh error:', e);
+                }
+            };
+
+            const toggle = () => {
+                const expanded = msg.classList.toggle('expanded');
+                btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            };
+
+            // Click + keyboard on chevron
+            btn.addEventListener('click', toggle);
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggle();
+                }
+            });
+
+            // Convenience: click on header toggles (ignore direct chevron clicks)
+            if (header) {
+                header.addEventListener('click', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.toggle-arrow')) return;
+                    toggle();
+                });
+            }
+
+            // Initial state
+            refresh();
+
+            // Recompute on next tick for accurate measurements after layout
+            setTimeout(refresh, 0);
+
+            msg.dataset.collapsibleBound = '1';
+        });
+
+        // One-time global resize observer to refresh visibility
+        if (!window._shCollapsibleResizeBound) {
+            window.addEventListener('resize', () => {
+                try {
+                    document.querySelectorAll('.message.tool, .message.system').forEach(msg => {
+                        const btn = msg.querySelector('.toggle-arrow');
+                        const content = msg.querySelector('.message-content');
+                        if (!btn || !content) return;
+                        const overflow = content.scrollHeight > (content.clientHeight + 2);
+                        if (!overflow) {
+                            btn.style.display = 'none';
+                            msg.classList.add('expanded');
+                            btn.setAttribute('aria-expanded', 'true');
+                        } else {
+                            btn.style.display = '';
+                            const expanded = msg.classList.contains('expanded');
+                            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                        }
+                    });
+                } catch (e) {
+                    console.warn('[JS] collapsible resize update error:', e);
+                }
+            });
+            window._shCollapsibleResizeBound = true;
+        }
+    } catch (err) {
+        console.error('[JS] setupCollapsibleHandlers error:', err);
+    }
+}
+
+/**
  * Inserts the given node either above the last persistent thinking (loading) message
  * or appends it to the end when no loader is the last child.
  * This keeps the thinking bubble as the last item while new messages stack above it.
@@ -502,6 +612,17 @@ function setProcessing(on) {
     if (spinner) {
         spinner.classList.toggle('hidden', !on);
         console.log('[JS] setProcessing: spinner', on ? 'shown' : 'hidden');
+        // Fail-safe: when processing stops, ensure any lingering loading bubble is removed
+        if (!on && typeof removeThinkingMessage === 'function') {
+            try {
+                const removed = removeThinkingMessage();
+                if (removed) {
+                    console.log('[JS] setProcessing: removed lingering loading bubble');
+                }
+            } catch (e) {
+                console.warn('[JS] setProcessing: removeThinkingMessage threw', e);
+            }
+        }
     } else {
         console.error('[JS] setProcessing: spinner element not found');
     }
