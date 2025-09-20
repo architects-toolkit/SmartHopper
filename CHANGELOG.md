@@ -150,6 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved default prompts in WebChat for clearer assistant behavior and tool guidance.
   - Improved UI with better collapsible messages, auto-scroll to bottom feature, "new messages" information tooltip, and improved thinking message
   - Dedicated error messages for validation errors in UI not being passed to APIs
+  - Ensured fidelity between UI and conversation history
 
 - Streaming adapters internals:
   - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).

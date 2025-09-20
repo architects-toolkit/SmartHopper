@@ -177,17 +177,9 @@ namespace SmartHopper.Core.UI.Chat
                             this._streams[key] = state;
                             if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                             {
-                                if (!_assistantBubbleAdded)
-                                {
-                                    // First assistant chunk: append message at the end to preserve order
-                                    this._dialog.AddInteractionToWebView(aggText);
-                                    _assistantBubbleAdded = true;
-                                }
-                                else
-                                {
-                                    // Subsequent chunks: update the last assistant message
-                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
-                                }
+                                // Upsert by stream key to ensure single bubble across deltas
+                                this._dialog.UpsertMessageByKey(key, aggText);
+                                _assistantBubbleAdded = true;
                             }
                         }
                         catch (Exception innerEx)
@@ -230,14 +222,36 @@ namespace SmartHopper.Core.UI.Chat
                                 _streams[key] = state;
                                 if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                                 {
-                                    if (!_assistantBubbleAdded)
+                                    // Upsert assistant bubble by stream key
+                                    _dialog.UpsertMessageByKey(key, aggText);
+                                    _assistantBubbleAdded = true;
+                                }
+                            }
+
+                            // For non-assistant interactions, only add them once they have been persisted
+                            // to the session history (post-streaming final block). Ignore Context agent.
+                            if (!(interaction is AIInteractionText at && at.Agent == AIAgent.Assistant))
+                            {
+                                if (interaction.Agent != AIAgent.Context && IsPersisted(interaction))
+                                {
+                                    if (TryAdd(interaction))
                                     {
-                                        _dialog.AddInteractionToWebView(aggText);
-                                        _assistantBubbleAdded = true;
-                                    }
-                                    else
-                                    {
-                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
+                                        if (interaction is IAIKeyedInteraction keyedPersisted)
+                                        {
+                                            var dedupKey = keyedPersisted.GetDedupKey();
+                                            if (!string.IsNullOrWhiteSpace(dedupKey))
+                                            {
+                                                _dialog.UpsertMessageByKey(dedupKey, interaction);
+                                            }
+                                            else
+                                            {
+                                                _dialog.AddInteractionToWebView(interaction);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _dialog.AddInteractionToWebView(interaction);
+                                        }
                                     }
                                 }
                             }
@@ -263,12 +277,9 @@ namespace SmartHopper.Core.UI.Chat
             public void OnToolCall(AIInteractionToolCall toolCall)
             {
                 if (toolCall == null) return;
-                if (!TryAdd(toolCall)) return;
-
+                // During streaming, do not append tool calls; just update status.
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    RemoveThinkingBubbleIfActive();
-                    _dialog.AddToolCallMessage(toolCall);
                     _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
                 });
             }
@@ -276,13 +287,7 @@ namespace SmartHopper.Core.UI.Chat
             public void OnToolResult(AIInteractionToolResult toolResult)
             {
                 if (toolResult == null) return;
-                if (!TryAdd(toolResult)) return;
-
-                RhinoApp.InvokeOnUiThread(() =>
-                {
-                    RemoveThinkingBubbleIfActive();
-                    _dialog.AddToolResultMessage(toolResult);
-                });
+                // Do not append tool results during streaming; they will be added on partial when persisted.
             }
 
             public void OnFinal(AIReturn result)
@@ -296,9 +301,6 @@ namespace SmartHopper.Core.UI.Chat
                         // Delegate history to ConversationSession; UI only emits notifications.
                         var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
                         var lastReturn = this._dialog._currentSession.GetReturn();
-
-                        // Ensure thinking bubble is removed before final rendering
-                        RemoveThinkingBubbleIfActive();
 
                         try
                         {
@@ -314,36 +316,27 @@ namespace SmartHopper.Core.UI.Chat
                                 .OfType<AIInteractionText>()
                                 .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
-                            // If we already appended an assistant bubble during streaming, only update metrics/time and replace
-                            if (_assistantBubbleAdded)
+                            // Merge metrics/time and upsert by key to avoid duplicates
+                            if (aggregated != null && finalAssistant != null)
                             {
-                                if (aggregated != null && finalAssistant != null)
-                                {
-                                    aggregated.Metrics = finalAssistant.Metrics;
-                                    aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
-                                }
-
-                                // Replace existing assistant message with aggregated (preferred) or finalAssistant fallback
-                                var toRender = aggregated ?? finalAssistant;
-                                if (toRender != null)
-                                {
-                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, toRender);
-                                }
+                                aggregated.Metrics = finalAssistant.Metrics;
+                                aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
                             }
-                            else
+
+                            var toRender = aggregated ?? finalAssistant;
+                            if (toRender != null)
                             {
-                                // No assistant bubble yet (no streaming or no non-empty deltas): append final once
-                                if (finalAssistant != null)
-                                {
-                                    this._dialog.AddInteractionToWebView(finalAssistant);
-                                    _assistantBubbleAdded = true;
-                                }
+                                this._dialog.UpsertMessageByKey(assistantKey, toRender);
+                                _assistantBubbleAdded = true;
                             }
                         }
                         catch (Exception repEx)
                         {
                             Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                         }
+
+                        // Now that final assistant is rendered, remove the thinking bubble and set status
+                        RemoveThinkingBubbleIfActive();
 
                         // Notify listeners with session-managed snapshots
                         this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
@@ -417,6 +410,45 @@ namespace SmartHopper.Core.UI.Chat
                 var time = interaction.Time.ToString("o");
                 return $"other:{interaction.GetType().Name}:{agent}:{time}";
             }
+
+            /// <summary>
+            /// Determines whether an interaction has been persisted into the session history.
+            /// This is used to gate non-assistant partial UI updates so we only add interactions
+            /// after they become part of the conversation history (post-streaming snapshot).
+            /// </summary>
+            private bool IsPersisted(IAIInteraction interaction)
+            {
+                try
+                {
+                    var history = this._dialog._currentSession?.GetHistoryInteractionList();
+                    if (history == null || history.Count == 0)
+                        return false;
+
+                    switch (interaction)
+                    {
+                        case AIInteractionToolResult tr:
+                            {
+                                var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
+                                return history.OfType<AIInteractionToolResult>().Any(h => (!string.IsNullOrEmpty(h.Id) ? h.Id : h.Name ?? string.Empty) == id);
+                            }
+                        case AIInteractionToolCall tc:
+                            {
+                                var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
+                                return history.OfType<AIInteractionToolCall>().Any(h => (!string.IsNullOrEmpty(h.Id) ? h.Id : h.Name ?? string.Empty) == id);
+                            }
+                        case AIInteractionText t when t.Agent != AIAgent.Assistant:
+                            {
+                                var content = t.Content ?? string.Empty;
+                                var agent = t.Agent;
+                                return history.OfType<AIInteractionText>().Any(h => h.Agent == agent && string.Equals(h.Content ?? string.Empty, content, StringComparison.Ordinal));
+                            }
+                        default:
+                            return history.Any(h => ReferenceEquals(h, interaction));
+                    }
+                }
+                catch
+                {
+                    return false;
                 }
             }
         }

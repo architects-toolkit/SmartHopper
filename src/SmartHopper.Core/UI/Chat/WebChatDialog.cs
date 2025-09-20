@@ -220,6 +220,24 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Upserts a message in the WebView using a stable DOM key. If a message with the same key exists,
+        /// it is replaced; otherwise, it is appended. This ensures deterministic updates and prevents duplicates.
+        /// </summary>
+        private void UpsertMessageByKey(string domKey, IAIInteraction interaction)
+        {
+            if (interaction == null || string.IsNullOrWhiteSpace(domKey)) return;
+            this.RunWhenWebViewReady(() =>
+            {
+                var html = this._htmlRenderer.RenderInteraction(interaction);
+                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+                Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
+                var script = $"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
+                Debug.WriteLine($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
+                this.ExecuteScript(script);
+            });
+        }
+
+        /// <summary>
         /// Marks the WebView as initialized only after the document is fully loaded.
         /// Ensures CoreWebView2 is ready before any ExecuteScript calls run.
         /// </summary>
@@ -285,7 +303,14 @@ namespace SmartHopper.Core.UI.Chat
         {
             if (string.IsNullOrWhiteSpace(text)) return;
             var msg = new AIInteractionText { Agent = AIAgent.System, Content = text };
-            this.AddInteractionToWebView(msg);
+            if (msg is IAIKeyedInteraction keyed)
+            {
+                this.UpsertMessageByKey(keyed.GetDedupKey(), msg);
+            }
+            else
+            {
+                this.AddInteractionToWebView(msg);
+            }
         }
 
         /// <summary>
@@ -301,6 +326,42 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] BuildAndEmitSnapshot error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Replays the entire conversation history from the current session into the WebView.
+        /// Preserves the interaction order as stored in the session history.
+        /// </summary>
+        private void ReplayFullHistoryToWebView()
+        {
+            try
+            {
+                var interactions = this._currentSession?.GetHistoryInteractionList();
+                if (interactions == null || interactions.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (var interaction in interactions)
+                {
+                    // Hydration must be key-based only. If no key, emit an error message instead of appending.
+                    if (interaction is IAIKeyedInteraction keyed)
+                    {
+                        var key = keyed.GetDedupKey();
+                        if (!string.IsNullOrWhiteSpace(key))
+                        {
+                            this.UpsertMessageByKey(key, interaction);
+                            continue;
+                        }
+                    }
+
+                    this.AddSystemMessage($"Could not render interaction during history replay: missing dedupKey (type={interaction?.GetType().Name}, agent={interaction?.Agent})", "error");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] ReplayFullHistoryToWebView error: {ex.Message}");
             }
         }
 
@@ -383,7 +444,21 @@ namespace SmartHopper.Core.UI.Chat
             {
                 this.LoadInitialHtmlIntoWebView(showProgress: true, setWebViewInitialized: true);
 
-                // Optionally generate greeting after UI is ready
+                // Once the WebView is ready, replay full conversation history to ensure fidelity
+                this.RunWhenWebViewReady(() =>
+                {
+                    try
+                    {
+                        this.ReplayFullHistoryToWebView();
+                        this.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                    }
+                    catch (Exception rex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] InitializeWebViewAsync replay error: {rex.Message}");
+                    }
+                });
+
+                // Maintain async path to keep compatibility with any future init work
                 await Task.Run(() => this.InitializeNewConversation()).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -563,47 +638,14 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private async void InitializeNewConversation()
         {
+            // For fidelity, history is fully replayed elsewhere. Keep this method minimal to maintain compatibility.
             try
             {
-                // Ensure the system prompt from the initial request is added to chat history and UI
-                // 1) Prefer any existing system message already in the current interactions
-                // 2) Otherwise, pick the first system message from the initial request body
-                var systemMessageText = this._currentSession?.GetReturn()?.Body?.Interactions?
-                    .OfType<AIInteractionText>()
-                    .Where(i => i.Agent == AIAgent.System)
-                    .Select(i => i.Content)
-                    .FirstOrDefault();
-
-                if (!string.IsNullOrWhiteSpace(systemMessageText))
-                {
-                    // Render system prompt to UI once and emit a snapshot
-                    Debug.WriteLine($"[WebChatDialog] InitializeNewConversation: system message length={systemMessageText.Length}, preview={(systemMessageText.Length > 120 ? systemMessageText.Substring(0,120) + "..." : systemMessageText)}");
-                    var sysInter = new AIInteractionText { Agent = AIAgent.System, Content = systemMessageText };
-                    this.AddInteractionToWebView(sysInter);
-                    this.BuildAndEmitSnapshot();
-                }
-
-                // Check if AI greeting is enabled in settings
-                var settings = SmartHopperSettings.Instance;
-                if (!settings.SmartHopperAssistant.EnableAIGreeting)
-                {
-                    // Skip greeting entirely if disabled
-                    this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);") );
-                    return;
-                }
-
-                // Do not show processing here; OnStart from the session/observer will manage status/spinner during real runs
+                this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);") );
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] Error in InitializeNewConversation: {ex.Message}");
-
-                // Let session/observer handle any fallback; only ensure status is not left in a loading state
-                this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);") );
-            }
-            finally
-            {
-                // No-op: do not cancel any CTS here; conversation runs are managed elsewhere
             }
         }
 
@@ -734,9 +776,16 @@ namespace SmartHopper.Core.UI.Chat
                 // Store the user message before processing
                 this._pendingUserMessage = trimmed;
 
-                // Append to UI immediately
+                // Append to UI immediately using dedup key for idempotency
                 var userInter = new AIInteractionText { Agent = AIAgent.User, Content = trimmed };
-                this.AddInteractionToWebView(userInter);
+                if (userInter is IAIKeyedInteraction keyed)
+                {
+                    this.UpsertMessageByKey(keyed.GetDedupKey(), userInter);
+                }
+                else
+                {
+                    this.AddInteractionToWebView(userInter);
+                }
 
                 // Kick off processing asynchronously
                 Debug.WriteLine("[WebChatDialog] Scheduling ProcessAIInteraction task");
