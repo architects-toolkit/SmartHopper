@@ -199,6 +199,13 @@ body {
     margin-bottom: 4px;
 }
 
+/* Header right-side container for timestamp and chevron */
+.message-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* Timestamp styling */
 .message-timestamp {
     font-size: 0.7em;
@@ -368,32 +375,51 @@ hr {
     display: none;
 }
 
-/* Toggle arrow hidden by default */
+/* Toggle arrow control (header-integrated) */
 .toggle-arrow {
-    display: none;
+    display: none; /* default hidden unless tool/system */
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
 }
 
-/* Arrow styling inside tool messages */
+/* Show chevron only for tool/system messages; JS may further hide if not needed */
 .message.tool .toggle-arrow,
 .message.system .toggle-arrow {
-    display: block;
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 0;
-    height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-left: 5px solid #666;
-    transition: transform 0.2s ease;
-    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Rotate arrow when expanded */
-.message.tool.expanded .toggle-arrow,
-.message.system.expanded .toggle-arrow {
+/* Chevron visual using pseudo-element (triangle) */
+.toggle-arrow::before {
+    content: '';
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 6px solid #666;
+    transition: transform 0.2s ease, border-left-color 0.2s ease;
+}
+
+.toggle-arrow:hover::before {
+    border-left-color: #333;
+}
+
+.toggle-arrow:focus-visible {
+    outline: 2px solid #0366d6;
+    outline-offset: 2px;
+}
+
+/* Rotate chevron when expanded */
+.message.tool.expanded .toggle-arrow::before,
+.message.system.expanded .toggle-arrow::before {
     transform: rotate(90deg);
-    display: block;
 }
 
 /* Message metrics styling */
