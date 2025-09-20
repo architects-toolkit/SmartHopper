@@ -108,18 +108,23 @@ namespace SmartHopper.Core.UI.Chat
                 string displayRole;
                 switch (interaction)
                 {
-                    case AIInteractionToolCall call:
-                        roleClass = "tool";
-                        displayRole = string.IsNullOrWhiteSpace(call?.Name)
-                            ? "Tool Call"
-                            : $"Tool Call: {call.Name}";
-                        break;
                     case AIInteractionToolResult result:
                         roleClass = "tool";
                         var resultName = (result?.Name) ?? string.Empty;
                         displayRole = string.IsNullOrWhiteSpace(resultName)
                             ? "Tool Result"
                             : $"Tool Result: {resultName}";
+                        break;
+                    case AIInteractionToolCall call:
+                        roleClass = "tool";
+                        displayRole = string.IsNullOrWhiteSpace(call?.Name)
+                            ? "Tool Call"
+                            : $"Tool Call: {call.Name}";
+                        break;
+                    case AIInteractionError:
+                        // Render diagnostics/errors as dedicated 'error' role for UI styling
+                        roleClass = "error";
+                        displayRole = "Error";
                         break;
                     default:
                         roleClass = interaction.Agent.ToString().ToLower();

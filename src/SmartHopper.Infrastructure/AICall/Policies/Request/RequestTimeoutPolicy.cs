@@ -44,8 +44,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = normalized;
                 if (rq.Body != null)
                 {
+                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddSystem($"Timeout applied: {normalized}s (default)")
+                        .AddError($"Timeout applied: {normalized}s (default)")
                         .Build();
                 }
                 return Task.CompletedTask;
@@ -57,8 +58,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = MinTimeout;
                 if (rq.Body != null)
                 {
+                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddSystem($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
+                        .AddError($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
                         .Build();
                 }
             }
@@ -67,8 +69,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = MaxTimeout;
                 if (rq.Body != null)
                 {
+                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddSystem($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
+                        .AddError($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
                         .Build();
                 }
             }
