@@ -56,5 +56,26 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
             return result;
         }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this interaction using tool.result:{IdOrName}.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public override string GetStreamKey()
+        {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
+            return $"tool.result:{id}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this interaction including a compact result string.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public override string GetDedupKey()
+        {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
+            var res = (this.Result != null ? this.Result.ToString() : string.Empty).Trim();
+            return $"tool.result:{id}:{res}";
+        }
     }
 }

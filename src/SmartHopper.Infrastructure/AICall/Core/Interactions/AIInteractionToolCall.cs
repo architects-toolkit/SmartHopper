@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionToolCall : IAIInteraction
+    public class AIInteractionToolCall : IAIInteraction, IAIKeyedInteraction
     {
         /// <inheritdoc/>
         public virtual AIAgent Agent { get; set; } = AIAgent.ToolCall;
@@ -70,6 +70,27 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this interaction. Defaults to tool.call:{IdOrName}.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public virtual string GetStreamKey()
+        {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
+            return $"tool.call:{id}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this interaction. Includes arguments to disambiguate.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public virtual string GetDedupKey()
+        {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
+            var args = (this.Arguments != null ? this.Arguments.ToString() : string.Empty).Trim();
+            return $"tool.call:{id}:{args}";
         }
     }
 }

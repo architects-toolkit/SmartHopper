@@ -400,61 +400,23 @@ namespace SmartHopper.Core.UI.Chat
             /// </summary>
             private static string GetStreamKey(IAIInteraction interaction)
             {
-                switch (interaction)
+                if (interaction is IAIKeyedInteraction keyed)
                 {
-                    case AIInteractionToolResult tr:
-                        {
-                            var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
-                            return $"tool.result:{id}";
-                        }
-
-                    case AIInteractionToolCall tc:
-                        {
-                            var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
-                            return $"tool.call:{id}";
-                        }
-
-                    case AIInteractionText tt:
-                        {
-                            // One active text stream per agent
-                            return $"text:{tt.Agent}";
-                        }
-
-                    default:
-                        {
-                            return $"other:{interaction.GetType().Name}:{interaction.Agent}";
-                        }
+                    return keyed.GetStreamKey();
                 }
+                return $"other:{interaction.GetType().Name}:{interaction.Agent}";
             }
 
             private static string MakeKey(IAIInteraction interaction)
             {
-                switch (interaction)
+                if (interaction is IAIKeyedInteraction keyed)
                 {
-                    case AIInteractionToolResult tr:
-                        {
-                            var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
-                            var res = (tr.Result != null ? tr.Result.ToString() : string.Empty).Trim();
-                            return $"tool.result:{id}:{res}";
-                        }
-                    case AIInteractionToolCall tc:
-                        {
-                            var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
-                            var args = (tc.Arguments != null ? tc.Arguments.ToString() : string.Empty).Trim();
-                            return $"tool.call:{id}:{args}";
-                        }
-                    case AIInteractionText tt:
-                        {
-                            var agent = tt.Agent.ToString();
-                            var content = (tt.Content ?? string.Empty).Trim();
-                            return $"text:{agent}:{content}";
-                        }
-                    default:
-                        {
-                            var agent = interaction.Agent.ToString();
-                            var time = interaction.Time.ToString("o");
-                            return $"other:{interaction.GetType().Name}:{agent}:{time}";
-                        }
+                    return keyed.GetDedupKey();
+                }
+                var agent = interaction.Agent.ToString();
+                var time = interaction.Time.ToString("o");
+                return $"other:{interaction.GetType().Name}:{agent}:{time}";
+            }
                 }
             }
         }

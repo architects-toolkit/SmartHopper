@@ -9,6 +9,8 @@
  */
 
 using System;
+using System.Security.Cryptography;
+using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
 
@@ -18,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionError : IAIInteraction
+    public class AIInteractionError : IAIInteraction, IAIKeyedInteraction
     {
         /// <inheritdoc/>
         public AIAgent Agent { get; set; } = AIAgent.Assistant;
@@ -58,6 +60,41 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             this.Content = content;
             this.Metrics = metrics ?? new AIMetrics();
+        }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this error interaction. Uses a short hash of content.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public string GetStreamKey()
+        {
+            var hash = ComputeShortHash(this.Content);
+            return $"error:{hash}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this error interaction. Based on content hash.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public string GetDedupKey()
+        {
+            var hash = ComputeShortHash(this.Content);
+            return $"error:{hash}";
+        }
+
+        /// <summary>
+        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
+        /// </summary>
+        /// <param name="value">Input string.</param>
+        /// <returns>Lowercase hex substring of the hash.</returns>
+        private static string ComputeShortHash(string value)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+                var hash = sha.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
+            }
         }
     }
 }
