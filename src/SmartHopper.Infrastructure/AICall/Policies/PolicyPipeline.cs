@@ -64,8 +64,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                     // Non-fatal: convert to diagnostic (immutable)
                     if (request?.Body != null)
                     {
+                        // Use AIInteractionError so this diagnostic is not sent to providers
                         request.Body = AIBodyBuilder.FromImmutable(request.Body)
-                            .AddSystem($"Request policy {policy.GetType().Name} failed: {ex.Message}")
+                            .AddError($"Request policy {policy.GetType().Name} failed: {ex.Message}")
                             .Build();
                     }
                     Debug.WriteLine($"[PolicyPipeline] Request policy {policy.GetType().Name} exception: {ex}");
@@ -112,8 +113,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                     // Non-fatal: convert to diagnostic on shim
                     if (shim?.Body != null)
                     {
+                        // Use AIInteractionError so this diagnostic is not sent to providers
                         shim.Body = AIBodyBuilder.FromImmutable(shim.Body)
-                            .AddSystem($"Request policy {policy.GetType().Name} failed: {ex.Message}")
+                            .AddError($"Request policy {policy.GetType().Name} failed: {ex.Message}")
                             .Build();
                     }
                     Debug.WriteLine($"[PolicyPipeline] Tool request policy {policy.GetType().Name} exception: {ex}");

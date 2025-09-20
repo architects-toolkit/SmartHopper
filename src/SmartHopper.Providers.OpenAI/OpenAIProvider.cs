@@ -147,6 +147,11 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     try
                     {
+                        // UI-only diagnostics must not be sent to providers
+                        if (interaction is AIInteractionError)
+                        {
+                            continue;
+                        }
                         var messageToken = this.EncodeToJToken(interaction);
                         if (messageToken != null) messages.Add(messageToken);
                     }
@@ -170,6 +175,11 @@ namespace SmartHopper.Providers.OpenAI
         /// <inheritdoc/>
         private JToken? EncodeToJToken(IAIInteraction interaction)
         {
+            // Skip UI-only diagnostics
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
             var messageObj = new JObject();
 
             switch (interaction.Agent)
