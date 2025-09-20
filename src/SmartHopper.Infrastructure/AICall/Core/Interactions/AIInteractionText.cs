@@ -18,7 +18,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionText : IAIInteraction
+    public class AIInteractionText : IAIInteraction, IAIKeyedInteraction
     {
         /// <inheritdoc/>
         public AIAgent Agent { get; set; }
@@ -101,6 +101,27 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 }
                 this.Metrics.Combine(metricsDelta);
             }
+        }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this interaction. One active text stream per agent.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public string GetStreamKey()
+        {
+            var agent = this.Agent.ToString();
+            return $"text:{agent}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this interaction using agent and trimmed content.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public string GetDedupKey()
+        {
+            var agent = this.Agent.ToString();
+            var content = (this.Content ?? string.Empty).Trim();
+            return $"text:{agent}:{content}";
         }
     }
 }

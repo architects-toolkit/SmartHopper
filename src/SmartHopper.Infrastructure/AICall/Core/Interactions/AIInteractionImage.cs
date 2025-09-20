@@ -10,6 +10,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
 
@@ -19,7 +21,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated image result with associated metadata.
     /// Used as the Result type for AIInteractionImage in image generation operations.
     /// </summary>
-    public class AIInteractionImage : IAIInteraction
+    public class AIInteractionImage : IAIInteraction, IAIKeyedInteraction
     {
         /// <inheritdoc/>
         public AIAgent Agent { get; set; }
@@ -122,6 +124,50 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             if (revisedPrompt != null)
             {
                 this.RevisedPrompt = revisedPrompt;
+            }
+        }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this image interaction. Uses URL when available;
+        /// otherwise a short hash of ImageData; falls back to the original prompt.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public string GetStreamKey()
+        {
+            var id = !string.IsNullOrEmpty(this.ImageUrl)
+                ? this.ImageUrl
+                : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
+            return $"image:{id}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this image interaction. Includes URL/hash and core options
+        /// (size, quality, style) to distinguish similar images.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public string GetDedupKey()
+        {
+            var id = !string.IsNullOrEmpty(this.ImageUrl)
+                ? this.ImageUrl
+                : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
+            var size = this.ImageSize ?? string.Empty;
+            var quality = this.ImageQuality ?? string.Empty;
+            var style = this.ImageStyle ?? string.Empty;
+            return $"image:{id}:{size}:{quality}:{style}";
+        }
+
+        /// <summary>
+        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
+        /// </summary>
+        /// <param name="value">Input string to hash.</param>
+        /// <returns>Lowercase hex substring of the hash.</returns>
+        private static string ComputeShortHash(string value)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+                var hash = sha.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
             }
         }
     }
