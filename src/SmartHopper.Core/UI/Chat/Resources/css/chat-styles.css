@@ -62,6 +62,11 @@ body {
     overflow-y: auto;
 }
 
+/* Smooth scrolling for chat container */
+#chat-container {
+    scroll-behavior: smooth;
+}
+
 /* Input bar */
 #input-bar {
     display: flex;
@@ -117,7 +122,9 @@ body {
     align-self: flex-end;
 }
 
-.message.assistant, .message.system {
+.message.assistant,
+.message.system,
+.message.tool {
     align-self: flex-start;
 }
 
@@ -342,6 +349,25 @@ hr {
     overflow: visible;
 }
 
+/* Faded overlay hint when collapsed (indicates more content) */
+.message.tool .message-content::after,
+.message.system .message-content::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 28px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(240,240,240,0.9));
+    pointer-events: none;
+}
+
+/* Hide overlay when expanded */
+.message.tool.expanded .message-content::after,
+.message.system.expanded .message-content::after {
+    display: none;
+}
+
 /* Toggle arrow hidden by default */
 .toggle-arrow {
     display: none;
@@ -421,4 +447,53 @@ hr {
 .toast.visible {
     bottom: 30px;
     opacity: 1;
+}
+
+/* New messages indicator */
+#new-messages-indicator {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 110px;
+    background: #0366d6;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    font-size: 0.9em;
+    cursor: pointer;
+    z-index: 998;
+}
+
+#new-messages-indicator.hidden {
+    display: none !important;
+}
+
+/* Scroll to bottom button */
+#scroll-bottom-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 110px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #0366d6;
+    color: #fff;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 998;
+}
+
+#scroll-bottom-btn:hover {
+    background: #024eaa;
+}
+
+#scroll-bottom-btn.hidden {
+    display: none !important;
 }
