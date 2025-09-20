@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionTool in tool operations.
     /// </summary>
-    public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction
+    public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
         public override AIAgent Agent { get; set; } = AIAgent.ToolResult;
@@ -76,6 +76,38 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             var res = (this.Result != null ? this.Result.ToString() : string.Empty).Trim();
             return $"tool.result:{id}:{res}";
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction.
+        /// </summary>
+        public override string GetRoleClassForRender()
+        {
+            return "tool";
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public override string GetDisplayNameForRender()
+        {
+            return string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}";
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON result).
+        /// </summary>
+        public override string GetRawContentForRender()
+        {
+            return this.Result != null && this.Result.HasValues ? JsonConvert.SerializeObject(this.Result, Formatting.Indented) : string.Empty;
+        }
+
+        /// <summary>
+        /// Tool results do not include reasoning by default.
+        /// </summary>
+        public override string GetRawReasoningForRender()
+        {
+            return string.Empty;
         }
     }
 }

@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionError : IAIInteraction, IAIKeyedInteraction
+    public class AIInteractionError : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
         public AIAgent Agent { get; set; } = AIAgent.Assistant;
@@ -60,6 +60,38 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             this.Content = content;
             this.Metrics = metrics ?? new AIMetrics();
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction (force 'error' styling).
+        /// </summary>
+        public string GetRoleClassForRender()
+        {
+            return "error";
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public string GetDisplayNameForRender()
+        {
+            return "Error";
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction.
+        /// </summary>
+        public string GetRawContentForRender()
+        {
+            return this.Content ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Error interactions do not include reasoning by default.
+        /// </summary>
+        public string GetRawReasoningForRender()
+        {
+            return string.Empty;
         }
 
         /// <summary>

@@ -18,7 +18,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionText : IAIInteraction, IAIKeyedInteraction
+    public class AIInteractionText : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
         public AIAgent Agent { get; set; }
@@ -122,6 +122,38 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             var agent = this.Agent.ToString();
             var content = (this.Content ?? string.Empty).Trim();
             return $"text:{agent}:{content}";
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction.
+        /// </summary>
+        public string GetRoleClassForRender()
+        {
+            return (this.Agent.ToString() ?? "assistant").ToLower();
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public string GetDisplayNameForRender()
+        {
+            return this.Agent.ToDescription();
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction.
+        /// </summary>
+        public string GetRawContentForRender()
+        {
+            return this.Content ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Gets the raw reasoning content to render for this interaction.
+        /// </summary>
+        public string GetRawReasoningForRender()
+        {
+            return this.Reasoning ?? string.Empty;
         }
     }
 }
