@@ -35,8 +35,6 @@ namespace SmartHopper.Components.AI
     /// </summary>
     public class AIChatComponent : AIStatefulAsyncComponentBase
     {
-        private readonly TimeContextProvider timeProvider;
-        private readonly EnvironmentContextProvider environmentProvider;
         private string _systemPrompt;
 
         // Removed duplicated last-return storage; use base AIReturn snapshot instead
@@ -60,13 +58,6 @@ namespace SmartHopper.Components.AI
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;
-
-            // Create and register time and environment context providers
-            this.timeProvider = new TimeContextProvider();
-            this.environmentProvider = new EnvironmentContextProvider();
-
-            AIContextManager.RegisterProvider(this.timeProvider);
-            AIContextManager.RegisterProvider(this.environmentProvider);
         }
 
         /// <summary>
@@ -75,10 +66,6 @@ namespace SmartHopper.Components.AI
         /// <param name="document">The Grasshopper document.</param>
         public override void RemovedFromDocument(GH_Document document)
         {
-            // Unregister the context providers
-            AIContextManager.UnregisterProvider(this.timeProvider);
-            AIContextManager.UnregisterProvider(this.environmentProvider);
-
             // Ensure we detach ChatUpdated handlers for this component's dialog
             try { WebChatUtils.Unsubscribe(this.InstanceGuid); } catch { /* ignore */ }
 
