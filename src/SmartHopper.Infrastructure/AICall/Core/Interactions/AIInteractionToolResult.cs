@@ -63,6 +63,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public override string GetStreamKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             return $"tool.result:{id}";
         }
@@ -73,6 +78,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public override string GetDedupKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             var res = (this.Result != null ? this.Result.ToString() : string.Empty).Trim();
             return $"tool.result:{id}:{res}";

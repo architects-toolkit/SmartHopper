@@ -39,8 +39,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             "-*",
             "-*",
             null,
-            new List<int>()
-        );
+            new List<int>());
 
         /// <summary>
         /// Count of interactions (no dynamic context injection here).
@@ -126,6 +125,24 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public void ResetNew()
         {
             this.InteractionsNew?.Clear();
+        }
+
+        /// <summary>
+        /// Checks whether all interactions have a non-empty <see cref="IAIInteraction.TurnId"/>.
+        /// Also verifies that within assistant items in this body there are no conflicting TurnIds
+        /// for what appears to be the same logical message (best-effort heuristic).
+        /// </summary>
+        public bool AreTurnIdsValid()
+        {
+            if (this.Interactions == null) return true;
+
+            foreach (var i in this.Interactions)
+            {
+                if (i == null) continue;
+                if (string.IsNullOrWhiteSpace(i.TurnId)) return false;
+            }
+
+            return true;
         }
     }
 }

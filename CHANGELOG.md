@@ -197,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
 
 - WebChat and streaming UI:
+  - Prevent assistant replies from overwriting previous assistant messages: final assistant bubble now re-keys from the streaming key to the interaction's dedup key, so each turn is preserved in order.
   - WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
   - WebChatDialog streaming: partial assistant updates now also update internal `_lastReturn` and emit `ChatUpdated` events on every chunk, ensuring state consistency between UI and observers throughout streaming.
   - WebChatDialog non-streaming: fixed loss of AI metrics by merging `AIReturn.Metrics` into the final assistant interaction in `WebChatObserver.OnFinal` so per-message metrics are preserved in chat history and UI.

@@ -29,6 +29,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         // Default behavior matches legacy: appended/replaced interactions are marked as 'new'
         private bool defaultMarkAsNew = true;
 
+        // Interactions in a logical turn share the same TurnId.
+        // When set, any interaction added without TurnId will inherit this TurnId. Otherwise a new GUID is generated.
+        private string defaultTurnId = null;
+
         private string toolFilter = "-*";
         private string contextFilter = "-*";
         private string jsonOutputSchema = null;
@@ -50,10 +54,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                     Debug.WriteLine($"[AIBodyBuilder.FromImmutable] input: interactions={body.InteractionsCount}, new={body.InteractionsNew?.Count ?? 0} [{string.Join(",", body.InteractionsNew ?? new List<int>())}]");
                 }
                 catch { /* logging only */ }
+
                 if (body.Interactions != null)
                 {
                     b.interactions.AddRange(body.Interactions);
                 }
+
                 b.toolFilter = body.ToolFilter ?? b.toolFilter;
                 b.contextFilter = body.ContextFilter ?? b.contextFilter;
                 b.jsonOutputSchema = body.JsonOutputSchema ?? b.jsonOutputSchema;
@@ -62,6 +68,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 {
                     b.interactionsNew.AddRange(body.InteractionsNew);
                 }
+
                 try
                 {
                     Debug.WriteLine($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
@@ -86,6 +93,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public AIBodyBuilder WithJsonOutputSchema(string jsonSchema)
         {
             this.jsonOutputSchema = jsonSchema ?? this.jsonOutputSchema;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the default TurnId to be applied to interactions added by this builder.
+        /// If an interaction already has a TurnId, it is preserved.
+        /// </summary>
+        public AIBodyBuilder WithTurnId(string turnId)
+        {
+            this.defaultTurnId = string.IsNullOrWhiteSpace(turnId) ? this.defaultTurnId : turnId;
             return this;
         }
 
@@ -120,6 +137,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             if (interaction != null)
             {
+                EnsureTurnId(interaction);
                 this.interactions.Add(interaction);
                 if (markAsNew)
                 {
@@ -129,8 +147,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 {
                     Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
                 }
-                catch { /* logging only */ }
+                catch
+                {
+                    /* logging only */
+                }
             }
+
             return this;
         }
 
@@ -140,9 +162,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 foreach (var i in items)
                 {
+                    this.EnsureTurnId(i);
                     this.Add(i, this.defaultMarkAsNew);
                 }
             }
+
             return this;
         }
 
@@ -155,9 +179,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 foreach (var (interaction, isNew) in items)
                 {
+                    this.EnsureTurnId(interaction);
                     this.Add(interaction, isNew);
                 }
             }
+
             return this;
         }
 
@@ -171,7 +197,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Reasoning = reasoning,
                 Metrics = m,
             };
-            return Add(it, this.defaultMarkAsNew);
+
+            return this.Add(it, this.defaultMarkAsNew);
         }
 
         /// <summary>
@@ -187,28 +214,33 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Reasoning = reasoning,
                 Metrics = m,
             };
-            return Add(it, markAsNew);
+            return this.Add(it, markAsNew);
         }
 
-        public AIBodyBuilder AddUser(string content) => AddText(AIAgent.User, content);
-        public AIBodyBuilder AddUser(string content, bool markAsNew) => AddText(AIAgent.User, content, markAsNew);
-        public AIBodyBuilder AddAssistant(string content) => AddText(AIAgent.Assistant, content);
-        public AIBodyBuilder AddAssistant(string content, bool markAsNew) => AddText(AIAgent.Assistant, content, markAsNew);
-        public AIBodyBuilder AddSystem(string content) => AddText(AIAgent.System, content);
-        public AIBodyBuilder AddSystem(string content, bool markAsNew) => AddText(AIAgent.System, content, markAsNew);
+        public AIBodyBuilder AddUser(string content) => this.AddText(AIAgent.User, content);
+
+        public AIBodyBuilder AddUser(string content, bool markAsNew) => this.AddText(AIAgent.User, content, markAsNew);
+
+        public AIBodyBuilder AddAssistant(string content) => this.AddText(AIAgent.Assistant, content);
+
+        public AIBodyBuilder AddAssistant(string content, bool markAsNew) => this.AddText(AIAgent.Assistant, content, markAsNew);
+
+        public AIBodyBuilder AddSystem(string content) => this.AddText(AIAgent.System, content);
+
+        public AIBodyBuilder AddSystem(string content, bool markAsNew) => this.AddText(AIAgent.System, content, markAsNew);
 
         public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null)
         {
             var img = new AIInteractionImage { Agent = AIAgent.User };
             img.CreateRequest(prompt, size, quality, style);
-            return Add(img, this.defaultMarkAsNew);
+            return this.Add(img, this.defaultMarkAsNew);
         }
 
         public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null)
         {
             var img = new AIInteractionImage { Agent = AIAgent.User };
             img.CreateRequest(prompt, size, quality, style);
-            return Add(img, markAsNew);
+            return this.Add(img, markAsNew);
         }
 
         public AIBodyBuilder AddToolCall(string id, string name, JObject args, AIMetrics metrics = null)
@@ -220,7 +252,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Arguments = args,
                 Metrics = metrics ?? new AIMetrics(),
             };
-            return Add(tc, this.defaultMarkAsNew);
+            return this.Add(tc, this.defaultMarkAsNew);
         }
 
         public AIBodyBuilder AddToolCall(string id, string name, JObject args, bool markAsNew, AIMetrics metrics = null)
@@ -232,7 +264,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Arguments = args,
                 Metrics = metrics ?? new AIMetrics(),
             };
-            return Add(tc, markAsNew);
+            return this.Add(tc, markAsNew);
         }
 
         public AIBodyBuilder AddToolResult(JObject result, string id = null, string name = null, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
@@ -245,7 +277,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Metrics = metrics ?? new AIMetrics(),
                 Messages = messages ?? new List<AIRuntimeMessage>(),
             };
-            return Add(tr, this.defaultMarkAsNew);
+            return this.Add(tr, this.defaultMarkAsNew);
         }
 
         public AIBodyBuilder AddToolResult(JObject result, bool markAsNew, string id = null, string name = null, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
@@ -258,7 +290,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Metrics = metrics ?? new AIMetrics(),
                 Messages = messages ?? new List<AIRuntimeMessage>(),
             };
-            return Add(tr, markAsNew);
+            return this.Add(tr, markAsNew);
         }
 
         public AIBodyBuilder AddError(string content, AIMetrics metrics = null)
@@ -269,7 +301,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Content = content,
                 Metrics = m,
             };
-            return Add(it, this.defaultMarkAsNew);
+            return this.Add(it, this.defaultMarkAsNew);
         }
 
         public AIBodyBuilder AddError(string content, bool markAsNew, AIMetrics metrics = null)
@@ -280,7 +312,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Content = content,
                 Metrics = m,
             };
-            return Add(it, markAsNew);
+            return this.Add(it, markAsNew);
         }
 
         public AIBodyBuilder ReplaceLast(IAIInteraction interaction)
@@ -297,10 +329,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             // Ergonomics: if there is no last item, treat replace as add.
             if (this.interactions.Count == 0)
             {
+                this.EnsureTurnId(interaction);
                 return this.Add(interaction, markAsNew);
             }
 
             int idx = this.interactions.Count - 1;
+            this.EnsureTurnId(interaction);
             this.interactions[idx] = interaction;
             if (markAsNew)
             {
@@ -354,6 +388,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 // All positions from 0 to items.Count-1 are considered new
                 for (int i = 0; i < items.Count; i++)
                 {
+                    EnsureTurnId(items[i]);
                     if (markAsNew)
                     {
                         this.interactionsNew.Add(i);
@@ -372,6 +407,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 this.interactions.RemoveRange(startIndex, removeCount);
                 for (int i = 0; i < items.Count; i++)
                 {
+                    EnsureTurnId(items[i]);
                     if (markAsNew)
                     {
                         this.interactionsNew.Add(startIndex + i);
@@ -413,6 +449,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 this.interactions.Clear();
                 for (int i = 0; i < items.Count; i++)
                 {
+                    EnsureTurnId(items[i].interaction);
                     if (items[i].isNew)
                     {
                         this.interactionsNew.Add(i);
@@ -431,6 +468,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 this.interactions.RemoveRange(startIndex, removeCount);
                 for (int i = 0; i < items.Count; i++)
                 {
+                    EnsureTurnId(items[i].interaction);
                     if (items[i].isNew)
                     {
                         this.interactionsNew.Add(startIndex + i);
@@ -529,6 +567,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public AIBody Build()
         {
             var snapshot = this.interactions?.ToArray() ?? Array.Empty<IAIInteraction>();
+
+            // Final pass: ensure all interactions have a TurnId
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                EnsureTurnId(snapshot[i]);
+            }
             // Create a copy of indices to ensure immutability of AIBody
             var newIndices = new List<int>();
             var seen = new HashSet<int>();
@@ -538,12 +582,24 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 if (idx < 0 || idx >= snapshot.Length) continue; // clamp to valid range
                 if (seen.Add(idx)) newIndices.Add(idx); // de-duplicate while preserving order
             }
+
             try
             {
                 Debug.WriteLine($"[AIBodyBuilder.Build] building body: interactions={snapshot.Length}, new={string.Join(",", newIndices)}");
             }
             catch { /* logging only */ }
             return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices);
+        }
+
+        private static string NewTurnId() => Guid.NewGuid().ToString("N");
+
+        private void EnsureTurnId(IAIInteraction interaction)
+        {
+            if (interaction == null) return;
+            if (string.IsNullOrWhiteSpace(interaction.TurnId))
+            {
+                interaction.TurnId = string.IsNullOrWhiteSpace(this.defaultTurnId) ? NewTurnId() : this.defaultTurnId;
+            }
         }
     }
 }

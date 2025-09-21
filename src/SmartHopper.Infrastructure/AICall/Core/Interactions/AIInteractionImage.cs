@@ -21,17 +21,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated image result with associated metadata.
     /// Used as the Result type for AIInteractionImage in image generation operations.
     /// </summary>
-    public class AIInteractionImage : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
+    public class AIInteractionImage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
-        /// <inheritdoc/>
-        public AIAgent Agent { get; set; }
-
-        /// <inheritdoc/>
-        public DateTime Time { get; set; } = DateTime.UtcNow;
-
-        /// <inheritdoc/>
-        public AIMetrics Metrics { get; set; } = new AIMetrics();
-
         /// <summary>
         /// Gets or sets the URL of the generated image.
         /// </summary>
@@ -134,6 +125,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var id = !string.IsNullOrEmpty(this.ImageUrl)
                 ? this.ImageUrl
                 : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
@@ -147,6 +143,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var id = !string.IsNullOrEmpty(this.ImageUrl)
                 ? this.ImageUrl
                 : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());

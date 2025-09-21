@@ -138,6 +138,29 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 messages.AddRange(this.PrivateMessages);
             }
 
+            // Unified TurnId invariant: all interactions must have TurnId.
+            // Validate early at request level so providers always receive well-formed bodies.
+            try
+            {
+                if (this.Body != null && !this.Body.AreTurnIdsValid())
+                {
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.BodyInvalid,
+                        "Request body contains interactions without TurnId. Ensure TurnId is set (e.g., via AIBodyBuilder.WithTurnId(...)) before building the body."));
+                }
+            }
+            catch
+            {
+                // Defensive: validation should never throw
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
+                    "Failed to validate TurnId invariants for the request body."));
+            }
+
             // Streaming support validation (blocking for streaming flows): when streaming is requested but unsupported, flag as error to fallback to non-streaming
             if (this.WantsStreaming)
             {

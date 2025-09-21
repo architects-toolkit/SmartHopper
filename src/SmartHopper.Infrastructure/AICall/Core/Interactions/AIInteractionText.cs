@@ -18,14 +18,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionText : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
+    public class AIInteractionText : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
-        /// <inheritdoc/>
-        public AIAgent Agent { get; set; }
-
-        /// <inheritdoc/>
-        public DateTime Time { get; set; } = DateTime.UtcNow;
-
         /// <summary>
         /// Gets or sets the content of the message.
         /// </summary>
@@ -35,9 +29,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets or sets the reasoning of the message.
         /// </summary>
         public string Reasoning { get; set; }
-
-        /// <inheritdoc/>
-        public AIMetrics Metrics { get; set; } = new AIMetrics();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionText.
@@ -109,6 +100,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var agent = this.Agent.ToString();
             return $"text:{agent}";
         }
@@ -119,6 +115,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var agent = this.Agent.ToString();
             var content = (this.Content ?? string.Empty).Trim();
             return $"text:{agent}:{content}";

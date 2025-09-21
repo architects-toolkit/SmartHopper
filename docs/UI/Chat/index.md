@@ -49,13 +49,16 @@ Each message uses role classes like `.message.user`, `.message.assistant`, `.mes
 
 - JS functions (defined in `js/chat-script.js`):
   - `addMessage(html)`
+  - `upsertMessage(key, html)`
   - `replaceLastMessageByRole(role, html)`
+  - `addLoadingMessage(role, text)` / `removeThinkingMessage()`
   - `clearMessages()`
   - `setStatus(text)`
   - `setProcessing(isProcessing)`
   - `showToast(message)`
 - Host functions (C# in `WebChatDialog.cs` / `WebChatObserver.cs`):
   - `AddInteractionToWebView(IAIInteraction)`
+  - `UpsertMessageByKey(string domKey, IAIInteraction)`
   - `ReplaceLastMessageByRole(AIAgent, IAIInteraction)`
   - `ExecuteScript(string)` (UI-thread marshaled)
 
@@ -77,3 +80,27 @@ All UI work (including `ExecuteScript`) is marshaled via `RhinoApp.InvokeOnUiThr
 ## Consumers
 
 - `CanvasButton` and `AIChatComponent` open/reuse the dialog via `WebChatUtils`. They receive incremental `ChatUpdated` snapshots to surface transcript/metrics in Grasshopper.
+
+## Rendering contracts
+
+To eliminate type switches in the renderer and observer layers, interactions implement explicit contracts:
+
+- **`IAIRenderInteraction`** (`src/SmartHopper.Infrastructure/AICall/Core/Interactions/IAIRenderInteraction.cs`)
+  - `GetRoleClassForRender()` → returns the CSS role class (e.g., `assistant`, `user`, `tool`, `error`).
+  - `GetDisplayNameForRender()` → friendly label for the message header.
+  - `GetRawContentForRender()` → raw markdown content (converted to HTML by `ChatResourceManager`).
+  - `GetRawReasoningForRender()` → optional reasoning content (supports `<think>…</think>`); rendered as a collapsible panel.
+
+- **`IAIKeyedInteraction`** (`src/SmartHopper.Infrastructure/AICall/Core/Interactions/IAIKeyedInteraction.cs`)
+  - `GetStreamKey()` → stable grouping key for streaming aggregation (multiple deltas update one bubble).
+  - `GetDedupKey()` → stable identity for persisted/history messages (prevents duplicates and supports hydration).
+
+## Streaming lifecycle and re‑keying
+
+- During streaming, assistant text is aggregated under a constant stream key computed via `GetStreamKey()`; the UI updates the same DOM node using `upsertMessage(key, …)`.
+- On finalization (`WebChatObserver.OnFinal`), the streaming bubble is replaced with a finalized message keyed by the interaction’s **dedup key** (`GetDedupKey()`):
+  - This prevents new assistant turns from overwriting previous replies and ensures accurate history replay.
+
+Notes:
+- Non‑assistant interactions (tool calls/results, system, errors) are appended only once persisted by the session.
+- DOM updates are serialized and marshaled to Rhino’s UI thread to avoid WebView re‑entrancy.

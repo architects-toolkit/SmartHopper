@@ -5,6 +5,8 @@ This section documents the core request/response flow used by providers and tool
 - Location: `src/SmartHopper.Infrastructure/AICall/`
 - Building blocks:
   - `IAIInteraction` + concrete types for messages and tool I/O
+  - `IAIRenderInteraction` (render contract for UI)
+  - `IAIKeyedInteraction` (stable keys for streaming aggregation and de‑duplication)
   - `AIBody` container (interactions, tool/context filters, JSON schema)
   - `IAIRequest` + `AIRequestBase`, `AIRequestCall`
   - `IAIReturn` + `AIReturn`
@@ -18,8 +20,7 @@ Quick flow:
 2) Put them in `AIBody` (optionally set `ToolFilter`, `ContextFilter`, `JsonOutputSchema`)
 3) Initialize an `AIRequestCall` with provider, model, endpoint, capability
 4) `Exec()` -> single provider call -> `AIReturn` (no orchestration)
-5) For tools/multi‑turn, use `ConversationSession.RunToStableResult(options)`; it orchestrates provider calls and appends tool results to the session `AIBody`
-5a) For streaming, use `ConversationSession.Stream(options, streamingOptions)` to receive incremental `AIReturn` deltas
+5) For tools/multi‑turn, use `ConversationSession.RunToStableResult(options)`; it orchestrates provider calls and appends tool results to the session `AIBody`. For streaming, use `ConversationSession.Stream(options, streamingOptions)` to receive incremental `AIReturn` deltas
 
 ## Choosing Exec vs ConversationSession
 
@@ -45,3 +46,6 @@ Navigation:
 - Messages and Aggregation: [./messages.md](./messages.md)
 - Conversation Session: [./ConversationSession.md](./ConversationSession.md)
 - Streaming: [./Streaming.md](./Streaming.md)
+
+Notes:
+- UI consumers (e.g., WebChat) use `IAIRenderInteraction` to render messages and `IAIKeyedInteraction` to aggregate streaming deltas by `GetStreamKey()` and persist final items by `GetDedupKey()` (see Streaming for re‑keying details).
