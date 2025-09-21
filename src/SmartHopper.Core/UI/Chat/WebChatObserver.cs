@@ -46,6 +46,10 @@ namespace SmartHopper.Core.UI.Chat
             private bool _thinkingBubbleActive;
             private bool _assistantBubbleAdded;
 
+            // Simple per-key throttling to reduce DOM churn during streaming
+            private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
+            private const int ThrottleMs = 100;
+
         /// <summary>
         /// Aggregates assistant text across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
         /// Rules:
@@ -161,28 +165,28 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         try
                         {
-                            // For delta updates, only handle assistant text content
-                            if (interaction is not AIInteractionText tt || tt.Agent != AIAgent.Assistant)
+                            // Handle text deltas (assistant/user/system) for live streaming
+                            if (interaction is AIInteractionText tt)
                             {
+                                var key = GetStreamKey(interaction);
+                                if (!_streams.TryGetValue(key, out var state))
+                                {
+                                    state = new StreamState { Started = false, Aggregated = null };
+                                }
+
+                                // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
+                                CoalesceAssistantTextChunk(tt, key, ref state);
+                                this._streams[key] = state;
+
+                                if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
+                                {
+                                    if (ShouldUpsertNow(key))
+                                    {
+                                        _dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
+                                        _assistantBubbleAdded |= tt.Agent == AIAgent.Assistant;
+                                    }
+                                }
                                 return;
-                            }
-
-                            var key = GetStreamKey(interaction);
-                            if (!_streams.TryGetValue(key, out var state))
-                            {
-                                state = new StreamState { Started = false, Aggregated = null };
-                            }
-
-                            // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
-                            CoalesceAssistantTextChunk(tt, key, ref state);
-
-                            this._streams[key] = state;
-                            if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
-                            {
-                                // Upsert by stream key to ensure single bubble across deltas
-                                Debug.WriteLine($"[WebChatObserver] OnDelta Upsert key={key} len={aggText.Content?.Length ?? 0}");
-                                this._dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
-                                _assistantBubbleAdded = true;
                             }
                         }
                         catch (Exception innerEx)
@@ -211,57 +215,53 @@ namespace SmartHopper.Core.UI.Chat
                             // Keep the thinking bubble during processing; do not remove on partials
 
                             // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
-                            var key = GetStreamKey(interaction);
-                            if (!_streams.TryGetValue(key, out var state))
+                            var streamKey = GetStreamKey(interaction);
+                            if (!_streams.TryGetValue(streamKey, out var state))
                             {
                                 state = new StreamState { Started = false, Aggregated = null };
                             }
 
                             if (interaction is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
                             {
-                                // Coalesce text across partials
-                                CoalesceAssistantTextChunk(tt, key, ref state);
-
-                                _streams[key] = state;
+                                // Coalesce and live-upsert assistant streaming content (Option A)
+                                CoalesceAssistantTextChunk(tt, streamKey, ref state);
+                                _streams[streamKey] = state;
                                 if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                                 {
-                                    // Upsert assistant bubble by stream key
-                                    Debug.WriteLine($"[WebChatObserver] OnPartial Upsert key={key} len={aggText.Content?.Length ?? 0}");
-                                    _dialog.UpsertMessageByKey(key, aggText, source: "OnPartial");
-                                    _assistantBubbleAdded = true;
+                                    if (ShouldUpsertNow(streamKey))
+                                    {
+                                        _dialog.UpsertMessageByKey(streamKey, aggText, source: "OnPartial");
+                                        _assistantBubbleAdded = true;
+                                    }
                                 }
                             }
 
-                            // For non-assistant interactions, only add them once they have been persisted
-                            // to the session history (post-streaming final block). Ignore Context agent.
+                            // Stream-update non-assistant interactions immediately using their provided keys.
                             if (!(interaction is AIInteractionText at && at.Agent == AIAgent.Assistant))
                             {
-                                if (interaction.Agent != AIAgent.Context && IsPersisted(interaction))
+                                if (string.IsNullOrWhiteSpace(streamKey))
                                 {
-                                    if (TryAdd(interaction))
+                                    // Fallback: append if keyless (should be rare)
+                                    _dialog.AddInteractionToWebView(interaction);
+                                }
+                                else
+                                {
+                                    if (interaction is AIInteractionToolResult tr)
                                     {
-                                        if (interaction is IAIKeyedInteraction keyedPersisted)
+                                        var followKey = GetFollowKeyForToolResult(tr);
+                                        _dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnPartialToolResult");
+                                    }
+                                    else
+                                    {
+                                        if (ShouldUpsertNow(streamKey))
                                         {
-                                            var dedupKey = keyedPersisted.GetDedupKey();
-                                            if (!string.IsNullOrWhiteSpace(dedupKey))
-                                            {
-                                                Debug.WriteLine($"[WebChatObserver] OnPartial Upsert persisted key={dedupKey} type={interaction.GetType().Name}");
-                                                _dialog.UpsertMessageByKey(dedupKey, interaction, source: "OnPartialPersisted");
-                                            }
-                                            else
-                                            {
-                                                _dialog.AddInteractionToWebView(interaction);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            _dialog.AddInteractionToWebView(interaction);
+                                            _dialog.UpsertMessageByKey(streamKey, interaction, source: "OnPartial");
                                         }
                                     }
                                 }
                             }
 
-                            // Optional UX: surface tool call name in status
+                            // Surface tool call name in status
                             if (interaction is AIInteractionToolCall call)
                             {
                                 _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
@@ -444,6 +444,46 @@ namespace SmartHopper.Core.UI.Chat
                     return keyed.GetStreamKey();
                 }
                 return $"other:{interaction.GetType().Name}:{interaction.Agent}";
+            }
+
+            /// <summary>
+            /// Returns true if enough time has elapsed since the last upsert for this key.
+            /// </summary>
+            private bool ShouldUpsertNow(string key)
+            {
+                try
+                {
+                    var now = DateTime.UtcNow;
+                    if (!_lastUpsertAt.TryGetValue(key, out var last))
+                    {
+                        _lastUpsertAt[key] = now;
+                        return true;
+                    }
+                    if ((now - last).TotalMilliseconds >= ThrottleMs)
+                    {
+                        _lastUpsertAt[key] = now;
+                        return true;
+                    }
+                }
+                catch { }
+                return false;
+            }
+
+            /// <summary>
+            /// Computes the follow key for a tool result, which should appear immediately after its corresponding tool call.
+            /// </summary>
+            private static string GetFollowKeyForToolResult(AIInteractionToolResult tr)
+            {
+                try
+                {
+                    var id = !string.IsNullOrEmpty(tr?.Id) ? tr.Id : (tr?.Name ?? string.Empty);
+                    if (!string.IsNullOrWhiteSpace(tr?.TurnId))
+                    {
+                        return $"turn:{tr.TurnId}:tool.call:{id}";
+                    }
+                    return $"tool.call:{id}";
+                }
+                catch { return null; }
             }
 
             private static string MakeKey(IAIInteraction interaction)

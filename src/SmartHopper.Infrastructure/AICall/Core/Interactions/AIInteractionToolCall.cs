@@ -17,8 +17,7 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionText in text generation operations.
+    /// Represents an AI-generated tool call with associated metadata.
     /// </summary>
     public class AIInteractionToolCall : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
@@ -72,12 +71,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public virtual string GetStreamKey()
         {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
-                return $"turn:{this.TurnId}";
+                return $"turn:{this.TurnId}:tool.call:{id}";
             }
-
-            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             return $"tool.call:{id}";
         }
 
@@ -87,13 +85,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public virtual string GetDedupKey()
         {
-            if (!string.IsNullOrWhiteSpace(this.TurnId))
-            {
-                return $"turn:{this.TurnId}";
-            }
-
             var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             var args = (this.Arguments != null ? this.Arguments.ToString() : string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}:tool.call:{id}:{args}";
+            }
             return $"tool.call:{id}:{args}";
         }
 

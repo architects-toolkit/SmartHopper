@@ -9,6 +9,8 @@
  */
 
 using System;
+using System.Security.Cryptography;
+using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
 
@@ -16,7 +18,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
     /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
     public class AIInteractionText : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
@@ -100,13 +101,15 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
+            var agent = (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
+            var timestamp = this.Time.ToString("yyyyMMddHHmmssfff");
+
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
-                return $"turn:{this.TurnId}";
+                return $"turn:{this.TurnId}:{agent}:{timestamp}";
             }
 
-            var agent = this.Agent.ToString();
-            return $"text:{agent}";
+            return $"text:{agent}:{timestamp}";
         }
 
         /// <summary>
@@ -114,15 +117,26 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
-        {
-            if (!string.IsNullOrWhiteSpace(this.TurnId))
-            {
-                return $"turn:{this.TurnId}";
-            }
-
-            var agent = this.Agent.ToString();
+        {          
             var content = (this.Content ?? string.Empty).Trim();
-            return $"text:{agent}:{content}";
+            var hash = ComputeShortHash(content);
+
+            return $"{this.GetStreamKey()}:{hash}";
+        }
+
+        /// <summary>
+        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
+        /// </summary>
+        /// <param name="value">Input string to hash.</param>
+        /// <returns>Lowercase hex substring of the hash.</returns>
+        private static string ComputeShortHash(string value)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+                var hash = sha.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
+            }
         }
 
         /// <summary>

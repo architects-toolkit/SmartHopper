@@ -101,6 +101,32 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Upserts a message identified by domKey immediately after the message identified by followKey.
+        /// If followKey is not found, it falls back to a normal upsert by domKey.
+        /// Uses the same idempotency cache by domKey to avoid redundant DOM work.
+        /// </summary>
+        private void UpsertMessageAfter(string followKey, string domKey, IAIInteraction interaction, string source = null)
+        {
+            if (interaction == null || string.IsNullOrWhiteSpace(domKey)) return;
+            this.RunWhenWebViewReady(() =>
+            {
+                var html = this._htmlRenderer.RenderInteraction(interaction);
+                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+
+                if (!string.IsNullOrEmpty(domKey) && html != null && _lastDomHtmlByKey.TryGetValue(domKey, out var last) && string.Equals(last, html, StringComparison.Ordinal))
+                {
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"}");
+                    return;
+                }
+
+                Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+                var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
+                try { _lastDomHtmlByKey[domKey] = html ?? string.Empty; } catch { }
+                this.ExecuteScript(script);
+            });
+        }
+
+        /// <summary>
         /// Ensures the dialog is visible on screen.
         /// </summary>
         internal void EnsureVisibility()

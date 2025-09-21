@@ -8,17 +8,18 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 
-
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionTool in tool operations.
+    /// Represents an AI-generated tool result with associated metadata.
     /// </summary>
     public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction, IAIRenderInteraction
     {
@@ -63,12 +64,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public override string GetStreamKey()
         {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
-                return $"turn:{this.TurnId}";
+                return $"turn:{this.TurnId}:tool.result:{id}";
             }
 
-            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             return $"tool.result:{id}";
         }
 
@@ -78,14 +79,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public override string GetDedupKey()
         {
-            if (!string.IsNullOrWhiteSpace(this.TurnId))
-            {
-                return $"turn:{this.TurnId}";
-            }
-
-            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
             var res = (this.Result != null ? this.Result.ToString() : string.Empty).Trim();
-            return $"tool.result:{id}:{res}";
+            var hash = ComputeShortHash(res);
+
+            return $"{this.GetStreamKey()}:{hash}";
         }
 
         /// <summary>
@@ -118,6 +115,19 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public override string GetRawReasoningForRender()
         {
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
+        /// </summary>
+        private static string ComputeShortHash(string value)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+                var hash = sha.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
+            }
         }
     }
 }

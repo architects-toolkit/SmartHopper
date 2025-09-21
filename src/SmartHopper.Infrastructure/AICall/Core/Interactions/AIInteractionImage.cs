@@ -19,7 +19,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
     /// Represents an AI-generated image result with associated metadata.
-    /// Used as the Result type for AIInteractionImage in image generation operations.
     /// </summary>
     public class AIInteractionImage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
@@ -125,14 +124,15 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
-            if (!string.IsNullOrWhiteSpace(this.TurnId))
-            {
-                return $"turn:{this.TurnId}";
-            }
-
             var id = !string.IsNullOrEmpty(this.ImageUrl)
                 ? this.ImageUrl
                 : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
+            
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}:image:{id}";
+            }
+
             return $"image:{id}";
         }
 
@@ -143,18 +143,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
         {
-            if (!string.IsNullOrWhiteSpace(this.TurnId))
-            {
-                return $"turn:{this.TurnId}";
-            }
-
-            var id = !string.IsNullOrEmpty(this.ImageUrl)
-                ? this.ImageUrl
-                : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
             var size = this.ImageSize ?? string.Empty;
             var quality = this.ImageQuality ?? string.Empty;
             var style = this.ImageStyle ?? string.Empty;
-            return $"image:{id}:{size}:{quality}:{style}";
+            return $"{this.GetStreamKey()}:{size}:{quality}:{style}";
         }
 
         /// <summary>
