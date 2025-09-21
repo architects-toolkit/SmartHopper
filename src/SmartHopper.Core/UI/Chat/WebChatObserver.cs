@@ -43,10 +43,10 @@ namespace SmartHopper.Core.UI.Chat
             /// <summary>
             /// Returns a segmented text key for the given base key. Each new text message within the same
             /// turn gets a new segment index to ensure separate DOM bubbles.
-            /// - Only increment the segment when a new AIInteractionText arrives after another interaction type in the same turn
-            ///   (e.g., tool call/result in between), or when the AIInteractionText's role (agent) differs from the last text role
-            ///   observed in that turn.
-            /// - No content-based seeding is used.
+            /// Segmentation advancement no longer relies on last-type/last-agent heuristics: instead, a per-turn
+            /// boundary flag is set on interaction completion via OnPartial (for both text and non-text completions),
+            /// and the next incoming text consumes that flag to
+            /// increment the segment. This makes segmentation deterministic and aligned with session persistence.
             /// </summary>
             private string GetSegmentedKey(string baseKey, AIInteractionText chunk, out StreamState initialState)
             {
@@ -59,41 +59,14 @@ namespace SmartHopper.Core.UI.Chat
                     seg = 1;
                 }
 
-                // Determine generic turn base key to track boundaries across interaction kinds
-                var turnKey = GetTurnBaseKey(chunk?.TurnId);
-
-                // Decide whether to advance the segment
-                bool advanceSegment = false;
-                if (!string.IsNullOrWhiteSpace(turnKey))
-                {
-                    // 1) New text after another interaction type in the same turn
-                    if (_lastInteractionTypeByTurn.TryGetValue(turnKey, out var lastType)
-                        && lastType != typeof(AIInteractionText))
-                    {
-                        advanceSegment = true;
-                    }
-
-                    // 2) Role change (agent changed) compared to the last text role in this turn
-                    if (_lastTextAgentByTurn.TryGetValue(turnKey, out var lastAgent)
-                        && lastAgent != (chunk?.Agent ?? AIAgent.Assistant))
-                    {
-                        advanceSegment = true;
-                    }
-                }
-
                 if (!_textInteractionSegments.ContainsKey(baseKey))
                 {
                     _textInteractionSegments[baseKey] = seg;
                     initialState = new StreamState { Started = false, Aggregated = null };
                 }
-                else if (advanceSegment)
-                {
-                    seg++;
-                    _textInteractionSegments[baseKey] = seg;
-                    initialState = new StreamState { Started = false, Aggregated = null };
-                }
 
                 // Update per-turn last seen state
+                var turnKey = GetTurnBaseKey(chunk?.TurnId);
                 if (!string.IsNullOrWhiteSpace(turnKey))
                 {
                     _lastInteractionTypeByTurn[turnKey] = typeof(AIInteractionText);
@@ -109,8 +82,11 @@ namespace SmartHopper.Core.UI.Chat
             private string GetCurrentSegmentedKey(string baseKey)
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
-                var seg = _textInteractionSegments.TryGetValue(baseKey, out var s) ? s : 1;
-                if (!_textInteractionSegments.ContainsKey(baseKey)) _textInteractionSegments[baseKey] = seg;
+                if (!_textInteractionSegments.TryGetValue(baseKey, out var seg))
+                {
+                    seg = 1;
+                    _textInteractionSegments[baseKey] = seg;
+                }
                 return $"{baseKey}:seg{seg}";
             }
 
@@ -133,6 +109,15 @@ namespace SmartHopper.Core.UI.Chat
             // Keys are generic turn keys in the form "turn:{TurnId}"; values track last seen type/agent.
             private readonly Dictionary<string, Type> _lastInteractionTypeByTurn = new Dictionary<string, Type>(StringComparer.Ordinal);
             private readonly Dictionary<string, AIAgent> _lastTextAgentByTurn = new Dictionary<string, AIAgent>();
+
+            // Pending segmentation boundary flags per turn. When set, the next text interaction for that turn
+            // starts a new segment (new bubble). These flags are set by OnPartial when an interaction
+            // (text or non-text) is finalized and persisted to history.
+            private readonly HashSet<string> _pendingNewTextSegmentTurns = new HashSet<string>(StringComparer.Ordinal);
+
+            // Finalized turns: after OnFinal has rendered the assistant text for a turn, ignore any late
+            // OnDelta/OnPartial text updates for that same turn to prevent overriding final metrics/time.
+            private readonly HashSet<string> _finalizedTextTurns = new HashSet<string>(StringComparer.Ordinal);
 
             /// <summary>
             /// Returns the generic turn base key for a given turn id (e.g., "turn:{TurnId}").
@@ -214,6 +199,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
             }
 
+            // Tracks active streaming states to distinguish streaming vs non-streaming paths
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
             public WebChatObserver(WebChatDialog dialog)
@@ -233,6 +219,8 @@ namespace SmartHopper.Core.UI.Chat
                     _textInteractionSegments.Clear();
                     _lastInteractionTypeByTurn.Clear();
                     _lastTextAgentByTurn.Clear();
+                    _pendingNewTextSegmentTurns.Clear();
+                    _finalizedTextTurns.Clear();
                     _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
                     
                     // Insert a persistent generic loading bubble that remains until stop state
@@ -282,13 +270,28 @@ namespace SmartHopper.Core.UI.Chat
                             // Handle text deltas (assistant/user/system) for live streaming
                             if (interaction is AIInteractionText tt)
                             {
-                                // Determine segmented key for ANY text agent (assistant, user, system)
+                                // Determine segmented key for ANY text agent (assistant, user, system).
+                                // Consume pending boundary set by OnInteractionCompleted to advance to a new segment.
                                 var baseKey = GetStreamKey(interaction);
-                                var key = GetSegmentedKey(baseKey, tt, out var segState);
+                                var turnKey = GetTurnBaseKey(tt?.TurnId);
+
+                                // If this turn is finalized, ignore any late deltas to avoid overriding final metrics/time
+                                if (!string.IsNullOrWhiteSpace(turnKey) && _finalizedTextTurns.Contains(turnKey))
+                                {
+                                    return;
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(turnKey) && _pendingNewTextSegmentTurns.Remove(turnKey) && _textInteractionSegments.ContainsKey(baseKey))
+                                {
+                                    _textInteractionSegments[baseKey] = _textInteractionSegments[baseKey] + 1;
+                                }
+
+                                var key = GetCurrentSegmentedKey(baseKey);
                                 if (!_streams.TryGetValue(key, out var state))
                                 {
-                                    state = segState ?? new StreamState { Started = false, Aggregated = null };
+                                    state = new StreamState { Started = false, Aggregated = null };
                                 }
+
                                 // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
                                 CoalesceTextStreamChunk(tt, key, ref state);
                                 this._streams[key] = state;
@@ -328,25 +331,52 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             // Keep the thinking bubble during processing; do not remove on partials
 
-                            // Text interactions (any agent): coalesce per segmented key and upsert
+                            // Text interactions (any agent): handle non-streaming preview or finalize existing streaming aggregate.
                             if (interaction is AIInteractionText tt)
                             {
                                 var baseKey = GetStreamKey(interaction);
-                                var segKey = GetSegmentedKey(baseKey, tt, out var segState);
-                                if (!_streams.TryGetValue(segKey, out var tstate))
+                                var turnKey = GetTurnBaseKey(tt?.TurnId);
+
+                                // If this turn is finalized, ignore any late partials to avoid overriding final metrics/time
+                                if (!string.IsNullOrWhiteSpace(turnKey) && _finalizedTextTurns.Contains(turnKey))
                                 {
-                                    tstate = segState ?? new StreamState { Started = false, Aggregated = null };
+                                    return;
                                 }
-                                // Coalesce and live-upsert streaming content for this text stream
-                                CoalesceTextStreamChunk(tt, segKey, ref tstate);
-                                _streams[segKey] = tstate;
-                                if (tstate.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
+
+                                if (!string.IsNullOrWhiteSpace(turnKey))
                                 {
-                                    if (ShouldUpsertNow(segKey))
+                                    _pendingNewTextSegmentTurns.Add(turnKey);
+                                }
+
+                                // Use the current segmented key to match the streaming aggregate stored by OnDelta
+                                var activeSegKey = GetCurrentSegmentedKey(baseKey);
+
+                                // Streaming completion: update the existing aggregate and upsert in-place
+                                if (_streams.TryGetValue(activeSegKey, out var existingState) && existingState.Aggregated is AIInteractionText agg)
+                                {
+                                    agg.Content = tt.Content;
+                                    agg.Reasoning = tt.Reasoning;
+                                    agg.Time = tt.Time;
+                                    _dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnPartialStreamingFinal");
+                                }
+                                else
+                                {
+                                    // True non-streaming preview: create or reuse current segment and upsert once
+                                    if (!_textInteractionSegments.ContainsKey(baseKey))
                                     {
-                                        _dialog.UpsertMessageByKey(segKey, aggText, source: "OnPartial");
+                                        _textInteractionSegments[baseKey] = 1;
                                     }
+                                    var segKey = GetCurrentSegmentedKey(baseKey);
+                                    if (!_streams.TryGetValue(segKey, out var state))
+                                    {
+                                        state = new StreamState { Started = false, Aggregated = null };
+                                    }
+                                    state.Aggregated = tt;
+                                    _streams[segKey] = state;
+                                    _dialog.UpsertMessageByKey(segKey, tt, source: "OnPartialNonStreaming");
                                 }
+
+                                return;
                             }
 
                             // Stream-update non-text interactions immediately using their provided keys.
@@ -381,15 +411,12 @@ namespace SmartHopper.Core.UI.Chat
                                     if (!string.IsNullOrWhiteSpace(turnKey))
                                     {
                                         _lastInteractionTypeByTurn[turnKey] = interaction.GetType();
+
+                                        // Mark boundary so the next text in this turn starts a new segment
+                                        _pendingNewTextSegmentTurns.Add(turnKey);
                                     }
                                 }
                                 catch { }
-                            }
-
-                            // Surface tool call name in status
-                            if (interaction is AIInteractionToolCall call)
-                            {
-                                _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
                             }
                         }
                         catch (Exception innerEx)
@@ -443,6 +470,13 @@ namespace SmartHopper.Core.UI.Chat
                             if (finalAssistant is IAIKeyedInteraction keyedFinal)
                             {
                                 streamKey = keyedFinal.GetStreamKey();
+                            }
+
+                            // Mark this turn as finalized to prevent late partial/delta overrides
+                            var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
+                            if (!string.IsNullOrWhiteSpace(turnKey))
+                            {
+                                _finalizedTextTurns.Add(turnKey);
                             }
 
                             // Prefer the aggregated streaming content for visual continuity

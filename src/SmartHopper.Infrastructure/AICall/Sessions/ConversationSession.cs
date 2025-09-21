@@ -597,6 +597,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // Merge new interactions into the session body
             var newInteractions = callResult.Body?.GetNewInteractions();
+
             // Apply unified TurnId to all new interactions for this provider turn
             ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
             this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
@@ -875,12 +876,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 while (turns < options.MaxTurns)
                 {
                     linkedCts.Token.ThrowIfCancellationRequested();
+
                     // Prepare variables to avoid yielding inside try/catch blocks
                     List<AIReturn> deltaYields = null;   // per-chunk streaming yields
                     List<AIReturn> pendingToolYields = null;
                     AIReturn finalProviderYield = null;  // final provider result for this turn
                     AIReturn errorYield = null;
                     bool shouldBreak = false;
+
                     // Allocate a fresh TurnId for this assistant turn
                     var turnId = Guid.NewGuid().ToString("N");
 
@@ -907,6 +910,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 var newInteractions = nonStream.Body?.GetNewInteractions();
                                 ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
                                 this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
+
                                 this._lastReturn = nonStream;
                                 this.UpdateLastReturn();
                                 this.NotifyPartial(this.PrepareNewOnlyReturn(nonStream));
@@ -948,10 +952,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     continue;
                                 }
 
-                                // Notify UI with partials only (do not persist deltas into session yet)
+                                // Notify UI with streaming deltas (do not persist deltas into session yet)
                                 var newInteractions = delta.Body?.GetNewInteractions();
                                 ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
-                                this.NotifyPartial(this.PrepareNewOnlyReturn(delta));
+                                this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
 
                                 // Surface tool call notifications immediately upon appearance and remember latest snapshot
                                 if (newInteractions != null)
@@ -962,7 +966,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         if (interaction is AIInteractionToolCall toolCall)
                                         {
                                             sawToolCall = true;
-                                            this.NotifyToolCall(toolCall);
+                                            // Do not notify here to avoid duplication; we will notify when executing the tool
+                                            // in ProcessPendingToolsAsync. We still mark that we saw tool calls in this delta.
                                         }
                                     }
                                     if (sawToolCall)
