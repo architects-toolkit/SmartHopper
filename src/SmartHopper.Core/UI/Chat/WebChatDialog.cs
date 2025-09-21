@@ -53,6 +53,9 @@ namespace SmartHopper.Core.UI.Chat
         private System.Threading.CancellationTokenSource _currentCts;
         private string _pendingUserMessage;
 
+        // Keeps last-rendered HTML per DOM key to make upserts idempotent and avoid redundant DOM work
+        private readonly Dictionary<string, string> _lastDomHtmlByKey = new Dictionary<string, string>(StringComparer.Ordinal);
+
         // ConversationSession manages all history and requests
         // WebChatDialog is now a pure UI consumer
 
@@ -223,16 +226,25 @@ namespace SmartHopper.Core.UI.Chat
         /// Upserts a message in the WebView using a stable DOM key. If a message with the same key exists,
         /// it is replaced; otherwise, it is appended. This ensures deterministic updates and prevents duplicates.
         /// </summary>
-        private void UpsertMessageByKey(string domKey, IAIInteraction interaction)
+        private void UpsertMessageByKey(string domKey, IAIInteraction interaction, string source = null)
         {
             if (interaction == null || string.IsNullOrWhiteSpace(domKey)) return;
             this.RunWhenWebViewReady(() =>
             {
                 var html = this._htmlRenderer.RenderInteraction(interaction);
                 var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
-                Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
+
+                // Idempotency check: if the HTML for this key hasn't changed, skip DOM update
+                if (!string.IsNullOrEmpty(domKey) && html != null && _lastDomHtmlByKey.TryGetValue(domKey, out var last) && string.Equals(last, html, StringComparison.Ordinal))
+                {
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped identical) key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"}");
+                    return;
+                }
+
+                Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
                 var script = $"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
                 Debug.WriteLine($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
+                try { _lastDomHtmlByKey[domKey] = html ?? string.Empty; } catch { }
                 this.ExecuteScript(script);
             });
         }
@@ -249,6 +261,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._webViewInitialized = true;
                     try { this._webViewInitializedTcs.TrySetResult(true); } catch { }
+
+                    // On a fresh document load, clear our idempotency cache
+                    try { this._lastDomHtmlByKey.Clear(); } catch { }
 
                     // Reflect status in web UI
                     try { this.ExecuteScript($"setStatus({JsonConvert.SerializeObject(this._pendingStatusAfter ?? "Ready")}); setProcessing(false);"); } catch { }
@@ -479,6 +494,9 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Clear messages in-place without reloading the WebView
                 this.RunWhenWebViewReady(() => this.ExecuteScript("clearMessages(); setStatus('Ready'); setProcessing(false);"));
+
+                // Reset last-rendered cache since DOM has been cleared
+                try { this._lastDomHtmlByKey.Clear(); } catch { }
 
                 // Emit a reset snapshot to notify listeners (no greeting on clear)
                 this.EmitResetSnapshot();

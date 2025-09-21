@@ -323,6 +323,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // For delta updates, notify observer of each new interaction individually
             var newInteractions = ret.Body.GetNewInteractions();
+            try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}"); } catch { }
             foreach (var interaction in newInteractions)
             {
                 this.Observer.OnDelta(interaction);
@@ -336,12 +337,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // For partial updates, notify observer of each new interaction individually
             var newInteractions = ret.Body.GetNewInteractions();
+            try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}"); } catch { }
             foreach (var interaction in newInteractions)
             {
                 this.Observer.OnPartial(interaction);
             }
         }
-        private void NotifyFinal(AIReturn ret) => this.Observer?.OnFinal(ret);
+
+        private void NotifyFinal(AIReturn ret)
+        {
+            try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}"); } catch { }
+            this.Observer?.OnFinal(ret);
+        }
         private void NotifyToolCall(AIInteractionToolCall toolCall) => this.Observer?.OnToolCall(toolCall);
         private void NotifyToolResult(AIInteractionToolResult toolResult) => this.Observer?.OnToolResult(toolResult);
         private void NotifyStart(AIRequestCall request) => this.Observer?.OnStart(request);
