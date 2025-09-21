@@ -42,45 +42,62 @@ namespace SmartHopper.Core.UI.Chat
 
             /// <summary>
             /// Returns a segmented text key for the given base key. Each new text message within the same
-            /// turn gets a new segment index to ensure separate DOM bubbles. A simple seed based on the first non-empty
-            /// content/reasoning chunk is used to detect new messages.
+            /// turn gets a new segment index to ensure separate DOM bubbles.
+            /// - Only increment the segment when a new AIInteractionText arrives after another interaction type in the same turn
+            ///   (e.g., tool call/result in between), or when the AIInteractionText's role (agent) differs from the last text role
+            ///   observed in that turn.
+            /// - No content-based seeding is used.
             /// </summary>
-            private string GetAssistantSegmentedKey(string baseKey, AIInteractionText chunk, out StreamState initialState)
+            private string GetSegmentedKey(string baseKey, AIInteractionText chunk, out StreamState initialState)
             {
                 initialState = null;
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
 
-                // Compute a lightweight seed from the earliest available content
-                string seed = null;
-                try
-                {
-                    var c = (chunk?.Reasoning ?? string.Empty).Trim();
-                    if (string.IsNullOrEmpty(c)) c = (chunk?.Content ?? string.Empty).Trim();
-                    if (!string.IsNullOrEmpty(c))
-                    {
-                        // Take up to 24 chars as a simple seed to detect a different message start
-                        seed = c.Length <= 24 ? c : c.Substring(0, 24);
-                    }
-                }
-                catch { }
-
+                // Current segment index for this base key (per role & turn)
                 if (!_textInteractionSegments.TryGetValue(baseKey, out var seg))
                 {
                     seg = 1;
-                    _textInteractionSegments[baseKey] = seg;
-                    _textSegmentSeeds[baseKey] = seed;
-                    initialState = new StreamState { Started = false, Aggregated = null };
-                    return $"{baseKey}:seg{seg}";
                 }
 
-                // If seed differs from the stored one and is non-empty, start a new segment
-                var existingSeed = _textSegmentSeeds.TryGetValue(baseKey, out var s) ? s : null;
-                if (!string.IsNullOrEmpty(seed) && !string.Equals(seed, existingSeed, StringComparison.Ordinal))
+                // Determine generic turn base key to track boundaries across interaction kinds
+                var turnKey = GetTurnBaseKey(chunk?.TurnId);
+
+                // Decide whether to advance the segment
+                bool advanceSegment = false;
+                if (!string.IsNullOrWhiteSpace(turnKey))
+                {
+                    // 1) New text after another interaction type in the same turn
+                    if (_lastInteractionTypeByTurn.TryGetValue(turnKey, out var lastType)
+                        && lastType != typeof(AIInteractionText))
+                    {
+                        advanceSegment = true;
+                    }
+
+                    // 2) Role change (agent changed) compared to the last text role in this turn
+                    if (_lastTextAgentByTurn.TryGetValue(turnKey, out var lastAgent)
+                        && lastAgent != (chunk?.Agent ?? AIAgent.Assistant))
+                    {
+                        advanceSegment = true;
+                    }
+                }
+
+                if (!_textInteractionSegments.ContainsKey(baseKey))
+                {
+                    _textInteractionSegments[baseKey] = seg;
+                    initialState = new StreamState { Started = false, Aggregated = null };
+                }
+                else if (advanceSegment)
                 {
                     seg++;
                     _textInteractionSegments[baseKey] = seg;
-                    _textSegmentSeeds[baseKey] = seed;
                     initialState = new StreamState { Started = false, Aggregated = null };
+                }
+
+                // Update per-turn last seen state
+                if (!string.IsNullOrWhiteSpace(turnKey))
+                {
+                    _lastInteractionTypeByTurn[turnKey] = typeof(AIInteractionText);
+                    _lastTextAgentByTurn[turnKey] = chunk?.Agent ?? AIAgent.Assistant;
                 }
 
                 return $"{baseKey}:seg{seg}";
@@ -89,7 +106,7 @@ namespace SmartHopper.Core.UI.Chat
             /// <summary>
             /// Returns the current segmented text key for a base key without creating a new segment.
             /// </summary>
-            private string GetCurrentAssistantSegmentedKey(string baseKey)
+            private string GetCurrentSegmentedKey(string baseKey)
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
                 var seg = _textInteractionSegments.TryGetValue(baseKey, out var s) ? s : 1;
@@ -97,23 +114,33 @@ namespace SmartHopper.Core.UI.Chat
                 return $"{baseKey}:seg{seg}";
             }
 
-            // Tracks UI state for the temporary thinking bubble and whether we've already
-            // appended an assistant message to the chat. This ensures correct ordering:
-            // tool calls/results first, assistant response appended at the end.
+            // Tracks UI state for the temporary thinking bubble.
+            // We no longer track assistant-specific bubble state; ordering is handled by keys and upserts.
             private bool _thinkingBubbleActive;
-            private bool _assistantBubbleAdded;
 
             // Simple per-key throttling to reduce DOM churn during streaming
             private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
-            private const int ThrottleMs = 100;
+            private const int ThrottleMs = 10;
 
             // Tracks per-turn text segments so multiple text messages in a single turn
-            // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:assistant").
+            // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:{agent}").
             private readonly Dictionary<string, int> _textInteractionSegments = new Dictionary<string, int>(StringComparer.Ordinal);
+
+            // Per-turn state to implement segmentation boundaries (generic to any role)
+            // - We only start a new text segment when:
+            //   1) A new AIInteractionText arrives after another type of interaction in the same turn, or
+            //   2) The role (agent) of the AIInteractionText differs from the last text role seen in the same turn.
+            // Keys are generic turn keys in the form "turn:{TurnId}"; values track last seen type/agent.
+            private readonly Dictionary<string, Type> _lastInteractionTypeByTurn = new Dictionary<string, Type>(StringComparer.Ordinal);
+            private readonly Dictionary<string, AIAgent> _lastTextAgentByTurn = new Dictionary<string, AIAgent>();
+
             /// <summary>
-            /// Stores a small seed per base key to detect a new text message start and advance the segment.
+            /// Returns the generic turn base key for a given turn id (e.g., "turn:{TurnId}").
             /// </summary>
-            private readonly Dictionary<string, string> _textSegmentSeeds = new Dictionary<string, string>(StringComparer.Ordinal);
+            private static string GetTurnBaseKey(string turnId)
+            {
+                return string.IsNullOrWhiteSpace(turnId) ? null : $"turn:{turnId}";
+            }
 
             /// <summary>
             /// Aggregates text message across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
@@ -193,7 +220,6 @@ namespace SmartHopper.Core.UI.Chat
             {
                 _dialog = dialog;
                 _thinkingBubbleActive = false;
-                _assistantBubbleAdded = false;
             }
 
             public void OnStart(AIRequestCall request)
@@ -202,12 +228,17 @@ namespace SmartHopper.Core.UI.Chat
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
+                    // Reset per-run state
+                    _streams.Clear();
+                    _textInteractionSegments.Clear();
+                    _lastInteractionTypeByTurn.Clear();
+                    _lastTextAgentByTurn.Clear();
                     _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
                     
                     // Insert a persistent generic loading bubble that remains until stop state
                     _dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
                     _thinkingBubbleActive = true;
-                    _assistantBubbleAdded = false;
+                    // No assistant-specific state to reset
                     Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
             }
@@ -253,7 +284,7 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 // Determine segmented key for ANY text agent (assistant, user, system)
                                 var baseKey = GetStreamKey(interaction);
-                                var key = GetAssistantSegmentedKey(baseKey, tt, out var segState);
+                                var key = GetSegmentedKey(baseKey, tt, out var segState);
                                 if (!_streams.TryGetValue(key, out var state))
                                 {
                                     state = segState ?? new StreamState { Started = false, Aggregated = null };
@@ -267,7 +298,6 @@ namespace SmartHopper.Core.UI.Chat
                                     if (ShouldUpsertNow(key))
                                     {
                                         _dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
-                                        _assistantBubbleAdded |= tt.Agent == AIAgent.Assistant;
                                     }
                                 }
                                 return;
@@ -302,7 +332,7 @@ namespace SmartHopper.Core.UI.Chat
                             if (interaction is AIInteractionText tt)
                             {
                                 var baseKey = GetStreamKey(interaction);
-                                var segKey = GetAssistantSegmentedKey(baseKey, tt, out var segState);
+                                var segKey = GetSegmentedKey(baseKey, tt, out var segState);
                                 if (!_streams.TryGetValue(segKey, out var tstate))
                                 {
                                     tstate = segState ?? new StreamState { Started = false, Aggregated = null };
@@ -315,7 +345,6 @@ namespace SmartHopper.Core.UI.Chat
                                     if (ShouldUpsertNow(segKey))
                                     {
                                         _dialog.UpsertMessageByKey(segKey, aggText, source: "OnPartial");
-                                        _assistantBubbleAdded |= tt.Agent == AIAgent.Assistant;
                                     }
                                 }
                             }
@@ -344,6 +373,17 @@ namespace SmartHopper.Core.UI.Chat
                                         }
                                     }
                                 }
+
+                                // Record last interaction type for this turn to support segmentation
+                                try
+                                {
+                                    var turnKey = GetTurnBaseKey(interaction?.TurnId);
+                                    if (!string.IsNullOrWhiteSpace(turnKey))
+                                    {
+                                        _lastInteractionTypeByTurn[turnKey] = interaction.GetType();
+                                    }
+                                }
+                                catch { }
                             }
 
                             // Surface tool call name in status
@@ -408,7 +448,7 @@ namespace SmartHopper.Core.UI.Chat
                             // Prefer the aggregated streaming content for visual continuity
                             AIInteractionText aggregated = null;
                             // Use the current segmented key for the assistant stream
-                            var segKey = !string.IsNullOrWhiteSpace(streamKey) ? GetCurrentAssistantSegmentedKey(streamKey) : null;
+                            var segKey = !string.IsNullOrWhiteSpace(streamKey) ? GetCurrentSegmentedKey(streamKey) : null;
                             if (!string.IsNullOrWhiteSpace(segKey)
                                 && this._streams.TryGetValue(segKey, out var st)
                                 && st?.Aggregated is AIInteractionText agg
@@ -450,7 +490,6 @@ namespace SmartHopper.Core.UI.Chat
                                 var upsertKey = segKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
                                 Debug.WriteLine($"[WebChatObserver] OnFinal Upsert key={upsertKey} len={(toRender as AIInteractionText)?.Content?.Length ?? 0}");
                                 this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
-                                _assistantBubbleAdded = true;
                             }
                         }
                         catch (Exception repEx)
@@ -464,8 +503,11 @@ namespace SmartHopper.Core.UI.Chat
                         // Notify listeners with session-managed snapshots
                         this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
 
-                        // Clear streaming state and finish
+                        // Clear streaming and per-turn state and finish
                         this._streams.Clear();
+                        this._textInteractionSegments.Clear();
+                        this._lastInteractionTypeByTurn.Clear();
+                        this._lastTextAgentByTurn.Clear();
                         this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
                         this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                     }
