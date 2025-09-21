@@ -20,21 +20,15 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// Represents an AI-generated text result with associated metadata.
     /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionError : IAIInteraction, IAIKeyedInteraction, IAIRenderInteraction
+    public class AIInteractionError : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
-        public AIAgent Agent { get; set; } = AIAgent.Assistant;
-
-        /// <inheritdoc/>
-        public DateTime Time { get; set; } = DateTime.UtcNow;
+        public override AIAgent Agent { get; set; } = AIAgent.Error;
 
         /// <summary>
         /// Gets or sets the content of the message.
         /// </summary>
         public string Content { get; set; }
-
-        /// <inheritdoc/>
-        public AIMetrics Metrics { get; set; } = new AIMetrics();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionText.
@@ -95,23 +89,27 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Returns a stable stream grouping key for this error interaction. Uses a short hash of content.
+        /// Returns a stable stream grouping key for this error interaction. Uses TurnId when available.
         /// </summary>
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}";
+            }
+
             var hash = ComputeShortHash(this.Content);
             return $"error:{hash}";
         }
 
         /// <summary>
-        /// Returns a stable de-duplication key for this error interaction. Based on content hash.
+        /// Returns a stable de-duplication key for this error interaction. Based on TurnId when available.
         /// </summary>
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
         {
-            var hash = ComputeShortHash(this.Content);
-            return $"error:{hash}";
+            return this.GetStreamKey();
         }
 
         /// <summary>

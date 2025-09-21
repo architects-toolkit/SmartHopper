@@ -49,3 +49,29 @@ Covers `IAIInteraction` and concrete message types.
 - File: `AIAgent.cs`
 - Enum roles: `Context`, `System`, `User`, `Assistant`, `ToolCall`, `ToolResult`, `Unknown`
 - Extension helpers: `.ToString()`, `.ToDescription()`, `FromString(string)`
+
+## IAIRenderInteraction
+
+- File: `src/SmartHopper.Infrastructure/AICall/Core/Interactions/IAIRenderInteraction.cs`
+- Purpose: eliminate type switches in UI rendering by letting each interaction define how it should be displayed.
+- Methods:
+  - `GetRoleClassForRender()` → returns the CSS role class (e.g., `assistant`, `user`, `tool`, `error`).
+  - `GetDisplayNameForRender()` → the display label used in the message header.
+  - `GetRawContentForRender()` → raw markdown content (converted to HTML by `ChatResourceManager`).
+  - `GetRawReasoningForRender()` → optional reasoning; supports `<think>…</think>` and is rendered as a collapsible panel in the UI.
+
+Consumption:
+- Used by `ChatResourceManager.CreateMessageHtml(...)` and `HtmlChatRenderer.RenderInteraction(...)` to build the final HTML message without casting on interaction type.
+
+## IAIKeyedInteraction
+
+- File: `src/SmartHopper.Infrastructure/AICall/Core/Interactions/IAIKeyedInteraction.cs`
+- Purpose: provide stable identity keys to aggregate streaming updates and to de‑duplicate persisted messages.
+- Methods:
+  - `GetStreamKey()` → stable grouping key for streaming (multiple deltas update a single bubble in UI).
+  - `GetDedupKey()` → stable identity for persisted messages (used for history hydration and to avoid duplicates).
+
+Consumption:
+- Used by the chat UI observer (`WebChatObserver`) to:
+  - Upsert streaming content via `GetStreamKey()`.
+  - On finalization, re‑key the assistant bubble from stream key → `GetDedupKey()` so later assistant turns don’t overwrite previous ones.

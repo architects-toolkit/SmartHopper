@@ -64,6 +64,8 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     Agent = AIAgent.Assistant,
                     Content = incoming?.Content ?? string.Empty,
+                    // Preserve stream identity so GetStreamKey() stays as turn:{TurnId}
+                    TurnId = incoming?.TurnId,
                     // Hide metrics while streaming to avoid showing 0/0 interim values.
                     // Final metrics will be applied in OnFinal when the response completes.
                     Metrics = null,
@@ -304,19 +306,41 @@ namespace SmartHopper.Core.UI.Chat
 
                         try
                         {
-                            // Determine streaming state and final assistant data
-                            var assistantKey = "text:" + AIAgent.Assistant.ToString();
-                            AIInteractionText aggregated = null;
-                            if (this._streams.TryGetValue(assistantKey, out var state) && state?.Aggregated is AIInteractionText agg && !string.IsNullOrWhiteSpace(agg.Content))
-                            {
-                                aggregated = agg;
-                            }
-
+                            // Determine final assistant item and its stream key (turn:{TurnId})
                             var finalAssistant = result?.Body?.Interactions?
                                 .OfType<AIInteractionText>()
                                 .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
-                            // Merge metrics/time and upsert by key to avoid duplicates
+                            string streamKey = null;
+                            if (finalAssistant is IAIKeyedInteraction keyedFinal)
+                            {
+                                streamKey = keyedFinal.GetStreamKey();
+                            }
+
+                            // Prefer the aggregated streaming content for visual continuity
+                            AIInteractionText aggregated = null;
+                            if (!string.IsNullOrWhiteSpace(streamKey)
+                                && this._streams.TryGetValue(streamKey, out var st)
+                                && st?.Aggregated is AIInteractionText agg
+                                && !string.IsNullOrWhiteSpace(agg.Content))
+                            {
+                                aggregated = agg;
+                            }
+                            else
+                            {
+                                // Fallback: pick any aggregated assistant stream if key not found
+                                foreach (var kv in this._streams)
+                                {
+                                    if (kv.Value?.Aggregated is AIInteractionText agg2 && !string.IsNullOrWhiteSpace(agg2.Content))
+                                    {
+                                        aggregated = agg2;
+                                        if (string.IsNullOrWhiteSpace(streamKey)) streamKey = kv.Key;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Merge final metrics/time into aggregated for the last render
                             if (aggregated != null && finalAssistant != null)
                             {
                                 aggregated.Metrics = finalAssistant.Metrics;
@@ -326,7 +350,9 @@ namespace SmartHopper.Core.UI.Chat
                             var toRender = aggregated ?? finalAssistant;
                             if (toRender != null)
                             {
-                                this._dialog.UpsertMessageByKey(assistantKey, toRender);
+                                // Prefer the known streamKey (turn:{TurnId}) to replace the streaming bubble deterministically
+                                var upsertKey = streamKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
+                                this._dialog.UpsertMessageByKey(upsertKey, toRender);
                                 _assistantBubbleAdded = true;
                             }
                         }
