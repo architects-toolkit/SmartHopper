@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
   - CanvasButton now initializes the chat provider and model from SmartHopper settings (consistent with app-wide configuration).
 
+- Context providers:
+  - New `SelectionContextProvider` exposing `selection_selected-count` (number of selected Grasshopper objects). Registered globally at Core assembly load so it is available to both components and the canvas button.
+
 - Conversation and policies:
   - ConversationSession service introducing:
     - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
