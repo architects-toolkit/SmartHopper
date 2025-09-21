@@ -195,6 +195,13 @@ namespace SmartHopper.Components.AI
         /// </summary>
         public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
+        /// <summary>
+        /// Disable automatic restoration of persistent outputs from the base class.
+        /// The AIChat component manages its outputs explicitly each solve using the
+        /// latest AIReturn snapshot pushed by the WebChat dialog (partial updates only).
+        /// </summary>
+        protected override bool AutoRestorePersistentOutputs => false;
+
         // No local getters/setters for last return; rely on SetAIReturnSnapshot/GetAIReturnSnapshot from base
 
         /// <summary>

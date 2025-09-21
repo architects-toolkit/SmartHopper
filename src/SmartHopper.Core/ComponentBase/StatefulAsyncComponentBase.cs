@@ -60,6 +60,14 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         protected ProgressInfo ProgressInfo { get; private set; } = new ProgressInfo();
 
+        /// <summary>
+        /// Controls whether the base class should automatically restore persistent outputs
+        /// during Completed/Waiting states. Override in derived components that wish to fully
+        /// manage their outputs each solve and avoid duplicate setting in a single cycle.
+        /// Default is true for backward compatibility.
+        /// </summary>
+        protected virtual bool AutoRestorePersistentOutputs => true;
+
         #region CONSTRUCTOR
 
         /// <summary>
@@ -472,7 +480,10 @@ namespace SmartHopper.Core.ComponentBase
             this.ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
-            this.RestorePersistentOutputs(DA);
+            if (this.AutoRestorePersistentOutputs)
+            {
+                this.RestorePersistentOutputs(DA);
+            }
 
             this.CompleteStateTransition();
         }
@@ -485,7 +496,10 @@ namespace SmartHopper.Core.ComponentBase
             this.ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
-            this.RestorePersistentOutputs(DA);
+            if (this.AutoRestorePersistentOutputs)
+            {
+                this.RestorePersistentOutputs(DA);
+            }
 
             this.CompleteStateTransition();
         }
