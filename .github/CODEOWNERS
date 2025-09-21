@@ -1,32 +1,33 @@
 # These owners will be the default owners for everything in
 # the repo. They will be requested for review when someone 
 # opens a pull request.
-*                   @marc-romu
+*                     @marc-romu
 
 # Protect the entire .github folder and all its contents
-/.github/           @marc-romu
-/.github/**         @marc-romu
-/.github/CODEOWNERS @marc-romu
+/.github/             @marc-romu
+/.github/**           @marc-romu
+/.github/CODEOWNERS   @marc-romu
 
 # Documentation
-/README.md          @marc-romu
-/CHANGELOG.md       @marc-romu
-/LICENSE            @marc-romu
-/CONTRIBUTING.md    @marc-romu
+/README.md            @marc-romu
+/CHANGELOG.md         @marc-romu
+/LICENSE              @marc-romu
+/CONTRIBUTING.md      @marc-romu
 /RELEASE_CHECKLIST.md @marc-romu
+/DEV.md               @marc-romu
 
 # Critical repository files
-/.gitignore         @marc-romu
-/.gitattributes     @marc-romu
-/.windsurf/**       @marc-romu
-*.ps1               @marc-romu
+/.gitignore           @marc-romu
+/.gitattributes       @marc-romu
+/.windsurf/**         @marc-romu
+*.ps1                 @marc-romu
 
 # Critical solution files
-/*.sln              @marc-romu
-/NuGet.Config       @marc-romu
-/Solution.props     @marc-romu
+/*.sln                @marc-romu
+/NuGet.Config         @marc-romu
+/Solution.props       @marc-romu
 /Directory.Build.props @marc-romu
 /Directory.Build.targets @marc-romu
 
 # Yak package
-/yak-package/**     @marc-romu
+/yak-package/**       @marc-romu
