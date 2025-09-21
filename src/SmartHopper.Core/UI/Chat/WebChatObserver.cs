@@ -68,8 +68,13 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     Agent = AIAgent.Assistant,
                     Content = incoming?.Content ?? string.Empty,
+
+                    // Also capture any streamed reasoning content from the first chunk
+                    Reasoning = incoming?.Reasoning ?? string.Empty,
+
                     // Preserve stream identity so GetStreamKey() stays as turn:{TurnId}
                     TurnId = incoming?.TurnId,
+
                     // Hide metrics while streaming to avoid showing 0/0 interim values.
                     // Final metrics will be applied in OnFinal when the response completes.
                     Metrics = null,
@@ -81,27 +86,40 @@ namespace SmartHopper.Core.UI.Chat
             var current = aggExisting.Content ?? string.Empty;
             var incomingText = incoming?.Content ?? string.Empty;
 
-            if (string.IsNullOrEmpty(incomingText))
-            {
-                // Nothing to add; keep existing
-                return;
-            }
-
             // Cumulative stream: incoming contains full text so far
             if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
             {
                 aggExisting.Content = incomingText;
-                return;
+                // Even if content is cumulative, we still want to coalesce reasoning below
             }
-
-            // Regression/noise: ignore to avoid trimming visual content
-            if (current.StartsWith(incomingText, StringComparison.Ordinal))
+            else if (current.StartsWith(incomingText, StringComparison.Ordinal))
             {
-                return;
+                // Regression/noise: ignore to avoid trimming visual content
+            }
+            else
+            {
+                // Incremental delta: append
+                aggExisting.Content = current + incomingText;
             }
 
-            // Incremental delta: append
-            aggExisting.Content = current + incomingText;
+            // Now coalesce reasoning similarly (when providers stream thinking separately)
+            var currentR = aggExisting.Reasoning ?? string.Empty;
+            var incomingR = incoming?.Reasoning ?? string.Empty;
+            if (!string.IsNullOrEmpty(incomingR))
+            {
+                if (incomingR.Length >= currentR.Length && incomingR.StartsWith(currentR, StringComparison.Ordinal))
+                {
+                    aggExisting.Reasoning = incomingR;
+                }
+                else if (currentR.StartsWith(incomingR, StringComparison.Ordinal))
+                {
+                    // Regression/noise: keep existing
+                }
+                else
+                {
+                    aggExisting.Reasoning = currentR + incomingR;
+                }
+            }
         }
 
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
@@ -178,7 +196,7 @@ namespace SmartHopper.Core.UI.Chat
                                 CoalesceAssistantTextChunk(tt, key, ref state);
                                 this._streams[key] = state;
 
-                                if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
+                                if (state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
                                 {
                                     if (ShouldUpsertNow(key))
                                     {
@@ -226,7 +244,7 @@ namespace SmartHopper.Core.UI.Chat
                                 // Coalesce and live-upsert assistant streaming content (Option A)
                                 CoalesceAssistantTextChunk(tt, streamKey, ref state);
                                 _streams[streamKey] = state;
-                                if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
+                                if (state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
                                 {
                                     if (ShouldUpsertNow(streamKey))
                                     {
@@ -348,6 +366,12 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 aggregated.Metrics = finalAssistant.Metrics;
                                 aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
+
+                                // Ensure reasoning present on final render: prefer the provider's final reasoning
+                                if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
+                                {
+                                    aggregated.Reasoning = finalAssistant.Reasoning;
+                                }
                             }
 
                             var toRender = aggregated ?? finalAssistant;
@@ -467,6 +491,15 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch { }
                 return false;
+            }
+
+            /// <summary>
+            /// Returns true when there is something to render (either answer content or reasoning).
+            /// This allows live updates even when only reasoning has been streamed so far.
+            /// </summary>
+            private static bool HasRenderableText(AIInteractionText t)
+            {
+                return t != null && (!string.IsNullOrWhiteSpace(t.Content) || !string.IsNullOrWhiteSpace(t.Reasoning));
             }
 
             /// <summary>
