@@ -13,33 +13,151 @@ const SCROLL_BOTTOM_THRESHOLD = 30; // consider near-bottom within this distance
 const SCROLL_SHOW_BTN_THRESHOLD = 5; // show scroll-to-bottom button when farther than this
 
 /**
+ * Returns the chat container element and whether it was at (or near) bottom before changes.
+ * Helps standardize error handling and scroll-state capture before DOM mutations.
+ * @param {string} context - Caller context for logging
+ * @returns {{ chatContainer: HTMLElement|null, wasAtBottom: boolean }}
+ */
+function getContainerWithBottom(context) {
+    const chatContainer = document.getElementById('chat-container');
+    if (!chatContainer) {
+        console.error(`[JS] ${context}: chat-container element not found`);
+        // Default wasAtBottom to true if container missing to avoid unintended UI side effects
+        return { chatContainer: null, wasAtBottom: true };
+    }
+    return { chatContainer, wasAtBottom: isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD) };
+}
+
+/**
+ * Safely parses an HTML string into a single node (first element or text node).
+ * Returns null and logs on error to keep callers simple.
+ * @param {string} messageHtml - HTML content to parse
+ * @param {string} context - Caller context for logging
+ * @returns {HTMLElement|null}
+ */
+function createNodeFromHtml(messageHtml, context) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml || '';
+    const node = tempDiv.firstElementChild || tempDiv.firstChild;
+    if (!node) {
+        console.error(`[JS] ${context}: no valid node in messageHtml`);
+        return null;
+    }
+    return node;
+}
+
+/**
+ * Parses an HTML string and returns the firstElementChild only.
+ * Logs and returns null when no element is present to avoid text-node insertions.
+ * @param {string} messageHtml
+ * @param {string} context
+ * @returns {HTMLElement|null}
+ */
+function createElementFromHtml(messageHtml, context) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml || '';
+    const el = tempDiv.firstElementChild || null;
+    if (!el) {
+        console.error(`[JS] ${context}: no valid element in HTML`);
+        return null;
+    }
+    return el;
+}
+
+/**
+ * Sets dataset.key on a node if possible, ignoring failures (e.g., text nodes).
+ * @param {HTMLElement} node
+ * @param {string} key
+ */
+function setDatasetKeySafe(node, key) {
+    try { if (node && node.dataset) node.dataset.key = key || ''; } catch {}
+}
+
+/**
+ * Finds a message element inside container by its dataset.key value.
+ * @param {HTMLElement} chatContainer
+ * @param {string} key
+ * @returns {HTMLElement|null}
+ */
+function findExistingMessageByKey(chatContainer, key) {
+    const messages = Array.from(chatContainer.querySelectorAll('.message'));
+    return messages.find(m => (m.dataset && m.dataset.key) === (key || '')) || null;
+}
+
+/**
+ * Inserts a node immediately after a reference node within the same container.
+ * If the reference is the last child, appends; otherwise uses insertBefore(nextSibling).
+ * @param {HTMLElement} container
+ * @param {HTMLElement} node
+ * @param {HTMLElement} reference
+ * @param {string} context - Caller context for logging
+ */
+function insertAfterNode(container, node, reference, context) {
+    if (reference && reference.nextSibling) {
+        container.insertBefore(node, reference.nextSibling);
+    } else {
+        container.appendChild(node);
+    }
+    if (context) console.log(`[JS] ${context}: inserted node after reference`);
+}
+
+/**
  * Adds a message to the chat container
  * @param {string} messageHtml - HTML content of the message
  */
 function addMessage(messageHtml) {
     console.log('[JS] addMessage called with HTML length:', messageHtml ? messageHtml.length : 0);
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) {
-        console.error('[JS] addMessage: chat-container element not found');
-        return;
-    }
-    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
-    
-    // Create a temporary div to parse the HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml;
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('addMessage');
+    if (!chatContainer) return;
 
-    // Use firstElementChild to avoid appending a text node from leading whitespace
-    const node = tempDiv.firstElementChild || tempDiv.firstChild;
-    if (node) {
-        // Insert above the persistent thinking message if present; otherwise append
-        insertAboveThinkingIfPresent(chatContainer, node);
-        console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
-    } else {
-        console.error('[JS] addMessage: no valid node found in HTML');
-    }
+    const node = createNodeFromHtml(messageHtml, 'addMessage');
+    if (!node) return;
+
+    // Insert above the persistent thinking message if present; otherwise append
+    insertAboveThinkingIfPresent(chatContainer, node);
+    console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
     // Finalize: reprocess dynamic features and auto-scroll if needed
     finalizeMessageInsertion(node, wasAtBottom);
+}
+
+/**
+ * Upserts a message identified by `key` immediately after the message identified by `followKey`.
+ * If `followKey` is not found, falls back to a normal upsert by key.
+ * @param {string} followKey - The key of the message to insert after
+ * @param {string} key - The key for the incoming message
+ * @param {string} messageHtml - HTML string for the message
+ */
+function upsertMessageAfter(followKey, key, messageHtml) {
+    console.log('[JS] upsertMessageAfter called with followKey:', followKey, 'key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessageAfter');
+    if (!chatContainer) return false;
+
+    const incoming = createNodeFromHtml(messageHtml, 'upsertMessageAfter');
+    if (!incoming) return false;
+    setDatasetKeySafe(incoming, key);
+
+    // Find existing nodes
+    const existing = findExistingMessageByKey(chatContainer, key);
+    const follow = findExistingMessageByKey(chatContainer, followKey);
+
+    // If follow is not found, fallback to upsertMessage
+    if (!follow) {
+        console.warn('[JS] upsertMessageAfter: followKey not found, falling back to upsertMessage');
+        return upsertMessage(key, messageHtml);
+    }
+
+    if (existing) {
+        // Replace existing content and keep relative position by re-inserting after follow
+        existing.replaceWith(incoming);
+        console.log('[JS] upsertMessageAfter: replaced existing message for key:', key);
+    }
+
+    // Insert after follow (handling last-child case)
+    insertAfterNode(chatContainer, incoming, follow, 'upsertMessageAfter');
+    console.log('[JS] upsertMessageAfter: inserted after followKey:', followKey);
+
+    finalizeMessageInsertion(incoming, wasAtBottom);
+    return true;
 }
 
 /**
@@ -50,26 +168,15 @@ function addMessage(messageHtml) {
  */
 function upsertMessage(key, messageHtml) {
     console.log('[JS] upsertMessage called with key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) {
-        console.error('[JS] upsertMessage: chat-container element not found');
-        return false;
-    }
-    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessage');
+    if (!chatContainer) return false;
 
-    // Parse incoming HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
-    const incoming = tempDiv.firstElementChild || tempDiv.firstChild;
-    if (!incoming) {
-        console.error('[JS] upsertMessage: no valid node in messageHtml');
-        return false;
-    }
-    try { incoming.dataset.key = key || ''; } catch {}
+    const incoming = createNodeFromHtml(messageHtml, 'upsertMessage');
+    if (!incoming) return false;
+    setDatasetKeySafe(incoming, key);
 
     // Find existing by data-key (avoid querySelector escaping issues by scanning)
-    const messages = Array.from(chatContainer.querySelectorAll('.message'));
-    const existing = messages.find(m => (m.dataset && m.dataset.key) === (key || '')) || null;
+    const existing = findExistingMessageByKey(chatContainer, key);
 
     if (existing) {
         chatContainer.replaceChild(incoming, existing);
@@ -104,19 +211,6 @@ function removeThinkingMessage() {
 }
 
 /**
- * Returns the number of message nodes in the chat container.
- */
-function getMessageCount() {
-    try {
-        const chatContainer = document.getElementById('chat-container');
-        if (!chatContainer) return 0;
-        return chatContainer.querySelectorAll('.message').length;
-    } catch (e) {
-        return 0;
-    }
-}
-
-/**
  * Adds a temporary loading bubble for a given role (defaults to assistant).
  * The bubble carries the 'loading' class so CSS shows a spinner via ::before.
  * @param {string} role
@@ -124,11 +218,8 @@ function getMessageCount() {
  */
 function addLoadingMessage(role, text) {
     console.log('[JS] addLoadingMessage called, role:', role, 'text:', text);
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) {
-        console.error('[JS] addLoadingMessage: chat-container element not found');
-        return;
-    }
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('addLoadingMessage');
+    if (!chatContainer) return;
     role = (role || 'assistant').toLowerCase();
     const content = (text || 'Thinking…');
     const wrapper = document.createElement('div');
@@ -143,7 +234,6 @@ function addLoadingMessage(role, text) {
     contentDiv.className = 'message-content';
     contentDiv.textContent = content;
     contentDiv.dataset.copyContent = content;
-    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
     wrapper.appendChild(contentDiv);
     insertAboveThinkingIfPresent(chatContainer, wrapper);
     console.log('[JS] addLoadingMessage: loading bubble added for role:', role);
@@ -158,20 +248,14 @@ function addLoadingMessage(role, text) {
  */
 function replaceLastMessageByRole(role, messageHtml) {
     console.log('[JS] replaceLastMessageByRole called, role:', role, 'HTML length:', messageHtml ? messageHtml.length : 0);
-    const chatContainer = document.getElementById('chat-container');
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('replaceLastMessageByRole');
+    if (!chatContainer) return false;
     const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
     console.log('[JS] replaceLastMessageByRole: found', messages.length, 'existing messages for role:', role);
 
     // Parse incoming HTML into an element
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
-    const incoming = tempDiv.firstElementChild;
-    if (!incoming) {
-        console.error('[JS] replaceLastMessageByRole: no valid element in HTML');
-        return false;
-    }
-
-    const wasAtBottom = isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD);
+    const incoming = createNodeFromHtml(messageHtml, 'replaceLastMessageByRole');
+    if (!incoming) return false;
 
     if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];

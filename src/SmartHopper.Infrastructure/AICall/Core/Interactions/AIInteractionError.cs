@@ -17,8 +17,7 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionText in text generation operations.
+    /// Represents an error with associated metadata.
     /// </summary>
     public class AIInteractionError : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
@@ -94,12 +93,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
+            var hash = ComputeShortHash(this.Content);
+            
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
-                return $"turn:{this.TurnId}";
+                return $"turn:{this.TurnId}:error:{hash}";
             }
 
-            var hash = ComputeShortHash(this.Content);
             return $"error:{hash}";
         }
 
