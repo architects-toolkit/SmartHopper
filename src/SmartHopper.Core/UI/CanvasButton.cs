@@ -667,10 +667,10 @@ namespace SmartHopper.Core.UI
                 var requestedModel = assistant?.AssistantModel;
                 // If user selected (Default) provider, always use provider default model
                 var model = isDefaultProviderSelected
-                    ? provider.GetDefaultModel(AICapability.ToolReasoningChat)
+                    ? provider.GetDefaultModel(AICapability.Text2Text)
                     : (!string.IsNullOrWhiteSpace(requestedModel)
                         ? requestedModel
-                        : provider.GetDefaultModel(AICapability.ToolReasoningChat));
+                        : provider.GetDefaultModel(AICapability.Text2Text));
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 
@@ -680,7 +680,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Knowledge,Components,Scripting,ComponentsRetrieval",
+                    toolFilter: "Components,ComponentsRetrieval,Knowledge,,Scripting",
                     componentId: CanvasChatDialogId);
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
