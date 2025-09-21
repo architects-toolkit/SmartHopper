@@ -398,11 +398,34 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     foreach (JObject tc in tcs)
                     {
+                        // Mistral may return function.arguments as a JSON string; parse when necessary
+                        var func = tc["function"] as JObject;
+                        var argsToken = func?[(object)"arguments"];
+                        JObject? argsObj = null;
+                        if (argsToken is JObject ao)
+                        {
+                            argsObj = ao;
+                        }
+                        else if (argsToken != null)
+                        {
+                            var s = argsToken.Type == JTokenType.String ? argsToken.ToString() : argsToken.ToString(Newtonsoft.Json.Formatting.None);
+                            if (string.IsNullOrWhiteSpace(s))
+                            {
+                                // Treat empty string as empty object to satisfy schema presence
+                                argsObj = new JObject();
+                            }
+                            else
+                            {
+                                try { argsObj = JObject.Parse(s); }
+                                catch { /* leave null if unparsable */ }
+                            }
+                        }
+
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
-                            Name = tc["function"]?["name"]?.ToString(),
-                            Arguments = tc["function"]?["arguments"] as JObject,
+                            Name = func?[(object)"name"]?.ToString(),
+                            Arguments = argsObj,
                         };
                         interactions.Add(toolCall);
                     }

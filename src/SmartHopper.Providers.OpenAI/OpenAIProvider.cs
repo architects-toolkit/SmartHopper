@@ -141,26 +141,8 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                // Convert interactions to OpenAI format using the JToken-based encoder
-                var messages = new JArray();
-                foreach (var interaction in request.Body.Interactions)
-                {
-                    try
-                    {
-                        // UI-only diagnostics must not be sent to providers
-                        if (interaction is AIInteractionError)
-                        {
-                            continue;
-                        }
-                        var messageToken = this.EncodeToJToken(interaction);
-                        if (messageToken != null) messages.Add(messageToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
-                    }
-                }
-
+                // Convert interactions to OpenAI format with tool-call coalescing and id backfilling
+                var messages = this.BuildMessagesWithToolCallCoalescing(request.Body.Interactions);
                 return this.FormatChatCompletionsRequestBody(request, messages);
             }
         }
@@ -232,7 +214,8 @@ namespace SmartHopper.Providers.OpenAI
                     ["function"] = new JObject
                     {
                         ["name"] = toolCallInteraction.Name,
-                        ["arguments"] = toolCallInteraction.Arguments?.ToString(),
+                        // OpenAI requires arguments as a JSON string; never null
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}",
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
@@ -267,6 +250,110 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             return messageObj;
+        }
+
+        /// <summary>
+        /// Builds the OpenAI <c>messages</c> array from SmartHopper interactions while enforcing
+        /// OpenAI tool calling sequencing rules.
+        ///
+        /// Rules enforced:
+        /// - Consecutive <see cref="AIInteractionToolCall"/> interactions are coalesced into a single
+        ///   assistant message containing a <c>tool_calls</c> array.
+        /// - The <c>tool_call_id</c> of <see cref="AIInteractionToolResult"/> messages is backfilled
+        ///   from the most recent pending tool calls when missing.
+        ///
+        /// This prevents the API error: "An assistant message with 'tool_calls' must be followed by
+        /// tool messages responding to each 'tool_call_id'" when multiple tool calls occur back-to-back.
+        /// </summary>
+        /// <param name="interactions">Ordered list of SmartHopper interactions to encode.</param>
+        /// <returns>JArray of OpenAI-formatted messages.</returns>
+        private JArray BuildMessagesWithToolCallCoalescing(IReadOnlyList<IAIInteraction> interactions)
+        {
+            var messages = new JArray();
+
+            // Queue to track pending tool call ids (and names) awaiting tool results
+            var pendingToolCalls = new Queue<(string Id, string Name)>();
+
+            for (int i = 0; i < interactions.Count; i++)
+            {
+                var interaction = interactions[i];
+
+                // Skip UI-only diagnostics
+                if (interaction is AIInteractionError)
+                {
+                    continue;
+                }
+
+                // Coalesce consecutive tool calls into a single assistant message
+                if (interaction is AIInteractionToolCall)
+                {
+                    var toolCallsArray = new JArray();
+
+                    while (i < interactions.Count && interactions[i] is AIInteractionToolCall tci)
+                    {
+                        var tcObj = new JObject
+                        {
+                            ["id"] = tci.Id ?? string.Empty,
+                            ["type"] = "function",
+                            ["function"] = new JObject
+                            {
+                                ["name"] = tci.Name ?? string.Empty,
+                                // OpenAI requires arguments as a JSON string; default to empty object
+                                ["arguments"] = tci.Arguments?.ToString() ?? "{}",
+                            },
+                        };
+
+                        toolCallsArray.Add(tcObj);
+
+                        // Track as pending so following tool results can be linked even if Id is missing on result
+                        pendingToolCalls.Enqueue((tci.Id ?? string.Empty, tci.Name ?? string.Empty));
+
+                        i++;
+                    }
+
+                    // Step back one because for-loop will increment again
+                    i--;
+
+                    var assistantToolCallsMsg = new JObject
+                    {
+                        ["role"] = "assistant",
+                        ["content"] = string.Empty,
+                        ["tool_calls"] = toolCallsArray,
+                    };
+                    messages.Add(assistantToolCallsMsg);
+                    continue;
+                }
+
+                // Default encoding for other interactions
+                var token = this.EncodeToJToken(interaction);
+                if (token == null)
+                {
+                    continue;
+                }
+
+                // Backfill tool_call_id and name on tool result messages when missing
+                if (interaction is AIInteractionToolResult)
+                {
+                    var idToken = token["tool_call_id"]?.ToString();
+                    bool idLooksLikeOpenAIToolId = !string.IsNullOrEmpty(idToken) && idToken.StartsWith("call_", StringComparison.OrdinalIgnoreCase);
+                    if ((!idLooksLikeOpenAIToolId) && pendingToolCalls.Count > 0)
+                    {
+                        var (pendingId, pendingName) = pendingToolCalls.Dequeue();
+                        if (!string.IsNullOrWhiteSpace(pendingId))
+                        {
+                            token["tool_call_id"] = pendingId;
+                        }
+                        if (!string.IsNullOrWhiteSpace(pendingName) && token["name"] == null)
+                        {
+                            token["name"] = pendingName;
+                        }
+                    }
+                }
+
+                messages.Add(token);
+            }
+
+            return messages;
         }
 
         /// <inheritdoc/>
