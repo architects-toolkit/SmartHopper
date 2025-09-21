@@ -849,11 +849,51 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var param = this.Params.Output[i];
                 var savedValue = this.GetPersistentOutput<object>(param.Name);
-                if (savedValue != null)
+                if (savedValue == null)
+                    continue;
+
+                try
                 {
-                    try
+                    // Structured value previously persisted
+                    if (savedValue is IGH_Structure structure)
                     {
-                        // Create a new IGH_Goo instance if the value isn't already one
+                        if (param.Access == GH_ParamAccess.tree)
+                        {
+                            // Pass the structure through as-is for tree outputs
+                            this.SetPersistentOutput(param.Name, structure, DA);
+                        }
+                        else if (param.Access == GH_ParamAccess.list)
+                        {
+                            // Flatten to list (handled by SetPersistentOutput for list outputs)
+                            this.SetPersistentOutput(param.Name, structure, DA);
+                        }
+                        else
+                        {
+                            // Single output: take the first element from the structure, if any
+                            IGH_Goo first = null;
+                            foreach (var path in structure.Paths)
+                            {
+                                var branch = structure.get_Branch(path);
+                                if (branch != null && branch.Count > 0)
+                                {
+                                    first = branch[0] as IGH_Goo ?? GH_Convert.ToGoo(branch[0]);
+                                    break;
+                                }
+                            }
+                            if (first != null)
+                            {
+                                this.SetPersistentOutput(param.Name, first, DA);
+                            }
+                        }
+                    }
+                    // List output saved as IEnumerable
+                    else if (param.Access == GH_ParamAccess.list && savedValue is System.Collections.IEnumerable enumerable && savedValue is not string)
+                    {
+                        this.SetPersistentOutput(param.Name, enumerable, DA);
+                    }
+                    else
+                    {
+                        // Single item or already-goo
                         IGH_Goo gooValue;
                         if (savedValue is IGH_Goo existingGoo)
                         {
@@ -917,7 +957,11 @@ namespace SmartHopper.Core.ComponentBase
                 var outputsByGuid = new Dictionary<Guid, GH_Structure<IGH_Goo>>();
                 foreach (var p in this.Params.Output)
                 {
-                    if (this.persistentOutputs.TryGetValue(p.Name, out var value) && value is IGH_Structure structure)
+                    if (!this.persistentOutputs.TryGetValue(p.Name, out var value))
+                        continue;
+
+                    // Case 1: Already a structure → convert to GH_Structure<IGH_Goo> and persist
+                    if (value is IGH_Structure structure)
                     {
 #if DEBUG
                         LogStructureDetails(structure);
@@ -925,10 +969,33 @@ namespace SmartHopper.Core.ComponentBase
                         var tree = ConvertToGooTree(structure);
                         outputsByGuid[p.InstanceGuid] = tree;
                         Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 output for '{p.Name}' ({p.InstanceGuid}) paths={tree.PathCount} items={tree.DataCount}");
+                        continue;
                     }
-                    else if (this.persistentOutputs.TryGetValue(p.Name, out value))
+
+                    // Case 2: List outputs (IEnumerable but not string) → build a 1-branch tree and persist
+                    if (p.Access == GH_ParamAccess.list && value is System.Collections.IEnumerable enumerable && value is not string)
                     {
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Skipping non-structure output '{p.Name}' of type '{value?.GetType().FullName ?? "null"}'");
+                        var tree = new GH_Structure<IGH_Goo>();
+                        var path = new GH_Path(0, 0); // single canonical branch
+                        foreach (var item in enumerable)
+                        {
+                            if (item == null) continue;
+                            var goo = item as IGH_Goo ?? GH_Convert.ToGoo(item) ?? new GH_String(item.ToString());
+                            tree.Append(goo, path);
+                        }
+                        outputsByGuid[p.InstanceGuid] = tree;
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 list output for '{p.Name}' items={tree.DataCount}");
+                        continue;
+                    }
+
+                    // Case 3: Single item → wrap as a 1-branch tree and persist
+                    {
+                        var tree = new GH_Structure<IGH_Goo>();
+                        var path = new GH_Path(0, 0);
+                        var goo = value as IGH_Goo ?? GH_Convert.ToGoo(value) ?? new GH_String(value?.ToString() ?? string.Empty);
+                        tree.Append(goo, path);
+                        outputsByGuid[p.InstanceGuid] = tree;
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 single output for '{p.Name}'");
                     }
                 }
 
@@ -1274,7 +1341,24 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             // Handle list outputs properly
                             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Setting list output for '{param.Name}'");
-                            if (value is System.Collections.IEnumerable enumerable && !(value is string))
+                            if (value is IGH_Structure structValue)
+                            {
+                                // Flatten structure to a single list branch
+                                var list = new List<IGH_Goo>();
+                                foreach (var path in structValue.Paths)
+                                {
+                                    var branch = structValue.get_Branch(path);
+                                    if (branch == null) continue;
+                                    foreach (var item in branch)
+                                    {
+                                        if (item == null) continue;
+                                        var gooItem = item as IGH_Goo ?? GH_Convert.ToGoo(item);
+                                        if (gooItem != null) list.Add(gooItem);
+                                    }
+                                }
+                                DA.SetDataList(paramIndex, list);
+                            }
+                            else if (value is System.Collections.IEnumerable enumerable && !(value is string))
                             {
                                 var list = new List<IGH_Goo>();
                                 foreach (var item in enumerable)
