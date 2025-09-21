@@ -68,15 +68,8 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 return Task.FromResult(ok);
             }
 
-            // Require arguments when schema is present
-            if (instance.Arguments == null)
-            {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    $"Tool '{instance.Name}' requires arguments matching its parameters schema, but arguments are missing"));
-            }
-            else
+            // Check arguments against schema
+            if (instance.Arguments != null)
             {
                 var svc = JsonSchemaService.Instance;
                 var json = instance.Arguments.ToString(Formatting.None);
