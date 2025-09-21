@@ -73,9 +73,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var locked = toolInfo.Arguments["locked"]?.ToObject<bool>() ?? false;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var locked = args["locked"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
                 var updated = new List<string>();
 

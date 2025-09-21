@@ -81,8 +81,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Parse and validate parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var guidStr = toolInfo.Arguments["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guidStr = args["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
                 if (!Guid.TryParse(guidStr, out var scriptGuid))
                 {
                     output.CreateError($"Invalid GUID: {guidStr}");
@@ -91,8 +92,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
                 var endpoint = this.toolName;
-                var question = toolInfo.Arguments["question"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                var question = args["question"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
                 var objects = GHCanvasUtils.GetCurrentObjects();

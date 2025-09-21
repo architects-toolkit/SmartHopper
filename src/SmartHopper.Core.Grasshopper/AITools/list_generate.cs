@@ -122,11 +122,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string? prompt = toolInfo.Arguments["prompt"]?.ToString();
-                int count = toolInfo.Arguments["count"]?.ToObject<int>() ?? 0;
-                string? type = toolInfo.Arguments["type"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string? prompt = args["prompt"]?.ToString();
+                int count = args["count"]?.ToObject<int>() ?? 0;
+                string? type = args["type"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
                 {

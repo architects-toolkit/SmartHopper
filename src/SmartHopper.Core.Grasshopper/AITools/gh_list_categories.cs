@@ -74,10 +74,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
                 var server = Instances.ComponentServer;
-                var filterString = toolInfo.Arguments["filter"]?.ToObject<string>() ?? string.Empty;
-                var includeSubcategories = toolInfo.Arguments["includeSubcategories"]?.ToObject<bool>() ?? false;
+                var filterString = args["filter"]?.ToObject<string>() ?? string.Empty;
+                var includeSubcategories = args["includeSubcategories"]?.ToObject<bool>() ?? false;
                 var tokens = Regex.Replace(filterString, @"[,;\-_]", " ")
                     .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(t => t.ToLowerInvariant())

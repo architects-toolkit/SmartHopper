@@ -81,9 +81,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var guidStrings = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var groupName = toolInfo.Arguments["groupName"]?.ToString();
-                var colorStr = toolInfo.Arguments["color"]?.ToString();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guidStrings = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var groupName = args["groupName"]?.ToString();
+                var colorStr = args["color"]?.ToString();
                 var validGuids = new List<Guid>();
 
                 foreach (var s in guidStrings)

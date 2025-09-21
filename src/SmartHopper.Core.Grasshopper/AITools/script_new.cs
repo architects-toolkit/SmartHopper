@@ -77,13 +77,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var prompt = toolInfo.Arguments["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
-                var language = toolInfo.Arguments["language"]?.ToString() ?? "python";
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var prompt = args["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
+                var language = args["language"]?.ToString() ?? "python";
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
                 var endpoint = this.toolName;
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;

@@ -84,14 +84,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var targetsObj = toolInfo.Arguments["targets"] as JObject;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var targetsObj = args["targets"] as JObject;
                 if (targetsObj == null)
                 {
                     output.CreateError("Missing or invalid 'targets' parameter.");
                     return output;
                 }
-                var relative = toolInfo.Arguments["relative"]?.ToObject<bool>() ?? false;
+                var relative = args["relative"]?.ToObject<bool>() ?? false;
                 var dict = new Dictionary<Guid, PointF>();
                 foreach (var prop in targetsObj.Properties())
                 {

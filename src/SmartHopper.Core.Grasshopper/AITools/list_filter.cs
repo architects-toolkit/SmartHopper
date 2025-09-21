@@ -105,10 +105,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string? rawList = toolInfo.Arguments["list"]?.ToString();
-                string? criteria = toolInfo.Arguments["criteria"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string? rawList = args["list"]?.ToString();
+                string? criteria = args["criteria"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
                 {
@@ -186,7 +187,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
         {
-            var token = toolCall.Arguments["list"];
+            var args = toolCall.Arguments ?? new JObject();
+            var token = args["list"];
             if (token is JArray array)
             {
                 return array.Select(t => t.ToString()).ToList();

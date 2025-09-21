@@ -68,8 +68,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                int? idNullable = toolInfo.Arguments["id"]?.Value<int>();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                int? idNullable = args["id"]?.Value<int>();
                 if (!idNullable.HasValue)
                 {
                     output.CreateError("Missing 'id' parameter.");
