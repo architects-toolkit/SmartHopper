@@ -82,9 +82,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var startToken = toolInfo.Arguments["startPoint"];
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var startToken = args["startPoint"];
                 var hasStart = startToken != null;
                 PointF origin = default;
                 if (hasStart)

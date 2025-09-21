@@ -81,6 +81,17 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                         $"Arguments for tool '{instance.Name}' do not match schema: {error}"));
                 }
             }
+            else
+            {
+                // If a schema exists but no arguments were provided, initialize to an empty object
+                // so downstream execution receives a valid JSON object. This mirrors permissive
+                // handling for tools that support optional arguments.
+                instance.Arguments = new JObject();
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Info,
+                    AIRuntimeMessageOrigin.Validation,
+                    $"No arguments provided for tool '{instance.Name}'. Created default empty arguments {{}} to satisfy the schema."));
+            }
 
             var result = new ValidationResult
             {

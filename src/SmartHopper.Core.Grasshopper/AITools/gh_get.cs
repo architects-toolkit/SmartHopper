@@ -90,20 +90,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Parse filters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var attrFilters = toolInfo.Arguments["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
-                var typeFilters = toolInfo.Arguments["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                // Arguments may be null when calling gh_get with no parameters; default to empty filters
+                var args = toolInfo.Arguments ?? new JObject();
+                var attrFilters = args["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
+                var typeFilters = args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 var objects = GHCanvasUtils.GetCurrentObjects();
 
                 // Filter by manual UI selection if provided
-                var selectedGuids = toolInfo.Arguments["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
+                var selectedGuids = args["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 if (selectedGuids.Any())
                 {
                     var set = new HashSet<string>(selectedGuids);
                     objects = objects.Where(o => set.Contains(o.InstanceGuid.ToString())).ToList();
                 }
 
-                var connectionDepth = toolInfo.Arguments["connectionDepth"]?.ToObject<int>() ?? 0;
+                var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var (includeTypes, excludeTypes) = Get.ParseIncludeExclude(typeFilters, Get.TypeSynonyms);
                 var (includeTags, excludeTags) = Get.ParseIncludeExclude(attrFilters, Get.FilterSynonyms);
 

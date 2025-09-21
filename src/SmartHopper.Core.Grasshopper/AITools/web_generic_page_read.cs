@@ -74,8 +74,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string url = toolInfo.Arguments["url"]?.ToString();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string url = args["url"]?.ToString();
                 if (string.IsNullOrEmpty(url))
                 {
                     output.CreateError("Missing 'url' parameter.");
