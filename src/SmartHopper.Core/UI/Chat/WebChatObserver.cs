@@ -40,6 +40,63 @@ namespace SmartHopper.Core.UI.Chat
                 public IAIInteraction Aggregated;
             }
 
+            /// <summary>
+            /// Returns a segmented text key for the given base key. Each new text message within the same
+            /// turn gets a new segment index to ensure separate DOM bubbles. A simple seed based on the first non-empty
+            /// content/reasoning chunk is used to detect new messages.
+            /// </summary>
+            private string GetAssistantSegmentedKey(string baseKey, AIInteractionText chunk, out StreamState initialState)
+            {
+                initialState = null;
+                if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
+
+                // Compute a lightweight seed from the earliest available content
+                string seed = null;
+                try
+                {
+                    var c = (chunk?.Reasoning ?? string.Empty).Trim();
+                    if (string.IsNullOrEmpty(c)) c = (chunk?.Content ?? string.Empty).Trim();
+                    if (!string.IsNullOrEmpty(c))
+                    {
+                        // Take up to 24 chars as a simple seed to detect a different message start
+                        seed = c.Length <= 24 ? c : c.Substring(0, 24);
+                    }
+                }
+                catch { }
+
+                if (!_textInteractionSegments.TryGetValue(baseKey, out var seg))
+                {
+                    seg = 1;
+                    _textInteractionSegments[baseKey] = seg;
+                    _textSegmentSeeds[baseKey] = seed;
+                    initialState = new StreamState { Started = false, Aggregated = null };
+                    return $"{baseKey}:seg{seg}";
+                }
+
+                // If seed differs from the stored one and is non-empty, start a new segment
+                var existingSeed = _textSegmentSeeds.TryGetValue(baseKey, out var s) ? s : null;
+                if (!string.IsNullOrEmpty(seed) && !string.Equals(seed, existingSeed, StringComparison.Ordinal))
+                {
+                    seg++;
+                    _textInteractionSegments[baseKey] = seg;
+                    _textSegmentSeeds[baseKey] = seed;
+                    initialState = new StreamState { Started = false, Aggregated = null };
+                }
+
+                return $"{baseKey}:seg{seg}";
+            }
+
+            /// <summary>
+            /// Returns the current segmented text key for a base key without creating a new segment.
+            /// </summary>
+            private string GetCurrentAssistantSegmentedKey(string baseKey)
+            {
+                if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
+                var seg = _textInteractionSegments.TryGetValue(baseKey, out var s) ? s : 1;
+                if (!_textInteractionSegments.ContainsKey(baseKey)) _textInteractionSegments[baseKey] = seg;
+                return $"{baseKey}:seg{seg}";
+            }
+
             // Tracks UI state for the temporary thinking bubble and whether we've already
             // appended an assistant message to the chat. This ensures correct ordering:
             // tool calls/results first, assistant response appended at the end.
@@ -50,77 +107,85 @@ namespace SmartHopper.Core.UI.Chat
             private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
             private const int ThrottleMs = 100;
 
-        /// <summary>
-        /// Aggregates assistant text across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
-        /// Rules:
-        /// - First chunk: start stream, set aggregated = first content.
-        /// - Subsequent chunks:
-        ///   - If incoming starts with current -> provider is cumulative: replace with incoming.
-        ///   - Else if current starts with incoming -> regression/noise: ignore to prevent trimming flicker.
-        ///   - Else -> treat as incremental delta: append incoming to current.
-        /// </summary>
-        private static void CoalesceAssistantTextChunk(AIInteractionText incoming, string key, ref StreamState state)
-        {
-            if (!state.Started || state.Aggregated is not AIInteractionText aggExisting)
+            // Tracks per-turn text segments so multiple text messages in a single turn
+            // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:assistant").
+            private readonly Dictionary<string, int> _textInteractionSegments = new Dictionary<string, int>(StringComparer.Ordinal);
+            /// <summary>
+            /// Stores a small seed per base key to detect a new text message start and advance the segment.
+            /// </summary>
+            private readonly Dictionary<string, string> _textSegmentSeeds = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            /// <summary>
+            /// Aggregates text message across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
+            /// Rules:
+            /// - First chunk: start stream, set aggregated = first content.
+            /// - Subsequent chunks:
+            ///   - If incoming starts with current -> provider is cumulative: replace with incoming.
+            ///   - Else if current starts with incoming -> regression/noise: ignore to prevent trimming flicker.
+            ///   - Else -> treat as incremental delta: append incoming to current.
+            /// </summary>
+            private static void CoalesceTextStreamChunk(AIInteractionText incoming, string key, ref StreamState state)
             {
-                state.Started = true;
-                state.Aggregated = new AIInteractionText
+                if (!state.Started || state.Aggregated is not AIInteractionText aggExisting)
                 {
-                    Agent = AIAgent.Assistant,
-                    Content = incoming?.Content ?? string.Empty,
+                    state.Started = true;
+                    state.Aggregated = new AIInteractionText
+                    {
+                        Agent = incoming?.Agent ?? AIAgent.Assistant,
+                        Content = incoming?.Content ?? string.Empty,
 
-                    // Also capture any streamed reasoning content from the first chunk
-                    Reasoning = incoming?.Reasoning ?? string.Empty,
+                        // Also capture any streamed reasoning content from the first chunk
+                        Reasoning = incoming?.Reasoning ?? string.Empty,
 
-                    // Preserve stream identity so GetStreamKey() stays as turn:{TurnId}
-                    TurnId = incoming?.TurnId,
+                        // Preserve stream identity so GetStreamKey() stays as turn:{TurnId}
+                        TurnId = incoming?.TurnId,
 
-                    // Hide metrics while streaming to avoid showing 0/0 interim values.
-                    // Final metrics will be applied in OnFinal when the response completes.
-                    Metrics = null,
-                    Time = incoming?.Time ?? DateTime.UtcNow,
-                };
-                return;
-            }
-
-            var current = aggExisting.Content ?? string.Empty;
-            var incomingText = incoming?.Content ?? string.Empty;
-
-            // Cumulative stream: incoming contains full text so far
-            if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
-            {
-                aggExisting.Content = incomingText;
-                // Even if content is cumulative, we still want to coalesce reasoning below
-            }
-            else if (current.StartsWith(incomingText, StringComparison.Ordinal))
-            {
-                // Regression/noise: ignore to avoid trimming visual content
-            }
-            else
-            {
-                // Incremental delta: append
-                aggExisting.Content = current + incomingText;
-            }
-
-            // Now coalesce reasoning similarly (when providers stream thinking separately)
-            var currentR = aggExisting.Reasoning ?? string.Empty;
-            var incomingR = incoming?.Reasoning ?? string.Empty;
-            if (!string.IsNullOrEmpty(incomingR))
-            {
-                if (incomingR.Length >= currentR.Length && incomingR.StartsWith(currentR, StringComparison.Ordinal))
-                {
-                    aggExisting.Reasoning = incomingR;
+                        // Hide metrics while streaming to avoid showing 0/0 interim values.
+                        // Final metrics will be applied in OnFinal when the response completes.
+                        Metrics = null,
+                        Time = incoming?.Time ?? DateTime.UtcNow,
+                    };
+                    return;
                 }
-                else if (currentR.StartsWith(incomingR, StringComparison.Ordinal))
+
+                var current = aggExisting.Content ?? string.Empty;
+                var incomingText = incoming?.Content ?? string.Empty;
+
+                // Cumulative stream: incoming contains full text so far
+                if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
                 {
-                    // Regression/noise: keep existing
+                    aggExisting.Content = incomingText;
+                    // Even if content is cumulative, we still want to coalesce reasoning below
+                }
+                else if (current.StartsWith(incomingText, StringComparison.Ordinal))
+                {
+                    // Regression/noise: ignore to avoid trimming visual content
                 }
                 else
                 {
-                    aggExisting.Reasoning = currentR + incomingR;
+                    // Incremental delta: append
+                    aggExisting.Content = current + incomingText;
+                }
+
+                // Now coalesce reasoning similarly (when providers stream thinking separately)
+                var currentR = aggExisting.Reasoning ?? string.Empty;
+                var incomingR = incoming?.Reasoning ?? string.Empty;
+                if (!string.IsNullOrEmpty(incomingR))
+                {
+                    if (incomingR.Length >= currentR.Length && incomingR.StartsWith(currentR, StringComparison.Ordinal))
+                    {
+                        aggExisting.Reasoning = incomingR;
+                    }
+                    else if (currentR.StartsWith(incomingR, StringComparison.Ordinal))
+                    {
+                        // Regression/noise: keep existing
+                    }
+                    else
+                    {
+                        aggExisting.Reasoning = currentR + incomingR;
+                    }
                 }
             }
-        }
 
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
@@ -186,14 +251,15 @@ namespace SmartHopper.Core.UI.Chat
                             // Handle text deltas (assistant/user/system) for live streaming
                             if (interaction is AIInteractionText tt)
                             {
-                                var key = GetStreamKey(interaction);
+                                // Determine segmented key for ANY text agent (assistant, user, system)
+                                var baseKey = GetStreamKey(interaction);
+                                var key = GetAssistantSegmentedKey(baseKey, tt, out var segState);
                                 if (!_streams.TryGetValue(key, out var state))
                                 {
-                                    state = new StreamState { Started = false, Aggregated = null };
+                                    state = segState ?? new StreamState { Started = false, Aggregated = null };
                                 }
-
                                 // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
-                                CoalesceAssistantTextChunk(tt, key, ref state);
+                                CoalesceTextStreamChunk(tt, key, ref state);
                                 this._streams[key] = state;
 
                                 if (state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
@@ -232,31 +298,32 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             // Keep the thinking bubble during processing; do not remove on partials
 
-                            // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
-                            var streamKey = GetStreamKey(interaction);
-                            if (!_streams.TryGetValue(streamKey, out var state))
+                            // Text interactions (any agent): coalesce per segmented key and upsert
+                            if (interaction is AIInteractionText tt)
                             {
-                                state = new StreamState { Started = false, Aggregated = null };
-                            }
-
-                            if (interaction is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
-                            {
-                                // Coalesce and live-upsert assistant streaming content (Option A)
-                                CoalesceAssistantTextChunk(tt, streamKey, ref state);
-                                _streams[streamKey] = state;
-                                if (state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
+                                var baseKey = GetStreamKey(interaction);
+                                var segKey = GetAssistantSegmentedKey(baseKey, tt, out var segState);
+                                if (!_streams.TryGetValue(segKey, out var tstate))
                                 {
-                                    if (ShouldUpsertNow(streamKey))
+                                    tstate = segState ?? new StreamState { Started = false, Aggregated = null };
+                                }
+                                // Coalesce and live-upsert streaming content for this text stream
+                                CoalesceTextStreamChunk(tt, segKey, ref tstate);
+                                _streams[segKey] = tstate;
+                                if (tstate.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
+                                {
+                                    if (ShouldUpsertNow(segKey))
                                     {
-                                        _dialog.UpsertMessageByKey(streamKey, aggText, source: "OnPartial");
-                                        _assistantBubbleAdded = true;
+                                        _dialog.UpsertMessageByKey(segKey, aggText, source: "OnPartial");
+                                        _assistantBubbleAdded |= tt.Agent == AIAgent.Assistant;
                                     }
                                 }
                             }
 
-                            // Stream-update non-assistant interactions immediately using their provided keys.
-                            if (!(interaction is AIInteractionText at && at.Agent == AIAgent.Assistant))
+                            // Stream-update non-text interactions immediately using their provided keys.
+                            if (interaction is not AIInteractionText)
                             {
+                                var streamKey = GetStreamKey(interaction);
                                 if (string.IsNullOrWhiteSpace(streamKey))
                                 {
                                     // Fallback: append if keyless (should be rare)
@@ -327,7 +394,7 @@ namespace SmartHopper.Core.UI.Chat
 
                         try
                         {
-                            // Determine final assistant item and its stream key (turn:{TurnId})
+                            // Determine final assistant item and its base stream key (turn:{TurnId}:assistant)
                             var finalAssistant = result?.Body?.Interactions?
                                 .OfType<AIInteractionText>()
                                 .LastOrDefault(i => i.Agent == AIAgent.Assistant);
@@ -340,8 +407,10 @@ namespace SmartHopper.Core.UI.Chat
 
                             // Prefer the aggregated streaming content for visual continuity
                             AIInteractionText aggregated = null;
-                            if (!string.IsNullOrWhiteSpace(streamKey)
-                                && this._streams.TryGetValue(streamKey, out var st)
+                            // Use the current segmented key for the assistant stream
+                            var segKey = !string.IsNullOrWhiteSpace(streamKey) ? GetCurrentAssistantSegmentedKey(streamKey) : null;
+                            if (!string.IsNullOrWhiteSpace(segKey)
+                                && this._streams.TryGetValue(segKey, out var st)
                                 && st?.Aggregated is AIInteractionText agg
                                 && !string.IsNullOrWhiteSpace(agg.Content))
                             {
@@ -355,7 +424,7 @@ namespace SmartHopper.Core.UI.Chat
                                     if (kv.Value?.Aggregated is AIInteractionText agg2 && !string.IsNullOrWhiteSpace(agg2.Content))
                                     {
                                         aggregated = agg2;
-                                        if (string.IsNullOrWhiteSpace(streamKey)) streamKey = kv.Key;
+                                        if (string.IsNullOrWhiteSpace(segKey)) segKey = kv.Key;
                                         break;
                                     }
                                 }
@@ -377,8 +446,8 @@ namespace SmartHopper.Core.UI.Chat
                             var toRender = aggregated ?? finalAssistant;
                             if (toRender != null)
                             {
-                                // Prefer the known streamKey (turn:{TurnId}) to replace the streaming bubble deterministically
-                                var upsertKey = streamKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
+                                // Prefer the segmented key to replace the streaming bubble deterministically
+                                var upsertKey = segKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
                                 Debug.WriteLine($"[WebChatObserver] OnFinal Upsert key={upsertKey} len={(toRender as AIInteractionText)?.Content?.Length ?? 0}");
                                 this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
                                 _assistantBubbleAdded = true;
@@ -448,13 +517,6 @@ namespace SmartHopper.Core.UI.Chat
                         Debug.WriteLine($"[WebChatObserver] OnError UI error: {uiEx.Message}");
                     }
                 });
-            }
-
-            private bool TryAdd(IAIInteraction interaction)
-            {
-                var key = MakeKey(interaction);
-                if (key == null) return false;
-                return _seen.Add(key);
             }
 
             /// <summary>
@@ -528,47 +590,6 @@ namespace SmartHopper.Core.UI.Chat
                 var agent = interaction.Agent.ToString();
                 var time = interaction.Time.ToString("o");
                 return $"other:{interaction.GetType().Name}:{agent}:{time}";
-            }
-
-            /// <summary>
-            /// Determines whether an interaction has been persisted into the session history.
-            /// This is used to gate non-assistant partial UI updates so we only add interactions
-            /// after they become part of the conversation history (post-streaming snapshot).
-            /// </summary>
-            private bool IsPersisted(IAIInteraction interaction)
-            {
-                try
-                {
-                    var history = this._dialog._currentSession?.GetHistoryInteractionList();
-                    if (history == null || history.Count == 0)
-                        return false;
-
-                    switch (interaction)
-                    {
-                        case AIInteractionToolResult tr:
-                            {
-                                var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
-                                return history.OfType<AIInteractionToolResult>().Any(h => (!string.IsNullOrEmpty(h.Id) ? h.Id : h.Name ?? string.Empty) == id);
-                            }
-                        case AIInteractionToolCall tc:
-                            {
-                                var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
-                                return history.OfType<AIInteractionToolCall>().Any(h => (!string.IsNullOrEmpty(h.Id) ? h.Id : h.Name ?? string.Empty) == id);
-                            }
-                        case AIInteractionText t when t.Agent != AIAgent.Assistant:
-                            {
-                                var content = t.Content ?? string.Empty;
-                                var agent = t.Agent;
-                                return history.OfType<AIInteractionText>().Any(h => h.Agent == agent && string.Equals(h.Content ?? string.Empty, content, StringComparison.Ordinal));
-                            }
-                        default:
-                            return history.Any(h => ReferenceEquals(h, interaction));
-                    }
-                }
-                catch
-                {
-                    return false;
-                }
             }
         }
     }

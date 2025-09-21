@@ -96,7 +96,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Returns a stable stream grouping key for this interaction. One active text stream per agent.
+        /// Returns a stable stream grouping key for this interaction.
+        /// When a TurnId exists, the key is stable across streaming chunks (no timestamp),
+        /// ensuring UI upserts replace the same DOM node. For non-turn messages, includes a timestamp.
         /// </summary>
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
@@ -106,10 +108,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
-                return $"turn:{this.TurnId}:{agent}:{timestamp}";
+                // Stable per-turn key (no timestamp) so streaming chunks upsert the same element
+                return $"turn:{this.TurnId}:{agent}";
             }
 
-            return $"text:{agent}:{timestamp}";
+            // Fallback for messages without a TurnId
+            return $"text:{agent}";
         }
 
         /// <summary>
