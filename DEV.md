@@ -6,6 +6,7 @@ This document aggregates development-facing information.
   - [Development Status](#development-status)
   - [AI Tools](#ai-tools)
   - [Available Providers](#available-providers)
+  - [Default Models by Provider](#default-models-by-provider)
   - [Supported Data Types](#supported-data-types)
 
 ## 📊 Development Status
@@ -88,6 +89,34 @@ SmartHopper is currently supporting the following AI providers:
 | [OpenRouter](https://openrouter.ai/) | ✅ Supported | [OpenRouter](https://openrouter.ai/) |
 
 Do you want more providers? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
+
+## 🧠 Default Models by Provider
+
+The following table summarizes the models explicitly registered as defaults in each provider’s model registry. Source files:
+
+- `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
+- `src/SmartHopper.Providers.MistralAI/MistralAIProviderModels.cs`
+- `src/SmartHopper.Providers.DeepSeek/DeepSeekProviderModels.cs`
+- `src/SmartHopper.Providers.Anthropic/AnthropicProviderModels.cs`
+- `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
+
+Notes:
+- “Default For” lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
+- “Capabilities” lists the core capability flags registered for the model.
+- “Verified” reflects the `Verified` flag in the registry; “Deprecated” reflects the `Deprecated` flag (none of the current defaults are flagged deprecated).
+
+| Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
+|---|---|:---:|:---:|:---:|---|---|
+| OpenAI | gpt-5-nano | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | gpt-5-mini | ⭐ | ✅ | - | ToolChat; Text2Json; ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | dall-e-3 | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
+| OpenAI | gpt-image-1 | - | - | - | Text2Image; Image2Image | TextInput, ImageInput, ImageOutput |
+| MistralAI | mistral-small-latest | ⭐ | ✅ | - | Text2Text; ToolChat; Text2Json | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput |
+| MistralAI | magistral-small-latest | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| DeepSeek | deepseek-reasoner | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| DeepSeek | deepseek-chat | - | ✅ | - | Text2Text; ToolChat | TextInput, TextOutput, JsonOutput, FunctionCalling |
+| Anthropic | claude-3-5-haiku-latest | - | ✅ | - | Text2Text; ToolChat; Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| OpenRouter | openai/gpt-5-mini | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 
 ## 🔢 Supported Data Types
 

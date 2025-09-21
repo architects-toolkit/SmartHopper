@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 
@@ -74,11 +75,17 @@ namespace SmartHopper.Infrastructure.AITools
             var (isValid, errors) = toolCall.IsValid();
             if (!isValid)
             {
-                Debug.WriteLine($"[AIToolManager] Tool call is invalid: {string.Join(", ", errors)}");
-                output.ErrorMessage = $"Tool call is invalid: {string.Join(", ", errors)}";
+                var reasonList = (errors ?? new List<AIRuntimeMessage>())
+                    .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Message))
+                    .Select(m => m.Message)
+                    .ToList();
+                var reasonText = reasonList.Count > 0 ? string.Join(" \n", reasonList) : "Tool call is invalid";
+                Debug.WriteLine($"[AIToolManager] Tool call is invalid: {reasonText}");
+                // Standardize as a tool error with structured messages for diagnostics/UI
+                output.CreateToolError(reasonText, toolCall);
                 if (errors != null && errors.Count > 0)
                 {
-                    output.Messages.AddRange(errors);
+                    output.Messages = errors;
                 }
                 return output;
             }

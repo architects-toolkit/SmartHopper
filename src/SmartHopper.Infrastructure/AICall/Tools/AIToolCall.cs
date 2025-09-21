@@ -87,10 +87,23 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         public override async Task<AIReturn> Exec()
         {
             // Validate early
-            var (ok, _) = this.IsValid();
+            var (ok, errors) = this.IsValid();
             if (!ok)
             {
-                return this.BuildErrorReturn("Tool call validation failed");
+                // Build a detailed tool error including specific validation reasons
+                var ret = new AIReturn();
+                var errorTexts = (errors ?? new List<AIRuntimeMessage>())
+                    .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Message))
+                    .Select(m => m.Message)
+                    .ToList();
+                var combined = errorTexts.Count > 0 ? string.Join(" \n", errorTexts) : "Tool call validation failed";
+                ret.CreateToolError(combined, this);
+                // Attach structured validation messages so UIs and components can surface them
+                if (errors != null && errors.Count > 0)
+                {
+                    ret.Messages = errors;
+                }
+                return ret;
             }
 
             try

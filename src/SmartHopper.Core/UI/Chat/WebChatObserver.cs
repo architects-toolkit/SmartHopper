@@ -389,19 +389,35 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        // Ensure the persistent thinking bubble is removed on any terminal error/cancel
-                        RemoveThinkingBubbleIfActive();
-
-                        if (ex is OperationCanceledException)
+                        // For all errors (including cancellations), render as an AIInteractionError (red-styled)
+                        var isCancel = ex is OperationCanceledException;
+                        var errInteraction = new AIInteractionError
                         {
-                            this._dialog.AddSystemMessage("Cancelled.", "info");
-                            this._dialog.ExecuteScript("setStatus('Cancelled'); setProcessing(false);");
+                            // Agent is AIAgent.Error by default; content carries message
+                            Content = isCancel ? "Cancelled." : (ex?.Message ?? "Unknown error"),
+                        };
+
+                        // Prefer keyed upsert for idempotent rendering and replay reliability
+                        if (errInteraction is IAIKeyedInteraction keyed)
+                        {
+                            var key = keyed.GetDedupKey();
+                            if (!string.IsNullOrWhiteSpace(key))
+                            {
+                                this._dialog.UpsertMessageByKey(key, errInteraction, source: "OnError");
+                            }
+                            else
+                            {
+                                this._dialog.AddInteractionToWebView(errInteraction);
+                            }
                         }
                         else
                         {
-                            this._dialog.AddSystemMessage($"Error: {ex.Message}", "error");
-                            this._dialog.ExecuteScript("setStatus('Error'); setProcessing(false);");
+                            this._dialog.AddInteractionToWebView(errInteraction);
                         }
+
+                        // After rendering the error, update status and stop processing (removes loader via JS helper)
+                        var status = isCancel ? "Cancelled" : "Error";
+                        this._dialog.ExecuteScript($"setStatus('{status}'); setProcessing(false);");
                     }
                     catch (Exception uiEx)
                     {
