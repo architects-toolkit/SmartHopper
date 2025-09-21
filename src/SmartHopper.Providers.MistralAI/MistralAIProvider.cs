@@ -115,52 +115,105 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            // This method should encode a single interaction to string
-            // For MistralAI, we'll serialize the interaction as JSON
+            // Reuse a single conversion path to the Mistral chat message format
             try
             {
-                if (interaction is AIInteractionText textInteraction)
-                {
-                    return JsonConvert.SerializeObject(new
-                    {
-                        agent = textInteraction.Agent.ToString(),
-                        content = textInteraction.Content,
-                        reasoning = textInteraction.Reasoning
-                    });
-                }
-                else if (interaction is AIInteractionToolCall toolCallInteraction)
-                {
-                    return JsonConvert.SerializeObject(new
-                    {
-                        agent = toolCallInteraction.Agent.ToString(),
-                        id = toolCallInteraction.Id,
-                        name = toolCallInteraction.Name,
-                        arguments = toolCallInteraction.Arguments
-                    });
-                }
-                else if (interaction is AIInteractionToolResult toolResultInteraction)
-                {
-                    return JsonConvert.SerializeObject(new
-                    {
-                        agent = toolResultInteraction.Agent.ToString(),
-                        result = toolResultInteraction.Result,
-                        id = toolResultInteraction.Id,
-                        name = toolResultInteraction.Name
-                    });
-                }
-
-                // Fallback
-                return JsonConvert.SerializeObject(new
-                {
-                    agent = interaction.Agent.ToString(),
-                    content = string.Empty,
-                });
+                var token = this.EncodeToJToken(interaction);
+                return token?.ToString() ?? string.Empty;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MistralAI] Encode error: {ex.Message}");
                 return string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Converts a single interaction to a Mistral chat message object (JToken).
+        /// Returns null for interactions that should not be sent (e.g., UI-only errors).
+        /// </summary>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
+            if (interaction == null)
+            {
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            var messageObj = new JObject();
+
+            // Map role
+            switch (interaction.Agent)
+            {
+                case AIAgent.System:
+                case AIAgent.Context:
+                    messageObj["role"] = "system";
+                    break;
+                case AIAgent.User:
+                    messageObj["role"] = "user";
+                    break;
+                case AIAgent.Assistant:
+                    messageObj["role"] = "assistant";
+                    break;
+                case AIAgent.ToolResult:
+                    messageObj["role"] = "tool";
+                    break;
+                case AIAgent.ToolCall:
+                    messageObj["role"] = "assistant";
+                    break;
+                default:
+                    // Unknown/unsupported -> skip
+                    return null;
+            }
+
+            // Handle content and tool fields per interaction type
+            if (interaction is AIInteractionText textInteraction)
+            {
+                messageObj["content"] = textInteraction.Content ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                messageObj["tool_call_id"] = toolResultInteraction.Id;
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    messageObj["name"] = toolResultInteraction.Name;
+                }
+                messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                var toolCallObj = new JObject
+                {
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
+                    {
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments is JToken jt
+                            ? jt.ToString()
+                            : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
+                    },
+                };
+                messageObj["tool_calls"] = new JArray { toolCallObj };
+                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                // Mistral does not (yet) support vision in the same way; fallback to prompt as content
+                messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+            }
+            else
+            {
+                // Fallback: empty content
+                messageObj["content"] = string.Empty;
+            }
+
+            return messageObj;
         }
 
         /// <inheritdoc/>
@@ -180,96 +233,14 @@ namespace SmartHopper.Providers.MistralAI
 
             Debug.WriteLine($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
-            // Format messages for Mistral API
+            // Format messages for Mistral API (reuse per-interaction encoder)
             var convertedMessages = new JArray();
             foreach (var interaction in request.Body.Interactions)
             {
-                AIAgent role = interaction.Agent;
-                string roleName = string.Empty;
-                string msgContent;
-                // Handle different interaction types by casting to concrete types
-                if (interaction is AIInteractionText textInteraction)
+                var token = this.EncodeToJToken(interaction);
+                if (token != null)
                 {
-                    msgContent = textInteraction.Content ?? string.Empty;
-                }
-                else if (interaction is AIInteractionToolResult toolResultInteraction)
-                {
-                    msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
-                }
-                else if (interaction is AIInteractionToolCall toolCallInteraction)
-                {
-                    msgContent = string.Empty; // Tool calls don't have content
-                }
-                else if (interaction is AIInteractionImage imageInteraction)
-                {
-                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
-                }
-                else
-                {
-                    // Fallback to empty string for unknown types
-                    msgContent = string.Empty;
-                }
-
-                var messageObj = new JObject
-                {
-                    ["content"] = msgContent,
-                };
-
-                // Map role names
-                if (role == AIAgent.System || role == AIAgent.Context)
-                {
-                    roleName = "system";
-                }
-                else if (role == AIAgent.Assistant)
-                {
-                    roleName = "assistant";
-
-                    // Tool calls are handled separately as AIInteractionToolCall objects
-                    // Assistant messages don't directly contain tool calls in our architecture
-                }
-                else if (role == AIAgent.ToolResult)
-                {
-                    roleName = "tool";
-
-                    // Propagate tool_call ID and name - cast to concrete type
-                    if (interaction is AIInteractionToolResult toolResultInteraction)
-                    {
-                        messageObj["name"] = toolResultInteraction.Name;
-                        messageObj["tool_call_id"] = toolResultInteraction.Id;
-                    }
-                }
-                else if (role == AIAgent.ToolCall)
-                {
-                    roleName = "assistant";
-                    
-                    // Handle tool call as assistant message with tool_calls
-                    if (interaction is AIInteractionToolCall toolCallInteraction)
-                    {
-                        var toolCallsArray = new JArray();
-                        var toolCallObj = new JObject
-                        {
-                            ["id"] = toolCallInteraction.Id,
-                            ["type"] = "function",
-                            ["function"] = new JObject
-                            {
-                                ["name"] = toolCallInteraction.Name,
-                                ["arguments"] = toolCallInteraction.Arguments is JToken jToken ? jToken.ToString() : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
-                            },
-                        };
-                        toolCallsArray.Add(toolCallObj);
-                        messageObj["tool_calls"] = toolCallsArray;
-                        msgContent = string.Empty; // Tool calls don't have content
-                    }
-                }
-                else
-                {
-                    roleName = "user";
-                }
-
-                if(!string.IsNullOrEmpty(roleName))
-                {
-                    messageObj["role"] = roleName;
-                    convertedMessages.Add(messageObj);
+                    convertedMessages.Add(token);
                 }
             }
 
