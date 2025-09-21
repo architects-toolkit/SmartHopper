@@ -180,7 +180,8 @@ namespace SmartHopper.Core.UI.Chat
                             if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                             {
                                 // Upsert by stream key to ensure single bubble across deltas
-                                this._dialog.UpsertMessageByKey(key, aggText);
+                                Debug.WriteLine($"[WebChatObserver] OnDelta Upsert key={key} len={aggText.Content?.Length ?? 0}");
+                                this._dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
                                 _assistantBubbleAdded = true;
                             }
                         }
@@ -225,7 +226,8 @@ namespace SmartHopper.Core.UI.Chat
                                 if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
                                 {
                                     // Upsert assistant bubble by stream key
-                                    _dialog.UpsertMessageByKey(key, aggText);
+                                    Debug.WriteLine($"[WebChatObserver] OnPartial Upsert key={key} len={aggText.Content?.Length ?? 0}");
+                                    _dialog.UpsertMessageByKey(key, aggText, source: "OnPartial");
                                     _assistantBubbleAdded = true;
                                 }
                             }
@@ -243,7 +245,8 @@ namespace SmartHopper.Core.UI.Chat
                                             var dedupKey = keyedPersisted.GetDedupKey();
                                             if (!string.IsNullOrWhiteSpace(dedupKey))
                                             {
-                                                _dialog.UpsertMessageByKey(dedupKey, interaction);
+                                                Debug.WriteLine($"[WebChatObserver] OnPartial Upsert persisted key={dedupKey} type={interaction.GetType().Name}");
+                                                _dialog.UpsertMessageByKey(dedupKey, interaction, source: "OnPartialPersisted");
                                             }
                                             else
                                             {
@@ -352,7 +355,8 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 // Prefer the known streamKey (turn:{TurnId}) to replace the streaming bubble deterministically
                                 var upsertKey = streamKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
-                                this._dialog.UpsertMessageByKey(upsertKey, toRender);
+                                Debug.WriteLine($"[WebChatObserver] OnFinal Upsert key={upsertKey} len={(toRender as AIInteractionText)?.Content?.Length ?? 0}");
+                                this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
                                 _assistantBubbleAdded = true;
                             }
                         }

@@ -680,7 +680,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Components,ComponentsRetrieval,Knowledge,,Scripting",
+                    toolFilter: "Components,ComponentsRetrieval,Knowledge,Scripting",
                     componentId: CanvasChatDialogId);
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
