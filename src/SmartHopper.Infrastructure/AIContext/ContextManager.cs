@@ -107,7 +107,7 @@ namespace SmartHopper.Infrastructure.AIContext
                 foreach (var kv in provider.GetContext())
                 {
                     string key = kv.Key;
-                    if (!key.Contains("_"))
+                    if (!key.Contains("_", StringComparison.Ordinal))
                     {
                         key = $"{provider.ProviderId}_{key}";
                     }

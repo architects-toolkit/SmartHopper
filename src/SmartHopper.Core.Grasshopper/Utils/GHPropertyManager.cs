@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Grasshopper.Kernel;
@@ -27,7 +28,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
     public static class GHPropertyManager
     {
         // List of omitted properties
-        private static List<string> omittedProperties = new()
+        private static List<string> omittedProperties = new ()
         {
             "VolatileData",
             "DataType",
@@ -261,7 +262,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 // Convert Int64 to Int32 if needed
                 if (value.GetType() == typeof(long))
                 {
-                    value = Convert.ToInt32(value);
+                    value = Convert.ToInt32(value, CultureInfo.InvariantCulture);
                 }
 
                 // If types match, return as is
@@ -281,13 +282,14 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             Debug.WriteLine($"Color converted: {color}");
                             return color;
                         }
+
                         break;
 
                     case "Font":
                         return StringConverter.StringToFont(value.ToString());
 
                     case "Alignment":
-                        int alignmentValue = Convert.ToInt32(value);
+                        int alignmentValue = Convert.ToInt32(value, CultureInfo.InvariantCulture);
                         switch (alignmentValue)
                         {
                             case 0: return GH_Panel.Alignment.Default;
@@ -310,19 +312,19 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
                 else if (targetType == typeof(int))
                 {
-                    return Convert.ToInt32(value);
+                    return Convert.ToInt32(value, CultureInfo.InvariantCulture);
                 }
                 else if (targetType == typeof(double))
                 {
-                    return Convert.ToDouble(value);
+                    return Convert.ToDouble(value, CultureInfo.InvariantCulture);
                 }
                 else if (targetType == typeof(bool))
                 {
-                    return Convert.ToBoolean(value);
+                    return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
                 }
                 else if (targetType == typeof(float))
                 {
-                    return Convert.ToSingle(value);
+                    return Convert.ToSingle(value, CultureInfo.InvariantCulture);
                 }
                 else if (targetType.IsEnum)
                 {

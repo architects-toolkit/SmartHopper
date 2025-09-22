@@ -55,6 +55,7 @@ namespace SmartHopper.Core.IO
                     Debug.WriteLine($"[Persistence] Wrote V2 output for {component.Name} key={key}, paths={encoded.PathCount}, items={encoded.DataCount}");
 #endif
                 }
+
                 return true;
             }
             catch (Exception ex)
@@ -136,6 +137,7 @@ namespace SmartHopper.Core.IO
             {
                 Debug.WriteLine($"[Persistence] Exception in ReadOutputsV2: {ex.Message}");
             }
+
             return result;
         }
     }

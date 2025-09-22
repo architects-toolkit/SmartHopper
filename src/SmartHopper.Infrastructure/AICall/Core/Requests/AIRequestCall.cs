@@ -287,13 +287,20 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 {
                     Debug.WriteLine($"[AIRequest.Exec] before policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
-                catch { /* logging only */ }
+                catch
+                {
+                    /* logging only */
+                }
+
                 await PolicyPipeline.Default.ApplyResponsePoliciesAsync(air).ConfigureAwait(false);
                 try
                 {
                     Debug.WriteLine($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
-                catch { /* logging only */ }
+                catch
+                {
+                    // logging only
+                }
 
                 return air;
             }
@@ -327,6 +334,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     // Treat other HttpRequestException as network as well
                     errorResult.CreateNetworkError(raw, this);
                 }
+
                 return errorResult;
             }
             catch (Exception ex)
@@ -437,6 +445,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 builder.AddRange(interactions);
             }
+
             this.Body = builder.Build();
         }
 

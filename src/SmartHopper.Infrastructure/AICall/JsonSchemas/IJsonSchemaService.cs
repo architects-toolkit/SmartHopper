@@ -73,22 +73,22 @@ namespace SmartHopper.Infrastructure.AICall.JsonSchemas
     public sealed class SchemaWrapperInfo
     {
         /// <summary>
-        /// True if the schema was wrapped.
+        /// Gets or sets a value indicating whether the schema was wrapped.
         /// </summary>
         public bool IsWrapped { get; set; }
         
         /// <summary>
-        /// Type of the wrapper.
+        /// Gets or sets the type of the wrapper.
         /// </summary>
         public string WrapperType { get; set; } = string.Empty;
 
         /// <summary>
-        /// Name of the property that contains the wrapped content.
+        /// Gets or sets the name of the property that contains the wrapped content.
         /// </summary>
         public string PropertyName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Name of the provider whose adapter produced this wrapper info.
+        /// Gets or sets the name of the provider whose adapter produced this wrapper info.
         /// Used to retrieve the same adapter during unwrapping.
         /// </summary>
         public string ProviderName { get; set; } = string.Empty;

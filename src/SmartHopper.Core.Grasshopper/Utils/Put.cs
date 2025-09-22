@@ -174,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 {
                                     PrettyName = prettyName,
                                     Description = description,
-                                    Access = access
+                                    Access = access,
                                 };
                                 param.CreateAttributes();
                                 if (o["simplify"] != null)
@@ -217,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 {
                                     PrettyName = prettyName,
                                     Description = description,
-                                    Access = access
+                                    Access = access,
                                 };
                                 param.CreateAttributes();
                                 if (o["simplify"] != null)
@@ -338,6 +338,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         idToGuidMap[id] = mappedGuid;
                         Debug.WriteLine($"[Put] Mapped ID '{id}' to GUID '{mappedGuid}'");
                     }
+
                     return mappedGuid;
                 }
 

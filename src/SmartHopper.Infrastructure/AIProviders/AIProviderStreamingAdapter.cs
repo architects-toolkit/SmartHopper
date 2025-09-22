@@ -109,6 +109,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Provider.Name} API key is not configured or is invalid.");
                     }
+
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                     break;
                 case "x-api-key":
@@ -116,6 +117,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Provider.Name} API key is not configured or is invalid.");
                     }
+
                     client.DefaultRequestHeaders.Remove("x-api-key");
                     client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                     break;
@@ -189,7 +191,16 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             using var reader = new StreamReader(stream, Encoding.UTF8);
-            using var ctr = cancellationToken.Register(() => { try { stream.Dispose(); } catch { } });
+            using var ctr = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    stream.Dispose();
+                }
+                catch
+                {
+                }
+            });
 
             while (!cancellationToken.IsCancellationRequested)
             {

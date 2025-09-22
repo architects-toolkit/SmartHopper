@@ -23,9 +23,9 @@ namespace SmartHopper.Infrastructure.Settings
     /// </summary>
     public class NumericSettingDescriptorControl : SettingDescriptorControl
     {
-        public bool UseSlider { get; set; } = false;
+        public bool UseSlider { get; set; }
 
-        public int Min { get; set; } = 0;
+        public int Min { get; set; }
 
         public int Max { get; set; } = 100;
 

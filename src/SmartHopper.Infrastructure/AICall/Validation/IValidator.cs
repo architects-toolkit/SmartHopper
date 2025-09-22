@@ -38,14 +38,22 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         public List<ValidationIssue> Issues { get; set; } = new List<ValidationIssue>();
 
         /// <summary>
-        /// Counts by severity for quick gating/metrics.
+        /// Gets the count of error messages by severity for quick gating/metrics.
         /// </summary>
         public int ErrorCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Error) ?? 0;
+
+        /// <summary>
+        /// Gets the count of warning messages by severity for quick gating/metrics.
+        /// </summary>
         public int WarningCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Warning) ?? 0;
+
+        /// <summary>
+        /// Gets the count of information messages by severity for quick gating/metrics.
+        /// </summary>
         public int InfoCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Info) ?? 0;
 
         /// <summary>
-        /// Indicates whether messages have been sanitized to avoid PII leakage.
+        /// Gets a value indicating whether messages have been sanitized to avoid PII leakage.
         /// </summary>
         public bool MessagesSanitized { get; set; }
     }
@@ -55,9 +63,24 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     /// </summary>
     public sealed class ValidationIssue
     {
+        /// <summary>
+        /// Gets or sets an optional short code identifying the issue type.
+        /// </summary>
         public string Code { get; set; }
+
+        /// <summary>
+        /// Gets or sets a JSON-like path to the location of the issue, if applicable.
+        /// </summary>
         public string Path { get; set; }
+
+        /// <summary>
+        /// Gets or sets the severity of the issue.
+        /// </summary>
         public AIRuntimeMessageSeverity Severity { get; set; }
+
+        /// <summary>
+        /// Gets or sets the human-readable message describing the issue.
+        /// </summary>
         public string Message { get; set; }
     }
 

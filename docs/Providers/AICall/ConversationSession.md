@@ -13,6 +13,7 @@ Purpose: Centralize multi-turn conversation orchestration with optional streamin
   - `void Cancel()`
 - `IConversationObserver`
   - `OnStart(AIRequestCall request)`
+  - `OnDelta(IAIInteraction interaction)`
   - `OnInteractionCompleted(IAIInteraction interaction)`
   - `OnToolCall(AIInteractionToolCall toolCall)`
   - `OnToolResult(AIInteractionToolResult toolResult)`
@@ -62,9 +63,8 @@ await foreach (var delta in session.Stream(options, streaming, ct))
 
 Notes:
 
-- `ConversationSession.Stream(...)` will gate streaming using request validation rules. If streaming is unsupported or disabled, an error `AIReturn` is yielded and the sequence ends.
-- Streaming uses provider-specific adapters that implement `IStreamingAdapter`. The session probes the provider for `GetStreamingAdapter()` and falls back to a single-turn non-streaming call if unavailable.
-- `IConversationObserver.OnInteractionCompleted(...)` is invoked for each delta, and tool call/result notifications are surfaced as they occur.
+- `ConversationSession.Stream(...)` gates streaming using request validation rules. If streaming is unsupported or disabled, an error `AIReturn` is yielded and the sequence ends.
+- For the canonical and detailed streaming behavior (adapter probing, delta vs partial events, persistence timing, fallback, and tool passes), see `docs/Providers/AICall/Streaming.md`. This page intentionally summarizes to avoid duplication.
 
 ## Additional notes
 

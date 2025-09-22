@@ -39,7 +39,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             {
                 MinValue = 1000,
                 MaxValue = 5000,
-                Increment = 100
+                Increment = 100,
             };
 
             // Populate provider dropdown
@@ -54,7 +54,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Default provider section
             var providerRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
             providerRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
@@ -68,7 +68,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
@@ -77,7 +77,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Debounce time section
             var debounceRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
             debounceRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Debounce Time (ms):", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
@@ -91,7 +91,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add end spacing

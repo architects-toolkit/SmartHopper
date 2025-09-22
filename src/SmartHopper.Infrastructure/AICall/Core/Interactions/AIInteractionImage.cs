@@ -70,7 +70,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>A formatted string containing image metadata.</returns>
         public override string ToString()
         {
-            return $"AIInteractionImage ({this.ImageSize}) generated from '{this.OriginalPrompt.Substring(0, Math.Min(50, OriginalPrompt.Length))}...'";
+            return $"AIInteractionImage ({this.ImageSize}) generated from '{this.OriginalPrompt.Substring(0, Math.Min(50, this.OriginalPrompt.Length))}...'";
         }
 
         /// <summary>
@@ -156,12 +156,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Lowercase hex substring of the hash.</returns>
         private static string ComputeShortHash(string value)
         {
-            using (var sha = SHA256.Create())
-            {
-                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-                var hash = sha.ComputeHash(bytes);
-                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
-            }
+            var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+            var hash = SHA256.HashData(bytes);
+            return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
         }
 
         /// <summary>
@@ -169,7 +166,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public string GetRoleClassForRender()
         {
-            var role = (this.Agent == 0 ? AIAgent.Assistant : this.Agent).ToString().ToLower();
+            var role = (this.Agent == 0 ? AIAgent.Assistant : this.Agent).ToString().ToLowerInvariant();
             return role;
         }
 
@@ -191,11 +188,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 return $"![generated image]({this.ImageUrl})";
             }
+
             if (!string.IsNullOrWhiteSpace(this.ImageData))
             {
                 // Assume PNG if unknown; browsers will render data URIs
                 return $"![generated image](data:image/png;base64,{this.ImageData})";
             }
+
             return this.ToString();
         }
 

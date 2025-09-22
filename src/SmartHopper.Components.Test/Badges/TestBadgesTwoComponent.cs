@@ -111,7 +111,7 @@ namespace SmartHopper.Components.Test.Badges
             }
         }
 
-        private class TwoBadgesAttributes : ComponentBadgesAttributes
+        private sealed class TwoBadgesAttributes : ComponentBadgesAttributes
         {
             private const float S = 16f;
 

@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
@@ -55,7 +56,7 @@ namespace SmartHopper.Core.AIContext
 
                 return new Dictionary<string, string>
                 {
-                    { "selected-count", selectedCount.ToString() },
+                    { "selected-count", selectedCount.ToString(CultureInfo.InvariantCulture) },
                 };
             }
             catch

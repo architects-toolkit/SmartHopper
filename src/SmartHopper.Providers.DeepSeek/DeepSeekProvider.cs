@@ -282,7 +282,7 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         ["name"] = toolCallInteraction.Name,
                         ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}"
-                    }
+                    },
                 };
                 toolCallsArray.Add(toolCallObj);
                 messageObj["tool_calls"] = toolCallsArray;

@@ -62,13 +62,14 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                 catch (Exception ex)
                 {
                     // Non-fatal: convert to diagnostic (immutable)
-                    if (request?.Body != null)
+                    if (request.Body != null)
                     {
                         // Use AIInteractionError so this diagnostic is not sent to providers
                         request.Body = AIBodyBuilder.FromImmutable(request.Body)
                             .AddError($"Request policy {policy.GetType().Name} failed: {ex.Message}")
                             .Build();
                     }
+
                     Debug.WriteLine($"[PolicyPipeline] Request policy {policy.GetType().Name} exception: {ex}");
                 }
             }
@@ -111,13 +112,14 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                 catch (Exception ex)
                 {
                     // Non-fatal: convert to diagnostic on shim
-                    if (shim?.Body != null)
+                    if (shim.Body != null)
                     {
                         // Use AIInteractionError so this diagnostic is not sent to providers
                         shim.Body = AIBodyBuilder.FromImmutable(shim.Body)
                             .AddError($"Request policy {policy.GetType().Name} failed: {ex.Message}")
                             .Build();
                     }
+
                     Debug.WriteLine($"[PolicyPipeline] Tool request policy {policy.GetType().Name} exception: {ex}");
                 }
             }
@@ -135,6 +137,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             {
                 merged.AddRange(shim.Messages);
             }
+
             toolCall.Messages = merged;
         }
 
@@ -148,15 +151,22 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                 {
                     try
                     {
-                        Debug.WriteLine($"[PolicyPipeline] before {policy.GetType().Name}: interactions={response?.Body?.InteractionsCount ?? 0}, new={string.Join(",", response?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                        Debug.WriteLine($"[PolicyPipeline] before {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                     }
-                    catch { /* logging only */ }
+                    catch
+                    {
+                        /* logging only */
+                    }
+
                     await policy.ApplyAsync(context).ConfigureAwait(false);
                     try
                     {
-                        Debug.WriteLine($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response?.Body?.InteractionsCount ?? 0}, new={string.Join(",", response?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                        Debug.WriteLine($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                     }
-                    catch { /* logging only */ }
+                    catch
+                    {
+                        /* logging only */
+                    }
                 }
                 catch (Exception ex)
                 {

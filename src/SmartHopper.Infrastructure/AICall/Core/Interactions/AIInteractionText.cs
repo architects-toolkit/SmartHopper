@@ -9,6 +9,7 @@
  */
 
 using System;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -39,14 +40,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var result = string.Empty;
 
-            if(!string.IsNullOrEmpty(Reasoning))
+            if (!string.IsNullOrEmpty(this.Reasoning))
             {
-                result += $"<think>{Reasoning}</think>";
+                result += $"<think>{this.Reasoning}</think>";
             }
 
-            if(!string.IsNullOrEmpty(Content))
+            if (!string.IsNullOrEmpty(this.Content))
             {
-                result += $"{Content}";
+                result += $"{this.Content}";
             }
 
             return result;
@@ -91,6 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 {
                     this.Metrics = new AIMetrics();
                 }
+
                 this.Metrics.Combine(metricsDelta);
             }
         }
@@ -104,7 +106,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public string GetStreamKey()
         {
             var agent = (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
-            var timestamp = this.Time.ToString("yyyyMMddHHmmssfff");
+            var timestamp = this.Time.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
 
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
@@ -135,12 +137,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Lowercase hex substring of the hash.</returns>
         private static string ComputeShortHash(string value)
         {
-            using (var sha = SHA256.Create())
-            {
-                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-                var hash = sha.ComputeHash(bytes);
-                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
-            }
+            var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+            var hash = SHA256.HashData(bytes);
+            return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
         }
 
         /// <summary>
@@ -148,7 +147,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public string GetRoleClassForRender()
         {
-            return (this.Agent.ToString() ?? "assistant").ToLower();
+            return (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
         }
 
         /// <summary>

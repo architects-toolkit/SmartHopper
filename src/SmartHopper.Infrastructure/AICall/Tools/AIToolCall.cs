@@ -103,6 +103,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 {
                     ret.Messages = errors;
                 }
+
                 return ret;
             }
 
@@ -114,8 +115,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 var execTask = AIToolManager.ExecuteTool(this);
                 var completed = await Task.WhenAny(
                     execTask,
-                    Task.Delay(TimeSpan.FromSeconds(Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS)))
-                ).ConfigureAwait(false);
+                    Task.Delay(TimeSpan.FromSeconds(Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS)))).ConfigureAwait(false);
                 if (completed != execTask)
                 {
                     var timed = new AIReturn();
@@ -185,6 +185,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             {
                 this.Provider = provider;
             }
+
             if (model != null)
             {
                 this.Model = model;

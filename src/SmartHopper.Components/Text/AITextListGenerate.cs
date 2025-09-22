@@ -72,7 +72,7 @@ namespace SmartHopper.Components.Text
                 this.parent = parent;
                 this.result = new Dictionary<string, GH_Structure<GH_String>>
                 {
-                    { "Result", new GH_Structure<GH_String>() }
+                    { "Result", new GH_Structure<GH_String>() },
                 };
             }
 

@@ -89,7 +89,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
                         { "A", treeA },
-                        { "B", treeB }
+                        { "B", treeB },
                     };
 
                     var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: true, groupIdenticalBranches: false);

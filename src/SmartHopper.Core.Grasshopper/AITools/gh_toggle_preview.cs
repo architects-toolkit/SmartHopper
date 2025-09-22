@@ -59,8 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
-                execute: this.GhTogglePreviewAsync
-            );
+                execute: this.GhTogglePreviewAsync);
         }
 
         private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)

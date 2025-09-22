@@ -70,8 +70,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhRetrieveToolAsync
-            );
+                execute: this.GhRetrieveToolAsync);
         }
 
         /// <summary>

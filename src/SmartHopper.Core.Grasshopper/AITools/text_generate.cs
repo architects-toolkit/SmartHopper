@@ -72,8 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateText,
-                requiredCapabilities: this.toolCapabilityRequirements
-            );
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>

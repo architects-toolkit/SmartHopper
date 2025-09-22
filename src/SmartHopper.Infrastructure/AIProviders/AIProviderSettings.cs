@@ -44,6 +44,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         return b;
                     }
+
                     if (value != null && bool.TryParse(value.ToString(), out bool parsed))
                     {
                         return parsed;

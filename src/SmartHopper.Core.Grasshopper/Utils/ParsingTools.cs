@@ -95,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
 
             var result = "";
-            if (output.ToLower() == "array" || output.ToLower() == "arr")
+            if (output.ToLowerInvariant() == "array" || output.ToLowerInvariant() == "arr")
             {
                 // Array format
                 result = "[" + string.Join(",", stringList.Select((value, index) => $"\"{value}\"")) + "]";
@@ -186,6 +186,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         inQuotes = true;
                         quoteChar = c;
                     }
+
                     current.Append(c);
                 }
                 else if (c == quoteChar && inQuotes)
@@ -196,6 +197,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         inQuotes = false;
                         quoteChar = '\0';
                     }
+
                     current.Append(c);
                 }
                 // Handle opening delimiters
@@ -218,6 +220,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         result.Add(item);
                     }
+
                     current.Clear();
                 }
                 else
@@ -271,6 +274,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
             return jarray.ToString(Formatting.None);
         }
+
         #endregion
     }
 }

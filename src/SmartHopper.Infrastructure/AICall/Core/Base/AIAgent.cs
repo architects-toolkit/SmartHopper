@@ -92,7 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <returns>The AIAgent.</returns>
         public static AIAgent FromString(string agent)
         {
-            agent = agent.ToLower();
+            agent = agent.ToLowerInvariant();
             var result = agent switch
             {
                 "context" => AIAgent.Context,

@@ -77,6 +77,7 @@ JavaScript functions (in `chat-script.js`):
 
 - `addMessage(html)` — Append a pre-rendered HTML message bubble.
 - `upsertMessage(key, html)` — Replace existing or append new bubble identified by `data-key`.
+- `upsertMessageAfter(followKey, key, html)` — Insert or replace a bubble identified by `key` immediately after the bubble identified by `followKey` (falls back to `upsertMessage` when `followKey` not found).
 - `replaceLastMessageByRole(role, html)` — Replace the last message with a given role.
 - `addLoadingMessage(role, text)` / `removeThinkingMessage()` — Show/remove a persistent thinking bubble.
 - `clearMessages()` — Clear transcript area.
@@ -88,7 +89,7 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 
 - `AddInteractionToWebView(IAIInteraction)`
 - `UpsertMessageByKey(string domKey, IAIInteraction)`
-- `ReplaceLastMessageByRole(AIAgent, IAIInteraction)`
+- `UpsertMessageAfter(string followKey, string domKey, IAIInteraction, string source = null)`
 - `ExecuteScript(string)`
 - Observer callbacks: `OnStart`, `OnDelta`, `OnInteractionCompleted`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
 

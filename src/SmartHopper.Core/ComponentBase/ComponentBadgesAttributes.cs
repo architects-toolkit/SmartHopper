@@ -151,7 +151,7 @@ namespace SmartHopper.Core.ComponentBase
             // Append any additional custom badges provided by derived classes.
             // The single-primary policy applies only to built-in badges above; custom
             // badges are additive and will always render if provided.
-            foreach (var extra in GetAdditionalBadges())
+            foreach (var extra in this.GetAdditionalBadges())
             {
                 items.Add(extra);
             }
@@ -291,27 +291,27 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 // arrow head at end of arc
-                double endRad = (Math.PI / 180.0) * ( -40f + 260f );
+                double endRad = (Math.PI / 180.0) * (-40f + 260f);
 
                 // Calculate direction vector
                 var dir = new PointF(
                     (float)(-Math.Sin(endRad)),
                     (float)(Math.Cos(endRad)));
-                
+
                 // Arrow head dimensions
                 float ah = BADGE_SIZE * 0.25f;
                 float arrowWidth = ah * 0.6f;
-                
+
                 // Calculate the base point (where arrow connects to the arc)
                 var basePt = new PointF(
                     (float)(cx + r * Math.Cos(endRad - 0.1f)),
                     (float)(cy + r * Math.Sin(endRad - 0.1f)));
-                
+
                 // Calculate the tip point (moved forward along the direction vector)
                 var tipPt = new PointF(
                     basePt.X + dir.X * ah,
                     basePt.Y + dir.Y * ah);
-                
+
                 // Calculate the two base points for the arrow head
                 var a1 = tipPt;
                 var a2 = new PointF(
@@ -372,11 +372,11 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.hoverBadgeIndex >= 0)
                 {
                     this.badgeLabelAutoHidden = false;
-                    StartBadgeLabelTimer();
+                    this.StartBadgeLabelTimer();
                 }
                 else
                 {
-                    StopBadgeLabelTimer();
+                    this.StopBadgeLabelTimer();
                     this.badgeLabelAutoHidden = false; // reset for next hover
                 }
 
@@ -391,13 +391,13 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StartBadgeLabelTimer()
         {
-            StopBadgeLabelTimer();
+            this.StopBadgeLabelTimer();
             this.badgeLabelTimer = new Timer(5000) { AutoReset = false };
             this.badgeLabelTimer.Elapsed += (_, __) =>
             {
                 this.badgeLabelAutoHidden = true;
                 try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                StopBadgeLabelTimer();
+                this.StopBadgeLabelTimer();
             };
             this.badgeLabelTimer.Start();
         }

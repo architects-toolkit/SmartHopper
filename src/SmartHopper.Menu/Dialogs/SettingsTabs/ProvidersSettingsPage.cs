@@ -42,7 +42,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Label
             {
                 Text = "Trusted Providers",
-                Font = new Font(SystemFont.Bold, 12)
+                Font = new Font(SystemFont.Bold, 12),
             });
             layout.Add(new Label
             {
@@ -50,7 +50,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
@@ -64,14 +64,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     Orientation = Orientation.Horizontal,
                     Spacing = 10,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new Padding(0, 5)
+                    Padding = new Padding(0, 5),
                 };
 
                 // Create checkbox for this provider
                 var checkbox = new CheckBox
                 {
                     Text = provider.Name,
-                    Font = new Font(SystemFont.Default, 11)
+                    Font = new Font(SystemFont.Default, 11),
                 };
                 _providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
 
@@ -87,7 +87,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                             var iconView = new ImageView
                             {
                                 Image = new Bitmap(ms),
-                                Size = new Size(16, 16)
+                                Size = new Size(16, 16),
                             };
                             providerLayout.Items.Insert(0, iconView);
                         }

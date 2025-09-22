@@ -43,7 +43,7 @@ namespace SmartHopper.Infrastructure.Tests
         /// <summary>
         /// Mock implementation of IAIContextProvider for testing.
         /// </summary>
-        private class MockContextProvider : IAIContextProvider
+        private sealed class MockContextProvider : IAIContextProvider
         {
             public MockContextProvider(string providerId, Dictionary<string, string>? context = null)
             {
@@ -250,12 +250,12 @@ namespace SmartHopper.Infrastructure.Tests
             var provider1 = new MockContextProvider("time", new Dictionary<string, string>
             {
                 ["current-datetime"] = "2025-01-01",
-                ["timezone"] = "UTC"
+                ["timezone"] = "UTC",
             });
             var provider2 = new MockContextProvider("environment", new Dictionary<string, string>
             {
                 ["os"] = "Windows",
-                ["version"] = "11"
+                ["version"] = "11",
             });
             AIContextManager.RegisterProvider(provider1);
             AIContextManager.RegisterProvider(provider2);
@@ -282,11 +282,11 @@ namespace SmartHopper.Infrastructure.Tests
             ResetManager();
             var timeProvider = new MockContextProvider("time", new Dictionary<string, string>
             {
-                ["current-datetime"] = "2025-01-01"
+                ["current-datetime"] = "2025-01-01",
             });
             var envProvider = new MockContextProvider("environment", new Dictionary<string, string>
             {
-                ["os"] = "Windows"
+                ["os"] = "Windows",
             });
             AIContextManager.RegisterProvider(timeProvider);
             AIContextManager.RegisterProvider(envProvider);
@@ -360,7 +360,7 @@ namespace SmartHopper.Infrastructure.Tests
             var provider = new MockContextProvider("test", new Dictionary<string, string>
             {
                 ["simple-key"] = "value1",
-                ["test_prefixed-key"] = "value2" // Already has provider prefix
+                ["test_prefixed-key"] = "value2", // Already has provider prefix
             });
             AIContextManager.RegisterProvider(provider);
 

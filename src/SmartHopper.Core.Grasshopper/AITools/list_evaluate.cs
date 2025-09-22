@@ -76,8 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""question""]
                 }",
                 execute: this.EvaluateList,
-                requiredCapabilities: this.toolCapabilityRequirements
-            );
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>

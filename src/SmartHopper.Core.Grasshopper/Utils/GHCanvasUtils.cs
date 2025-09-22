@@ -18,9 +18,14 @@ using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
+    /// <summary>
+    /// Utility helpers for interacting with the active Grasshopper canvas and document objects.
+    /// </summary>
     public static class GHCanvasUtils
     {
-        // Get the current canvas
+        /// <summary>
+        /// Gets the current active Grasshopper document from the canvas.
+        /// </summary>
         public static GH_Document GetCurrentCanvas()
         {
             GH_Document doc = Instances.ActiveCanvas.Document;
@@ -28,14 +33,21 @@ namespace SmartHopper.Core.Grasshopper.Utils
             return doc;
         }
 
-        // Get the current objects in the active document
+        /// <summary>
+        /// Gets the list of active objects in the current document.
+        /// </summary>
         public static List<IGH_ActiveObject> GetCurrentObjects()
         {
             GH_Document doc = GetCurrentCanvas();
             return doc.ActiveObjects();
         }
 
-        // Add an object to the canvas
+        /// <summary>
+        /// Adds an object to the active Grasshopper canvas at the specified position.
+        /// </summary>
+        /// <param name="obj">The Grasshopper document object to add.</param>
+        /// <param name="position">The pivot position where the object should be placed.</param>
+        /// <param name="redraw">True to redraw the canvas after adding the object.</param>
         public static void AddObjectToCanvas(IGH_DocumentObject obj, PointF position = default, bool redraw = true)
         {
             GH_Document doc = GetCurrentCanvas();
@@ -51,6 +63,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
         }
 
+        /// <summary>
+        /// Finds a document object instance by its GUID.
+        /// </summary>
+        /// <param name="guid">The instance GUID.</param>
+        /// <returns>The matching document object or null if not found.</returns>
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
             IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
@@ -133,6 +150,10 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Moves instances to specific targets by GUID mapping, with optional relative offsets, batching into one undo event.
         /// </summary>
+        /// <param name="targets">A mapping of instance GUIDs to target positions.</param>
+        /// <param name="relative">If true, interprets target positions as offsets from current positions.</param>
+        /// <param name="redraw">True to redraw the canvas after moving objects.</param>
+        /// <returns>The list of GUIDs that were successfully moved.</returns>
         public static List<Guid> MoveInstance(IDictionary<Guid, PointF> targets, bool relative = false, bool redraw = true)
         {
             var doc = GetCurrentCanvas();
@@ -161,8 +182,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             // Start the batch record (this also captures the first object’s action for you)
             var undo = doc.UndoUtil.CreateGenericObjectEvent(
                 "[SH] Move Instances",
-                moves[0].obj
-            );
+                moves[0].obj);
 
             // For every other object, grab its auto-generated action and append it
             foreach (var (obj, _, _) in moves.Skip(1))
@@ -214,14 +234,20 @@ namespace SmartHopper.Core.Grasshopper.Utils
             return moved;
         }
 
-        // Identify occupied areas
+        /// <summary>
+        /// Computes the bounding box of all objects in the current document.
+        /// </summary>
         public static RectangleF BoundingBox()
         {
             GH_Document doc = GetCurrentCanvas();
             return doc.BoundingBox(false);
         }
 
-        // Determine start point for empty space
+        /// <summary>
+        /// Determines a starting point to place new objects below the current canvas content.
+        /// </summary>
+        /// <param name="span">Vertical spacing from the bottom of the bounding box.</param>
+        /// <returns>A point suitable for placing new objects.</returns>
         public static PointF StartPoint(int span = 100)
         {
             RectangleF bounds = BoundingBox();

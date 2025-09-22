@@ -50,7 +50,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Last AI return snapshot stored by this component.
         /// </summary>
         private AIReturn AIReturnSnapshot;
-        
+
         // Flag to ensure we only clear metrics once per new Processing run
         private bool metricsInitializedForRun;
 
@@ -241,7 +241,7 @@ namespace SmartHopper.Core.ComponentBase
                     result = new JObject
                     {
                         ["success"] = toolResult.Success,
-                        ["error"] = toolResult.ErrorMessage
+                        ["error"] = toolResult.ErrorMessage,
                     };
                 }
             }
@@ -489,7 +489,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
                                          || hasProviderMissing
                                          || hasUnknownProvider
-                                        //  || hasUnknownModel
+                                         // || hasUnknownModel
                                          || hasNoCapableModel
                                          || hasCapabilityMismatch
                                          || this.badgeReplacedModel;

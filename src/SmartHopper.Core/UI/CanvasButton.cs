@@ -361,6 +361,7 @@ namespace SmartHopper.Core.UI
                 {
                     UnhookCanvasEvents(c);
                 }
+
                 hookedCanvases.Clear();
             }
             catch (Exception ex)
@@ -506,6 +507,7 @@ namespace SmartHopper.Core.UI
             {
                 return;
             }
+
             if (IsPointInButton(new PointF(e.X, e.Y)))
             {
                 isPressed = true;
@@ -522,6 +524,7 @@ namespace SmartHopper.Core.UI
             {
                 return;
             }
+
             if (isPressed && IsPointInButton(new PointF(e.X, e.Y)))
             {
                 isPressed = false;
@@ -547,6 +550,7 @@ namespace SmartHopper.Core.UI
             {
                 return;
             }
+
             var wasHovering = isHovering;
             isHovering = IsPointInButton(new PointF(e.X, e.Y));
 
@@ -565,6 +569,7 @@ namespace SmartHopper.Core.UI
             {
                 return false;
             }
+
             // Check if point is within circular button bounds
             var center = new PointF(
                 buttonBounds.X + (buttonBounds.Width / 2),
@@ -614,7 +619,13 @@ namespace SmartHopper.Core.UI
                         }
 
                         // Refresh active canvas to reflect UI change immediately
-                        try { Instances.ActiveCanvas?.Refresh(); } catch { }
+                        try
+                        {
+                            Instances.ActiveCanvas?.Refresh();
+                        }
+                        catch
+                        {
+                        }
                     }
                 });
             }

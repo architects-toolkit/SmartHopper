@@ -192,11 +192,11 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.isHovering)
                 {
                     this.selectAutoHidden = false;
-                    StartSelectDisplayTimer();
+                    this.StartSelectDisplayTimer();
                 }
                 else
                 {
-                    StopSelectDisplayTimer();
+                    this.StopSelectDisplayTimer();
                     this.selectAutoHidden = false; // reset for next hover
                 }
 
@@ -223,13 +223,13 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StartSelectDisplayTimer()
         {
-            StopSelectDisplayTimer();
+            this.StopSelectDisplayTimer();
             this.selectDisplayTimer = new Timer(5000) { AutoReset = false };
             this.selectDisplayTimer.Elapsed += (_, __) =>
             {
                 this.selectAutoHidden = true;
                 try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                StopSelectDisplayTimer();
+                this.StopSelectDisplayTimer();
             };
             this.selectDisplayTimer.Start();
         }

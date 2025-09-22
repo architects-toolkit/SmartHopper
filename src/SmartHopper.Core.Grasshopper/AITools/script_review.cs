@@ -61,8 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guid""]
                 }",
                 execute: this.ScriptReviewToolAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
-            );
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput);
         }
 
         /// <summary>
@@ -89,6 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError($"Invalid GUID: {guidStr}");
                     return output;
                 }
+
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
                 var endpoint = this.toolName;
@@ -165,6 +165,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
                 }
+
                 builder.AddUser(userPrompt);
                 var immutableBody = builder.Build();
 

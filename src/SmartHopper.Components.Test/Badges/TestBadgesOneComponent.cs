@@ -128,7 +128,7 @@ namespace SmartHopper.Components.Test.Badges
         /// <summary>
         /// Custom attributes contributing one additional badge.
         /// </summary>
-        private class OneBadgeAttributes : ComponentBadgesAttributes
+        private sealed class OneBadgeAttributes : ComponentBadgesAttributes
         {
             private static void DrawSampleBadge(Graphics g, float x, float y)
             {

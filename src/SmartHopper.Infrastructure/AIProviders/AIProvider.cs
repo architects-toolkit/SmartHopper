@@ -102,7 +102,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             // Ensure provider name is set and normalized
                             if (string.IsNullOrWhiteSpace(m.Provider))
                             {
-                                m.Provider = this.Name.ToLower();
+                                m.Provider = this.Name.ToLowerInvariant();
                             }
 
                             ModelManager.Instance.SetCapabilities(m);
@@ -168,8 +168,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Encode multiple interactions
         /// </summary>
-        /// <param name="interactions">The interactions to encode</param>
-        /// <returns>The encoded string</returns>
+        /// <param name="interactions">The interactions to encode.</param>
+        /// <returns>The encoded string.</returns>
         public virtual string Encode(List<IAIInteraction> interactions)
         {
             var result = string.Empty;
@@ -434,6 +434,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     this._injectedSettings = new Dictionary<string, object>();
                 }
+
                 this._injectedSettings[key] = value;
 
                 // Persist to the global settings with provider scoping
@@ -575,6 +576,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
                     }
+
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                 }
                 else if (auth == "x-api-key")
@@ -583,6 +585,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
                     }
+
                     httpClient.DefaultRequestHeaders.Remove("x-api-key");
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                 }
@@ -671,48 +674,5 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             this._injectedSettings = settings ?? new Dictionary<string, object>();
         }
-
-        /// <summary>
-        /// Finds the default capability for a model by checking exact matches first, then wildcard patterns.
-        /// Supports both directions: wildcard in capabilities matching specific in defaults, and vice versa.
-        /// </summary>
-        /// <param name="modelName">The model name from capabilities (may contain wildcards).</param>
-        /// <param name="defaultModelsDict">Dictionary of default models with their capabilities.</param>
-        /// <returns>The default capability for the model, or AICapability.None if no match found.</returns>
-        private static AICapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AICapability> defaultModelsDict)
-        {
-            // First, try exact match (existing behavior)
-            if (defaultModelsDict.ContainsKey(modelName))
-            {
-                Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found exact match for {modelName}: {defaultModelsDict[modelName]}");
-                return defaultModelsDict[modelName];
-            }
-
-            // If modelName contains wildcard, match against specific names in defaults
-            if (modelName.Contains("*"))
-            {
-                var pattern = modelName.Replace("*", "");
-                var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
-                if (!matchingDefault.Equals(default(KeyValuePair<string, AICapability>)))
-                {
-                    Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingDefault.Value}");
-                    return matchingDefault.Value;
-                }
-            }
-            
-            // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
-            var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp =>
-                kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
-            if (!matchingWildcard.Equals(default(KeyValuePair<string, AICapability>)))
-            {
-                Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingWildcard.Value}");
-                return matchingWildcard.Value;
-            }
-
-            // No match found
-            Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] No match found for {modelName}");
-            return AICapability.None;
-        }
     }
 }
-

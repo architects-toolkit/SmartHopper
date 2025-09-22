@@ -11,10 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -150,7 +149,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // 1. Generate initial request
                 var initialUserPrompt = this.userPrompt;
                 initialUserPrompt = initialUserPrompt.Replace("<prompt>", prompt);
-                initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString());
+                initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString(CultureInfo.InvariantCulture));
 
                 // Initiate immutable AIBody
                 var requestBody = AIBodyBuilder.Create()

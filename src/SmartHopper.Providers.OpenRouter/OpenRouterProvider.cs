@@ -158,7 +158,7 @@ namespace SmartHopper.Providers.OpenRouter
                     ["allow_fallbacks"] = allowFallbacks,
                     ["sort"] = sort,
                     ["data_collection"] = dataCollection,
-                }
+                },
             };
 
             // Note: schema/response_format and tools can be added later once mapped for OpenRouter Responses API

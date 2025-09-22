@@ -51,19 +51,19 @@ This reduces boilerplate while keeping API-specific parsing in the provider adap
 
 ## ConversationSession.Stream flow
 
-- Sets `Request.WantsStreaming = true` and validates (model supports streaming, provider settings allow it).
-- Probes provider via reflection for `GetStreamingAdapter()`.
-  - If found, iterates `adapter.StreamAsync(...)` and forwards deltas to observers and caller.
-  - If not found, falls back to non-streaming single call, then proceeds with tool passes.
-- Merges yielded interactions back into `Request.Body` (excluding dynamic `Context`).
-- Executes pending tool calls when `SessionOptions.ProcessTools` is true.
-- Emits `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError` via `IConversationObserver`.
+- Sets `Request.WantsStreaming = true` and validates (model supports streaming, provider settings allow it). If invalid, yields an error `AIReturn` and ends.
+- Probes provider for a streaming adapter (via the provider executor's `TryGetStreamingAdapter(request)`).
+  - If found, iterates `adapter.StreamAsync(...)` and forwards token/text deltas via `OnDelta(...)` as they arrive; deltas are also yielded to the caller.
+  - If not found, falls back to a non-streaming single provider call for the turn.
+- After streaming ends, the session persists a single stable snapshot into history (final assistant text and latest tool_calls snapshot), updates `_lastReturn`, and emits a partial snapshot via `OnInteractionCompleted(...)` followed by `OnFinal(...)` when appropriate.
+- In non-streaming fallback, the session merges new interactions immediately and emits `OnInteractionCompleted(...)` for the single-shot result.
+- Executes pending tool calls when `SessionOptions.ProcessTools` is true (both in non-streaming fallback and after stream persistence), emitting `OnToolCall`/`OnToolResult` as tool passes proceed.
 
 ## Buffering, coalescing and cancellation
 
 - `StreamingOptions` enables UI-friendly coalescing to limit UI updates frequency/size.
 - Cancellation token flows from `ConversationSession.Stream(...)` to adapters and HTTP calls.
-- Adapters should yield an initial empty delta (Processing) if useful for UI to create a placeholder.
+- During streaming, UI consumption should prefer `OnDelta(...)` for live updates; placeholders are optional and provider-specific.
 
 ## UI consumption pattern
 
@@ -94,13 +94,13 @@ Use an `IConversationObserver` implementation to update UI consistently:
   - OpenAI: SSE from `/v1/chat/completions` with `choices[].delta.content`.
   - MistralAI: chunked JSON with `chunk` entries.
   - DeepSeek: chunked JSON with `choices[].delta`.
-- Produce `AIReturn` deltas with `AIInteractionText` (assistant) and optional tool call interactions.
+- Produce `AIReturn` deltas with `AIInteractionText` (assistant) and optional tool call interactions. Tool call deltas may be surfaced during stream for UI awareness; the session persists the latest tool_calls snapshot once after streaming ends.
 
 Tip: see `OpenAIProvider.OpenAIStreamingAdapter` for a complete example.
 
 ## Fallback behavior
 
-If no adapter is available or streaming is disabled/unsupported, `ConversationSession.Stream(...)` yields a non-streaming result and proceeds with tool orchestration, then finalizes.
+If no adapter is available or streaming is disabled/unsupported, `ConversationSession.Stream(...)` performs a non-streaming provider call for the turn, merges/persists interactions, optionally processes tools, yields the non-streaming result, and finalizes when stable.
 
 ## Migration and testing
 
