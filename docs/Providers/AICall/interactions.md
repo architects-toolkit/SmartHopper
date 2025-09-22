@@ -3,7 +3,7 @@
 Covers `IAIInteraction` and concrete message types.
 
 ## IAIInteraction
- 
+
 - File: `IAIInteraction.cs`
 - Properties:
   - `DateTime Time`
@@ -11,14 +11,14 @@ Covers `IAIInteraction` and concrete message types.
   - `AIMetrics Metrics`
 
 ## AIInteractionText
- 
+
 - File: `AIInteractionText.cs`
 - Purpose: text output with optional reasoning.
 - Fields: `Content`, `Reasoning`
 - Methods: `SetResult(AIAgent agent, string content, string? reasoning)`; `ToString()` formats `<think>reasoning</think>content`.
 
 ## AIInteractionImage
- 
+
 - File: `AIInteractionImage.cs`
 - Purpose: image generation results and prompts
 - Fields: `ImageUrl`, `ImageData`, `RevisedPrompt`, `OriginalPrompt`, `ImageSize` (default `1024x1024`), `ImageQuality` (default `standard`), `ImageStyle` (default `vivid`)

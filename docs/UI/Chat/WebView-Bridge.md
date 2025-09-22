@@ -90,7 +90,7 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 - `UpsertMessageByKey(string domKey, IAIInteraction)`
 - `ReplaceLastMessageByRole(AIAgent, IAIInteraction)`
 - `ExecuteScript(string)`
-- Observer callbacks: `OnStart`, `OnDelta`, `OnPartial`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
+- Observer callbacks: `OnStart`, `OnDelta`, `OnInteractionCompleted`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
 
 ### Keyed interactions
 

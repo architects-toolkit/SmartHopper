@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conversation and policies:
   - ConversationSession service introducing:
     - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
-    - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
+    - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
     - Always-on `PolicyPipeline` foundation with request and response policy hooks
 
 - AICall and core models:
