@@ -57,7 +57,7 @@ This reduces boilerplate while keeping API-specific parsing in the provider adap
   - If not found, falls back to non-streaming single call, then proceeds with tool passes.
 - Merges yielded interactions back into `Request.Body` (excluding dynamic `Context`).
 - Executes pending tool calls when `SessionOptions.ProcessTools` is true.
-- Emits `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError` via `IConversationObserver`.
+- Emits `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError` via `IConversationObserver`.
 
 ## Buffering, coalescing and cancellation
 
@@ -81,7 +81,7 @@ await foreach (var delta in session.Stream(sessionOpts, streamOpts, ct))
 Use an `IConversationObserver` implementation to update UI consistently:
 
 - `OnStart` — create UI placeholders
-- `OnPartial` — update text progressively
+- `OnInteractionCompleted` — update text progressively
 - `OnToolCall`/`OnToolResult` — show tool activity
 - `OnFinal` — persist final content and metrics
 - `OnError` — surface failures

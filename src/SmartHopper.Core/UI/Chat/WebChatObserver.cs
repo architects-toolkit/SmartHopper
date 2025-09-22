@@ -44,7 +44,7 @@ namespace SmartHopper.Core.UI.Chat
             /// Returns a segmented text key for the given base key. Each new text message within the same
             /// turn gets a new segment index to ensure separate DOM bubbles.
             /// Segmentation advancement no longer relies on last-type/last-agent heuristics: instead, a per-turn
-            /// boundary flag is set on interaction completion via OnPartial (for both text and non-text completions),
+            /// boundary flag is set on interaction completion via OnInteractionCompleted (for both text and non-text completions),
             /// and the next incoming text consumes that flag to
             /// increment the segment. This makes segmentation deterministic and aligned with session persistence.
             /// </summary>
@@ -111,12 +111,12 @@ namespace SmartHopper.Core.UI.Chat
             private readonly Dictionary<string, AIAgent> _lastTextAgentByTurn = new Dictionary<string, AIAgent>();
 
             // Pending segmentation boundary flags per turn. When set, the next text interaction for that turn
-            // starts a new segment (new bubble). These flags are set by OnPartial when an interaction
+            // starts a new segment (new bubble). These flags are set by OnInteractionCompleted when an interaction
             // (text or non-text) is finalized and persisted to history.
             private readonly HashSet<string> _pendingNewTextSegmentTurns = new HashSet<string>(StringComparer.Ordinal);
 
             // Finalized turns: after OnFinal has rendered the assistant text for a turn, ignore any late
-            // OnDelta/OnPartial text updates for that same turn to prevent overriding final metrics/time.
+            // OnDelta/OnInteractionCompleted text updates for that same turn to prevent overriding final metrics/time.
             private readonly HashSet<string> _finalizedTextTurns = new HashSet<string>(StringComparer.Ordinal);
 
             /// <summary>
@@ -318,7 +318,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
             }
 
-            public void OnPartial(IAIInteraction interaction)
+            public void OnInteractionCompleted(IAIInteraction interaction)
             {
                 if (interaction == null)
                     return;
@@ -357,7 +357,7 @@ namespace SmartHopper.Core.UI.Chat
                                     agg.Content = tt.Content;
                                     agg.Reasoning = tt.Reasoning;
                                     agg.Time = tt.Time;
-                                    _dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnPartialStreamingFinal");
+                                    _dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
                                 }
                                 else
                                 {
@@ -373,7 +373,7 @@ namespace SmartHopper.Core.UI.Chat
                                     }
                                     state.Aggregated = tt;
                                     _streams[segKey] = state;
-                                    _dialog.UpsertMessageByKey(segKey, tt, source: "OnPartialNonStreaming");
+                                    _dialog.UpsertMessageByKey(segKey, tt, source: "OnInteractionCompletedNonStreaming");
                                 }
 
                                 return;
@@ -393,13 +393,13 @@ namespace SmartHopper.Core.UI.Chat
                                     if (interaction is AIInteractionToolResult tr)
                                     {
                                         var followKey = GetFollowKeyForToolResult(tr);
-                                        _dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnPartialToolResult");
+                                        _dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnInteractionCompletedToolResult");
                                     }
                                     else
                                     {
                                         if (ShouldUpsertNow(streamKey))
                                         {
-                                            _dialog.UpsertMessageByKey(streamKey, interaction, source: "OnPartial");
+                                            _dialog.UpsertMessageByKey(streamKey, interaction, source: "OnInteractionCompleted");
                                         }
                                     }
                                 }
@@ -421,13 +421,13 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         catch (Exception innerEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnPartial processing error: {innerEx.Message}");
+                            Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted processing error: {innerEx.Message}");
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] OnPartial error: {ex.Message}");
+                    Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted error: {ex.Message}");
                 }
             }
 

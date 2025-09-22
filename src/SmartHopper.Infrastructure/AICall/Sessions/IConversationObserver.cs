@@ -42,7 +42,7 @@ using SmartHopper.Infrastructure.AICall.Tools;
         /// Called when an interaction is completed, but there will be more.
         /// </summary>
         /// <param name="interaction">The completed partial interaction.</param>
-        void OnPartial(IAIInteraction interaction);
+        void OnInteractionCompleted(IAIInteraction interaction);
 
         /// <summary>
         /// Called when a tool call is made.

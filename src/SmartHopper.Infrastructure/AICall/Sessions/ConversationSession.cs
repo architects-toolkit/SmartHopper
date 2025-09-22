@@ -340,7 +340,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}"); } catch { }
             foreach (var interaction in newInteractions)
             {
-                this.Observer.OnPartial(interaction);
+                this.Observer.OnInteractionCompleted(interaction);
             }
         }
 
