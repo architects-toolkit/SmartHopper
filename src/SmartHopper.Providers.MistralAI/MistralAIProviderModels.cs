@@ -41,7 +41,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
-            var provider = this.mistralProvider.Name.ToLower();
+            var provider = this.mistralProvider.Name.ToLowerInvariant();
 
             var models = new List<AIModelCapabilities>
             {

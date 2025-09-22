@@ -69,8 +69,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""targets"" ]
                 }",
-                execute: this.GhMoveObjAsync
-            );
+                execute: this.GhMoveObjAsync);
         }
 
         private async Task<AIReturn> GhMoveObjAsync(AIToolCall toolCall)
@@ -92,6 +91,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("Missing or invalid 'targets' parameter.");
                     return output;
                 }
+
                 var relative = args["relative"]?.ToObject<bool>() ?? false;
                 var dict = new Dictionary<Guid, PointF>();
                 foreach (var prop in targetsObj.Properties())
@@ -105,16 +105,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
                             continue;
                         }
+
                         dict[g] = new PointF(
                             xToken.ToObject<float>(),
                             yToken.ToObject<float>());
                     }
                 }
+
                 var movedList = GHCanvasUtils.MoveInstance(dict, relative);
                 
                 var toolResult = new JObject
                 {
-                    ["updated"] = JArray.FromObject(movedList.Select(g => g.ToString()))
+                    ["updated"] = JArray.FromObject(movedList.Select(g => g.ToString())),
                 };
 
                 var builder = AIBodyBuilder.Create();

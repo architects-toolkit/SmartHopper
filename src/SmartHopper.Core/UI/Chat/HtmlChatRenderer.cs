@@ -15,6 +15,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using Markdig;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -54,7 +55,7 @@ namespace SmartHopper.Core.UI.Chat
                 .Build();
 
             // Initialize the resource manager
-            _resourceManager = new ChatResourceManager();
+            this._resourceManager = new ChatResourceManager();
             Debug.WriteLine("[HtmlChatRenderer] Resource manager initialized");
         }
 
@@ -68,7 +69,7 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                string html = _resourceManager.GetCompleteHtml();
+                string html = this._resourceManager.GetCompleteHtml();
                 Debug.WriteLine($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
 
                 // For debugging, output the first 200 characters of the HTML
@@ -86,7 +87,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
 
                 // Use the error template from resources
-                return _resourceManager.GetErrorTemplate(ex.Message);
+                return this._resourceManager.GetErrorTemplate(ex.Message);
             }
         }
 
@@ -103,11 +104,11 @@ namespace SmartHopper.Core.UI.Chat
             {
                 try
                 {
-                    // Create timestamp for the message
-                    string timestamp = DateTime.Now.ToString("HH:mm");
+                    // Create timestamp for the message (user-visible)
+                    string timestamp = DateTime.Now.ToString("HH:mm", CultureInfo.CurrentCulture);
 
                     // Use the resource manager to create the message HTML
-                    string messageHtml = _resourceManager.CreateMessageHtml(
+                    string messageHtml = this._resourceManager.CreateMessageHtml(
                         timestamp,
                         interaction);
 

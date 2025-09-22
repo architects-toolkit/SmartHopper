@@ -30,7 +30,7 @@ namespace SmartHopper.Infrastructure.AITools
         private static readonly Dictionary<string, AITool> _tools = new Dictionary<string, AITool>();
 
         // Flag to track if tools have been discovered
-        private static bool _toolsDiscovered = false;
+        private static bool _toolsDiscovered;
 
         /// <summary>
         /// Register a single tool
@@ -87,6 +87,7 @@ namespace SmartHopper.Infrastructure.AITools
                 {
                     output.Messages = errors;
                 }
+
                 return output;
             }
 

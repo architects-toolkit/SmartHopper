@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -82,6 +83,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("Missing 'url' parameter.");
                     return output;
                 }
+
                 if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
                 {
                     output.CreateError($"Invalid URL: {url}");
@@ -207,7 +209,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     foreach (var heading in headingNodes.ToList())
                     {
-                        int level = int.Parse(heading.Name.Substring(1));
+                        int level = int.Parse(heading.Name.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture);
                         string headingText = heading.InnerText.Trim();
                         string mdHeading = new string('#', level) + " " + headingText + Environment.NewLine;
                         var mdNode = doc.CreateTextNode(mdHeading);
@@ -228,7 +230,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["content"] = text,
                     ["url"] = url,
-                    ["length"] = text.Length
+                    ["length"] = text.Length,
                 };
 
                 var builder = AIBodyBuilder.Create();

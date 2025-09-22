@@ -45,14 +45,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var result = "Tool result";
 
-            if (!string.IsNullOrEmpty(Name))
+            if (!string.IsNullOrEmpty(this.Name))
             {
-                result += $" from {Name}";
+                result += $" from {this.Name}";
             }
 
-            if (Result != null && Result.HasValues)
+            if (this.Result != null && this.Result.HasValues)
             {
-                result += $":\n{JsonConvert.SerializeObject(Result, Formatting.Indented)}";
+                result += $":\n{JsonConvert.SerializeObject(this.Result, Formatting.Indented)}";
             }
 
             return result;
@@ -126,7 +126,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
                 var hash = sha.ComputeHash(bytes);
-                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
+                return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
             }
         }
     }

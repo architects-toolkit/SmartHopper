@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Test.Misc
             return new TestPrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        private class TestPrimeCalculatorWorker : AsyncWorkerBase
+        private sealed class TestPrimeCalculatorWorker : AsyncWorkerBase
         {
             private int _nthPrime = 100;
             private long _result = -1;

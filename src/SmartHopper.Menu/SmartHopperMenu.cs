@@ -81,6 +81,7 @@ namespace SmartHopper.Menu
                 if (item.Text == "SmartHopper")
                     return true;
             }
+
             return false;
         }
 
@@ -93,7 +94,7 @@ namespace SmartHopper.Menu
                 SettingsMenuItem.Create(),
                 RefreshProvidersMenuItem.Create(),
                 new ToolStripSeparator(),
-                AboutMenuItem.Create()
+                AboutMenuItem.Create(),
             });
 
             return menu;

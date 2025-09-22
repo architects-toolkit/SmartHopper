@@ -47,17 +47,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var result = "Calling tool";
 
-            if(!string.IsNullOrEmpty(Id))
+            if (!string.IsNullOrEmpty(this.Id))
             {
-                result += $" ({Id})";
+                result += $" ({this.Id})";
             }
 
-            if(!string.IsNullOrEmpty(Name))
+            if (!string.IsNullOrEmpty(this.Name))
             {
-                result += $" {Name}";
+                result += $" {this.Name}";
             }
 
-            if(this.Arguments != null && this.Arguments.HasValues)
+            if (this.Arguments != null && this.Arguments.HasValues)
             {
                 result += $" with the following arguments:\n{JsonConvert.SerializeObject(this.Arguments, Formatting.Indented)}";
             }
@@ -76,6 +76,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 return $"turn:{this.TurnId}:tool.call:{id}";
             }
+
             return $"tool.call:{id}";
         }
 
@@ -91,6 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 return $"turn:{this.TurnId}:tool.call:{id}:{args}";
             }
+
             return $"tool.call:{id}:{args}";
         }
 

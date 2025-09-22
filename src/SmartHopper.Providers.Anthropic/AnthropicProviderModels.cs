@@ -37,7 +37,7 @@ namespace SmartHopper.Providers.Anthropic
         /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
-            var providerName = this.provider.Name.ToLower();
+            var providerName = this.provider.Name.ToLowerInvariant();
 
             var models = new List<AIModelCapabilities>
             {

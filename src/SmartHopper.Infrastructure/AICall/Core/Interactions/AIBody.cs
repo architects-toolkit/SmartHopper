@@ -32,9 +32,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     )
     {
         /// <summary>
-        /// An empty immutable body with defaults: ToolFilter="-*", ContextFilter="-*".
+        /// Gets an empty immutable body with defaults: ToolFilter="-*", ContextFilter="-*".
         /// </summary>
-        public static AIBody Empty { get; } = new(
+        public static AIBody Empty { get; } = new (
             Array.Empty<IAIInteraction>(),
             "-*",
             "-*",
@@ -42,7 +42,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             new List<int>());
 
         /// <summary>
-        /// Count of interactions (no dynamic context injection here).
+        /// Gets the count of interactions (no dynamic context injection here).
         /// </summary>
         public int InteractionsCount => this.Interactions?.Count ?? 0;
 
@@ -52,12 +52,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         // causing 'new' markers to be lost.
 
         /// <summary>
-        /// Whether a structured JSON response is requested.
+        /// Gets a value indicating whether a structured JSON response is requested.
         /// </summary>
         public bool RequiresJsonOutput => !string.IsNullOrEmpty(this.JsonOutputSchema);
 
         /// <summary>
-        /// Aggregated metrics across interactions.
+        /// Gets aggregated metrics across interactions.
         /// </summary>
         public AIMetrics Metrics
         {
@@ -72,12 +72,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                         m.Combine(i.Metrics);
                     }
                 }
+
                 return m;
             }
         }
 
         /// <summary>
-        /// Aggregated structured messages from interaction-level details (e.g., tool/image validation).
+        /// Gets aggregated structured messages from interaction-level details (e.g., tool/image validation).
         /// Body-level validation should be executed by policies/validators.
         /// </summary>
         public List<AIRuntimeMessage> Messages
@@ -132,6 +133,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Also verifies that within assistant items in this body there are no conflicting TurnIds
         /// for what appears to be the same logical message (best-effort heuristic).
         /// </summary>
+        /// <returns>
+        /// True when all interactions have a non-empty TurnId (and no conflicts are detected); otherwise false.
+        /// </returns>
         public bool AreTurnIdsValid()
         {
             if (this.Interactions == null) return true;

@@ -76,6 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("Missing 'id' parameter.");
                     return output;
                 }
+
                 int id = idNullable.Value;
                 using var httpClient = new HttpClient();
                 var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
@@ -86,7 +87,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject
                 {
                     ["id"] = id,
-                    ["post"] = json
+                    ["post"] = json,
                 };
 
                 var builder = AIBodyBuilder.Create();

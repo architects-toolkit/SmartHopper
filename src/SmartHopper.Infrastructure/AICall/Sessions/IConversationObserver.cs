@@ -9,15 +9,14 @@
  */
 
 using System;
-using System.Threading;
 
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
     using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.Infrastructure.AICall.Core.Requests;
+    using SmartHopper.Infrastructure.AICall.Core.Returns;
+    using SmartHopper.Infrastructure.AICall.Tools;
 
     /// <summary>
     /// Observer of conversation session lifecycle and streaming deltas.
@@ -28,44 +27,44 @@ using SmartHopper.Infrastructure.AICall.Tools;
         /// <summary>
         /// Called when the conversation session starts.
         /// </summary>
-        /// <param name="request"></param>
+        /// <param name="request">The request that is about to be executed by the conversation session.</param>
         void OnStart(AIRequestCall request);
 
         /// <summary>
         /// Called for streaming text deltas during live response generation.
         /// Used for live UI updates of partial text content.
         /// </summary>
-        /// <param name="interaction">The partial interaction being streamed.</param>
+        /// <param name="interaction">The partial interaction being streamed (e.g., a text chunk).</param>
         void OnDelta(IAIInteraction interaction);
 
         /// <summary>
         /// Called when an interaction is completed, but there will be more.
         /// </summary>
-        /// <param name="interaction">The completed partial interaction.</param>
+        /// <param name="interaction">The interaction that has been completed and persisted to history.</param>
         void OnInteractionCompleted(IAIInteraction interaction);
 
         /// <summary>
         /// Called when a tool call is made.
         /// </summary>
-        /// <param name="toolCall"></param>
+        /// <param name="toolCall">The tool call interaction that has been requested.</param>
         void OnToolCall(AIInteractionToolCall toolCall);
 
         /// <summary>
         /// Called when a tool result is returned.
         /// </summary>
-        /// <param name="toolResult"></param>
+        /// <param name="toolResult">The tool result interaction returned by the executed tool.</param>
         void OnToolResult(AIInteractionToolResult toolResult);
 
         /// <summary>
         /// Called when the final result is available and the conversation is stable.
         /// </summary>
-        /// <param name="finalResult"></param>
+        /// <param name="finalResult">The final <see cref="AIReturn"/> representing the stable conversation state.</param>
         void OnFinal(AIReturn finalResult);
 
         /// <summary>
         /// Called when an error occurs during the conversation.
         /// </summary>
-        /// <param name="error"></param>
+        /// <param name="error">The exception describing the error condition.</param>
         void OnError(Exception error);
     }
 }

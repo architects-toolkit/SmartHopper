@@ -51,8 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""json""]
                 }",
-                execute: this.GhPutToolAsync
-            );
+                execute: this.GhPutToolAsync);
         }
 
         private async Task<AIReturn> GhPutToolAsync(AIToolCall toolCall)
@@ -87,7 +86,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject
                 {
                     ["components"] = JArray.FromObject(placed),
-                    ["analysis"] = analysisMsg
+                    ["analysis"] = analysisMsg,
                 };
 
                 var body = AIBodyBuilder.Create()

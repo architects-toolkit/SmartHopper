@@ -33,6 +33,10 @@ using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.Anthropic
 {
+    /// <summary>
+    /// Provider implementation for Anthropic's Messages API, including schema wrapping,
+    /// tool call encoding, and streaming support via SSE.
+    /// </summary>
     public sealed class AnthropicProvider : AIProvider<AnthropicProvider>
     {
         private AnthropicProvider()
@@ -61,6 +65,7 @@ namespace SmartHopper.Providers.Anthropic
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to nested streaming adapter to avoid protected access issues.
         /// </summary>
+        /// <returns>The API key string stored in settings; may be empty if not configured.</returns>
         internal string GetApiKey()
         {
             return this.GetSetting<string>("ApiKey");
@@ -98,6 +103,7 @@ namespace SmartHopper.Providers.Anthropic
         /// <summary>
         /// Returns a streaming adapter for Anthropic that yields incremental AIReturn deltas.
         /// </summary>
+        /// <returns>An IStreamingAdapter instance configured for Anthropic SSE streaming.</returns>
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new AnthropicStreamingAdapter(this);
@@ -195,7 +201,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     ["type"] = "text",
                     ["text"] = resultText,
-                })
+                }),
             };
             return new JObject
             {

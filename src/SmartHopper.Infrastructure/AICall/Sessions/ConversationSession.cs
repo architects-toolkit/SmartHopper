@@ -38,7 +38,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// The cancellation token source for this session.
         /// </summary>
-        private readonly CancellationTokenSource cts = new();
+        private readonly CancellationTokenSource cts = new ();
 
         /// <summary>
         /// Executor abstraction for provider and tool calls.
@@ -93,10 +93,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         /// <summary>
         /// Validates the request before starting a session execution path.
-        /// Centralizes wantsStreaming flag and aggregates error messages into an AIReturn.
+        /// Centralizes the <c>WantsStreaming</c> flag and aggregates error messages into an <see cref="AIReturn"/> when invalid.
         /// </summary>
-        /// <param name="wantsStreaming">Whether the caller intends to stream.</param>
-        /// <returns>Tuple with validity and optional error return.</returns>
+        /// <param name="wantsStreaming">When true, applies streaming-related validation rules; when false, validates non-streaming constraints.</param>
+        /// <returns>
+        /// A tuple where <c>IsValid</c> indicates whether the request is valid for the intended mode,
+        /// and <c>Error</c> contains an <see cref="AIReturn"/> populated with error messages if invalid; otherwise null.
+        /// </returns>
         private (bool IsValid, AIReturn? Error) ValidateBeforeStart(bool wantsStreaming)
         {
             // Set streaming intent for validation rules
@@ -148,7 +151,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var userInteraction = new AIInteractionText
             {
                 Agent = AIAgent.User,
-                Content = userMessage
+                Content = userMessage,
             };
             // Append user input to session history without marking it as 'new'
             this.AppendToSessionHistory(userInteraction);
@@ -235,6 +238,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     combined.Combine(interaction.Metrics);
                 }
             }
+
             return combined;
         }
 
@@ -250,8 +254,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Updates the _lastReturn with current conversation state, preserving new interaction markers from a source return.
+        /// Updates the <see cref="_lastReturn"/> with current conversation state, preserving new interaction markers from a source return.
         /// </summary>
+        /// <param name="sourceWithNewMarkers">The source return whose body contains 'new' markers to preserve for observer events.</param>
         private void UpdateLastReturn(AIReturn sourceWithNewMarkers)
         {
             if (sourceWithNewMarkers?.Body == null)
@@ -274,12 +279,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Prepares a return with only new interactions for streaming deltas.
+        /// Prepares a return that contains only the interactions marked as new, suitable for streaming delta notifications.
         /// </summary>
+        /// <param name="source">The source <see cref="AIReturn"/> from which to extract new interactions.</param>
+        /// <returns>An <see cref="AIReturn"/> whose body contains only the new interactions from <paramref name="source"/>.</returns>
         private AIReturn PrepareNewOnlyReturn(AIReturn source)
         {
             if (source == null) return source;
-            
+
             var newOnly = source.Body?.GetNewInteractions() ?? new List<IAIInteraction>();
             var reduced = AIBodyBuilder.Create().AddRange(newOnly).Build();
             source.SetBody(reduced);
@@ -287,35 +294,49 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Append new interactions into the session body, skipping dynamic context interactions.
-        /// Optionally, when toolsOnly is true, only persists tool call/result interactions (for streaming).
+        /// Appends new interactions into the session body, skipping dynamic context interactions.
+        /// When <paramref name="toolsOnly"/> is true, only tool call/result interactions are persisted (used in streaming flows).
         /// </summary>
+        /// <param name="interactions">The collection of interactions to append.</param>
+        /// <param name="toolsOnly">If true, persist only tool call/result interactions; otherwise persist all non-context interactions.</param>
         private void MergeNewToSessionBody(IEnumerable<IAIInteraction>? interactions, bool toolsOnly = false)
         {
             if (interactions == null)
             {
                 return;
             }
+
             foreach (var interaction in interactions)
             {
                 if (interaction == null || interaction.Agent == AIAgent.Context)
                 {
                     continue;
                 }
+
                 if (toolsOnly && interaction is not AIInteractionToolCall && interaction is not AIInteractionToolResult)
                 {
                     continue;
                 }
+
                 try
                 {
-                    Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction?.GetType().Name}, agent={interaction?.Agent.ToString() ?? "?"}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : (interaction is AIInteractionToolCall tc ? $"tool:{tc.Name}" : interaction is AIInteractionToolResult tr ? $"tool_result:{tr.Name}" : string.Empty))}");
+                    Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : (interaction is AIInteractionToolCall tc ? $"tool:{tc.Name}" : interaction is AIInteractionToolResult tr ? $"tool_result:{tr.Name}" : string.Empty))}");
                 }
-                catch { /* logging only */ }
+                catch
+                {
+                    /* logging only */
+                }
+
                 // Append provider-returned interactions to session as history (not new)
                 this.AppendToSessionHistory(interaction);
             }
         }
 
+        /// <summary>
+        /// Notifies the observer with per-interaction streaming deltas contained in the given <see cref="AIReturn"/>.
+        /// Each new interaction in <paramref name="ret"/> is forwarded individually via <see cref="IConversationObserver.OnDelta"/>.
+        /// </summary>
+        /// <param name="ret">An <see cref="AIReturn"/> whose body contains the new interactions to surface as deltas.</param>
         private void NotifyDelta(AIReturn ret)
         {
             if (this.Observer == null || ret?.Body?.Interactions == null)
@@ -323,13 +344,25 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // For delta updates, notify observer of each new interaction individually
             var newInteractions = ret.Body.GetNewInteractions();
-            try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}"); } catch { }
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+            }
+            catch
+            {
+            }
+
             foreach (var interaction in newInteractions)
             {
                 this.Observer.OnDelta(interaction);
             }
         }
 
+        /// <summary>
+        /// Notifies the observer that one or more interactions have completed and been persisted to history.
+        /// Each new interaction in <paramref name="ret"/> is forwarded via <see cref="IConversationObserver.OnInteractionCompleted"/>.
+        /// </summary>
+        /// <param name="ret">An <see cref="AIReturn"/> containing the completed interactions.</param>
         private void NotifyPartial(AIReturn ret)
         {
             if (this.Observer == null || ret?.Body?.Interactions == null)
@@ -337,26 +370,64 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // For partial updates, notify observer of each new interaction individually
             var newInteractions = ret.Body.GetNewInteractions();
-            try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}"); } catch { }
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+            }
+            catch
+            {
+            }
+
             foreach (var interaction in newInteractions)
             {
                 this.Observer.OnInteractionCompleted(interaction);
             }
         }
 
+        /// <summary>
+        /// Notifies the observer that the conversation turn has produced a final, stable result.
+        /// </summary>
+        /// <param name="ret">The final <see cref="AIReturn"/> for the current turn.</param>
         private void NotifyFinal(AIReturn ret)
         {
-            try { System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}"); } catch { }
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
+            }
+            catch
+            {
+            }
+
             this.Observer?.OnFinal(ret);
         }
+        /// <summary>
+        /// Notifies the observer that a tool call has been requested.
+        /// </summary>
+        /// <param name="toolCall">The tool call interaction to surface.</param>
         private void NotifyToolCall(AIInteractionToolCall toolCall) => this.Observer?.OnToolCall(toolCall);
+
+        /// <summary>
+        /// Notifies the observer that a tool result has been produced.
+        /// </summary>
+        /// <param name="toolResult">The tool result interaction to surface.</param>
         private void NotifyToolResult(AIInteractionToolResult toolResult) => this.Observer?.OnToolResult(toolResult);
+
+        /// <summary>
+        /// Notifies the observer that a session execution is starting.
+        /// </summary>
+        /// <param name="request">The request that will be executed.</param>
         private void NotifyStart(AIRequestCall request) => this.Observer?.OnStart(request);
+
+        /// <summary>
+        /// Notifies the observer that an error occurred during session execution.
+        /// </summary>
+        /// <param name="error">The exception describing the error.</param>
         private void NotifyError(Exception error) => this.Observer?.OnError(error);
 
         /// <summary>
         /// Appends a single interaction to the session history without marking it as new.
         /// </summary>
+        /// <param name="interaction">The interaction to add as history.</param>
         private void AppendToSessionHistory(IAIInteraction interaction)
         {
             if (interaction == null) return;
@@ -370,6 +441,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Appends a range of interactions to the session history without marking them as new.
         /// </summary>
+        /// <param name="interactions">The interactions to add as history.</param>
         private void AppendRangeToSessionHistory(IEnumerable<IAIInteraction> interactions)
         {
             if (interactions == null) return;
@@ -394,6 +466,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 return;
             }
+
             foreach (var i in interactions)
             {
                 if (i == null) continue;
@@ -402,8 +475,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Creates a standardized error AIReturn.
+        /// Creates a standardized error <see cref="AIReturn"/> linked to the current request.
         /// </summary>
+        /// <param name="message">The error message to include in the return.</param>
+        /// <returns>An <see cref="AIReturn"/> representing the error.</returns>
         private AIReturn CreateError(string message)
         {
             var ret = new AIReturn();
@@ -463,7 +538,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     {
                         Agent = AIAgent.User,
                         Content = "Please send a short friendly greeting to start the chat. Keep it to one or two sentences.",
-                    }
+                    },
                 };
 
                 // Get the provider's default Text2Text model (overriding the initial request model)
@@ -485,7 +560,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     AICapability.Text2Text,
                     "-*"); // Disable all tools for greeting
 
-                Debug.WriteLine($"[ConversationSession] Generating greeting with provider='{this._initialRequest.Provider}', model='{defaultModel}' (Text2Text default), interactions={greetingInteractions?.Count ?? 0}");
+                Debug.WriteLine($"[ConversationSession] Generating greeting with provider='{this._initialRequest.Provider}', model='{defaultModel}' (Text2Text default), interactions={greetingInteractions.Count}");
 
                 // Execute with 30s timeout
                 var greetingTask = greetingRequest.Exec();
@@ -551,7 +626,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Agent = AIAgent.Assistant,
                 Content = greetingText,
-                Metrics = new AIMetrics()
+                Metrics = new AIMetrics(),
             };
             
             var body = AIBodyBuilder.Create().Add(greetingInteraction).Build();
@@ -562,20 +637,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Executes the provider once using non-streaming mode.
         /// </summary>
+        /// <param name="ct">A cancellation token for the operation.</param>
+        /// <returns>The provider's <see cref="AIReturn"/>, or null if execution failed to produce a result.</returns>
         private async Task<AIReturn?> ExecProviderAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
-            return res;
-        }
-
-        /// <summary>
-        /// Executes the provider using streaming mode.
-        /// </summary>
-        private async Task<AIReturn?> ExecProviderStreamingAsync(CancellationToken ct)
-        {
-            ct.ThrowIfCancellationRequested();
-            var res = await this.Request.Exec(stream: true).ConfigureAwait(false);
             return res;
         }
 
@@ -853,6 +920,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     {
                         this.NotifyDelta(this._greetingReturn);
                     }
+
                     this.NotifyFinal(this.GetHistoryReturn());
                     yield return toYield;
                     yield break;
@@ -867,6 +935,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     {
                         yield return errStream;
                     }
+
                     yield break;
                 }
 
@@ -929,11 +998,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     {
                                         lastReturn = pendingToolYields.Last();
                                     }
+
                                     if (this.Request.Body.PendingToolCallsCount() == 0)
                                     {
                                         this.NotifyFinal(lastReturn ?? nonStream);
                                         shouldBreak = true;
                                     }
+
                                     finalProviderYield = nonStream;
                                 }
                             }
@@ -970,6 +1041,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                             // in ProcessPendingToolsAsync. We still mark that we saw tool calls in this delta.
                                         }
                                     }
+
                                     if (sawToolCall)
                                     {
                                         lastToolCallsDelta = delta; // keep the most recent aggregated tool_calls state
@@ -1008,7 +1080,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     var finalAssistantText = lastDelta.Body?.GetNewInteractions()?.OfType<AIInteractionText>()?.LastOrDefault();
                                     if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
                                     {
-                                        Debug.WriteLine($"[ConversationSession.Stream] Persisting final assistant text after stream: len={finalAssistantText.Content?.Length ?? 0}");
+                                        Debug.WriteLine($"[ConversationSession.Stream] Persisting final assistant text after stream: len={finalAssistantText.Content.Length}");
                                         // Force the unified TurnId for the assistant text to stabilize DOM keys across streaming
                                         finalAssistantText.TurnId = turnId;
                                         this.AppendToSessionHistory(finalAssistantText);
@@ -1026,10 +1098,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         {
                                             persistedList.AddRange(toolCallsToPersist);
                                         }
+
                                         if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
                                         {
                                             persistedList.Add(finalAssistantText);
                                         }
+
                                         if (persistedList.Count > 0)
                                         {
                                             var deltaBody = AIBodyBuilder.Create().WithTurnId(turnId).AddRange(persistedList).Build();
@@ -1069,6 +1143,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         this.NotifyFinal(lastReturn ?? lastDelta);
                                         shouldBreak = true;
                                     }
+
                                     finalProviderYield = lastDelta;
                                 }
                             }

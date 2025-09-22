@@ -8,6 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,7 +23,8 @@ namespace SmartHopper.Infrastructure.AIModels
     public sealed class AIModelCapabilityRegistry
     {
         /// <summary>
-        /// Dictionary of model capabilities keyed by "provider.model".
+        /// Gets the dictionary of model capabilities keyed by "provider.model".
+        /// Thread-safe: uses ConcurrentDictionary for reads/writes.
         /// </summary>
         public ConcurrentDictionary<string, AIModelCapabilities> Models { get; } = new ConcurrentDictionary<string, AIModelCapabilities>();
 
@@ -35,7 +37,7 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <returns>Model capabilities or null if not found.</returns>
         public AIModelCapabilities GetCapabilities(string provider, string model)
         {
-            var key = $"{provider?.ToLower()}.{model?.ToLower()}";
+            var key = $"{provider?.ToLowerInvariant()}.{model?.ToLowerInvariant()}";
             Debug.WriteLine($"[GetCapabilities] Looking for '{key}'");
 
             // Try exact match first (fastest path)
@@ -44,13 +46,13 @@ namespace SmartHopper.Infrastructure.AIModels
                 Debug.WriteLine($"[GetCapabilities] Found exact match for '{key}' with capabilities {capabilities.Capabilities.ToDetailedString()}");
                 return capabilities;
             }
-            
+
             // Fallback: search by alias within the same provider
-            var providerLower = provider?.ToLower();
-            var modelLower = model?.ToLower();
+            var providerLower = provider?.ToLowerInvariant();
+            var modelLower = model?.ToLowerInvariant();
             var byAlias = this.Models.Values
-                .Where(m => m != null && m.Provider.Equals(providerLower))
-                .FirstOrDefault(m => m.Aliases != null && m.Aliases.Any(a => string.Equals(a, modelLower, System.StringComparison.OrdinalIgnoreCase)));
+                .Where(m => m != null && m.Provider.Equals(providerLower, StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault(m => m.Aliases != null && m.Aliases.Any(a => string.Equals(a, modelLower, StringComparison.OrdinalIgnoreCase)));
 
             if (byAlias != null)
             {

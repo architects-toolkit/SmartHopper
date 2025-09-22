@@ -132,6 +132,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                     }
                 }
             }
+
             return result;
         }
     }

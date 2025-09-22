@@ -69,7 +69,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         public virtual AIBody Body { get; set; } = AIBody.Empty;
 
         /// <inheritdoc/>
-        public virtual bool WantsStreaming { get; set; } = false;
+        public virtual bool WantsStreaming { get; set; }
 
         /// <inheritdoc/>
         public virtual AIRequestKind RequestKind { get; set; } = AIRequestKind.Generation;
@@ -228,10 +228,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 builder.AddRange(interactions);
             }
+
             if (!string.IsNullOrEmpty(toolFilter))
             {
                 builder.WithToolFilter(toolFilter);
             }
+
             var body = builder.Build();
             this.Initialize(provider, model, body, endpoint ?? string.Empty, capability);
         }

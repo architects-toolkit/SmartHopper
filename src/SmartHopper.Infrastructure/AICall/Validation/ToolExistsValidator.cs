@@ -75,6 +75,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     return true;
                 }
             }
+
             return false;
         }
     }

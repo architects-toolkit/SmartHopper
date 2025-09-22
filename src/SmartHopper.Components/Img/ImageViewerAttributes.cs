@@ -170,7 +170,7 @@ namespace SmartHopper.Components.Img
                 var format = new StringFormat
                 {
                     Alignment = StringAlignment.Center,
-                    LineAlignment = StringAlignment.Center
+                    LineAlignment = StringAlignment.Center,
                 };
 
                 graphics.DrawString(text, font, brush, bounds, format);

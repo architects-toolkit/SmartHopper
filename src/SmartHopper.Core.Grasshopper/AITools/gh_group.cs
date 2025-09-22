@@ -65,8 +65,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guids""]
                 }",
-                execute: this.GhGroupAsync
-            );
+                execute: this.GhGroupAsync);
         }
 
         private Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
@@ -139,7 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var toolResult = new JObject
                     {
                         ["group"] = group.InstanceGuid.ToString(),
-                        ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString()))
+                        ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
                     };
 
                     var body = AIBodyBuilder.Create()

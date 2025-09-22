@@ -76,6 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("Missing 'query' parameter.");
                     return output;
                 }
+
                 using var httpClient = new HttpClient();
                 var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
                 var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
@@ -108,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["query"] = query,
                     ["results"] = result,
-                    ["count"] = result.Count
+                    ["count"] = result.Count,
                 };
 
                 var builder = AIBodyBuilder.Create();

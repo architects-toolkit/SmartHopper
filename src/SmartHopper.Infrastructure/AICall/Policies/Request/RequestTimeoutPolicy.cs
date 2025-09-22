@@ -49,6 +49,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                         .AddError($"Timeout applied: {normalized}s (default)")
                         .Build();
                 }
+
                 return Task.CompletedTask;
             }
 

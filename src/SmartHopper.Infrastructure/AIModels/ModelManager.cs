@@ -64,7 +64,7 @@ namespace SmartHopper.Infrastructure.AIModels
 
             var AIModelCapabilities = new AIModelCapabilities
             {
-                Provider = provider.ToLower(),
+                Provider = provider.ToLowerInvariant(),
                 Model = modelName,
                 Capabilities = capabilities,
                 Default = defaultFor,
@@ -81,10 +81,11 @@ namespace SmartHopper.Infrastructure.AIModels
         {
             if (AIModelCapabilities == null) return;
 
-            lock (_syncRoot)
+            lock (this._syncRoot)
             {
                 this._registry.SetCapabilities(AIModelCapabilities);
             }
+
             Debug.WriteLine($"[ModelManager] Registered capabilities for {AIModelCapabilities.Provider}.{AIModelCapabilities.Model}");
         }
 
@@ -104,9 +105,9 @@ namespace SmartHopper.Infrastructure.AIModels
                 return;
             }
 
-            var normalizedProvider = provider.ToLower();
+            var normalizedProvider = provider.ToLowerInvariant();
 
-            lock (_syncRoot)
+            lock (this._syncRoot)
             {
                 // Optionally clear the bits from other models in the same provider
                 if (exclusive)
@@ -142,6 +143,7 @@ namespace SmartHopper.Infrastructure.AIModels
                 target.Default |= caps;
                 this._registry.SetCapabilities(target);
             }
+
             Debug.WriteLine($"[ModelManager] Set default for {normalizedProvider}.{model} -> {caps}");
         }
 

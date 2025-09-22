@@ -81,9 +81,18 @@ namespace SmartHopper.Core.UI.Chat
                                 // Detach update handler if any
                                 if (UpdateHandlers.TryGetValue(dialogId, out var handler))
                                 {
-                                    try { dialog.ChatUpdated -= handler; } catch { /* ignore */ }
+                                    try
+                                    {
+                                        dialog.ChatUpdated -= handler;
+                                    }
+                                    catch
+                                    {
+                                        /* ignore */
+                                    }
+
                                     UpdateHandlers.Remove(dialogId);
                                 }
+
                                 dialog?.Close();
                             }
                             catch (Exception ex)
@@ -123,7 +132,15 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     if (UpdateHandlers.TryGetValue(componentId, out var handler))
                     {
-                        try { dialog.ChatUpdated -= handler; } catch { /* ignore */ }
+                        try
+                        {
+                            dialog.ChatUpdated -= handler;
+                        }
+                        catch
+                        {
+                            /* ignore */
+                        }
+
                         UpdateHandlers.Remove(componentId);
                     }
                 }
@@ -158,6 +175,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine($"[WebChatUtils] TryGetLastReturn error for {componentId}: {ex.Message}");
             }
+
             return null;
         }
 
@@ -201,7 +219,14 @@ namespace SmartHopper.Core.UI.Chat
 
             if (UpdateHandlers.TryGetValue(componentId, out var oldHandler))
             {
-                try { dialog.ChatUpdated -= oldHandler; } catch { /* ignore */ }
+                try
+                {
+                    dialog.ChatUpdated -= oldHandler;
+                }
+                catch
+                {
+                    /* ignore */
+                }
             }
 
             EventHandler<AIReturn> handler = (s, snapshot) =>
@@ -230,7 +255,10 @@ namespace SmartHopper.Core.UI.Chat
                         onUpdate(current);
                     }
                 }
-                catch { /* ignore */ }
+                catch
+                {
+                    /* ignore */
+                }
             }
         }
 
@@ -484,7 +512,7 @@ namespace SmartHopper.Core.UI.Chat
                 Action<AIReturn>? onUpdate = null)
             {
                 var requiredCapabilites = ComputeRequiredCapabilities(toolFilter);
-                
+
                 this.initialRequest.Initialize(
                     provider: providerName,
                     model: modelName,

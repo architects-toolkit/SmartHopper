@@ -56,7 +56,7 @@ namespace SmartHopper.Components.Test.Misc
             return new TestAIStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        private class TestAIStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
+        private sealed class TestAIStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
         {
             private GH_Structure<GH_Integer> _inputTree;
             private GH_Structure<GH_Number> _result;

@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Eto.Drawing;
@@ -35,20 +36,20 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="provider">The AI provider whose settings to display</param>
         public GenericProviderSettingsPage(IAIProvider provider)
         {
-            _provider = provider;
-            _controls = new Dictionary<string, Control>();
-            _originalValues = new Dictionary<string, string>();
+            this._provider = provider;
+            this._controls = new Dictionary<string, Control>();
+            this._originalValues = new Dictionary<string, string>();
 
             // Initialize control factories
-            _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
+            this._controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
             {
-                [typeof(string)] = CreateStringControl,
-                [typeof(int)] = CreateNumericControl,
-                [typeof(double)] = CreateNumericControl,
-                [typeof(bool)] = CreateBooleanControl
+                [typeof(string)] = this.CreateStringControl,
+                [typeof(int)] = this.CreateNumericControl,
+                [typeof(double)] = this.CreateNumericControl,
+                [typeof(bool)] = this.CreateBooleanControl,
             };
 
-            CreateLayout();
+            this.CreateLayout();
         }
 
         /// <summary>
@@ -58,7 +59,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             // Use DynamicLayout for better control over sizing
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
-            var descriptors = _provider.GetSettingDescriptors().ToList();
+            var descriptors = this._provider.GetSettingDescriptors().ToList();
 
             // Add provider title with logo
             var titleLayout = new StackLayout
@@ -66,22 +67,22 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Orientation = Orientation.Horizontal,
                 Spacing = 10,
                 VerticalContentAlignment = VerticalAlignment.Center,
-                Padding = new Padding(0, 0, 0, 10)
+                Padding = new Padding(0, 0, 0, 10),
             };
 
             // Add provider icon if available
-            if (_provider.Icon != null)
+            if (this._provider.Icon != null)
             {
                 try
                 {
                     using (var ms = new MemoryStream())
                     {
-                        _provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                        this._provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
                         ms.Position = 0;
                         var iconView = new ImageView
                         {
                             Image = new Bitmap(ms),
-                            Size = new Size(24, 24)
+                            Size = new Size(24, 24),
                         };
                         titleLayout.Items.Add(iconView);
                     }
@@ -95,8 +96,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add provider name title
             titleLayout.Items.Add(new Label
             {
-                Text = $"{_provider.Name} Settings",
-                Font = new Font(SystemFont.Bold, 12)
+                Text = $"{this._provider.Name} Settings",
+                Font = new Font(SystemFont.Bold, 12),
             });
 
             layout.Add(titleLayout);
@@ -108,24 +109,24 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 {
                     Text = "No configurable settings available for this provider.",
                     TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10)
+                    Font = new Font(SystemFont.Default, 10),
                 });
             }
             else
             {
                 // Load current provider settings
-                var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(_provider.Name);
+                var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(this._provider.Name);
 
                 // Create controls for each setting
                 foreach (var descriptor in descriptors)
                 {
-                    var control = CreateControlForDescriptor(descriptor);
+                    var control = this.CreateControlForDescriptor(descriptor);
                     if (control != null)
                     {
-                        _controls[descriptor.Name] = control;
+                        this._controls[descriptor.Name] = control;
 
                         // Load current value
-                        LoadSettingValue(descriptor, control, providerSettings);
+                        this.LoadSettingValue(descriptor, control, providerSettings);
 
                         // Create a horizontal layout for label and control
                         var labelText = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name;
@@ -133,19 +134,18 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                         {
                             Text = labelText + ":",
                             VerticalAlignment = VerticalAlignment.Center,
-                            Width = 150  // Fixed width to prevent overflow
+                            Width = 150,  // Fixed width to prevent overflow
                         };
 
                         var rowLayout = new TableLayout
                         {
-                            Spacing = new Size(10, 0)
+                            Spacing = new Size(10, 0),
                         };
                         
                         // Create row with fixed label width and expandable control
                         rowLayout.Rows.Add(new TableRow(
                             new TableCell(label, false),  // Fixed size
-                            new TableCell(control, true)   // Expandable
-                        ));
+                            new TableCell(control, true)));   // Expandable
 
                         layout.Add(rowLayout);
 
@@ -158,7 +158,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                                 TextColor = Colors.Gray,
                                 Font = new Font(SystemFont.Default, 10),
                                 Wrap = WrapMode.Word,
-                                Width = 500  // Max width for better text wrapping
+                                Width = 500,  // Max width for better text wrapping
                             });
                         }
 
@@ -168,7 +168,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 }
             }
 
-            Content = new Scrollable { Content = layout };
+            this.Content = new Scrollable { Content = layout };
         }
 
         /// <summary>
@@ -178,10 +178,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <returns>Created control or null if type not supported</returns>
         private Control CreateControlForDescriptor(SettingDescriptor descriptor)
         {
-            if (_controlFactories.ContainsKey(descriptor.Type))
+            if (this._controlFactories.ContainsKey(descriptor.Type))
             {
-                return _controlFactories[descriptor.Type](descriptor);
+                return this._controlFactories[descriptor.Type](descriptor);
             }
+
             return null;
         }
 
@@ -200,6 +201,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 {
                     dropdown.Items.Add(new ListItem { Text = val.ToString() });
                 }
+
                 return dropdown;
             }
 
@@ -226,7 +228,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 MinValue = numericParams?.Min ?? (descriptor.Type == typeof(int) ? int.MinValue : double.MinValue),
                 MaxValue = numericParams?.Max ?? (descriptor.Type == typeof(int) ? int.MaxValue : double.MaxValue),
                 Increment = numericParams?.Step ?? 1,
-                DecimalPlaces = descriptor.Type == typeof(double) ? 2 : 0
+                DecimalPlaces = descriptor.Type == typeof(double) ? 2 : 0,
             };
         }
 
@@ -239,7 +241,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             return new CheckBox
             {
-                Text = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name
+                Text = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name,
             };
         }
 
@@ -256,16 +258,18 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 : descriptor.DefaultValue;
 
             var stringValue = currentValue?.ToString() ?? string.Empty;
-            _originalValues[descriptor.Name] = stringValue;
+            this._originalValues[descriptor.Name] = stringValue;
 
             switch (control)
             {
                 case TextBox textBox:
                     textBox.Text = stringValue;
                     break;
+
                 case PasswordBox passwordBox:
                     passwordBox.Text = stringValue;
                     break;
+
                 case NumericStepper numericStepper:
                     if (double.TryParse(stringValue, out var numValue))
                     {
@@ -273,9 +277,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     }
                     else if (descriptor.DefaultValue != null)
                     {
-                        numericStepper.Value = Convert.ToDouble(descriptor.DefaultValue);
+                        var defStr = Convert.ToString(descriptor.DefaultValue, CultureInfo.InvariantCulture) ?? string.Empty;
+                        if (double.TryParse(defStr, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var defNum))
+                        {
+                            numericStepper.Value = defNum;
+                        }
                     }
+
                     break;
+
                 case CheckBox checkBox:
                     if (bool.TryParse(stringValue, out var boolValue))
                     {
@@ -283,9 +293,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     }
                     else if (descriptor.DefaultValue != null)
                     {
-                        checkBox.Checked = Convert.ToBoolean(descriptor.DefaultValue);
+                        var defStr = Convert.ToString(descriptor.DefaultValue, CultureInfo.InvariantCulture) ?? string.Empty;
+                        if (bool.TryParse(defStr, out var defBool))
+                        {
+                            checkBox.Checked = defBool;
+                        }
                     }
+
                     break;
+
                 case DropDown dropDown:
                     for (int i = 0; i < dropDown.Items.Count; i++)
                     {
@@ -308,6 +324,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                             }
                         }
                     }
+
                     break;
             }
         }
@@ -318,14 +335,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         public void SaveSettings()
         {
             var updatedSettings = new Dictionary<string, object>();
-            var descriptors = _provider.GetSettingDescriptors().ToList();
+            var descriptors = this._provider.GetSettingDescriptors().ToList();
 
             foreach (var descriptor in descriptors)
             {
-                if (!_controls.ContainsKey(descriptor.Name))
+                if (!this._controls.ContainsKey(descriptor.Name))
                     continue;
 
-                var control = _controls[descriptor.Name];
+                var control = this._controls[descriptor.Name];
                 object newValue = null;
 
                 switch (control)
@@ -355,6 +372,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                         {
                             newValue = dropDown.Items[dropDown.SelectedIndex].Text;
                         }
+
                         break;
                 }
 
@@ -367,7 +385,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Update provider settings via ProviderManager
             if (updatedSettings.Any())
             {
-                Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(_provider.Name, updatedSettings);
+                Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, updatedSettings);
             }
         }
     }

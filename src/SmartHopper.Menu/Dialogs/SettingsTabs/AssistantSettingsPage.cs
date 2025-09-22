@@ -42,17 +42,17 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             _assistantProviderComboBox = new DropDown();
             _assistantModelTextBox = new TextBox
             {
-                PlaceholderText = "Enter model name or leave empty for default"
+                PlaceholderText = "Enter model name or leave empty for default",
             };
 
             _enableCanvasButtonCheckBox = new CheckBox
             {
-                Text = "Enable canvas button"
+                Text = "Enable canvas button",
             };
 
             _enableAIGreetingCheckBox = new CheckBox
             {
-                Text = "Enable AI-generated greetings in chat"
+                Text = "Enable AI-generated greetings in chat",
             };
 
             // Populate provider dropdown
@@ -69,7 +69,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Label
             {
                 Text = "SmartHopper Canvas Assistant",
-                Font = new Font(SystemFont.Bold, 12)
+                Font = new Font(SystemFont.Bold, 12),
             });
             layout.Add(new Label
             {
@@ -77,7 +77,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
@@ -109,14 +109,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Assistant model section
             var modelRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
             modelRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Assistant Model:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
                 new TableCell(_assistantModelTextBox, true)
             ));
             layout.Add(modelRowLayout);
-            
+
             layout.Add(new Label
             {
                 Text = "Specific AI model to use for assistant features. Leave empty to use the provider's default model.",
@@ -137,7 +137,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add end spacing
@@ -151,7 +151,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing

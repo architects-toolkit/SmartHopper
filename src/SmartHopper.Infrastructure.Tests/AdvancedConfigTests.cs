@@ -25,7 +25,7 @@ namespace SmartHopper.Infrastructure.Tests
 
     public class AdvancedConfigTests
     {
-        private class DummyProvider : IAIProvider
+        private sealed class DummyProvider : IAIProvider
         {
             public string Name => "DummyProvider";
 
@@ -89,7 +89,7 @@ namespace SmartHopper.Infrastructure.Tests
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
         }
 
-        private class DummyProviderModels : IAIProviderModels
+        private sealed class DummyProviderModels : IAIProviderModels
         {
             public async Task<List<AIModelCapabilities>> RetrieveModels()
             {
@@ -111,7 +111,7 @@ namespace SmartHopper.Infrastructure.Tests
                         Capabilities = AICapability.TextInput | AICapability.TextOutput,
                         Verified = false,
                         Rank = 0,
-                    }
+                    },
                 };
                 return await Task.FromResult(list);
             }
@@ -122,13 +122,13 @@ namespace SmartHopper.Infrastructure.Tests
                 var list = new List<string>
                 {
                     "dummy_model_1",
-                    "dummy_model_2"
+                    "dummy_model_2",
                 };
                 return await Task.FromResult(list);
             }
         }
 
-        private class DummySettings : IAIProviderSettings
+        private sealed class DummySettings : IAIProviderSettings
         {
             private readonly IAIProvider provider;
 

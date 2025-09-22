@@ -37,7 +37,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var result = string.Empty;
 
-            if(!string.IsNullOrEmpty(this.Content))
+            if (!string.IsNullOrEmpty(this.Content))
             {
                 result += $"{this.Content}";
             }
@@ -49,6 +49,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Sets the result for text generation.
         /// </summary>
         /// <param name="content">The content to generate the text from.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
         public void SetResult(string content, AIMetrics metrics = null)
         {
             this.Content = content;
@@ -58,6 +59,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the CSS role class to use when rendering this interaction (force 'error' styling).
         /// </summary>
+        /// <returns>The CSS role class string for UI rendering ("error").</returns>
         public string GetRoleClassForRender()
         {
             return "error";
@@ -66,6 +68,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the display name for rendering (header label).
         /// </summary>
+        /// <returns>The display name to show in the UI ("Error").</returns>
         public string GetDisplayNameForRender()
         {
             return "Error";
@@ -74,6 +77,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the raw markdown content to render for this interaction.
         /// </summary>
+        /// <returns>The raw content string; empty string when no content is set.</returns>
         public string GetRawContentForRender()
         {
             return this.Content ?? string.Empty;
@@ -82,6 +86,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Error interactions do not include reasoning by default.
         /// </summary>
+        /// <returns>An empty string, as errors have no reasoning section.</returns>
         public string GetRawReasoningForRender()
         {
             return string.Empty;
@@ -94,7 +99,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public string GetStreamKey()
         {
             var hash = ComputeShortHash(this.Content);
-            
+
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
                 return $"turn:{this.TurnId}:error:{hash}";
@@ -119,12 +124,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Lowercase hex substring of the hash.</returns>
         private static string ComputeShortHash(string value)
         {
-            using (var sha = SHA256.Create())
-            {
-                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-                var hash = sha.ComputeHash(bytes);
-                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 16);
-            }
+            var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+            var hash = SHA256.HashData(bytes);
+            return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
         }
     }
 }

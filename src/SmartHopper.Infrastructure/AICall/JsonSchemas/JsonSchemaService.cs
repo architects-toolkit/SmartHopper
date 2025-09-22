@@ -80,6 +80,7 @@ namespace SmartHopper.Infrastructure.AICall.JsonSchemas
                 {
                     return value.ToString(Newtonsoft.Json.Formatting.None);
                 }
+
                 return value.ToString();
             }
             catch

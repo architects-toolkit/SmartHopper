@@ -17,15 +17,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.AI
@@ -130,7 +129,7 @@ namespace SmartHopper.Components.AI
 
                         Debug.WriteLine($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
 
-                        var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
+                        var ts = interaction.Time.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
                         var role = interaction.Agent.ToDescription();
                         var content = interaction.ToString() ?? string.Empty;
 

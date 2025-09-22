@@ -64,8 +64,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"" ]
                 }",
-                execute: this.GhTidyUpAsync
-            );
+                execute: this.GhTidyUpAsync);
         }
 
         /// <summary>
@@ -94,6 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var sy = startToken["y"]?.ToObject<float>() ?? 0f;
                     origin = new PointF(sx, sy);
                 }
+
                 var currentObjs = GHCanvasUtils.GetCurrentObjects();
                 var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
                     if (!selected.Any())
@@ -102,6 +102,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("No matching components found for provided GUIDs.");
                     return output;
                 }
+
                 var doc = GHDocumentUtils.GetObjectsDetails(selected);
                 var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
 
@@ -113,6 +114,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var origPivot = origObj.Attributes.Pivot;
                     origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
                 }
+
                 var moved = new List<string>();
                 foreach (var node in layoutNodes)
                 {
@@ -125,9 +127,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
                     if (ok) moved.Add(guid.ToString());
                 }
+
                 var toolResult = new JObject
                 {
-                    ["moved"] = JArray.FromObject(moved)
+                    ["moved"] = JArray.FromObject(moved),
                 };
                 var immutableBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)

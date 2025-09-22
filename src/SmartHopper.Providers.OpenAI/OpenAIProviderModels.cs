@@ -41,7 +41,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
-            var provider = this.openAIProvider.Name.ToLower();
+            var provider = this.openAIProvider.Name.ToLowerInvariant();
 
             var models = new List<AIModelCapabilities>
             {

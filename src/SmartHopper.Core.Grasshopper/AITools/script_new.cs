@@ -60,8 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.ScriptNewToolAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput
-            );
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
         }
 
         /// <summary>
@@ -231,8 +230,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["variableName"] = input["name"]?.ToString() ?? "input",
                         ["name"] = input["name"]?.ToString() ?? "Input",
                         ["description"] = input["description"]?.ToString() ?? string.Empty,
-                        ["access"] = input["access"]?.ToString()?.ToLower() ?? "item",
-                        ["type"] = inputType
+                        ["access"] = input["access"]?.ToString()?.ToLowerInvariant() ?? "item",
+                        ["type"] = inputType,
                     };
                     scriptInputs.Add(inputObj);
                 }
@@ -286,7 +285,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             Value = scriptOutputs,
                             Type = typeof(JArray).Name
                         },
-                    }
+                    },
                 };
                 doc.Components.Add(comp);
 
@@ -321,6 +320,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateSuccess(outImmutable, toolCall);
                     return output;
                 }
+
                 output.CreateError("Failed to retrieve placed component GUID.");
                 return output;
             }

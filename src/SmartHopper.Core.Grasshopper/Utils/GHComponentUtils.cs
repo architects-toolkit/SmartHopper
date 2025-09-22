@@ -142,6 +142,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 return obj.Attributes.Bounds;
             }
+
             return RectangleF.Empty;
         }
     }

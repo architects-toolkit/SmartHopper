@@ -23,8 +23,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         public int MaxToolPasses { get; set; } = 4;
 
-        public bool AllowParallelTools { get; set; } = false;
+        public bool AllowParallelTools { get; set; }
 
-        public CancellationToken CancellationToken { get; set; } = default;
+        public CancellationToken CancellationToken { get; set; }
     }
 }

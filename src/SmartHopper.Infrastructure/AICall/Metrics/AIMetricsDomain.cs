@@ -40,7 +40,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         ValidationRun,
         Cancelled,
         Failed,
-        Completed
+        Completed,
     }
 
     /// <summary>
@@ -61,8 +61,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         DateTimeOffset Timestamp,
         AIMetricsEventType EventType,
         MetricsCorrelation Correlation,
-        object Payload
-    );
+        object Payload);
 
     /// <summary>
     /// Metrics for a single provider call (per-turn).
@@ -79,8 +78,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         int? CompletionTokens = null,
         string? Model = null,
         string? Provider = null,
-        string? FinishReason = null
-    );
+        string? FinishReason = null);
 
     /// <summary>
     /// Metrics aggregated at the logical "turn" boundary.
@@ -89,8 +87,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         TimeSpan? EncodingTime = null,
         TimeSpan? SchemaWrapTime = null,
         TimeSpan? ProviderCallTime = null,
-        TimeSpan? ValidationTime = null
-    );
+        TimeSpan? ValidationTime = null);
 
     /// <summary>
     /// Streaming-related metrics for live responses.
@@ -100,8 +97,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         int DeltaCount = 0,
         double? TokensPerSecond = null,
         double? BytesPerSecond = null,
-        int? LastDeltaSize = null
-    );
+        int? LastDeltaSize = null);
 
     /// <summary>
     /// Metrics for a single tool invocation.
@@ -112,8 +108,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         TimeSpan? DispatchTime = null,
         TimeSpan? ExecutionTime = null,
         long? ResultBytes = null,
-        bool? IsError = null
-    );
+        bool? IsError = null);
 
     /// <summary>
     /// Cache evaluation metrics (local and provider-side prompt caching hints).
@@ -122,8 +117,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         bool? LocalHit = null,
         bool? ProviderCacheUsed = null,
         string? ETag = null,
-        string? Strategy = null
-    );
+        string? Strategy = null);
 
     /// <summary>
     /// Output of validators (counts only; do not include PII content).
@@ -131,6 +125,5 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
     public sealed record ValidationMetrics(
         int Errors = 0,
         int Warnings = 0,
-        int Infos = 0
-    );
+        int Infos = 0);
 }

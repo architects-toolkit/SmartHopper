@@ -29,10 +29,24 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// </summary>
     public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulAsyncComponentBase
     {
+        /// <summary>
+        /// Gets the unique component identifier.
+        /// </summary>
         public override Guid ComponentGuid => new Guid("1F4D5C1B-8E6D-49B4-B55F-1A3F5E2E6B31");
+
+        /// <summary>
+        /// Gets the component icon (not used for test components).
+        /// </summary>
         protected override Bitmap Icon => null;
+
+        /// <summary>
+        /// Gets the exposure level for this component in the toolbar.
+        /// </summary>
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DataTreeProcessorEqualPathsThreeItemsTestComponent"/> class.
+        /// </summary>
         public DataTreeProcessorEqualPathsThreeItemsTestComponent()
             : base("Test DataTreeProcessor (Equal Paths, 3 items)", "TEST-DTP-EQ-3",
                   "Tests DataTreeProcessor with two input trees that share equal branch paths (three items each).",
@@ -41,8 +55,14 @@ namespace SmartHopper.Components.Test.DataProcessor
             this.RunOnlyOnInputChanges = false;
         }
 
+        /// <summary>
+        /// Registers additional input parameters (none for this test component).
+        /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }
 
+        /// <summary>
+        /// Registers output parameters for the test results.
+        /// </summary>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddIntegerParameter("Result", "R", "Result data tree produced by DataTreeProcessor.", GH_ParamAccess.tree);
@@ -50,6 +70,9 @@ namespace SmartHopper.Components.Test.DataProcessor
             pManager.AddTextParameter("Messages", "M", "Diagnostic messages.", GH_ParamAccess.list);
         }
 
+        /// <summary>
+        /// Creates the worker that performs the asynchronous test logic.
+        /// </summary>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new Worker(this, AddRuntimeMessage);
@@ -92,7 +115,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
                         { "A", treeA },
-                        { "B", treeB }
+                        { "B", treeB },
                     };
 
                     var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: true, groupIdenticalBranches: false);

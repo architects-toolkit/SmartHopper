@@ -35,7 +35,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             var rq = context?.Request;
             var rs = context?.Response ?? instance;
 
-            if (rq?.Body == null || rs == null)
+            if (rq?.Body == null)
             {
                 // Nothing to validate
                 return Task.FromResult(new ValidationResult { IsValid = true, Messages = messages });
@@ -55,7 +55,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             }
 
             // Find the latest assistant text interaction
-            var content = rs?.Body?.Interactions?
+            var content = rs.Body?.Interactions?
                 .OfType<AIInteractionText>()
                 .Where(i => i.Agent == AIAgent.Assistant)
                 .Select(i => i.Content)
@@ -98,6 +98,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     return true;
                 }
             }
+
             return false;
         }
     }

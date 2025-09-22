@@ -49,27 +49,27 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <summary>
         /// Indicates the model has been verified to work end-to-end in SmartHopper.
         /// </summary>
-        public bool Verified { get; set; } = false;
+        public bool Verified { get; set; }
 
         /// <summary>
         /// Whether the provider supports streaming with this model.
         /// </summary>
-        public bool SupportsStreaming { get; set; } = false;
+        public bool SupportsStreaming { get; set; }
 
         /// <summary>
         /// Whether the provider supports prompt caching with this model.
         /// </summary>
-        public bool SupportsPromptCaching { get; set; } = false;
+        public bool SupportsPromptCaching { get; set; }
 
         /// <summary>
         /// Optional ranking to break ties when multiple models match; higher is preferred.
         /// </summary>
-        public int Rank { get; set; } = 0;
+        public int Rank { get; set; }
 
         /// <summary>
         /// Indicates whether this model is deprecated.
         /// </summary>
-        public bool Deprecated { get; set; } = false;
+        public bool Deprecated { get; set; }
 
         /// <summary>
         /// Alternative names that should resolve to this model.
@@ -102,7 +102,7 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <returns>A string key in the format "provider.model".</returns>
         public string GetKey()
         {
-            return $"{Provider.ToLower()}.{Model.ToLower()}";
+            return $"{this.Provider.ToLowerInvariant()}.{this.Model.ToLowerInvariant()}";
         }
     }
 }

@@ -31,7 +31,6 @@ namespace SmartHopper.Core.UI.Chat
         private sealed class WebChatObserver : IConversationObserver
         {
             private readonly WebChatDialog _dialog;
-            private readonly HashSet<string> _seen = new HashSet<string>(StringComparer.Ordinal);
 
             // Centralized streaming state per run (role-agnostic)
             private sealed class StreamState
@@ -41,52 +40,17 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
-            /// Returns a segmented text key for the given base key. Each new text message within the same
-            /// turn gets a new segment index to ensure separate DOM bubbles.
-            /// Segmentation advancement no longer relies on last-type/last-agent heuristics: instead, a per-turn
-            /// boundary flag is set on interaction completion via OnInteractionCompleted (for both text and non-text completions),
-            /// and the next incoming text consumes that flag to
-            /// increment the segment. This makes segmentation deterministic and aligned with session persistence.
-            /// </summary>
-            private string GetSegmentedKey(string baseKey, AIInteractionText chunk, out StreamState initialState)
-            {
-                initialState = null;
-                if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
-
-                // Current segment index for this base key (per role & turn)
-                if (!_textInteractionSegments.TryGetValue(baseKey, out var seg))
-                {
-                    seg = 1;
-                }
-
-                if (!_textInteractionSegments.ContainsKey(baseKey))
-                {
-                    _textInteractionSegments[baseKey] = seg;
-                    initialState = new StreamState { Started = false, Aggregated = null };
-                }
-
-                // Update per-turn last seen state
-                var turnKey = GetTurnBaseKey(chunk?.TurnId);
-                if (!string.IsNullOrWhiteSpace(turnKey))
-                {
-                    _lastInteractionTypeByTurn[turnKey] = typeof(AIInteractionText);
-                    _lastTextAgentByTurn[turnKey] = chunk?.Agent ?? AIAgent.Assistant;
-                }
-
-                return $"{baseKey}:seg{seg}";
-            }
-
-            /// <summary>
             /// Returns the current segmented text key for a base key without creating a new segment.
             /// </summary>
             private string GetCurrentSegmentedKey(string baseKey)
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
-                if (!_textInteractionSegments.TryGetValue(baseKey, out var seg))
+                if (!this._textInteractionSegments.TryGetValue(baseKey, out var seg))
                 {
                     seg = 1;
-                    _textInteractionSegments[baseKey] = seg;
+                    this._textInteractionSegments[baseKey] = seg;
                 }
+
                 return $"{baseKey}:seg{seg}";
             }
 
@@ -202,12 +166,22 @@ namespace SmartHopper.Core.UI.Chat
             // Tracks active streaming states to distinguish streaming vs non-streaming paths
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
+            /// <summary>
+            /// Initializes a new instance of the <see cref="WebChatObserver"/> class that updates the
+            /// associated <see cref="WebChatDialog"/> in response to conversation session events.
+            /// </summary>
+            /// <param name="dialog">The chat dialog instance to update.</param>
             public WebChatObserver(WebChatDialog dialog)
             {
-                _dialog = dialog;
-                _thinkingBubbleActive = false;
+                this._dialog = dialog;
+                this._thinkingBubbleActive = false;
             }
 
+            /// <summary>
+            /// Handles the start of a conversation session.
+            /// Resets per-run state and shows a persistent generic loading bubble.
+            /// </summary>
+            /// <param name="request">The request about to be executed.</param>
             public void OnStart(AIRequestCall request)
             {
                 Debug.WriteLine("[WebChatObserver] OnStart called");
@@ -215,17 +189,17 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
                     // Reset per-run state
-                    _streams.Clear();
-                    _textInteractionSegments.Clear();
-                    _lastInteractionTypeByTurn.Clear();
-                    _lastTextAgentByTurn.Clear();
-                    _pendingNewTextSegmentTurns.Clear();
-                    _finalizedTextTurns.Clear();
-                    _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
-                    
+                    this._streams.Clear();
+                    this._textInteractionSegments.Clear();
+                    this._lastInteractionTypeByTurn.Clear();
+                    this._lastTextAgentByTurn.Clear();
+                    this._pendingNewTextSegmentTurns.Clear();
+                    this._finalizedTextTurns.Clear();
+                    this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
+
                     // Insert a persistent generic loading bubble that remains until stop state
-                    _dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
-                    _thinkingBubbleActive = true;
+                    this._dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
+                    this._thinkingBubbleActive = true;
                     // No assistant-specific state to reset
                     Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
@@ -237,14 +211,15 @@ namespace SmartHopper.Core.UI.Chat
             /// </summary>
             private void RemoveThinkingBubbleIfActive()
             {
-                if (!_thinkingBubbleActive)
+                if (!this._thinkingBubbleActive)
                 {
                     return;
                 }
+
                 try
                 {
                     // Remove the generic loader via JS helper
-                    _dialog.ExecuteScript("removeThinkingMessage();");
+                    this._dialog.ExecuteScript("removeThinkingMessage();");
                 }
                 catch (Exception ex)
                 {
@@ -252,10 +227,15 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 finally
                 {
-                    _thinkingBubbleActive = false;
+                    this._thinkingBubbleActive = false;
                 }
             }
 
+            /// <summary>
+            /// Handles streaming delta updates for partial interactions.
+            /// Coalesces text chunks and throttles DOM updates for smooth rendering.
+            /// </summary>
+            /// <param name="interaction">The partial interaction being streamed.</param>
             public void OnDelta(IAIInteraction interaction)
             {
                 if (interaction == null)
@@ -276,18 +256,18 @@ namespace SmartHopper.Core.UI.Chat
                                 var turnKey = GetTurnBaseKey(tt?.TurnId);
 
                                 // If this turn is finalized, ignore any late deltas to avoid overriding final metrics/time
-                                if (!string.IsNullOrWhiteSpace(turnKey) && _finalizedTextTurns.Contains(turnKey))
+                                if (!string.IsNullOrWhiteSpace(turnKey) && this._finalizedTextTurns.Contains(turnKey))
                                 {
                                     return;
                                 }
 
-                                if (!string.IsNullOrWhiteSpace(turnKey) && _pendingNewTextSegmentTurns.Remove(turnKey) && _textInteractionSegments.ContainsKey(baseKey))
+                                if (!string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Remove(turnKey) && this._textInteractionSegments.ContainsKey(baseKey))
                                 {
-                                    _textInteractionSegments[baseKey] = _textInteractionSegments[baseKey] + 1;
+                                    this._textInteractionSegments[baseKey] = this._textInteractionSegments[baseKey] + 1;
                                 }
 
-                                var key = GetCurrentSegmentedKey(baseKey);
-                                if (!_streams.TryGetValue(key, out var state))
+                                var key = this.GetCurrentSegmentedKey(baseKey);
+                                if (!this._streams.TryGetValue(key, out var state))
                                 {
                                     state = new StreamState { Started = false, Aggregated = null };
                                 }
@@ -298,11 +278,12 @@ namespace SmartHopper.Core.UI.Chat
 
                                 if (state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
                                 {
-                                    if (ShouldUpsertNow(key))
+                                    if (this.ShouldUpsertNow(key))
                                     {
-                                        _dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
+                                        this._dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
                                     }
                                 }
+
                                 return;
                             }
                         }
@@ -318,6 +299,11 @@ namespace SmartHopper.Core.UI.Chat
                 }
             }
 
+            /// <summary>
+            /// Handles completion of an interaction within the current turn.
+            /// Persists results and updates the corresponding DOM bubble deterministically.
+            /// </summary>
+            /// <param name="interaction">The completed interaction.</param>
             public void OnInteractionCompleted(IAIInteraction interaction)
             {
                 if (interaction == null)
@@ -338,42 +324,44 @@ namespace SmartHopper.Core.UI.Chat
                                 var turnKey = GetTurnBaseKey(tt?.TurnId);
 
                                 // If this turn is finalized, ignore any late partials to avoid overriding final metrics/time
-                                if (!string.IsNullOrWhiteSpace(turnKey) && _finalizedTextTurns.Contains(turnKey))
+                                if (!string.IsNullOrWhiteSpace(turnKey) && this._finalizedTextTurns.Contains(turnKey))
                                 {
                                     return;
                                 }
 
                                 if (!string.IsNullOrWhiteSpace(turnKey))
                                 {
-                                    _pendingNewTextSegmentTurns.Add(turnKey);
+                                    this._pendingNewTextSegmentTurns.Add(turnKey);
                                 }
 
                                 // Use the current segmented key to match the streaming aggregate stored by OnDelta
-                                var activeSegKey = GetCurrentSegmentedKey(baseKey);
+                                var activeSegKey = this.GetCurrentSegmentedKey(baseKey);
 
                                 // Streaming completion: update the existing aggregate and upsert in-place
-                                if (_streams.TryGetValue(activeSegKey, out var existingState) && existingState.Aggregated is AIInteractionText agg)
+                                if (this._streams.TryGetValue(activeSegKey, out var existingState) && existingState.Aggregated is AIInteractionText agg)
                                 {
                                     agg.Content = tt.Content;
                                     agg.Reasoning = tt.Reasoning;
                                     agg.Time = tt.Time;
-                                    _dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
+                                    this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
                                 }
                                 else
                                 {
                                     // True non-streaming preview: create or reuse current segment and upsert once
-                                    if (!_textInteractionSegments.ContainsKey(baseKey))
+                                    if (!this._textInteractionSegments.ContainsKey(baseKey))
                                     {
-                                        _textInteractionSegments[baseKey] = 1;
+                                        this._textInteractionSegments[baseKey] = 1;
                                     }
-                                    var segKey = GetCurrentSegmentedKey(baseKey);
-                                    if (!_streams.TryGetValue(segKey, out var state))
+
+                                    var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                    if (!this._streams.TryGetValue(segKey, out var state))
                                     {
                                         state = new StreamState { Started = false, Aggregated = null };
                                     }
+
                                     state.Aggregated = tt;
-                                    _streams[segKey] = state;
-                                    _dialog.UpsertMessageByKey(segKey, tt, source: "OnInteractionCompletedNonStreaming");
+                                    this._streams[segKey] = state;
+                                    this._dialog.UpsertMessageByKey(segKey, tt, source: "OnInteractionCompletedNonStreaming");
                                 }
 
                                 return;
@@ -386,20 +374,20 @@ namespace SmartHopper.Core.UI.Chat
                                 if (string.IsNullOrWhiteSpace(streamKey))
                                 {
                                     // Fallback: append if keyless (should be rare)
-                                    _dialog.AddInteractionToWebView(interaction);
+                                    this._dialog.AddInteractionToWebView(interaction);
                                 }
                                 else
                                 {
                                     if (interaction is AIInteractionToolResult tr)
                                     {
                                         var followKey = GetFollowKeyForToolResult(tr);
-                                        _dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnInteractionCompletedToolResult");
+                                        this._dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnInteractionCompletedToolResult");
                                     }
                                     else
                                     {
-                                        if (ShouldUpsertNow(streamKey))
+                                        if (this.ShouldUpsertNow(streamKey))
                                         {
-                                            _dialog.UpsertMessageByKey(streamKey, interaction, source: "OnInteractionCompleted");
+                                            this._dialog.UpsertMessageByKey(streamKey, interaction, source: "OnInteractionCompleted");
                                         }
                                     }
                                 }
@@ -410,10 +398,10 @@ namespace SmartHopper.Core.UI.Chat
                                     var turnKey = GetTurnBaseKey(interaction?.TurnId);
                                     if (!string.IsNullOrWhiteSpace(turnKey))
                                     {
-                                        _lastInteractionTypeByTurn[turnKey] = interaction.GetType();
+                                        this._lastInteractionTypeByTurn[turnKey] = interaction.GetType();
 
                                         // Mark boundary so the next text in this turn starts a new segment
-                                        _pendingNewTextSegmentTurns.Add(turnKey);
+                                        this._pendingNewTextSegmentTurns.Add(turnKey);
                                     }
                                 }
                                 catch { }
@@ -431,22 +419,37 @@ namespace SmartHopper.Core.UI.Chat
                 }
             }
 
+            /// <summary>
+            /// Notifies that a tool call is being executed.
+            /// Updates the status bar to reflect the ongoing tool name.
+            /// </summary>
+            /// <param name="toolCall">The tool call interaction.</param>
             public void OnToolCall(AIInteractionToolCall toolCall)
             {
                 if (toolCall == null) return;
                 // During streaming, do not append tool calls; just update status.
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
+                    this._dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
                 });
             }
 
+            /// <summary>
+            /// Notifies that a tool result was obtained.
+            /// During streaming, rendering is deferred until the interaction is persisted.
+            /// </summary>
+            /// <param name="toolResult">The tool result interaction.</param>
             public void OnToolResult(AIInteractionToolResult toolResult)
             {
                 if (toolResult == null) return;
                 // Do not append tool results during streaming; they will be added on partial when persisted.
             }
 
+            /// <summary>
+            /// Handles the final stable result after a conversation turn completes.
+            /// Renders the final assistant message, removes the thinking bubble, and emits notifications.
+            /// </summary>
+            /// <param name="result">The final <see cref="AIReturn"/> for this turn.</param>
             public void OnFinal(AIReturn result)
             {
                 Debug.WriteLine($"[WebChatObserver] OnFinal: {result?.Body?.Interactions?.Count ?? 0} interactions, {result?.Body?.GetNewInteractions().Count ?? 0} new ones");
@@ -476,13 +479,13 @@ namespace SmartHopper.Core.UI.Chat
                             var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
                             if (!string.IsNullOrWhiteSpace(turnKey))
                             {
-                                _finalizedTextTurns.Add(turnKey);
+                                this._finalizedTextTurns.Add(turnKey);
                             }
 
                             // Prefer the aggregated streaming content for visual continuity
                             AIInteractionText aggregated = null;
                             // Use the current segmented key for the assistant stream
-                            var segKey = !string.IsNullOrWhiteSpace(streamKey) ? GetCurrentSegmentedKey(streamKey) : null;
+                            var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
                             if (!string.IsNullOrWhiteSpace(segKey)
                                 && this._streams.TryGetValue(segKey, out var st)
                                 && st?.Aggregated is AIInteractionText agg
@@ -532,7 +535,7 @@ namespace SmartHopper.Core.UI.Chat
                         }
 
                         // Now that final assistant is rendered, remove the thinking bubble and set status
-                        RemoveThinkingBubbleIfActive();
+                        this.RemoveThinkingBubbleIfActive();
 
                         // Notify listeners with session-managed snapshots
                         this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
@@ -552,6 +555,11 @@ namespace SmartHopper.Core.UI.Chat
                 });
             }
 
+            /// <summary>
+            /// Handles an error raised during the conversation session.
+            /// Renders an error message and updates the status bar accordingly.
+            /// </summary>
+            /// <param name="ex">The error that occurred.</param>
             public void OnError(Exception ex)
             {
                 RhinoApp.InvokeOnUiThread(() =>
@@ -605,6 +613,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     return keyed.GetStreamKey();
                 }
+
                 return $"other:{interaction.GetType().Name}:{interaction.Agent}";
             }
 
@@ -616,14 +625,15 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     var now = DateTime.UtcNow;
-                    if (!_lastUpsertAt.TryGetValue(key, out var last))
+                    if (!this._lastUpsertAt.TryGetValue(key, out var last))
                     {
-                        _lastUpsertAt[key] = now;
+                        this._lastUpsertAt[key] = now;
                         return true;
                     }
+
                     if ((now - last).TotalMilliseconds >= ThrottleMs)
                     {
-                        _lastUpsertAt[key] = now;
+                        this._lastUpsertAt[key] = now;
                         return true;
                     }
                 }
@@ -652,22 +662,11 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         return $"turn:{tr.TurnId}:tool.call:{id}";
                     }
+
                     return $"tool.call:{id}";
                 }
                 catch { return null; }
             }
-
-            private static string MakeKey(IAIInteraction interaction)
-            {
-                if (interaction is IAIKeyedInteraction keyed)
-                {
-                    return keyed.GetDedupKey();
-                }
-                var agent = interaction.Agent.ToString();
-                var time = interaction.Time.ToString("o");
-                return $"other:{interaction.GetType().Name}:{agent}:{time}";
-            }
         }
     }
 }
-

@@ -102,6 +102,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                     prefixText = ""; prefixColor = Colors.Black;
                     break;
             }
+
             titleLabel.Text = prefixText + titleLabel.Text;
             titleLabel.TextColor = prefixColor;
 
@@ -120,7 +121,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Spacing = new Size(5, 5),
                 Rows =
                 {
-                    new TableRow(new TableCell(bodyLabel, true))
+                    new TableRow(new TableCell(bodyLabel, true)),
                 },
             };
 
@@ -129,7 +130,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 10,
-                HorizontalContentAlignment = HorizontalAlignment.Right
+                HorizontalContentAlignment = HorizontalAlignment.Right,
             };
 
             if (isConfirmation)
@@ -137,23 +138,35 @@ namespace SmartHopper.Infrastructure.Dialogs
                 var yesButton = new Button { Text = "Yes", MinimumSize = new Size(80, 30) };
                 var noButton = new Button { Text = "No", MinimumSize = new Size(80, 30) };
 
-                yesButton.Click += (sender, e) => { _result = true; Close(); };
-                noButton.Click += (sender, e) => { _result = false; Close(); };
+                yesButton.Click += (sender, e) =>
+                {
+                    this._result = true;
+                    this.Close();
+                };
+                noButton.Click += (sender, e) =>
+                {
+                    this._result = false;
+                    this.Close();
+                };
 
                 buttonLayout.Items.Add(yesButton);
                 buttonLayout.Items.Add(noButton);
-                DefaultButton = yesButton;
+                this.DefaultButton = yesButton;
             }
             else
             {
                 var okButton = new Button { Text = "OK", MinimumSize = new Size(80, 30) };
-                okButton.Click += (sender, e) => { Close(); };
+                okButton.Click += (sender, e) =>
+                {
+                    this.Close();
+                };
+
                 buttonLayout.Items.Add(okButton);
-                DefaultButton = okButton;
+                this.DefaultButton = okButton;
             }
 
             // Main content layout
-            Content = new TableLayout
+            this.Content = new TableLayout
             {
                 Padding = new Padding(10),
                 Spacing = new Size(25, 20),
@@ -166,9 +179,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                             {
                                 HorizontalContentAlignment = HorizontalAlignment.Center,
                                 Items = { headerLayout }
-                            }
-                        )
-                    ),
+                            })),
                     
                     // Message row left-aligned (default)
                     new TableRow(messageContainer),
@@ -181,10 +192,8 @@ namespace SmartHopper.Infrastructure.Dialogs
                                 Padding = new Padding(0, 20, 0, 0),
                                 HorizontalContentAlignment = HorizontalAlignment.Right,
                                 Items = { buttonLayout }
-                            }
-                        )
-                    )
-                }
+                            }))
+                },
             };
         }
 
@@ -201,6 +210,8 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// <summary>
         /// Shows an information dialog.
         /// </summary>
+        /// <param name="message">The message to display in the dialog body.</param>
+        /// <param name="title">The dialog window title.</param>
         public static void ShowInfo(string message, string title = "SmartHopper")
         {
             var dlg = new StyledMessageDialog(title, message, DialogType.Info, false);
@@ -210,6 +221,8 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// <summary>
         /// Shows a warning dialog.
         /// </summary>
+        /// <param name="message">The message to display in the dialog body.</param>
+        /// <param name="title">The dialog window title.</param>
         public static void ShowWarning(string message, string title = "SmartHopper")
         {
             var dlg = new StyledMessageDialog(title, message, DialogType.Warning, false);
@@ -219,6 +232,8 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// <summary>
         /// Shows an error dialog.
         /// </summary>
+        /// <param name="message">The message to display in the dialog body.</param>
+        /// <param name="title">The dialog window title.</param>
         public static void ShowError(string message, string title = "SmartHopper")
         {
             var dlg = new StyledMessageDialog(title, message, DialogType.Error, false);
@@ -229,6 +244,8 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// Shows a confirmation dialog with Yes and No options.
         /// </summary>
         /// <returns>True if Yes was clicked; otherwise, false.</returns>
+        /// <param name="message">The message to display in the dialog body.</param>
+        /// <param name="title">The dialog window title.</param>
         public static bool ShowConfirmation(string message, string title = "SmartHopper")
         {
             var dlg = new StyledMessageDialog(title, message, DialogType.Info, true);

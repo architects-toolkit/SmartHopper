@@ -6,6 +6,7 @@ Covers `IAIInteraction` and concrete message types.
 
 - File: `IAIInteraction.cs`
 - Properties:
+  - `string TurnId`
   - `DateTime Time`
   - `AIAgent Agent`
   - `AIMetrics Metrics`
