@@ -152,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
   - WebChatDialog greeting flow is now fully event-driven via `ConversationSession` observer callbacks. The UI no longer inserts or replaces a temporary greeting bubble; it only updates the status label during generation and renders greeting content from partial/final events.
   - Interaction override behavior clarified: greeting generation uses the initial request interactions (e.g., system prompt) to preserve context; normal user-initiated turns override from the current conversation history (last return interactions).
+  - Default conversation context enabled for WebChat (Canvas Button and AIChatComponent): sets `AIBody.ContextFilter` to `"time, environment, selection"` so the assistant receives time, environment, and selection count by default. Implemented in `WebChatUtils.EnsureDialogOpen(...)` and `WebChatUtils.WebChatWorker`.
   - Improved default prompts in WebChat for clearer assistant behavior and tool guidance.
   - Improved UI with better collapsible messages, auto-scroll to bottom feature, "new messages" information tooltip, and improved thinking message
   - Dedicated error messages for validation errors in UI not being passed to APIs

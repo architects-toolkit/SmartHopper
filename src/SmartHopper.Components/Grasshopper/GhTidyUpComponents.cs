@@ -110,6 +110,10 @@ namespace SmartHopper.Components.Grasshopper
                 return;
             }
 
+            this.AddRuntimeMessage(
+                GH_RuntimeMessageLevel.Warning,
+                "Heads up: this component is still in alpha and might cheekily mess up your file instead of tidying it... for now!");
+
             if (!run.Value)
             {
                 if (this.LastErrors.Count > 0)

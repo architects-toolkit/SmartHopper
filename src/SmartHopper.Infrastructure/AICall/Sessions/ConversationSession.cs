@@ -17,14 +17,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
-    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Core.Base;
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AICall.Core.Requests;
     using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Metrics;
-    using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.Infrastructure.Streaming;
@@ -33,7 +31,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     /// Conversation session that manages chat history and orchestrates multi-turn conversations.
     /// Handles both streaming and non-streaming execution with proper history management.
     /// </summary>
-    public sealed class ConversationSession : IConversationSession
+    /// <remarks>
+    /// Invariants:
+    /// - Providers are invoked only if there are no pending tool calls (PendingToolCallsCount() == 0).
+    /// - Only provider turns increment the MaxTurns counter (tool passes do not consume turns).
+    /// - Streaming deltas are not persisted into history until the end of the stream; then a single, stable snapshot is persisted.
+    /// </remarks>
+    public sealed partial class ConversationSession : IConversationSession
     {
         /// <summary>
         /// The cancellation token source for this session.
@@ -51,14 +55,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private readonly AIRequestCall _initialRequest;
 
         /// <summary>
-        /// The last complete return from the conversation.
-        /// </summary>
-        private AIReturn _lastReturn = new AIReturn();
-
-        /// <summary>
         /// Indicates whether greeting generation was requested for this session.
         /// </summary>
         private readonly bool _generateGreeting;
+
+        /// <summary>
+        /// The last complete return from the conversation.
+        /// </summary>
+        private AIReturn _lastReturn = new AIReturn();
 
         /// <summary>
         /// The greeting return if greeting generation was requested and completed.
@@ -86,7 +90,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.Observer = observer;
             this.executor = executor ?? new DefaultProviderExecutor();
             this._generateGreeting = generateGreeting;
-            
+
             // Initialize _lastReturn with initial request body
             this._lastReturn.SetBody(request.Body);
         }
@@ -134,15 +138,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         public IConversationObserver? Observer { get; }
 
         /// <summary>
-        /// Gets the greeting return if greeting generation was requested and completed.
-        /// </summary>
-        /// <returns>The greeting AIReturn, or null if no greeting was generated or if it failed.</returns>
-        public AIReturn? GetGreeting()
-        {
-            return this._greetingReturn;
-        }
-
-        /// <summary>
         /// Adds a new user interaction to the conversation.
         /// </summary>
         /// <param name="userMessage">The user message content.</param>
@@ -153,6 +148,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Agent = AIAgent.User,
                 Content = userMessage,
             };
+
             // Append user input to session history without marking it as 'new'
             this.AppendToSessionHistory(userInteraction);
             this.UpdateLastReturn();
@@ -211,15 +207,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Gets the initial request that created this conversation session.
-        /// </summary>
-        /// <returns>The initial <see cref="AIRequestCall"/>.</returns>
-        public AIRequestCall GetInitialRequest()
-        {
-            return this._initialRequest;
-        }
-
-        /// <summary>
         /// Aggregates metrics from interactions in the conversation.
         /// </summary>
         /// <param name="newInteractionsOnly">When true, returns metrics from new interactions only; when false, returns metrics from all history.</param>
@@ -230,7 +217,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var interactions = newInteractionsOnly
                 ? this.GetNewInteractionList()
                 : this.GetHistoryInteractionList();
-            
+
             foreach (var interaction in interactions)
             {
                 if (interaction?.Metrics != null)
@@ -240,250 +227,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             return combined;
-        }
-
-        /// <summary>
-        /// Updates the _lastReturn with current conversation state.
-        /// Creates a fresh snapshot return to avoid mutating any provider returns.
-        /// </summary>
-        private void UpdateLastReturn()
-        {
-            var snapshot = new AIReturn();
-            snapshot.SetBody(this.Request.Body);
-            this._lastReturn = snapshot;
-        }
-
-        /// <summary>
-        /// Updates the <see cref="_lastReturn"/> with current conversation state, preserving new interaction markers from a source return.
-        /// </summary>
-        /// <param name="sourceWithNewMarkers">The source return whose body contains 'new' markers to preserve for observer events.</param>
-        private void UpdateLastReturn(AIReturn sourceWithNewMarkers)
-        {
-            if (sourceWithNewMarkers?.Body == null)
-            {
-                this.UpdateLastReturn();
-                return;
-            }
-
-            // Preserve the source return object for observer events, but keep the session snapshot
-            // without 'new' markers (history only), so future returns don't re-mark items as new.
-            var sessionBody = this.Request.Body;
-            var bodyHistoryOnly = AIBodyBuilder
-                .FromImmutable(sessionBody)
-                .ClearNewMarkers() // ensure no 'new' markers bleed into the snapshot
-                .Build();
-
-            var snapshot = new AIReturn();
-            snapshot.SetBody(bodyHistoryOnly);
-            this._lastReturn = snapshot;
-        }
-
-        /// <summary>
-        /// Prepares a return that contains only the interactions marked as new, suitable for streaming delta notifications.
-        /// </summary>
-        /// <param name="source">The source <see cref="AIReturn"/> from which to extract new interactions.</param>
-        /// <returns>An <see cref="AIReturn"/> whose body contains only the new interactions from <paramref name="source"/>.</returns>
-        private AIReturn PrepareNewOnlyReturn(AIReturn source)
-        {
-            if (source == null) return source;
-
-            var newOnly = source.Body?.GetNewInteractions() ?? new List<IAIInteraction>();
-            var reduced = AIBodyBuilder.Create().AddRange(newOnly).Build();
-            source.SetBody(reduced);
-            return source;
-        }
-
-        /// <summary>
-        /// Appends new interactions into the session body, skipping dynamic context interactions.
-        /// When <paramref name="toolsOnly"/> is true, only tool call/result interactions are persisted (used in streaming flows).
-        /// </summary>
-        /// <param name="interactions">The collection of interactions to append.</param>
-        /// <param name="toolsOnly">If true, persist only tool call/result interactions; otherwise persist all non-context interactions.</param>
-        private void MergeNewToSessionBody(IEnumerable<IAIInteraction>? interactions, bool toolsOnly = false)
-        {
-            if (interactions == null)
-            {
-                return;
-            }
-
-            foreach (var interaction in interactions)
-            {
-                if (interaction == null || interaction.Agent == AIAgent.Context)
-                {
-                    continue;
-                }
-
-                if (toolsOnly && interaction is not AIInteractionToolCall && interaction is not AIInteractionToolResult)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : (interaction is AIInteractionToolCall tc ? $"tool:{tc.Name}" : interaction is AIInteractionToolResult tr ? $"tool_result:{tr.Name}" : string.Empty))}");
-                }
-                catch
-                {
-                    /* logging only */
-                }
-
-                // Append provider-returned interactions to session as history (not new)
-                this.AppendToSessionHistory(interaction);
-            }
-        }
-
-        /// <summary>
-        /// Notifies the observer with per-interaction streaming deltas contained in the given <see cref="AIReturn"/>.
-        /// Each new interaction in <paramref name="ret"/> is forwarded individually via <see cref="IConversationObserver.OnDelta"/>.
-        /// </summary>
-        /// <param name="ret">An <see cref="AIReturn"/> whose body contains the new interactions to surface as deltas.</param>
-        private void NotifyDelta(AIReturn ret)
-        {
-            if (this.Observer == null || ret?.Body?.Interactions == null)
-                return;
-
-            // For delta updates, notify observer of each new interaction individually
-            var newInteractions = ret.Body.GetNewInteractions();
-            try
-            {
-                System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
-            }
-            catch
-            {
-            }
-
-            foreach (var interaction in newInteractions)
-            {
-                this.Observer.OnDelta(interaction);
-            }
-        }
-
-        /// <summary>
-        /// Notifies the observer that one or more interactions have completed and been persisted to history.
-        /// Each new interaction in <paramref name="ret"/> is forwarded via <see cref="IConversationObserver.OnInteractionCompleted"/>.
-        /// </summary>
-        /// <param name="ret">An <see cref="AIReturn"/> containing the completed interactions.</param>
-        private void NotifyPartial(AIReturn ret)
-        {
-            if (this.Observer == null || ret?.Body?.Interactions == null)
-                return;
-
-            // For partial updates, notify observer of each new interaction individually
-            var newInteractions = ret.Body.GetNewInteractions();
-            try
-            {
-                System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
-            }
-            catch
-            {
-            }
-
-            foreach (var interaction in newInteractions)
-            {
-                this.Observer.OnInteractionCompleted(interaction);
-            }
-        }
-
-        /// <summary>
-        /// Notifies the observer that the conversation turn has produced a final, stable result.
-        /// </summary>
-        /// <param name="ret">The final <see cref="AIReturn"/> for the current turn.</param>
-        private void NotifyFinal(AIReturn ret)
-        {
-            try
-            {
-                System.Diagnostics.Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
-            }
-            catch
-            {
-            }
-
-            this.Observer?.OnFinal(ret);
-        }
-        /// <summary>
-        /// Notifies the observer that a tool call has been requested.
-        /// </summary>
-        /// <param name="toolCall">The tool call interaction to surface.</param>
-        private void NotifyToolCall(AIInteractionToolCall toolCall) => this.Observer?.OnToolCall(toolCall);
-
-        /// <summary>
-        /// Notifies the observer that a tool result has been produced.
-        /// </summary>
-        /// <param name="toolResult">The tool result interaction to surface.</param>
-        private void NotifyToolResult(AIInteractionToolResult toolResult) => this.Observer?.OnToolResult(toolResult);
-
-        /// <summary>
-        /// Notifies the observer that a session execution is starting.
-        /// </summary>
-        /// <param name="request">The request that will be executed.</param>
-        private void NotifyStart(AIRequestCall request) => this.Observer?.OnStart(request);
-
-        /// <summary>
-        /// Notifies the observer that an error occurred during session execution.
-        /// </summary>
-        /// <param name="error">The exception describing the error.</param>
-        private void NotifyError(Exception error) => this.Observer?.OnError(error);
-
-        /// <summary>
-        /// Appends a single interaction to the session history without marking it as new.
-        /// </summary>
-        /// <param name="interaction">The interaction to add as history.</param>
-        private void AppendToSessionHistory(IAIInteraction interaction)
-        {
-            if (interaction == null) return;
-            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                .ClearNewMarkers()
-                .AsHistory();
-            builder.Add(interaction, markAsNew: false);
-            this.Request.Body = builder.Build();
-        }
-
-        /// <summary>
-        /// Appends a range of interactions to the session history without marking them as new.
-        /// </summary>
-        /// <param name="interactions">The interactions to add as history.</param>
-        private void AppendRangeToSessionHistory(IEnumerable<IAIInteraction> interactions)
-        {
-            if (interactions == null) return;
-            var items = interactions.Where(i => i != null).Select(i => (interaction: i, isNew: false)).ToList();
-            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                .ClearNewMarkers()
-                .AsHistory();
-            builder.AddRange(items);
-            this.Request.Body = builder.Build();
-        }
-
-        /// <summary>
-        /// Normalizes TurnId for a collection of interactions so they all share the same per-turn identity.
-        /// This assigns the provided turnId to every non-null interaction regardless of prior values.
-        /// Keeping a unified TurnId per turn ensures stable stream keys (turn:{TurnId}) across deltas.
-        /// </summary>
-        /// <param name="interactions">Collection of interactions to normalize.</param>
-        /// <param name="turnId">Unified TurnId to apply to all interactions.</param>
-        private static void EnsureTurnIdFor(IEnumerable<IAIInteraction> interactions, string turnId)
-        {
-            if (string.IsNullOrWhiteSpace(turnId) || interactions == null)
-            {
-                return;
-            }
-
-            foreach (var i in interactions)
-            {
-                if (i == null) continue;
-                i.TurnId = turnId;
-            }
-        }
-
-        /// <summary>
-        /// Creates a standardized error <see cref="AIReturn"/> linked to the current request.
-        /// </summary>
-        /// <param name="message">The error message to include in the return.</param>
-        /// <returns>An <see cref="AIReturn"/> representing the error.</returns>
-        private AIReturn CreateError(string message)
-        {
-            var ret = new AIReturn();
-            ret.CreateProviderError(message, this.Request);
-            return ret;
         }
 
         /// <summary>
@@ -510,7 +253,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 var defaultGreeting = "Hello! I'm your AI assistant. How can I help you today?";
-                
+
                 // Determine the greeting prompt based on system message
                 var systemMessageText = this._initialRequest?.Body?.Interactions?
                     .OfType<AIInteractionText>()
@@ -668,6 +411,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             // Apply unified TurnId to all new interactions for this provider turn
             ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
             this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
+#if DEBUG
+            // Debug: observe tool_call ids after provider merge
+            this.DebugLogToolCallIds($"after-merge provider turn {turnId}");
+#endif
 
             // Update our last return, preserving the new interaction markers from the provider response
             this._lastReturn = callResult;
@@ -691,6 +438,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             while (toolPass < options.MaxToolPasses)
             {
                 ct.ThrowIfCancellationRequested();
+#if DEBUG
+                // Debug: snapshot of tool_call ids before each tool pass
+                this.DebugLogToolCallIds($"before tool pass {toolPass} turn {turnId}");
+#endif
 
                 var pendingToolCalls = this.Request.Body.PendingToolCallsList();
                 if (pendingToolCalls == null || pendingToolCalls.Count == 0)
@@ -701,70 +452,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 foreach (var tc in pendingToolCalls)
                 {
                     ct.ThrowIfCancellationRequested();
-                    this.NotifyToolCall(tc);
-
-                    var toolRq = new AIToolCall();
-                    toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
-                    var toolRet = await this.executor.ExecToolAsync(toolRq, ct).ConfigureAwait(false);
-
-                    var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
-                    if (toolInteraction != null)
+                    var delta = await this.ExecuteSingleToolAsync(tc, turnId, ct).ConfigureAwait(false);
+                    if (delta != null)
                     {
-                        // Ensure unified TurnId for tool result within this turn
-                        if (string.IsNullOrWhiteSpace(toolInteraction.TurnId)) toolInteraction.TurnId = turnId;
-                        // Append tool result to session as history (not new)
-                        this.AppendToSessionHistory(toolInteraction);
-                        this.NotifyToolResult(toolInteraction);
-
-                        // Emit partial delta containing the persisted tool result so UI can append it now
-                        try
-                        {
-                            var deltaBody = AIBodyBuilder.Create().WithTurnId(turnId).Add(toolInteraction).Build();
-                            var deltaReturn = new AIReturn();
-                            deltaReturn.SetBody(deltaBody);
-                            this.NotifyPartial(deltaReturn);
-                        }
-                        catch (Exception dex)
-                        {
-                            Debug.WriteLine($"[ConversationSession.ProcessPendingToolsAsync] Error emitting tool result delta: {dex.Message}");
-                        }
-                    }
-                    else
-                    {
-                        // Synthesize a tool result so the pending call is resolved and provider can proceed
-                        var errorMessage = !string.IsNullOrWhiteSpace(toolRet?.ErrorMessage)
-                            ? toolRet.ErrorMessage
-                            : "Tool execution failed or returned no result";
-
-                        var synthetic = new AIInteractionToolResult
-                        {
-                            Id = tc.Id,
-                            Name = tc.Name,
-                            Result = new JObject
-                            {
-                                ["error"] = errorMessage,
-                            },
-                        };
-                        if (string.IsNullOrWhiteSpace(synthetic.TurnId)) synthetic.TurnId = turnId;
-
-                        this.AppendToSessionHistory(synthetic);
-                        this.NotifyToolResult(synthetic);
-                        // Emit partial delta for synthetic result as well
-                        try
-                        {
-                            var deltaBody = AIBodyBuilder.Create().WithTurnId(turnId).Add(synthetic).Build();
-                            var deltaReturn = new AIReturn();
-                            deltaReturn.SetBody(deltaBody);
-                            this.NotifyPartial(deltaReturn);
-                        }
-                        catch (Exception dex)
-                        {
-                            Debug.WriteLine($"[ConversationSession.ProcessPendingToolsAsync] Error emitting synthetic tool result delta: {dex.Message}");
-                        }
+                        preparedYields.Add(delta);
                     }
                 }
 
                 toolPass++;
+
+                // Guard: providers must only be invoked when every tool_call already has a persisted tool_result
+                if (this.Request.Body.PendingToolCallsCount() > 0)
+                {
+                    Debug.WriteLine("[ConversationSession.ProcessPendingToolsAsync] Pending tool calls remain after execution; deferring provider turn until results are appended.");
+                    continue;
+                }
 
                 // Provider consumes tool results
                 ct.ThrowIfCancellationRequested();
@@ -834,14 +536,32 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 int turns = 0;
                 AIReturn last = null;
 
+                // Non-streaming orchestration path
                 while (turns < options.MaxTurns)
                 {
                     linkedCts.Token.ThrowIfCancellationRequested();
                     // Allocate a fresh TurnId for this assistant turn
                     var turnId = Guid.NewGuid().ToString("N");
 
-                    // One provider turn
-                    var preparedTurn = await this.HandleProviderTurnAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
+                    if (options.ProcessTools && this.Request.Body.PendingToolCallsCount() > 0)
+                    {
+                        var drained = await this.ResolvePendingToolsAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
+                        if (drained != null && drained.Count > 0)
+                        {
+                            last = drained.Last();
+                        }
+
+                        if (this.Request.Body.PendingToolCallsCount() == 0)
+                        {
+                            continue;
+                        }
+
+                        // Tool calls still pending; loop again without invoking provider
+                        continue;
+                    }
+
+                    // Provider composite turn (provider + optional post-tool pass)
+                    var preparedTurn = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
                     last = preparedTurn;
 
                     if (!options.ProcessTools)
@@ -850,16 +570,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         return preparedTurn;
                     }
 
-                    // Bounded tool passes
-                    var afterToolsYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
-                    last = afterToolsYields.LastOrDefault() ?? last;
-
-                    // If stable after provider + tool passes, finalize
+                    // If stable after provider + post-tool pass, finalize
                     if (this.Request.Body.PendingToolCallsCount() == 0)
                     {
                         var finalStable = last ?? new AIReturn();
                         this._lastReturn = finalStable;
                         this.UpdateLastReturn();
+
                         // Pass the result that includes 'new' markers to the observer
                         this.NotifyFinal(finalStable);
                         return finalStable;
@@ -946,15 +663,20 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     linkedCts.Token.ThrowIfCancellationRequested();
 
-                    // Prepare variables to avoid yielding inside try/catch blocks
-                    List<AIReturn> deltaYields = null;   // per-chunk streaming yields
-                    List<AIReturn> pendingToolYields = null;
-                    AIReturn finalProviderYield = null;  // final provider result for this turn
-                    AIReturn errorYield = null;
-                    bool shouldBreak = false;
+                    // Prepare per-turn state
+                    TurnState state = default;
 
                     // Allocate a fresh TurnId for this assistant turn
                     var turnId = Guid.NewGuid().ToString("N");
+                    state = new TurnState
+                    {
+                        TurnId = turnId,
+                        DeltaYields = new List<AIReturn>(),
+                        PendingToolYields = new List<AIReturn>(),
+                        FinalProviderYield = null,
+                        ErrorYield = null,
+                        ShouldBreak = false,
+                    };
 
                     try
                     {
@@ -964,57 +686,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                         if (adapter == null)
                         {
-                            // Provider doesn't support streaming: fall back to non-streaming single turn
-                            var nonStream = await this.ExecProviderAsync(linkedCts.Token).ConfigureAwait(false);
-                            if (nonStream == null)
-                            {
-                                var err = this.CreateError("Provider returned no response");
-                                this.NotifyFinal(err);
-                                errorYield = err;
-                                shouldBreak = true;
-                            }
-                            else
-                            {
-                                // Merge and notify as a partial (single shot)
-                                var newInteractions = nonStream.Body?.GetNewInteractions();
-                                ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
-                                this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
-
-                                this._lastReturn = nonStream;
-                                this.UpdateLastReturn();
-                                this.NotifyPartial(this.PrepareNewOnlyReturn(nonStream));
-                                lastReturn = nonStream;
-
-                                if (!options.ProcessTools)
-                                {
-                                    this.NotifyFinal(nonStream);
-                                    finalProviderYield = nonStream;
-                                    shouldBreak = true;
-                                }
-                                else
-                                {
-                                    pendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
-                                    if (pendingToolYields.Count > 0)
-                                    {
-                                        lastReturn = pendingToolYields.Last();
-                                    }
-
-                                    if (this.Request.Body.PendingToolCallsCount() == 0)
-                                    {
-                                        this.NotifyFinal(lastReturn ?? nonStream);
-                                        shouldBreak = true;
-                                    }
-
-                                    finalProviderYield = nonStream;
-                                }
-                            }
+                            // Provider doesn't support streaming: reuse the non-stream composite path
+                            var composite = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
+                            lastReturn = composite;
+                            this.NotifyFinal(composite);
+                            state.FinalProviderYield = composite;
+                            state.ShouldBreak = true;
                         }
                         else
                         {
                             // Streaming path: forward each chunk to observer and caller
-                            deltaYields = new List<AIReturn>();
-                            AIReturn lastDelta = null;
-                            AIReturn lastToolCallsDelta = null; // track latest tool-calls snapshot to persist once post-stream
+                            state.DeltaYields = new List<AIReturn>();
+                            state.LastDelta = null;
+                            state.LastToolCallsDelta = null; // track latest tool-calls snapshot to persist once post-stream
 
                             await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, linkedCts.Token))
                             {
@@ -1025,7 +709,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                                 // Notify UI with streaming deltas (do not persist deltas into session yet)
                                 var newInteractions = delta.Body?.GetNewInteractions();
-                                ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
+                                ConversationSession.EnsureTurnIdFor(newInteractions, state.TurnId);
                                 this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
 
                                 // Surface tool call notifications immediately upon appearance and remember latest snapshot
@@ -1044,107 +728,53 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                                     if (sawToolCall)
                                     {
-                                        lastToolCallsDelta = delta; // keep the most recent aggregated tool_calls state
+                                        state.LastToolCallsDelta = delta; // keep the most recent aggregated tool_calls state
                                     }
                                 }
 
                                 // Queue yield for the caller
-                                deltaYields.Add(delta);
-                                lastDelta = delta;
+                                state.DeltaYields.Add(delta);
+                                state.LastDelta = delta;
                                 lastReturn = delta;
                             }
 
                             // After streaming ends, either error (no deltas) or persist final snapshot then continue
-                            if (lastDelta == null)
+                            if (state.LastDelta == null)
                             {
                                 var err = this.CreateError("Provider returned no response");
                                 this.NotifyFinal(err);
-                                errorYield = err;
-                                shouldBreak = true;
+                                state.ErrorYield = err;
+                                state.ShouldBreak = true;
                             }
                             else
                             {
                                 // Persist a single, stable snapshot into the session after streaming ends
-                                try
-                                {
-                                    // 1) Persist final tool-calls snapshot once (if any)
-                                    var toolCallsToPersist = lastToolCallsDelta?.Body?.GetNewInteractions()?.OfType<AIInteractionToolCall>()?.ToList();
-                                    if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
-                                    {
-                                        Debug.WriteLine($"[ConversationSession.Stream] Persisting tool calls once after stream: count={toolCallsToPersist.Count}");
-                                        ConversationSession.EnsureTurnIdFor(toolCallsToPersist, turnId);
-                                        this.AppendRangeToSessionHistory(toolCallsToPersist);
-                                    }
-
-                                    // 2) Persist final assistant text once (if present)
-                                    var finalAssistantText = lastDelta.Body?.GetNewInteractions()?.OfType<AIInteractionText>()?.LastOrDefault();
-                                    if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
-                                    {
-                                        Debug.WriteLine($"[ConversationSession.Stream] Persisting final assistant text after stream: len={finalAssistantText.Content.Length}");
-                                        // Force the unified TurnId for the assistant text to stabilize DOM keys across streaming
-                                        finalAssistantText.TurnId = turnId;
-                                        this.AppendToSessionHistory(finalAssistantText);
-                                    }
-
-                                    // Update last return snapshot to reflect persisted history
-                                    this._lastReturn = lastDelta;
-                                    this.UpdateLastReturn();
-
-                                    // Emit a partial delta containing the persisted interactions in history order
-                                    try
-                                    {
-                                        var persistedList = new List<IAIInteraction>();
-                                        if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
-                                        {
-                                            persistedList.AddRange(toolCallsToPersist);
-                                        }
-
-                                        if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
-                                        {
-                                            persistedList.Add(finalAssistantText);
-                                        }
-
-                                        if (persistedList.Count > 0)
-                                        {
-                                            var deltaBody = AIBodyBuilder.Create().WithTurnId(turnId).AddRange(persistedList).Build();
-                                            var deltaReturn = new AIReturn();
-                                            deltaReturn.SetBody(deltaBody);
-                                            this.NotifyPartial(deltaReturn);
-                                        }
-                                    }
-                                    catch (Exception deltaEx)
-                                    {
-                                        Debug.WriteLine($"[ConversationSession.Stream] Error emitting persisted delta: {deltaEx.Message}");
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.WriteLine($"[ConversationSession.Stream] Error persisting final streaming snapshot: {ex.Message}");
-                                }
+                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId);
 
                                 if (!options.ProcessTools)
                                 {
                                     // Finalize this turn with the last delta
-                                    this.NotifyFinal(lastDelta);
-                                    finalProviderYield = lastDelta;
-                                    shouldBreak = true;
+                                    this.NotifyFinal(state.LastDelta);
+                                    state.FinalProviderYield = state.LastDelta;
+                                    state.ShouldBreak = true;
                                 }
                                 else
                                 {
                                     // Process tools after streaming completes
-                                    pendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
-                                    if (pendingToolYields.Count > 0)
+                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
+                                    if (state.PendingToolYields.Count > 0)
                                     {
-                                        lastReturn = pendingToolYields.Last();
+                                        lastReturn = state.PendingToolYields.Last();
                                     }
+
                                     // If stable, finish the turn
                                     if (this.Request.Body.PendingToolCallsCount() == 0)
                                     {
-                                        this.NotifyFinal(lastReturn ?? lastDelta);
-                                        shouldBreak = true;
+                                        this.NotifyFinal(lastReturn ?? state.LastDelta);
+                                        state.ShouldBreak = true;
                                     }
 
-                                    finalProviderYield = lastDelta;
+                                    state.FinalProviderYield = state.LastDelta;
                                 }
                             }
                         }
@@ -1154,46 +784,46 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         this.NotifyError(oce);
                         var cancelled = new AIReturn();
                         cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
-                        errorYield = cancelled;
-                        shouldBreak = true;
+                        state.ErrorYield = cancelled;
+                        state.ShouldBreak = true;
                     }
                     catch (Exception ex)
                     {
                         this.NotifyError(ex);
                         var error = new AIReturn();
                         error.CreateProviderError(ex.Message, this.Request);
-                        errorYield = error;
-                        shouldBreak = true;
+                        state.ErrorYield = error;
+                        state.ShouldBreak = true;
                     }
 
                     // Perform all yields outside the try/catch blocks to satisfy iterator constraints
-                    if (deltaYields != null && deltaYields.Count > 0)
+                    if (state.DeltaYields != null && state.DeltaYields.Count > 0)
                     {
-                        foreach (var dy in deltaYields)
+                        foreach (var dy in state.DeltaYields)
                         {
                             yield return dy;
                         }
                     }
 
-                    if (pendingToolYields != null && pendingToolYields.Count > 0)
+                    if (state.PendingToolYields != null && state.PendingToolYields.Count > 0)
                     {
-                        foreach (var toolYield in pendingToolYields)
+                        foreach (var toolYield in state.PendingToolYields)
                         {
                             yield return toolYield;
                         }
                     }
 
-                    if (finalProviderYield != null)
+                    if (state.FinalProviderYield != null)
                     {
-                        yield return finalProviderYield;
+                        yield return state.FinalProviderYield;
                     }
 
-                    if (errorYield != null)
+                    if (state.ErrorYield != null)
                     {
-                        yield return errorYield;
+                        yield return state.ErrorYield;
                     }
 
-                    if (shouldBreak)
+                    if (state.ShouldBreak)
                     {
                         yield break;
                     }
@@ -1205,6 +835,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
                 this._lastReturn = final;
                 this.UpdateLastReturn();
+
                 // Notify final with the last provider result to keep 'new' markers
                 this.NotifyFinal(final);
                 yield return final;
