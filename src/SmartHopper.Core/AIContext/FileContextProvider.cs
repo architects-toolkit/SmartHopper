@@ -21,8 +21,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
@@ -70,7 +70,6 @@ namespace SmartHopper.Core.AIContext
                         { "param-count", "0" },
                         { "scribble-count", "0" },
                         { "group-count", "0" },
-                        { "solver-enabled", (Instances.Settings?.SolverEnabled ?? true).ToString().ToLowerInvariant() },
                     };
                 }
 
@@ -100,9 +99,6 @@ namespace SmartHopper.Core.AIContext
                     fileName = Path.GetFileName(path);
                 }
 
-                // Solver enabled
-                bool solverEnabled = Instances.Settings?.SolverEnabled ?? true;
-
                 return new Dictionary<string, string>
                 {
                     { "file-name", fileName },
@@ -112,7 +108,6 @@ namespace SmartHopper.Core.AIContext
                     { "param-count", paramCount.ToString(CultureInfo.InvariantCulture) },
                     { "scribble-count", scribbleCount.ToString(CultureInfo.InvariantCulture) },
                     { "group-count", groupCount.ToString(CultureInfo.InvariantCulture) },
-                    { "solver-enabled", solverEnabled.ToString().ToLowerInvariant() },
                 };
             }
             catch
@@ -127,7 +122,6 @@ namespace SmartHopper.Core.AIContext
                     { "param-count", "0" },
                     { "scribble-count", "0" },
                     { "group-count", "0" },
-                    { "solver-enabled", (Instances.Settings?.SolverEnabled ?? true).ToString().ToLowerInvariant() },
                 };
             }
         }

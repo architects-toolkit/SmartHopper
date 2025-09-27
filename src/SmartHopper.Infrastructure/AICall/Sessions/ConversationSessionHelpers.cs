@@ -13,7 +13,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.IO;
     using System.Linq;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
@@ -414,6 +416,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 .AsHistory();
             builder.Add(interaction, markAsNew: false);
             this.Request.Body = builder.Build();
+
+#if DEBUG
+            try
+            {
+                this.DebugWriteConversationHistory();
+            }
+            catch
+            {
+                // debug-only logging, ignore failures
+            }
+#endif
         }
 
 #if DEBUG
@@ -501,6 +514,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 .AsHistory();
             builder.ReplaceLastRange(interactions, markAsNew: false);
             this.Request.Body = builder.Build();
+
+#if DEBUG
+            try
+            {
+                this.DebugWriteConversationHistory();
+            }
+            catch
+            {
+                // debug-only logging, ignore failures
+            }
+#endif
         }
 
         /// <summary>
@@ -533,5 +557,101 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             ret.CreateProviderError(message, this.Request);
             return ret;
         }
+
+#if DEBUG
+        /// <summary>
+        /// Writes the entire conversation history to a Markdown file under %APPDATA%/Grasshopper/SmartHopper/Debug.
+        /// File name: ConversationSession-History.md
+        /// </summary>
+        private void DebugWriteConversationHistory()
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var folder = Path.Combine(appData, "Grasshopper", "SmartHopper", "Debug");
+                Directory.CreateDirectory(folder);
+                var filePath = Path.Combine(folder, "ConversationSession-History.md");
+
+                var sb = new StringBuilder();
+                sb.AppendLine("# SmartHopper Conversation History");
+                sb.AppendLine();
+                sb.AppendLine($"Last updated: {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}");
+                sb.AppendLine($"Provider: {this.Request?.Provider ?? ""}");
+                sb.AppendLine($"Model: {this.Request?.Model ?? ""}");
+                sb.AppendLine($"Endpoint: {this.Request?.Endpoint ?? ""}");
+                sb.AppendLine();
+
+                var interactions = this.Request?.Body?.Interactions ?? new List<IAIInteraction>();
+                int index = 1;
+                foreach (var it in interactions)
+                {
+                    if (it == null)
+                    {
+                        continue;
+                    }
+
+                    var role = it.Agent.ToString();
+                    sb.AppendLine($"## {index}. {role}");
+                    if (!string.IsNullOrWhiteSpace(it.TurnId))
+                    {
+                        sb.AppendLine($"TurnId: `{it.TurnId}`");
+                    }
+                    sb.AppendLine();
+
+                    switch (it)
+                    {
+                        case AIInteractionText txt:
+                            WriteCodeBlock(sb, txt.Content ?? string.Empty, "text");
+                            break;
+
+                        case AIInteractionToolResult res:
+                            sb.AppendLine($"Tool Result: `{res.Name}`  ");
+                            sb.AppendLine($"Id: `{res.Id}`");
+                            sb.AppendLine();
+                            var result = res.Result;
+                            WriteCodeBlock(sb, result != null ? result.ToString(Newtonsoft.Json.Formatting.Indented) : "{}", "json");
+                            break;
+
+                        case AIInteractionToolCall call:
+                            sb.AppendLine($"Tool: `{call.Name}`  ");
+                            sb.AppendLine($"Id: `{call.Id}`");
+                            sb.AppendLine();
+                            var args = call.Arguments;
+                            WriteCodeBlock(sb, args != null ? args.ToString(Newtonsoft.Json.Formatting.Indented) : "{}", "json");
+                            break;
+
+                        default:
+                            WriteCodeBlock(sb, it?.ToString() ?? string.Empty, "text");
+                            break;
+                    }
+
+                    sb.AppendLine();
+                    index++;
+                }
+
+                File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ConversationSession.Debug] Error writing conversation markdown: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Helper to write a fenced code block to the StringBuilder.
+        /// </summary>
+        private static void WriteCodeBlock(StringBuilder sb, string content, string language)
+        {
+            if (sb == null)
+            {
+                return;
+            }
+
+            language = string.IsNullOrWhiteSpace(language) ? "" : language.Trim();
+            sb.AppendLine($"```{language}");
+            sb.AppendLine(content ?? string.Empty);
+            sb.AppendLine("```");
+        }
+#endif
     }
 }
