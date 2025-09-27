@@ -729,6 +729,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     if (sawToolCall)
                                     {
                                         state.LastToolCallsDelta = delta; // keep the most recent aggregated tool_calls state
+
+                                        // Replace or upsert streamed tool call snapshots immediately so history only keeps the latest per Id
+                                        foreach (var streamedToolCall in newInteractions.OfType<AIInteractionToolCall>())
+                                        {
+                                            this.ReplaceToolCallInSessionHistory(streamedToolCall);
+#if DEBUG
+                                            this.DebugLogToolCallIds($"stream-delta tool_call {streamedToolCall?.Id ?? "<null>"} turn {state.TurnId}");
+#endif
+                                        }
                                     }
                                 }
 
