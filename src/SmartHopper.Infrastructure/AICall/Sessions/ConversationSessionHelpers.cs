@@ -94,6 +94,30 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             this.NotifyToolCall(tc);
 
+            // Persist the tool_call into session history to maintain correct ordering
+            // Some providers (e.g., Mistral) require an assistant tool_calls message
+            // before any tool (role=tool) message. If the provider did not return the
+            // tool_call in the previous turn for any reason, ensure it exists here.
+            try
+            {
+                if (tc != null)
+                {
+                    if (string.IsNullOrWhiteSpace(tc.TurnId)) tc.TurnId = turnId;
+                    if (tc.Agent != AIAgent.ToolCall) tc.Agent = AIAgent.ToolCall;
+
+                    // Upsert the tool_call snapshot (dedupes by Id, keeps latest)
+                    this.ReplaceToolCallInSessionHistory(tc);
+
+                    // Emit a partial delta so observers can render the tool call immediately
+                    var tcDelta = this.BuildDeltaReturn(turnId, new[] { tc });
+                    this.NotifyPartial(tcDelta);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ConversationSession] Warning: failed to persist tool_call before execution: {ex.Message}");
+            }
+
             var toolRq = new AIToolCall();
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
             var toolRet = await this.executor.ExecToolAsync(toolRq, ct).ConfigureAwait(false);
@@ -153,7 +177,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId)
         {
-            // 1) Persist tool calls once (dedupe by id)
+            // Collect interactions to persist in order
+            var persistedList = new List<IAIInteraction>();
+
+            // 1) Persist tool calls from the last tool-calls delta (dedupe by id, keep latest snapshot)
             var toolCallsToPersist = lastToolCallsDelta?.Body?.GetNewInteractions()?.OfType<AIInteractionToolCall>()?.ToList();
             if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
             {
@@ -162,33 +189,56 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 foreach (var tc in toolCallsToPersist)
                 {
                     this.ReplaceToolCallInSessionHistory(tc);
+                    persistedList.Add(tc);
                 }
             }
 
-            // 2) Persist final assistant text once
-            var finalAssistantText = lastDelta?.Body?.GetNewInteractions()?.OfType<AIInteractionText>()?.LastOrDefault();
-            if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
+            // 2) Persist all new interactions from the last delta (not only text)
+            var newFromLastDelta = lastDelta?.Body?.GetNewInteractions()?.ToList();
+            if (newFromLastDelta != null && newFromLastDelta.Count > 0)
             {
-                finalAssistantText.TurnId = turnId;
-                this.AppendToSessionHistory(finalAssistantText);
+                EnsureTurnIdFor(newFromLastDelta, turnId);
+
+                // Track tool_call ids we already persisted from step 1 to avoid emitting duplicates in the partial list
+                var toolIds = new HashSet<string>(StringComparer.Ordinal);
+                if (toolCallsToPersist != null)
+                {
+                    foreach (var tc in toolCallsToPersist)
+                    {
+                        if (!string.IsNullOrWhiteSpace(tc?.Id)) toolIds.Add(tc.Id);
+                    }
+                }
+
+                foreach (var interaction in newFromLastDelta)
+                {
+                    if (interaction == null)
+                    {
+                        continue;
+                    }
+
+                    if (interaction is AIInteractionToolCall tcall)
+                    {
+                        // Upsert latest tool_call metadata, avoid duplicate emit if already added above
+                        this.ReplaceToolCallInSessionHistory(tcall);
+                        if (!string.IsNullOrWhiteSpace(tcall.Id) && toolIds.Contains(tcall.Id))
+                        {
+                            continue; // already added from step 1
+                        }
+                        persistedList.Add(tcall);
+                        continue;
+                    }
+
+                    // Append any other interaction type in order
+                    this.AppendToSessionHistory(interaction);
+                    persistedList.Add(interaction);
+                }
             }
 
-            // Update last return snapshot
+            // Update last return snapshot to the provider's last delta snapshot
             this._lastReturn = lastDelta;
             this.UpdateLastReturn();
 
-            // Emit a partial delta in history order
-            var persistedList = new List<IAIInteraction>();
-            if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
-            {
-                persistedList.AddRange(toolCallsToPersist);
-            }
-
-            if (finalAssistantText != null && !string.IsNullOrWhiteSpace(finalAssistantText.Content))
-            {
-                persistedList.Add(finalAssistantText);
-            }
-
+            // Emit a partial delta with the persisted interactions in order
             if (persistedList.Count > 0)
             {
                 try
@@ -326,6 +376,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+#if DEBUG
+                try { this.DebugAppendEvent($"Delta: new={(newInteractions?.Count ?? 0)}"); } catch { }
+#endif
             }
             catch
             {
@@ -352,6 +405,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+#if DEBUG
+                try { this.DebugAppendEvent($"Partial: new={(newInteractions?.Count ?? 0)}"); } catch { }
+#endif
             }
             catch
             {
@@ -372,6 +428,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
+#if DEBUG
+                try { this.DebugAppendEvent($"Final: total={(ret?.Body?.Interactions?.Count ?? 0)}"); } catch { }
+#endif
             }
             catch
             {
@@ -384,22 +443,46 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Surfaces tool call notifications to observers.
         /// </summary>
-        private void NotifyToolCall(AIInteractionToolCall toolCall) => this.Observer?.OnToolCall(toolCall);
+        private void NotifyToolCall(AIInteractionToolCall toolCall)
+        {
+#if DEBUG
+            try { this.DebugAppendEvent($"ToolCall: name={toolCall?.Name}, id={toolCall?.Id}"); } catch { }
+#endif
+            this.Observer?.OnToolCall(toolCall);
+        }
 
         /// <summary>
         /// Surfaces tool result notifications to observers.
         /// </summary>
-        private void NotifyToolResult(AIInteractionToolResult toolResult) => this.Observer?.OnToolResult(toolResult);
+        private void NotifyToolResult(AIInteractionToolResult toolResult)
+        {
+#if DEBUG
+            try { this.DebugAppendEvent($"ToolResult: name={toolResult?.Name}, id={toolResult?.Id}"); } catch { }
+#endif
+            this.Observer?.OnToolResult(toolResult);
+        }
 
         /// <summary>
         /// Signals session start to observers.
         /// </summary>
-        private void NotifyStart(AIRequestCall request) => this.Observer?.OnStart(request);
+        private void NotifyStart(AIRequestCall request)
+        {
+#if DEBUG
+            try { this.DebugResetEventLog(); this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, endpoint={request?.Endpoint}"); } catch { }
+#endif
+            this.Observer?.OnStart(request);
+        }
 
         /// <summary>
         /// Signals an error to observers.
         /// </summary>
-        private void NotifyError(Exception error) => this.Observer?.OnError(error);
+        private void NotifyError(Exception error)
+        {
+#if DEBUG
+            try { this.DebugAppendEvent($"Error: {error?.Message}"); } catch { }
+#endif
+            this.Observer?.OnError(error);
+        }
 
         /// <summary>
         /// Appends a single interaction to the session history without marking it as new.
@@ -651,6 +734,46 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             sb.AppendLine($"```{language}");
             sb.AppendLine(content ?? string.Empty);
             sb.AppendLine("```");
+        }
+
+        /// <summary>
+        /// Resets the event log file at the start of a conversation.
+        /// </summary>
+        private void DebugResetEventLog()
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var folder = Path.Combine(appData, "Grasshopper", "SmartHopper", "Debug");
+                Directory.CreateDirectory(folder);
+                var eventPath = Path.Combine(folder, "ConversationSession-Events.log");
+                var header = $"# ConversationSession Events\r\nStarted: {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}\r\n";
+                File.WriteAllText(eventPath, header, Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ConversationSession.Debug] Error resetting events log: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Appends a single line event to the event log file.
+        /// </summary>
+        private void DebugAppendEvent(string evt)
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var folder = Path.Combine(appData, "Grasshopper", "SmartHopper", "Debug");
+                Directory.CreateDirectory(folder);
+                var eventPath = Path.Combine(folder, "ConversationSession-Events.log");
+                var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff zzz} - {evt}{Environment.NewLine}";
+                File.AppendAllText(eventPath, line, Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ConversationSession.Debug] Error appending event: {ex.Message}");
+            }
         }
 #endif
     }
