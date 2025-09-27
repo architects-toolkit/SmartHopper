@@ -65,10 +65,43 @@ Notes:
 
 - `ConversationSession.Stream(...)` gates streaming using request validation rules. If streaming is unsupported or disabled, an error `AIReturn` is yielded and the sequence ends.
 - For the canonical and detailed streaming behavior (adapter probing, delta vs partial events, persistence timing, fallback, and tool passes), see `docs/Providers/AICall/Streaming.md`. This page intentionally summarizes to avoid duplication.
-
-## Additional notes
-
 - `Exec()` performs a single provider call. Use `ConversationSession` for orchestration and streaming.
 - Policy pipeline hooks remain active in both streaming and non-streaming paths.
 - See also: Tools overview and `AIToolCall` usage in [./tools.md](./tools.md).
 
+## Conversation flow (Unified)
+
+The diagram below shows the unified orchestration used by `ConversationSession.cs`. Both `RunToStableResult(...)` and `Stream(...)` delegate to the same internal turn loop; the only difference is emission: `Stream(...)` yields deltas and final snapshots, while `RunToStableResult(...)` collects and returns the final stable result.
+
+```mermaid
+flowchart TD
+%% Entry
+START["Start (RunToStableResult | Stream)"] --> VAL{"Validate (wantsStreaming?)"}
+VAL -->|invalid| ERR["Emit/Return error"]
+VAL -->|valid| G{"Generate greeting?"}
+G -->|yes| GE["Emit greeting (stream) / Return greeting (non-stream)"]
+G -->|no| T{"turns < MaxTurns"}
+
+%% Per-turn processing
+T --> PEND{"ProcessTools && PendingToolCalls > 0"}
+PEND -->|yes| DRAIN["ProcessPendingToolsAsync (drain per limits)"] --> T
+PEND -->|no| EXEC["Execute provider turn (streaming adapter if available)"]
+
+EXEC -->|"deltas (stream)"| YIELD["Yield deltas; remember last delta; upsert tool_calls"]
+EXEC -->|"single (non-stream)"| SINGLE["Got single result"]
+
+YIELD --> PERSIST["PersistStreamingSnapshot(last tool_calls, last delta)"]
+SINGLE --> PERSIST
+
+PERSIST --> STABLE{"Stable (no pending tool calls)?"}
+STABLE -->|yes| FINAL["NotifyFinal; yield/return final"]
+STABLE -->|no| INC["turn++"] --> T
+
+T -->|exceeded| MAX["Max turns reached → error final"]
+```
+
+Notes:
+
+- Both public APIs now delegate to the same internal loop `TurnLoopAsync(...)` for consistent behavior.
+- Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
+- Persistence semantics: streaming deltas are not persisted until the stream ends; then a single stable snapshot is appended before tool passes.

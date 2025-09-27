@@ -130,6 +130,298 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             return (false, err);
         }
 
+        /// <summary>
+        /// Unified turn loop that powers both non-streaming and streaming APIs.
+        /// It emits a sequence of AIReturns according to the chosen mode:
+        /// - yieldDeltas=false: emits only stable results at key points (typically one item)
+        /// - yieldDeltas=true: emits streaming deltas, tool results, and final snapshots
+        /// </summary>
+        private async IAsyncEnumerable<AIReturn> TurnLoopAsync(
+            SessionOptions options,
+            StreamingOptions? streamingOptions,
+            bool yieldDeltas,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, options.CancellationToken, cancellationToken);
+            try
+            {
+                this.NotifyStart(this.Request);
+
+                // Generate greeting if requested before starting conversation
+                await this.GenerateGreetingAsync(linkedCts.Token, streamChunks: yieldDeltas).ConfigureAwait(false);
+
+                // If greeting was emitted, provide a single yield and finalize the sequence
+                if (this._greetingEmitted)
+                {
+                    var snapshot = this.GetHistoryReturn();
+                    // Reset flag so subsequent calls (after user messages) will proceed
+                    this._greetingEmitted = false;
+                    yield return snapshot;
+                    yield break;
+                }
+
+                // Centralized validation: early interrupt if request is invalid
+                var (ok, err) = this.ValidateBeforeStart(wantsStreaming: yieldDeltas);
+                if (!ok)
+                {
+                    this.Observer?.OnFinal(err ?? new AIReturn());
+                    if (err != null)
+                    {
+                        yield return err;
+                    }
+
+                    yield break;
+                }
+
+                int turns = 0;
+                AIReturn lastReturn = null;
+
+                while (turns < options.MaxTurns)
+                {
+                    linkedCts.Token.ThrowIfCancellationRequested();
+
+                    // Allocate a fresh TurnId for this assistant turn
+                    var turnId = Guid.NewGuid().ToString("N");
+
+                    if (!yieldDeltas)
+                    {
+                        AIReturn nsPrepared = null;
+                        AIReturn nsError = null;
+                        bool nsShouldBreak = false;
+
+                        try
+                        {
+                            // Non-streaming composite turn
+                            nsPrepared = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
+                            lastReturn = nsPrepared;
+
+                            if (!options.ProcessTools)
+                            {
+                                this.NotifyFinal(nsPrepared);
+                                nsShouldBreak = true;
+                            }
+                            else if (this.Request.Body.PendingToolCallsCount() == 0)
+                            {
+                                var finalStable = lastReturn ?? new AIReturn();
+                                this._lastReturn = finalStable;
+                                this.UpdateLastReturn();
+                                this.NotifyFinal(finalStable);
+                                nsPrepared = finalStable;
+                                nsShouldBreak = true;
+                            }
+                        }
+                        catch (OperationCanceledException oce)
+                        {
+                            this.NotifyError(oce);
+                            nsError = new AIReturn();
+                            nsError.CreateProviderError("Call cancelled or timed out", this.Request);
+                            nsShouldBreak = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            this.NotifyError(ex);
+                            nsError = new AIReturn();
+                            nsError.CreateProviderError(ex.Message, this.Request);
+                            nsShouldBreak = true;
+                        }
+
+                        // Perform emissions outside try/catch to satisfy iterator constraints
+                        if (nsError != null)
+                        {
+                            yield return nsError;
+                            yield break;
+                        }
+
+                        if (nsPrepared != null)
+                        {
+                            yield return nsPrepared;
+                            if (nsShouldBreak)
+                            {
+                                yield break;
+                            }
+                        }
+
+                        // Otherwise, continue to next turn
+                        turns++;
+                        continue;
+                    }
+
+                    // Streaming path
+                    // Prepare per-turn state
+                    TurnState state = new TurnState
+                    {
+                        TurnId = turnId,
+                        DeltaYields = new List<AIReturn>(),
+                        PendingToolYields = new List<AIReturn>(),
+                        FinalProviderYield = null,
+                        ErrorYield = null,
+                        ShouldBreak = false,
+                        LastDelta = null,
+                        LastToolCallsDelta = null,
+                    };
+
+                    try
+                    {
+                        // Try to obtain a streaming adapter and stream deltas inline
+                        var exec = new DefaultProviderExecutor();
+                        var adapter = exec.TryGetStreamingAdapter(this.Request);
+
+                        if (adapter == null)
+                        {
+                            // Provider doesn't support streaming: reuse the non-stream composite path
+                            var composite = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
+                            lastReturn = composite;
+                            this.NotifyFinal(composite);
+                            state.FinalProviderYield = composite;
+                            state.ShouldBreak = true;
+                        }
+                        else
+                        {
+                            // Streaming path: forward each chunk to observer and caller
+                            await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions!, linkedCts.Token))
+                            {
+                                if (delta == null)
+                                {
+                                    continue;
+                                }
+
+                                // Notify UI with streaming deltas (do not persist deltas into session yet)
+                                var newInteractions = delta.Body?.GetNewInteractions();
+                                ConversationSession.EnsureTurnIdFor(newInteractions, state.TurnId);
+                                this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
+
+                                // Surface tool call snapshots immediately and upsert into session history to keep latest metadata
+                                if (newInteractions != null)
+                                {
+                                    bool sawToolCall = false;
+                                    foreach (var interaction in newInteractions)
+                                    {
+                                        if (interaction is AIInteractionToolCall toolCall)
+                                        {
+                                            sawToolCall = true;
+                                        }
+                                    }
+
+                                    if (sawToolCall)
+                                    {
+                                        state.LastToolCallsDelta = delta;
+                                        foreach (var streamedToolCall in newInteractions.OfType<AIInteractionToolCall>())
+                                        {
+                                            this.ReplaceToolCallInSessionHistory(streamedToolCall);
+                                        }
+                                    }
+                                }
+
+                                state.DeltaYields.Add(delta);
+                                state.LastDelta = delta;
+                                lastReturn = delta;
+                            }
+
+                            // After streaming ends, either error (no deltas) or persist final snapshot then continue
+                            if (state.LastDelta == null)
+                            {
+                                var errDelta = this.CreateError("Provider returned no response");
+                                this.NotifyFinal(errDelta);
+                                state.ErrorYield = errDelta;
+                                state.ShouldBreak = true;
+                            }
+                            else
+                            {
+                                // Persist a single, stable snapshot into the session after streaming ends
+                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId);
+
+                                if (!options.ProcessTools)
+                                {
+                                    this.NotifyFinal(state.LastDelta);
+                                    state.FinalProviderYield = state.LastDelta;
+                                    state.ShouldBreak = true;
+                                }
+                                else
+                                {
+                                    // Process tools after streaming completes
+                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
+                                    if (state.PendingToolYields.Count > 0)
+                                    {
+                                        lastReturn = state.PendingToolYields.Last();
+                                    }
+
+                                    // If stable, finish the turn
+                                    if (this.Request.Body.PendingToolCallsCount() == 0)
+                                    {
+                                        this.NotifyFinal(lastReturn ?? state.LastDelta);
+                                        state.ShouldBreak = true;
+                                    }
+
+                                    state.FinalProviderYield = state.LastDelta;
+                                }
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException oce)
+                    {
+                        this.NotifyError(oce);
+                        var cancelled = new AIReturn();
+                        cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
+                        state.ErrorYield = cancelled;
+                        state.ShouldBreak = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        this.NotifyError(ex);
+                        var error = new AIReturn();
+                        error.CreateProviderError(ex.Message, this.Request);
+                        state.ErrorYield = error;
+                        state.ShouldBreak = true;
+                    }
+
+                    // Perform all yields outside the try/catch blocks to satisfy iterator constraints
+                    if (state.DeltaYields != null && state.DeltaYields.Count > 0)
+                    {
+                        foreach (var dy in state.DeltaYields)
+                        {
+                            yield return dy;
+                        }
+                    }
+
+                    if (state.PendingToolYields != null && state.PendingToolYields.Count > 0)
+                    {
+                        foreach (var toolYield in state.PendingToolYields)
+                        {
+                            yield return toolYield;
+                        }
+                    }
+
+                    if (state.FinalProviderYield != null)
+                    {
+                        yield return state.FinalProviderYield;
+                    }
+
+                    if (state.ErrorYield != null)
+                    {
+                        yield return state.ErrorYield;
+                    }
+
+                    if (state.ShouldBreak)
+                    {
+                        yield break;
+                    }
+
+                    turns++;
+                }
+
+                // Max turns reached without stability
+                var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
+                this._lastReturn = final;
+                this.UpdateLastReturn();
+                this.NotifyFinal(final);
+                yield return final;
+            }
+            finally
+            {
+                linkedCts.Dispose();
+            }
+        }
+
         /// <inheritdoc/>
         public AIRequestCall Request { get; }
 
@@ -568,116 +860,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 this.cts.Cancel();
             }
+#if DEBUG
+            try { this.DebugAppendEvent("Cancel requested"); } catch { }
+#endif
         }
 
         /// <inheritdoc/>
         public async Task<AIReturn> RunToStableResult(SessionOptions options, CancellationToken cancellationToken = default)
         {
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, options.CancellationToken, cancellationToken);
-            try
+            AIReturn last = null;
+            await foreach (var ret in this.TurnLoopAsync(options, streamingOptions: null, yieldDeltas: false, cancellationToken))
             {
-                this.Observer?.OnStart(this.Request);
-
-                // Generate greeting if requested before starting conversation
-                await this.GenerateGreetingAsync(linkedCts.Token).ConfigureAwait(false);
-
-                // If greeting was emitted for an initialization-only run, short-circuit further execution
-                if (this._greetingEmitted)
-                {
-                    var ret = this._greetingReturn ?? this.GetHistoryReturn();
-                    // Reset flag so subsequent calls (after user messages) won't short-circuit again
-                    this._greetingEmitted = false;
-                    return ret;
-                }
-
-                // Centralized validation: early interrupt non-streaming flow if request is invalid
-                var (okRun, errRun) = this.ValidateBeforeStart(wantsStreaming: false);
-                if (!okRun)
-                {
-                    var errorReturn = errRun ?? new AIReturn();
-                    this.NotifyFinal(errorReturn);
-                    return errorReturn;
-                }
-
-                int turns = 0;
-                AIReturn last = null;
-
-                // Non-streaming orchestration path
-                while (turns < options.MaxTurns)
-                {
-                    linkedCts.Token.ThrowIfCancellationRequested();
-                    // Allocate a fresh TurnId for this assistant turn
-                    var turnId = Guid.NewGuid().ToString("N");
-
-                    if (options.ProcessTools && this.Request.Body.PendingToolCallsCount() > 0)
-                    {
-                        var drained = await this.ResolvePendingToolsAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
-                        if (drained != null && drained.Count > 0)
-                        {
-                            last = drained.Last();
-                        }
-
-                        if (this.Request.Body.PendingToolCallsCount() == 0)
-                        {
-                            continue;
-                        }
-
-                        // Tool calls still pending; loop again without invoking provider
-                        continue;
-                    }
-
-                    // Provider composite turn (provider + optional post-tool pass)
-                    var preparedTurn = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
-                    last = preparedTurn;
-
-                    if (!options.ProcessTools)
-                    {
-                        this.NotifyFinal(preparedTurn);
-                        return preparedTurn;
-                    }
-
-                    // If stable after provider + post-tool pass, finalize
-                    if (this.Request.Body.PendingToolCallsCount() == 0)
-                    {
-                        var finalStable = last ?? new AIReturn();
-                        this._lastReturn = finalStable;
-                        this.UpdateLastReturn();
-
-                        // Pass the result that includes 'new' markers to the observer
-                        this.NotifyFinal(finalStable);
-                        return finalStable;
-                    }
-
-                    // Otherwise, continue to next turn
-                    turns++;
-                }
-
-                // Max turns reached without stability
-                var final = last ?? this.CreateError("Max turns reached without a stable result");
-                this._lastReturn = final;
-                this.UpdateLastReturn();
-                // Pass the result with markers
-                this.NotifyFinal(final);
-                return final;
+                last = ret;
             }
-            catch (OperationCanceledException oce)
-            {
-                this.NotifyError(oce);
-                var cancelled = new AIReturn();
-                cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
-                return cancelled;
-            }
-            catch (Exception ex)
-            {
-                this.NotifyError(ex);
-                var error = new AIReturn();
-                error.CreateProviderError(ex.Message, this.Request);
-                return error;
-            }
-            finally
-            {
-                linkedCts.Dispose();
-            }
+
+            return last ?? this.CreateError("No result");
         }
 
         /// <inheritdoc/>
@@ -686,234 +883,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             StreamingOptions streamingOptions,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, options.CancellationToken, cancellationToken);
-            try
+            await foreach (var ret in this.TurnLoopAsync(options, streamingOptions, yieldDeltas: true, cancellationToken))
             {
-                this.Observer?.OnStart(this.Request);
-
-                // Generate greeting if requested before starting conversation (stream as chunks)
-                await this.GenerateGreetingAsync(linkedCts.Token, streamChunks: true).ConfigureAwait(false);
-
-                // If greeting was emitted, provide a single yield and finalize the stream
-                if (this._greetingEmitted)
-                {
-                    // Greeting chunks already streamed above; yield the history snapshot and end
-                    var snapshot = this.GetHistoryReturn();
-                    // Reset flag so subsequent calls (after user messages) will proceed
-                    this._greetingEmitted = false;
-                    yield return snapshot;
-                    yield break;
-                }
-
-                // Centralized validation: early interrupt streaming if request is invalid (e.g., streaming unsupported)
-                var (okStream, errStream) = this.ValidateBeforeStart(wantsStreaming: true);
-                if (!okStream)
-                {
-                    this.Observer?.OnFinal(errStream ?? new AIReturn());
-                    if (errStream != null)
-                    {
-                        yield return errStream;
-                    }
-
-                    yield break;
-                }
-
-                int turns = 0;
-                AIReturn lastReturn = null;
-
-                while (turns < options.MaxTurns)
-                {
-                    linkedCts.Token.ThrowIfCancellationRequested();
-
-                    // Prepare per-turn state
-                    TurnState state = default;
-
-                    // Allocate a fresh TurnId for this assistant turn
-                    var turnId = Guid.NewGuid().ToString("N");
-                    state = new TurnState
-                    {
-                        TurnId = turnId,
-                        DeltaYields = new List<AIReturn>(),
-                        PendingToolYields = new List<AIReturn>(),
-                        FinalProviderYield = null,
-                        ErrorYield = null,
-                        ShouldBreak = false,
-                    };
-
-                    try
-                    {
-                        // Try to obtain a streaming adapter and stream deltas inline
-                        var executor = new DefaultProviderExecutor();
-                        var adapter = executor.TryGetStreamingAdapter(this.Request);
-
-                        if (adapter == null)
-                        {
-                            // Provider doesn't support streaming: reuse the non-stream composite path
-                            var composite = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
-                            lastReturn = composite;
-                            this.NotifyFinal(composite);
-                            state.FinalProviderYield = composite;
-                            state.ShouldBreak = true;
-                        }
-                        else
-                        {
-                            // Streaming path: forward each chunk to observer and caller
-                            state.DeltaYields = new List<AIReturn>();
-                            state.LastDelta = null;
-                            state.LastToolCallsDelta = null; // track latest tool-calls snapshot to persist once post-stream
-
-                            await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, linkedCts.Token))
-                            {
-                                if (delta == null)
-                                {
-                                    continue;
-                                }
-
-                                // Notify UI with streaming deltas (do not persist deltas into session yet)
-                                var newInteractions = delta.Body?.GetNewInteractions();
-                                ConversationSession.EnsureTurnIdFor(newInteractions, state.TurnId);
-                                this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
-
-                                // Surface tool call notifications immediately upon appearance and remember latest snapshot
-                                if (newInteractions != null)
-                                {
-                                    bool sawToolCall = false;
-                                    foreach (var interaction in newInteractions)
-                                    {
-                                        if (interaction is AIInteractionToolCall toolCall)
-                                        {
-                                            sawToolCall = true;
-                                            // Do not notify here to avoid duplication; we will notify when executing the tool
-                                            // in ProcessPendingToolsAsync. We still mark that we saw tool calls in this delta.
-                                        }
-                                    }
-
-                                    if (sawToolCall)
-                                    {
-                                        state.LastToolCallsDelta = delta; // keep the most recent aggregated tool_calls state
-
-                                        // Replace or upsert streamed tool call snapshots immediately so history only keeps the latest per Id
-                                        foreach (var streamedToolCall in newInteractions.OfType<AIInteractionToolCall>())
-                                        {
-                                            this.ReplaceToolCallInSessionHistory(streamedToolCall);
-#if DEBUG
-                                            this.DebugLogToolCallIds($"stream-delta tool_call {streamedToolCall?.Id ?? "<null>"} turn {state.TurnId}");
-#endif
-                                        }
-                                    }
-                                }
-
-                                // Queue yield for the caller
-                                state.DeltaYields.Add(delta);
-                                state.LastDelta = delta;
-                                lastReturn = delta;
-                            }
-
-                            // After streaming ends, either error (no deltas) or persist final snapshot then continue
-                            if (state.LastDelta == null)
-                            {
-                                var err = this.CreateError("Provider returned no response");
-                                this.NotifyFinal(err);
-                                state.ErrorYield = err;
-                                state.ShouldBreak = true;
-                            }
-                            else
-                            {
-                                // Persist a single, stable snapshot into the session after streaming ends
-                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId);
-
-                                if (!options.ProcessTools)
-                                {
-                                    // Finalize this turn with the last delta
-                                    this.NotifyFinal(state.LastDelta);
-                                    state.FinalProviderYield = state.LastDelta;
-                                    state.ShouldBreak = true;
-                                }
-                                else
-                                {
-                                    // Process tools after streaming completes
-                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
-                                    if (state.PendingToolYields.Count > 0)
-                                    {
-                                        lastReturn = state.PendingToolYields.Last();
-                                    }
-
-                                    // If stable, finish the turn
-                                    if (this.Request.Body.PendingToolCallsCount() == 0)
-                                    {
-                                        this.NotifyFinal(lastReturn ?? state.LastDelta);
-                                        state.ShouldBreak = true;
-                                    }
-
-                                    state.FinalProviderYield = state.LastDelta;
-                                }
-                            }
-                        }
-                    }
-                    catch (OperationCanceledException oce)
-                    {
-                        this.NotifyError(oce);
-                        var cancelled = new AIReturn();
-                        cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
-                        state.ErrorYield = cancelled;
-                        state.ShouldBreak = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        this.NotifyError(ex);
-                        var error = new AIReturn();
-                        error.CreateProviderError(ex.Message, this.Request);
-                        state.ErrorYield = error;
-                        state.ShouldBreak = true;
-                    }
-
-                    // Perform all yields outside the try/catch blocks to satisfy iterator constraints
-                    if (state.DeltaYields != null && state.DeltaYields.Count > 0)
-                    {
-                        foreach (var dy in state.DeltaYields)
-                        {
-                            yield return dy;
-                        }
-                    }
-
-                    if (state.PendingToolYields != null && state.PendingToolYields.Count > 0)
-                    {
-                        foreach (var toolYield in state.PendingToolYields)
-                        {
-                            yield return toolYield;
-                        }
-                    }
-
-                    if (state.FinalProviderYield != null)
-                    {
-                        yield return state.FinalProviderYield;
-                    }
-
-                    if (state.ErrorYield != null)
-                    {
-                        yield return state.ErrorYield;
-                    }
-
-                    if (state.ShouldBreak)
-                    {
-                        yield break;
-                    }
-
-                    turns++;
-                }
-
-                // Max turns reached without stability
-                var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
-                this._lastReturn = final;
-                this.UpdateLastReturn();
-
-                // Notify final with the last provider result to keep 'new' markers
-                this.NotifyFinal(final);
-                yield return final;
-            }
-            finally
-            {
-                linkedCts.Dispose();
+                yield return ret;
             }
         }
     }
