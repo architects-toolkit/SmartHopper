@@ -675,7 +675,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.log('[JS] No text to send, returning');
                     return;
                 }
+
                 // Host will append the user message; just notify and clear input for UX
+                try { setProcessing(true); } catch {}
                 const url = `sh://event?type=send&text=${encodeURIComponent(text)}`;
                 console.log('[JS] Navigating to:', url);
                 window.location.href = url;
@@ -766,9 +768,14 @@ function setStatus(text) {
 function setProcessing(on) {
     console.log('[JS] setProcessing called with value:', on);
     const spinner = document.getElementById('spinner');
+    const input = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-button');
+    const clearBtn = document.getElementById('clear-button');
+    const cancelBtn = document.getElementById('cancel-button');
+
     if (spinner) {
         spinner.classList.toggle('hidden', !on);
-        console.log('[JS] setProcessing: spinner', on ? 'shown' : 'hidden');
+
         // Fail-safe: when processing stops, ensure any lingering loading bubble is removed
         if (!on && typeof removeThinkingMessage === 'function') {
             try {
@@ -783,8 +790,34 @@ function setProcessing(on) {
     } else {
         console.error('[JS] setProcessing: spinner element not found');
     }
-}
 
+    // Toggle controls according to processing state
+    // When processing: disable input + send + clear, enable cancel
+    // When idle: enable input + send + clear, disable cancel
+    try {
+        if (input) input.disabled = !!on;
+        if (sendBtn) sendBtn.disabled = !!on;
+        if (clearBtn) clearBtn.disabled = !!on;
+        if (cancelBtn) cancelBtn.disabled = !on;
+
+        // Optional: reflect disabled state via CSS class and ARIA for better a11y
+        [sendBtn, clearBtn, cancelBtn].forEach(btn => {
+            if (!btn) return;
+            try {
+                btn.classList.toggle('disabled', !!btn.disabled);
+                btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
+            } catch {}
+        });
+        if (input) {
+            try {
+                input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
+            } catch {}
+        }
+    } catch (err) {
+        console.warn('[JS] setProcessing: control toggle failed', err);
+    }
+}
+    
 /**
  * Clears all messages from the chat container
  */

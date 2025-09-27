@@ -64,17 +64,22 @@ namespace SmartHopper.Core.UI.Chat
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
 
+        // Greeting behavior: when true, the dialog will request a greeting from ConversationSession on init
+        private readonly bool _generateGreeting;
+
         /// <summary>
         /// Creates a new WebChatDialog bound to an initial AI request and optional progress reporter.
         /// </summary>
         /// <param name="request">The initial AI request used to seed the conversation session.</param>
         /// <param name="progressReporter">Optional progress callback for reporting UI status.</param>
-        internal WebChatDialog(AIRequestCall request, Action<string>? progressReporter)
+        /// <param name="generateGreeting">When true, the dialog requests the session to emit an initial greeting (if enabled in settings).</param>
+        internal WebChatDialog(AIRequestCall request, Action<string>? progressReporter, bool generateGreeting = false)
         {
             try
             {
+                this._generateGreeting = generateGreeting;
                 // Create session with attached observer from the start
-                this._currentSession = new ConversationSession(request, new WebChatObserver(this));
+                this._currentSession = new ConversationSession(request, new WebChatObserver(this), generateGreeting: this._generateGreeting);
 
                 // Window basics
                 this.ClientSize = new Size(720, 640);
@@ -619,6 +624,9 @@ namespace SmartHopper.Core.UI.Chat
             {
                 Debug.WriteLine("[WebChatDialog] Processing AI interaction with existing session reuse");
 
+                // Enter processing state: disable input/send, enable cancel in the web UI
+                this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
+
                 // Observer already attached at construction time
                 this._currentCts = new CancellationTokenSource();
 
@@ -717,7 +725,10 @@ namespace SmartHopper.Core.UI.Chat
                     this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Error'); setProcessing(false);"));
                     this.BuildAndEmitSnapshot();
                 }
-                catch { /* ignore secondary errors */ }
+                catch
+                {
+                    /* ignore secondary errors */
+                }
             }
             finally
             {
@@ -731,6 +742,9 @@ namespace SmartHopper.Core.UI.Chat
 
                 this._currentCts?.Dispose();
                 this._currentCts = null;
+
+                // Leave processing state: re-enable input/send, disable cancel in the web UI
+                this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
 
                 // Keep the session alive for reuse - do not set to null
             }
@@ -762,7 +776,7 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Initializes a new conversation with a system message and uses ConversationSession to generate greeting.
+        /// Initializes a new conversation and, if requested, triggers a one-shot provider run to emit the greeting.
         /// </summary>
         private async void InitializeNewConversation()
         {
@@ -770,6 +784,20 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);"));
+
+                // If greeting was requested by the creator (e.g., CanvasButton), run a single non-streaming turn.
+                if (this._generateGreeting && this._currentSession != null)
+                {
+                    try
+                    {
+                        var options = new SessionOptions { ProcessTools = false, MaxTurns = 1 };
+                        await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+                    }
+                    catch (Exception grex)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] Greeting init error: {grex.Message}");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -935,6 +963,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this.AddInteractionToWebView(userInter);
                 }
+
+                // Immediately reflect processing state in UI to disable input/send and enable cancel
+                this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
 
                 // Kick off processing asynchronously
                 Debug.WriteLine("[WebChatDialog] Scheduling ProcessAIInteraction task");

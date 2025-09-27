@@ -185,7 +185,12 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <param name="onUpdate">Optional callback invoked on incremental chat updates with an AIReturn snapshot.</param>
         /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
-        public static async Task<AIReturn> ShowWebChatDialog(AIRequestCall request, Guid componentId, Action<string>? progressReporter = null, Action<AIReturn>? onUpdate = null)
+        public static async Task<AIReturn> ShowWebChatDialog(
+            AIRequestCall request,
+            Guid componentId,
+            Action<string>? progressReporter = null,
+            Action<AIReturn>? onUpdate = null,
+            bool generateGreeting = false)
         {
             if (componentId == Guid.Empty)
             {
@@ -211,6 +216,7 @@ namespace SmartHopper.Core.UI.Chat
                             onUpdate,
                             tcs,
                             pushCurrentImmediately: false,
+                            generateGreeting: generateGreeting,
                             out reused);
 
                         // Mirror previous logging and keep a local lastReturn if needed by callers
@@ -281,6 +287,7 @@ namespace SmartHopper.Core.UI.Chat
                             onUpdate,
                             completionTcs: null,
                             pushCurrentImmediately: true,
+                            generateGreeting: false,
                             out reused);
 
                         progressReporter?.Invoke("Ready");
@@ -308,6 +315,7 @@ namespace SmartHopper.Core.UI.Chat
             private readonly Guid componentId;
             private AIReturn? lastReturn;
             private readonly Action<AIReturn>? onUpdateCallback;
+            private readonly bool generateGreeting;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="WebChatWorker"/> class.
@@ -327,7 +335,8 @@ namespace SmartHopper.Core.UI.Chat
                 string toolFilter,
                 Action<string> progressReporter,
                 Guid componentId = default,
-                Action<AIReturn>? onUpdate = null)
+                Action<AIReturn>? onUpdate = null,
+                bool generateGreeting = false)
             {
                 this.initialRequest = CreateWebChatRequest(
                     providerName,
@@ -338,6 +347,7 @@ namespace SmartHopper.Core.UI.Chat
                 this.progressReporter = progressReporter;
                 this.componentId = componentId;
                 this.onUpdateCallback = onUpdate;
+                this.generateGreeting = generateGreeting;
             }
 
             /// <summary>
@@ -379,7 +389,8 @@ namespace SmartHopper.Core.UI.Chat
                             reporter?.Invoke("Chatting...");
                             // Propagate snapshot to caller if provided
                             try { this.onUpdateCallback?.Invoke(snapshot); } catch (Exception cbEx) { Debug.WriteLine($"[WebChatWorker] onUpdate callback error: {cbEx.Message}"); }
-                        }).ConfigureAwait(false);
+                        },
+                        generateGreeting: this.generateGreeting).ConfigureAwait(false);
                     reporter?.Invoke("Run me!");
                 }
                 catch (Exception ex)
@@ -419,7 +430,8 @@ namespace SmartHopper.Core.UI.Chat
             string toolFilter,
             Guid componentId,
             Action<string> progressReporter = null!,
-            Action<AIReturn>? onUpdate = null)
+            Action<AIReturn>? onUpdate = null,
+            bool generateGreeting = false)
         {
             if (componentId == Guid.Empty)
             {
@@ -434,7 +446,8 @@ namespace SmartHopper.Core.UI.Chat
                 toolFilter,
                 progressReporter,
                 componentId,
-                onUpdate);
+                onUpdate,
+                generateGreeting);
         }
     }
 }

@@ -472,6 +472,30 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return;
             }
 
+            // Deduplicate tool_call interactions by Id, keeping the last occurrence only
+            if (interactions != null && interactions.Count > 0)
+            {
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                var deduped = new List<IAIInteraction>(interactions.Count);
+
+                // Iterate from tail to head to keep the last occurrence
+                for (int i = interactions.Count - 1; i >= 0; i--)
+                {
+                    var current = interactions[i];
+                    if (current is AIInteractionToolCall tc && !string.IsNullOrWhiteSpace(tc.Id))
+                    {
+                        if (seen.Contains(tc.Id))
+                        {
+                            continue; // skip duplicates
+                        }
+                        seen.Add(tc.Id);
+                    }
+                    deduped.Insert(0, current);
+                }
+
+                interactions = deduped;
+            }
+
             var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
                 .ClearNewMarkers()
                 .AsHistory();

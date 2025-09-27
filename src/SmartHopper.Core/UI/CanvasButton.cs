@@ -686,13 +686,17 @@ namespace SmartHopper.Core.UI
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 
                 // Create and process the web chat worker
+                var greetingEnabled = assistant?.EnableAIGreeting == true;
                 var chatWorker = WebChatUtils.CreateWebChatWorker(
                     providerName,
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Components,ComponentsRetrieval,Knowledge,Scripting",
-                    componentId: CanvasChatDialogId);
+                    toolFilter: "Components,ComponentsRetrieval,Knowledge", // Removed the Scripting tools since they are still under development. TODO: reenable scripting tools
+                    componentId: CanvasChatDialogId,
+                    progressReporter: null,
+                    onUpdate: null,
+                    generateGreeting: greetingEnabled);
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 

@@ -52,7 +52,7 @@ var streaming = new StreamingOptions
 {
     CoalesceTokens = true,
     CoalesceDelayMs = 40,
-    PreferredChunkSize = 64,
+    PreferredChunkSize = 24,
 };
 
 await foreach (var delta in session.Stream(options, streaming, ct))
