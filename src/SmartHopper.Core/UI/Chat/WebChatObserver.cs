@@ -452,106 +452,100 @@ namespace SmartHopper.Core.UI.Chat
             /// <param name="result">The final <see cref="AIReturn"/> for this turn.</param>
             public void OnFinal(AIReturn result)
             {
-                Debug.WriteLine($"[WebChatObserver] OnFinal: {result?.Body?.Interactions?.Count ?? 0} interactions, {result?.Body?.GetNewInteractions().Count ?? 0} new ones");
-
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    // Delegate history to ConversationSession; UI only emits notifications.
+                    var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
+                    var lastReturn = this._dialog._currentSession.GetReturn();
+
                     try
                     {
-                        // Delegate history to ConversationSession; UI only emits notifications.
-                        var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
-                        var lastReturn = this._dialog._currentSession.GetReturn();
+                        // Determine final assistant item and its base stream key (turn:{TurnId}:assistant)
+                        var finalAssistant = result?.Body?.Interactions?
+                            .OfType<AIInteractionText>()
+                            .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
-                        try
+                        string streamKey = null;
+                        if (finalAssistant is IAIKeyedInteraction keyedFinal)
                         {
-                            // Determine final assistant item and its base stream key (turn:{TurnId}:assistant)
-                            var finalAssistant = result?.Body?.Interactions?
-                                .OfType<AIInteractionText>()
-                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-
-                            string streamKey = null;
-                            if (finalAssistant is IAIKeyedInteraction keyedFinal)
-                            {
-                                streamKey = keyedFinal.GetStreamKey();
-                            }
-
-                            // Mark this turn as finalized to prevent late partial/delta overrides
-                            var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
-                            if (!string.IsNullOrWhiteSpace(turnKey))
-                            {
-                                this._finalizedTextTurns.Add(turnKey);
-                            }
-
-                            // Prefer the aggregated streaming content for visual continuity
-                            AIInteractionText aggregated = null;
-                            // Use the current segmented key for the assistant stream
-                            var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
-                            if (!string.IsNullOrWhiteSpace(segKey)
-                                && this._streams.TryGetValue(segKey, out var st)
-                                && st?.Aggregated is AIInteractionText agg
-                                && !string.IsNullOrWhiteSpace(agg.Content))
-                            {
-                                aggregated = agg;
-                            }
-                            else
-                            {
-                                // Fallback: pick any aggregated assistant stream if key not found
-                                foreach (var kv in this._streams)
-                                {
-                                    if (kv.Value?.Aggregated is AIInteractionText agg2 && !string.IsNullOrWhiteSpace(agg2.Content))
-                                    {
-                                        aggregated = agg2;
-                                        if (string.IsNullOrWhiteSpace(segKey)) segKey = kv.Key;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Merge final metrics/time into aggregated for the last render
-                            if (aggregated != null && finalAssistant != null)
-                            {
-                                aggregated.Metrics = finalAssistant.Metrics;
-                                aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
-
-                                // Ensure reasoning present on final render: prefer the provider's final reasoning
-                                if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
-                                {
-                                    aggregated.Reasoning = finalAssistant.Reasoning;
-                                }
-                            }
-
-                            var toRender = aggregated ?? finalAssistant;
-                            if (toRender != null)
-                            {
-                                // Prefer the segmented key to replace the streaming bubble deterministically
-                                var upsertKey = segKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
-                                Debug.WriteLine($"[WebChatObserver] OnFinal Upsert key={upsertKey} len={(toRender as AIInteractionText)?.Content?.Length ?? 0}");
-                                this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
-                            }
-                        }
-                        catch (Exception repEx)
-                        {
-                            Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
+                            streamKey = keyedFinal.GetStreamKey();
                         }
 
-                        // Now that final assistant is rendered, remove the thinking bubble and set status
-                        this.RemoveThinkingBubbleIfActive();
+                        // Mark this turn as finalized to prevent late partial/delta overrides
+                        var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
+                        if (!string.IsNullOrWhiteSpace(turnKey))
+                        {
+                            this._finalizedTextTurns.Add(turnKey);
+                        }
 
-                        // Notify listeners with session-managed snapshots
-                        this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
+                        // Prefer the aggregated streaming content for visual continuity
+                        AIInteractionText aggregated = null;
+                        // Use the current segmented key for the assistant stream
+                        var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
+                        if (!string.IsNullOrWhiteSpace(segKey)
+                            && this._streams.TryGetValue(segKey, out var st)
+                            && st?.Aggregated is AIInteractionText agg
+                            && !string.IsNullOrWhiteSpace(agg.Content))
+                        {
+                            aggregated = agg;
+                        }
+                        else
+                        {
+                            // Fallback: pick any aggregated assistant stream if key not found
+                            foreach (var kv in this._streams)
+                            {
+                                if (kv.Value?.Aggregated is AIInteractionText agg2 && !string.IsNullOrWhiteSpace(agg2.Content))
+                                {
+                                    aggregated = agg2;
+                                    if (string.IsNullOrWhiteSpace(segKey)) segKey = kv.Key;
+                                    break;
+                                }
+                            }
+                        }
 
-                        // Clear streaming and per-turn state and finish
-                        this._streams.Clear();
-                        this._textInteractionSegments.Clear();
-                        this._lastInteractionTypeByTurn.Clear();
-                        this._lastTextAgentByTurn.Clear();
-                        this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
-                        this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                        // Merge final metrics/time into aggregated for the last render
+                        if (aggregated != null && finalAssistant != null)
+                        {
+                            aggregated.Metrics = finalAssistant.Metrics;
+                            aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
+
+                            // Ensure reasoning present on final render: prefer the provider's final reasoning
+                            if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
+                            {
+                                aggregated.Reasoning = finalAssistant.Reasoning;
+                            }
+                        }
+
+                        var toRender = aggregated ?? finalAssistant;
+                        if (toRender != null)
+                        {
+                            // Prefer the segmented key to replace the streaming bubble deterministically
+                            var upsertKey = segKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
+                            // Single final debug log for this interaction
+                            var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;
+                            var length = (toRender as AIInteractionText)?.Content?.Length ?? 0;
+                            Debug.WriteLine($"[WebChatObserver] Final render: turn={turnId}, key={upsertKey}, len={length}");
+                            this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
+                        }
                     }
-                    catch (Exception ex)
+                    catch (Exception repEx)
                     {
-                        Debug.WriteLine($"[WebChatObserver] OnFinal UI error: {ex.Message}");
+                        Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                     }
+
+                    // Now that final assistant is rendered, remove the thinking bubble and set status
+                    this.RemoveThinkingBubbleIfActive();
+
+                    // Notify listeners with session-managed snapshots
+                    this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
+
+                    // Clear streaming and per-turn state and finish
+                    this._streams.Clear();
+                    this._textInteractionSegments.Clear();
+                    this._lastInteractionTypeByTurn.Clear();
+                    this._lastTextAgentByTurn.Clear();
+                    this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
+                    this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                 });
             }
 

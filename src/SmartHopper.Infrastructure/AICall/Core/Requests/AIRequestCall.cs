@@ -373,7 +373,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 // Coalesce smaller token chunks into brief batches for smoother UI
                 CoalesceTokens = true,
                 CoalesceDelayMs = 40,
-                PreferredChunkSize = 64,
+                PreferredChunkSize = 24,
             };
 
             try

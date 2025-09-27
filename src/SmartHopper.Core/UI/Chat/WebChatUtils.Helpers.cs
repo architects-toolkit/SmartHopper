@@ -60,6 +60,7 @@ namespace SmartHopper.Core.UI.Chat
             Action<AIReturn>? onUpdate,
             TaskCompletionSource<AIReturn>? completionTcs,
             bool pushCurrentImmediately,
+            bool generateGreeting,
             out bool reused)
         {
             EnsureEtoApplication();
@@ -81,7 +82,7 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
-            var dialog = new WebChatDialog(request, progressReporter);
+            var dialog = new WebChatDialog(request, progressReporter, generateGreeting: generateGreeting);
             if (componentId != default)
             {
                 OpenDialogs[componentId] = dialog;

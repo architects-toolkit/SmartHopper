@@ -56,8 +56,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         /// <summary>
         /// Indicates whether greeting generation was requested for this session.
+        /// Becomes false after a greeting is emitted to ensure one-shot behavior.
         /// </summary>
-        private readonly bool _generateGreeting;
+        private bool _generateGreeting;
 
         /// <summary>
         /// The last complete return from the conversation.
@@ -235,9 +236,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the greeting generation.</param>
         /// <returns>Task representing the greeting generation operation.</returns>
-        private async Task GenerateGreetingAsync(CancellationToken cancellationToken = default)
+        private async Task GenerateGreetingAsync(CancellationToken cancellationToken = default, bool streamChunks = false)
         {
             if (!this._generateGreeting)
+            {
+                return;
+            }
+
+            // Already emitted once for this session
+            if (this._greetingEmitted)
             {
                 return;
             }
@@ -336,19 +343,75 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (greetingText != null && !string.IsNullOrWhiteSpace(greetingText.Content))
                 {
-                    // Persist greeting into conversation history as history (not new)
-                    this.AppendToSessionHistory(greetingText);
-                    this.UpdateLastReturn();
+                    // Assign a unified TurnId for the greeting so UI can coalesce streaming chunks
+                    var turnId = Guid.NewGuid().ToString("N");
 
-                    // Emit partial with only the greeting interaction for clean UI append
-                    var delta = new AIReturn();
-                    var deltaBody = AIBodyBuilder.Create().Add(greetingText).Build();
-                    delta.SetBody(deltaBody);
-                    this.NotifyPartial(delta);
+                    if (streamChunks)
+                    {
+                        // Emit incremental chunks as streaming deltas
+                        const int chunkSize = 24;
+                        var text = greetingText.Content ?? string.Empty;
+                        for (int pos = 0; pos < text.Length; pos += chunkSize)
+                        {
+                            var len = Math.Min(chunkSize, text.Length - pos);
+                            var chunk = text.Substring(pos, len);
+                            var partial = new AIInteractionText
+                            {
+                                Agent = AIAgent.Assistant,
+                                Content = chunk,
+                                TurnId = turnId,
+                            };
+
+                            var delta = new AIReturn();
+                            var deltaBody = AIBodyBuilder.Create().Add(partial).Build();
+                            delta.SetBody(deltaBody);
+
+                            // Stream the partial chunk to observers (UI will aggregate)
+                            this.NotifyDelta(delta);
+                        }
+                    }
+                    else
+                    {
+                        // Non-streaming: push a single partial containing the full greeting
+                        // Ensure the partial carries the same TurnId as the final persisted message so UI upserts instead of duplicating
+                        var partialGreeting = new AIInteractionText
+                        {
+                            Agent = AIAgent.Assistant,
+                            Content = greetingText.Content,
+                            Reasoning = greetingText.Reasoning,
+                            Metrics = greetingText.Metrics,
+                            Time = greetingText.Time,
+                            TurnId = turnId,
+                        };
+                        var delta = new AIReturn();
+                        var deltaBody = AIBodyBuilder.Create().Add(partialGreeting).Build();
+                        delta.SetBody(deltaBody);
+                        this.NotifyPartial(delta);
+                    }
+
+                    // Persist the final greeting into history with the unified TurnId
+                    try
+                    {
+                        var finalGreeting = new AIInteractionText
+                        {
+                            Agent = AIAgent.Assistant,
+                            Content = greetingText.Content,
+                            Reasoning = greetingText.Reasoning,
+                            Metrics = greetingText.Metrics,
+                            Time = greetingText.Time,
+                            TurnId = turnId,
+                        };
+                        this.AppendToSessionHistory(finalGreeting);
+                        this.UpdateLastReturn();
+                    }
+                    catch { }
 
                     // Mark emitted and immediately emit a final snapshot for initialization flows
                     this._greetingEmitted = true;
                     this.NotifyFinal(this.GetHistoryReturn());
+
+                    // One-shot: prevent greeting generation on subsequent turns
+                    this._generateGreeting = false;
                 }
             }
             catch (Exception ex)
@@ -519,9 +582,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 await this.GenerateGreetingAsync(linkedCts.Token).ConfigureAwait(false);
 
                 // If greeting was emitted for an initialization-only run, short-circuit further execution
-                if (this._generateGreeting && this._greetingEmitted)
+                if (this._greetingEmitted)
                 {
-                    return this._greetingReturn ?? this.GetHistoryReturn();
+                    var ret = this._greetingReturn ?? this.GetHistoryReturn();
+                    // Reset flag so subsequent calls (after user messages) won't short-circuit again
+                    this._greetingEmitted = false;
+                    return ret;
                 }
 
                 // Centralized validation: early interrupt non-streaming flow if request is invalid
@@ -625,21 +691,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 this.Observer?.OnStart(this.Request);
 
-                // Generate greeting if requested before starting conversation
-                await this.GenerateGreetingAsync(linkedCts.Token).ConfigureAwait(false);
+                // Generate greeting if requested before starting conversation (stream as chunks)
+                await this.GenerateGreetingAsync(linkedCts.Token, streamChunks: true).ConfigureAwait(false);
 
                 // If greeting was emitted, provide a single yield and finalize the stream
-                if (this._generateGreeting && this._greetingEmitted)
+                if (this._greetingEmitted)
                 {
-                    var toYield = this._greetingReturn ?? this.GetHistoryReturn();
-                    // Also emit a delta to match streaming semantics
-                    if (this._greetingReturn != null)
-                    {
-                        this.NotifyDelta(this._greetingReturn);
-                    }
-
-                    this.NotifyFinal(this.GetHistoryReturn());
-                    yield return toYield;
+                    // Greeting chunks already streamed above; yield the history snapshot and end
+                    var snapshot = this.GetHistoryReturn();
+                    // Reset flag so subsequent calls (after user messages) will proceed
+                    this._greetingEmitted = false;
+                    yield return snapshot;
                     yield break;
                 }
 
