@@ -28,10 +28,10 @@ Supply dynamic key-value context injected into `AIBody` so prompts and tools can
 
 - `time`: provides `time_current-datetime`, `time_current-timezone`
 - `environment`: provides `environment_operating-system`, `environment_rhino-version`, `environment_platform`
-- `selection`: provides `selection_selected-count` (number of currently selected Grasshopper objects)
+- `current-file`: provides `current-file-file-name`, `current-file-selected-count`, `current-file-object-count`, `current-file-component-count`, `current-file-param-count`, `current-file-scribble-count`, `current-file-group-count`
 
 ## WebChat defaults
 
 WebChat (both the Canvas Button and the AIChatComponent dialog) enables a curated context set by default:
 
-- `time, environment, selection`
+- `time, environment, current-file`
