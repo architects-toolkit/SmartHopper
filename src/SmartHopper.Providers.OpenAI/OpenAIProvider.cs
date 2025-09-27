@@ -313,6 +313,20 @@ namespace SmartHopper.Providers.OpenAI
 
                     // Step back one because for-loop will increment again
                     i--;
+#if DEBUG
+                    // Debug: log ids being coalesced to a single assistant message
+                    try
+                    {
+                        var ids = toolCallsArray.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+                        var dupGroups = ids.GroupBy(id => id).Where(g => g.Count() > 1).Select(g => $"{g.Key} x{g.Count()}");
+                        var dupSummary = dupGroups.Any() ? string.Join("; ", dupGroups) : "none";
+                        Debug.WriteLine($"[OpenAI] Coalescing tool_calls -> count={toolCallsArray.Count}, duplicateIds={dupSummary}");
+                    }
+                    catch
+                    {
+                        /* logging only */
+                    }
+#endif
 
                     var assistantToolCallsMsg = new JObject
                     {

@@ -1,6 +1,6 @@
-# SmartHopper - an AI-Powered Grasshopper3D Assistant (and more...)
+# SmartHopper - AI-Powered Grasshopper3D Assistant and Tools
 
-[![Version](https://img.shields.io/badge/version-1.0.0--dev.250921-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0--dev.250927-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
@@ -71,7 +71,7 @@ Use this section as a guided tour. We’ll keep it concise and visual. You can h
 
 More examples and recipes coming soon on the website and docs.
 
-Developer details (AI tools, providers, data types, status) can be found in [dev.md](dev.md).
+Developer details (AI tools, providers, data types, status) can be found in [DEV.md](DEV.md).
 
 ## 🤝 Contributing
 
