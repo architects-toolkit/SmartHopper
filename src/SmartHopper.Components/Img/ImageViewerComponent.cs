@@ -113,6 +113,7 @@ namespace SmartHopper.Components.Img
                 {
                     bitmap = bmp;
                 }
+
                 // Try direct bitmap
                 else if (imageGoo.ScriptVariable() is Bitmap directBmp)
                 {
@@ -178,6 +179,7 @@ namespace SmartHopper.Components.Img
                         {
                             File.Delete(filePath);
                         }
+
                         File.Move(tempFilePath, filePath);
 
                         // Update throttling state
@@ -294,6 +296,7 @@ namespace SmartHopper.Components.Img
                 {
                     Directory.CreateDirectory(directoryPath);
                 }
+
                 return true;
             }
             catch (IOException)

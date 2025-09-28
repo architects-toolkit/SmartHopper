@@ -54,7 +54,7 @@ namespace SmartHopper.Core.ComponentBase
         // Timer-based auto-hide for inline badge labels (disappears after 5s even if still hovered)
         // Purpose: avoid sticky labels when the cursor remains stationary over a badge.
         private Timer? badgeLabelTimer;
-        private bool badgeLabelAutoHidden = false;
+        private bool badgeLabelAutoHidden;
 
         /// <summary>
         /// Creates a new instance of <see cref="ComponentBadgesAttributes"/>.

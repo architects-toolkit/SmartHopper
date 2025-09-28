@@ -147,6 +147,7 @@ namespace SmartHopper.Components.AI
 
             // Persistently set (or clear) the chat history so downstream updates occur
             this.SetPersistentOutput("Chat History", historyItems, DA);
+
             // Set metrics synchronously with chat history to ensure consistent downstream updates
             this.SetMetricsOutput(DA);
         }
@@ -158,16 +159,13 @@ namespace SmartHopper.Components.AI
         private void SetSystemPrompt(string systemPrompt)
         {
             this._systemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? this._defaultSystemPrompt : systemPrompt;
+            this.SystemPrompt = this._systemPrompt;
         }
 
         /// <summary>
         /// Gets the current system prompt.
         /// </summary>
-        /// <returns>The current system prompt.</returns>
-        protected string GetSystemPrompt()
-        {
-            return this._systemPrompt;
-        }
+        protected string SystemPrompt { get; private set; }
 
         /// <summary>
         /// Creates a worker for the component.
@@ -208,7 +206,7 @@ namespace SmartHopper.Components.AI
         /// </summary>
         internal AIReturn GetSnapshot()
         {
-            return this.GetAIReturnSnapshot();
+            return this.CurrentAIReturnSnapshot;
         }
 
         /// <summary>
@@ -226,6 +224,7 @@ namespace SmartHopper.Components.AI
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;
+
             // No local copy: rely solely on component's AIReturn snapshot
 
             /// <summary>
@@ -270,7 +269,7 @@ namespace SmartHopper.Components.AI
                         providerName: actualProvider,
                         modelName: this.component.GetModel(),
                         endpoint: "ai-chat",
-                        systemPrompt: this.component.GetSystemPrompt(),
+                        systemPrompt: this.component.SystemPrompt,
                         toolFilter: "Components,ComponentsRetrieval,Knowledge,Scripting",
                         componentId: this.component.InstanceGuid,
                         progressReporter: this.progressReporter,
@@ -281,11 +280,13 @@ namespace SmartHopper.Components.AI
                                 // Store full AIReturn in the base snapshot so metrics and other
                                 // downstream outputs can be derived from a single source of truth
                                 this.component.SetAIReturnSnapshot(snapshot);
+
                                 // Force downstream recompute so UI and dependents update promptly
                                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                                 {
                                     this.component.ExpireSolution(true);
                                 });
+
                                 // Nudge GH to keep UI responsive
                                 this.progressReporter?.Invoke("Chatting...");
                             }
@@ -328,4 +329,3 @@ namespace SmartHopper.Components.AI
         }
     }
 }
-

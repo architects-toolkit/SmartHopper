@@ -269,4 +269,3 @@ namespace SmartHopper.Infrastructure.Tests
         }
     }
 }
-

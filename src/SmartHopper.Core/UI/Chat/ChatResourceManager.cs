@@ -313,6 +313,7 @@ namespace SmartHopper.Core.UI.Chat
 
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
+
             // Render reasoning panel. Auto-expand when there is no visible answer content.
             var reasoningPanel = this.RenderReasoning(rawReasoning, string.IsNullOrWhiteSpace(rawContent));
             Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
@@ -412,4 +413,3 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
-

@@ -26,6 +26,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     {
         private readonly List<IAIInteraction> interactions = new List<IAIInteraction>();
         private readonly List<int> interactionsNew = new List<int>();
+
         // Default behavior matches legacy: appended/replaced interactions are marked as 'new'
         private bool defaultMarkAsNew = true;
 
@@ -77,6 +78,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 b.toolFilter = body.ToolFilter ?? b.toolFilter;
                 b.contextFilter = body.ContextFilter ?? b.contextFilter;
                 b.jsonOutputSchema = body.JsonOutputSchema ?? b.jsonOutputSchema;
+
                 // Preserve 'new' interaction markers so downstream mutations don't clear them
                 if (body.InteractionsNew != null && body.InteractionsNew.Count > 0)
                 {
@@ -806,6 +808,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             {
                 this.EnsureTurnId(snapshot[i]);
             }
+
             // Create a copy of indices to ensure immutability of AIBody
             var newIndices = new List<int>();
             var seen = new HashSet<int>();

@@ -55,6 +55,7 @@ namespace SmartHopper.Infrastructure.AICall.JsonSchemas
             if (schema is null) throw new ArgumentNullException(nameof(schema));
             var adapter = JsonSchemaAdapterRegistry.Get(provider);
             var (wrapped, info) = adapter.Wrap(schema);
+
             // Ensure provider name is captured
             info.ProviderName = string.IsNullOrWhiteSpace(info.ProviderName) ? (provider ?? string.Empty) : info.ProviderName;
             return (wrapped, info);

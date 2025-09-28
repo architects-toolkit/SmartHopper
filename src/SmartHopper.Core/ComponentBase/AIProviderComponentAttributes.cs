@@ -32,12 +32,12 @@ namespace SmartHopper.Core.ComponentBase
 
         // Hover state for inline provider label
         private RectangleF providerIconRect = RectangleF.Empty;
-        private bool hoverProviderIcon = false;
+        private bool hoverProviderIcon;
 
         // Timer-based auto-hide for inline label (disappears after 5s even if still hovered)
         // Purpose: avoid sticky labels when the cursor remains stationary.
         private Timer? providerLabelTimer;
-        private bool providerLabelAutoHidden = false;
+        private bool providerLabelAutoHidden;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProviderComponentAttributes"/> class.

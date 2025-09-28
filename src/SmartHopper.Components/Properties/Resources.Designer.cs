@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------
 
 namespace SmartHopper.Components.Properties {
-    
+
     using System;
     using System.Drawing;
 
@@ -25,15 +25,15 @@ namespace SmartHopper.Components.Properties {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
-        
+
         private static global::System.Resources.ResourceManager resourceMan;
-        
+
         private static global::System.Globalization.CultureInfo resourceCulture;
-        
+
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-        
+
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -44,10 +44,11 @@ namespace SmartHopper.Components.Properties {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("SmartHopper.Components.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
+
                 return resourceMan;
             }
         }
-        
+
         /// <summary>
         ///   Overrides the current thread's CurrentUICulture property for all
         ///   resource lookups using this strongly typed resource class.
@@ -57,11 +58,12 @@ namespace SmartHopper.Components.Properties {
             get {
                 return resourceCulture;
             }
+
             set {
                 resourceCulture = value;
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized resource of type Bitmap.
         /// </summary>
@@ -92,14 +94,14 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
-        
+
         internal static Bitmap textevaluate {
             get {
                 object obj = ResourceManager.GetObject("textevaluate", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
-        
+
         internal static Bitmap textgenerate {
             get {
                 object obj = ResourceManager.GetObject("textgenerate", resourceCulture);

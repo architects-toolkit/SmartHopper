@@ -120,6 +120,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var proxy = GHObjectFactory.FindProxy(displayName)
                                ?? throw new Exception($"Component type '{displayName}' not found in this Grasshopper installation.");
                 IGH_Component tempComp = null;
+
                 // Instantiate component proxy on UI thread
                 RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -176,12 +177,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .WithContextFilter(contextFilter)
                     .AddSystem($"""
                     You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
-                    
+
                     Your response MUST be a valid JSON object with the following structure:
                     - script: The complete script code
                     - inputs: Array of input parameters with name, type, description, and access (item/list/tree)
                     - outputs: Array of output parameters with name, type, and description
-                    
+
                     The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
                     """)
                     .AddUser(prompt);

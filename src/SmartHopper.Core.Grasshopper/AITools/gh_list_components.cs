@@ -140,6 +140,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 name = param.Name,
                                 description = param.Description,
                                 dataType = param.GetType().Name,
+
                                 // access = param.Access.ToString(),
                             })
                             .Cast<object>()
@@ -150,6 +151,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 name = param.Name,
                                 description = param.Description,
                                 dataType = param.GetType().Name,
+
                                 // access = param.Access.ToString(),
                             })
                             .Cast<object>()
@@ -165,6 +167,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 name = param.Name,
                                 description = param.Description,
                                 dataType = param.GetType().Name,
+
                                 // access = param.Access.ToString(),
                             },
                         };

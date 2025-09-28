@@ -123,7 +123,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
-        {          
+        {
             var content = (this.Content ?? string.Empty).Trim();
             var hash = ComputeShortHash(content);
 

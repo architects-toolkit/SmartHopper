@@ -58,21 +58,21 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Builds an absolute URL for the given endpoint using the provider's default server URL when needed.
         /// </summary>
-        protected string BuildFullUrl(string endpoint)
+        protected Uri BuildFullUrl(string endpoint)
         {
             if (string.IsNullOrWhiteSpace(endpoint))
             {
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            if (Uri.IsWellFormedUriString(endpoint, UriKind.Absolute))
+            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
             {
-                return endpoint;
+                return abs;
             }
 
-            var baseUrl = this.Provider.DefaultServerUrl?.TrimEnd('/') ?? string.Empty;
-            var path = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint : "/" + endpoint;
-            return baseUrl + path;
+            var baseUri = this.Provider.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
+            var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
+            return new Uri(baseUri, relative);
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Creates a POST request configured for SSE consumption.
         /// </summary>
-        protected HttpRequestMessage CreateSsePost(string url, string body, string contentType = "application/json")
+        protected HttpRequestMessage CreateSsePost(Uri url, string body, string contentType = "application/json")
         {
             var req = new HttpRequestMessage(HttpMethod.Post, url)
             {

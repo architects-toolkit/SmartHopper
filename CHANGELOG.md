@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CanvasButton now initializes the chat provider and model from SmartHopper settings (consistent with app-wide configuration).
 
 - Context providers:
-  - New `SelectionContextProvider` exposing `selection_selected-count` (number of selected Grasshopper objects). Registered globally at Core assembly load so it is available to both components and the canvas button.
+  - New `FileContextProvider` exposing `current-file_selected-count` (number of selected files), `file-name` (the current document file name or "Untitled"), `selected-count` (number of selected objects in the current document), `object-count` (total number of document objects), `component-count` (total number of components in the current document), `param-count` (total number of parameters in the current document), `scribble-count` (total number of scribbles/notes in the current document), and `group-count` (total number of groups in the current document). Registered globally at Core assembly load so it is available to both components and the canvas button.
 
 - Conversation and policies:
   - ConversationSession service introducing:
@@ -87,6 +87,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Providers – Anthropic:
   - Unified encoding/decoding helpers. Extracted `BuildTextMessage`, `BuildToolResultMessage`, and `ExtractToolResultText` in `AnthropicProvider.cs` and updated both `Encode(IAIInteraction)` and `Encode(AIRequestCall)` to use them, removing duplicated logic for `AIInteractionText` and `AIInteractionToolResult`.
 
+  - Switched URL members to use System.Uri for stronger typing and to satisfy CA1054/CA1055/CA1056:
+    - `AIProvider.DefaultServerUrl` is now `Uri` (was `string`).
+    - `AIProviderStreamingAdapter.BuildFullUrl(string)` now returns `Uri`.
+    - `AIProviderStreamingAdapter.CreateSsePost` now accepts a `Uri` parameter.
+    - `AIInteractionImage.ImageUrl` is now `Uri` (was `string`).
+  - Added `AIInteractionImage.SetResult(Uri imageUrl, string imageData = null, string revisedPrompt = null)` overload; kept string overload for backward compatibility.
+
 - UI and settings:
   - AI Chat component default system prompt to a generic one.
   - Settings dialog now organized in tabs.
@@ -139,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Badge cache computation now evaluates against the currently configured model (immediate UI feedback) and also surfaces replacement intent via selection fallback.
   - AIChatComponent: removed duplicated `_sharedLastReturn` storage and its lock. Removed internal methods `SetLastReturn(AIReturn)` and `GetLastReturn()`; components should rely on the base snapshot via `SetAIReturnSnapshot(...)` and use it for outputs.
   - AIChatComponent: unified snapshot management using base class snapshot exclusively. Renamed method to `SetAIReturnSnapshot(AIReturn)` for consistency across components. Updated chat transcript output to read from the base snapshot, ensuring live updates and metrics stay in sync.
-  - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `GetAIReturnSnapshot()` to keep chat history and metrics consistent.
+  - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `CurrentAIReturnSnapshot` to keep chat history and metrics consistent.
   - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
   - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
 

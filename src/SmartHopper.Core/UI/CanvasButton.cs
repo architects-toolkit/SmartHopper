@@ -384,6 +384,7 @@ namespace SmartHopper.Core.UI
                     isPressed = false;
                     return;
                 }
+
                 // Update button position based on current canvas and window
                 UpdateButtonPosition(canvas);
                 DrawButton(canvas.Graphics);
@@ -649,6 +650,7 @@ namespace SmartHopper.Core.UI
                 var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
 
                 var requestedProviderName = assistant?.AssistantProvider;
+
                 // Treat "(Default)" as request to use configured default provider
                 var isDefaultProviderSelected = string.Equals(requestedProviderName, "(Default)", StringComparison.Ordinal);
                 var providerNameToUse = (!string.IsNullOrWhiteSpace(requestedProviderName) && !isDefaultProviderSelected)
@@ -676,6 +678,7 @@ namespace SmartHopper.Core.UI
 
                 var providerName = provider.Name;
                 var requestedModel = assistant?.AssistantModel;
+
                 // If user selected (Default) provider, always use provider default model
                 var model = isDefaultProviderSelected
                     ? provider.GetDefaultModel(AICapability.Text2Text)

@@ -137,8 +137,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Return the image URL or data (prioritize URL over base64 data for performance)
-                string imageResult = !string.IsNullOrEmpty(resultImageInteraction.ImageUrl)
-                    ? resultImageInteraction.ImageUrl
+                string imageResult = resultImageInteraction.ImageUrl != null
+                    ? resultImageInteraction.ImageUrl.ToString()
                     : resultImageInteraction.ImageData;
 
                 // Check if we have valid image data
@@ -182,4 +182,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

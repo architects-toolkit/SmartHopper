@@ -133,4 +133,3 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
-

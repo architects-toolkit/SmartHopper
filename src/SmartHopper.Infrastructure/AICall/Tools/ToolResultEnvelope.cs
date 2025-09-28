@@ -175,6 +175,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             if (root == null) return null;
 
             var env = TryGet(root);
+
             // 1) Try payloadPath if present
             var paths = new List<string>();
             if (!string.IsNullOrWhiteSpace(env?.PayloadPath))
