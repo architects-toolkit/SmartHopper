@@ -21,7 +21,13 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// </summary>
     public abstract class AIProviderModels : IAIProviderModels
     {
-        protected readonly IAIProvider _provider;
+        // Avoid visible instance fields (CA1051): use a private backing field with a protected accessor.
+        private readonly IAIProvider _provider;
+
+        /// <summary>
+        /// Gets the provider instance this model metadata retriever belongs to.
+        /// </summary>
+        protected IAIProvider Provider => this._provider;
 
         /// <summary>
         /// Initializes a new instance of the AIProviderModels.

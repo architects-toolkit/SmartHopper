@@ -25,7 +25,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets or sets the URL of the generated image.
         /// </summary>
-        public string ImageUrl { get; set; }
+        public Uri ImageUrl { get; set; }
 
         /// <summary>
         /// Gets or sets the raw image data (base64 encoded, if available).
@@ -59,7 +59,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public string ImageStyle { get; set; } = "vivid";
 
         /// <summary>
-        /// Structured runtime messages associated with this image interaction.
+        /// Gets or sets the structured runtime messages associated with this image interaction.
         /// Used to propagate warnings, infos, or provider notes alongside the result.
         /// </summary>
         public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
@@ -103,6 +103,29 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
             if (imageUrl != null)
             {
+                // Back-compat overload: parse string into Uri when possible
+                if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
+                {
+                    this.SetResult(uri, imageData, revisedPrompt);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sets the result of the image generation using strong types. imageUrl or imageData must be provided.
+        /// </summary>
+        /// <param name="imageUrl">The URL of the generated image.</param>
+        /// <param name="imageData">The raw image data (base64 encoded, if available).</param>
+        /// <param name="revisedPrompt">The revised prompt used by the AI model.</param>
+        public void SetResult(Uri imageUrl = null, string imageData = null, string revisedPrompt = null)
+        {
+            if (imageUrl == null && imageData == null)
+            {
+                throw new ArgumentNullException("imageUrl or imageData must be provided");
+            }
+
+            if (imageUrl != null)
+            {
                 this.ImageUrl = imageUrl;
             }
 
@@ -124,10 +147,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
-            var id = !string.IsNullOrEmpty(this.ImageUrl)
-                ? this.ImageUrl
+            var id = this.ImageUrl != null
+                ? this.ImageUrl.ToString()
                 : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
-            
+
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
                 return $"turn:{this.TurnId}:image:{id}";
@@ -164,6 +187,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the CSS role class to use when rendering this interaction. Defaults to assistant.
         /// </summary>
+        /// <returns>The role string used as a CSS class for rendering.</returns>
         public string GetRoleClassForRender()
         {
             var role = (this.Agent == 0 ? AIAgent.Assistant : this.Agent).ToString().ToLowerInvariant();
@@ -173,6 +197,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the display name for rendering (header label).
         /// </summary>
+        /// <returns>The human-readable agent display name.</returns>
         public string GetDisplayNameForRender()
         {
             var agent = this.Agent == 0 ? AIAgent.Assistant : this.Agent;
@@ -182,9 +207,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the raw markdown content to render for this interaction. Embeds the image.
         /// </summary>
+        /// <returns>A markdown string representing the image to render.</returns>
         public string GetRawContentForRender()
         {
-            if (!string.IsNullOrWhiteSpace(this.ImageUrl))
+            if (this.ImageUrl != null)
             {
                 return $"![generated image]({this.ImageUrl})";
             }
@@ -201,6 +227,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Images do not include reasoning by default.
         /// </summary>
+        /// <returns>An empty string.</returns>
         public string GetRawReasoningForRender()
         {
             return string.Empty;

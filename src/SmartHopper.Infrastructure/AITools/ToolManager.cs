@@ -81,6 +81,7 @@ namespace SmartHopper.Infrastructure.AITools
                     .ToList();
                 var reasonText = reasonList.Count > 0 ? string.Join(" \n", reasonList) : "Tool call is invalid";
                 Debug.WriteLine($"[AIToolManager] Tool call is invalid: {reasonText}");
+
                 // Standardize as a tool error with structured messages for diagnostics/UI
                 output.CreateToolError(reasonText, toolCall);
                 if (errors != null && errors.Count > 0)
@@ -131,6 +132,7 @@ namespace SmartHopper.Infrastructure.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIToolManager] Error executing tool {toolInfo.Name}: {ex.Message}");
+
                 // Standardize as a tool error and add a structured message tagged with Tool origin
                 output.CreateToolError($"Error executing tool '{toolInfo.Name}': {ex.Message}", toolCall);
                 return output;

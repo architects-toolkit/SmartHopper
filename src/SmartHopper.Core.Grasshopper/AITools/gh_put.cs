@@ -82,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Placement & wiring using Put utils
                 var placed = Put.PutObjectsOnCanvas(document);
-                
+
                 var toolResult = new JObject
                 {
                     ["components"] = JArray.FromObject(placed),

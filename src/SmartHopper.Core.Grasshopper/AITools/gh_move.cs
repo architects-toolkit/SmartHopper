@@ -113,7 +113,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var movedList = GHCanvasUtils.MoveInstance(dict, relative);
-                
+
                 var toolResult = new JObject
                 {
                     ["updated"] = JArray.FromObject(movedList.Select(g => g.ToString())),

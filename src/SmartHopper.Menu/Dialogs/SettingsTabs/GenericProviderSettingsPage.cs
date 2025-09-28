@@ -141,7 +141,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                         {
                             Spacing = new Size(10, 0),
                         };
-                        
+
                         // Create row with fixed label width and expandable control
                         rowLayout.Rows.Add(new TableRow(
                             new TableCell(label, false),  // Fixed size
@@ -311,6 +311,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                             break;
                         }
                     }
+
                     // If no match found and there's a default value, try that
                     if (dropDown.SelectedIndex < 0 && descriptor.DefaultValue != null)
                     {

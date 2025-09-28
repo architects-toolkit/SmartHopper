@@ -98,6 +98,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                     .ToList();
                 var combined = errorTexts.Count > 0 ? string.Join(" \n", errorTexts) : "Tool call validation failed";
                 ret.CreateToolError(combined, this);
+
                 // Attach structured validation messages so UIs and components can surface them
                 if (errors != null && errors.Count > 0)
                 {

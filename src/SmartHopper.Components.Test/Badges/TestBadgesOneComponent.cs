@@ -87,7 +87,7 @@ namespace SmartHopper.Components.Test.Badges
         /// <returns>A worker that performs no computation.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new NoopWorker(this, AddRuntimeMessage);
+            return new NoopWorker(this, this.AddRuntimeMessage);
         }
 
         /// <summary>

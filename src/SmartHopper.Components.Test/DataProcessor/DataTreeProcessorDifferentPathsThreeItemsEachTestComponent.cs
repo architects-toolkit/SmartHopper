@@ -120,6 +120,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                                 int bi = bNorm[i]?.Value ?? 0;
                                 sums.Add(new GH_Integer(ai + bi));
                             }
+
                             return new Dictionary<string, List<GH_Integer>> { { "Result", sums } };
                         }
 

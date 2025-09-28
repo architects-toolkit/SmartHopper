@@ -26,11 +26,25 @@ namespace SmartHopper.Infrastructure.AICall.Policies
     /// </summary>
     public sealed class PolicyPipeline
     {
+        /// <summary>
+        /// Gets the ordered collection of request policies to be applied before calling a provider.
+        /// </summary>
         public List<IRequestPolicy> RequestPolicies { get; } = new List<IRequestPolicy>();
+
+        /// <summary>
+        /// Gets the ordered collection of response policies to be applied after receiving a provider response.
+        /// </summary>
         public List<IResponsePolicy> ResponsePolicies { get; } = new List<IResponsePolicy>();
 
+        /// <summary>
+        /// Gets the default policy pipeline instance with a sensible set of request and response policies.
+        /// </summary>
         public static PolicyPipeline Default { get; } = CreateDefault();
 
+        /// <summary>
+        /// Creates a default policy pipeline instance.
+        /// </summary>
+        /// <returns>A configured <see cref="PolicyPipeline"/> instance.</returns>
         private static PolicyPipeline CreateDefault()
         {
             var pipeline = new PolicyPipeline();
@@ -49,6 +63,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             return pipeline;
         }
 
+        /// <summary>
+        /// Applies all configured request policies to the provided <see cref="AIRequestCall"/>.
+        /// Non-fatal policy errors are recorded as diagnostics within the request body.
+        /// </summary>
+        /// <param name="request">The request to normalize and validate.</param>
+        /// <returns>A task that completes when all policies have been applied.</returns>
         public async Task ApplyRequestPoliciesAsync(AIRequestCall request)
         {
             if (request == null) return;
@@ -80,6 +100,13 @@ namespace SmartHopper.Infrastructure.AICall.Policies
         /// into a transient <see cref="AIRequestCall"/>. Non-breaking: existing policies continue to target
         /// <see cref="AIRequestCall"/>; this overload simply reuses them for tool validation and timeout normalization.
         /// </summary>
+        /// <summary>
+        /// Applies a minimal set of request policies for tool-only requests by shimming the tool call
+        /// into a transient <see cref="AIRequestCall"/>.
+        /// Non-fatal policy errors are recorded as diagnostics within the shim and merged back.
+        /// </summary>
+        /// <param name="toolCall">The tool call to validate and normalize.</param>
+        /// <returns>A task that completes when policies have been applied and results merged back to <paramref name="toolCall"/>.</returns>
         public async Task ApplyRequestPoliciesAsync(AIToolCall toolCall)
         {
             if (toolCall == null) return;
@@ -141,6 +168,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             toolCall.Messages = merged;
         }
 
+        /// <summary>
+        /// Applies all configured response policies to the provided <see cref="AIReturn"/>.
+        /// Non-fatal policy errors are attached as diagnostics to the return.
+        /// </summary>
+        /// <param name="response">The response to normalize and validate.</param>
+        /// <returns>A task that completes when all policies have been applied.</returns>
         public async Task ApplyResponsePoliciesAsync(AIReturn response)
         {
             if (response == null) return;

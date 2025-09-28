@@ -315,11 +315,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Intended for derived components that need to render outputs (e.g., chat history)
         /// from the same source of truth used for metrics.
         /// </summary>
-        /// <returns>The current AIReturn snapshot, or null if none.</returns>
-        protected AIReturn GetAIReturnSnapshot()
-        {
-            return this.AIReturnSnapshot;
-        }
+        protected AIReturn CurrentAIReturnSnapshot => this.AIReturnSnapshot;
 
         /// <summary>
         /// Sets the metrics output parameters (input tokens, output tokens, finish reason).
@@ -344,7 +340,7 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output", metrics.OutputTokens),
                 new JProperty("finish_reason", metrics.FinishReason),
                 new JProperty("completion_time", metrics.CompletionTime),
-                new JProperty("data_count", this.dataCount),
+                new JProperty("data_count", this.DataCount),
                 new JProperty("iterations_count", this.ProgressInfo.Total));
 
             // Convert metricsJson to GH_String
@@ -489,6 +485,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
                                          || hasProviderMissing
                                          || hasUnknownProvider
+
                                          // || hasUnknownModel
                                          || hasNoCapableModel
                                          || hasCapabilityMismatch
@@ -621,4 +618,3 @@ namespace SmartHopper.Core.ComponentBase
 
     }
 }
-

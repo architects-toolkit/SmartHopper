@@ -159,6 +159,8 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Gets the current last return for an open dialog, if any; otherwise null.
         /// </summary>
+        /// <param name="componentId">The component instance ID whose dialog state to query.</param>
+        /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
         public static AIReturn? TryGetLastReturn(Guid componentId)
         {
             try
@@ -184,6 +186,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Optional action to report progress.</param>
         /// <param name="onUpdate">Optional callback invoked on incremental chat updates with an AIReturn snapshot.</param>
+        /// <param name="generateGreeting">Whether to generate an initial assistant greeting on dialog open.</param>
         /// <returns>The last AI return received, or null if the dialog was closed without a response.</returns>
         public static async Task<AIReturn> ShowWebChatDialog(
             AIRequestCall request,
@@ -306,112 +309,6 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Worker class for processing web chat interactions asynchronously.
-        /// </summary>
-        public class WebChatWorker
-        {
-            private AIRequestCall initialRequest = new AIRequestCall();
-            private readonly Action<string> progressReporter;
-            private readonly Guid componentId;
-            private AIReturn? lastReturn;
-            private readonly Action<AIReturn>? onUpdateCallback;
-            private readonly bool generateGreeting;
-
-            /// <summary>
-            /// Initializes a new instance of the <see cref="WebChatWorker"/> class.
-            /// </summary>
-            /// <param name="providerName">The name of the AI provider to use.</param>
-            /// <param name="modelName">The model to use for AI processing.</param>
-            /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
-            /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
-            /// <param name="toolFilter">Optional tool filter to provide to the AI assistant.</param>
-            /// <param name="progressReporter">Action to report progress.</param>
-            /// <param name="componentId">The unique ID of the component instance.</param>
-            public WebChatWorker(
-                string providerName,
-                string modelName,
-                string endpoint,
-                string systemPrompt,
-                string toolFilter,
-                Action<string> progressReporter,
-                Guid componentId = default,
-                Action<AIReturn>? onUpdate = null,
-                bool generateGreeting = false)
-            {
-                this.initialRequest = CreateWebChatRequest(
-                    providerName,
-                    modelName,
-                    endpoint,
-                    systemPrompt,
-                    toolFilter);
-                this.progressReporter = progressReporter;
-                this.componentId = componentId;
-                this.onUpdateCallback = onUpdate;
-                this.generateGreeting = generateGreeting;
-            }
-
-            /// <summary>
-            /// Shows the web chat dialog and processes the interaction.
-            /// </summary>
-            /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
-            /// <returns>The task representing the asynchronous operation.</returns>
-            public async Task ProcessChatAsync(CancellationToken cancellationToken)
-            {
-                // Decorate reporter to also expire the GH component
-                Action<string>? reporter = null;
-                if (this.progressReporter != null)
-                {
-                    reporter = msg =>
-                    {
-                        this.progressReporter(msg);
-                        Rhino.RhinoApp.InvokeOnUiThread(() =>
-                        {
-                            var ghCanvas = Instances.ActiveCanvas;
-                            var ghDoc = ghCanvas?.Document;
-                            var comp = ghDoc?.Objects.OfType<GH_Component>().FirstOrDefault(c => c.InstanceGuid == this.componentId);
-                            comp?.ExpireSolution(true);
-                        });
-                    };
-                }
-
-                reporter?.Invoke("Opening...");
-
-                try
-                {
-                    this.lastReturn = await ShowWebChatDialog(
-                        request: this.initialRequest,
-                        componentId: this.componentId,
-                        progressReporter: reporter,
-                        onUpdate: snapshot =>
-                        {
-                            // Keep lastReturn updated incrementally and expire the component solution
-                            this.lastReturn = snapshot;
-                            reporter?.Invoke("Chatting...");
-                            // Propagate snapshot to caller if provided
-                            try { this.onUpdateCallback?.Invoke(snapshot); } catch (Exception cbEx) { Debug.WriteLine($"[WebChatWorker] onUpdate callback error: {cbEx.Message}"); }
-                        },
-                        generateGreeting: this.generateGreeting).ConfigureAwait(false);
-                    reporter?.Invoke("Run me!");
-                }
-                catch (Exception ex)
-                {
-                    reporter?.Invoke($"Error: {ex.Message}");
-                    throw;
-                }
-            }
-
-            /// <summary>
-            /// Gets the last AI return received from the chat dialog.
-            /// </summary>
-            /// <returns>The last AI return, or null if no return was received.</returns>
-            public AIReturn GetLastReturn()
-            {
-                return this.lastReturn;
-            }
-
-        }
-
-        /// <summary>
         /// Creates a new web chat worker for processing chat interactions.
         /// </summary>
         /// <param name="providerName">The name of the AI provider to use.</param>
@@ -421,6 +318,8 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="toolFilter">The tool filter to provide to the AI assistant.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
         /// <param name="progressReporter">Action to report progress.</param>
+        /// <param name="onUpdate">Optional callback invoked on incremental chat updates with an AIReturn snapshot.</param>
+        /// <param name="generateGreeting">Whether to generate an assistant greeting when the dialog opens.</param>
         /// <returns>A new web chat worker.</returns>
         public static WebChatWorker CreateWebChatWorker(
             string providerName,
@@ -451,4 +350,3 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
-

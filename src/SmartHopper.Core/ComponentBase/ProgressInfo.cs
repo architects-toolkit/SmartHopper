@@ -70,10 +70,6 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets a formatted progress string.
         /// </summary>
-        /// <returns>A string like "1/3" if progress is active, otherwise empty string.</returns>
-        public string GetProgressString()
-        {
-            return this.IsActive ? $"{this.Current}/{this.Total}" : string.Empty;
-        }
+        public string ProgressString => this.IsActive ? $"{this.Current}/{this.Total}" : string.Empty;
     }
 }

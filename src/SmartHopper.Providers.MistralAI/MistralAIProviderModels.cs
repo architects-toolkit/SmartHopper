@@ -118,7 +118,7 @@ namespace SmartHopper.Providers.MistralAI
                     return new List<string>();
                 }
 
-                var raw = (response as AIReturn)?.GetRaw();
+                var raw = (response as AIReturn)?.Raw;
                 if (raw == null)
                 {
                     Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: raw payload is null; returning empty list");

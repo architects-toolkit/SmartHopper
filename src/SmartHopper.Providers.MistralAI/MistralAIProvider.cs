@@ -37,6 +37,7 @@ namespace SmartHopper.Providers.MistralAI
         private MistralAIProvider()
         {
             this.Models = new MistralAIProviderModels(this);
+
             // Register provider-specific JSON schema adapter
             JsonSchemaAdapterRegistry.Register(new MistralAIJsonSchemaAdapter());
         }
@@ -49,7 +50,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.mistral.ai/v1";
+        public override Uri DefaultServerUrl => new Uri("https://api.mistral.ai/v1");
 
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
@@ -83,6 +84,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <summary>
         /// Returns a streaming adapter for MistralAI that yields incremental AIReturn deltas.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new MistralAIStreamingAdapter(this);
@@ -106,6 +108,7 @@ namespace SmartHopper.Providers.MistralAI
                     request.Endpoint = "/chat/completions";
                     break;
             }
+
             request.ContentType = "application/json";
             request.Authentication = "bearer";
 
@@ -183,6 +186,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     messageObj["name"] = toolResultInteraction.Name;
                 }
+
                 messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -223,6 +227,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 return "GET and DELETE requests do not use a request body";
             }
+
             // Encode request body for Mistral. Supports string and AIText content in interactions.
 
             int maxTokens = this.GetSetting<int>("MaxTokens");
@@ -261,6 +266,7 @@ namespace SmartHopper.Providers.MistralAI
                     var schemaObj = JObject.Parse(jsonSchema);
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+
                     // Store wrapper info for response unwrapping centrally
                     svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[MistralAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
@@ -278,6 +284,7 @@ namespace SmartHopper.Providers.MistralAI
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[MistralAI] Failed to parse JSON schema: {ex.Message}");
+
                     // Continue without schema if parsing fails
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
@@ -514,6 +521,7 @@ namespace SmartHopper.Providers.MistralAI
                     bodyError = new AIReturn();
                     bodyError.CreateProviderError($"Failed to prepare streaming body: {ex.Message}", request);
                 }
+
                 if (bodyError != null)
                 {
                     yield return bodyError;
@@ -534,6 +542,7 @@ namespace SmartHopper.Providers.MistralAI
                     authError = new AIReturn();
                     authError.CreateProviderError(ex.Message, request);
                 }
+
                 if (authError != null)
                 {
                     yield return authError;
@@ -553,6 +562,7 @@ namespace SmartHopper.Providers.MistralAI
                     sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
                     response = null!;
                 }
+
                 if (sendError != null)
                 {
                     yield return sendError;
@@ -575,6 +585,7 @@ namespace SmartHopper.Providers.MistralAI
 
                 var textBuffer = new StringBuilder();
                 var haveStreamedAny = false;
+
                 // Collect metrics from streaming (Mistral includes usage in the last chunk per docs)
                 var streamMetrics = new AIMetrics
                 {
@@ -710,6 +721,7 @@ namespace SmartHopper.Providers.MistralAI
                     if (!string.IsNullOrEmpty(newText))
                     {
                         textBuffer.Append(newText);
+
                         // Append to provider-local aggregate and emit a snapshot
                         assistantAggregate.AppendDelta(contentDelta: newText);
 
@@ -747,6 +759,7 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         lastFinishReason = finishReason;
                     }
+
                     if (!string.IsNullOrEmpty(finishReason) && string.Equals(finishReason, "stop", StringComparison.OrdinalIgnoreCase))
                     {
                         break;

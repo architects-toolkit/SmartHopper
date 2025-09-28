@@ -8,7 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -17,6 +16,30 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
+
+    /// <summary>
+    /// Typed validator contract for validating specific models (e.g., tool calls) and returning diagnostics.
+    /// Implementations should be side-effect free and perform no network I/O.
+    /// </summary>
+    /// <typeparam name="T">Type being validated.</typeparam>
+    public interface IValidator<T>
+    {
+        /// <summary>
+        /// Severity threshold at or above which the validator considers the validation to fail.
+        /// For example, when set to <see cref="AIRuntimeMessageSeverity.Error"/>, any Error message fails the validation.
+        /// </summary>
+        AIRuntimeMessageSeverity FailOn { get; }
+
+        /// <summary>
+        /// Validates the instance and returns a result with messages and IsValid computed per <see cref="FailOn"/>.
+        /// </summary>
+        /// <param name="instance">Instance to validate.</param>
+        /// <param name="context">Ambient validation context (request/response, provider, flags).</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Validation result.</returns>
+        Task<ValidationResult> ValidateAsync(T instance, ValidationContext context, CancellationToken cancellationToken);
+    }
+
     /// <summary>
     /// Result returned by validators, carrying success flag and structured diagnostics.
     /// </summary>
@@ -82,28 +105,5 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// Gets or sets the human-readable message describing the issue.
         /// </summary>
         public string Message { get; set; }
-    }
-
-    /// <summary>
-    /// Typed validator contract for validating specific models (e.g., tool calls) and returning diagnostics.
-    /// Implementations should be side-effect free and perform no network I/O.
-    /// </summary>
-    /// <typeparam name="T">Type being validated.</typeparam>
-    public interface IValidator<T>
-    {
-        /// <summary>
-        /// Severity threshold at or above which the validator considers the validation to fail.
-        /// For example, when set to <see cref="AIRuntimeMessageSeverity.Error"/>, any Error message fails the validation.
-        /// </summary>
-        AIRuntimeMessageSeverity FailOn { get; }
-
-        /// <summary>
-        /// Validates the instance and returns a result with messages and IsValid computed per <see cref="FailOn"/>.
-        /// </summary>
-        /// <param name="instance">Instance to validate.</param>
-        /// <param name="context">Ambient validation context (request/response, provider, flags).</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>Validation result.</returns>
-        Task<ValidationResult> ValidateAsync(T instance, ValidationContext context, CancellationToken cancellationToken);
     }
 }

@@ -43,6 +43,7 @@ namespace SmartHopper.Providers.DeepSeek
         private DeepSeekProvider()
         {
             this.Models = new DeepSeekProviderModels(this);
+
             // Register provider-specific JSON schema adapter
             JsonSchemaAdapterRegistry.Register(new DeepSeekJsonSchemaAdapter());
         }
@@ -55,7 +56,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.deepseek.com";
+        public override Uri DefaultServerUrl => new Uri("https://api.deepseek.com");
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
@@ -102,6 +103,7 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 return "GET and DELETE requests do not use a request body";
             }
+
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
@@ -160,6 +162,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Debug.WriteLine($"[DeepSeek] Failed to parse/handle JSON schema: {ex.Message}");
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+
                     // Fallback to text response
                     requestBody["response_format"] = new JObject { ["type"] = "text" };
                 }
@@ -262,6 +265,7 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 // Encode tool calls as assistant messages with tool_calls
                 roleName = "assistant";
+
                 // TODO: verify deepseek api accepts this
             }
             else
@@ -341,6 +345,7 @@ namespace SmartHopper.Providers.DeepSeek
                             texts.Add(text);
                         }
                     }
+
                     content = string.Join("\n", texts);
                 }
                 else if (contentToken is JObject contentObj)
@@ -526,4 +531,3 @@ namespace SmartHopper.Providers.DeepSeek
         }
     }
 }
-

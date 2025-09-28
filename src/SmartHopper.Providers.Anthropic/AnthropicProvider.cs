@@ -42,6 +42,7 @@ namespace SmartHopper.Providers.Anthropic
         private AnthropicProvider()
         {
             this.Models = new AnthropicProviderModels(this);
+
             // No provider-specific schema adapter required at the moment.
         }
 
@@ -53,7 +54,7 @@ namespace SmartHopper.Providers.Anthropic
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.anthropic.com/v1";
+        public override Uri DefaultServerUrl => new Uri("https://api.anthropic.com/v1");
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled.
@@ -96,6 +97,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Debug.WriteLine($"[Anthropic] Icon load error: {ex.Message}");
                 }
+
                 return new Bitmap(1, 1);
             }
         }
@@ -104,6 +106,7 @@ namespace SmartHopper.Providers.Anthropic
         /// Returns a streaming adapter for Anthropic that yields incremental AIReturn deltas.
         /// </summary>
         /// <returns>An IStreamingAdapter instance configured for Anthropic SSE streaming.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new AnthropicStreamingAdapter(this);
@@ -239,6 +242,7 @@ namespace SmartHopper.Providers.Anthropic
                         parts.Add(item?.ToString(Formatting.None) ?? string.Empty);
                     }
                 }
+
                 return string.Join(string.Empty, parts);
             }
 
@@ -264,6 +268,7 @@ namespace SmartHopper.Providers.Anthropic
             string? toolFilter = request.Body.ToolFilter;
 
             var messages = new JArray();
+
             // Anthropic requires system instructions at top-level "system", not as a message role.
             // We collect all system/context texts and combine them into a single string separated by "\n---\n".
             var systemTexts = new List<string>();
@@ -369,6 +374,7 @@ namespace SmartHopper.Providers.Anthropic
                             };
                             toolsAnthropic.Add(toolObj);
                         }
+
                         if (toolsAnthropic.Count > 0)
                         {
                             requestBody["tools"] = toolsAnthropic;
@@ -458,6 +464,7 @@ namespace SmartHopper.Providers.Anthropic
                             toolResults.Add(tr);
                         }
                     }
+
                     contentText = string.Join(string.Empty, textParts);
                 }
 
@@ -477,6 +484,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     interactions.AddRange(toolCalls.Cast<IAIInteraction>());
                 }
+
                 if (toolResults.Count > 0)
                 {
                     interactions.AddRange(toolResults.Cast<IAIInteraction>());
@@ -501,12 +509,14 @@ namespace SmartHopper.Providers.Anthropic
                     m.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? m.InputTokensPrompt;
                     m.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? m.OutputTokensGeneration;
                 }
+
                 m.FinishReason = response["stop_reason"]?.ToString() ?? m.FinishReason;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Anthropic] DecodeMetrics error: {ex.Message}");
             }
+
             return m;
         }
 
@@ -555,6 +565,7 @@ namespace SmartHopper.Providers.Anthropic
                     bodyError = new AIReturn();
                     bodyError.CreateProviderError($"Failed to prepare streaming body: {ex.Message}", request);
                 }
+
                 if (bodyError != null)
                 {
                     yield return bodyError;
@@ -576,6 +587,7 @@ namespace SmartHopper.Providers.Anthropic
                     authError = new AIReturn();
                     authError.CreateProviderError(ex.Message, request);
                 }
+
                 if (authError != null)
                 {
                     yield return authError;
@@ -595,6 +607,7 @@ namespace SmartHopper.Providers.Anthropic
                     sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
                     responseMsg = null!;
                 }
+
                 if (sendError != null)
                 {
                     yield return sendError;
@@ -664,6 +677,7 @@ namespace SmartHopper.Providers.Anthropic
                             streamMetrics.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
                             streamMetrics.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
                         }
+
                         lastFinishReason = parsed["stop_reason"]?.ToString() ?? lastFinishReason;
                     }
                     else if (string.Equals(type, "message_stop", StringComparison.OrdinalIgnoreCase))

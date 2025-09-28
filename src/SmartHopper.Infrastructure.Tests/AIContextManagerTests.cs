@@ -32,11 +32,13 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 throw new MissingFieldException("The field '_contextProviders' was not found in AIContextManager.");
             }
+
             var providersList = providersField.GetValue(null) as List<IAIContextProvider>;
             if (providersList == null)
             {
                 throw new InvalidCastException("The field '_contextProviders' is not of the expected type 'List<IAIContextProvider>'.");
             }
+
             providersList.Clear();
         }
 
@@ -57,7 +59,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public Dictionary<string, string> GetContext()
             {
-                return Context;
+                return this.Context;
             }
         }
 
@@ -69,7 +71,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void RegisterProvider_ShouldAddProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider = new MockContextProvider("test-provider");
 
             // Act
@@ -89,7 +91,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void RegisterProvider_ShouldReplaceExistingProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider1 = new MockContextProvider("test-provider", new Dictionary<string, string> { ["key1"] = "value1" });
             var provider2 = new MockContextProvider("test-provider", new Dictionary<string, string> { ["key2"] = "value2" });
 
@@ -113,7 +115,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void RegisterProvider_ShouldIgnoreNullProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
 
             // Act
             AIContextManager.RegisterProvider(null);
@@ -131,7 +133,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void UnregisterProvider_ById_ShouldRemoveProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider1 = new MockContextProvider("provider1");
             var provider2 = new MockContextProvider("provider2");
             AIContextManager.RegisterProvider(provider1);
@@ -154,7 +156,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void UnregisterProvider_ById_ShouldIgnoreInvalidId()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider = new MockContextProvider("test-provider");
             AIContextManager.RegisterProvider(provider);
 
@@ -177,7 +179,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void UnregisterProvider_ByInstance_ShouldRemoveProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider1 = new MockContextProvider("provider1");
             var provider2 = new MockContextProvider("provider2");
             AIContextManager.RegisterProvider(provider1);
@@ -200,7 +202,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void UnregisterProvider_ByInstance_ShouldIgnoreNullProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider = new MockContextProvider("test-provider");
             AIContextManager.RegisterProvider(provider);
 
@@ -221,7 +223,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void GetProvider_ShouldReturnCorrectProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider1 = new MockContextProvider("provider1");
             var provider2 = new MockContextProvider("provider2");
             AIContextManager.RegisterProvider(provider1);
@@ -246,7 +248,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void GetCurrentContext_ShouldCombineAllProviders()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider1 = new MockContextProvider("time", new Dictionary<string, string>
             {
                 ["current-datetime"] = "2025-01-01",
@@ -279,7 +281,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void GetCurrentContext_ShouldFilterByProvider()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var timeProvider = new MockContextProvider("time", new Dictionary<string, string>
             {
                 ["current-datetime"] = "2025-01-01",
@@ -293,7 +295,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Act - Include only time provider
             var timeContext = AIContextManager.GetCurrentContext("time");
-            
+
             // Act - Exclude time provider
             var nonTimeContext = AIContextManager.GetCurrentContext("-time");
 
@@ -315,7 +317,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void GetCurrentContext_ShouldHandleComplexFiltering()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var timeProvider = new MockContextProvider("time", new Dictionary<string, string>
             {
                 ["current-datetime"] = "2025-01-01",
@@ -356,7 +358,7 @@ namespace SmartHopper.Infrastructure.Tests
         public void GetCurrentContext_ShouldHandleKeyWithoutUnderscorePrefix()
         {
             // Arrange
-            ResetManager();
+            this.ResetManager();
             var provider = new MockContextProvider("test", new Dictionary<string, string>
             {
                 ["simple-key"] = "value1",

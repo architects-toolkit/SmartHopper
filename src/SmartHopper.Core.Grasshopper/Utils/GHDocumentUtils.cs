@@ -57,10 +57,10 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
             // Record undo event before adding the group
             group.RecordUndoEvent("[SH] Group");
-            
+
             // Add the group to the document with undo support enabled
             doc.AddObject(group, true);
-            
+
             return group;
         }
 

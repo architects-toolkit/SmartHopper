@@ -1,22 +1,18 @@
-# Fix-SA1513.ps1
-# Inserts a blank line after a closing brace '}' when required by StyleCop SA1513.
-
 <#
 .SYNOPSIS
-Fixes StyleCop SA1513 by inserting a blank line after a closing brace '}' when appropriate.
+Fixes StyleCop SA1028 by removing trailing whitespace at the end of lines.
 
 .DESCRIPTION
-Traverses the target path (file or directory) and inserts a blank line after lines that contain only
-'}' when the next line is neither blank, another '}', an else/catch/finally, nor a single-line comment.
-This aligns with SA1513 while keeping brace blocks and control clauses attached when required.
-
-Additional behaviors:
-- Preserves the original EOL style (CRLF/LF) and final-EOL presence.
-- Preserves UTF-8 BOM if the original file had it.
-- Honors -WhatIf / -Confirm via SupportsShouldProcess.
+Traverses the target path (file or directory) and removes any trailing spaces or tabs
+from the end of each line in matching files. The script:
+- Removes only trailing whitespace (spaces/tabs) at end of each line
+- Preserves original EOL style (CRLF/LF) and final-EOL presence
+- Preserves UTF-8 BOM if present
+- Honors -WhatIf / -Confirm via SupportsShouldProcess
+- Touches files only when a change is necessary
 
 .PARAMETER Path
-File or directory to process. Defaults to the repository root (parent of this script's folder).
+A file or directory to process. Defaults to the repository root (parent of this script's folder).
 
 .PARAMETER Include
 Glob patterns of file names to include. Defaults to *.cs.
@@ -28,12 +24,12 @@ Directory names to exclude anywhere in the path. Defaults: .git, bin, obj, .vs
 Process directories recursively (default: $true). Set to $false to process only the top directory.
 
 .EXAMPLE
-# Run from repo root or tools/ to fix all C# files
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Fix-SA1513.ps1
+# Fix all C# files in the repository
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Fix-SA1028.ps1
 
 .EXAMPLE
-# Fix a single file
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Fix-SA1513.ps1 -Path .\src\SmartHopper.Core\UI\Chat\ChatResourceManager.cs
+# Fix a specific file called out by the analyzer
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Fix-SA1028.ps1 -Path .\src\SmartHopper.Infrastructure\AIProviders\ProviderManager.cs
 #>
 
 #Requires -Version 5.1
@@ -122,41 +118,10 @@ function Write-ContentPreserveBom {
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
-function ShouldInsertBlankLine {
+function Invoke-SA1028Fix {
     <#
     .SYNOPSIS
-    Determines whether a blank line should be inserted after a closing brace at index $i.
-    #>
-    param(
-        [AllowEmptyCollection()] [string[]]$Lines,
-        [int]$Index
-    )
-    if ($Index -lt 0) { return $false }
-    $nextIndex = $Index + 1
-    if ($nextIndex -ge $Lines.Count) { return $false } # EOF: nothing to insert after
-
-    $next = $Lines[$nextIndex]
-
-    # Already blank next line
-    if ($next -match '^\s*$') { return $false }
-
-    # Next line begins with another closing brace → keep braces together
-    if ($next -match '^\s*\}') { return $false }
-
-    # Next line begins with else/catch/finally → must stay attached to brace
-    if ($next -match '^\s*(else|catch|finally)\b') { return $false }
-
-    # Next line is a single-line comment directly after the brace: keep attached
-    if ($next -match '^\s*//') { return $false }
-
-    # XML doc comments and other code constructs should be separated by a blank line after a closing brace per SA1513
-    return $true
-}
-
-function Repair-SA1513File {
-    <#
-    .SYNOPSIS
-    Processes a single file and applies SA1513 fixes where needed.
+    Processes a single file and removes trailing whitespace at end-of-line.
     #>
     [CmdletBinding(SupportsShouldProcess = $true)]
     param([Parameter(Mandatory)] [string]$FilePath)
@@ -169,32 +134,23 @@ function Repair-SA1513File {
     }
 
     $eol = Get-EolStyle -Content $original
-    $hadFinalEol = $original -match "(\r?\n)$"
-    $lines = $original -split '\r?\n', 0
+    $lines = $original -split "\r?\n", 0
 
     $changed = $false
-    $output = New-Object System.Collections.Generic.List[string]
-    $count = $lines.Count
-
-    for ($i = 0; $i -lt $count; $i++) {
+    for ($i = 0; $i -lt $lines.Count; $i++) {
         $line = $lines[$i]
-        $output.Add($line)
-
-        # Match a line with only a closing brace (allow leading/trailing whitespace)
-        if ($line -match '^\s*\}\s*$') {
-            if (ShouldInsertBlankLine -Lines $lines -Index $i) {
-                $output.Add("") # insert a blank line
-                $changed = $true
-            }
+        if ($line -match '[ \t]+$') {
+            $lines[$i] = [Regex]::Replace($line, '[ \t]+$', '')
+            $changed = $true
         }
     }
 
     if (-not $changed) { return $false }
 
-    $newText = [string]::Join($eol, $output)
-    if ($hadFinalEol) { $newText += $eol }
+    # Do not append a trailing EOL here. SA1518 fixer will enforce final newline policy.
+    $newText = [string]::Join($eol, $lines)
 
-    if ($PSCmdlet.ShouldProcess($FilePath, "Insert blank line(s) after closing brace(s) per SA1513")) {
+    if ($PSCmdlet.ShouldProcess($FilePath, "Remove trailing whitespace per SA1028")) {
         try {
             Write-ContentPreserveBom -Path $FilePath -Content $newText
             Write-Host "Modified: $FilePath"
@@ -215,7 +171,7 @@ $fixed = 0
 
 foreach ($f in $files) {
     $processed++
-    if (Repair-SA1513File -FilePath $f.FullName) { $fixed++ }
+    if (Invoke-SA1028Fix -FilePath $f.FullName) { $fixed++ }
 }
 
 Write-Host "Processed: $processed, Fixed: $fixed" -ForegroundColor Cyan

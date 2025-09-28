@@ -134,7 +134,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Unified turn loop that powers both non-streaming and streaming APIs.
         /// It emits a sequence of AIReturns according to the chosen mode:
         /// - yieldDeltas=false: emits only stable results at key points (typically one item)
-        /// - yieldDeltas=true: emits streaming deltas, tool results, and final snapshots
+        /// - yieldDeltas=true: emits streaming deltas, tool results, and final snapshots.
         /// </summary>
         private async IAsyncEnumerable<AIReturn> TurnLoopAsync(
             SessionOptions options,
@@ -148,12 +148,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 this.NotifyStart(this.Request);
 
                 // Generate greeting if requested before starting conversation
-                await this.GenerateGreetingAsync(linkedCts.Token, streamChunks: yieldDeltas).ConfigureAwait(false);
+                await this.GenerateGreetingAsync(streamChunks: yieldDeltas, cancellationToken: linkedCts.Token).ConfigureAwait(false);
 
                 // If greeting was emitted, provide a single yield and finalize the sequence
                 if (this._greetingEmitted)
                 {
                     var snapshot = this.GetHistoryReturn();
+
                     // Reset flag so subsequent calls (after user messages) will proceed
                     this._greetingEmitted = false;
                     yield return snapshot;
@@ -192,7 +193,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         try
                         {
                             // Non-streaming composite turn
-                            nsPrepared = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, turnId).ConfigureAwait(false);
+                            nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
                             lastReturn = nsPrepared;
 
                             if (!options.ProcessTools)
@@ -269,7 +270,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         if (adapter == null)
                         {
                             // Provider doesn't support streaming: reuse the non-stream composite path
-                            var composite = await this.ExecuteProviderTurnAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
+                            var composite = await this.ExecuteProviderTurnAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                             lastReturn = composite;
                             this.NotifyFinal(composite);
                             state.FinalProviderYield = composite;
@@ -339,7 +340,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 else
                                 {
                                     // Process tools after streaming completes
-                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, linkedCts.Token, state.TurnId).ConfigureAwait(false);
+                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                                     if (state.PendingToolYields.Count > 0)
                                     {
                                         lastReturn = state.PendingToolYields.Last();
@@ -482,13 +483,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Gets the last return from the conversation.
+        /// Gets the last <see cref="AIReturn"/> produced by the conversation.
         /// </summary>
-        /// <returns>The most recent AIReturn.</returns>
-        public AIReturn GetReturn()
-        {
-            return this._lastReturn;
-        }
+        public AIReturn LastReturn => this._lastReturn;
 
         /// <summary>
         /// Gets only the new interactions from the last conversation turn.
@@ -526,9 +523,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Generates an AI greeting if enabled in settings and greeting generation was requested.
         /// Uses the provider's default Text2Text model, overriding the initial request model.
         /// </summary>
+        /// <param name="streamChunks">When true, emits streaming chunks for the greeting before persisting the final message.</param>
         /// <param name="cancellationToken">Cancellation token for the greeting generation.</param>
         /// <returns>Task representing the greeting generation operation.</returns>
-        private async Task GenerateGreetingAsync(CancellationToken cancellationToken = default, bool streamChunks = false)
+        private async Task GenerateGreetingAsync(bool streamChunks = false, CancellationToken cancellationToken = default)
         {
             if (!this._generateGreeting)
             {
@@ -608,7 +606,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var greetingTask = greetingRequest.Exec();
                 var timeoutTask = Task.Delay(30000, cancellationToken);
                 var completed = await Task.WhenAny(greetingTask, timeoutTask).ConfigureAwait(false);
-                
+
                 if (completed == greetingTask && !greetingTask.IsFaulted)
                 {
                     this._greetingReturn = greetingTask.Result;
@@ -726,7 +724,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Content = greetingText,
                 Metrics = new AIMetrics(),
             };
-            
+
             var body = AIBodyBuilder.Create().Add(greetingInteraction).Build();
             fallbackReturn.SetBody(body);
             return fallbackReturn;
@@ -749,9 +747,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Returns the AIReturn (or error if provider returned null).
         /// </summary>
         /// <param name="options">Session execution options.</param>
-        /// <param name="ct">Cancellation token.</param>
         /// <param name="turnId">Unified TurnId applied to all new interactions for this provider turn.</param>
-        private async Task<AIReturn> HandleProviderTurnAsync(SessionOptions options, CancellationToken ct, string turnId)
+        /// <param name="ct">Cancellation token.</param>
+        private async Task<AIReturn> HandleProviderTurnAsync(SessionOptions options, string turnId, CancellationToken ct)
         {
             var callResult = await this.ExecProviderAsync(ct).ConfigureAwait(false);
             if (callResult == null)
@@ -784,9 +782,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Returns a list of prepared returns in the order they were produced (for streaming fallback).
         /// </summary>
         /// <param name="options">Session execution options.</param>
-        /// <param name="ct">Cancellation token.</param>
         /// <param name="turnId">Unified TurnId applied to interactions produced within these tool passes.</param>
-        private async Task<List<AIReturn>> ProcessPendingToolsAsync(SessionOptions options, CancellationToken ct, string turnId)
+        /// <param name="ct">Cancellation token.</param>
+        private async Task<List<AIReturn>> ProcessPendingToolsAsync(SessionOptions options, string turnId, CancellationToken ct)
         {
             var preparedYields = new List<AIReturn>();
             int toolPass = 0;
@@ -860,6 +858,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 this.cts.Cancel();
             }
+
 #if DEBUG
             try { this.DebugAppendEvent("Cancel requested"); } catch { }
 #endif

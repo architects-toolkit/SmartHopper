@@ -130,6 +130,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                         _resultTree = new GH_Structure<GH_Integer>();
 
                     int expected = 2 + 5; // 7
+
                     // Expect the result to be present only at the path of input A
                     bool ok =
                         _resultTree != null &&

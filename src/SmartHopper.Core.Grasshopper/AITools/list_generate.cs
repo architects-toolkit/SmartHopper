@@ -229,7 +229,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            
+
                             var partialResult = new JObject();
                             partialResult.Add("list", new JArray(allItems));
 
@@ -335,4 +335,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-
