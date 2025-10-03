@@ -105,12 +105,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     if (string.IsNullOrWhiteSpace(tc.TurnId)) tc.TurnId = turnId;
                     if (tc.Agent != AIAgent.ToolCall) tc.Agent = AIAgent.ToolCall;
 
-                    // Upsert the tool_call snapshot (dedupes by Id, keeps latest)
-                    this.ReplaceToolCallInSessionHistory(tc);
+                    // Append only if this tool_call was not already persisted (avoid introducing duplicates ourselves).
+                    var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
+                        .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
-                    // Emit a partial delta so observers can render the tool call immediately
-                    var tcDelta = this.BuildDeltaReturn(turnId, new[] { tc });
-                    this.NotifyPartial(tcDelta);
+                    if (!exists)
+                    {
+                        this.AppendToSessionHistory(tc);
+
+                        // Emit a partial delta so observers can render the tool call immediately
+                        var tcDelta = this.BuildDeltaReturn(turnId, new[] { tc });
+                        this.NotifyPartial(tcDelta);
+                    }
                 }
             }
             catch (Exception ex)
@@ -177,86 +183,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId)
         {
-            // Collect interactions to persist in order
-            var persistedList = new List<IAIInteraction>();
-
-            // 1) Persist tool calls from the last tool-calls delta (dedupe by id, keep latest snapshot)
-            var toolCallsToPersist = lastToolCallsDelta?.Body?.GetNewInteractions()?.OfType<AIInteractionToolCall>()?.ToList();
-            if (toolCallsToPersist != null && toolCallsToPersist.Count > 0)
-            {
-                Debug.WriteLine($"[ConversationSession.Stream] Persisting tool calls once after stream: count={toolCallsToPersist.Count}");
-                EnsureTurnIdFor(toolCallsToPersist, turnId);
-                foreach (var tc in toolCallsToPersist)
-                {
-                    this.ReplaceToolCallInSessionHistory(tc);
-                    persistedList.Add(tc);
-                }
-            }
-
-            // 2) Persist all new interactions from the last delta (not only text)
-            var newFromLastDelta = lastDelta?.Body?.GetNewInteractions()?.ToList();
-            if (newFromLastDelta != null && newFromLastDelta.Count > 0)
-            {
-                EnsureTurnIdFor(newFromLastDelta, turnId);
-
-                // Track tool_call ids we already persisted from step 1 to avoid emitting duplicates in the partial list
-                var toolIds = new HashSet<string>(StringComparer.Ordinal);
-                if (toolCallsToPersist != null)
-                {
-                    foreach (var tc in toolCallsToPersist)
-                    {
-                        if (!string.IsNullOrWhiteSpace(tc?.Id)) toolIds.Add(tc.Id);
-                    }
-                }
-
-                foreach (var interaction in newFromLastDelta)
-                {
-                    if (interaction == null)
-                    {
-                        continue;
-                    }
-
-                    if (interaction is AIInteractionToolCall tcall)
-                    {
-                        // Upsert latest tool_call metadata, avoid duplicate emit if already added above
-                        this.ReplaceToolCallInSessionHistory(tcall);
-                        if (!string.IsNullOrWhiteSpace(tcall.Id) && toolIds.Contains(tcall.Id))
-                        {
-                            continue; // already added from step 1
-                        }
-                        persistedList.Add(tcall);
-                        continue;
-                    }
-
-                    // Append any other interaction type in order
-                    this.AppendToSessionHistory(interaction);
-                    persistedList.Add(interaction);
-                }
-            }
+            // Streaming deltas are now persisted as they arrive to preserve exact order.
+            // This method only updates the last-return snapshot and logs pending status.
 
             // Update last return snapshot to the provider's last delta snapshot
             this._lastReturn = lastDelta;
             this.UpdateLastReturn();
 
-            // Emit a partial delta with the persisted interactions in order
-            if (persistedList.Count > 0)
-            {
-                try
-                {
-                    var deltaReturn = this.BuildDeltaReturn(turnId, persistedList);
-                    this.NotifyPartial(deltaReturn);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[ConversationSession.Stream] Error emitting persisted delta: {ex.Message}");
-                }
-            }
-
             // Guard against unresolved tool calls before next provider turn
             var pendingAfterStream = this.Request.Body.PendingToolCallsCount();
             if (pendingAfterStream > 0)
             {
-                Debug.WriteLine($"[ConversationSession.Stream] WARNING: {pendingAfterStream} tool call(s) remain unresolved after streaming persistence.");
+                Debug.WriteLine($"[ConversationSession.Stream] INFO: {pendingAfterStream} tool call(s) remain unresolved after streaming. They will be processed in subsequent passes.");
             }
         }
 
@@ -375,9 +313,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Debug.WriteLine($"[ConversationSession] NotifyDelta: new={(newInteractions?.Count ?? 0)}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
-                try { this.DebugAppendEvent($"Delta: new={(newInteractions?.Count ?? 0)}"); } catch { }
+                try
+                {
+                    var summary = BuildInteractionSummaryForLog(newInteractions, maxItems: 5, textPreview: 50);
+                    this.DebugAppendEvent($"Delta: new={(newInteractions?.Count ?? 0)} | {summary}");
+                }
+                catch { }
 #endif
             }
             catch
@@ -404,9 +347,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyPartial: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Debug.WriteLine($"[ConversationSession] NotifyPartial: new={(newInteractions?.Count ?? 0)}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
-                try { this.DebugAppendEvent($"Partial: new={(newInteractions?.Count ?? 0)}"); } catch { }
+                try
+                {
+                    var summary = BuildInteractionSummaryForLog(newInteractions, maxItems: 5, textPreview: 50);
+                    this.DebugAppendEvent($"Partial: new={(newInteractions?.Count ?? 0)} | {summary}");
+                }
+                catch { }
 #endif
             }
             catch
@@ -429,7 +377,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
-                try { this.DebugAppendEvent($"Final: total={(ret?.Body?.Interactions?.Count ?? 0)}"); } catch { }
+                try
+                {
+                    var interactions = ret?.Body?.GetNewInteractions();
+                    if (interactions == null || interactions.Count == 0)
+                    {
+                        var last = ret?.Body?.GetLastInteraction();
+                        interactions = last != null ? new List<IAIInteraction> { last } : new List<IAIInteraction>();
+                    }
+
+                    var summary = BuildInteractionSummaryForLog(interactions, maxItems: 5, textPreview: 50);
+                    this.DebugAppendEvent($"Final: total={(ret?.Body?.Interactions?.Count ?? 0)} | {summary}");
+                }
+                catch { }
 #endif
             }
             catch
@@ -509,10 +469,73 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 // debug-only logging, ignore failures
             }
-#endif
         }
+#endif
 
 #if DEBUG
+        /// <summary>
+        /// Builds a compact summary string for interactions, including type and a 50-char preview for text.
+        /// </summary>
+        private static string BuildInteractionSummaryForLog(IEnumerable<IAIInteraction> interactions, int maxItems = 5, int textPreview = 50)
+        {
+            try
+            {
+                if (interactions == null)
+                {
+                    return string.Empty;
+                }
+
+                var items = new List<string>();
+                int count = 0;
+                foreach (var it in interactions)
+                {
+                    if (it == null)
+                    {
+                        continue;
+                    }
+
+                    if (count++ >= maxItems)
+                    {
+                        break;
+                    }
+
+                    string token;
+                    switch (it)
+                    {
+                        case AIInteractionText txt:
+                            var content = txt.Content ?? string.Empty;
+                            content = content.Replace("\r", " ").Replace("\n", " ");
+                            if (content.Length > textPreview)
+                            {
+                                content = content.Substring(0, textPreview) + "...";
+                            }
+                            token = $"Text:\"{content}\"";
+                            break;
+
+                        case AIInteractionToolResult res:
+                            token = $"ToolResult:{res?.Name ?? ""}#{res?.Id ?? ""}";
+                            break;
+
+                        case AIInteractionToolCall call:
+                            token = $"ToolCall:{call?.Name ?? ""}#{call?.Id ?? ""}";
+                            break;
+
+                        default:
+                            token = it.GetType().Name;
+                            break;
+                    }
+
+                    items.Add(token);
+                }
+
+                return string.Join(" | ", items);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
         /// <summary>
         /// Debug helper: logs current tool_call Ids in history and highlights duplicates.
         /// </summary>
@@ -536,79 +559,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
         }
 #endif
-
-        /// <summary>
-        /// Replaces an existing tool call snapshot with the latest metadata.
-        /// </summary>
-        private void ReplaceToolCallInSessionHistory(AIInteractionToolCall toolCall)
-        {
-            if (toolCall == null)
-            {
-                return;
-            }
-
-            var interactions = this.Request.Body?.Interactions?.ToList();
-            bool replacedAny = false;
-            if (interactions != null && interactions.Count > 0)
-            {
-                for (int index = 0; index < interactions.Count; index++)
-                {
-                    if (interactions[index] is AIInteractionToolCall existing && string.Equals(existing.Id, toolCall.Id, StringComparison.Ordinal))
-                    {
-                        interactions[index] = toolCall;
-                        replacedAny = true;
-                        // do not break; replace all duplicates with latest snapshot
-                    }
-                }
-            }
-
-            if (!replacedAny)
-            {
-                this.AppendToSessionHistory(toolCall);
-                return;
-            }
-
-            // Deduplicate tool_call interactions by Id, keeping the last occurrence only
-            if (interactions != null && interactions.Count > 0)
-            {
-                var seen = new HashSet<string>(StringComparer.Ordinal);
-                var deduped = new List<IAIInteraction>(interactions.Count);
-
-                // Iterate from tail to head to keep the last occurrence
-                for (int i = interactions.Count - 1; i >= 0; i--)
-                {
-                    var current = interactions[i];
-                    if (current is AIInteractionToolCall tc && !string.IsNullOrWhiteSpace(tc.Id))
-                    {
-                        if (seen.Contains(tc.Id))
-                        {
-                            continue; // skip duplicates
-                        }
-                        seen.Add(tc.Id);
-                    }
-                    deduped.Insert(0, current);
-                }
-
-                interactions = deduped;
-            }
-
-            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                .ClearNewMarkers()
-                .AsHistory();
-            builder.ReplaceLastRange(interactions, markAsNew: false);
-            this.Request.Body = builder.Build();
-
-#if DEBUG
-            try
-            {
-                this.DebugWriteConversationHistory();
-            }
-            catch
-            {
-                // debug-only logging, ignore failures
-            }
-#endif
-        }
 
         /// <summary>
         /// Ensures all interactions in a collection share the same turn identifier.

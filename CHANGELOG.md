@@ -158,6 +158,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dedicated error messages for validation errors in UI not being passed to APIs
   - Ensured fidelity between UI and conversation history
 
+- Conversation orchestration:
+  - `ConversationSession` now uses a unified internal loop (`TurnLoopAsync`) for both streaming and non‑streaming APIs to prevent logic drift.
+  - Streaming persistence semantics updated: deltas are persisted into history per chunk in arrival order (no grouping or reordering at the end of the stream). Finalization only updates the "last return" snapshot.
+  - Tool-call handling: removed internal deduplication-by-Id for `tool_call` interactions. Multiple tool calls with the same Id emitted by providers are now preserved in history. Session avoids introducing duplicates on its own when force-appending missing tool_calls prior to execution.
+
 - Streaming adapters internals:
   - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).
   - Providers updated to use enhanced SSE reader with a conservative 60s idle timeout:

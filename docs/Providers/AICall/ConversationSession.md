@@ -87,11 +87,11 @@ T --> PEND{"ProcessTools && PendingToolCalls > 0"}
 PEND -->|yes| DRAIN["ProcessPendingToolsAsync (drain per limits)"] --> T
 PEND -->|no| EXEC["Execute provider turn (streaming adapter if available)"]
 
-EXEC -->|"deltas (stream)"| YIELD["Yield deltas; remember last delta; upsert tool_calls"]
+EXEC -->|"deltas (stream)"| YIELD["Yield deltas; remember last delta"]
 EXEC -->|"single (non-stream)"| SINGLE["Got single result"]
 
-YIELD --> PERSIST["PersistStreamingSnapshot(last tool_calls, last delta)"]
-SINGLE --> PERSIST
+YIELD --> PERSIST["Persist per chunk in arrival order (no reordering)"]
+SINGLE --> PERSIST["Persist provider result"]
 
 PERSIST --> STABLE{"Stable (no pending tool calls)?"}
 STABLE -->|yes| FINAL["NotifyFinal; yield/return final"]
@@ -104,4 +104,4 @@ Notes:
 
 - Both public APIs now delegate to the same internal loop `TurnLoopAsync(...)` for consistent behavior.
 - Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
-- Persistence semantics: streaming deltas are not persisted until the stream ends; then a single stable snapshot is appended before tool passes.
+- Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).

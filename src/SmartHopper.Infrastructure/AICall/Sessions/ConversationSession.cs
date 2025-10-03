@@ -35,7 +35,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     /// Invariants:
     /// - Providers are invoked only if there are no pending tool calls (PendingToolCallsCount() == 0).
     /// - Only provider turns increment the MaxTurns counter (tool passes do not consume turns).
-    /// - Streaming deltas are not persisted into history until the end of the stream; then a single, stable snapshot is persisted.
+    /// - Streaming deltas are persisted into history as they arrive to preserve exact order (no grouping/reordering).
     /// </remarks>
     public sealed partial class ConversationSession : IConversationSession
     {
@@ -277,7 +277,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                         else
                         {
-                            // Streaming path: forward each chunk to observer and caller
+                            // Streaming path: forward each chunk to observer and caller, and persist in arrival order
                             await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions!, linkedCts.Token))
                             {
                                 if (delta == null)
@@ -285,36 +285,40 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     continue;
                                 }
 
-                                // Notify UI with streaming deltas (do not persist deltas into session yet)
+                                // Notify UI with streaming deltas, then persist this chunk into session history
                                 var newInteractions = delta.Body?.GetNewInteractions();
                                 ConversationSession.EnsureTurnIdFor(newInteractions, state.TurnId);
                                 this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
 
-                                // Surface tool call snapshots immediately and upsert into session history to keep latest metadata
-                                if (newInteractions != null)
+                                // Persist interactions exactly in arrival order (no grouping/reordering)
+                                if (newInteractions != null && newInteractions.Count > 0)
                                 {
-                                    bool sawToolCall = false;
                                     foreach (var interaction in newInteractions)
                                     {
-                                        if (interaction is AIInteractionToolCall toolCall)
-                                        {
-                                            sawToolCall = true;
-                                        }
+                                        this.AppendToSessionHistory(interaction);
                                     }
 
-                                    if (sawToolCall)
+                                    // Emit partial to signal persistence of this chunk
+                                    try
                                     {
-                                        state.LastToolCallsDelta = delta;
-                                        foreach (var streamedToolCall in newInteractions.OfType<AIInteractionToolCall>())
-                                        {
-                                            this.ReplaceToolCallInSessionHistory(streamedToolCall);
-                                        }
+                                        var persistedDelta = this.BuildDeltaReturn(state.TurnId, newInteractions);
+                                        this.NotifyPartial(persistedDelta);
                                     }
+                                    catch (Exception ex)
+                                    {
+                                        Debug.WriteLine($"[ConversationSession.Stream] Error emitting per-chunk persisted delta: {ex.Message}");
+                                    }
+
+                                    // Keep a reference to last tool_calls delta if needed by diagnostics
+                                    state.LastToolCallsDelta = delta;
                                 }
 
                                 state.DeltaYields.Add(delta);
                                 state.LastDelta = delta;
                                 lastReturn = delta;
+
+                                // Snapshot last return to current history body for consumers that poll it
+                                this.UpdateLastReturn();
                             }
 
                             // After streaming ends, either error (no deltas) or persist final snapshot then continue
@@ -327,7 +331,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
                             else
                             {
-                                // Persist a single, stable snapshot into the session after streaming ends
+                                // Update last-return snapshot only (persistence was done per-chunk)
                                 this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId);
 
                                 if (!options.ProcessTools)
