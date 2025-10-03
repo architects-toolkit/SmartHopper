@@ -131,9 +131,11 @@ namespace SmartHopper.Components.Grasshopper
                 DA.SetDataList(0, this.LastErrors);
                 return;
             }
+
             try
             {
                 var parameters = new JObject { ["guids"] = JArray.FromObject(guids) };
+
                 // Create AIToolCall and execute
                 var toolCallInteraction = new AIInteractionToolCall
                 {
@@ -171,8 +173,8 @@ namespace SmartHopper.Components.Grasshopper
             {
                 this.LastErrors.Add(ex.Message);
             }
+
             DA.SetDataList(0, this.LastErrors);
         }
     }
 }
-

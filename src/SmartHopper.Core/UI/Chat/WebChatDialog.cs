@@ -58,7 +58,7 @@ namespace SmartHopper.Core.UI.Chat
         // WebChatDialog is now a pure UI consumer
 
         // DOM update reentrancy guard/queue to avoid nested ExecuteScript calls causing recursion
-        private bool _isDomUpdating = false;
+        private bool _isDomUpdating;
         private readonly Queue<Action> _domUpdateQueue = new Queue<Action>();
 
         // Status text to apply after the document is fully loaded
@@ -78,6 +78,7 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 this._generateGreeting = generateGreeting;
+
                 // Create session with attached observer from the start
                 this._currentSession = new ConversationSession(request, new WebChatObserver(this), generateGreeting: this._generateGreeting);
 
@@ -503,7 +504,7 @@ namespace SmartHopper.Core.UI.Chat
         /// Gets the last AI return received from the chat dialog.
         /// </summary>
         /// <returns>The most recent AIReturn produced by the current conversation session; a new empty AIReturn if none.</returns>
-        public AIReturn GetLastReturn() => this._currentSession?.GetReturn() ?? new AIReturn();
+        public AIReturn GetLastReturn() => this._currentSession?.LastReturn ?? new AIReturn();
 
         /// <summary>
         /// Gets the combined metrics from interactions in the conversation.
@@ -525,6 +526,7 @@ namespace SmartHopper.Core.UI.Chat
         private void LoadInitialHtmlIntoWebView(bool showProgress, bool setWebViewInitialized, string statusBefore = "Loading chat UI...", string statusAfter = "Ready")
         {
             var html = this._htmlRenderer.GetInitialHtml();
+
             // Each time we (re)load HTML, reset readiness and TCS; readiness will be set on DocumentLoaded
             this._webViewInitialized = false;
             this._webViewInitializedTcs = new TaskCompletionSource<bool>();
@@ -855,6 +857,7 @@ namespace SmartHopper.Core.UI.Chat
 
                         case "clear":
                             Debug.WriteLine($"[WebChatDialog] Handling clear event");
+
                             // Defer to next UI tick to avoid executing scripts during navigation event
                             Application.Instance?.AsyncInvoke(() =>
                             {

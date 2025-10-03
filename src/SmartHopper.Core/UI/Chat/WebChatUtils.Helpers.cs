@@ -191,7 +191,7 @@ namespace SmartHopper.Core.UI.Chat
             };
         }
 
-        private static AIRequestCall CreateWebChatRequest(
+        internal static AIRequestCall CreateWebChatRequest(
             string providerName,
             string modelName,
             string endpoint,

@@ -100,6 +100,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 // Try parse enum by name
                 if (Enum.TryParse<GH_DataMapping>(s, true, out var namedMapping))
                     return namedMapping;
+
                 // Fallback to numeric string
                 if (int.TryParse(s, out var intVal))
                     value = intVal;

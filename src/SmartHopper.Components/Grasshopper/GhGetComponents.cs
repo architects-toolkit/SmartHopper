@@ -131,6 +131,7 @@ namespace SmartHopper.Components.Grasshopper
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
                     return;
                 }
+
                 var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
                 var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var json = toolResult["json"]?.ToString() ?? string.Empty;
@@ -149,4 +150,3 @@ namespace SmartHopper.Components.Grasshopper
         }
     }
 }
-

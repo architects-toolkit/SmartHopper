@@ -81,7 +81,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         public void RefreshProviders()
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
-            
+
             // Discover new providers
             this.DiscoverProviders();
 
@@ -138,6 +138,7 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 // Load the assembly
                 var assembly = Assembly.LoadFrom(assemblyPath);
+
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
                     .Where(t => typeof(IAIProviderFactory).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
@@ -228,6 +229,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 if (this._providerAssemblies.TryGetValue(provider.Name, out var assembly))
                 {
                     var asmName = assembly.GetName().Name;
+
                     // If provider is explicitly untrusted, exclude it
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
@@ -284,6 +286,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     var asmName = assembly.GetName().Name;
                     var settings = SmartHopperSettings.Instance;
+
                     // If provider is explicitly untrusted, don't return it
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
@@ -291,7 +294,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                         return null;
                     }
                 }
-                
+
                 // NOTE: Don't refresh settings here to avoid circular dependencies
                 // The provider's settings will be refreshed when needed by specific operations
                 return provider;
@@ -387,9 +390,9 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                     SmartHopperSettings.Instance.RemoveSetting(providerName, setting.Key);
                 }
-                // Else, set it
                 else
                 {
+                    // Else, set it
                     Debug.WriteLine($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
 
                     SmartHopperSettings.Instance.SetSetting(providerName, setting.Key, setting.Value);

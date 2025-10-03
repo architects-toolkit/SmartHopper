@@ -31,8 +31,11 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class SelectingComponentBase : GH_Component
     {
-        /// <summary>Currently selected GH objects.</summary>
-        public List<IGH_ActiveObject> SelectedObjects = new();
+        /// <summary>
+        /// Gets the currently selected Grasshopper objects for this component's selection mode.
+        /// Exposed as a property to encapsulate internal state while allowing read access.
+        /// </summary>
+        public List<IGH_ActiveObject> SelectedObjects { get; private set; } = new();
 
         private bool inSelectionMode;
 
@@ -113,7 +116,7 @@ namespace SmartHopper.Core.ComponentBase
         // Timer-based auto-hide of the visual highlight for selected objects.
         // Purpose: ensure the dashed highlight disappears after 5s even if the cursor stays hovered.
         private Timer? selectDisplayTimer;
-        private bool selectAutoHidden = false;
+        private bool selectAutoHidden;
 
         public SelectingComponentAttributes(SelectingComponentBase owner)
             : base(owner)

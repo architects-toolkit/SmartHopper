@@ -178,4 +178,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

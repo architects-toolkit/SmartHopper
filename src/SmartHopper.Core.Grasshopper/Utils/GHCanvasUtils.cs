@@ -26,6 +26,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// <summary>
         /// Gets the current active Grasshopper document from the canvas.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Ambient UI state access; method communicates non-field-like behavior")]
         public static GH_Document GetCurrentCanvas()
         {
             GH_Document doc = Instances.ActiveCanvas.Document;
@@ -105,6 +106,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             var obj = FindInstance(guid);
             if (obj == null) return false;
+
             // Record undo event before moving the instance
             obj.RecordUndoEvent("[SH] Move Instance");
             var current = obj.Attributes.Pivot;
@@ -130,10 +132,12 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         obj.Attributes.Pivot = interp;
                         obj.Attributes.ExpireLayout();
+
                         // Instances.RedrawCanvas();
                     });
                     await Task.Delay(duration / steps);
                 }
+
                 // Final snap to target
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {

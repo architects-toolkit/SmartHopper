@@ -95,6 +95,7 @@ namespace SmartHopper.Components.Test.Misc
                             isPrime = false;
                             break;
                         }
+
                         b++;
                     }
 
@@ -102,6 +103,7 @@ namespace SmartHopper.Components.Test.Misc
                     {
                         count++;
                     }
+
                     a++;
 
                     // Add small delay to prevent UI freeze

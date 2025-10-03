@@ -90,6 +90,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 // Parse filters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+
                 // Arguments may be null when calling gh_get with no parameters; default to empty filters
                 var args = toolInfo.Arguments ?? new JObject();
                 var attrFilters = args["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();

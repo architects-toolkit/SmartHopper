@@ -39,7 +39,7 @@ namespace SmartHopper.Providers.OpenRouter
         public override string Name => "OpenRouter";
 
         /// <inheritdoc/>
-        public override string DefaultServerUrl => "https://openrouter.ai/api/v1";
+        public override Uri DefaultServerUrl => new Uri("https://openrouter.ai/api/v1");
 
         /// <inheritdoc/>
         public override bool IsEnabled => true;
@@ -73,6 +73,7 @@ namespace SmartHopper.Providers.OpenRouter
                 {
                     Debug.WriteLine($"[OpenRouter] Icon load error: {ex.Message}");
                 }
+
                 return new Bitmap(1, 1);
             }
         }
@@ -136,6 +137,7 @@ namespace SmartHopper.Providers.OpenRouter
             // Parameters
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature;
+
             // Temperature stored as string in settings to align with other providers
             if (!double.TryParse(this.GetSetting<string>("Temperature"), out temperature))
             {
@@ -249,6 +251,7 @@ namespace SmartHopper.Providers.OpenRouter
                         var text = item["text"]?.ToString() ?? item["content"]?.ToString();
                         if (!string.IsNullOrEmpty(text)) parts.Add(text);
                     }
+
                     content = string.Join("", parts);
                 }
                 else if (response["response"] != null)

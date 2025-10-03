@@ -86,6 +86,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
             }
 
             Debug.WriteLine($"[CreateComponentGrid] Found {islands.Count} islands");
+
             // Layout each island and stack vertically
             var result = new List<NodeGridComponent>();
             float currentYOffset = 0f;
@@ -94,6 +95,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 // independent layout
                 var sub = SugiyamaAlgorithm(new List<NodeGridComponent>(island));
                 sub = ApplySpacing(sub, spacingX, spacingY);
+
                 // offset Y by accumulated island offset
                 foreach (var n in sub)
                     n.Pivot = new PointF(n.Pivot.X, n.Pivot.Y + currentYOffset);
@@ -144,6 +146,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 {
                     var toNode = grid.First(n => n.ComponentId == conn.To.InstanceId);
                     var fromNode = grid.First(n => n.ComponentId == conn.From.InstanceId);
+
                     // compute input parameter index on child
                     int inputIndex = -1;
                     if (GHCanvasUtils.FindInstance(toNode.ComponentId) is IGH_Component childComp)
@@ -153,6 +156,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     }
 
                     toNode.Parents[conn.From.InstanceId] = inputIndex;
+
                     // compute output parameter index on parent
                     int outputIndex = -1;
                     if (GHCanvasUtils.FindInstance(fromNode.ComponentId) is IGH_Component parentComp)
@@ -222,12 +226,14 @@ namespace SmartHopper.Core.Grasshopper.Graph
         private static List<NodeGridComponent> Sugiyama02_EdgeConcentration(List<NodeGridComponent> grid)
         {
             var newGrid = new List<NodeGridComponent>(grid);
+
             // group nodes by layer key (float Pivot.X)
             var byLayer = grid.GroupBy(n => n.Pivot.X).OrderBy(g => g.Key).ToList();
             for (int li = 0; li < byLayer.Count - 1; li++)
             {
                 var left = byLayer[li].ToList();
                 var rightIds = new HashSet<Guid>(byLayer[li + 1].Select(n => n.ComponentId));
+
                 // group left nodes by identical set of targets in next layer
                 var groups = left.Select(n => new
                 {
@@ -293,6 +299,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                                .OrderBy(g => g.Key)
                                .Select(g => g.ToList())
                                .ToList();
+
             // Top-down pass: initial ordering by output indices and barycenter
             for (int layerIndex = 0; layerIndex < byLayer.Count; layerIndex++)
             {
@@ -367,6 +374,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                                .OrderBy(g => g.Key)
                                .Select(g => g.ToList())
                                .ToList();
+
             // Top-down pass: reorder by median parent positions
             for (int layerIndex = 1; layerIndex < byLayer.Count; layerIndex++)
             {
@@ -377,6 +385,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 for (int i = 0; i < currLayer.Count; i++)
                     currLayer[i].Pivot = new PointF(currLayer[i].Pivot.X, i);
             }
+
             // Bottom-up pass: reorder by median child positions
             for (int layerIndex = byLayer.Count - 2; layerIndex >= 0; layerIndex--)
             {
@@ -430,8 +439,10 @@ namespace SmartHopper.Core.Grasshopper.Graph
             {
                 // Snapshot current row positions
                 var oldY = grid.ToDictionary(n => n.ComponentId, n => n.Pivot.Y);
+
                 // One-pass median crossing minimization
                 grid = Sugiyama04_MinimizeEdgeCrossings(grid);
+
                 // Check if any ordering changed
                 changed = grid.Any(n => n.Pivot.Y != oldY[n.ComponentId]);
 
@@ -670,17 +681,20 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 if (!idToNode.TryGetValue(childId, out var child)) continue;
                 int inputIndex = child.Parents[parent.ComponentId];
                 if (inputIndex < 0) continue;
+
                 // fetch input port bounds
                 if (!(GHCanvasUtils.FindInstance(child.ComponentId) is IGH_Component childComp)) continue;
                 var inputs = GHParameterUtils.GetAllInputs(childComp);
                 if (inputIndex >= inputs.Count) continue;
                 var port = inputs[inputIndex];
                 var rect = port.Attributes.Bounds;
+
                 // compute offset from child's center
                 float inputPivotY = rect.Y + rect.Height / 2f;
                 var canvasChildBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
                 float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height / 2f;
                 float deltaCanvasY = inputPivotY - canvasChildCenterY;
+
                 // target grid Y
                 float targetY = child.Pivot.Y + deltaCanvasY + spacingY / 2;
                 Debug.WriteLine($"[OneToOneConnections] Align parent {parent.ComponentId} to Y={targetY}");

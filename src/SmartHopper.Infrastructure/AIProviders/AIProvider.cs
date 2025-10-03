@@ -38,7 +38,7 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// <typeparam name="T">The type of the derived provider class.</typeparam>
     public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
     {
-        private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
+        private static readonly Lazy<T> InstanceValue = new (() => Activator.CreateInstance(typeof(T), true) as T);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
@@ -76,8 +76,10 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public abstract bool IsEnabled { get; }
 
-        /// <inheritdoc/>
-        public abstract string DefaultServerUrl { get; }
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public abstract Uri DefaultServerUrl { get; }
 
         /// <inheritdoc/>
         public IAIProviderModels Models { get; set; }
@@ -92,6 +94,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 if (!ModelManager.Instance.HasProviderCapabilities(this.Name))
                 {
                     Debug.WriteLine($"[{this.Name}] Registering model capabilities");
+
                     // Retrieve full model metadata and register each model
                     var models = await this.Models.RetrieveModels().ConfigureAwait(false);
                     if (models != null)
@@ -99,6 +102,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                         foreach (var m in models)
                         {
                             if (m == null) continue;
+
                             // Ensure provider name is set and normalized
                             if (string.IsNullOrWhiteSpace(m.Provider))
                             {
@@ -118,6 +122,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Error during model registration: {ex.Message}");
+
                 // Continue initialization even if model registration fails
             }
 
@@ -152,6 +157,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Warning: Could not load default values during initialization: {ex.Message}");
+
                 // Continue initialization even if default value loading fails
             }
 
@@ -166,7 +172,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         public abstract string Encode(IAIInteraction interaction);
 
         /// <summary>
-        /// Encode multiple interactions
+        /// Encode multiple interactions.
         /// </summary>
         /// <param name="interactions">The interactions to encode.</param>
         /// <returns>The encoded string.</returns>
@@ -531,21 +537,21 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             // Determine the full URL
-            string fullUrl;
-            if (Uri.IsWellFormedUriString(endpoint, UriKind.Absolute))
+            Uri fullUri;
+            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
             {
                 // Endpoint is a full URL
-                fullUrl = endpoint;
+                fullUri = abs;
             }
             else
             {
                 // Endpoint is a relative path, append to DefaultServerUrl
-                var baseUrl = this.DefaultServerUrl.TrimEnd('/');
-                var path = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint : "/" + endpoint;
-                fullUrl = baseUrl + path;
+                var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
+                var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
+                fullUri = new Uri(baseUri, relative);
             }
 
-            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUrl}");
+            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUri}");
 
             using (var httpClient = new HttpClient())
             {
@@ -606,22 +612,22 @@ namespace SmartHopper.Infrastructure.AIProviders
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
-                            response = await httpClient.GetAsync(fullUrl).ConfigureAwait(false);
+                            response = await httpClient.GetAsync(fullUri).ConfigureAwait(false);
                             break;
                         case "POST":
                             var postContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PostAsync(fullUrl, postContent).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUri, postContent).ConfigureAwait(false);
                             break;
                         case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUrl).ConfigureAwait(false);
+                            response = await httpClient.DeleteAsync(fullUri).ConfigureAwait(false);
                             break;
                         case "PATCH":
                             var patchContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PatchAsync(fullUrl, patchContent).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUri, patchContent).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");

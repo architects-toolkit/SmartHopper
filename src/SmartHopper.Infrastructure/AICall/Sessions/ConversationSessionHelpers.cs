@@ -62,21 +62,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Drains any pending tool calls before a provider turn begins.
         /// </summary>
-        private async Task<List<AIReturn>> ResolvePendingToolsAsync(SessionOptions options, CancellationToken ct, string turnId)
+        private async Task<List<AIReturn>> ResolvePendingToolsAsync(SessionOptions options, string turnId, CancellationToken ct)
         {
-            return await this.ProcessPendingToolsAsync(options, ct, turnId).ConfigureAwait(false);
+            return await this.ProcessPendingToolsAsync(options, turnId, ct).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Executes a provider turn and optionally performs a post-tool pass when tools are enabled.
         /// Returns the last AIReturn produced in this composite step.
         /// </summary>
-        private async Task<AIReturn> ExecuteProviderTurnAsync(SessionOptions options, CancellationToken ct, string turnId)
+        private async Task<AIReturn> ExecuteProviderTurnAsync(SessionOptions options, string turnId, CancellationToken ct)
         {
-            var providerReturn = await this.HandleProviderTurnAsync(options, ct, turnId).ConfigureAwait(false);
+            var providerReturn = await this.HandleProviderTurnAsync(options, turnId, ct).ConfigureAwait(false);
             if (options.ProcessTools)
             {
-                var afterTools = await this.ProcessPendingToolsAsync(options, ct, turnId).ConfigureAwait(false);
+                var afterTools = await this.ProcessPendingToolsAsync(options, turnId, ct).ConfigureAwait(false);
                 if (afterTools != null && afterTools.Count > 0)
                 {
                     providerReturn = afterTools.Last();
@@ -469,8 +469,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 // debug-only logging, ignore failures
             }
-        }
 #endif
+        }
 
 #if DEBUG
         /// <summary>
@@ -629,6 +629,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     {
                         sb.AppendLine($"TurnId: `{it.TurnId}`");
                     }
+
                     sb.AppendLine();
 
                     switch (it)
@@ -725,6 +726,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Debug.WriteLine($"[ConversationSession.Debug] Error appending event: {ex.Message}");
             }
         }
+
 #endif
     }
 }

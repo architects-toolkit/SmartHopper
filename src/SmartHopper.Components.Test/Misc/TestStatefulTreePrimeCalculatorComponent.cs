@@ -126,6 +126,7 @@ namespace SmartHopper.Components.Test.Misc
                             isPrime = false;
                             break;
                         }
+
                         b++;
                     }
 
@@ -135,6 +136,7 @@ namespace SmartHopper.Components.Test.Misc
                         if (count == nthPrime)
                             return a;
                     }
+
                     a++;
                 }
 

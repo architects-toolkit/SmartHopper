@@ -36,6 +36,7 @@ namespace SmartHopper.Menu.Dialogs
         public AboutDialog(string version)
         {
             this.Title = "About SmartHopper";
+
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
             {
@@ -53,7 +54,7 @@ namespace SmartHopper.Menu.Dialogs
             var mainLayout = new TableLayout
             {
                 Spacing = new Size(20, 0),
-                Rows = { new TableRow { Cells = { CreateLogoPanel(), CreateContentPanel(version) } } },
+                Rows = { new TableRow { Cells = { CreateLogoPanel(), this.CreateContentPanel(version) } } },
             };
 
             this.Content = mainLayout;
