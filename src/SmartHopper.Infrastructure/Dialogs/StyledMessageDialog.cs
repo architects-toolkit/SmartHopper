@@ -180,10 +180,10 @@ namespace SmartHopper.Infrastructure.Dialogs
                                 HorizontalContentAlignment = HorizontalAlignment.Center,
                                 Items = { headerLayout }
                             })),
-                    
+
                     // Message row left-aligned (default)
                     new TableRow(messageContainer),
-                    
+
                     // Button row right-aligned with extra top padding
                     new TableRow(
                         new TableCell(

@@ -36,10 +36,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "script_review";
-        
+
         /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
+        /// <returns>An enumerable containing the single "script_review" tool definition.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -67,7 +68,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the "script_review" tool: retrieves the component by GUID, runs coded checks, and obtains an AI-based review.
         /// </summary>
-        /// <param name="parameters">JSON object with "guid" field.</param>
+        /// <param name="toolCall">Tool invocation with provider/model context and arguments (expects a 'guid' field and optional 'question').</param>
         /// <returns>Result containing success flag, codedIssues array, and aiReview string, or error details.</returns>
         private async Task<AIReturn> ScriptReviewToolAsync(AIToolCall toolCall)
         {
@@ -110,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var codedIssues = new List<string>();
 
                 // Always check for TODO comments
-                if (scriptCode.IndexOf("TODO", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (scriptCode.Contains("TODO", StringComparison.OrdinalIgnoreCase))
                     codedIssues.Add("Found TODO comments in script.");
 
                 // Check line count
@@ -120,7 +121,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Language-specific debug checks
                 if (Regex.IsMatch(scriptCode, @"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase)
-                    || scriptCode.IndexOf("import ", StringComparison.OrdinalIgnoreCase) >= 0)
+                    || scriptCode.Contains("import ", StringComparison.OrdinalIgnoreCase))
                 {
                     // Python/IronPython
                     var debugPy = Regex.Matches(scriptCode, @"print\(", RegexOptions.IgnoreCase).Count;
@@ -130,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
                 else if (Regex.IsMatch(scriptCode, @"void\s+RunScript", RegexOptions.IgnoreCase)
-                         || scriptCode.IndexOf("using ", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || scriptCode.Contains("using ", StringComparison.OrdinalIgnoreCase))
                 {
                     // C#
                     var debugCs = Regex.Matches(scriptCode, @"Console\.WriteLine", RegexOptions.IgnoreCase).Count;
@@ -138,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         codedIssues.Add("Remove debug 'Console.WriteLine' statements from C# script.");
                 }
                 else if (Regex.IsMatch(scriptCode, @"sub\s+RunScript", RegexOptions.IgnoreCase)
-                         || scriptCode.IndexOf("imports ", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || scriptCode.Contains("imports ", StringComparison.OrdinalIgnoreCase))
                 {
                     // VB.NET
                     var debugVb = Regex.Matches(scriptCode, @"Debug\.Print|Console\.WriteLine", RegexOptions.IgnoreCase).Count;

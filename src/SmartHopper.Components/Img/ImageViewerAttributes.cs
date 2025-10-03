@@ -84,7 +84,7 @@ namespace SmartHopper.Components.Img
         {
             // Let base handle all default rendering (component box, inputs, outputs, etc.)
             base.Render(canvas, graphics, channel);
-            
+
             // Only add our custom image display if rendering objects
             if (channel == GH_CanvasChannel.Objects)
             {

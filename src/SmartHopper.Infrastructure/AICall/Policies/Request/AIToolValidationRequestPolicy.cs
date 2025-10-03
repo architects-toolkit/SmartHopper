@@ -25,6 +25,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
     /// </summary>
     public sealed class AIToolValidationRequestPolicy : IRequestPolicy
     {
+        /// <summary>
+        /// Validates pending tool calls in the request body using composed validators (existence, schema, capability).
+        /// Adds structured diagnostics to the request and policy context without throwing on non-fatal issues.
+        /// </summary>
+        /// <param name="context">Policy context carrying the current request and ambient provider/model info.</param>
+        /// <returns>A task that completes when validation is finished.</returns>
         public async Task ApplyAsync(PolicyContext context)
         {
             var rq = context?.Request;

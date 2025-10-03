@@ -87,6 +87,7 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to place components");
                 }
+
                 return;
             }
 
@@ -118,6 +119,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 var success = toolResult?["success"]?.ToObject<bool>() ?? false;
                 var analysis = toolResult?["analysis"]?.ToString();
+
                 // Display analysis messages
                 if (!string.IsNullOrEmpty(analysis))
                 {
@@ -159,4 +161,3 @@ namespace SmartHopper.Components.Grasshopper
         }
     }
 }
-

@@ -250,7 +250,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 // Model selection (validation/fallback) must happen only when a capability is known.
                 return this.model ?? string.Empty;
             }
-            
+
             if (string.IsNullOrEmpty(this.Provider))
             {
                 return string.Empty;

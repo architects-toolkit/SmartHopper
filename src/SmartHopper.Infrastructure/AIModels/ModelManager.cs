@@ -299,6 +299,7 @@ namespace SmartHopper.Infrastructure.AIModels
                     Debug.WriteLine($"[ModelManager.SelectBestModel] Using user model '{userModel}' (known and capable: {known.Capabilities.ToDetailedString()})");
                     return userModel;
                 }
+
                 // else: fall through to fallback selection
                 Debug.WriteLine($"[ModelManager.SelectBestModel] User model '{userModel}' is known but NOT capable of {requiredCapability.ToDetailedString()} (has {known.Capabilities.ToDetailedString()}). Falling back.");
             }

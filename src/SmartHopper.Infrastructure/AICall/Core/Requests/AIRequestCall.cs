@@ -340,6 +340,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             catch (Exception ex)
             {
                 stopwatch.Stop();
+
                 // Preserve raw provider/unknown error and standardize
                 var error = this.ExtractProviderErrorMessage(ex);
                 var errorResult = new AIReturn();
@@ -385,13 +386,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     {
                         // Take the last complete delta as our final result
                         finalReturn = delta;
-                        
+
                         // If this delta contains a complete interaction, we can consider it final
                         if (delta.Body?.GetNewInteractions()?.Any() == true)
                         {
                             var newInteractions = delta.Body.GetNewInteractions();
                             var lastInteraction = newInteractions.LastOrDefault();
-                            
+
                             // If it's a complete text response (not a partial), use this as final
                             if (lastInteraction is AIInteractionText textInteraction &&
                                 !string.IsNullOrEmpty(textInteraction.Content))

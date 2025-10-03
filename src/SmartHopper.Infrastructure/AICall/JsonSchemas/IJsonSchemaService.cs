@@ -76,7 +76,7 @@ namespace SmartHopper.Infrastructure.AICall.JsonSchemas
         /// Gets or sets a value indicating whether the schema was wrapped.
         /// </summary>
         public bool IsWrapped { get; set; }
-        
+
         /// <summary>
         /// Gets or sets the type of the wrapper.
         /// </summary>

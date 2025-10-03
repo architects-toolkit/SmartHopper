@@ -102,28 +102,33 @@ namespace SmartHopper.Providers.Anthropic
             {
                 apiKey = apiKeyObj.ToString();
             }
+
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
             }
+
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
                 if (int.TryParse(maxTokensObj.ToString(), out int parsed))
                 {
                     maxTokens = parsed;
                 }
+
                 if (maxTokens <= 0)
                 {
                     if (showErrorDialogs) StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
                     return false;
                 }
             }
+
             if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
             {
                 if (double.TryParse(temperatureObj.ToString(), out double parsed))
                 {
                     temperature = parsed;
                 }
+
                 if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs) StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");

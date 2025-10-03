@@ -50,7 +50,6 @@ namespace SmartHopper.Core.AIContext
         ///  - "param-count": total number of parameters in the current document.
         ///  - "scribble-count": total number of scribbles/notes in the current document.
         ///  - "group-count": total number of groups in the current document.
-        ///  - "solver-enabled": whether the Grasshopper solver is enabled (true/false).
         /// </summary>
         /// <returns>A dictionary containing the current file context values.</returns>
         public Dictionary<string, string> GetContext()

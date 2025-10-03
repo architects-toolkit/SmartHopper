@@ -225,7 +225,7 @@ namespace SmartHopper.Core.ComponentBase
             DA.GetData("Run?", ref run);
             this.run = run;
 
-            Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - Current State: {this.currentState}, InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}, Run: {this.run}, IsTransitioning: {this.isTransitioning}, Pending Transitions: {this.pendingTransitions.Count}");
+            Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - Current State: {this.currentState}, InPreSolve: {this.InPreSolve}, State: {this.State}, SetData: {this.SetData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}, Run: {this.run}, IsTransitioning: {this.isTransitioning}, Pending Transitions: {this.pendingTransitions.Count}");
 
             // Execute the appropriate state handler
             switch (this.currentState)
@@ -337,9 +337,9 @@ namespace SmartHopper.Core.ComponentBase
         private TaskCompletionSource<bool> stateCompletionSource;
         private Queue<ComponentState> pendingTransitions = new ();
         private IGH_DataAccess lastDA;
-        
+
         // Flag to track if component was just restored from file with existing outputs
-        private bool justRestoredFromFile = false;
+        private bool justRestoredFromFile;
 
         // PUBLIC PROPERTIES
 
@@ -415,8 +415,10 @@ namespace SmartHopper.Core.ComponentBase
                             }
                         });
                     }
+
                     // Set the message after Resetting the progress
                     this.Message = this.GetStateMessage();
+
                     // OnStateProcessing(DA) is called in SolveInstance, not during transition
                     break;
                 case ComponentState.Cancelled:
@@ -483,7 +485,7 @@ namespace SmartHopper.Core.ComponentBase
 
         private void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this._state}, InPreSolve: {this.InPreSolve}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}");
+            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this.State}, InPreSolve: {this.InPreSolve}, SetData: {this.SetData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}");
 
             // Ensure message is set correctly for Completed state
             // This is especially important after file restoration when ProcessTransition might not be called
@@ -711,10 +713,10 @@ namespace SmartHopper.Core.ComponentBase
         {
             this.ProgressInfo.UpdateCurrent(current);
             Debug.WriteLine($"[{this.GetType().Name}] Progress updated - {current}/{this.ProgressInfo.Total}");
-            
+
             // Update the message with current progress information
             this.Message = this.GetStateMessage();
-            
+
             // Trigger UI refresh to update the displayed message
             Rhino.RhinoApp.InvokeOnUiThread(() =>
             {
@@ -1191,6 +1193,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
         }
+
 #endif
 
         /// <summary>
@@ -1280,6 +1283,7 @@ namespace SmartHopper.Core.ComponentBase
                             if (value is IGH_Structure tree)
                             {
                                 Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Using existing tree of type: {tree.GetType().FullName}");
+
                                 // Guard: only set data if the tree has at least one branch and at least one item
                                 bool hasBranch = tree.PathCount > 0;
                                 bool hasItems = false;
@@ -1478,7 +1482,7 @@ namespace SmartHopper.Core.ComponentBase
                         // Use value-based hashing instead of object-instance hashing
                         // to prevent false-positive changes when connecting new sources with same values
                         int itemHash;
-                        
+
                         // Try to get the actual value for common Grasshopper types
                         if (item is IGH_Goo goo && goo.IsValid)
                         {
@@ -1490,14 +1494,14 @@ namespace SmartHopper.Core.ComponentBase
                             // Fallback to string representation for consistent value-based hashing
                             itemHash = item.GetHashCode();
                         }
-                        
+
                         branchHash = CombineHashCodes(branchHash, itemHash);
                     }
                 }
 
                 // Combine the branch data hash (captures the VALUES in this branch)
                 currentHash = CombineHashCodes(currentHash, branchHash);
-                
+
                 // Combine the branch path hash (captures the STRUCTURE/PATH of this branch)
                 // This is crucial because branches {0} and {1} with identical data should have different hashes
                 currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
@@ -1683,11 +1687,11 @@ namespace SmartHopper.Core.ComponentBase
             // - Also allow in Processing during the post-solve pass (after outputs have been set)
             bool allowDuringProcessing = this.currentState == ComponentState.Processing
                                          && !this.InPreSolve
-                                         && (this._setData == 1 || (this.persistentOutputs != null && this.persistentOutputs.Count > 0));
+                                         && (this.SetData == 1 || (this.persistentOutputs != null && this.persistentOutputs.Count > 0));
 
             if (this.currentState == ComponentState.Completed || allowDuringProcessing)
             {
-                Debug.WriteLine($"[StatefulAsyncComponentBase] Expiring downstream objects (state: {this.currentState}, InPreSolve: {this.InPreSolve}, setData: {this._setData})");
+                Debug.WriteLine($"[StatefulAsyncComponentBase] Expiring downstream objects (state: {this.currentState}, InPreSolve: {this.InPreSolve}, setData: {this.SetData})");
                 base.ExpireDownStreamObjects();
             }
 
@@ -1749,8 +1753,8 @@ namespace SmartHopper.Core.ComponentBase
                 this.SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
             });
         }
-#endif
 
+#endif
         /// <summary>
         /// Requests cancellation of any running tasks and transitions the component to the Cancelled state.
         /// </summary>

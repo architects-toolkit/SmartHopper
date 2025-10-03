@@ -135,6 +135,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
 
                 return combined;
             }
+
             set
             {
                 this.PrivateStructuredMessages = value ?? new List<AIRuntimeMessage>();
@@ -148,7 +149,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// Gets the raw JSON returned by the provider, if available.
         /// </summary>
         /// <returns>The raw provider response as a JObject, or null when unavailable.</returns>
-        public JObject GetRaw() => this.PrivateEncodedResult;
+        public JObject Raw => this.PrivateEncodedResult;
 
         /// <inheritdoc/>
         public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
@@ -386,7 +387,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             }
 
             b.AddRange(interactions);
-     
+
             this.Body = b.Build();
             try
             {

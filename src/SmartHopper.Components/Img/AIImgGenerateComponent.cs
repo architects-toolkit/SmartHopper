@@ -94,7 +94,7 @@ namespace SmartHopper.Components.Img
         /// <summary>
         /// Async worker for the AI Image Generate component.
         /// </summary>
-        public class AIImgGenerateWorker : AsyncWorkerBase
+        private sealed class AIImgGenerateWorker : AsyncWorkerBase
         {
             private readonly AIImgGenerateComponent _parent;
             private readonly Action<string> _progressReporter;

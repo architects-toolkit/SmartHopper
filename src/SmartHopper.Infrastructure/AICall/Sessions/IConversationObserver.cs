@@ -68,4 +68,3 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         void OnError(Exception error);
     }
 }
-

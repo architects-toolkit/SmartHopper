@@ -45,6 +45,7 @@ namespace SmartHopper.Providers.OpenAI
         private OpenAIProvider()
         {
             this.Models = new OpenAIProviderModels(this);
+
             // Register provider-specific JSON schema adapter
             JsonSchemaAdapterRegistry.Register(new OpenAIJsonSchemaAdapter());
         }
@@ -57,7 +58,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.openai.com/v1";
+        public override Uri DefaultServerUrl => new Uri("https://api.openai.com/v1");
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
@@ -91,6 +92,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Returns a streaming adapter for OpenAI that yields incremental AIReturn deltas.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new OpenAIStreamingAdapter(this);
@@ -162,6 +164,7 @@ namespace SmartHopper.Providers.OpenAI
             {
                 return null;
             }
+
             var messageObj = new JObject();
 
             switch (interaction.Agent)
@@ -203,6 +206,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     messageObj["name"] = toolResultInteraction.Name;
                 }
+
                 msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -214,6 +218,7 @@ namespace SmartHopper.Providers.OpenAI
                     ["function"] = new JObject
                     {
                         ["name"] = toolCallInteraction.Name,
+
                         // OpenAI requires arguments as a JSON string; never null
                         ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}",
                     },
@@ -231,7 +236,7 @@ namespace SmartHopper.Providers.OpenAI
                         ["type"] = "image_url",
                         ["image_url"] = new JObject
                         {
-                            ["url"] = imageInteraction.ImageUrl ?? imageInteraction.ImageData,
+                            ["url"] = imageInteraction.ImageUrl?.ToString() ?? imageInteraction.ImageData,
                         },
                     },
                 };
@@ -282,6 +287,7 @@ namespace SmartHopper.Providers.OpenAI
                 int tr = interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = interactions?.Count(i => i is AIInteractionText) ?? 0;
                 Debug.WriteLine($"[OpenAI] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+
                 // Log a short map of types for order inspection (up to first 30)
                 var map = string.Join(", ", interactions.Take(30).Select(ix => ix is AIInteractionToolCall ? "TC" : ix is AIInteractionToolResult ? "TR" : ix is AIInteractionText ? "T" : ix.GetType().Name));
                 Debug.WriteLine($"[OpenAI] BuildMessages: order[0..30]: {map}");
@@ -290,6 +296,7 @@ namespace SmartHopper.Providers.OpenAI
             {
                 /* logging only */
             }
+
 #endif
 
             for (int i = 0; i < interactions.Count; i++)
@@ -319,6 +326,7 @@ namespace SmartHopper.Providers.OpenAI
                             ["function"] = new JObject
                             {
                                 ["name"] = tci.Name ?? string.Empty,
+
                                 // OpenAI requires arguments as a JSON string; default to empty object
                                 ["arguments"] = tci.Arguments?.ToString() ?? "{}",
                             },
@@ -347,6 +355,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         /* logging only */
                     }
+
 #endif
 
                     // Deduplicate tool_calls by id, keeping the last occurrence (most recent args) per id.
@@ -402,6 +411,7 @@ namespace SmartHopper.Providers.OpenAI
                                 var nameVal = obj?["function"]?["name"]?.ToString() ?? string.Empty;
                                 pendingToolCalls.Enqueue((idVal, nameVal));
                             }
+
 #if DEBUG
                             try { Debug.WriteLine($"[OpenAI] Dedupe applied. tool_calls now={toolCallsArray.Count}. Pending(after block)={string.Join(", ", pendingToolCalls.Select(p => $"{p.Id}:{p.Name}"))}"); } catch { }
 #endif
@@ -444,10 +454,12 @@ namespace SmartHopper.Providers.OpenAI
                         {
                             token["tool_call_id"] = pendingId;
                         }
+
                         if (!string.IsNullOrWhiteSpace(pendingName) && token["name"] == null)
                         {
                             token["name"] = pendingName;
                         }
+
 #if DEBUG
                         try
                         {
@@ -481,14 +493,14 @@ namespace SmartHopper.Providers.OpenAI
         public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
-            
+
             if (response == null)
             {
                 return interactions;
             }
-            
+
             try
-            {       
+            {
                 // Handle different response types based on the response structure
                 if (response["data"] != null)
                 {
@@ -555,6 +567,7 @@ namespace SmartHopper.Providers.OpenAI
                     var schemaObj = JObject.Parse(jsonSchema);
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+
                     // Store wrapper info for response unwrapping centrally
                     svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[OpenAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
@@ -573,6 +586,7 @@ namespace SmartHopper.Providers.OpenAI
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
+
                     // Continue without schema if parsing fails
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
@@ -677,6 +691,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
                     metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+
                     // Note: TotalTokens is calculated automatically from InputTokensPrompt + OutputTokensGeneration
                 }
 
@@ -806,6 +821,7 @@ namespace SmartHopper.Providers.OpenAI
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"[OpenAI] Warning: failed to parse tool_call arguments: {ex.Message}");
+
                             // Fallback to empty object to avoid null reference issues in tools
                             argsObj = new JObject();
                         }
@@ -849,7 +865,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Get original image request parameters
                 var originalImageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
-                
+
                 // Create result interaction
                 var resultInteraction = new AIInteractionImage
                 {
@@ -917,7 +933,9 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     body = new JObject();
                 }
+
                 body["stream"] = true;
+
                 // Ask OpenAI to include token usage in the final streaming chunk
                 // See: stream_options.include_usage = true
                 body["stream_options"] = new JObject
@@ -941,6 +959,7 @@ namespace SmartHopper.Providers.OpenAI
                     authError = new AIReturn();
                     authError.CreateProviderError(ex.Message, request);
                 }
+
                 if (authError != null)
                 {
                     yield return authError;
@@ -961,6 +980,7 @@ namespace SmartHopper.Providers.OpenAI
                     sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
                     response = null!;
                 }
+
                 if (sendError != null)
                 {
                     yield return sendError;
@@ -1049,6 +1069,7 @@ namespace SmartHopper.Providers.OpenAI
                             results.Add(d);
                         }
                     }
+
                     return results;
                 }
 
@@ -1112,6 +1133,7 @@ namespace SmartHopper.Providers.OpenAI
                         if (firstChunk)
                         {
                             firstChunk = false;
+
                             // Force immediate first emit for snappy UX
                             var emitted = await FlushAsync(force: true).ConfigureAwait(false);
                             foreach (var d in emitted) { yield return d; }
@@ -1219,4 +1241,3 @@ namespace SmartHopper.Providers.OpenAI
         }
     }
 }
-

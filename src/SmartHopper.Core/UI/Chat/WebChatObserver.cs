@@ -131,6 +131,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
                 {
                     aggExisting.Content = incomingText;
+
                     // Even if content is cumulative, we still want to coalesce reasoning below
                 }
                 else if (current.StartsWith(incomingText, StringComparison.Ordinal))
@@ -188,6 +189,7 @@ namespace SmartHopper.Core.UI.Chat
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
+
                     // Reset per-run state
                     this._streams.Clear();
                     this._textInteractionSegments.Clear();
@@ -200,6 +202,7 @@ namespace SmartHopper.Core.UI.Chat
                     // Insert a persistent generic loading bubble that remains until stop state
                     this._dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
                     this._thinkingBubbleActive = true;
+
                     // No assistant-specific state to reset
                     Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
@@ -427,6 +430,7 @@ namespace SmartHopper.Core.UI.Chat
             public void OnToolCall(AIInteractionToolCall toolCall)
             {
                 if (toolCall == null) return;
+
                 // During streaming, do not append tool calls; just update status.
                 RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -442,6 +446,7 @@ namespace SmartHopper.Core.UI.Chat
             public void OnToolResult(AIInteractionToolResult toolResult)
             {
                 if (toolResult == null) return;
+
                 // Do not append tool results during streaming; they will be added on partial when persisted.
             }
 
@@ -456,7 +461,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     // Delegate history to ConversationSession; UI only emits notifications.
                     var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
-                    var lastReturn = this._dialog._currentSession.GetReturn();
+                    var lastReturn = this._dialog._currentSession.LastReturn;
 
                     try
                     {
@@ -480,6 +485,7 @@ namespace SmartHopper.Core.UI.Chat
 
                         // Prefer the aggregated streaming content for visual continuity
                         AIInteractionText aggregated = null;
+
                         // Use the current segmented key for the assistant stream
                         var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
                         if (!string.IsNullOrWhiteSpace(segKey)
@@ -521,6 +527,7 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             // Prefer the segmented key to replace the streaming bubble deterministically
                             var upsertKey = segKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
+
                             // Single final debug log for this interaction
                             var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;
                             var length = (toRender as AIInteractionText)?.Content?.Length ?? 0;
