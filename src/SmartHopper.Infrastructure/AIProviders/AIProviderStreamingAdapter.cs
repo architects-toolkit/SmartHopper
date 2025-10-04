@@ -56,7 +56,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Builds an absolute URL for the given endpoint using the provider's default server URL when needed.
+        /// Builds an absolute URL for the given endpoint delegating to the provider's centralized normalization.
         /// </summary>
         protected Uri BuildFullUrl(string endpoint)
         {
@@ -65,14 +65,8 @@ namespace SmartHopper.Infrastructure.AIProviders
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
-            {
-                return abs;
-            }
-
-            var baseUri = this.Provider.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
-            var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
-            return new Uri(baseUri, relative);
+            // Delegate to provider so both call and streaming share identical URL construction rules
+            return this.Provider.BuildFullUrl(endpoint);
         }
 
         /// <summary>
