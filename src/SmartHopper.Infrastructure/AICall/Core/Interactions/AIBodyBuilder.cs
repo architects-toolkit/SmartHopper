@@ -15,6 +15,7 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -831,14 +832,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices);
         }
 
-        private static string NewTurnId() => Guid.NewGuid().ToString("N");
-
         private void EnsureTurnId(IAIInteraction interaction)
         {
             if (interaction == null) return;
             if (string.IsNullOrWhiteSpace(interaction.TurnId))
             {
-                interaction.TurnId = string.IsNullOrWhiteSpace(this.defaultTurnId) ? NewTurnId() : this.defaultTurnId;
+                interaction.TurnId = string.IsNullOrWhiteSpace(this.defaultTurnId) ? InteractionUtility.GenerateTurnId() : this.defaultTurnId;
             }
         }
     }

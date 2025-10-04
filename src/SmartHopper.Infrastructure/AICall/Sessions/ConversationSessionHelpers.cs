@@ -23,6 +23,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AICall.Core.Requests;
     using SmartHopper.Infrastructure.AICall.Core.Returns;
+    using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Tools;
 
     /// <summary>
@@ -44,6 +45,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             public bool ShouldBreak;
             public AIReturn LastDelta;
             public AIReturn LastToolCallsDelta;
+
+            /// <summary>
+            /// Accumulated text interaction deltas during streaming. Only the final aggregated text is persisted to history.
+            /// </summary>
+            public AIInteractionText AccumulatedText;
         }
 
         /// <summary>
@@ -150,6 +156,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             if (string.IsNullOrWhiteSpace(toolInteraction.Name)) toolInteraction.Name = tc.Name;
             if (toolInteraction.Agent != AIAgent.ToolResult) toolInteraction.Agent = AIAgent.ToolResult;
 
+            // Preserve TurnId from the originating tool call, not the current turn parameter
+            if (string.IsNullOrWhiteSpace(toolInteraction.TurnId)) toolInteraction.TurnId = tc.TurnId;
+
             this.PersistToolResult(toolInteraction, turnId);
 
             var deltaOk = new AIReturn();
@@ -178,13 +187,24 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Persists final streaming snapshot (tool_calls and assistant text), dedupes tool calls, updates last return,
-        /// emits partial notifications, and logs unresolved pending tool-calls if any.
+        /// Persists final streaming snapshot (tool_calls and assistant text), updates last return,
+        /// and logs unresolved pending tool-calls if any.
         /// </summary>
-        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId)
+        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText)
         {
-            // Streaming deltas are now persisted as they arrive to preserve exact order.
-            // This method only updates the last-return snapshot and logs pending status.
+            // Persist the final aggregated text interaction (accumulated during streaming)
+            if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
+            {
+                // Ensure TurnId is set
+                if (string.IsNullOrWhiteSpace(accumulatedText.TurnId))
+                {
+                    accumulatedText.TurnId = turnId;
+                }
+
+                // Persist the final aggregated text to session history
+                this.AppendToSessionHistory(accumulatedText);
+                Debug.WriteLine($"[ConversationSession.Stream] Persisted final aggregated text: turnId={turnId}, length={accumulatedText.Content?.Length ?? 0}");
+            }
 
             // Update last return snapshot to the provider's last delta snapshot
             this._lastReturn = lastDelta;
@@ -561,27 +581,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 #endif
 
         /// <summary>
-        /// Ensures all interactions in a collection share the same turn identifier.
-        /// </summary>
-        private static void EnsureTurnIdFor(IEnumerable<IAIInteraction> interactions, string turnId)
-        {
-            if (string.IsNullOrWhiteSpace(turnId) || interactions == null)
-            {
-                return;
-            }
-
-            foreach (var interaction in interactions)
-            {
-                if (interaction == null)
-                {
-                    continue;
-                }
-
-                interaction.TurnId = turnId;
-            }
-        }
-
-        /// <summary>
         /// Creates a standardized provider error return.
         /// </summary>
         private AIReturn CreateError(string message)
@@ -613,6 +612,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 sb.AppendLine($"Model: {this.Request?.Model ?? ""}");
                 sb.AppendLine($"Endpoint: {this.Request?.Endpoint ?? ""}");
                 sb.AppendLine();
+
+                // Aggregate metrics block (session-level)
+                var agg = this.Request?.Body?.Metrics;
+                if (agg != null)
+                {
+                    sb.AppendLine("## Aggregate Metrics");
+                    WriteMetricsBlock(sb, agg);
+                    sb.AppendLine();
+                }
 
                 var interactions = this.Request?.Body?.Interactions ?? new List<IAIInteraction>();
                 int index = 1;
@@ -659,6 +667,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             break;
                     }
 
+                    // Per-interaction metrics (when available)
+                    try
+                    {
+                        if (it?.Metrics != null)
+                        {
+                            sb.AppendLine("### Metrics");
+                            WriteMetricsBlock(sb, it.Metrics);
+                        }
+                    }
+                    catch { }
+
                     sb.AppendLine();
                     index++;
                 }
@@ -685,6 +704,28 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             sb.AppendLine($"```{language}");
             sb.AppendLine(content ?? string.Empty);
             sb.AppendLine("```");
+        }
+
+        /// <summary>
+        /// Helper to write a metrics block (simple key/value list) to the StringBuilder.
+        /// </summary>
+        private static void WriteMetricsBlock(StringBuilder sb, AIMetrics m)
+        {
+            if (sb == null || m == null)
+            {
+                return;
+            }
+
+            // Render as a compact markdown list
+            sb.AppendLine("- **provider**: " + (m.Provider ?? string.Empty));
+            sb.AppendLine("- **model**: " + (m.Model ?? string.Empty));
+            sb.AppendLine("- **finish_reason**: " + (m.FinishReason ?? string.Empty));
+            sb.AppendLine("- **completion_time**: " + m.CompletionTime);
+            sb.AppendLine("- **input_tokens_prompt**: " + m.InputTokensPrompt);
+            sb.AppendLine("- **input_tokens_cached**: " + m.InputTokensCached + " (total: " + m.InputTokens + ")");
+            sb.AppendLine("- **output_tokens_reasoning**: " + m.OutputTokensReasoning);
+            sb.AppendLine("- **output_tokens_generation**: " + m.OutputTokensGeneration + " (total: " + m.OutputTokens + ")");
+            sb.AppendLine("- **total_tokens**: " + m.TotalTokens);
         }
 
         /// <summary>

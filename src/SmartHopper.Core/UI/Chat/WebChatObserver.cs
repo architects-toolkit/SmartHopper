@@ -18,6 +18,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Sessions;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -92,76 +93,30 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
-            /// Aggregates text message across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
-            /// Rules:
-            /// - First chunk: start stream, set aggregated = first content.
-            /// - Subsequent chunks:
-            ///   - If incoming starts with current -> provider is cumulative: replace with incoming.
-            ///   - Else if current starts with incoming -> regression/noise: ignore to prevent trimming flicker.
-            ///   - Else -> treat as incremental delta: append incoming to current.
+            /// Aggregates text message across streaming chunks using the shared TextStreamCoalescer utility.
+            /// Preserves metrics (null) during streaming; final metrics are applied in OnFinal.
             /// </summary>
             private static void CoalesceTextStreamChunk(AIInteractionText incoming, string key, ref StreamState state)
             {
-                if (!state.Started || state.Aggregated is not AIInteractionText aggExisting)
+                if (!state.Started || state.Aggregated is not AIInteractionText)
                 {
                     state.Started = true;
-                    state.Aggregated = new AIInteractionText
+                    // Initialize with null metrics - will be applied in OnFinal
+                    state.Aggregated = TextStreamCoalescer.Coalesce(null, incoming, incoming?.TurnId, preserveMetrics: true);
+                    if (state.Aggregated is AIInteractionText agg)
                     {
-                        Agent = incoming?.Agent ?? AIAgent.Assistant,
-                        Content = incoming?.Content ?? string.Empty,
+                        agg.Metrics = null; // Hide metrics while streaming
+                    }
 
-                        // Also capture any streamed reasoning content from the first chunk
-                        Reasoning = incoming?.Reasoning ?? string.Empty,
-
-                        // Preserve stream identity so GetStreamKey() stays as turn:{TurnId}
-                        TurnId = incoming?.TurnId,
-
-                        // Hide metrics while streaming to avoid showing 0/0 interim values.
-                        // Final metrics will be applied in OnFinal when the response completes.
-                        Metrics = null,
-                        Time = incoming?.Time ?? DateTime.UtcNow,
-                    };
                     return;
                 }
 
-                var current = aggExisting.Content ?? string.Empty;
-                var incomingText = incoming?.Content ?? string.Empty;
-
-                // Cumulative stream: incoming contains full text so far
-                if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
-                {
-                    aggExisting.Content = incomingText;
-
-                    // Even if content is cumulative, we still want to coalesce reasoning below
-                }
-                else if (current.StartsWith(incomingText, StringComparison.Ordinal))
-                {
-                    // Regression/noise: ignore to avoid trimming visual content
-                }
-                else
-                {
-                    // Incremental delta: append
-                    aggExisting.Content = current + incomingText;
-                }
-
-                // Now coalesce reasoning similarly (when providers stream thinking separately)
-                var currentR = aggExisting.Reasoning ?? string.Empty;
-                var incomingR = incoming?.Reasoning ?? string.Empty;
-                if (!string.IsNullOrEmpty(incomingR))
-                {
-                    if (incomingR.Length >= currentR.Length && incomingR.StartsWith(currentR, StringComparison.Ordinal))
-                    {
-                        aggExisting.Reasoning = incomingR;
-                    }
-                    else if (currentR.StartsWith(incomingR, StringComparison.Ordinal))
-                    {
-                        // Regression/noise: keep existing
-                    }
-                    else
-                    {
-                        aggExisting.Reasoning = currentR + incomingR;
-                    }
-                }
+                // Use shared coalescer, preserving null metrics during streaming
+                state.Aggregated = TextStreamCoalescer.Coalesce(
+                    state.Aggregated as AIInteractionText,
+                    incoming,
+                    incoming?.TurnId,
+                    preserveMetrics: true);
             }
 
             // Tracks active streaming states to distinguish streaming vs non-streaming paths
@@ -332,10 +287,8 @@ namespace SmartHopper.Core.UI.Chat
                                     return;
                                 }
 
-                                if (!string.IsNullOrWhiteSpace(turnKey))
-                                {
-                                    this._pendingNewTextSegmentTurns.Add(turnKey);
-                                }
+                                // Do NOT set pending segment boundary here - text chunks should stream into the same bubble.
+                                // Segments only increment when a non-text interaction completes (handled below).
 
                                 // Use the current segmented key to match the streaming aggregate stored by OnDelta
                                 var activeSegKey = this.GetCurrentSegmentedKey(baseKey);
@@ -525,8 +478,23 @@ namespace SmartHopper.Core.UI.Chat
                         var toRender = aggregated ?? finalAssistant;
                         if (toRender != null)
                         {
-                            // Prefer the segmented key to replace the streaming bubble deterministically
-                            var upsertKey = segKey ?? (toRender as IAIKeyedInteraction)?.GetStreamKey() ?? GetStreamKey(toRender);
+                            // Prefer the segmented key only when a streaming aggregate exists.
+                            // Otherwise (e.g., greetings or non-streamed finals), use the dedup key to avoid duplicates
+                            // with the history replay that uses dedup keys.
+                            string upsertKey;
+                            if (!string.IsNullOrWhiteSpace(segKey) && aggregated != null)
+                            {
+                                upsertKey = segKey;
+                            }
+                            else if (toRender is IAIKeyedInteraction keyed)
+                            {
+                                // Use dedup key for non-streamed interactions
+                                upsertKey = keyed.GetDedupKey() ?? keyed.GetStreamKey() ?? GetStreamKey(toRender);
+                            }
+                            else
+                            {
+                                upsertKey = GetStreamKey(toRender);
+                            }
 
                             // Single final debug log for this interaction
                             var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;

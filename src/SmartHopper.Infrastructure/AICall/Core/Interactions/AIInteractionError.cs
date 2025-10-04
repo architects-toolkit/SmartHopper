@@ -9,10 +9,9 @@
  */
 
 using System;
-using System.Security.Cryptography;
-using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -98,7 +97,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>Stream group key.</returns>
         public string GetStreamKey()
         {
-            var hash = ComputeShortHash(this.Content);
+            var hash = HashUtility.ComputeShortHash(this.Content ?? string.Empty);
 
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
@@ -115,18 +114,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public string GetDedupKey()
         {
             return this.GetStreamKey();
-        }
-
-        /// <summary>
-        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
-        /// </summary>
-        /// <param name="value">Input string.</param>
-        /// <returns>Lowercase hex substring of the hash.</returns>
-        private static string ComputeShortHash(string value)
-        {
-            var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-            var hash = SHA256.HashData(bytes);
-            return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
         }
     }
 }

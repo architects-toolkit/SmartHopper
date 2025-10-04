@@ -9,9 +9,7 @@
  */
 
 using System;
-using System.Buffers;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -20,8 +18,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.Streaming;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {

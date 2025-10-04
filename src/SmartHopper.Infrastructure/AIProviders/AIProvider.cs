@@ -24,7 +24,6 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
@@ -54,7 +53,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <param name="endpoint">Absolute URL or provider-relative endpoint (with or without leading '/').</param>
         /// <returns>Absolute <see cref="Uri"/> for the request.</returns>
-        protected internal Uri BuildFullUrl(string endpoint)
+        public override Uri BuildFullUrl(string endpoint)
         {
             if (string.IsNullOrWhiteSpace(endpoint))
             {
@@ -686,6 +685,27 @@ namespace SmartHopper.Infrastructure.AIProviders
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Builds a full URL by combining the default server URL with the specified endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint path to append to the base URL.</param>
+        /// <returns>A complete URI combining the default server URL with the endpoint.</returns>
+        public virtual Uri BuildFullUrl(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
+            }
+
+            if (this.DefaultServerUrl == null)
+            {
+                throw new InvalidOperationException("DefaultServerUrl is not set");
+            }
+
+            // Combine base URL with endpoint
+            return new Uri(this.DefaultServerUrl, endpoint.TrimStart('/'));
         }
 
         /// <summary>
