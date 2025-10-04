@@ -49,6 +49,37 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Builds an absolute Uri for a provider endpoint using <see cref="DefaultServerUrl"/>.
+        /// Ensures consistent normalization across call and streaming paths.
+        /// </summary>
+        /// <param name="endpoint">Absolute URL or provider-relative endpoint (with or without leading '/').</param>
+        /// <returns>Absolute <see cref="Uri"/> for the request.</returns>
+        protected internal Uri BuildFullUrl(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
+            }
+
+            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
+            {
+                return abs;
+            }
+
+            var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
+
+            // Normalization of baseUri to ensure it ends with a trailing slash
+            if (!baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal))
+            {
+                baseUri = new Uri(baseUri.AbsoluteUri + "/");
+            }
+
+            var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
+
+            return new Uri(baseUri, relative);
+        }
+
+        /// <summary>
         /// Gets the singleton instance of the provider.
         /// </summary>
         public static T Instance => InstanceValue.Value;
@@ -536,30 +567,8 @@ namespace SmartHopper.Infrastructure.AIProviders
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            // Determine the full URL
-            Uri fullUri;
-            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
-            {
-                // Endpoint is a full URL
-                fullUri = abs;
-            }
-            else
-            {
-                // Endpoint is a relative path, append to DefaultServerUrl
-                var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
-
-                // Central normalization: ensure the base URL ends with a trailing slash so
-                // Uri(base, relative) appends under the last path segment instead of replacing it.
-                // Example: https://api.openai.com/v1 + "chat/completions" => https://api.openai.com/v1/chat/completions
-                // Without the trailing slash, .NET treats 'v1' as a file and would drop it.
-                if (!baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal))
-                {
-                    baseUri = new Uri(baseUri.AbsoluteUri + "/");
-                }
-
-                var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
-                fullUri = new Uri(baseUri, relative);
-            }
+            // Determine the full URL using centralized normalization
+            Uri fullUri = this.BuildFullUrl(endpoint);
 
             Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUri}");
 
