@@ -547,6 +547,16 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 // Endpoint is a relative path, append to DefaultServerUrl
                 var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
+
+                // Central normalization: ensure the base URL ends with a trailing slash so
+                // Uri(base, relative) appends under the last path segment instead of replacing it.
+                // Example: https://api.openai.com/v1 + "chat/completions" => https://api.openai.com/v1/chat/completions
+                // Without the trailing slash, .NET treats 'v1' as a file and would drop it.
+                if (!baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal))
+                {
+                    baseUri = new Uri(baseUri.AbsoluteUri + "/");
+                }
+
                 var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
                 fullUri = new Uri(baseUri, relative);
             }
