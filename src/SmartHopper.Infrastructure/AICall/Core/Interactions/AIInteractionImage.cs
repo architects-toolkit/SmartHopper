@@ -10,10 +10,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -103,7 +101,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
             if (imageUrl != null)
             {
-                // Back-compat overload: parse string into Uri when possible
+                var hash = HashUtility.ComputeShortHash(imageUrl);
                 if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
                 {
                     this.SetResult(uri, imageData, revisedPrompt);
@@ -149,7 +147,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var id = this.ImageUrl != null
                 ? this.ImageUrl.ToString()
-                : (!string.IsNullOrEmpty(this.ImageData) ? ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
+                : (!string.IsNullOrEmpty(this.ImageData) ? HashUtility.ComputeShortHash(this.ImageData) : (this.OriginalPrompt ?? string.Empty).Trim());
 
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
@@ -170,18 +168,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             var quality = this.ImageQuality ?? string.Empty;
             var style = this.ImageStyle ?? string.Empty;
             return $"{this.GetStreamKey()}:{size}:{quality}:{style}";
-        }
-
-        /// <summary>
-        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
-        /// </summary>
-        /// <param name="value">Input string to hash.</param>
-        /// <returns>Lowercase hex substring of the hash.</returns>
-        private static string ComputeShortHash(string value)
-        {
-            var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-            var hash = SHA256.HashData(bytes);
-            return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
         }
 
         /// <summary>

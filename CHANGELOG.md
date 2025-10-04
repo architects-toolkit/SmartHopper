@@ -201,6 +201,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ConversationSession:
+  - Fixed TurnId mismatch between tool calls and their results: tool results now inherit the TurnId from their originating tool call instead of receiving a new TurnId from the current turn iteration. This ensures proper correlation in WebChat rendering keys.
+
+- WebChatDialog:
+  - Fixed assistant messages appearing out of order in the UI when tool calls are made. Empty assistant text interactions (which represent the decision to call tools) are now preserved in conversation history but skipped during UI rendering. The actual assistant response after tool execution renders as a separate segment (seg2) in the correct position after tool results.
+  - Fixed duplicate greeting messages in UI. `OnFinal` now uses dedup keys for non-streamed interactions (like greetings) instead of creating new segmented keys, ensuring they upsert into existing bubbles rendered during history replay.
+
 - Components – ImageViewer:
   - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
 

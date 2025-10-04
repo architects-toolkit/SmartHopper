@@ -322,6 +322,17 @@ namespace SmartHopper.Core.UI.Chat
         private void UpsertMessageByKey(string domKey, IAIInteraction interaction, string? source = null)
         {
             if (interaction == null || string.IsNullOrWhiteSpace(domKey)) return;
+            
+            // Skip rendering empty assistant text bubbles (they're preserved in history but hidden from UI)
+            if (interaction is AIInteractionText txt && 
+                txt.Agent == AIAgent.Assistant && 
+                string.IsNullOrWhiteSpace(txt.Content) && 
+                string.IsNullOrWhiteSpace(txt.Reasoning))
+            {
+                Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped empty assistant) key={domKey} src={source ?? "?"}");
+                return;
+            }
+            
             this.RunWhenWebViewReady(() =>
             {
                 var html = this._htmlRenderer.RenderInteraction(interaction);

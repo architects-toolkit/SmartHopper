@@ -10,10 +10,9 @@
 
 using System;
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -124,22 +123,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
         {
+            var turnIdPart = !string.IsNullOrWhiteSpace(this.TurnId) ? this.TurnId : string.Empty;
+            var agentPart = (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
             var content = (this.Content ?? string.Empty).Trim();
-            var hash = ComputeShortHash(content);
+            var hash = HashUtility.ComputeShortHash($"{turnIdPart}:{agentPart}:{content}");
 
             return $"{this.GetStreamKey()}:{hash}";
-        }
-
-        /// <summary>
-        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
-        /// </summary>
-        /// <param name="value">Input string to hash.</param>
-        /// <returns>Lowercase hex substring of the hash.</returns>
-        private static string ComputeShortHash(string value)
-        {
-            var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-            var hash = SHA256.HashData(bytes);
-            return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
         }
 
         /// <summary>

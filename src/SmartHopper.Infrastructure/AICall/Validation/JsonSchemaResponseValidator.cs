@@ -16,12 +16,12 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
     /// <summary>
     /// Baseline validator that checks provider response content against the request's JSON schema.
-    /// Minimal: validates JSON parse of schema and instance. Full JSON Schema validation can be added later.
     /// </summary>
     public sealed class JsonSchemaResponseValidator : IValidator<AIReturn>
     {
@@ -85,21 +85,8 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             }
 
             var result = new ValidationResult { Messages = messages };
-            result.IsValid = !HasAtOrAbove(messages, this.FailOn);
+            result.IsValid = !RuntimeMessageUtility.HasSeverityAtOrAbove(messages, this.FailOn);
             return Task.FromResult(result);
-        }
-
-        private static bool HasAtOrAbove(List<AIRuntimeMessage> messages, AIRuntimeMessageSeverity threshold)
-        {
-            foreach (var m in messages)
-            {
-                if (m != null && m.Severity >= threshold)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

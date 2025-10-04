@@ -23,6 +23,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Metrics;
+    using SmartHopper.Infrastructure.AICall.Utilities;
     using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.Infrastructure.Streaming;
@@ -35,7 +36,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     /// Invariants:
     /// - Providers are invoked only if there are no pending tool calls (PendingToolCallsCount() == 0).
     /// - Only provider turns increment the MaxTurns counter (tool passes do not consume turns).
-    /// - Streaming deltas are persisted into history as they arrive to preserve exact order (no grouping/reordering).
+    /// - Streaming text deltas are accumulated in memory and only the final aggregated text is persisted to history.
+    /// - Non-text interactions (tool calls, tool results) are persisted immediately as they arrive.
     /// </remarks>
     public sealed partial class ConversationSession : IConversationSession
     {
@@ -259,6 +261,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         ShouldBreak = false,
                         LastDelta = null,
                         LastToolCallsDelta = null,
+                        AccumulatedText = null,
                     };
 
                     try
@@ -278,7 +281,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                         else
                         {
-                            // Streaming path: forward each chunk to observer and caller, and persist in arrival order
+                            // Streaming path: forward each chunk to observer, accumulate text in memory, persist non-text immediately
                             await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions!, linkedCts.Token))
                             {
                                 if (delta == null)
@@ -286,28 +289,43 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     continue;
                                 }
 
-                                // Notify UI with streaming deltas, then persist this chunk into session history
+                                // Notify UI with streaming deltas for live updates
                                 var newInteractions = delta.Body?.GetNewInteractions();
-                                ConversationSession.EnsureTurnIdFor(newInteractions, state.TurnId);
+                                InteractionUtility.EnsureTurnId(newInteractions, state.TurnId);
                                 this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
 
-                                // Persist interactions exactly in arrival order (no grouping/reordering)
+                                // Process new interactions: accumulate text, persist non-text immediately
                                 if (newInteractions != null && newInteractions.Count > 0)
                                 {
+                                    var nonTextInteractions = new List<IAIInteraction>();
+
                                     foreach (var interaction in newInteractions)
                                     {
-                                        this.AppendToSessionHistory(interaction);
+                                        if (interaction is AIInteractionText textDelta)
+                                        {
+                                            // Accumulate text deltas in memory (will be persisted after streaming completes)
+                                            state.AccumulatedText = TextStreamCoalescer.Coalesce(state.AccumulatedText, textDelta, state.TurnId, preserveMetrics: false);
+                                        }
+                                        else
+                                        {
+                                            // Persist non-text interactions (tool calls, tool results) immediately
+                                            this.AppendToSessionHistory(interaction);
+                                            nonTextInteractions.Add(interaction);
+                                        }
                                     }
 
-                                    // Emit partial to signal persistence of this chunk
-                                    try
+                                    // Emit partial notification only for persisted non-text interactions
+                                    if (nonTextInteractions.Count > 0)
                                     {
-                                        var persistedDelta = this.BuildDeltaReturn(state.TurnId, newInteractions);
-                                        this.NotifyPartial(persistedDelta);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Debug.WriteLine($"[ConversationSession.Stream] Error emitting per-chunk persisted delta: {ex.Message}");
+                                        try
+                                        {
+                                            var persistedDelta = this.BuildDeltaReturn(state.TurnId, nonTextInteractions);
+                                            this.NotifyPartial(persistedDelta);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Debug.WriteLine($"[ConversationSession.Stream] Error emitting persisted non-text delta: {ex.Message}");
+                                        }
                                     }
 
                                     // Keep a reference to last tool_calls delta if needed by diagnostics
@@ -317,9 +335,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 state.DeltaYields.Add(delta);
                                 state.LastDelta = delta;
                                 lastReturn = delta;
-
-                                // Snapshot last return to current history body for consumers that poll it
-                                this.UpdateLastReturn();
                             }
 
                             // After streaming ends, either error (no deltas) or persist final snapshot then continue
@@ -332,8 +347,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
                             else
                             {
-                                // Update last-return snapshot only (persistence was done per-chunk)
-                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId);
+                                // Persist final aggregated text and update last-return snapshot
+                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId, state.AccumulatedText);
 
                                 if (!options.ProcessTools)
                                 {
@@ -766,7 +781,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = callResult.Body?.GetNewInteractions();
 
             // Apply unified TurnId to all new interactions for this provider turn
-            ConversationSession.EnsureTurnIdFor(newInteractions, turnId);
+            InteractionUtility.EnsureTurnId(newInteractions, turnId);
             this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
 #if DEBUG
             // Debug: observe tool_call ids after provider merge
@@ -838,7 +853,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 // Persist new interactions and update last return
                 var followUpNew = followUp.Body?.GetNewInteractions();
-                ConversationSession.EnsureTurnIdFor(followUpNew, turnId);
+                InteractionUtility.EnsureTurnId(followUpNew, turnId);
                 this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
                 this._lastReturn = followUp;
                 this.UpdateLastReturn();

@@ -8,13 +8,11 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -79,8 +77,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>De-duplication key.</returns>
         public override string GetDedupKey()
         {
-            var res = (this.Result != null ? this.Result.ToString() : string.Empty).Trim();
-            var hash = ComputeShortHash(res);
+            // Compact representation of the result to avoid massive keys
+            var resultStr = this.Result != null
+                ? (this.Result.Type == JTokenType.String
+                    ? ((string)this.Result).Trim()
+                    : this.Result.ToString(Formatting.None))
+                : string.Empty;
+
+            var res = resultStr.Length > 64 ? resultStr.Substring(0, 64) : resultStr;
+
+            var idPart = $"{this.Id ?? this.Name ?? string.Empty}:{res}";
+            var hash = HashUtility.ComputeShortHash(idPart);
 
             return $"{this.GetStreamKey()}:{hash}";
         }
@@ -115,19 +122,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public override string GetRawReasoningForRender()
         {
             return string.Empty;
-        }
-
-        /// <summary>
-        /// Computes a short (16 hex chars) SHA256-based hash for stable keys.
-        /// </summary>
-        private static string ComputeShortHash(string value)
-        {
-            using (var sha = SHA256.Create())
-            {
-                var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-                var hash = sha.ComputeHash(bytes);
-                return BitConverter.ToString(hash).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant().Substring(0, 16);
-            }
         }
     }
 }
