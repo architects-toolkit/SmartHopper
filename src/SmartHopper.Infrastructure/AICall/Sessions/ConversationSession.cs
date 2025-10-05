@@ -373,8 +373,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 }
                                 else
                                 {
-                                    // Process tools after streaming completes
-                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
+                                    // Process tools after streaming completes - continue using streaming for follow-up responses
+                                    state.PendingToolYields = await this.ProcessPendingToolsAsync(options, state.TurnId, linkedCts.Token, streamingOptions, useStreaming: true).ConfigureAwait(false);
                                     if (state.PendingToolYields.Count > 0)
                                     {
                                         lastReturn = state.PendingToolYields.Last();
@@ -655,7 +655,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="options">Session execution options.</param>
         /// <param name="turnId">Unified TurnId applied to interactions produced within these tool passes.</param>
         /// <param name="ct">Cancellation token.</param>
-        private async Task<List<AIReturn>> ProcessPendingToolsAsync(SessionOptions options, string turnId, CancellationToken ct)
+        /// <param name="streamingOptions">Optional streaming options to use for follow-up provider calls after tool execution.</param>
+        /// <param name="useStreaming">Whether to use streaming for follow-up provider calls.</param>
+        private async Task<List<AIReturn>> ProcessPendingToolsAsync(SessionOptions options, string turnId, CancellationToken ct, StreamingOptions? streamingOptions = null, bool useStreaming = false)
         {
             var preparedYields = new List<AIReturn>();
             int toolPass = 0;
@@ -694,24 +696,106 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 // Provider consumes tool results
                 ct.ThrowIfCancellationRequested();
-                var followUp = await this.ExecProviderAsync(ct).ConfigureAwait(false);
-                if (followUp == null)
+                
+                // Use streaming if requested and available
+                if (useStreaming && streamingOptions != null)
                 {
-                    var err = this.CreateError("Provider returned no response");
-                    this.NotifyFinal(err);
-                    preparedYields.Add(err);
-                    break;
+                    var exec = new DefaultProviderExecutor();
+                    var adapter = exec.TryGetStreamingAdapter(this.Request);
+                    
+                    if (adapter != null)
+                    {
+                        // Stream the follow-up response
+                        AIInteractionText? accumulatedText = null;
+                        AIReturn? lastDelta = null;
+                        
+                        await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, ct))
+                        {
+                            if (delta == null) continue;
+                            
+                            var newInteractions = delta.Body?.GetNewInteractions();
+                            InteractionUtility.EnsureTurnId(newInteractions, turnId);
+                            
+                            if (newInteractions != null)
+                            {
+                                foreach (var interaction in newInteractions)
+                                {
+                                    if (interaction is AIInteractionText textDelta)
+                                    {
+                                        // Accumulate text deltas
+                                        accumulatedText = TextStreamCoalescer.Coalesce(accumulatedText, textDelta, turnId, preserveMetrics: false);
+                                        
+                                        // Notify UI with streaming delta
+                                        var textDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { textDelta });
+                                        this.NotifyDelta(textDeltaReturn);
+                                    }
+                                }
+                            }
+                            
+                            lastDelta = delta;
+                        }
+                        
+                        if (lastDelta == null)
+                        {
+                            var err = this.CreateError("Provider returned no response");
+                            this.NotifyFinal(err);
+                            preparedYields.Add(err);
+                            break;
+                        }
+                        
+                        // Persist final aggregated text
+                        if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
+                        {
+                            accumulatedText.TurnId = turnId;
+                            this.AppendToSessionHistory(accumulatedText);
+                        }
+                        
+                        this._lastReturn = lastDelta;
+                        this.UpdateLastReturn();
+                        this.NotifyPartial(lastDelta);
+                        preparedYields.Add(lastDelta);
+                    }
+                    else
+                    {
+                        // Fallback to non-streaming if adapter not available
+                        var followUp = await this.ExecProviderAsync(ct).ConfigureAwait(false);
+                        if (followUp == null)
+                        {
+                            var err = this.CreateError("Provider returned no response");
+                            this.NotifyFinal(err);
+                            preparedYields.Add(err);
+                            break;
+                        }
+                        
+                        var followUpNew = followUp.Body?.GetNewInteractions();
+                        InteractionUtility.EnsureTurnId(followUpNew, turnId);
+                        this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
+                        this._lastReturn = followUp;
+                        this.UpdateLastReturn();
+                        this.NotifyPartial(followUp);
+                        preparedYields.Add(followUp);
+                    }
                 }
-
-                // Persist new interactions and update last return
-                var followUpNew = followUp.Body?.GetNewInteractions();
-                InteractionUtility.EnsureTurnId(followUpNew, turnId);
-                this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
-                this._lastReturn = followUp;
-                this.UpdateLastReturn();
-
-                this.NotifyPartial(followUp);
-                preparedYields.Add(followUp);
+                else
+                {
+                    // Non-streaming path (original behavior)
+                    var followUp = await this.ExecProviderAsync(ct).ConfigureAwait(false);
+                    if (followUp == null)
+                    {
+                        var err = this.CreateError("Provider returned no response");
+                        this.NotifyFinal(err);
+                        preparedYields.Add(err);
+                        break;
+                    }
+                    
+                    var followUpNew = followUp.Body?.GetNewInteractions();
+                    InteractionUtility.EnsureTurnId(followUpNew, turnId);
+                    this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
+                    this._lastReturn = followUp;
+                    this.UpdateLastReturn();
+                    this.NotifyPartial(followUp);
+                    preparedYields.Add(followUp);
+                }
 
                 if (this.Request.Body.PendingToolCallsCount() == 0)
                 {
