@@ -81,19 +81,21 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Returns a stable de-duplication key for this interaction. Includes arguments to disambiguate.
+        /// Returns a stable de-duplication key for this interaction. Includes arguments hash to disambiguate.
         /// </summary>
         /// <returns>De-duplication key.</returns>
         public virtual string GetDedupKey()
         {
             var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
-            var args = (this.Arguments != null ? this.Arguments.ToString() : string.Empty).Trim();
+            var argsStr = this.Arguments != null ? this.Arguments.ToString(Newtonsoft.Json.Formatting.None) : string.Empty;
+            var argsHash = !string.IsNullOrEmpty(argsStr) ? SmartHopper.Infrastructure.AICall.Utilities.HashUtility.ComputeShortHash(argsStr) : "none";
+            
             if (!string.IsNullOrWhiteSpace(this.TurnId))
             {
-                return $"turn:{this.TurnId}:tool.call:{id}:{args}";
+                return $"turn:{this.TurnId}:tool.call:{id}:{argsHash}";
             }
 
-            return $"tool.call:{id}:{args}";
+            return $"tool.call:{id}:{argsHash}";
         }
 
         /// <summary>

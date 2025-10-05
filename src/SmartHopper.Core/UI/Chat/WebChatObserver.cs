@@ -67,17 +67,8 @@ namespace SmartHopper.Core.UI.Chat
             // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:{agent}").
             private readonly Dictionary<string, int> _textInteractionSegments = new Dictionary<string, int>(StringComparer.Ordinal);
 
-            // Per-turn state to implement segmentation boundaries (generic to any role)
-            // - We only start a new text segment when:
-            //   1) A new AIInteractionText arrives after another type of interaction in the same turn, or
-            //   2) The role (agent) of the AIInteractionText differs from the last text role seen in the same turn.
-            // Keys are generic turn keys in the form "turn:{TurnId}"; values track last seen type/agent.
-            private readonly Dictionary<string, Type> _lastInteractionTypeByTurn = new Dictionary<string, Type>(StringComparer.Ordinal);
-            private readonly Dictionary<string, AIAgent> _lastTextAgentByTurn = new Dictionary<string, AIAgent>();
-
             // Pending segmentation boundary flags per turn. When set, the next text interaction for that turn
-            // starts a new segment (new bubble). These flags are set by OnInteractionCompleted when an interaction
-            // (text or non-text) is finalized and persisted to history.
+            // starts a new segment (new bubble). Simplified rule: set boundary after ANY completed interaction.
             private readonly HashSet<string> _pendingNewTextSegmentTurns = new HashSet<string>(StringComparer.Ordinal);
 
             // Finalized turns: after OnFinal has rendered the assistant text for a turn, ignore any late
@@ -148,8 +139,6 @@ namespace SmartHopper.Core.UI.Chat
                     // Reset per-run state
                     this._streams.Clear();
                     this._textInteractionSegments.Clear();
-                    this._lastInteractionTypeByTurn.Clear();
-                    this._lastTextAgentByTurn.Clear();
                     this._pendingNewTextSegmentTurns.Clear();
                     this._finalizedTextTurns.Clear();
                     this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
@@ -209,7 +198,7 @@ namespace SmartHopper.Core.UI.Chat
                             if (interaction is AIInteractionText tt)
                             {
                                 // Determine segmented key for ANY text agent (assistant, user, system).
-                                // Consume pending boundary set by OnInteractionCompleted to advance to a new segment.
+                                // Consume pending boundary to advance to a new segment.
                                 var baseKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(tt?.TurnId);
 
@@ -219,10 +208,8 @@ namespace SmartHopper.Core.UI.Chat
                                     return;
                                 }
 
-                                if (!string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Remove(turnKey) && this._textInteractionSegments.ContainsKey(baseKey))
-                                {
-                                    this._textInteractionSegments[baseKey] = this._textInteractionSegments[baseKey] + 1;
-                                }
+                                // Consume boundary flag and increment segment
+                                this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
 
                                 var key = this.GetCurrentSegmentedKey(baseKey);
                                 if (!this._streams.TryGetValue(key, out var state))
@@ -298,24 +285,13 @@ namespace SmartHopper.Core.UI.Chat
                                     agg.Time = tt.Time;
                                     this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
                                     
-                                    // Mark boundary: next text in this turn (from a different API call) gets a new segment
-                                    // This handles multi-turn tool calling where multiple API responses occur in the same turn
-                                    if (!string.IsNullOrWhiteSpace(turnKey))
-                                    {
-                                        this._pendingNewTextSegmentTurns.Add(turnKey);
-                                    }
+                                    // Mark boundary: next text in this turn gets a new segment
+                                    this.SetBoundaryFlag(turnKey);
                                 }
                                 else
                                 {
-                                    // Non-streaming completion path. If a boundary was marked (e.g., after a tool result
-                                    // or tool call), consume it here so this text starts a NEW segment. Do NOT do this for
-                                    // streaming finals, as they must finalize the already-streaming segment.
-                                    if (!string.IsNullOrWhiteSpace(turnKey)
-                                        && this._pendingNewTextSegmentTurns.Remove(turnKey)
-                                        && this._textInteractionSegments.ContainsKey(baseKey))
-                                    {
-                                        this._textInteractionSegments[baseKey] = this._textInteractionSegments[baseKey] + 1;
-                                    }
+                                    // Non-streaming completion path. Consume boundary to start a NEW segment.
+                                    this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
 
                                     // True non-streaming preview: create or reuse current segment and upsert once
                                     if (!this._textInteractionSegments.ContainsKey(baseKey))
@@ -334,10 +310,7 @@ namespace SmartHopper.Core.UI.Chat
                                     this._dialog.UpsertMessageByKey(segKey, tt, source: "OnInteractionCompletedNonStreaming");
                                     
                                     // Mark boundary: next text in this turn gets a new segment
-                                    if (!string.IsNullOrWhiteSpace(turnKey))
-                                    {
-                                        this._pendingNewTextSegmentTurns.Add(turnKey);
-                                    }
+                                    this.SetBoundaryFlag(turnKey);
                                 }
 
                                 return;
@@ -368,19 +341,9 @@ namespace SmartHopper.Core.UI.Chat
                                     }
                                 }
 
-                                // Record last interaction type for this turn to support segmentation
-                                try
-                                {
-                                    var turnKey = GetTurnBaseKey(interaction?.TurnId);
-                                    if (!string.IsNullOrWhiteSpace(turnKey))
-                                    {
-                                        this._lastInteractionTypeByTurn[turnKey] = interaction.GetType();
-
-                                        // Mark boundary so the next text in this turn starts a new segment
-                                        this._pendingNewTextSegmentTurns.Add(turnKey);
-                                    }
-                                }
-                                catch { }
+                                // Mark boundary: next text in this turn gets a new segment
+                                var turnKey = GetTurnBaseKey(interaction?.TurnId);
+                                this.SetBoundaryFlag(turnKey);
                             }
                         }
                         catch (Exception innerEx)
@@ -537,8 +500,6 @@ namespace SmartHopper.Core.UI.Chat
                     // Clear streaming and per-turn state and finish
                     this._streams.Clear();
                     this._textInteractionSegments.Clear();
-                    this._lastInteractionTypeByTurn.Clear();
-                    this._lastTextAgentByTurn.Clear();
                     this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
                     this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                 });
@@ -637,6 +598,30 @@ namespace SmartHopper.Core.UI.Chat
             private static bool HasRenderableText(AIInteractionText t)
             {
                 return t != null && (!string.IsNullOrWhiteSpace(t.Content) || !string.IsNullOrWhiteSpace(t.Reasoning));
+            }
+
+            /// <summary>
+            /// Sets the boundary flag for the next text interaction in the given turn.
+            /// </summary>
+            private void SetBoundaryFlag(string turnKey)
+            {
+                if (!string.IsNullOrWhiteSpace(turnKey))
+                {
+                    this._pendingNewTextSegmentTurns.Add(turnKey);
+                }
+            }
+
+            /// <summary>
+            /// Consumes the boundary flag and increments the segment counter if applicable.
+            /// </summary>
+            private void ConsumeBoundaryAndIncrementSegment(string turnKey, string baseKey)
+            {
+                if (!string.IsNullOrWhiteSpace(turnKey)
+                    && this._pendingNewTextSegmentTurns.Remove(turnKey)
+                    && this._textInteractionSegments.ContainsKey(baseKey))
+                {
+                    this._textInteractionSegments[baseKey] = this._textInteractionSegments[baseKey] + 1;
+                }
             }
 
             /// <summary>

@@ -335,7 +335,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         try
                                         {
                                             var persistedDelta = this.BuildDeltaReturn(state.TurnId, nonTextInteractions);
-                                            this.NotifyPartial(persistedDelta);
+                                            this.NotifyInteractionCompleted(persistedDelta);
                                         }
                                         catch (Exception ex)
                                         {
@@ -644,7 +644,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this._lastReturn = callResult;
             this.UpdateLastReturn(callResult);
 
-            this.NotifyPartial(callResult);
+            this.NotifyInteractionCompleted(callResult);
             return callResult;
         }
 
@@ -752,7 +752,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         
                         this._lastReturn = lastDelta;
                         this.UpdateLastReturn();
-                        this.NotifyPartial(lastDelta);
+                        this.NotifyInteractionCompleted(lastDelta);
                         preparedYields.Add(lastDelta);
                     }
                     else
@@ -772,7 +772,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
                         this._lastReturn = followUp;
                         this.UpdateLastReturn();
-                        this.NotifyPartial(followUp);
+                        this.NotifyInteractionCompleted(followUp);
                         preparedYields.Add(followUp);
                     }
                 }
@@ -793,7 +793,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
                     this._lastReturn = followUp;
                     this.UpdateLastReturn();
-                    this.NotifyPartial(followUp);
+                    this.NotifyInteractionCompleted(followUp);
                     preparedYields.Add(followUp);
                 }
 

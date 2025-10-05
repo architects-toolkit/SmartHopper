@@ -121,7 +121,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                         // Emit a partial delta so observers can render the tool call immediately
                         var tcDelta = this.BuildDeltaReturn(turnId, new[] { tc });
-                        this.NotifyPartial(tcDelta);
+                        this.NotifyInteractionCompleted(tcDelta);
                     }
                 }
             }
@@ -179,7 +179,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 var deltaReturn = this.BuildDeltaReturn(turnId, new[] { result });
-                this.NotifyPartial(deltaReturn);
+                this.NotifyInteractionCompleted(deltaReturn);
             }
             catch (Exception ex)
             {
@@ -358,7 +358,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Notifies observer when interactions complete and are persisted.
         /// </summary>
-        private void NotifyPartial(AIReturn ret)
+        private void NotifyInteractionCompleted(AIReturn ret)
         {
             if (this.Observer == null || ret?.Body?.Interactions == null)
             {
@@ -368,7 +368,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyPartial: new={(newInteractions?.Count ?? 0)}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Debug.WriteLine($"[ConversationSession] NotifyInteractionCompleted: new={(newInteractions?.Count ?? 0)}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
