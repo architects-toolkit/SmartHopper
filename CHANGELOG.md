@@ -97,13 +97,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Providers – Anthropic:
   - Unified encoding/decoding helpers. Extracted `BuildTextMessage`, `BuildToolResultMessage`, and `ExtractToolResultText` in `AnthropicProvider.cs` and updated both `Encode(IAIInteraction)` and `Encode(AIRequestCall)` to use them, removing duplicated logic for `AIInteractionText` and `AIInteractionToolResult`.
-
   - Switched URL members to use System.Uri for stronger typing and to satisfy CA1054/CA1055/CA1056:
     - `AIProvider.DefaultServerUrl` is now `Uri` (was `string`).
     - `AIProviderStreamingAdapter.BuildFullUrl(string)` now returns `Uri`.
     - `AIProviderStreamingAdapter.CreateSsePost` now accepts a `Uri` parameter.
     - `AIInteractionImage.ImageUrl` is now `Uri` (was `string`).
   - Added `AIInteractionImage.SetResult(Uri imageUrl, string imageData = null, string revisedPrompt = null)` overload; kept string overload for backward compatibility.
+
+- Providers – OpenAI:
+  - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.
 
 - UI and settings:
   - AI Chat component default system prompt to a generic one.
@@ -180,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ConversationSession` now uses a unified internal loop (`TurnLoopAsync`) for both streaming and non‑streaming APIs to prevent logic drift.
   - Streaming persistence semantics updated: deltas are persisted into history per chunk in arrival order (no grouping or reordering at the end of the stream). Finalization only updates the "last return" snapshot.
   - Tool-call handling: removed internal deduplication-by-Id for `tool_call` interactions. Multiple tool calls with the same Id emitted by providers are now preserved in history. Session avoids introducing duplicates on its own when force-appending missing tool_calls prior to execution.
+  - Fixed streaming delta notifications to only emit `OnDelta` for text interactions; non-text interactions (tool calls, tool results) now properly use `OnPartial` after completion.
 
 - Streaming adapters internals:
   - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).
@@ -218,6 +221,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebChatDialog:
   - Fixed assistant messages appearing out of order in the UI when tool calls are made. Empty assistant text interactions (which represent the decision to call tools) are now preserved in conversation history but skipped during UI rendering. The actual assistant response after tool execution renders as a separate segment (seg2) in the correct position after tool results.
   - Fixed duplicate greeting messages in UI. `OnFinal` now uses dedup keys for non-streamed interactions (like greetings) instead of creating new segmented keys, ensuring they upsert into existing bubbles rendered during history replay.
+  - Fixed AI-generated greetings not streaming. Greeting initialization now uses `ConversationSession.Stream()` with streaming validation and fallback to `RunToStableResult()` on failure, matching the pattern used for regular user messages.
 
 - Components – ImageViewer:
   - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.

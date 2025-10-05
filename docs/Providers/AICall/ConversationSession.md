@@ -105,6 +105,7 @@ Notes:
 - Both public APIs now delegate to the same internal loop `TurnLoopAsync(...)` for consistent behavior.
 - Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
 - Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
+- **Duplicate prevention**: Tool calls are checked for existence by ID before persisting during streaming to prevent duplicate tool call interactions that would cause API validation errors.
 
 ## Special Turns
 
