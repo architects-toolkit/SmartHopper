@@ -25,7 +25,7 @@ namespace SmartHopper.Menu.Dialogs
     internal sealed class AboutDialog : Dialog
     {
         private const string GitHubUrl = "https://github.com/architects-toolkit/SmartHopper";
-        private const string RktkUrl = "https://rktk.tools";
+        private const string GitHubCompanyUrl = "https://github.com/architects-toolkit";
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
 
@@ -134,7 +134,7 @@ namespace SmartHopper.Menu.Dialogs
                 Wrap = WrapMode.Word,
             };
 
-            var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
+            var supportLinkLabel = CreateLinkButton("Architect's Toolkit", GitHubCompanyUrl);
 
             var communityLabel = new Label
             {

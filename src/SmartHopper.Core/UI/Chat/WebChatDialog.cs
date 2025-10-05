@@ -52,7 +52,15 @@ namespace SmartHopper.Core.UI.Chat
         private string? _pendingUserMessage;
 
         // Keeps last-rendered HTML per DOM key to make upserts idempotent and avoid redundant DOM work
+        // Uses LRU eviction to prevent unbounded growth in long conversations
         private readonly Dictionary<string, string> _lastDomHtmlByKey = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Queue<string> _lruQueue = new Queue<string>();
+        private const int MaxIdempotencyCacheSize = 1000;
+
+        // Key length and performance monitoring
+        private int _maxKeyLengthSeen = 0;
+        private long _totalEqualityChecks = 0;
+        private long _totalEqualityCheckMs = 0;
 
         // ConversationSession manages all history and requests
         // WebChatDialog is now a pure UI consumer
@@ -123,22 +131,36 @@ namespace SmartHopper.Core.UI.Chat
                 var html = this._htmlRenderer.RenderInteraction(interaction);
                 var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
 
-                if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last) && string.Equals(last, html, StringComparison.Ordinal))
+                // Monitor key length
+                this.MonitorKeyLength(domKey);
+                this.MonitorKeyLength(followKey);
+
+                // Performance profiling for HTML equality check
+                if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
                 {
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"}");
-                    return;
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
+                    sw.Stop();
+                    this._totalEqualityChecks++;
+                    this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
+
+                    if (isEqual)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
+                        return;
+                    }
                 }
 
                 Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
-                var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
-                try
+                
+                // Log warning if followKey might not be found (JavaScript will also warn)
+                if (string.IsNullOrWhiteSpace(followKey))
                 {
-                    this._lastDomHtmlByKey[domKey] = html ?? string.Empty;
-                }
-                catch
-                {
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
                 }
 
+                var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
+                this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
                 this.ExecuteScript(script);
             });
         }
@@ -338,26 +360,107 @@ namespace SmartHopper.Core.UI.Chat
                 var html = this._htmlRenderer.RenderInteraction(interaction);
                 var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
 
-                // Idempotency check: if the HTML for this key hasn't changed, skip DOM update
-                if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last) && string.Equals(last, html, StringComparison.Ordinal))
+                // Monitor key length
+                this.MonitorKeyLength(domKey);
+
+                // Performance profiling for HTML equality check
+                if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
                 {
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped identical) key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"}");
-                    return;
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
+                    sw.Stop();
+                    this._totalEqualityChecks++;
+                    this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
+
+                    if (isEqual)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped identical) key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
+                        return;
+                    }
                 }
 
                 Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
                 var script = $"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
                 Debug.WriteLine($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
-                try
-                {
-                    this._lastDomHtmlByKey[domKey] = html ?? string.Empty;
-                }
-                catch
-                {
-                }
-
+                this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
                 this.ExecuteScript(script);
             });
+        }
+
+        /// <summary>
+        /// Updates the idempotency cache with LRU eviction to prevent unbounded growth.
+        /// </summary>
+        /// <param name="key">The DOM key.</param>
+        /// <param name="html">The HTML content.</param>
+        private void UpdateIdempotencyCache(string key, string html)
+        {
+            try
+            {
+                // If key already exists, we don't need to track it again in LRU queue
+                bool isExisting = this._lastDomHtmlByKey.ContainsKey(key);
+                
+                this._lastDomHtmlByKey[key] = html;
+
+                if (!isExisting)
+                {
+                    this._lruQueue.Enqueue(key);
+
+                    // Evict oldest entry if cache exceeds max size
+                    while (this._lruQueue.Count > MaxIdempotencyCacheSize)
+                    {
+                        var oldest = this._lruQueue.Dequeue();
+                        this._lastDomHtmlByKey.Remove(oldest);
+                        Debug.WriteLine($"[WebChatDialog] LRU eviction: removed key={oldest} (cache size was {this._lruQueue.Count + 1})");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] UpdateIdempotencyCache error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Monitors key length and logs warnings for unusually long keys.
+        /// </summary>
+        /// <param name="key">The key to monitor.</param>
+        private void MonitorKeyLength(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                return;
+            }
+
+            try
+            {
+                int len = key.Length;
+                if (len > this._maxKeyLengthSeen)
+                {
+                    this._maxKeyLengthSeen = len;
+                    Debug.WriteLine($"[WebChatDialog] New max key length: {len} chars - key preview: {(len > 80 ? key.Substring(0, 80) + "..." : key)}");
+
+                    if (len > 256)
+                    {
+                        Debug.WriteLine($"[WebChatDialog] WARNING: Key length ({len}) exceeds recommended limit (256). Full key: {key}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebChatDialog] MonitorKeyLength error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Logs performance statistics for idempotency checks.
+        /// </summary>
+        private void LogPerformanceStats()
+        {
+            if (this._totalEqualityChecks > 0)
+            {
+                var avgMs = (double)this._totalEqualityCheckMs / this._totalEqualityChecks;
+                Debug.WriteLine($"[WebChatDialog] Performance Stats: {this._totalEqualityChecks} equality checks, {this._totalEqualityCheckMs}ms total, {avgMs:F3}ms avg, max key length: {this._maxKeyLengthSeen}");
+            }
         }
 
         /// <summary>
@@ -605,15 +708,24 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
+                // Log performance stats before clearing
+                this.LogPerformanceStats();
+
                 this.CancelCurrentRun();
 
                 // Clear messages in-place without reloading the WebView
                 this.RunWhenWebViewReady(() => this.ExecuteScript("clearMessages(); setStatus('Ready'); setProcessing(false);"));
 
-                // Reset last-rendered cache since DOM has been cleared
+                // Reset last-rendered cache and LRU queue since DOM has been cleared
                 try
                 {
                     this._lastDomHtmlByKey.Clear();
+                    this._lruQueue.Clear();
+                    
+                    // Reset performance counters
+                    this._maxKeyLengthSeen = 0;
+                    this._totalEqualityChecks = 0;
+                    this._totalEqualityCheckMs = 0;
                 }
                 catch
                 {
