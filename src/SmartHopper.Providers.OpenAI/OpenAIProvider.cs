@@ -1093,7 +1093,12 @@ namespace SmartHopper.Providers.OpenAI
                         CompletionTime = assistantAggregate.Metrics.CompletionTime,
                     },
                 };
-                final.SetBody(new List<IAIInteraction> { finalSnapshot });
+                
+                // Mark as NOT new since this text was already streamed as deltas
+                var finalBody = AIBodyBuilder.Create()
+                    .Add(finalSnapshot, markAsNew: false)
+                    .Build();
+                final.SetBody(finalBody);
                 yield return final;
             }
         }

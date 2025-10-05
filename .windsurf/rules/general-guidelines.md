@@ -6,11 +6,12 @@ trigger: always_on
 
 1. Follow established best practices (e.g. SOLID, naming conventions, error handling, tests), unless explicitly asked not to.
 2. Decision matrix (in priority order):
-   1. Meets the user’s requirements
-   2. Follows best practices
-   3. Maximizes security (see OWASP Top 10)
-   4. Maximizes performance
-   5. Eases future maintenance
+   1. Meet the user’s requirements
+   2. Follow best practices
+   3. Avoid patching symptoms, identify root causes and fix them instead
+   4. Maximize security (see OWASP Top 10)
+   5. Improve performance
+   6. Ease future maintenance
 3. When you get stuck in a maze of reasoning, you should stop, give the user a full summary of what you've found, and ask for help.
 4. Conduct a brief threat review on all external inputs and secrets; reference OWASP/T12 checklist.
 5. In your post-edit summary, include:
