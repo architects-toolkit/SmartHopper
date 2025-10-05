@@ -779,6 +779,7 @@ namespace SmartHopper.Providers.MistralAI
                 // Align aggregate finish reason
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });
 
+                // Snapshot final assistant interaction
                 var finalSnapshot = new AIInteractionText
                 {
                     Agent = assistantAggregate.Agent,
@@ -796,7 +797,12 @@ namespace SmartHopper.Providers.MistralAI
                         CompletionTime = assistantAggregate.Metrics.CompletionTime,
                     },
                 };
-                final.SetBody(new List<IAIInteraction> { finalSnapshot });
+                
+                // Mark as NOT new since this text was already streamed as deltas
+                var finalBody = AIBodyBuilder.Create()
+                    .Add(finalSnapshot, markAsNew: false)
+                    .Build();
+                final.SetBody(finalBody);
                 yield return final;
             }
         }

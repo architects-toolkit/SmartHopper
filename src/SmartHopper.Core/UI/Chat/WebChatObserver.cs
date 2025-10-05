@@ -265,13 +265,29 @@ namespace SmartHopper.Core.UI.Chat
 
                                 // Check if we already have a committed segment for this base key
                                 bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
-#if DEBUG
-                                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
-                                Debug.WriteLine($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
-#endif
+                                bool hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+                                Debug.WriteLine($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}");
 
-                                // Determine the target key (peek without committing yet)
-                                var targetKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : baseKey;
+                                // Determine the target key. If a boundary is pending while already committed,
+                                // roll over to a NEW segment now so subsequent deltas do not append to the previous bubble.
+                                string targetKey;
+                                if (isCommitted && hasBoundary)
+                                {
+                                    Debug.WriteLine($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
+                                    this.CommitSegment(baseKey, turnKey); // consumes boundary and increments segment
+                                    var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                    // Initialize fresh stream state for the new segment
+                                    if (!this._streams.ContainsKey(segKey))
+                                    {
+                                        this._streams[segKey] = new StreamState { Started = false, Aggregated = null };
+                                    }
+                                    targetKey = segKey;
+                                }
+                                else
+                                {
+                                    // Not committed yet -> use baseKey in pre-commit; else use current segment key
+                                    targetKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : baseKey;
+                                }
 
                                 // Retrieve or create pre-commit aggregate
                                 StreamState state;
@@ -508,6 +524,11 @@ namespace SmartHopper.Core.UI.Chat
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     this._dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
+
+                    // Mark a boundary so the next assistant text begins a new segment.
+                    var turnKey = GetTurnBaseKey(toolCall?.TurnId);
+                    Debug.WriteLine($"[WebChatObserver] OnToolCall: name={toolCall?.Name}, turnKey={turnKey} -> SetBoundaryFlag");
+                    this.SetBoundaryFlag(turnKey);
                 });
             }
 
@@ -521,6 +542,11 @@ namespace SmartHopper.Core.UI.Chat
                 if (toolResult == null) return;
 
                 // Do not append tool results during streaming; they will be added on partial when persisted.
+
+                // Mark a boundary immediately so subsequent assistant text starts a new segment (seg rollover happens on next delta).
+                var turnKey = GetTurnBaseKey(toolResult?.TurnId);
+                Debug.WriteLine($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
+                this.SetBoundaryFlag(turnKey);
             }
 
             /// <summary>
@@ -568,19 +594,7 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             aggregated = agg;
                         }
-                        else
-                        {
-                            // Fallback: pick any aggregated assistant stream if key not found
-                            foreach (var kv in this._streams)
-                            {
-                                if (kv.Value?.Aggregated is AIInteractionText agg2 && !string.IsNullOrWhiteSpace(agg2.Content))
-                                {
-                                    aggregated = agg2;
-                                    if (string.IsNullOrWhiteSpace(segKey)) segKey = kv.Key;
-                                    break;
-                                }
-                            }
-                        }
+                        // Do not fallback to arbitrary previous streams to avoid cross-turn duplicates
 
                         // Merge final metrics/time into aggregated for the last render
                         if (aggregated != null && finalAssistant != null)
