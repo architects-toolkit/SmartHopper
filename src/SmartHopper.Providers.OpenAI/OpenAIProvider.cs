@@ -143,8 +143,8 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                // Convert interactions to OpenAI format with tool-call coalescing and id backfilling
-                var messages = this.BuildMessagesWithToolCallCoalescing(request.Body.Interactions);
+                // Convert interactions to OpenAI format (simple sequential encoding like MistralAI)
+                var messages = this.BuildMessages(request.Body.Interactions);
                 return this.FormatChatCompletionsRequestBody(request, messages);
             }
         }
@@ -261,23 +261,12 @@ namespace SmartHopper.Providers.OpenAI
         /// Builds the OpenAI <c>messages</c> array from SmartHopper interactions while enforcing
         /// OpenAI tool calling sequencing rules.
         ///
-        /// Rules enforced:
-        /// - Consecutive <see cref="AIInteractionToolCall"/> interactions are coalesced into a single
-        ///   assistant message containing a <c>tool_calls</c> array.
-        /// - The <c>tool_call_id</c> of <see cref="AIInteractionToolResult"/> messages is backfilled
-        ///   from the most recent pending tool calls when missing.
-        ///
-        /// This prevents the API error: "An assistant message with 'tool_calls' must be followed by
-        /// tool messages responding to each 'tool_call_id'" when multiple tool calls occur back-to-back.
         /// </summary>
         /// <param name="interactions">Ordered list of SmartHopper interactions to encode.</param>
         /// <returns>JArray of OpenAI-formatted messages.</returns>
-        private JArray BuildMessagesWithToolCallCoalescing(IReadOnlyList<IAIInteraction> interactions)
+        private JArray BuildMessages(IReadOnlyList<IAIInteraction> interactions)
         {
             var messages = new JArray();
-
-            // Queue to track pending tool call ids (and names) awaiting tool results
-            var pendingToolCalls = new Queue<(string Id, string Name)>();
 
 #if DEBUG
             try
@@ -288,9 +277,21 @@ namespace SmartHopper.Providers.OpenAI
                 int tx = interactions?.Count(i => i is AIInteractionText) ?? 0;
                 Debug.WriteLine($"[OpenAI] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
 
-                // Log a short map of types for order inspection (up to first 30)
-                var map = string.Join(", ", interactions.Take(30).Select(ix => ix is AIInteractionToolCall ? "TC" : ix is AIInteractionToolResult ? "TR" : ix is AIInteractionText ? "T" : ix.GetType().Name));
-                Debug.WriteLine($"[OpenAI] BuildMessages: order[0..30]: {map}");
+                // Log full interaction sequence for debugging
+                Debug.WriteLine($"[OpenAI] Full interaction sequence:");
+                for (int debugIdx = 0; debugIdx < interactions.Count; debugIdx++)
+                {
+                    var it = interactions[debugIdx];
+                    var typeStr = it switch
+                    {
+                        AIInteractionToolResult trDbg => $"ToolResult(id={trDbg.Id}, name={trDbg.Name})",
+                        AIInteractionToolCall tcDbg => $"ToolCall(id={tcDbg.Id}, name={tcDbg.Name})",
+                        AIInteractionText txtDbg => $"Text(agent={txtDbg.Agent}, len={txtDbg.Content?.Length ?? 0})",
+                        AIInteractionError => $"Error",
+                        _ => it?.GetType().Name ?? "null"
+                    };
+                    Debug.WriteLine($"  [{debugIdx}] {typeStr}");
+                }
             }
             catch
             {
@@ -299,188 +300,45 @@ namespace SmartHopper.Providers.OpenAI
 
 #endif
 
-            for (int i = 0; i < interactions.Count; i++)
+            // Simple sequential encoding like MistralAI - no complex coalescing or deduplication
+            foreach (var interaction in interactions)
             {
-                var interaction = interactions[i];
-
-                // Skip UI-only diagnostics
-                if (interaction is AIInteractionError)
-                {
-                    continue;
-                }
-
-                // Coalesce consecutive tool calls into a single assistant message
-                if (interaction is AIInteractionToolCall)
-                {
-                    // Snapshot queue state BEFORE enqueuing this coalesced block
-                    var prevPendingQueue = pendingToolCalls.ToList();
-
-                    var toolCallsArray = new JArray();
-
-                    while (i < interactions.Count && interactions[i] is AIInteractionToolCall tci)
-                    {
-                        var tcObj = new JObject
-                        {
-                            ["id"] = tci.Id ?? string.Empty,
-                            ["type"] = "function",
-                            ["function"] = new JObject
-                            {
-                                ["name"] = tci.Name ?? string.Empty,
-
-                                // OpenAI requires arguments as a JSON string; default to empty object
-                                ["arguments"] = tci.Arguments?.ToString() ?? "{}",
-                            },
-                        };
-
-                        toolCallsArray.Add(tcObj);
-
-                        // Track as pending so following tool results can be linked even if Id is missing on result
-                        pendingToolCalls.Enqueue((tci.Id ?? string.Empty, tci.Name ?? string.Empty));
-
-                        i++;
-                    }
-
-                    // Step back one because for-loop will increment again
-                    i--;
-#if DEBUG
-                    // Debug: log ids being coalesced to a single assistant message
-                    try
-                    {
-                        var ids = toolCallsArray.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
-                        var dupGroups = ids.GroupBy(id => id).Where(g => g.Count() > 1).Select(g => $"{g.Key} x{g.Count()}");
-                        var dupSummary = dupGroups.Any() ? string.Join("; ", dupGroups) : "none";
-                        Debug.WriteLine($"[OpenAI] Coalescing tool_calls -> count={toolCallsArray.Count}, duplicateIds={dupSummary}");
-                    }
-                    catch
-                    {
-                        /* logging only */
-                    }
-
-#endif
-
-                    // Deduplicate tool_calls by id, keeping the last occurrence (most recent args) per id.
-                    // Preserve entries with empty ids as-is (cannot correlate), maintaining relative order.
-                    if (toolCallsArray.Count > 1)
-                    {
-#if DEBUG
-                        try { Debug.WriteLine($"[OpenAI] Pending(before block dedupe): {string.Join(", ", prevPendingQueue.Select(p => $"{p.Id}:{p.Name}"))}"); } catch { }
-#endif
-                        var seen = new HashSet<string>(StringComparer.Ordinal);
-                        var deduped = new List<JObject>(toolCallsArray.Count);
-
-                        for (int k = toolCallsArray.Count - 1; k >= 0; k--)
-                        {
-                            var obj = toolCallsArray[k] as JObject;
-                            if (obj == null)
-                            {
-                                continue;
-                            }
-
-                            var idVal = obj["id"]?.ToString() ?? string.Empty;
-                            if (string.IsNullOrWhiteSpace(idVal))
-                            {
-                                // Keep entries with empty id (cannot dedupe)
-                                deduped.Insert(0, obj);
-                                continue;
-                            }
-
-                            if (seen.Contains(idVal))
-                            {
-                                // Skip older duplicates
-                                continue;
-                            }
-
-                            seen.Add(idVal);
-                            deduped.Insert(0, obj);
-                        }
-
-                        if (deduped.Count != toolCallsArray.Count)
-                        {
-                            toolCallsArray = new JArray(deduped);
-
-                            // Rebuild pending tool calls queue to reflect deduped tool_calls
-                            pendingToolCalls.Clear();
-                            foreach (var tup in prevPendingQueue)
-                            {
-                                pendingToolCalls.Enqueue(tup);
-                            }
-
-                            foreach (var obj in deduped)
-                            {
-                                var idVal = obj?["id"]?.ToString() ?? string.Empty;
-                                var nameVal = obj?["function"]?["name"]?.ToString() ?? string.Empty;
-                                pendingToolCalls.Enqueue((idVal, nameVal));
-                            }
-
-#if DEBUG
-                            try { Debug.WriteLine($"[OpenAI] Dedupe applied. tool_calls now={toolCallsArray.Count}. Pending(after block)={string.Join(", ", pendingToolCalls.Select(p => $"{p.Id}:{p.Name}"))}"); } catch { }
-#endif
-                        }
-                    }
-
-                    var assistantToolCallsMsg = new JObject
-                    {
-                        ["role"] = "assistant",
-                        ["content"] = string.Empty,
-                        ["tool_calls"] = toolCallsArray,
-                    };
-                    messages.Add(assistantToolCallsMsg);
-                    continue;
-                }
-
-                // Default encoding for other interactions
                 var token = this.EncodeToJToken(interaction);
-                if (token == null)
+                if (token != null)
                 {
-                    continue;
+                    messages.Add(token);
                 }
-
-                // Backfill tool_call_id and name on tool result messages when missing
-                if (interaction is AIInteractionToolResult)
-                {
-                    var idToken = token["tool_call_id"]?.ToString();
-                    bool idLooksLikeOpenAIToolId = !string.IsNullOrEmpty(idToken) && idToken.StartsWith("call_", StringComparison.OrdinalIgnoreCase);
-#if DEBUG
-                    try
-                    {
-                        Debug.WriteLine($"[OpenAI] ToolResult encountered. token.tool_call_id(before)='{idToken ?? "<null>"}', pendingCount={pendingToolCalls.Count}");
-                    }
-                    catch { }
-#endif
-                    if ((!idLooksLikeOpenAIToolId) && pendingToolCalls.Count > 0)
-                    {
-                        var (pendingId, pendingName) = pendingToolCalls.Dequeue();
-                        if (!string.IsNullOrWhiteSpace(pendingId))
-                        {
-                            token["tool_call_id"] = pendingId;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(pendingName) && token["name"] == null)
-                        {
-                            token["name"] = pendingName;
-                        }
-
-#if DEBUG
-                        try
-                        {
-                            var afterId = token["tool_call_id"]?.ToString();
-                            var afterName = token["name"]?.ToString();
-                            Debug.WriteLine($"[OpenAI] ToolResult backfilled -> tool_call_id='{afterId}', name='{afterName}', pendingCount(after)={pendingToolCalls.Count}");
-                        }
-                        catch { }
-#endif
-                    }
-                }
-
-                messages.Add(token);
             }
 
 #if DEBUG
             try
             {
-                if (pendingToolCalls.Count > 0)
+                // Log the final encoded messages array for debugging
+                Debug.WriteLine($"[OpenAI] Final encoded messages array ({messages.Count} messages):");
+                for (int idx = 0; idx < messages.Count; idx++)
                 {
-                    Debug.WriteLine($"[OpenAI] WARNING: {pendingToolCalls.Count} pending tool_call ids without following tool results in messages: {string.Join(", ", pendingToolCalls.Select(p => p.Id))}");
+                    var msg = messages[idx] as JObject;
+                    var role = msg?["role"]?.ToString() ?? "?";
+                    var hasToolCalls = msg?["tool_calls"] != null;
+                    var toolCallId = msg?["tool_call_id"]?.ToString();
+                    var content = msg?["content"]?.ToString();
+                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : "";
+                    
+                    if (hasToolCalls)
+                    {
+                        var tcArray = msg?["tool_calls"] as JArray;
+                        var tcCount = tcArray?.Count ?? 0;
+                        var tcIds = tcArray?.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrEmpty(id)).ToList();
+                        Debug.WriteLine($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}]");
+                    }
+                    else if (!string.IsNullOrEmpty(toolCallId))
+                    {
+                        Debug.WriteLine($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"  [{idx}] role={role}, content={preview}");
+                    }
                 }
             }
             catch { }

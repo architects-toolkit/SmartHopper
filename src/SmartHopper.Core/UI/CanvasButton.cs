@@ -44,7 +44,7 @@ namespace SmartHopper.Core.UI
 
         // Predefined system prompt for SmartHopper assistant
         private const string DefaultSystemPrompt = """
-            You are a helpful AI assistant specialized in Grasshopper 3D and computational design. Follow these guidelines:
+            You are a helpful AI assistant specialized in Grasshopper 3D. Follow these guidelines:
 
             - Be concise and technical in your responses
             - Explain complex concepts in simple terms

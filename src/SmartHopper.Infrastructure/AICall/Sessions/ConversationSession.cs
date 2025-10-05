@@ -284,15 +284,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     continue;
                                 }
 
-                                // Notify UI with streaming deltas for live updates
+                                // Process new interactions: accumulate text, persist non-text immediately
                                 var newInteractions = delta.Body?.GetNewInteractions();
                                 InteractionUtility.EnsureTurnId(newInteractions, state.TurnId);
-                                this.NotifyDelta(this.PrepareNewOnlyReturn(delta));
 
-                                // Process new interactions: accumulate text, persist non-text immediately
                                 if (newInteractions != null && newInteractions.Count > 0)
                                 {
                                     var nonTextInteractions = new List<IAIInteraction>();
+                                    var textInteractions = new List<IAIInteraction>();
 
                                     foreach (var interaction in newInteractions)
                                     {
@@ -300,13 +299,34 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         {
                                             // Accumulate text deltas in memory (will be persisted after streaming completes)
                                             state.AccumulatedText = TextStreamCoalescer.Coalesce(state.AccumulatedText, textDelta, state.TurnId, preserveMetrics: false);
+                                            textInteractions.Add(textDelta);
+                                        }
+                                        else if (interaction is AIInteractionToolCall tc)
+                                        {
+                                            // Check if this tool call already exists in history to prevent duplicates
+                                            var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
+                                                .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+
+                                            if (!exists)
+                                            {
+                                                // Persist tool call only if not already in history
+                                                this.AppendToSessionHistory(interaction);
+                                                nonTextInteractions.Add(interaction);
+                                            }
                                         }
                                         else
                                         {
-                                            // Persist non-text interactions (tool calls, tool results) immediately
+                                            // Persist other non-text interactions (tool results, images, etc.) immediately
                                             this.AppendToSessionHistory(interaction);
                                             nonTextInteractions.Add(interaction);
                                         }
+                                    }
+
+                                    // Notify UI with streaming deltas ONLY for text interactions
+                                    if (textInteractions.Count > 0)
+                                    {
+                                        var textDelta = this.BuildDeltaReturn(state.TurnId, textInteractions);
+                                        this.NotifyDelta(textDelta);
                                     }
 
                                     // Emit partial notification only for persisted non-text interactions
