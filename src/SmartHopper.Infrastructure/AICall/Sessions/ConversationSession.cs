@@ -367,8 +367,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                                 if (!options.ProcessTools)
                                 {
-                                    this.NotifyFinal(state.LastDelta);
-                                    state.FinalProviderYield = state.LastDelta;
+                                    this.NotifyFinal(this._lastReturn);
+                                    state.FinalProviderYield = this._lastReturn;
                                     state.ShouldBreak = true;
                                 }
                                 else
@@ -380,14 +380,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         lastReturn = state.PendingToolYields.Last();
                                     }
 
-                                    // If stable, finish the turn
+                                    // If stable, finish the turn - use _lastReturn which has persisted interactions with correct TurnId
                                     if (this.Request.Body.PendingToolCallsCount() == 0)
                                     {
-                                        this.NotifyFinal(lastReturn ?? state.LastDelta);
+                                        this.NotifyFinal(this._lastReturn);
                                         state.ShouldBreak = true;
                                     }
 
-                                    state.FinalProviderYield = state.LastDelta;
+                                    state.FinalProviderYield = this._lastReturn;
                                 }
                             }
                         }
@@ -743,17 +743,38 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             break;
                         }
                         
-                        // Persist final aggregated text
+                        // Persist final aggregated text with metrics from the last delta
                         if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
                         {
                             accumulatedText.TurnId = turnId;
+                            
+                            // Transfer final metrics from the provider's last delta
+                            var finalAssistant = lastDelta?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
+                            if (finalAssistant != null)
+                            {
+                                if (finalAssistant.Metrics != null)
+                                {
+                                    accumulatedText.Metrics = finalAssistant.Metrics;
+                                }
+
+                                if (finalAssistant.Time != default)
+                                {
+                                    accumulatedText.Time = finalAssistant.Time;
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
+                                {
+                                    accumulatedText.Reasoning = finalAssistant.Reasoning;
+                                }
+                            }
+                            
                             this.AppendToSessionHistory(accumulatedText);
                         }
                         
-                        this._lastReturn = lastDelta;
+                        // Update last return to use session body with correct TurnIds
                         this.UpdateLastReturn();
-                        this.NotifyInteractionCompleted(lastDelta);
-                        preparedYields.Add(lastDelta);
+                        this.NotifyInteractionCompleted(this._lastReturn);
+                        preparedYields.Add(this._lastReturn);
                     }
                     else
                     {

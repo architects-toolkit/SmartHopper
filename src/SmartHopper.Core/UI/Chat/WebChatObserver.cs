@@ -596,9 +596,15 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         // Do not fallback to arbitrary previous streams to avoid cross-turn duplicates
 
-                        // Merge final metrics/time into aggregated for the last render
+                        // Merge final metrics/time/content into aggregated for the last render
                         if (aggregated != null && finalAssistant != null)
                         {
+                            // CRITICAL: Update content to ensure final complete text is rendered (fixes missing last chunk issue)
+                            if (!string.IsNullOrWhiteSpace(finalAssistant.Content))
+                            {
+                                aggregated.Content = finalAssistant.Content;
+                            }
+
                             aggregated.Metrics = finalAssistant.Metrics;
                             aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
 

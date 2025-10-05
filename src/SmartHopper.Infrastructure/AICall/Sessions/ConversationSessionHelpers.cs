@@ -202,13 +202,35 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     accumulatedText.TurnId = turnId;
                 }
 
+                // Transfer final metrics from the provider's last delta to the accumulated text
+                var finalAssistant = lastDelta?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
+                if (finalAssistant != null)
+                {
+                    // Copy complete metrics from the final provider delta
+                    if (finalAssistant.Metrics != null)
+                    {
+                        accumulatedText.Metrics = finalAssistant.Metrics;
+                    }
+
+                    // Update time if available
+                    if (finalAssistant.Time != default)
+                    {
+                        accumulatedText.Time = finalAssistant.Time;
+                    }
+
+                    // Preserve reasoning if present in final delta
+                    if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
+                    {
+                        accumulatedText.Reasoning = finalAssistant.Reasoning;
+                    }
+                }
+
                 // Persist the final aggregated text to session history
                 this.AppendToSessionHistory(accumulatedText);
                 Debug.WriteLine($"[ConversationSession.Stream] Persisted final aggregated text: turnId={turnId}, length={accumulatedText.Content?.Length ?? 0}");
             }
 
-            // Update last return snapshot to the provider's last delta snapshot
-            this._lastReturn = lastDelta;
+            // Update last return snapshot to use session body with correct TurnIds (not provider's raw delta)
             this.UpdateLastReturn();
 
             // Guard against unresolved tool calls before next provider turn
