@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Streaming after tool calls**: Fixed issue where assistant responses after tool execution were not streamed. `ProcessPendingToolsAsync` now continues using streaming mode for follow-up provider calls when the session is in streaming mode, ensuring consistent incremental UI updates throughout multi-turn tool conversations.
+- **Message ordering after tool calls**: Fixed tool result messages appearing after assistant responses instead of before them. Tool results now correctly inherit the tool call's TurnId for proper chronological ordering in the UI.
+
 ### Added
 
 - Improvements in `CanvasButton`:

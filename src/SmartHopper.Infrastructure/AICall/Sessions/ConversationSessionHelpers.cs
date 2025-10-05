@@ -172,7 +172,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void PersistToolResult(AIInteractionToolResult result, string turnId)
         {
-            if (string.IsNullOrWhiteSpace(result.TurnId)) result.TurnId = turnId;
+            // TurnId should already be set by ExecuteSingleToolAsync to match the tool call's TurnId
+            // Do not override it here to maintain correct message ordering
             this.AppendToSessionHistory(result);
             this.NotifyToolResult(result);
             try
