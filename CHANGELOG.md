@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **Streaming after tool calls**: Fixed issue where assistant responses after tool execution were not streamed. `ProcessPendingToolsAsync` now continues using streaming mode for follow-up provider calls when the session is in streaming mode, ensuring consistent incremental UI updates throughout multi-turn tool conversations.
-- **Message ordering after tool calls**: Fixed tool result messages appearing after assistant responses instead of before them. Tool results now correctly inherit the tool call's TurnId for proper chronological ordering in the UI.
-
 ### Added
 
 - Improvements in `CanvasButton`:
@@ -108,6 +103,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `AIProviderStreamingAdapter.CreateSsePost` now accepts a `Uri` parameter.
     - `AIInteractionImage.ImageUrl` is now `Uri` (was `string`).
   - Added `AIInteractionImage.SetResult(Uri imageUrl, string imageData = null, string revisedPrompt = null)` overload; kept string overload for backward compatibility.
+  - Fixed tool call detection in streaming responses
+    - Added `content_block_start` event handling to detect `tool_use` blocks
+    - Streaming adapter now properly yields `AICallStatus.CallingTools` when tools are invoked
+    - Fixed `content_block_delta` to check for `text_delta` type before processing text
+    - Added support for `input_json_delta` events (tool argument streaming)
+    - Enhanced debug logging for streaming events and tool detection
+    - Non-streaming `Decode()` method now ensures `Arguments` field is never null
 
 - Providers – OpenAI:
   - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.

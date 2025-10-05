@@ -475,6 +475,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return;
             }
 
+#if DEBUG
+            try
+            {
+                var preview = interaction switch
+                {
+                    AIInteractionText txt => $"Text(agent={txt.Agent}, turnId={txt.TurnId}, content='{txt.Content?.Substring(0, Math.Min(50, txt.Content?.Length ?? 0))}...')",
+                    AIInteractionToolResult tr => $"ToolResult(name={tr.Name}, id={tr.Id}, turnId={tr.TurnId})",
+                    AIInteractionToolCall tc => $"ToolCall(name={tc.Name}, id={tc.Id}, turnId={tc.TurnId})",
+                    _ => $"{interaction.GetType().Name}(agent={interaction.Agent}, turnId={interaction.TurnId})"
+                };
+                Debug.WriteLine($"[ConversationSession.AppendToSessionHistory] {preview}");
+            }
+            catch { }
+#endif
+
             var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
                 .ClearNewMarkers()
                 .AsHistory();

@@ -287,9 +287,6 @@ namespace SmartHopper.Core.UI.Chat
                                     return;
                                 }
 
-                                // Do NOT set pending segment boundary here - text chunks should stream into the same bubble.
-                                // Segments only increment when a non-text interaction completes (handled below).
-
                                 // Use the current segmented key to match the streaming aggregate stored by OnDelta
                                 var activeSegKey = this.GetCurrentSegmentedKey(baseKey);
 
@@ -300,9 +297,26 @@ namespace SmartHopper.Core.UI.Chat
                                     agg.Reasoning = tt.Reasoning;
                                     agg.Time = tt.Time;
                                     this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
+                                    
+                                    // Mark boundary: next text in this turn (from a different API call) gets a new segment
+                                    // This handles multi-turn tool calling where multiple API responses occur in the same turn
+                                    if (!string.IsNullOrWhiteSpace(turnKey))
+                                    {
+                                        this._pendingNewTextSegmentTurns.Add(turnKey);
+                                    }
                                 }
                                 else
                                 {
+                                    // Non-streaming completion path. If a boundary was marked (e.g., after a tool result
+                                    // or tool call), consume it here so this text starts a NEW segment. Do NOT do this for
+                                    // streaming finals, as they must finalize the already-streaming segment.
+                                    if (!string.IsNullOrWhiteSpace(turnKey)
+                                        && this._pendingNewTextSegmentTurns.Remove(turnKey)
+                                        && this._textInteractionSegments.ContainsKey(baseKey))
+                                    {
+                                        this._textInteractionSegments[baseKey] = this._textInteractionSegments[baseKey] + 1;
+                                    }
+
                                     // True non-streaming preview: create or reuse current segment and upsert once
                                     if (!this._textInteractionSegments.ContainsKey(baseKey))
                                     {
@@ -318,6 +332,12 @@ namespace SmartHopper.Core.UI.Chat
                                     state.Aggregated = tt;
                                     this._streams[segKey] = state;
                                     this._dialog.UpsertMessageByKey(segKey, tt, source: "OnInteractionCompletedNonStreaming");
+                                    
+                                    // Mark boundary: next text in this turn gets a new segment
+                                    if (!string.IsNullOrWhiteSpace(turnKey))
+                                    {
+                                        this._pendingNewTextSegmentTurns.Add(turnKey);
+                                    }
                                 }
 
                                 return;

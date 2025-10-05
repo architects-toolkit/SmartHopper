@@ -116,24 +116,6 @@ namespace SmartHopper.Providers.OpenRouter
                 return "GET and DELETE requests do not use a request body";
             }
 
-            // Build messages from interactions. OpenRouter Responses accepts an `input` array of role/content pairs.
-            var messages = new JArray();
-            foreach (var interaction in request.Body.Interactions)
-            {
-                try
-                {
-                    var msg = this.EncodeToJToken(interaction);
-                    if (msg != null)
-                    {
-                        messages.Add(msg);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
-                }
-            }
-
             // Parameters
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature;
@@ -142,6 +124,39 @@ namespace SmartHopper.Providers.OpenRouter
             if (!double.TryParse(this.GetSetting<string>("Temperature"), out temperature))
             {
                 temperature = 0.5;
+            }
+
+            Debug.WriteLine($"[OpenRouter] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+
+#if DEBUG
+            // Log interaction sequence for debugging
+            try
+            {
+                int cnt = request.Body.Interactions?.Count ?? 0;
+                int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
+                int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
+                int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
+                Debug.WriteLine($"[OpenRouter] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+            }
+            catch { }
+#endif
+
+            // Build messages from interactions. OpenRouter Responses accepts an `input` array of role/content pairs.
+            var messages = new JArray();
+            foreach (var interaction in request.Body.Interactions)
+            {
+                try
+                {
+                    var token = this.EncodeToJToken(interaction);
+                    if (token != null)
+                    {
+                        messages.Add(token);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenRouter] Warning: Could not encode interaction: {ex.Message}");
+                }
             }
 
             // Provider selection settings
@@ -165,62 +180,100 @@ namespace SmartHopper.Providers.OpenRouter
 
             // Note: schema/response_format and tools can be added later once mapped for OpenRouter Responses API
 
+#if DEBUG
+            try
+            {
+                Debug.WriteLine($"[OpenRouter] Request body:");
+                Debug.WriteLine(body.ToString(Newtonsoft.Json.Formatting.Indented));
+            }
+            catch { }
+#else
             Debug.WriteLine($"[OpenRouter] Responses Request: {body}");
+#endif
+
             return body.ToString();
         }
 
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            var j = this.EncodeToJToken(interaction);
-            return j?.ToString();
+            try
+            {
+                var token = this.EncodeToJToken(interaction);
+                return token?.ToString() ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenRouter] Encode(IAIInteraction) error: {ex.Message}");
+                return string.Empty;
+            }
         }
 
+        /// <summary>
+        /// Converts a single interaction to an OpenRouter Responses message object (JToken).
+        /// Returns null for interactions that should not be sent (e.g., UI-only errors).
+        /// </summary>
         private JToken? EncodeToJToken(IAIInteraction interaction)
         {
-            // OpenRouter Responses accepts role/content similar to chat style.
-            var obj = new JObject();
-            switch (interaction.Agent)
+            if (interaction == null)
+            {
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            // Map role
+            var agent = interaction.Agent;
+            string role;
+
+            switch (agent)
             {
                 case AIAgent.System:
                 case AIAgent.Context:
-                    obj["role"] = "system";
+                    role = "system";
                     break;
                 case AIAgent.User:
-                    obj["role"] = "user";
+                    role = "user";
                     break;
                 case AIAgent.Assistant:
                 case AIAgent.ToolCall:
-                    obj["role"] = "assistant";
+                    role = "assistant";
                     break;
                 case AIAgent.ToolResult:
-                    // Map tool results as tool role content appended as text
-                    obj["role"] = "tool";
+                    role = "tool";
                     break;
                 default:
-                    throw new ArgumentException($"Agent {interaction.Agent} not supported by {this.Name}");
+                    return null;
             }
 
-            if (interaction is AIInteractionText t)
+            var obj = new JObject { ["role"] = role };
+
+            // Handle different interaction types
+            if (interaction is AIInteractionText textInteraction)
             {
-                obj["content"] = t.Content ?? string.Empty;
+                obj["content"] = textInteraction.Content ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                obj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                // Represent tool call as assistant text for now (tool calling APIs to be added later)
+                obj["content"] = $"<tool_call name=\"{toolCallInteraction.Name}\">{toolCallInteraction.Arguments}</tool_call>";
             }
             else if (interaction is AIInteractionImage)
             {
-                // OpenRouter text-only: ignore images but keep placeholder note
+                // OpenRouter Responses text-only: ignore images but keep placeholder note
                 obj["content"] = "[image content omitted: provider supports text only]";
-            }
-            else if (interaction is AIInteractionToolResult tr)
-            {
-                obj["content"] = tr.Result?.ToString() ?? string.Empty;
-            }
-            else if (interaction is AIInteractionToolCall tc)
-            {
-                // Represent tool call as assistant text for now (tool calling APIs to be added later)
-                obj["content"] = $"<tool_call name=\"{tc.Name}\">{tc.Arguments}</tool_call>";
             }
             else
             {
+                // Unknown interaction type
                 obj["content"] = string.Empty;
             }
 
