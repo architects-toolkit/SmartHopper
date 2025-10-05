@@ -55,6 +55,58 @@ namespace SmartHopper.Core.UI.Chat
                 return $"{baseKey}:seg{seg}";
             }
 
+            /// <summary>
+            /// Peeks at what the next segment key would be for a base key, without mutating state.
+            /// If boundary is pending and segment exists, returns next segment; otherwise returns current or initial.
+            /// </summary>
+            private string PeekSegmentKey(string baseKey, string turnKey)
+            {
+                if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
+
+                int seg;
+                if (!this._textInteractionSegments.TryGetValue(baseKey, out seg))
+                {
+                    // Not yet committed: would start at seg1
+                    seg = 1;
+                }
+                else if (!string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey))
+                {
+                    // Boundary pending: would increment
+                    seg = seg + 1;
+                }
+                // else: use current committed seg
+
+                return $"{baseKey}:seg{seg}";
+            }
+
+            /// <summary>
+            /// Commits the segment for a base key by consuming boundary and initializing/incrementing the segment counter.
+            /// Call this only when you are about to render text for the first time or after a boundary.
+            /// </summary>
+            private void CommitSegment(string baseKey, string turnKey)
+            {
+                if (string.IsNullOrWhiteSpace(baseKey)) return;
+
+                var beforeSegment = this._textInteractionSegments.TryGetValue(baseKey, out var seg) ? seg : 0;
+                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+                Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey}, turnKey={turnKey}, beforeSeg={beforeSegment}, hasBoundary={hasBoundary}");
+
+                // Consume boundary flag and increment if applicable
+                this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
+
+                // Ensure segment counter is initialized (ConsumeBoundaryAndIncrementSegment requires existing entry)
+                if (!this._textInteractionSegments.ContainsKey(baseKey))
+                {
+                    this._textInteractionSegments[baseKey] = 1;
+                    Debug.WriteLine($"[WebChatObserver] CommitSegment: initialized baseKey={baseKey} to seg=1");
+                }
+                else
+                {
+                    var afterSegment = this._textInteractionSegments[baseKey];
+                    Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey} already exists, seg={afterSegment}");
+                }
+            }
+
             // Tracks UI state for the temporary thinking bubble.
             // We no longer track assistant-specific bubble state; ordering is handled by keys and upserts.
             private bool _thinkingBubbleActive;
@@ -70,6 +122,10 @@ namespace SmartHopper.Core.UI.Chat
             // Pending segmentation boundary flags per turn. When set, the next text interaction for that turn
             // starts a new segment (new bubble). Simplified rule: set boundary after ANY completed interaction.
             private readonly HashSet<string> _pendingNewTextSegmentTurns = new HashSet<string>(StringComparer.Ordinal);
+
+            // Pre-commit aggregates: tracks text aggregates by base key before segment assignment.
+            // This allows lazy segment commitment only when text becomes renderable.
+            private readonly Dictionary<string, StreamState> _preStreamAggregates = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
             // Finalized turns: after OnFinal has rendered the assistant text for a turn, ignore any late
             // OnDelta/OnInteractionCompleted text updates for that same turn to prevent overriding final metrics/time.
@@ -138,6 +194,7 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Reset per-run state
                     this._streams.Clear();
+                    this._preStreamAggregates.Clear();
                     this._textInteractionSegments.Clear();
                     this._pendingNewTextSegmentTurns.Clear();
                     this._finalizedTextTurns.Clear();
@@ -197,8 +254,6 @@ namespace SmartHopper.Core.UI.Chat
                             // Handle text deltas (assistant/user/system) for live streaming
                             if (interaction is AIInteractionText tt)
                             {
-                                // Determine segmented key for ANY text agent (assistant, user, system).
-                                // Consume pending boundary to advance to a new segment.
                                 var baseKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(tt?.TurnId);
 
@@ -208,24 +263,79 @@ namespace SmartHopper.Core.UI.Chat
                                     return;
                                 }
 
-                                // Consume boundary flag and increment segment
-                                this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
+                                // Check if we already have a committed segment for this base key
+                                bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
+#if DEBUG
+                                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+                                Debug.WriteLine($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
+#endif
 
-                                var key = this.GetCurrentSegmentedKey(baseKey);
-                                if (!this._streams.TryGetValue(key, out var state))
+                                // Determine the target key (peek without committing yet)
+                                var targetKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : baseKey;
+
+                                // Retrieve or create pre-commit aggregate
+                                StreamState state;
+                                if (isCommitted)
                                 {
-                                    state = new StreamState { Started = false, Aggregated = null };
+                                    // Already committed: use _streams with segmented key
+                                    if (!this._streams.TryGetValue(targetKey, out state))
+                                    {
+                                        state = new StreamState { Started = false, Aggregated = null };
+                                    }
+                                }
+                                else
+                                {
+                                    // Not yet committed: use _preStreamAggregates with baseKey
+                                    if (!this._preStreamAggregates.TryGetValue(baseKey, out state))
+                                    {
+                                        state = new StreamState { Started = false, Aggregated = null };
+                                    }
                                 }
 
                                 // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
-                                CoalesceTextStreamChunk(tt, key, ref state);
-                                this._streams[key] = state;
+                                CoalesceTextStreamChunk(tt, targetKey, ref state);
 
-                                if (state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText))
+                                // Check if text is now renderable
+                                bool isRenderable = state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText);
+                                Debug.WriteLine($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
+
+                                if (isRenderable && !isCommitted)
                                 {
-                                    if (this.ShouldUpsertNow(key))
+                                    // First renderable delta: commit the segment now
+                                    Debug.WriteLine($"[WebChatObserver] OnDelta: FIRST RENDER - committing segment");
+                                    this.CommitSegment(baseKey, turnKey);
+                                    var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                    Debug.WriteLine($"[WebChatObserver] OnDelta: committed segKey={segKey}");
+
+                                    // Move from pre-commit to committed storage
+                                    this._streams[segKey] = state;
+                                    this._preStreamAggregates.Remove(baseKey);
+
+                                    // Upsert to DOM
+                                    if (this.ShouldUpsertNow(segKey))
                                     {
-                                        this._dialog.UpsertMessageByKey(key, aggText, source: "OnDelta");
+                                        this._dialog.UpsertMessageByKey(segKey, state.Aggregated as AIInteractionText, source: "OnDelta:FirstRender");
+                                    }
+                                }
+                                else if (isRenderable && isCommitted)
+                                {
+                                    // Already committed: update in place
+                                    this._streams[targetKey] = state;
+                                    if (this.ShouldUpsertNow(targetKey))
+                                    {
+                                        this._dialog.UpsertMessageByKey(targetKey, state.Aggregated as AIInteractionText, source: "OnDelta");
+                                    }
+                                }
+                                else
+                                {
+                                    // Not renderable yet: keep in pre-commit storage
+                                    if (!isCommitted)
+                                    {
+                                        this._preStreamAggregates[baseKey] = state;
+                                    }
+                                    else
+                                    {
+                                        this._streams[targetKey] = state;
                                     }
                                 }
 
@@ -274,44 +384,67 @@ namespace SmartHopper.Core.UI.Chat
                                     return;
                                 }
 
-                                // Use the current segmented key to match the streaming aggregate stored by OnDelta
-                                var activeSegKey = this.GetCurrentSegmentedKey(baseKey);
+                                // Check if segment is committed
+                                bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
+                                var activeSegKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : null;
+                                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+#if DEBUG
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
+#endif
 
-                                // Streaming completion: update the existing aggregate and upsert in-place
-                                if (this._streams.TryGetValue(activeSegKey, out var existingState) && existingState.Aggregated is AIInteractionText agg)
+                                // Check for existing streaming aggregate (either committed or pre-commit)
+                                StreamState existingState = null;
+                                if (isCommitted && !hasBoundary && this._streams.TryGetValue(activeSegKey, out existingState))
                                 {
-                                    agg.Content = tt.Content;
-                                    agg.Reasoning = tt.Reasoning;
-                                    agg.Time = tt.Time;
-                                    this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
-                                    
-                                    // Mark boundary: next text in this turn gets a new segment
-                                    this.SetBoundaryFlag(turnKey);
+                                    // Streaming completion: update the existing committed aggregate (only if no boundary)
+                                    if (existingState.Aggregated is AIInteractionText agg)
+                                    {
+                                        agg.Content = tt.Content;
+                                        agg.Reasoning = tt.Reasoning;
+                                        agg.Time = tt.Time;
+                                        this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
+                                        
+                                        // Mark boundary: next text in this turn gets a new segment
+                                        this.SetBoundaryFlag(turnKey);
+                                        return;
+                                    }
                                 }
-                                else
+                                else if (!isCommitted && this._preStreamAggregates.TryGetValue(baseKey, out existingState))
                                 {
-                                    // Non-streaming completion path. Consume boundary to start a NEW segment.
-                                    this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
-
-                                    // True non-streaming preview: create or reuse current segment and upsert once
-                                    if (!this._textInteractionSegments.ContainsKey(baseKey))
+                                    // Had pre-commit aggregate but never rendered (empty deltas): commit now
+                                    if (existingState.Aggregated is AIInteractionText agg)
                                     {
-                                        this._textInteractionSegments[baseKey] = 1;
-                                    }
+                                        agg.Content = tt.Content;
+                                        agg.Reasoning = tt.Reasoning;
+                                        agg.Time = tt.Time;
 
-                                    var segKey = this.GetCurrentSegmentedKey(baseKey);
-                                    if (!this._streams.TryGetValue(segKey, out var state))
-                                    {
-                                        state = new StreamState { Started = false, Aggregated = null };
-                                    }
+                                        // Commit segment and move to committed storage
+                                        this.CommitSegment(baseKey, turnKey);
+                                        var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                        this._streams[segKey] = existingState;
+                                        this._preStreamAggregates.Remove(baseKey);
 
-                                    state.Aggregated = tt;
-                                    this._streams[segKey] = state;
-                                    this._dialog.UpsertMessageByKey(segKey, tt, source: "OnInteractionCompletedNonStreaming");
-                                    
-                                    // Mark boundary: next text in this turn gets a new segment
-                                    this.SetBoundaryFlag(turnKey);
+                                        this._dialog.UpsertMessageByKey(segKey, agg, source: "OnInteractionCompletedPreCommitFinal");
+                                        
+                                        // Mark boundary: next text in this turn gets a new segment
+                                        this.SetBoundaryFlag(turnKey);
+                                        return;
+                                    }
                                 }
+
+                                // True non-streaming completion path: no prior aggregate
+                                // Commit segment immediately since we have renderable content
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): NON-STREAMING path - committing segment");
+                                this.CommitSegment(baseKey, turnKey);
+                                var finalSegKey = this.GetCurrentSegmentedKey(baseKey);
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): finalSegKey={finalSegKey}");
+
+                                var state = new StreamState { Started = true, Aggregated = tt };
+                                this._streams[finalSegKey] = state;
+                                this._dialog.UpsertMessageByKey(finalSegKey, tt, source: "OnInteractionCompletedNonStreaming");
+                                
+                                // Mark boundary: next text in this turn gets a new segment
+                                this.SetBoundaryFlag(turnKey);
 
                                 return;
                             }
@@ -320,6 +453,11 @@ namespace SmartHopper.Core.UI.Chat
                             if (interaction is not AIInteractionText)
                             {
                                 var streamKey = GetStreamKey(interaction);
+#if DEBUG
+                                var turnKey = GetTurnBaseKey(interaction?.TurnId);
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
+#endif
+                                
                                 if (string.IsNullOrWhiteSpace(streamKey))
                                 {
                                     // Fallback: append if keyless (should be rare)
@@ -342,7 +480,6 @@ namespace SmartHopper.Core.UI.Chat
                                 }
 
                                 // Mark boundary: next text in this turn gets a new segment
-                                var turnKey = GetTurnBaseKey(interaction?.TurnId);
                                 this.SetBoundaryFlag(turnKey);
                             }
                         }
@@ -499,6 +636,7 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Clear streaming and per-turn state and finish
                     this._streams.Clear();
+                    this._preStreamAggregates.Clear();
                     this._textInteractionSegments.Clear();
                     this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
                     this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
@@ -607,7 +745,8 @@ namespace SmartHopper.Core.UI.Chat
             {
                 if (!string.IsNullOrWhiteSpace(turnKey))
                 {
-                    this._pendingNewTextSegmentTurns.Add(turnKey);
+                    var wasAdded = this._pendingNewTextSegmentTurns.Add(turnKey);
+                    Debug.WriteLine($"[WebChatObserver] SetBoundaryFlag: turnKey={turnKey}, wasNew={wasAdded}");
                 }
             }
 
@@ -616,11 +755,23 @@ namespace SmartHopper.Core.UI.Chat
             /// </summary>
             private void ConsumeBoundaryAndIncrementSegment(string turnKey, string baseKey)
             {
-                if (!string.IsNullOrWhiteSpace(turnKey)
-                    && this._pendingNewTextSegmentTurns.Remove(turnKey)
-                    && this._textInteractionSegments.ContainsKey(baseKey))
+                if (!string.IsNullOrWhiteSpace(turnKey))
                 {
-                    this._textInteractionSegments[baseKey] = this._textInteractionSegments[baseKey] + 1;
+                    var hadBoundary = this._pendingNewTextSegmentTurns.Remove(turnKey);
+                    var hasSegment = this._textInteractionSegments.ContainsKey(baseKey);
+                    
+                    if (hadBoundary && hasSegment)
+                    {
+                        var oldSeg = this._textInteractionSegments[baseKey];
+                        this._textInteractionSegments[baseKey] = oldSeg + 1;
+                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
+                    }
+#if DEBUG
+                    else
+                    {
+                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, hadBoundary={hadBoundary}, hasSegment={hasSegment}, NO INCREMENT");
+                    }
+#endif
                 }
             }
 
