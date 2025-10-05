@@ -105,3 +105,25 @@ Notes:
 - Both public APIs now delegate to the same internal loop `TurnLoopAsync(...)` for consistent behavior.
 - Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
 - Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
+
+## Special Turns
+
+Special turns allow executing AI requests with custom overrides (interactions, provider, model, tools, context) while leveraging the regular conversation flow infrastructure.
+
+```csharp
+var greetingConfig = GreetingSpecialTurn.Create(providerName, systemPrompt);
+var greeting = await session.ExecuteSpecialTurnAsync(
+    greetingConfig,
+    preferStreaming: true,
+    cancellationToken);
+```
+
+**Key features:**
+
+- Execute through regular conversation flow with automatic state snapshot/restore
+- Four persistence strategies: `PersistResult`, `PersistAll`, `Ephemeral`, `ReplaceAbove`
+- Interaction filtering for granular control over what's persisted
+- Support both streaming and non-streaming modes
+- Transparent to observers (they only see what gets persisted)
+
+**See also:** [SpecialTurns.md](./SpecialTurns.md) for detailed documentation and use cases.
