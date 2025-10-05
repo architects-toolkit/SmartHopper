@@ -108,22 +108,36 @@ namespace SmartHopper.Providers.DeepSeek
             double temperature = this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
-            // Format messages for DeepSeek API
+            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+
+#if DEBUG
+            // Log interaction sequence for debugging
+            try
+            {
+                int cnt = request.Body.Interactions?.Count ?? 0;
+                int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
+                int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
+                int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
+                Debug.WriteLine($"[DeepSeek] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+            }
+            catch { }
+#endif
+
+            // Simple sequential encoding like OpenAI/MistralAI
             var convertedMessages = new JArray();
             foreach (var interaction in request.Body.Interactions)
             {
                 try
                 {
-                    var messageJson = this.Encode(interaction);
-                    if (!string.IsNullOrWhiteSpace(messageJson))
+                    var token = this.EncodeToJToken(interaction);
+                    if (token != null)
                     {
-                        var token = JToken.Parse(messageJson);
                         convertedMessages.Add(token);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
+                    Debug.WriteLine($"[DeepSeek] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -184,7 +198,16 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
+#if DEBUG
+            try
+            {
+                Debug.WriteLine($"[DeepSeek] Request body:");
+                Debug.WriteLine(requestBody.ToString(Formatting.Indented));
+            }
+            catch { }
+#else
             Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
+#endif
 
             return requestBody.ToString();
         }
@@ -192,113 +215,114 @@ namespace SmartHopper.Providers.DeepSeek
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            AIAgent role = interaction.Agent;
-            string roleName = string.Empty;
-            string msgContent;
+            try
+            {
+                var token = this.EncodeToJToken(interaction);
+                return token?.ToString() ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Encode(IAIInteraction) error: {ex.Message}");
+                return string.Empty;
+            }
+        }
 
-            // Handle interactions based on type
+        /// <summary>
+        /// Converts a single interaction to a DeepSeek message object (JToken).
+        /// Returns null for interactions that should not be sent (e.g., UI-only errors).
+        /// </summary>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
+            if (interaction == null)
+            {
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            // Map role
+            var agent = interaction.Agent;
+            string role;
+
+            switch (agent)
+            {
+                case AIAgent.System:
+                case AIAgent.Context:
+                    role = "system";
+                    break;
+                case AIAgent.User:
+                    role = "user";
+                    break;
+                case AIAgent.Assistant:
+                case AIAgent.ToolCall:
+                    role = "assistant";
+                    break;
+                case AIAgent.ToolResult:
+                    role = "tool";
+                    break;
+                default:
+                    return null;
+            }
+
+            var messageObj = new JObject { ["role"] = role };
+
+            // Handle different interaction types
             if (interaction is AIInteractionText textInteraction)
             {
-                // For AIInteractionText, only send the actual content
-                msgContent = textInteraction.Content ?? string.Empty;
+                messageObj["content"] = textInteraction.Content ?? string.Empty;
             }
-            else
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // Non-text interactions default to empty content; specific handling follows below
-                msgContent = string.Empty;
-            }
-
-            var messageObj = new JObject
-            {
-                ["content"] = msgContent,
-            };
-
-            // Map role names
-            if (role == AIAgent.System)
-            {
-                // DeepSeek uses system role
-                roleName = "system";
-            }
-            else if (role == AIAgent.Context)
-            {
-                // Rename context to system
-                roleName = "system";
-            }
-            else if (role == AIAgent.Assistant)
-            {
-                // DeepSeek uses assistant role
-                roleName = "assistant";
-            }
-            else if (role == AIAgent.ToolResult)
-            {
-                roleName = "tool";
-
-                var toolInteraction = interaction as AIInteractionToolResult;
-
-                // Ensure content is a string, not a json object
-                var jsonString = JsonConvert.SerializeObject(toolInteraction?.Result, Formatting.None);
+                // DeepSeek requires cleaned/simplified tool result content
+                var jsonString = JsonConvert.SerializeObject(toolResultInteraction.Result, Formatting.None);
                 jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-
-                // Remove two or more consecutive whitespace characters
                 jsonString = Regex.Replace(jsonString, @"\s+", " ");
 
-                // Replace content with the cleaned string
                 messageObj["content"] = jsonString;
 
-                // Propagate tool_call ID and name from incoming message
-                if (toolInteraction?.Result is JObject bodyObj)
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Id))
                 {
-                    if (bodyObj["name"] != null)
-                    {
-                        messageObj["name"] = bodyObj["name"];
-                    }
+                    messageObj["tool_call_id"] = toolResultInteraction.Id;
+                }
 
-                    if (bodyObj["tool_call_id"] != null)
-                    {
-                        messageObj["tool_call_id"] = bodyObj["tool_call_id"];
-                    }
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    messageObj["name"] = toolResultInteraction.Name;
                 }
             }
-            else if (role == AIAgent.ToolCall)
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
-                // Encode tool calls as assistant messages with tool_calls
-                roleName = "assistant";
-
-                // TODO: verify deepseek api accepts this
-            }
-            else
-            {
-                // DeepSeek uses user role
-                roleName = "user";
-            }
-
-            // Add tool calls if present (only for specific interaction types that have them)
-            if (interaction is AIInteractionToolCall toolCallInteraction)
-            {
-                var toolCallsArray = new JArray();
                 var toolCallObj = new JObject
                 {
-                    ["id"] = toolCallInteraction.Id,
+                    ["id"] = toolCallInteraction.Id ?? string.Empty,
                     ["type"] = "function",
                     ["function"] = new JObject
                     {
-                        ["name"] = toolCallInteraction.Name,
-                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}"
+                        ["name"] = toolCallInteraction.Name ?? string.Empty,
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}",
                     },
                 };
-                toolCallsArray.Add(toolCallObj);
-                messageObj["tool_calls"] = toolCallsArray;
+                messageObj["tool_calls"] = new JArray { toolCallObj };
+                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
             }
-
-            // Add message to converted messages
-            if (!string.IsNullOrEmpty(roleName))
+            else if (interaction is AIInteractionImage imageInteraction)
             {
-                messageObj["role"] = roleName;
+                // DeepSeek does not support vision; fallback to prompt as text
+                messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+            }
+            else
+            {
+                // Unknown interaction type
+                messageObj["content"] = string.Empty;
             }
 
-            return messageObj.ToString();
+            return messageObj;
         }
 
         /// <inheritdoc/>
