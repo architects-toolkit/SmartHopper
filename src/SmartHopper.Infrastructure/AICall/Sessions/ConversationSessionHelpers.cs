@@ -579,7 +579,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
         }
 #endif
-
         /// <summary>
         /// Creates a standardized provider error return.
         /// </summary>
@@ -589,8 +588,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             ret.CreateProviderError(message, this.Request);
             return ret;
         }
-
 #if DEBUG
+
         /// <summary>
         /// Writes the entire conversation history to a Markdown file under %APPDATA%/Grasshopper/SmartHopper/Debug.
         /// File name: ConversationSession-History.md
@@ -767,7 +766,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Debug.WriteLine($"[ConversationSession.Debug] Error appending event: {ex.Message}");
             }
         }
-
 #endif
     }
 }

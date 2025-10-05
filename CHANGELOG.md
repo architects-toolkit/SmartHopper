@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
     - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
     - Always-on `PolicyPipeline` foundation with request and response policy hooks
+  - Special Turn system for executing AI requests with custom overrides:
+    - New `SpecialTurnConfig` to configure special turns with request overrides (interactions, provider, model, endpoint, capability, context/tool filters), execution behavior (force non-streaming, custom timeout), and history persistence strategies
+    - Four history persistence strategies: `PersistResult` (only result), `PersistAll` (all interactions with filtering), `Ephemeral` (no persistence), `ReplaceAbove` (replace history with result, filtered)
+    - `InteractionFilter` uses flexible allowlist/blocklist approach with `Allow()`, `Block()`, and fluent `WithAllow()`/`WithBlock()` methods; automatically supports future interaction types without code changes
+    - Predefined filters: `InteractionFilter.Default`, `InteractionFilter.PreserveSystemContext`, `InteractionFilter.AllowAll`
+    - `ConversationSession.ExecuteSpecialTurnAsync()` creates isolated `AIRequestCall` clone for execution; observers are not notified during execution, only when results are persisted to main conversation
+    - Isolated execution prevents internal special turn interactions (system prompts, tool calls) from appearing in UI
+    - Built-in `GreetingSpecialTurn` factory for AI-generated greetings
+    - Special turns support both streaming and non-streaming modes in isolated execution context
+    - Parallel special turns allowed (no locking)
+    - Refactored greeting generation to use special turn infrastructure, eliminating 140+ lines of duplicated code
 
 - AICall and core models:
   - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.

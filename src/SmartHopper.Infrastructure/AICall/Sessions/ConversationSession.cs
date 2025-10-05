@@ -68,11 +68,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private AIReturn _lastReturn = new AIReturn();
 
         /// <summary>
-        /// The greeting return if greeting generation was requested and completed.
-        /// </summary>
-        private AIReturn? _greetingReturn;
-
-        /// <summary>
         /// Tracks whether the greeting was inserted into the session history and emitted to observers.
         /// Used to short-circuit provider execution for greeting-only initialization runs.
         /// </summary>
@@ -150,17 +145,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 this.NotifyStart(this.Request);
 
                 // Generate greeting if requested before starting conversation
-                await this.GenerateGreetingAsync(streamChunks: yieldDeltas, cancellationToken: linkedCts.Token).ConfigureAwait(false);
-
-                // If greeting was emitted, provide a single yield and finalize the sequence
-                if (this._greetingEmitted)
+                if (this._generateGreeting && !this._greetingEmitted)
                 {
-                    var snapshot = this.GetHistoryReturn();
-
-                    // Reset flag so subsequent calls (after user messages) will proceed
-                    this._greetingEmitted = false;
-                    yield return snapshot;
-                    yield break;
+                    var greetingResult = await this.GenerateGreetingAsync(streamChunks: yieldDeltas, cancellationToken: linkedCts.Token).ConfigureAwait(false);
+                    if (greetingResult != null)
+                    {
+                        // Reset flags so subsequent calls (after user messages) will proceed
+                        this._greetingEmitted = false;
+                        this._generateGreeting = false;
+                        yield return greetingResult;
+                        yield break;
+                    }
                 }
 
                 // Centralized validation: early interrupt if request is invalid
@@ -539,214 +534,51 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Generates an AI greeting if enabled in settings and greeting generation was requested.
-        /// Uses the provider's default Text2Text model, overriding the initial request model.
+        /// Generates an AI greeting using the special turn system.
         /// </summary>
-        /// <param name="streamChunks">When true, emits streaming chunks for the greeting before persisting the final message.</param>
+        /// <param name="streamChunks">When true, uses streaming mode for greeting generation.</param>
         /// <param name="cancellationToken">Cancellation token for the greeting generation.</param>
-        /// <returns>Task representing the greeting generation operation.</returns>
-        private async Task GenerateGreetingAsync(bool streamChunks = false, CancellationToken cancellationToken = default)
+        /// <returns>The AIReturn with the greeting, or null if greeting is disabled or failed.</returns>
+        private async Task<AIReturn?> GenerateGreetingAsync(bool streamChunks = false, CancellationToken cancellationToken = default)
         {
-            if (!this._generateGreeting)
-            {
-                return;
-            }
-
-            // Already emitted once for this session
-            if (this._greetingEmitted)
-            {
-                return;
-            }
-
             // Check if AI greeting is enabled in settings
             var settings = SmartHopperSettings.Instance;
             if (!settings.SmartHopperAssistant.EnableAIGreeting)
             {
                 Debug.WriteLine("[ConversationSession] AI greeting disabled in settings, skipping greeting generation");
-                return;
+                return null;
             }
 
             try
             {
-                var defaultGreeting = "Hello! I'm your AI assistant. How can I help you today?";
-
-                // Determine the greeting prompt based on system message
+                // Extract system prompt from initial request
                 var systemMessageText = this._initialRequest?.Body?.Interactions?
                     .OfType<AIInteractionText>()
                     .FirstOrDefault(x => x.Agent == AIAgent.System);
 
-                string greetingPrompt;
-                if (systemMessageText != null && !string.IsNullOrEmpty(systemMessageText.Content))
-                {
-                    greetingPrompt = $"You are a chat assistant. The user has provided the following instructions:\n---\n{systemMessageText.Content}\n---\nBased on the instructions, generate a brief, friendly greeting message that welcomes the user to the chat and naturally guides the conversation toward your area of expertise. Be warm and professional, highlighting your unique capabilities without overwhelming the user with technical details. Keep it concise and engaging. One or two sentences maximum.";
-                }
-                else
-                {
-                    greetingPrompt = "Your job is to generate a brief, friendly greeting message that welcomes the user to the chat. This is a generic purpose chat. Keep the greeting concise: one or two sentences maximum.";
-                }
-
-                // Create greeting interactions
-                var greetingInteractions = new List<IAIInteraction>
-                {
-                    new AIInteractionText
-                    {
-                        Agent = AIAgent.System,
-                        Content = greetingPrompt,
-                    },
-                    new AIInteractionText
-                    {
-                        Agent = AIAgent.User,
-                        Content = "Please send a short friendly greeting to start the chat. Keep it to one or two sentences.",
-                    },
-                };
-
-                // Get the provider's default Text2Text model (overriding the initial request model)
-                var defaultModel = ModelManager.Instance.GetDefaultModel(this._initialRequest.Provider, AICapability.Text2Text);
-                if (string.IsNullOrEmpty(defaultModel))
-                {
-                    Debug.WriteLine($"[ConversationSession] No default Text2Text model available for provider '{this._initialRequest.Provider}', using fallback greeting");
-                    this._greetingReturn = this.CreateFallbackGreeting(defaultGreeting);
-                    return;
-                }
-
-                // Create greeting request with Text2Text model override
-                var greetingRequest = new AIRequestCall();
-                greetingRequest.Initialize(
+                // Create greeting special turn configuration
+                var greetingConfig = SpecialTurns.BuiltIn.GreetingSpecialTurn.Create(
                     this._initialRequest.Provider,
-                    defaultModel, // Override with default Text2Text model
-                    greetingInteractions,
-                    this._initialRequest.Endpoint,
-                    AICapability.Text2Text,
-                    "-*"); // Disable all tools for greeting
+                    systemMessageText?.Content);
 
-                Debug.WriteLine($"[ConversationSession] Generating greeting with provider='{this._initialRequest.Provider}', model='{defaultModel}' (Text2Text default), interactions={greetingInteractions.Count}");
+                Debug.WriteLine($"[ConversationSession] Generating greeting via special turn: provider={this._initialRequest.Provider}, streaming={streamChunks}");
 
-                // Execute with 30s timeout
-                var greetingTask = greetingRequest.Exec();
-                var timeoutTask = Task.Delay(30000, cancellationToken);
-                var completed = await Task.WhenAny(greetingTask, timeoutTask).ConfigureAwait(false);
+                // Execute greeting as a special turn
+                var result = await this.ExecuteSpecialTurnAsync(
+                    greetingConfig,
+                    preferStreaming: streamChunks,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                if (completed == greetingTask && !greetingTask.IsFaulted)
-                {
-                    this._greetingReturn = greetingTask.Result;
-                    Debug.WriteLine($"[ConversationSession] Greeting generation completed successfully");
-                }
-                else
-                {
-                    Debug.WriteLine("[ConversationSession] Greeting generation timed out or failed, using fallback greeting");
-                    this._greetingReturn = this.CreateFallbackGreeting(defaultGreeting);
-                }
+                // Mark greeting as emitted
+                this._greetingEmitted = true;
+
+                return result;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Error generating greeting: {ex.Message}");
-                this._greetingReturn = this.CreateFallbackGreeting("Hello! I'm your AI assistant. How can I help you today?");
+                Debug.WriteLine($"[ConversationSession] Error generating greeting via special turn: {ex.Message}");
+                return null;
             }
-
-            // If we have a greeting, append it to the session history and notify observers
-            try
-            {
-                var greetingText = this._greetingReturn?.Body?.Interactions?
-                    .OfType<AIInteractionText>()
-                    .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-
-                if (greetingText != null && !string.IsNullOrWhiteSpace(greetingText.Content))
-                {
-                    // Assign a unified TurnId for the greeting so UI can coalesce streaming chunks
-                    var turnId = Guid.NewGuid().ToString("N");
-
-                    if (streamChunks)
-                    {
-                        // Emit incremental chunks as streaming deltas
-                        const int chunkSize = 24;
-                        var text = greetingText.Content ?? string.Empty;
-                        for (int pos = 0; pos < text.Length; pos += chunkSize)
-                        {
-                            var len = Math.Min(chunkSize, text.Length - pos);
-                            var chunk = text.Substring(pos, len);
-                            var partial = new AIInteractionText
-                            {
-                                Agent = AIAgent.Assistant,
-                                Content = chunk,
-                                TurnId = turnId,
-                            };
-
-                            var delta = new AIReturn();
-                            var deltaBody = AIBodyBuilder.Create().Add(partial).Build();
-                            delta.SetBody(deltaBody);
-
-                            // Stream the partial chunk to observers (UI will aggregate)
-                            this.NotifyDelta(delta);
-                        }
-                    }
-                    else
-                    {
-                        // Non-streaming: push a single partial containing the full greeting
-                        // Ensure the partial carries the same TurnId as the final persisted message so UI upserts instead of duplicating
-                        var partialGreeting = new AIInteractionText
-                        {
-                            Agent = AIAgent.Assistant,
-                            Content = greetingText.Content,
-                            Reasoning = greetingText.Reasoning,
-                            Metrics = greetingText.Metrics,
-                            Time = greetingText.Time,
-                            TurnId = turnId,
-                        };
-                        var delta = new AIReturn();
-                        var deltaBody = AIBodyBuilder.Create().Add(partialGreeting).Build();
-                        delta.SetBody(deltaBody);
-                        this.NotifyPartial(delta);
-                    }
-
-                    // Persist the final greeting into history with the unified TurnId
-                    try
-                    {
-                        var finalGreeting = new AIInteractionText
-                        {
-                            Agent = AIAgent.Assistant,
-                            Content = greetingText.Content,
-                            Reasoning = greetingText.Reasoning,
-                            Metrics = greetingText.Metrics,
-                            Time = greetingText.Time,
-                            TurnId = turnId,
-                        };
-                        this.AppendToSessionHistory(finalGreeting);
-                        this.UpdateLastReturn();
-                    }
-                    catch { }
-
-                    // Mark emitted and immediately emit a final snapshot for initialization flows
-                    this._greetingEmitted = true;
-                    this.NotifyFinal(this.GetHistoryReturn());
-
-                    // One-shot: prevent greeting generation on subsequent turns
-                    this._generateGreeting = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ConversationSession] Error appending/emitting greeting: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Creates a fallback greeting AIReturn when greeting generation fails.
-        /// </summary>
-        /// <param name="greetingText">The fallback greeting text.</param>
-        /// <returns>AIReturn containing the fallback greeting.</returns>
-        private AIReturn CreateFallbackGreeting(string greetingText)
-        {
-            var fallbackReturn = new AIReturn();
-            var greetingInteraction = new AIInteractionText
-            {
-                Agent = AIAgent.Assistant,
-                Content = greetingText,
-                Metrics = new AIMetrics(),
-            };
-
-            var body = AIBodyBuilder.Create().Add(greetingInteraction).Build();
-            fallbackReturn.SetBody(body);
-            return fallbackReturn;
         }
 
         /// <summary>
