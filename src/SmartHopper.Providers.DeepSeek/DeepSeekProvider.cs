@@ -428,11 +428,14 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     foreach (JObject tc in tcs)
                     {
+                        var function = tc["function"] as JObject;
+                        var argumentsStr = function?["arguments"]?.ToString() ?? "{}";
+                        
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
-                            Name = tc["name"]?.ToString(),
-                            Arguments = tc["arguments"] as JObject ?? new JObject(),
+                            Name = function?["name"]?.ToString(),
+                            Arguments = JObject.Parse(argumentsStr),
                         };
                         interactions.Add(toolCall);
                     }

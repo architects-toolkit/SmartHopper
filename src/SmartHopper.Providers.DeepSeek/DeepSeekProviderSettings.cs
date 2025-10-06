@@ -61,10 +61,9 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Name = "EnableStreaming",
                     Type = typeof(bool),
-                    DefaultValue = false,
+                    DefaultValue = true,
                     DisplayName = "Enable Streaming",
-                    Description = "Streaming is not available for this provider yet.",
-                    Enabled = false,
+                    Description = "Allow streaming responses for this provider. When enabled, you will receive the response as it is generated",
                 },
                 new SettingDescriptor
                 {
