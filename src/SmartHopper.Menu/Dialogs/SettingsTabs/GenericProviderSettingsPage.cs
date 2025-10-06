@@ -123,6 +123,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     var control = this.CreateControlForDescriptor(descriptor);
                     if (control != null)
                     {
+                        // Honor descriptor-level enable/disable flag
+                        control.Enabled = descriptor.Enabled;
+
                         this._controls[descriptor.Name] = control;
 
                         // Load current value

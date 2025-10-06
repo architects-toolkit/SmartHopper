@@ -229,6 +229,12 @@ namespace SmartHopper.Infrastructure.Settings
         public SettingDescriptorControl? ControlParams { get; set; }
 
         /// <summary>
+        /// Gets or sets whether the setting's UI control should be enabled. Default is true.
+        /// When set to false, the control will render as disabled (read-only).
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
         /// Sets a lazy default value factory function.
         /// </summary>
         /// <param name="valueFactory">The factory function to create the default value.</param>
