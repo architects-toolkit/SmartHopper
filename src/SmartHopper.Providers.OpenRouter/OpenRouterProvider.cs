@@ -24,7 +24,8 @@ using SmartHopper.Infrastructure.AIProviders;
 namespace SmartHopper.Providers.OpenRouter
 {
     /// <summary>
-    /// OpenRouter provider implementation using the Responses API.
+    /// OpenRouter provider implementation using the Chat Completions API (OpenAI-compatible).
+    /// Provides access to multiple AI models through a unified interface.
     /// Text-only; image generation is not supported.
     /// </summary>
     public sealed class OpenRouterProvider : AIProvider<OpenRouterProvider>
@@ -100,9 +101,9 @@ namespace SmartHopper.Providers.OpenRouter
             }
             else
             {
-                // Default to Responses endpoint for text
+                // Default to Chat Completions endpoint
                 request.HttpMethod = "POST";
-                request.Endpoint = "/responses";
+                request.Endpoint = "/chat/completions";
             }
 
             return request;
@@ -141,7 +142,7 @@ namespace SmartHopper.Providers.OpenRouter
             catch { }
 #endif
 
-            // Build messages from interactions. OpenRouter Responses accepts an `input` array of role/content pairs.
+            // Build messages from interactions
             var messages = new JArray();
             foreach (var interaction in request.Body.Interactions)
             {
@@ -167,7 +168,7 @@ namespace SmartHopper.Providers.OpenRouter
             var body = new JObject
             {
                 ["model"] = request.Model,
-                ["input"] = messages,
+                ["messages"] = messages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
                 ["provider"] = new JObject
@@ -178,7 +179,18 @@ namespace SmartHopper.Providers.OpenRouter
                 },
             };
 
-            // Note: schema/response_format and tools can be added later once mapped for OpenRouter Responses API
+            // Add tools if requested
+            if (!string.IsNullOrWhiteSpace(request.Body.ToolFilter))
+            {
+                var tools = this.GetFormattedTools(request.Body.ToolFilter);
+                if (tools != null && tools.Count > 0)
+                {
+                    body["tools"] = tools;
+                    body["tool_choice"] = "auto";
+                }
+            }
+
+            // Note: schema/response_format can be added later once mapped for OpenRouter
 
 #if DEBUG
             try
@@ -188,7 +200,7 @@ namespace SmartHopper.Providers.OpenRouter
             }
             catch { }
 #else
-            Debug.WriteLine($"[OpenRouter] Responses Request: {body}");
+            Debug.WriteLine($"[OpenRouter] Request: {body}");
 #endif
 
             return body.ToString();
@@ -210,7 +222,7 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <summary>
-        /// Converts a single interaction to an OpenRouter Responses message object (JToken).
+        /// Converts a single interaction to an OpenRouter message object (JToken).
         /// Returns null for interactions that should not be sent (e.g., UI-only errors).
         /// </summary>
         private JToken? EncodeToJToken(IAIInteraction interaction)
@@ -259,16 +271,36 @@ namespace SmartHopper.Providers.OpenRouter
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
+                // Format for tool results
+                obj["tool_call_id"] = toolResultInteraction.Id;
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    obj["name"] = toolResultInteraction.Name;
+                }
+
                 obj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
-                // Represent tool call as assistant text for now (tool calling APIs to be added later)
-                obj["content"] = $"<tool_call name=\"{toolCallInteraction.Name}\">{toolCallInteraction.Arguments}</tool_call>";
+                // Format for tool calls
+                var toolCallObj = new JObject
+                {
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
+                    {
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments is JToken jt
+                            ? jt.ToString()
+                            : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
+                    },
+                };
+                obj["tool_calls"] = new JArray { toolCallObj };
+                obj["content"] = string.Empty; // assistant tool_calls messages should have empty content
             }
             else if (interaction is AIInteractionImage)
             {
-                // OpenRouter Responses text-only: ignore images but keep placeholder note
+                // OpenRouter text-only: ignore images but keep placeholder note
                 obj["content"] = "[image content omitted: provider supports text only]";
             }
             else
@@ -291,45 +323,23 @@ namespace SmartHopper.Providers.OpenRouter
 
             try
             {
-                // Try OpenRouter Responses-style outputs first
-                string content = string.Empty;
+                // OpenRouter response format
+                var choices = response["choices"] as JArray;
+                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var message = firstChoice?["message"] as JObject;
 
-                // Some Responses implementations return an "output" array with text items
-                if (response["output"] is JArray outputArr && outputArr.Count > 0)
+                if (message == null)
                 {
-                    var parts = new List<string>();
-                    foreach (var item in outputArr.OfType<JObject>())
-                    {
-                        // Try common fields
-                        var text = item["text"]?.ToString() ?? item["content"]?.ToString();
-                        if (!string.IsNullOrEmpty(text)) parts.Add(text);
-                    }
+                    return interactions;
+                }
 
-                    content = string.Join("", parts);
-                }
-                else if (response["response"] != null)
-                {
-                    content = response["response"]?.ToString() ?? string.Empty;
-                }
-                else if (response["choices"] is JArray choices && choices.Count > 0)
-                {
-                    // Fallback to OpenAI-like decoding if proxy returns that shape
-                    var first = choices[0] as JObject;
-                    content = first?["message"]?["content"]?.ToString() ?? string.Empty;
-                }
-                else if (response["message"]? ["content"] != null)
-                {
-                    content = response["message"]?["content"]?.ToString() ?? string.Empty;
-                }
-                else
-                {
-                    content = response.ToString();
-                }
+                // Extract text content
+                string content = message["content"]?.ToString() ?? string.Empty;
 
                 var result = new AIInteractionText();
                 result.SetResult(agent: AIAgent.Assistant, content: content);
 
-                // Attempt to read usage metrics if present (alignment with common shapes)
+                // Extract usage metrics if present
                 var usage = response["usage"] as JObject;
                 if (usage != null)
                 {
@@ -346,6 +356,52 @@ namespace SmartHopper.Providers.OpenRouter
                 }
 
                 interactions.Add(result);
+
+                // Extract tool calls if present
+                if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)
+                {
+                    foreach (JObject tc in toolCalls)
+                    {
+                        var func = tc["function"] as JObject;
+                        var argsToken = func?["arguments"];
+                        JObject? argsObj = null;
+
+                        if (argsToken is JObject ao)
+                        {
+                            argsObj = ao;
+                        }
+                        else if (argsToken != null)
+                        {
+                            var argsString = argsToken.Type == JTokenType.String
+                                ? argsToken.ToString()
+                                : argsToken.ToString(Newtonsoft.Json.Formatting.None);
+
+                            if (string.IsNullOrWhiteSpace(argsString))
+                            {
+                                argsObj = new JObject();
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    argsObj = JObject.Parse(argsString);
+                                }
+                                catch
+                                {
+                                    Debug.WriteLine($"[OpenRouter] Failed to parse tool call arguments: {argsString}");
+                                }
+                            }
+                        }
+
+                        var toolCall = new AIInteractionToolCall
+                        {
+                            Id = tc["id"]?.ToString(),
+                            Name = func?["name"]?.ToString(),
+                            Arguments = argsObj,
+                        };
+                        interactions.Add(toolCall);
+                    }
+                }
             }
             catch (Exception ex)
             {
