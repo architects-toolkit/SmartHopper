@@ -603,6 +603,9 @@ namespace SmartHopper.Providers.MistralAI
                     Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
                 };
 
+                // Tool call accumulation for final body
+                var toolCallsList = new List<AIInteractionToolCall>();
+
                 // Determine idle timeout from request (fallback to 60s if invalid)
                 var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
                 await foreach (var data in this.ReadSseDataAsync(
@@ -689,6 +692,7 @@ namespace SmartHopper.Providers.MistralAI
                                     Agent = AIAgent.ToolCall,
                                 };
                                 toolInteractions.Add(toolCall);
+                                toolCallsList.Add(toolCall); // Store for final body
                             }
 
                             var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
@@ -779,30 +783,39 @@ namespace SmartHopper.Providers.MistralAI
                 // Align aggregate finish reason
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });
 
-                // Snapshot final assistant interaction
-                var finalSnapshot = new AIInteractionText
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+
+                // Add text interaction if present
+                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
                 {
-                    Agent = assistantAggregate.Agent,
-                    Content = assistantAggregate.Content,
-                    Reasoning = assistantAggregate.Reasoning,
-                    Metrics = new AIMetrics
+                    var finalSnapshot = new AIInteractionText
                     {
-                        Provider = assistantAggregate.Metrics.Provider,
-                        Model = assistantAggregate.Metrics.Model,
-                        FinishReason = assistantAggregate.Metrics.FinishReason,
-                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                    },
-                };
-                
-                // Mark as NOT new since this text was already streamed as deltas
-                var finalBody = AIBodyBuilder.Create()
-                    .Add(finalSnapshot, markAsNew: false)
-                    .Build();
-                final.SetBody(finalBody);
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+                    finalBuilder.Add(finalSnapshot, markAsNew: false);
+                }
+
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var tc in toolCallsList)
+                {
+                    finalBuilder.Add(tc, markAsNew: false);
+                }
+
+                final.SetBody(finalBuilder.Build());
                 yield return final;
             }
         }

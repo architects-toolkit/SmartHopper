@@ -1075,30 +1075,43 @@ namespace SmartHopper.Providers.OpenAI
                 // Align aggregate metrics finish reason as well
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
 
-                // Snapshot the final assistant interaction
-                var finalSnapshot = new AIInteractionText
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+
+                // Add text interaction if present
+                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
                 {
-                    Agent = assistantAggregate.Agent,
-                    Content = assistantAggregate.Content,
-                    Reasoning = assistantAggregate.Reasoning,
-                    Metrics = new AIMetrics
+                    var finalSnapshot = new AIInteractionText
                     {
-                        Provider = assistantAggregate.Metrics.Provider,
-                        Model = assistantAggregate.Metrics.Model,
-                        FinishReason = assistantAggregate.Metrics.FinishReason,
-                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                    },
-                };
-                
-                // Mark as NOT new since this text was already streamed as deltas
-                var finalBody = AIBodyBuilder.Create()
-                    .Add(finalSnapshot, markAsNew: false)
-                    .Build();
-                final.SetBody(finalBody);
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+                    finalBuilder.Add(finalSnapshot, markAsNew: false);
+                }
+
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                {
+                    var (id, name, argsSb) = kv.Value;
+                    JObject argsObj = null;
+                    var argsStr = argsSb.ToString();
+                    try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
+                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
+                }
+
+                final.SetBody(finalBuilder.Build());
                 yield return final;
             }
         }
