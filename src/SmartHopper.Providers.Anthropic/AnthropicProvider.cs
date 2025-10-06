@@ -840,6 +840,11 @@ namespace SmartHopper.Providers.Anthropic
                 var textBuffer = new StringBuilder();
                 var streamMetrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model };
                 string? lastFinishReason = null;
+                
+                // Track tool calls being built during streaming
+                var toolCalls = new List<AIInteractionToolCall>();
+                AIInteractionToolCall? currentToolCall = null;
+                var toolArgsBuffer = new StringBuilder();
 
                 // Determine idle timeout from request (fallback to 60s if invalid)
                 var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
@@ -867,23 +872,22 @@ namespace SmartHopper.Providers.Anthropic
                         // Anthropic sends tool_use as content_block_start events
                         var contentBlock = parsed["content_block"] as JObject;
                         var blockType = contentBlock?["type"]?.ToString();
-                        Debug.WriteLine($"[Anthropic] content_block_start with block type: {blockType}");
+                        var blockIndex = parsed["index"]?.Value<int>();
+                        Debug.WriteLine($"[Anthropic] content_block_start: index={blockIndex}, type={blockType}");
 
                         if (contentBlock != null && string.Equals(blockType, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
-                            var toolCall = new AIInteractionToolCall
+                            // Start a new tool call - arguments will come in subsequent deltas
+                            currentToolCall = new AIInteractionToolCall
                             {
                                 Id = contentBlock["id"]?.ToString(),
                                 Name = contentBlock["name"]?.ToString(),
-                                Arguments = contentBlock["input"] as JObject ?? new JObject(),
+                                Arguments = new JObject(), // Will be populated from input_json_delta events
                                 Agent = AIAgent.ToolCall,
                             };
-
-                            Debug.WriteLine($"[Anthropic] Streaming tool_use detected: id={toolCall.Id}, name={toolCall.Name}");
-                            var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
-                            tcDelta.SetBody(new List<IAIInteraction> { toolCall });
-                            yield return tcDelta;
+                            
+                            toolArgsBuffer.Clear();
+                            Debug.WriteLine($"[Anthropic] Tool call initialized: id={currentToolCall.Id}, name={currentToolCall.Name}, currentToolCall set to non-null");
                         }
                     }
                     else if (string.Equals(type, "content_block_delta", StringComparison.OrdinalIgnoreCase))
@@ -916,24 +920,71 @@ namespace SmartHopper.Providers.Anthropic
                         // Handle tool input deltas (partial arguments)
                         else if (string.Equals(deltaType, "input_json_delta", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Tool arguments are being streamed; we can optionally accumulate them
-                            // For now, we'll wait for the complete tool_use in content_block_start
-                            Debug.WriteLine($"[Anthropic] Streaming tool input delta: {delta?["partial_json"]?.ToString()}");
+                            var partialJson = delta?["partial_json"]?.ToString();
+                            if (!string.IsNullOrEmpty(partialJson))
+                            {
+                                toolArgsBuffer.Append(partialJson);
+                                Debug.WriteLine($"[Anthropic] Streaming tool input delta: {partialJson}");
+                            }
+                        }
+                    }
+                    else if (string.Equals(type, "content_block_stop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var blockIndex = parsed["index"]?.Value<int>();
+                        Debug.WriteLine($"[Anthropic] content_block_stop: index={blockIndex}, hasCurrentToolCall={currentToolCall != null}");
+                        
+                        // Tool arguments are complete - parse and store
+                        if (currentToolCall != null)
+                        {
+                            var argsJson = toolArgsBuffer.ToString();
+                            Debug.WriteLine($"[Anthropic] Tool arguments complete: {argsJson}");
+                            
+                            try
+                            {
+                                currentToolCall.Arguments = string.IsNullOrEmpty(argsJson) ? new JObject() : JObject.Parse(argsJson);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[Anthropic] Failed to parse tool arguments: {ex.Message}");
+                                currentToolCall.Arguments = new JObject();
+                            }
+                            
+                            toolCalls.Add(currentToolCall);
+                            Debug.WriteLine($"[Anthropic] Added tool call to list: id={currentToolCall.Id}, name={currentToolCall.Name}, args={currentToolCall.Arguments}");
+                            
+                            // Yield the tool call
+                            var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                            tcDelta.SetBody(new List<IAIInteraction> { currentToolCall });
+                            yield return tcDelta;
+                            
+                            currentToolCall = null;
+                            toolArgsBuffer.Clear();
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[Anthropic] content_block_stop but no currentToolCall (likely text block)");
                         }
                     }
                     else if (string.Equals(type, "message_delta", StringComparison.OrdinalIgnoreCase))
                     {
+                        Debug.WriteLine($"[Anthropic] message_delta full event: {parsed}");
+
                         if (parsed["usage"] is JObject usage)
                         {
                             streamMetrics.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
                             streamMetrics.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
                         }
 
-                        var stopReason = parsed["stop_reason"]?.ToString();
+                        // The stop_reason is nested under "delta" in message_delta events
+                        var delta = parsed["delta"] as JObject;
+                        var stopReason = delta?["stop_reason"]?.ToString();
+                        Debug.WriteLine($"[Anthropic] message_delta delta object: {delta}");
+                        Debug.WriteLine($"[Anthropic] message_delta stop_reason from delta: {stopReason}");
+
                         if (!string.IsNullOrWhiteSpace(stopReason))
                         {
                             lastFinishReason = stopReason;
-                            Debug.WriteLine($"[Anthropic] message_delta stop_reason: {stopReason}");
+                            Debug.WriteLine($"[Anthropic] Setting lastFinishReason to: {stopReason}");
                         }
                     }
                     else if (string.Equals(type, "message_stop", StringComparison.OrdinalIgnoreCase))
@@ -944,25 +995,40 @@ namespace SmartHopper.Providers.Anthropic
                     }
                 }
 
-                var final = new AIReturn { Request = request, Status = AICallStatus.Finished };
+                // Determine final status based on finish reason
+                var finalStatus = string.Equals(lastFinishReason, "tool_use", StringComparison.OrdinalIgnoreCase)
+                    ? AICallStatus.CallingTools
+                    : AICallStatus.Finished;
+                
+                var final = new AIReturn { Request = request, Status = finalStatus };
                 streamMetrics.FinishReason = lastFinishReason ?? streamMetrics.FinishReason;
 
-                Debug.WriteLine($"[Anthropic] Stream complete: textLen={textBuffer.Length}, finishReason={streamMetrics.FinishReason}, in={streamMetrics.InputTokensPrompt}, out={streamMetrics.OutputTokensGeneration}");
+                Debug.WriteLine($"[Anthropic] Stream complete: textLen={textBuffer.Length}, toolCalls={toolCalls.Count}, finishReason={streamMetrics.FinishReason}, in={streamMetrics.InputTokensPrompt}, out={streamMetrics.OutputTokensGeneration}");
 
-                // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
-                var finalInteraction = new AIInteractionText
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+                
+                // Add text if present
+                if (textBuffer.Length > 0)
                 {
-                    Agent = AIAgent.Assistant,
-                    Content = textBuffer.ToString(),
-                    Reasoning = string.Empty,
-                    Metrics = streamMetrics,
-                };
-
-                // Mark as NOT new since this text was already streamed as deltas
-                var finalBody = AIBodyBuilder.Create()
-                    .Add(finalInteraction, markAsNew: false)
-                    .Build();
-                final.SetBody(finalBody);
+                    var finalInteraction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = textBuffer.ToString(),
+                        Reasoning = string.Empty,
+                        Metrics = streamMetrics,
+                    };
+                    finalBuilder.Add(finalInteraction, markAsNew: false);
+                }
+                
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var tc in toolCalls)
+                {
+                    Debug.WriteLine($"[Anthropic] Including tool call in final: {tc.Name}");
+                    finalBuilder.Add(tc, markAsNew: false);
+                }
+                
+                final.SetBody(finalBuilder.Build());
                 yield return final;
             }
         }

@@ -729,6 +729,27 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         var textDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { textDelta });
                                         this.NotifyDelta(textDeltaReturn);
                                     }
+                                    else if (interaction is AIInteractionToolCall tc)
+                                    {
+                                        // Check if this tool call already exists in history to prevent duplicates
+                                        var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
+                                            .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+
+                                        if (!exists)
+                                        {
+                                            // Persist tool call immediately
+                                            this.AppendToSessionHistory(interaction);
+                                            
+                                            // Notify with persisted interaction
+                                            var tcDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { interaction });
+                                            this.NotifyInteractionCompleted(tcDeltaReturn);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Persist other non-text interactions immediately
+                                        this.AppendToSessionHistory(interaction);
+                                    }
                                 }
                             }
                             
