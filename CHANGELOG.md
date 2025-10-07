@@ -113,6 +113,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Providers – OpenAI:
   - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.
+  - **Streaming adapter now extracts and streams reasoning content** from structured content arrays (o-series models). Parses `type: "reasoning"` and `type: "thinking"` parts during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+
+- Providers – MistralAI:
+  - **Streaming adapter now extracts and streams thinking content** from structured content arrays. Parses `type: "thinking"` blocks during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
 
 - UI and settings:
   - AI Chat component default system prompt to a generic one.
