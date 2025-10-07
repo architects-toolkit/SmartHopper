@@ -404,7 +404,7 @@ namespace SmartHopper.Providers.OpenAI
             };
 
             // Configure tokens and parameters based on model family
-            // - o-series (o1/o3/o4...): use max_completion_tokens and reasoning_effort; omit temperature
+            // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
             if (Regex.IsMatch(request.Model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(request.Model, @"^gpt-5", RegexOptions.IgnoreCase))
             {
@@ -983,23 +983,65 @@ namespace SmartHopper.Providers.OpenAI
                         });
                     }
 
-                    // Content streaming
-                    var contentDelta = delta?["content"]?.ToString();
-                    if (!string.IsNullOrEmpty(contentDelta))
+                    // Content streaming - handle both plain strings and structured content arrays
+                    var contentToken = delta?["content"];
+                    if (contentToken != null)
                     {
-                        buffer.Append(contentDelta);
-                        if (firstChunk)
+                        // Check if content is a structured array (o-series models with reasoning)
+                        if (contentToken is JArray contentArray)
                         {
-                            firstChunk = false;
-
-                            // Force immediate first emit for snappy UX
-                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            foreach (var part in contentArray.OfType<JObject>())
+                            {
+                                var type = part["type"]?.ToString();
+                                if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Extract reasoning/thinking content
+                                    var reasoningText = part["text"]?.ToString() ?? part["content"]?.ToString();
+                                    if (!string.IsNullOrEmpty(reasoningText))
+                                    {
+                                        assistantAggregate.AppendDelta(reasoningDelta: reasoningText);
+                                        Debug.WriteLine($"[OpenAI] Streaming reasoning chunk: {reasoningText.Substring(0, Math.Min(50, reasoningText.Length))}...");
+                                    }
+                                }
+                                else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase) ||
+                                         string.Equals(type, "output_text", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Extract regular text content
+                                    var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                                    if (!string.IsNullOrEmpty(textVal))
+                                    {
+                                        buffer.Append(textVal);
+                                    }
+                                }
+                            }
                         }
                         else
                         {
-                            var emitted = await FlushAsync(force: false).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            // Plain string content (non-reasoning models)
+                            var contentDelta = contentToken.ToString();
+                            if (!string.IsNullOrEmpty(contentDelta))
+                            {
+                                buffer.Append(contentDelta);
+                            }
+                        }
+
+                        // Flush buffer if we have content
+                        if (buffer.Length > 0)
+                        {
+                            if (firstChunk)
+                            {
+                                firstChunk = false;
+
+                                // Force immediate first emit for snappy UX
+                                var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                foreach (var d in emitted) { yield return d; }
+                            }
+                            else
+                            {
+                                var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                foreach (var d in emitted) { yield return d; }
+                            }
                         }
                     }
 

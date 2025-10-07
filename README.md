@@ -20,7 +20,7 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
   - 💬 **Canvas assistant**
     An on‑canvas AI chat truly aware of your components and connected to the McNeel forum for real answers.
 
-- 🤝 Compatible providers
+- 🤝 Multiple compatible providers (check the [full provider feature matrix](DEV.md#➡️-available-providers) for details)
 
   - ![MistralAI](src/SmartHopper.Providers.MistralAI/Resources/mistralai_icon.png) [MistralAI](https://mistral.ai/)
   - ![OpenAI](src/SmartHopper.Providers.OpenAI/Resources/openai_icon.png) [OpenAI](https://openai.com/)

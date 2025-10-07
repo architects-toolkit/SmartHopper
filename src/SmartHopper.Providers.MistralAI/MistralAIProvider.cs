@@ -658,6 +658,7 @@ namespace SmartHopper.Providers.MistralAI
 
                     // Try delta.content (string or array); fallback to message.content
                     string newText = string.Empty;
+                    string newReasoning = string.Empty;
                     var delta = choice["delta"] as JObject;
                     if (delta != null)
                     {
@@ -666,7 +667,34 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             foreach (var part in contentArray.OfType<JObject>())
                             {
-                                if (string.Equals(part["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                var type = part["type"]?.ToString();
+                                if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Extract thinking/reasoning content
+                                    var thinkingToken = part["thinking"];
+                                    if (thinkingToken is JArray thinkingArray)
+                                    {
+                                        foreach (var t in thinkingArray)
+                                        {
+                                            if (t is JObject to && string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                var textVal = to["text"]?.ToString();
+                                                if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                            }
+                                            else
+                                            {
+                                                var textVal = t?.ToString();
+                                                if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        var textVal = thinkingToken?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                    }
+                                }
+                                else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
                                 {
                                     var t = part["text"]?.ToString();
                                     if (!string.IsNullOrEmpty(t)) newText += t;
@@ -720,6 +748,13 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             newText = content.ToString();
                         }
+                    }
+
+                    // Append reasoning if extracted
+                    if (!string.IsNullOrEmpty(newReasoning))
+                    {
+                        assistantAggregate.AppendDelta(reasoningDelta: newReasoning);
+                        Debug.WriteLine($"[MistralAI] Streaming reasoning chunk: {newReasoning.Substring(0, Math.Min(50, newReasoning.Length))}...");
                     }
 
                     if (!string.IsNullOrEmpty(newText))
