@@ -113,10 +113,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Providers – OpenAI:
   - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.
-  - **Streaming adapter now extracts and streams reasoning content** from structured content arrays (o-series models). Parses `type: "reasoning"` and `type: "thinking"` parts during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Streaming adapter now extracts and streams reasoning content** from structured content arrays (o-series & gpt-5 models). Parses `type: "reasoning"` and `type: "thinking"` parts during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when reasoning is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
 
 - Providers – MistralAI:
   - **Streaming adapter now extracts and streams thinking content** from structured content arrays. Parses `type: "thinking"` blocks during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when thinking is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
+
+- Providers – DeepSeek:
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when `reasoning_content` is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
 
 - UI and settings:
   - AI Chat component default system prompt to a generic one.
@@ -229,6 +234,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ConversationSession:
   - Fixed TurnId mismatch between tool calls and their results: tool results now inherit the TurnId from their originating tool call instead of receiving a new TurnId from the current turn iteration. This ensures proper correlation in WebChat rendering keys.
+
+- Streaming providers:
+  - **All providers** (DeepSeek, MistralAI, OpenAI): Fixed reasoning-only streaming chunks being overridden by content chunks in UI. When transitioning from reasoning-only to content streaming, providers now emit a completed (Finished) interaction for reasoning before starting content stream, triggering proper UI segmentation to prevent override.
+  - DeepSeek: Fixed `OutputTokensReasoning` always showing 0. Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
+  - OpenAI: Fixed `OutputTokensReasoning` always showing 0 for reasoning models (o1/o3/GPT-5). Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
 
 - WebChatDialog:
   - Fixed assistant messages appearing out of order in the UI when tool calls are made. Empty assistant text interactions (which represent the decision to call tools) are now preserved in conversation history but skipped during UI rendering. The actual assistant response after tool execution renders as a separate segment (seg2) in the correct position after tool results.

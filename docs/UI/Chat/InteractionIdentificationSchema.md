@@ -1,7 +1,7 @@
 # Interaction Identification Schema
 
-**Author:** Generated for SmartHopper WebChat System Review  
-**Date:** 2025-10-05  
+**Author:** Generated for SmartHopper WebChat System Review
+**Date:** 2025-10-05
 **Files Reviewed:** `WebChatDialog.cs`, `WebChatObserver.cs`, `HtmlChatRenderer.cs`
 
 ---
@@ -386,7 +386,7 @@ Prevent redundant DOM updates when the same HTML would be rendered twice.
 Dictionary<string, string> _lastDomHtmlByKey;
 
 // Before upsert:
-if (_lastDomHtmlByKey.TryGetValue(domKey, out var last) && 
+if (_lastDomHtmlByKey.TryGetValue(domKey, out var last) &&
     string.Equals(last, html, StringComparison.Ordinal))
 {
     // Skip DOM update
