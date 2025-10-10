@@ -280,8 +280,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     }
                     else if (descriptor.DefaultValue != null)
                     {
-                        var defStr = Convert.ToString(descriptor.DefaultValue, CultureInfo.InvariantCulture) ?? string.Empty;
-                        if (double.TryParse(defStr, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var defNum))
+                        // Try direct numeric conversion first, then fall back to string parsing
+                        if (descriptor.DefaultValue is double defNum ||
+                            double.TryParse(descriptor.DefaultValue.ToString(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out defNum))
                         {
                             numericStepper.Value = defNum;
                         }
@@ -296,8 +297,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     }
                     else if (descriptor.DefaultValue != null)
                     {
-                        var defStr = Convert.ToString(descriptor.DefaultValue, CultureInfo.InvariantCulture) ?? string.Empty;
-                        if (bool.TryParse(defStr, out var defBool))
+                        // Try direct bool conversion first, then fall back to string parsing
+                        if (descriptor.DefaultValue is bool defBool ||
+                            bool.TryParse(descriptor.DefaultValue.ToString(), out defBool))
                         {
                             checkBox.Checked = defBool;
                         }
