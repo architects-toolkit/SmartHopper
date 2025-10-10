@@ -608,11 +608,16 @@ namespace SmartHopper.Providers.DeepSeek
             var firstChoice = choices?.FirstOrDefault() as JObject;
             var usage = response["usage"] as JObject;
 
+            // Extract reasoning tokens from nested completion_tokens_details object
+            var completionDetails = usage?["completion_tokens_details"] as JObject;
+            var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>() ?? 0;
+
             // Create a new metrics instance
             var metrics = new AIMetrics();
             metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
             metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
             metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+            metrics.OutputTokensReasoning = reasoningTokens;
             return metrics;
         }
 
@@ -804,6 +809,7 @@ namespace SmartHopper.Providers.DeepSeek
                 var buffer = new StringBuilder();
                 var lastEmit = DateTime.UtcNow;
                 var firstChunk = true;
+                bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
                 string finalFinishReason = string.Empty;
                 int promptTokens = 0;
                 int completionTokens = 0;
@@ -920,6 +926,10 @@ namespace SmartHopper.Providers.DeepSeek
                         if (pt.HasValue) promptTokens = pt.Value;
                         if (ct.HasValue) completionTokens = ct.Value;
 
+                        // Extract reasoning tokens from nested completion_tokens_details object
+                        var completionDetails = usage["completion_tokens_details"] as JObject;
+                        var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
+
                         // Update aggregate metrics
                         assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
                         {
@@ -927,15 +937,19 @@ namespace SmartHopper.Providers.DeepSeek
                             Model = request.Model,
                             InputTokensPrompt = pt ?? 0,
                             OutputTokensGeneration = ct ?? 0,
+                            OutputTokensReasoning = rt,
                         });
                     }
 
-                    // DeepSeek-specific: reasoning content
+                    // DeepSeek-specific: reasoning/content tracking
+                    bool hasReasoningUpdate = false;
+                    bool hasContentUpdate = false;
                     var reasoningDelta = delta?["reasoning_content"]?.ToString();
                     if (!string.IsNullOrEmpty(reasoningDelta))
                     {
                         reasoning += reasoningDelta;
                         assistantAggregate.AppendDelta(reasoningDelta: reasoningDelta);
+                        hasReasoningUpdate = true;
                     }
 
                     // Content streaming
@@ -943,6 +957,42 @@ namespace SmartHopper.Providers.DeepSeek
                     if (!string.IsNullOrEmpty(contentDelta))
                     {
                         buffer.Append(contentDelta);
+                        hasContentUpdate = true;
+                    }
+
+                    if(hasContentUpdate)
+                    {
+                        // If we had a reasoning-only segment, complete it first to trigger segmentation
+                        if (hadReasoningOnlySegment)
+                        {
+                            // Emit completed reasoning-only interaction to set boundary flag
+                            var reasoningComplete = new AIInteractionText
+                            {
+                                Agent = assistantAggregate.Agent,
+                                Content = string.Empty,
+                                Reasoning = assistantAggregate.Reasoning,
+                                Time = DateTime.UtcNow,
+                                Metrics = new AIMetrics
+                                {
+                                    Provider = assistantAggregate.Metrics.Provider,
+                                    Model = assistantAggregate.Metrics.Model,
+                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                },
+                            };
+
+                            var completeDelta = new AIReturn
+                            {
+                                Request = request,
+                                Status = AICallStatus.Finished,
+                            };
+
+                            completeDelta.SetBody(new List<IAIInteraction> { reasoningComplete });
+                            yield return completeDelta;
+                            await Task.Yield();
+
+                            hadReasoningOnlySegment = false;
+                        }
+
                         if (firstChunk)
                         {
                             firstChunk = false;
@@ -956,6 +1006,38 @@ namespace SmartHopper.Providers.DeepSeek
                             var emitted = await FlushAsync(force: false).ConfigureAwait(false);
                             foreach (var d in emitted) { yield return d; }
                         }
+                    }
+                    else if (hasReasoningUpdate)
+                    {
+                        // Emit reasoning-only snapshot (no text content yet)
+                        var snapshot = new AIInteractionText
+                        {
+                            Agent = assistantAggregate.Agent,
+                            Content = assistantAggregate.Content,
+                            Reasoning = assistantAggregate.Reasoning,
+                            Metrics = new AIMetrics
+                            {
+                                Provider = assistantAggregate.Metrics.Provider,
+                                Model = assistantAggregate.Metrics.Model,
+                                FinishReason = assistantAggregate.Metrics.FinishReason,
+                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            },
+                        };
+
+                        var reasoningOnlyDelta = new AIReturn
+                        {
+                            Request = request,
+                            Status = AICallStatus.Streaming,
+                        };
+                        reasoningOnlyDelta.SetBody(new List<IAIInteraction> { snapshot });
+                        yield return reasoningOnlyDelta;
+                        await Task.Yield();
+
+                        hadReasoningOnlySegment = true; // Mark that we have a reasoning segment
                     }
 
                     // Tool calls streaming

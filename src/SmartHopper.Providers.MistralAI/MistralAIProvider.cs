@@ -585,6 +585,7 @@ namespace SmartHopper.Providers.MistralAI
 
                 var textBuffer = new StringBuilder();
                 var haveStreamedAny = false;
+                bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
 
                 // Collect metrics from streaming (Mistral includes usage in the last chunk per docs)
                 var streamMetrics = new AIMetrics
@@ -750,10 +751,14 @@ namespace SmartHopper.Providers.MistralAI
                         }
                     }
 
-                    // Append reasoning if extracted
+                    // Append reasoning/content deltas and track updates
+                    bool hasReasoningUpdate = false;
+                    bool hasContentUpdate = false;
+
                     if (!string.IsNullOrEmpty(newReasoning))
                     {
                         assistantAggregate.AppendDelta(reasoningDelta: newReasoning);
+                        hasReasoningUpdate = true;
                         Debug.WriteLine($"[MistralAI] Streaming reasoning chunk: {newReasoning.Substring(0, Math.Min(50, newReasoning.Length))}...");
                     }
 
@@ -763,6 +768,41 @@ namespace SmartHopper.Providers.MistralAI
 
                         // Append to provider-local aggregate and emit a snapshot
                         assistantAggregate.AppendDelta(contentDelta: newText);
+                        hasContentUpdate = true;
+                    }
+
+                    if(hasContentUpdate)
+                    {
+                        // If we had a reasoning-only segment, complete it first to trigger segmentation
+                        if (hadReasoningOnlySegment)
+                        {
+                            // Emit completed reasoning-only interaction to set boundary flag
+                            var reasoningComplete = new AIInteractionText
+                            {
+                                Agent = assistantAggregate.Agent,
+                                Content = string.Empty,
+                                Reasoning = assistantAggregate.Reasoning,
+                                Time = DateTime.UtcNow,
+                                Metrics = new AIMetrics
+                                {
+                                    Provider = assistantAggregate.Metrics.Provider,
+                                    Model = assistantAggregate.Metrics.Model,
+                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                },
+                            };
+
+                            var completeDelta = new AIReturn
+                            {
+                                Request = request,
+                                Status = AICallStatus.Finished,
+                            };
+
+                            completeDelta.SetBody(new List<IAIInteraction> { reasoningComplete });
+                            yield return completeDelta;
+                            await Task.Yield();
+
+                            hadReasoningOnlySegment = false;
+                        }
 
                         var snapshot = new AIInteractionText
                         {
@@ -789,6 +829,38 @@ namespace SmartHopper.Providers.MistralAI
                         };
                         deltaRet.SetBody(new List<IAIInteraction> { snapshot });
                         yield return deltaRet;
+                        haveStreamedAny = true;
+                    }
+                    else if (hasReasoningUpdate)
+                    {
+                        // Emit reasoning-only snapshot (no text content yet)
+                        var snapshot = new AIInteractionText
+                        {
+                            Agent = assistantAggregate.Agent,
+                            Content = assistantAggregate.Content,
+                            Reasoning = assistantAggregate.Reasoning,
+                            Metrics = new AIMetrics
+                            {
+                                Provider = assistantAggregate.Metrics.Provider,
+                                Model = assistantAggregate.Metrics.Model,
+                                FinishReason = assistantAggregate.Metrics.FinishReason,
+                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            },
+                        };
+
+                        var deltaRet = new AIReturn
+                        {
+                            Request = request,
+                            Status = AICallStatus.Streaming,
+                        };
+                        deltaRet.SetBody(new List<IAIInteraction> { snapshot });
+                        yield return deltaRet;
+
+                        hadReasoningOnlySegment = true; // Mark that we have a reasoning segment
                         haveStreamedAny = true;
                     }
 
