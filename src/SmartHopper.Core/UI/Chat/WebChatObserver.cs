@@ -469,8 +469,8 @@ namespace SmartHopper.Core.UI.Chat
                             if (interaction is not AIInteractionText)
                             {
                                 var streamKey = GetStreamKey(interaction);
-#if DEBUG
                                 var turnKey = GetTurnBaseKey(interaction?.TurnId);
+#if DEBUG
                                 Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
 #endif
                                 
