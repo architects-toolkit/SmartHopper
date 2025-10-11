@@ -36,24 +36,13 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
 
 ## 💻 Installation
 
-Follow the official installation guide at [smarthopper.xyz/#installation](https://smarthopper.xyz/#installation).
-
-Quick start via Rhino Package Manager (Yak):
-
-- Open Rhino 8
-- Run `PackageManager`
-- Enable “Include pre-releases” (this is still alpha)
-- Search for “SmartHopper” and install
-
-## 🚀 How to use
-
-### Getting started
-
 Install, enable a provider, and set up an API key.
 
 [![Quickstart ▶](./img/video-installation.png)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
 
 [View the video on Vimeo](https://vimeo.com/1126454690)
+
+## 🚀 How to use
 
 ### Canvas assistant (AI chat)
 
@@ -92,5 +81,5 @@ This project is licensed under the GNU Lesser General Public License v3 (LGPL) -
 ---
 
 <div align="center">
-Started in Barcelona — spread worldwide • <a href="https://smarthopper.xyz">smarthopper.xyz</a>
+Started in Barcelona — spread worldwide    •    <a href="https://smarthopper.xyz">smarthopper.xyz</a>
 </div>
