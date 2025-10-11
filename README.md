@@ -91,6 +91,6 @@ This project is licensed under the GNU Lesser General Public License v3 (LGPL) -
 
 ---
 
-<p style="text-align: center; font-size: small;">
+<div style="text-align: center; font-size: small;">
 Started in Barcelona — spread worldwide • <a href="https://smarthopper.xyz">smarthopper.xyz</a>
-</p>
+</div>
