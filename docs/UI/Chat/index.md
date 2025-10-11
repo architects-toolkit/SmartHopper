@@ -28,14 +28,14 @@ This document describes the chat UI architecture and its interactions after migr
 - `ConversationSession` is the single source of truth for conversation history and for orchestrating provider calls and tool passes.
 - `HtmlChatRenderer` (+ `ChatResourceManager`) converts `IAIInteraction` instances to HTML message bubbles. Markdig is used for Markdown → HTML.
 - `WebChatDialog` is a thin host adapter:
-  - Loads initial HTML (CSS/JS inline) via `ChatResourceManager.GetCompleteHtml()`.
+  - Loads initial HTML (CSS/JS inline) via `HtmlChatRenderer.GetInitialHtml()`.
   - Handles JS → host events (send/clear/cancel/clipboard) in `WebView.DocumentLoading`.
   - Calls session methods and injects UI updates back using `ExecuteScript(...)` (`addMessage`, `replaceLastMessageByRole`, `setStatus`, `setProcessing`).
 - `WebChatObserver` implements `IConversationObserver` and bridges `ConversationSession` streaming/partials/tool events to the WebView DOM incrementally.
 
 ## Rendering Interaction Types
 
-Supported via `ChatResourceManager.CreateMessageHtml(...)` and CSS classes:
+Supported via `HtmlChatRenderer.RenderInteraction(...)` and CSS classes:
 
 - `AIInteractionText` → Markdown content (with optional reasoning panel)
 - `AIInteractionToolCall` → compact card with tool name and arguments
@@ -47,17 +47,11 @@ Each message uses role classes like `.message.user`, `.message.assistant`, `.mes
 
 ## Host ↔ JS API
 
-- JS functions (defined in `js/chat-script.js`):
-  - `addMessage(html)`
-  - `replaceLastMessageByRole(role, html)`
-  - `clearMessages()`
-  - `setStatus(text)`
-  - `setProcessing(isProcessing)`
-  - `showToast(message)`
-- Host functions (C# in `WebChatDialog.cs` / `WebChatObserver.cs`):
-  - `AddInteractionToWebView(IAIInteraction)`
-  - `ReplaceLastMessageByRole(AIAgent, IAIInteraction)`
-  - `ExecuteScript(string)` (UI-thread marshaled)
+For the complete and authoritative API between the WebView and host, see:
+
+- `docs/UI/Chat/WebView-Bridge.md`
+
+This Chat UI overview intentionally avoids duplicating the detailed function lists to keep a single source of truth.
 
 ## Bridge & Schemes
 
@@ -77,3 +71,25 @@ All UI work (including `ExecuteScript`) is marshaled via `RhinoApp.InvokeOnUiThr
 ## Consumers
 
 - `CanvasButton` and `AIChatComponent` open/reuse the dialog via `WebChatUtils`. They receive incremental `ChatUpdated` snapshots to surface transcript/metrics in Grasshopper.
+
+## Rendering contracts
+
+For the canonical documentation of interaction contracts (`IAIRenderInteraction`, `IAIKeyedInteraction`, concrete interaction types), see:
+
+- `docs/Providers/AICall/interactions.md`
+
+This page references rendering at a high level and leaves type-level details to the Interactions documentation.
+
+## Streaming lifecycle and re‑keying
+
+- During streaming, assistant token deltas are surfaced via `IConversationObserver.OnDelta(...)` and aggregated under a constant stream key computed via `GetStreamKey()`; the UI updates the same DOM node using `upsertMessage(key, …)`.
+
+- After streaming ends, `ConversationSession` persists a single stable snapshot and surfaces it via `OnInteractionCompleted(...)`/`OnFinal(...)`. The streaming bubble is replaced with a finalized message keyed by the interaction’s **dedup key** (`GetDedupKey()`):
+
+  - This prevents new assistant turns from overwriting previous replies and ensures accurate history replay.
+
+Notes:
+
+- Non‑assistant interactions (tool calls/results, system, errors) are appended only once persisted by the session.
+
+- DOM updates are serialized and marshaled to Rhino’s UI thread to avoid WebView re‑entrancy.

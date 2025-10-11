@@ -98,7 +98,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Async worker for the AI Models component.
         /// </summary>
-        public class AIModelsWorker : AsyncWorkerBase
+        private sealed class AIModelsWorker : AsyncWorkerBase
         {
             private readonly AIModelsComponent _parent;
             private readonly Dictionary<string, object> _result = new Dictionary<string, object>();
@@ -226,10 +226,12 @@ namespace SmartHopper.Components.AI
                         {
                             this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, infoMsg);
                         }
+
                         if (this._result.TryGetValue("Warning", out var warn) && warn is string warnMsg)
                         {
                             this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warnMsg);
                         }
+
                         if (this._result.TryGetValue("Error", out var err) && err is string errMsg)
                         {
                             this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errMsg);

@@ -36,7 +36,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <inheritdoc/>
         public override Task<List<AIModelCapabilities>> RetrieveModels()
         {
-            var provider = this.deepSeekProvider.Name.ToLower();
+            var provider = this.deepSeekProvider.Name.ToLowerInvariant();
 
             var models = new List<AIModelCapabilities>
             {

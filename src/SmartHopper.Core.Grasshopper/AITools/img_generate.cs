@@ -66,8 +66,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateImageToolWrapper,
-                requiredCapabilities: AICapability.TextInput | AICapability.ImageOutput
-            );
+                requiredCapabilities: AICapability.TextInput | AICapability.ImageOutput);
         }
 
 
@@ -93,10 +92,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                string? prompt = toolInfo.Arguments["prompt"]?.ToString();
-                string size = toolInfo.Arguments["size"]?.ToString() ?? "1024x1024";
-                string quality = toolInfo.Arguments["quality"]?.ToString() ?? "standard";
-                string style = toolInfo.Arguments["style"]?.ToString() ?? "vivid";
+                var args = toolInfo.Arguments ?? new JObject();
+                string? prompt = args["prompt"]?.ToString();
+                string size = args["size"]?.ToString() ?? "1024x1024";
+                string quality = args["quality"]?.ToString() ?? "standard";
+                string style = args["style"]?.ToString() ?? "vivid";
 
                 if (string.IsNullOrEmpty(prompt))
                 {
@@ -137,8 +137,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Return the image URL or data (prioritize URL over base64 data for performance)
-                string imageResult = !string.IsNullOrEmpty(resultImageInteraction.ImageUrl)
-                    ? resultImageInteraction.ImageUrl
+                string imageResult = resultImageInteraction.ImageUrl != null
+                    ? resultImageInteraction.ImageUrl.ToString()
                     : resultImageInteraction.ImageData;
 
                 // Check if we have valid image data
@@ -182,4 +182,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

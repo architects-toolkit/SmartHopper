@@ -287,13 +287,20 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 {
                     Debug.WriteLine($"[AIRequest.Exec] before policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
-                catch { /* logging only */ }
+                catch
+                {
+                    /* logging only */
+                }
+
                 await PolicyPipeline.Default.ApplyResponsePoliciesAsync(air).ConfigureAwait(false);
                 try
                 {
                     Debug.WriteLine($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
-                catch { /* logging only */ }
+                catch
+                {
+                    // logging only
+                }
 
                 return air;
             }
@@ -327,11 +334,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     // Treat other HttpRequestException as network as well
                     errorResult.CreateNetworkError(raw, this);
                 }
+
                 return errorResult;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
+
                 // Preserve raw provider/unknown error and standardize
                 var error = this.ExtractProviderErrorMessage(ex);
                 var errorResult = new AIReturn();
@@ -365,7 +374,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 // Coalesce smaller token chunks into brief batches for smoother UI
                 CoalesceTokens = true,
                 CoalesceDelayMs = 40,
-                PreferredChunkSize = 64,
+                PreferredChunkSize = 24,
             };
 
             try
@@ -377,13 +386,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     {
                         // Take the last complete delta as our final result
                         finalReturn = delta;
-                        
+
                         // If this delta contains a complete interaction, we can consider it final
                         if (delta.Body?.GetNewInteractions()?.Any() == true)
                         {
                             var newInteractions = delta.Body.GetNewInteractions();
                             var lastInteraction = newInteractions.LastOrDefault();
-                            
+
                             // If it's a complete text response (not a partial), use this as final
                             if (lastInteraction is AIInteractionText textInteraction &&
                                 !string.IsNullOrEmpty(textInteraction.Content))
@@ -437,6 +446,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 builder.AddRange(interactions);
             }
+
             this.Body = builder.Build();
         }
 

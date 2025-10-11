@@ -33,6 +33,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
         /// <summary>
         /// Gets or sets whether AI-generated greetings are enabled in chat.
         /// </summary>
-        public bool EnableAIGreeting { get; set; } = false;
+        public bool EnableAIGreeting { get; set; }
     }
 }

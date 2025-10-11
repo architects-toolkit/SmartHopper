@@ -24,6 +24,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets the last interaction in the immutable body, or null if none.
         /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The last interaction, or null if there are no interactions.</returns>
         public static IAIInteraction GetLastInteraction(this AIBody body)
         {
             return body?.Interactions?.LastOrDefault();
@@ -33,6 +35,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets the last interaction matching the specified agent, or null if none.
         /// Mirrors legacy AIBody.GetLastInteraction(AIAgent).
         /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <param name="agent">Agent to filter interactions by.</param>
+        /// <returns>The last matching interaction, or null if none exist.</returns>
         public static IAIInteraction GetLastInteraction(this AIBody body, AIAgent agent)
         {
             return body?.Interactions?.LastOrDefault(i => i.Agent == agent);
@@ -42,6 +47,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets the last interaction whose agent name matches the provided string, or null if none.
         /// Mirrors legacy AIBody.GetLastInteraction(string).
         /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <param name="agent">Agent name to filter by.</param>
+        /// <returns>The last matching interaction, or null if none exist.</returns>
         public static IAIInteraction GetLastInteraction(this AIBody body, string agent)
         {
             return body?.Interactions?.LastOrDefault(i => i.Agent.ToString() == agent);
@@ -51,6 +59,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Computes the number of pending tool calls by matching tool call Ids
         /// against tool result Ids in the interactions list.
         /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The number of pending tool calls.</returns>
         public static int PendingToolCallsCount(this AIBody body)
         {
             if (body?.Interactions == null || body.Interactions.Count == 0)
@@ -71,6 +81,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets the list of pending tool calls by matching tool call Ids against
         /// tool result Ids in the interactions list.
         /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>A list of tool calls without corresponding results.</returns>
         public static List<AIInteractionToolCall> PendingToolCallsList(this AIBody body)
         {
             if (body?.Interactions == null || body.Interactions.Count == 0)
@@ -88,6 +100,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Returns a new immutable body with the provided interaction appended.
         /// </summary>
+        /// <param name="body">The AI body to mutate.</param>
+        /// <param name="interaction">The interaction to append.</param>
+        /// <returns>A new immutable body including the appended interaction.</returns>
         public static AIBody WithAppended(this AIBody body, IAIInteraction interaction)
         {
             // When mutating an existing immutable body for session history, clear previous 'new' markers
@@ -100,6 +115,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Returns a new immutable body with the provided interactions appended.
         /// </summary>
+        /// <param name="body">The AI body to mutate.</param>
+        /// <param name="interactions">The interactions to append.</param>
+        /// <returns>A new immutable body including the appended interactions.</returns>
         public static AIBody WithAppendedRange(this AIBody body, IEnumerable<IAIInteraction> interactions)
         {
             // Clear previous 'new' markers so only the appended range is considered new
@@ -112,6 +130,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Returns the interactions that were newly added or replaced in the last mutation
         /// that produced this immutable body, based on <see cref="AIBody.InteractionsNew"/>.
         /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>A list of interactions that were marked as new or replaced.</returns>
         public static List<IAIInteraction> GetNewInteractions(this AIBody body)
         {
             var result = new List<IAIInteraction>();
@@ -132,6 +152,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                     }
                 }
             }
+
             return result;
         }
     }

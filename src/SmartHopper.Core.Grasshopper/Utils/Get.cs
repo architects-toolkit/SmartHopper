@@ -16,7 +16,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
     /// </summary>
-    internal class Get
+    internal sealed class Get
     {
         /// <summary>
         /// Synonyms for filter tags.
@@ -87,7 +87,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// Available Grasshopper component categories (e.g. Params, Maths, Vector, Curve, Surface, Mesh, etc.).
         /// Maps common abbreviations or alternate names to canonical category tokens.
         /// </summary>
-        public static readonly Dictionary<string, string> CategorySynonyms = new()
+        public static readonly Dictionary<string, string> CategorySynonyms = new ()
         {
             { "PARAM", "PARAMS" },
             { "PARAMETERS", "PARAMS" },

@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 
@@ -91,20 +92,8 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             {
                 Messages = messages,
             };
-            result.IsValid = !HasAtOrAbove(messages, this.FailOn);
+            result.IsValid = !RuntimeMessageUtility.HasSeverityAtOrAbove(messages, this.FailOn);
             return Task.FromResult(result);
-        }
-
-        private static bool HasAtOrAbove(List<AIRuntimeMessage> messages, AIRuntimeMessageSeverity threshold)
-        {
-            foreach (var m in messages)
-            {
-                if (m != null && m.Severity >= threshold)
-                {
-                    return true;
-                }
-            }
-            return false;
         }
     }
 }

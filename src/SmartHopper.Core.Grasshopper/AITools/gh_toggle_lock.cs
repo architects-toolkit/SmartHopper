@@ -58,8 +58,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"", ""locked"" ]
                 }",
-                execute: this.GhToggleLockAsync
-            );
+                execute: this.GhToggleLockAsync);
         }
 
         private async Task<AIReturn> GhToggleLockAsync(AIToolCall toolCall)
@@ -73,9 +72,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var locked = toolInfo.Arguments["locked"]?.ToObject<bool>() ?? false;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var locked = args["locked"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
                 var updated = new List<string>();
 
@@ -97,7 +97,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var toolResult = new JObject
                 {
-                    ["updated"] = JArray.FromObject(updated)
+                    ["updated"] = JArray.FromObject(updated),
                 };
                 var immutableBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)

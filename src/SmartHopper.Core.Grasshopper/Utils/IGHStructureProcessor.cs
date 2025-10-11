@@ -22,11 +22,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
     {
         public static Dictionary<string, List<object>> IGHStructureToDictionary(IGH_Structure structure)
         {
-            Dictionary<string, List<object>> result = new();
+            Dictionary<string, List<object>> result = new ();
 
             foreach (GH_Path path in structure.Paths)
             {
-                List<object> dataList = new();
+                List<object> dataList = new ();
 
                 // Iterate over the data items in the path
                 foreach (object dataItem in structure.get_Branch(path))
@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
         public static Dictionary<string, object> IGHStructureDictionaryTo1DDictionary(Dictionary<string, List<object>> dictionary)
         {
-            Dictionary<string, object> result = new();
+            Dictionary<string, object> result = new ();
 
             foreach (var kvp in dictionary)
             {
@@ -73,7 +73,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         public static GH_Structure<T> JObjectToIGHStructure<T>(JToken input, Func<JToken, T> convertFunction)
             where T : IGH_Goo
         {
-            GH_Structure<T> result = new();
+            GH_Structure<T> result = new ();
 
             // Handle JArray input
             if (input is JArray array)
@@ -92,7 +92,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 foreach (var path in jObject)
                 {
-                    GH_Path p = new(ParseKeyToPath(path.Key));
+                    GH_Path p = new (ParseKeyToPath(path.Key));
                     JObject items = (JObject)path.Value;
 
                     foreach (var item in items)
@@ -123,7 +123,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             var pathElements = cleanedKey.Trim('{', '}').Split(';');
 
             // Convert the path elements to integers and create a new GH_Path
-            List<int> indices = new();
+            List<int> indices = new ();
             foreach (var element in pathElements)
             {
                 if (int.TryParse(element, out int index))

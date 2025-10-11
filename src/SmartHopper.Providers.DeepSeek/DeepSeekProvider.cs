@@ -14,15 +14,22 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -43,6 +50,7 @@ namespace SmartHopper.Providers.DeepSeek
         private DeepSeekProvider()
         {
             this.Models = new DeepSeekProviderModels(this);
+
             // Register provider-specific JSON schema adapter
             JsonSchemaAdapterRegistry.Register(new DeepSeekJsonSchemaAdapter());
         }
@@ -55,13 +63,31 @@ namespace SmartHopper.Providers.DeepSeek
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.deepseek.com";
+        public override Uri DefaultServerUrl => new Uri("https://api.deepseek.com");
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
         /// Set this to false for template or experimental providers that shouldn't be used in production.
         /// </summary>
         public override bool IsEnabled => true;
+
+        /// <summary>
+        /// Helper to retrieve the configured API key for this provider.
+        /// Exposed to nested streaming adapter to avoid protected access issues.
+        /// </summary>
+        internal string GetApiKey()
+        {
+            return this.GetSetting<string>("ApiKey");
+        }
+
+        /// <summary>
+        /// Returns a streaming adapter for DeepSeek that yields incremental AIReturn deltas.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
+        public IStreamingAdapter GetStreamingAdapter()
+        {
+            return new DeepSeekStreamingAdapter(this);
+        }
 
         /// <summary>
         /// Gets the provider's icon.
@@ -102,28 +128,164 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 return "GET and DELETE requests do not use a request body";
             }
+
             int maxTokens = this.GetSetting<int>("MaxTokens");
             double temperature = this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
-            // Format messages for DeepSeek API
+            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+
+#if DEBUG
+            // Log interaction sequence for debugging
+            try
+            {
+                int cnt = request.Body.Interactions?.Count ?? 0;
+                int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
+                int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
+                int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
+                Debug.WriteLine($"[DeepSeek] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+            }
+            catch { }
+#endif
+
+            // Group consecutive interactions by role to avoid multiple assistant messages
+            // DeepSeek requires tool_calls and content to be in the SAME assistant message
             var convertedMessages = new JArray();
+            string currentRole = null;
+            JObject currentMessage = null;
+            var currentToolCalls = new JArray();
+
             foreach (var interaction in request.Body.Interactions)
             {
                 try
                 {
-                    var messageJson = this.Encode(interaction);
-                    if (!string.IsNullOrWhiteSpace(messageJson))
+                    var token = this.EncodeToJToken(interaction);
+                    if (token == null)
                     {
-                        var token = JToken.Parse(messageJson);
-                        convertedMessages.Add(token);
+                        continue;
+                    }
+
+                    var role = token["role"]?.ToString();
+                    if (string.IsNullOrEmpty(role))
+                    {
+                        continue;
+                    }
+
+                    // Check if role changed
+                    if (currentRole != role)
+                    {
+                        // Finalize previous message if exists
+                        if (currentMessage != null)
+                        {
+                            // Add accumulated tool_calls to the message
+                            if (currentToolCalls.Count > 0)
+                            {
+                                currentMessage["tool_calls"] = currentToolCalls;
+                            }
+
+                            convertedMessages.Add(currentMessage);
+                        }
+
+                        // Start new message
+                        currentRole = role;
+                        currentMessage = new JObject
+                        {
+                            ["role"] = role,
+                            ["content"] = token["content"]?.ToString() ?? string.Empty
+                        };
+                        currentToolCalls = new JArray();
+
+                        // Copy tool_calls if present in this token
+                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
+                        {
+                            foreach (var toolCall in tc)
+                            {
+                                currentToolCalls.Add(toolCall);
+                            }
+                        }
+
+                        // Copy tool_call_id and name for tool results
+                        if (token["tool_call_id"] != null)
+                        {
+                            currentMessage["tool_call_id"] = token["tool_call_id"];
+                        }
+
+                        if (token["name"] != null)
+                        {
+                            currentMessage["name"] = token["name"];
+                        }
+                    }
+                    else
+                    {
+                        // Same role: merge content and tool_calls
+                        var existingContent = currentMessage["content"]?.ToString() ?? string.Empty;
+                        var newContent = token["content"]?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(newContent))
+                        {
+                            currentMessage["content"] = string.IsNullOrEmpty(existingContent) ? newContent : existingContent + " " + newContent;
+                        }
+
+                        // Accumulate tool_calls
+                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
+                        {
+                            foreach (var toolCall in tc)
+                            {
+                                currentToolCalls.Add(toolCall);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
+                    Debug.WriteLine($"[DeepSeek] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
+
+            // Finalize last message
+            if (currentMessage != null)
+            {
+                // Add accumulated tool_calls to the message
+                if (currentToolCalls.Count > 0)
+                {
+                    currentMessage["tool_calls"] = currentToolCalls;
+                }
+
+                convertedMessages.Add(currentMessage);
+            }
+
+#if DEBUG
+            // Log final messages array for debugging
+            try
+            {
+                Debug.WriteLine($"[DeepSeek] Final encoded messages array ({convertedMessages.Count} messages):");
+                for (int idx = 0; idx < convertedMessages.Count; idx++)
+                {
+                    var msg = convertedMessages[idx] as JObject;
+                    var role = msg?["role"]?.ToString() ?? "?";
+                    var hasToolCalls = msg?["tool_calls"] != null;
+                    var toolCallId = msg?["tool_call_id"]?.ToString();
+                    var content = msg?["content"]?.ToString();
+                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : "";
+
+                    if (hasToolCalls)
+                    {
+                        var tcArray = msg?["tool_calls"] as JArray;
+                        var tcCount = tcArray?.Count ?? 0;
+                        var tcIds = tcArray?.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrEmpty(id)).ToList();
+                        Debug.WriteLine($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}], content='{preview}'");
+                    }
+                    else if (!string.IsNullOrEmpty(toolCallId))
+                    {
+                        Debug.WriteLine($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"  [{idx}] role={role}, content={preview}");
+                    }
+                }
+            }
+            catch { }
+#endif
 
             // Build request body
             var requestBody = new JObject
@@ -160,6 +322,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Debug.WriteLine($"[DeepSeek] Failed to parse/handle JSON schema: {ex.Message}");
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+
                     // Fallback to text response
                     requestBody["response_format"] = new JObject { ["type"] = "text" };
                 }
@@ -181,7 +344,16 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
+#if DEBUG
+            try
+            {
+                Debug.WriteLine($"[DeepSeek] Request body:");
+                Debug.WriteLine(requestBody.ToString(Formatting.Indented));
+            }
+            catch { }
+#else
             Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
+#endif
 
             return requestBody.ToString();
         }
@@ -189,112 +361,114 @@ namespace SmartHopper.Providers.DeepSeek
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            AIAgent role = interaction.Agent;
-            string roleName = string.Empty;
-            string msgContent;
+            try
+            {
+                var token = this.EncodeToJToken(interaction);
+                return token?.ToString() ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepSeek] Encode(IAIInteraction) error: {ex.Message}");
+                return string.Empty;
+            }
+        }
 
-            // Handle interactions based on type
+        /// <summary>
+        /// Converts a single interaction to a DeepSeek message object (JToken).
+        /// Returns null for interactions that should not be sent (e.g., UI-only errors).
+        /// </summary>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
+            if (interaction == null)
+            {
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            // Map role
+            var agent = interaction.Agent;
+            string role;
+
+            switch (agent)
+            {
+                case AIAgent.System:
+                case AIAgent.Context:
+                    role = "system";
+                    break;
+                case AIAgent.User:
+                    role = "user";
+                    break;
+                case AIAgent.Assistant:
+                case AIAgent.ToolCall:
+                    role = "assistant";
+                    break;
+                case AIAgent.ToolResult:
+                    role = "tool";
+                    break;
+                default:
+                    return null;
+            }
+
+            var messageObj = new JObject { ["role"] = role };
+
+            // Handle different interaction types
             if (interaction is AIInteractionText textInteraction)
             {
-                // For AIInteractionText, only send the actual content
-                msgContent = textInteraction.Content ?? string.Empty;
+                messageObj["content"] = textInteraction.Content ?? string.Empty;
             }
-            else
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // Non-text interactions default to empty content; specific handling follows below
-                msgContent = string.Empty;
-            }
-
-            var messageObj = new JObject
-            {
-                ["content"] = msgContent,
-            };
-
-            // Map role names
-            if (role == AIAgent.System)
-            {
-                // DeepSeek uses system role
-                roleName = "system";
-            }
-            else if (role == AIAgent.Context)
-            {
-                // Rename context to system
-                roleName = "system";
-            }
-            else if (role == AIAgent.Assistant)
-            {
-                // DeepSeek uses assistant role
-                roleName = "assistant";
-            }
-            else if (role == AIAgent.ToolResult)
-            {
-                roleName = "tool";
-
-                var toolInteraction = interaction as AIInteractionToolResult;
-
-                // Ensure content is a string, not a json object
-                var jsonString = JsonConvert.SerializeObject(toolInteraction?.Result, Formatting.None);
+                // DeepSeek requires cleaned/simplified tool result content
+                var jsonString = JsonConvert.SerializeObject(toolResultInteraction.Result, Formatting.None);
                 jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-
-                // Remove two or more consecutive whitespace characters
                 jsonString = Regex.Replace(jsonString, @"\s+", " ");
 
-                // Replace content with the cleaned string
                 messageObj["content"] = jsonString;
 
-                // Propagate tool_call ID and name from incoming message
-                if (toolInteraction?.Result is JObject bodyObj)
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Id))
                 {
-                    if (bodyObj["name"] != null)
-                    {
-                        messageObj["name"] = bodyObj["name"];
-                    }
+                    messageObj["tool_call_id"] = toolResultInteraction.Id;
+                }
 
-                    if (bodyObj["tool_call_id"] != null)
-                    {
-                        messageObj["tool_call_id"] = bodyObj["tool_call_id"];
-                    }
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    messageObj["name"] = toolResultInteraction.Name;
                 }
             }
-            else if (role == AIAgent.ToolCall)
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
-                // Encode tool calls as assistant messages with tool_calls
-                roleName = "assistant";
-                // TODO: verify deepseek api accepts this
-            }
-            else
-            {
-                // DeepSeek uses user role
-                roleName = "user";
-            }
-
-            // Add tool calls if present (only for specific interaction types that have them)
-            if (interaction is AIInteractionToolCall toolCallInteraction)
-            {
-                var toolCallsArray = new JArray();
                 var toolCallObj = new JObject
                 {
-                    ["id"] = toolCallInteraction.Id,
+                    ["id"] = toolCallInteraction.Id ?? string.Empty,
                     ["type"] = "function",
                     ["function"] = new JObject
                     {
-                        ["name"] = toolCallInteraction.Name,
-                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}"
-                    }
+                        ["name"] = toolCallInteraction.Name ?? string.Empty,
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}",
+                    },
                 };
-                toolCallsArray.Add(toolCallObj);
-                messageObj["tool_calls"] = toolCallsArray;
+                messageObj["tool_calls"] = new JArray { toolCallObj };
+                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
             }
-
-            // Add message to converted messages
-            if (!string.IsNullOrEmpty(roleName))
+            else if (interaction is AIInteractionImage imageInteraction)
             {
-                messageObj["role"] = roleName;
+                // DeepSeek does not support vision; fallback to prompt as text
+                messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+            }
+            else
+            {
+                // Unknown interaction type
+                messageObj["content"] = string.Empty;
             }
 
-            return messageObj.ToString();
+            return messageObj;
         }
 
         /// <inheritdoc/>
@@ -341,6 +515,7 @@ namespace SmartHopper.Providers.DeepSeek
                             texts.Add(text);
                         }
                     }
+
                     content = string.Join("\n", texts);
                 }
                 else if (contentToken is JObject contentObj)
@@ -399,11 +574,14 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     foreach (JObject tc in tcs)
                     {
+                        var function = tc["function"] as JObject;
+                        var argumentsStr = function?["arguments"]?.ToString() ?? "{}";
+                        
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
-                            Name = tc["name"]?.ToString(),
-                            Arguments = tc["arguments"] as JObject ?? new JObject(),
+                            Name = function?["name"]?.ToString(),
+                            Arguments = JObject.Parse(argumentsStr),
                         };
                         interactions.Add(toolCall);
                     }
@@ -430,11 +608,16 @@ namespace SmartHopper.Providers.DeepSeek
             var firstChoice = choices?.FirstOrDefault() as JObject;
             var usage = response["usage"] as JObject;
 
+            // Extract reasoning tokens from nested completion_tokens_details object
+            var completionDetails = usage?["completion_tokens_details"] as JObject;
+            var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>() ?? 0;
+
             // Create a new metrics instance
             var metrics = new AIMetrics();
             metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
             metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
             metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+            metrics.OutputTokensReasoning = reasoningTokens;
             return metrics;
         }
 
@@ -524,6 +707,450 @@ namespace SmartHopper.Providers.DeepSeek
 
             return null;
         }
+
+        /// <summary>
+        /// Provider-scoped streaming adapter for DeepSeek Chat Completions SSE.
+        /// </summary>
+        private sealed class DeepSeekStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
+        {
+            public DeepSeekStreamingAdapter(DeepSeekProvider provider) : base(provider)
+            {
+            }
+
+            public async IAsyncEnumerable<AIReturn> StreamAsync(
+                AIRequestCall request,
+                StreamingOptions options,
+                [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                if (request == null)
+                {
+                    yield break;
+                }
+
+                // Prepare request via provider (sets endpoint, method, auth kind)
+                request = this.Prepare(request);
+
+                // Only chat completions are supported for streaming
+                if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
+                {
+                    var unsupported = new AIReturn();
+                    unsupported.CreateProviderError("Streaming is only supported for /chat/completions in this adapter.", request);
+                    yield return unsupported;
+                    yield break;
+                }
+
+                // Build request body and enable streaming
+                JObject body;
+                try
+                {
+                    body = JObject.Parse(this.Provider.Encode(request));
+                }
+                catch
+                {
+                    body = new JObject();
+                }
+
+                body["stream"] = true;
+
+                // Build URL with helper
+                var fullUrl = this.BuildFullUrl(request.Endpoint);
+
+                // Configure HTTP client and authentication via helpers
+                using var httpClient = this.CreateHttpClient();
+                AIReturn? authError = null;
+                try
+                {
+                    var apiKey = ((DeepSeekProvider)this.Provider).GetApiKey();
+                    this.ApplyAuthentication(httpClient, request.Authentication, apiKey);
+                }
+                catch (Exception ex)
+                {
+                    authError = new AIReturn();
+                    authError.CreateProviderError(ex.Message, request);
+                }
+
+                if (authError != null)
+                {
+                    yield return authError;
+                    yield break;
+                }
+
+                using var httpRequest = this.CreateSsePost(fullUrl, body.ToString(), "application/json");
+
+                HttpResponseMessage response;
+                AIReturn? sendError = null;
+                try
+                {
+                    response = await this.SendForStreamAsync(httpClient, httpRequest, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    sendError = new AIReturn();
+                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    response = null!;
+                }
+
+                if (sendError != null)
+                {
+                    yield return sendError;
+                    yield break;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var err = new AIReturn();
+                    err.CreateProviderError($"HTTP {(int)response.StatusCode}: {content}", request);
+                    yield return err;
+                    yield break;
+                }
+
+                // Streaming state
+                var buffer = new StringBuilder();
+                var lastEmit = DateTime.UtcNow;
+                var firstChunk = true;
+                bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
+                string finalFinishReason = string.Empty;
+                int promptTokens = 0;
+                int completionTokens = 0;
+                string reasoning = string.Empty;
+
+                // Provider-local aggregate of assistant text
+                var assistantAggregate = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = string.Empty,
+                    Reasoning = string.Empty,
+                    Metrics = new AIMetrics { Provider = this.Provider.Name, Model = request.Model },
+                };
+
+                // Tool call accumulation (index -> partial)
+                var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+
+                // Helper local function to emit text chunk
+                async IAsyncEnumerable<AIReturn> EmitAsync(string text, bool streamingStatus)
+                {
+                    if (string.IsNullOrEmpty(text)) yield break;
+
+                    // Append to provider-local aggregate
+                    assistantAggregate.AppendDelta(contentDelta: text);
+
+                    // Emit a snapshot copy to avoid aliasing across yields
+                    var snapshot = new AIInteractionText
+                    {
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+
+                    var delta = new AIReturn
+                    {
+                        Request = request,
+                        Status = streamingStatus ? AICallStatus.Streaming : AICallStatus.Processing,
+                    };
+                    delta.SetBody(new List<IAIInteraction> { snapshot });
+                    yield return delta;
+                    await Task.Yield();
+                }
+
+                // Helper to maybe flush buffer per options and return deltas to emit
+                async Task<List<AIReturn>> FlushAsync(bool force)
+                {
+                    var results = new List<AIReturn>();
+                    if (buffer.Length == 0) return results;
+                    var elapsed = (DateTime.UtcNow - lastEmit).TotalMilliseconds;
+                    if (force || !options.CoalesceTokens || buffer.Length >= options.PreferredChunkSize || elapsed >= options.CoalesceDelayMs)
+                    {
+                        var text = buffer.ToString();
+                        buffer.Clear();
+                        lastEmit = DateTime.UtcNow;
+                        await foreach (var d in EmitAsync(text, streamingStatus: true).WithCancellation(cancellationToken))
+                        {
+                            results.Add(d);
+                        }
+                    }
+
+                    return results;
+                }
+
+                // Yield initial processing state
+                {
+                    var initial = new AIReturn { Request = request, Status = AICallStatus.Processing };
+                    initial.SetBody(new List<IAIInteraction>());
+                    yield return initial;
+                }
+
+                // Determine idle timeout from request (fallback to 60s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                await foreach (var data in this.ReadSseDataAsync(
+                    response,
+                    idleTimeout,
+                    null,
+                    cancellationToken).WithCancellation(cancellationToken))
+                {
+                    JObject parsed;
+                    try
+                    {
+                        parsed = JObject.Parse(data);
+                    }
+                    catch
+                    {
+                        // Skip malformed chunk
+                        continue;
+                    }
+
+                    var choices = parsed["choices"] as JArray;
+                    var choice = choices?.FirstOrDefault() as JObject;
+                    var delta = choice?["delta"] as JObject;
+                    var finishReason = choice?["finish_reason"]?.ToString();
+                    bool hasFinish = !string.IsNullOrEmpty(finishReason);
+                    if (hasFinish) finalFinishReason = finishReason;
+
+                    // Usage metrics (may be present in final chunk)
+                    var usage = parsed["usage"] as JObject;
+                    if (usage != null)
+                    {
+                        var pt = usage["prompt_tokens"]?.Value<int?>();
+                        var ct = usage["completion_tokens"]?.Value<int?>();
+                        if (pt.HasValue) promptTokens = pt.Value;
+                        if (ct.HasValue) completionTokens = ct.Value;
+
+                        // Extract reasoning tokens from nested completion_tokens_details object
+                        var completionDetails = usage["completion_tokens_details"] as JObject;
+                        var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
+
+                        // Update aggregate metrics
+                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        {
+                            Provider = this.Provider.Name,
+                            Model = request.Model,
+                            InputTokensPrompt = pt ?? 0,
+                            OutputTokensGeneration = ct ?? 0,
+                            OutputTokensReasoning = rt,
+                        });
+                    }
+
+                    // DeepSeek-specific: reasoning/content tracking
+                    bool hasReasoningUpdate = false;
+                    bool hasContentUpdate = false;
+                    var reasoningDelta = delta?["reasoning_content"]?.ToString();
+                    if (!string.IsNullOrEmpty(reasoningDelta))
+                    {
+                        reasoning += reasoningDelta;
+                        assistantAggregate.AppendDelta(reasoningDelta: reasoningDelta);
+                        hasReasoningUpdate = true;
+                    }
+
+                    // Content streaming
+                    var contentDelta = delta?["content"]?.ToString();
+                    if (!string.IsNullOrEmpty(contentDelta))
+                    {
+                        buffer.Append(contentDelta);
+                        hasContentUpdate = true;
+                    }
+
+                    if(hasContentUpdate)
+                    {
+                        // If we had a reasoning-only segment, complete it first to trigger segmentation
+                        if (hadReasoningOnlySegment)
+                        {
+                            // Emit completed reasoning-only interaction to set boundary flag
+                            var reasoningComplete = new AIInteractionText
+                            {
+                                Agent = assistantAggregate.Agent,
+                                Content = string.Empty,
+                                Reasoning = assistantAggregate.Reasoning,
+                                Time = DateTime.UtcNow,
+                                Metrics = new AIMetrics
+                                {
+                                    Provider = assistantAggregate.Metrics.Provider,
+                                    Model = assistantAggregate.Metrics.Model,
+                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                },
+                            };
+
+                            var completeDelta = new AIReturn
+                            {
+                                Request = request,
+                                Status = AICallStatus.Finished,
+                            };
+
+                            completeDelta.SetBody(new List<IAIInteraction> { reasoningComplete });
+                            yield return completeDelta;
+                            await Task.Yield();
+
+                            hadReasoningOnlySegment = false;
+                        }
+
+                        if (firstChunk)
+                        {
+                            firstChunk = false;
+
+                            // Force immediate first emit for snappy UX
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted) { yield return d; }
+                        }
+                        else
+                        {
+                            var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                            foreach (var d in emitted) { yield return d; }
+                        }
+                    }
+                    else if (hasReasoningUpdate)
+                    {
+                        // Emit reasoning-only snapshot (no text content yet)
+                        var snapshot = new AIInteractionText
+                        {
+                            Agent = assistantAggregate.Agent,
+                            Content = assistantAggregate.Content,
+                            Reasoning = assistantAggregate.Reasoning,
+                            Metrics = new AIMetrics
+                            {
+                                Provider = assistantAggregate.Metrics.Provider,
+                                Model = assistantAggregate.Metrics.Model,
+                                FinishReason = assistantAggregate.Metrics.FinishReason,
+                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            },
+                        };
+
+                        var reasoningOnlyDelta = new AIReturn
+                        {
+                            Request = request,
+                            Status = AICallStatus.Streaming,
+                        };
+                        reasoningOnlyDelta.SetBody(new List<IAIInteraction> { snapshot });
+                        yield return reasoningOnlyDelta;
+                        await Task.Yield();
+
+                        hadReasoningOnlySegment = true; // Mark that we have a reasoning segment
+                    }
+
+                    // Tool calls streaming
+                    var tcArray = delta?["tool_calls"] as JArray;
+                    if (tcArray != null)
+                    {
+                        foreach (var t in tcArray.OfType<JObject>())
+                        {
+                            var idx = t["index"]?.Value<int?>() ?? 0;
+                            if (!toolCalls.TryGetValue(idx, out var entry))
+                            {
+                                entry = (Id: string.Empty, Name: string.Empty, Args: new StringBuilder());
+                                toolCalls[idx] = entry;
+                            }
+
+                            // id
+                            var idVal = t["id"]?.ToString();
+                            if (!string.IsNullOrEmpty(idVal)) entry.Id = idVal;
+
+                            var func = t["function"] as JObject;
+                            if (func != null)
+                            {
+                                var name = func["name"]?.ToString();
+                                if (!string.IsNullOrEmpty(name)) entry.Name = name;
+                                var args = func["arguments"]?.ToString();
+                                if (!string.IsNullOrEmpty(args)) entry.Args.Append(args);
+                            }
+
+                            toolCalls[idx] = entry; // update
+                        }
+
+                        // If we know we're heading to tool calls, flush text first
+                        var emittedTc = await FlushAsync(force: true).ConfigureAwait(false);
+                        foreach (var d in emittedTc) { yield return d; }
+
+                        // Emit current tool call snapshot with CallingTools status
+                        var interactions = new List<IAIInteraction>();
+                        foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                        {
+                            var (id, name, argsSb) = kv.Value;
+                            JObject argsObj = null;
+                            var argsStr = argsSb.ToString();
+                            try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
+                            interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                        }
+
+                        var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                        tcDelta.SetBody(interactions);
+                        yield return tcDelta;
+                    }
+                }
+
+                // Final flush
+                var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
+                foreach (var d in finalEmitted) { yield return d; }
+
+                // Emit final Finished marker with the complete assistant interaction
+                var final = new AIReturn
+                {
+                    Request = request,
+                    Status = AICallStatus.Finished,
+                };
+                var finalMetrics = new AIMetrics
+                {
+                    Provider = this.Provider.Name,
+                    Model = request.Model,
+                    FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
+                    InputTokensPrompt = promptTokens,
+                    OutputTokensGeneration = completionTokens,
+                };
+
+                // Align aggregate metrics finish reason as well
+                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
+
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+
+                // Add text interaction if present
+                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
+                {
+                    var finalSnapshot = new AIInteractionText
+                    {
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+                    finalBuilder.Add(finalSnapshot, markAsNew: false);
+                }
+
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                {
+                    var (id, name, argsSb) = kv.Value;
+                    JObject argsObj = null;
+                    var argsStr = argsSb.ToString();
+                    try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
+                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
+                }
+
+                final.SetBody(finalBuilder.Build());
+                yield return final;
+            }
+        }
     }
 }
-

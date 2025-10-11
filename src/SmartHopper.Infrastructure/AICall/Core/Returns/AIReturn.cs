@@ -28,12 +28,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
     public class AIReturn : IAIReturn
     {
         /// <summary>
-        /// Internal storage for the raw response.
+        /// Gets or sets the internal storage for the raw response.
         /// </summary>
         private JObject PrivateEncodedResult { get; set; }
 
         /// <summary>
-        /// Internal storage for structured messages.
+        /// Gets or sets the internal storage for structured messages.
         /// </summary>
         private List<AIRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<AIRuntimeMessage>();
 
@@ -135,6 +135,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
 
                 return combined;
             }
+
             set
             {
                 this.PrivateStructuredMessages = value ?? new List<AIRuntimeMessage>();
@@ -147,7 +148,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <summary>
         /// Gets the raw JSON returned by the provider, if available.
         /// </summary>
-        public JObject GetRaw() => this.PrivateEncodedResult;
+        /// <returns>The raw provider response as a JObject, or null when unavailable.</returns>
+        public JObject Raw => this.PrivateEncodedResult;
 
         /// <inheritdoc/>
         public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
@@ -193,18 +195,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="request">The request that generated the result.</param>
         public void CreateSuccess(AIBody body, IAIRequest? request = null)
         {
-            if (request == null && this.Request != null)
-            {
-                request = this.Request;
-            }
-            else if (request == null)
-            {
-                request = new AIRequestCall();
-            }
+            var req = request ?? this.Request ?? new AIRequestCall();
 
             // Get provider and model from request
-            var provider = request?.Provider ?? "Unknown";
-            var model = request?.Model ?? "Unknown";
+            var provider = req.Provider ?? "Unknown";
+            var model = req.Model ?? "Unknown";
 
             // Extract and update provider and model from interactions
             foreach (var interaction in body.Interactions)
@@ -219,13 +214,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 .Build();
 
             this.Body = body;
-            this.Request = request;
+            this.Request = req;
             this.Status = AICallStatus.Finished;
             try
             {
                 System.Diagnostics.Debug.WriteLine($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
             }
-            catch { /* logging only */ }
+            catch
+            {
+                /* logging only */
+            }
         }
 
         /// <summary>
@@ -236,18 +234,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="metrics">The metrics from the response.</param>
         public void CreateSuccess(List<IAIInteraction> result, IAIRequest? request = null, AIMetrics? metrics = null)
         {
-            if (request == null && this.Request != null)
-            {
-                request = this.Request;
-            }
-            else if (request == null)
-            {
-                request = new AIRequestCall();
-            }
+            var req = request ?? this.Request ?? new AIRequestCall();
 
             // Get provider and model from request
-            var provider = request?.Provider ?? "Unknown";
-            var model = request?.Model ?? "Unknown";
+            var provider = req.Provider ?? "Unknown";
+            var model = req.Model ?? "Unknown";
 
             // Update provider and model to interactions
             foreach (var interaction in result)
@@ -261,7 +252,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 .AddRange(result)
                 .Build();
 
-            this.CreateSuccess(body, request);
+            this.CreateSuccess(body, req);
         }
 
         /// <summary>
@@ -281,6 +272,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// </summary>
         /// <param name="message">The error message.</param>
         /// <param name="request">The request that generated the error.</param>
+        /// <param name="metrics">Optional metrics associated with the error; if null, a new metrics instance may be created downstream.</param>
         public void CreateError(string message, IAIRequest? request = null, AIMetrics? metrics = null)
         {
             if (request == null && this.Request != null)
@@ -316,6 +308,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <summary>
         /// Creates a standardized network error (e.g., DNS, connectivity) while preserving the raw message.
         /// </summary>
+        /// <param name="rawMessage">The raw network error message.</param>
+        /// <param name="request">The request context.</param>
         public void CreateNetworkError(string rawMessage, IAIRequest? request = null)
         {
             this.CreateError(rawMessage, request);
@@ -325,6 +319,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <summary>
         /// Creates a standardized tool error while preserving the raw message.
         /// </summary>
+        /// <param name="rawMessage">The raw tool error message.</param>
+        /// <param name="request">The request context.</param>
         public void CreateToolError(string rawMessage, IAIRequest? request = null)
         {
             this.CreateError(rawMessage, request);
@@ -334,6 +330,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <summary>
         /// Adds a structured message to this return without modifying <see cref="ErrorMessage"/>.
         /// </summary>
+        /// <param name="severity">The severity of the message (error, warning, info).</param>
+        /// <param name="origin">The origin of the message (provider, tool, return, network, etc.).</param>
+        /// <param name="text">The message content to add.</param>
         public void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text)
         {
             this.PrivateStructuredMessages.Add(new AIRuntimeMessage(severity, origin, text ?? string.Empty));
@@ -388,13 +387,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             }
 
             b.AddRange(interactions);
-     
+
             this.Body = b.Build();
             try
             {
                 System.Diagnostics.Debug.WriteLine($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
             }
-            catch { /* logging only */ }
+            catch
+            {
+                /* logging only */
+            }
         }
 
         /// <summary>

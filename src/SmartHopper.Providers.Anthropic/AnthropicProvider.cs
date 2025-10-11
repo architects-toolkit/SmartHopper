@@ -33,11 +33,16 @@ using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.Anthropic
 {
+    /// <summary>
+    /// Provider implementation for Anthropic's Messages API, including schema wrapping,
+    /// tool call encoding, and streaming support via SSE.
+    /// </summary>
     public sealed class AnthropicProvider : AIProvider<AnthropicProvider>
     {
         private AnthropicProvider()
         {
             this.Models = new AnthropicProviderModels(this);
+
             // No provider-specific schema adapter required at the moment.
         }
 
@@ -49,7 +54,7 @@ namespace SmartHopper.Providers.Anthropic
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.anthropic.com/v1";
+        public override Uri DefaultServerUrl => new Uri("https://api.anthropic.com/v1");
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled.
@@ -61,6 +66,7 @@ namespace SmartHopper.Providers.Anthropic
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to nested streaming adapter to avoid protected access issues.
         /// </summary>
+        /// <returns>The API key string stored in settings; may be empty if not configured.</returns>
         internal string GetApiKey()
         {
             return this.GetSetting<string>("ApiKey");
@@ -91,6 +97,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Debug.WriteLine($"[Anthropic] Icon load error: {ex.Message}");
                 }
+
                 return new Bitmap(1, 1);
             }
         }
@@ -98,6 +105,8 @@ namespace SmartHopper.Providers.Anthropic
         /// <summary>
         /// Returns a streaming adapter for Anthropic that yields incremental AIReturn deltas.
         /// </summary>
+        /// <returns>An IStreamingAdapter instance configured for Anthropic SSE streaming.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new AnthropicStreamingAdapter(this);
@@ -139,17 +148,26 @@ namespace SmartHopper.Providers.Anthropic
         {
             try
             {
-                if (interaction is AIInteractionText text)
+                // Use new helper methods to create a single message
+                string role = this.GetRoleForAgent(interaction?.Agent ?? AIAgent.User);
+                if (string.IsNullOrEmpty(role))
                 {
-                    return BuildTextMessage(MapRole(interaction.Agent), text.Content ?? string.Empty).ToString();
-                }
-                else if (interaction is AIInteractionToolResult toolResult)
-                {
-                    return BuildToolResultMessage(toolResult).ToString();
+                    return string.Empty;
                 }
 
-                // Fallback empty text message
-                return BuildTextMessage(MapRole(interaction.Agent), string.Empty).ToString();
+                var contentBlock = this.CreateContentBlock(interaction);
+                if (contentBlock == null)
+                {
+                    return string.Empty;
+                }
+
+                var message = new JObject
+                {
+                    ["role"] = role,
+                    ["content"] = new JArray { contentBlock }
+                };
+
+                return message.ToString();
             }
             catch (Exception ex)
             {
@@ -158,50 +176,154 @@ namespace SmartHopper.Providers.Anthropic
             }
         }
 
-        private static string MapRole(AIAgent agent)
+        /// <summary>
+        /// Sorts content blocks according to Anthropic API requirements.
+        /// Text blocks must come before tool_use blocks in the same message.
+        /// </summary>
+        private JArray SortContentBlocks(JArray contentBlocks)
         {
-            if (agent == AIAgent.System || agent == AIAgent.Context) return "system";
-            if (agent == AIAgent.Assistant || agent == AIAgent.ToolCall) return "assistant";
-            return "user";
+            if (contentBlocks == null || contentBlocks.Count <= 1)
+            {
+                return contentBlocks;
+            }
+
+            var sorted = new JArray();
+            var textBlocks = new List<JToken>();
+            var toolUseBlocks = new List<JToken>();
+            var otherBlocks = new List<JToken>();
+
+            foreach (var block in contentBlocks)
+            {
+                if (block is JObject obj)
+                {
+                    var type = obj["type"]?.ToString();
+                    if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                    {
+                        textBlocks.Add(block);
+                    }
+                    else if (string.Equals(type, "tool_use", StringComparison.OrdinalIgnoreCase))
+                    {
+                        toolUseBlocks.Add(block);
+                    }
+                    else
+                    {
+                        otherBlocks.Add(block);
+                    }
+                }
+                else
+                {
+                    otherBlocks.Add(block);
+                }
+            }
+
+            // Add in order: text, tool_use, others
+            foreach (var block in textBlocks) sorted.Add(block);
+            foreach (var block in toolUseBlocks) sorted.Add(block);
+            foreach (var block in otherBlocks) sorted.Add(block);
+
+#if DEBUG
+            if (textBlocks.Count > 0 && toolUseBlocks.Count > 0)
+            {
+                Debug.WriteLine($"[Anthropic] SortContentBlocks: Reordered {textBlocks.Count} text + {toolUseBlocks.Count} tool_use blocks");
+            }
+#endif
+
+            return sorted;
         }
 
         /// <summary>
-        /// Builds a standard Anthropic text message with the given role and text content.
+        /// Maps an agent to the corresponding Anthropic role.
+        /// Returns null for agents that should not be sent as messages.
         /// </summary>
-        private static JObject BuildTextMessage(string role, string text)
+        private string GetRoleForAgent(AIAgent agent)
         {
-            return new JObject
+            switch (agent)
             {
-                ["role"] = role,
-                ["content"] = new JArray(new JObject
-                {
-                    ["type"] = "text",
-                    ["text"] = text ?? string.Empty,
-                }),
-            };
+                case AIAgent.System:
+                case AIAgent.Context:
+                    return null; // System messages go in top-level "system" field
+                case AIAgent.User:
+                    return "user";
+                case AIAgent.Assistant:
+                case AIAgent.ToolCall:
+                    return "assistant";
+                case AIAgent.ToolResult:
+                    return "user"; // Tool results are sent as user messages
+                default:
+                    return null;
+            }
         }
 
         /// <summary>
-        /// Builds an Anthropic tool_result message from an AIInteractionToolResult.
+        /// Creates a content block (JObject) for an interaction.
+        /// Returns null if the interaction should not be sent or has no content.
         /// </summary>
-        private static JObject BuildToolResultMessage(AIInteractionToolResult toolResult)
+        private JObject CreateContentBlock(IAIInteraction interaction)
         {
-            var resultText = toolResult.Result?.ToString(Formatting.None) ?? string.Empty;
-            var trBlock = new JObject
+            if (interaction == null)
             {
-                ["type"] = "tool_result",
-                ["tool_use_id"] = toolResult.Id ?? string.Empty,
-                ["content"] = new JArray(new JObject
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            // Handle different interaction types
+            if (interaction is AIInteractionText textInteraction)
+            {
+                var text = textInteraction.Content ?? string.Empty;
+                if (string.IsNullOrEmpty(text))
+                {
+                    return null;
+                }
+
+                return new JObject
                 {
                     ["type"] = "text",
-                    ["text"] = resultText,
-                })
-            };
-            return new JObject
+                    ["text"] = text,
+                };
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                ["role"] = "user",
-                ["content"] = new JArray(trBlock),
-            };
+                var resultText = toolResultInteraction.Result?.ToString(Formatting.None) ?? string.Empty;
+                return new JObject
+                {
+                    ["type"] = "tool_result",
+                    ["tool_use_id"] = toolResultInteraction.Id ?? string.Empty,
+                    ["content"] = resultText,
+                };
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                return new JObject
+                {
+                    ["type"] = "tool_use",
+                    ["id"] = toolCallInteraction.Id ?? string.Empty,
+                    ["name"] = toolCallInteraction.Name ?? string.Empty,
+                    ["input"] = toolCallInteraction.Arguments ?? new JObject(),
+                };
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                // Anthropic does not support image generation; fallback to prompt as text
+                var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
+                if (string.IsNullOrEmpty(prompt))
+                {
+                    return null;
+                }
+
+                return new JObject
+                {
+                    ["type"] = "text",
+                    ["text"] = prompt,
+                };
+            }
+
+            // Unknown interaction type - skip
+            return null;
         }
 
         /// <summary>
@@ -233,6 +355,7 @@ namespace SmartHopper.Providers.Anthropic
                         parts.Add(item?.ToString(Formatting.None) ?? string.Empty);
                     }
                 }
+
                 return string.Join(string.Empty, parts);
             }
 
@@ -257,35 +380,82 @@ namespace SmartHopper.Providers.Anthropic
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
 
-            var messages = new JArray();
-            // Anthropic requires system instructions at top-level "system", not as a message role.
-            // We collect all system/context texts and combine them into a single string separated by "\n---\n".
+            Debug.WriteLine($"[Anthropic] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+
+#if DEBUG
+            // Log interaction sequence for debugging
+            try
+            {
+                int cnt = request.Body.Interactions?.Count ?? 0;
+                int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
+                int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
+                int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
+                Debug.WriteLine($"[Anthropic] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+            }
+            catch { }
+#endif
+
+            // Collect system texts for top-level "system" field
             var systemTexts = new List<string>();
+
+            // Group consecutive interactions by role to avoid consecutive messages with the same role
+            // Anthropic requires alternating user/assistant roles, but allows multiple content blocks per message
+            var messages = new JArray();
+            string currentRole = null;
+            JArray currentContentBlocks = null;
+
             foreach (var interaction in request.Body.Interactions)
             {
                 try
                 {
-                    if (interaction is AIInteractionText text)
+                    // Collect system/context messages separately
+                    if (interaction.Agent == AIAgent.System || interaction.Agent == AIAgent.Context)
                     {
-                        var role = MapRole(interaction.Agent);
-                        if (string.Equals(role, "system", StringComparison.Ordinal))
+                        if (interaction is AIInteractionText sysText)
                         {
-                            // Collect system/context content for top-level system field (as plain text)
-                            systemTexts.Add(text.Content ?? string.Empty);
+                            systemTexts.Add(sysText.Content ?? string.Empty);
                         }
-                        else
+
+                        continue; // System messages don't go in messages array
+                    }
+
+                    // Get role for this interaction
+                    string role = this.GetRoleForAgent(interaction.Agent);
+                    if (string.IsNullOrEmpty(role))
+                    {
+                        continue; // Skip interactions without a role
+                    }
+
+                    // Get content block for this interaction
+                    var contentBlock = this.CreateContentBlock(interaction);
+                    if (contentBlock == null)
+                    {
+                        continue; // Skip if no content
+                    }
+
+                    // Check if we need to start a new message or continue current one
+                    if (currentRole != role)
+                    {
+                        // Role changed: finalize previous message if exists
+                        if (currentRole != null && currentContentBlocks != null && currentContentBlocks.Count > 0)
                         {
-                            messages.Add(BuildTextMessage(role, text.Content ?? string.Empty));
+                            // Sort content blocks: text must come before tool_use for Anthropic API
+                            var sortedContent = this.SortContentBlocks(currentContentBlocks);
+                            messages.Add(new JObject
+                            {
+                                ["role"] = currentRole,
+                                ["content"] = sortedContent
+                            });
                         }
+
+                        // Start new message
+                        currentRole = role;
+                        currentContentBlocks = new JArray { contentBlock };
                     }
-                    else if (interaction is AIInteractionImage img)
+                    else
                     {
-                        // Encode original prompt as text; image content ignored for now
-                        messages.Add(BuildTextMessage("user", img.OriginalPrompt ?? string.Empty));
-                    }
-                    else if (interaction is AIInteractionToolResult toolResult)
-                    {
-                        messages.Add(BuildToolResultMessage(toolResult));
+                        // Same role: append to current content blocks
+                        currentContentBlocks?.Add(contentBlock);
                     }
                 }
                 catch (Exception ex)
@@ -293,6 +463,35 @@ namespace SmartHopper.Providers.Anthropic
                     Debug.WriteLine($"[Anthropic] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
+
+            // Finalize last message if exists
+            if (currentRole != null && currentContentBlocks != null && currentContentBlocks.Count > 0)
+            {
+                // Sort content blocks: text must come before tool_use for Anthropic API
+                var sortedContent = this.SortContentBlocks(currentContentBlocks);
+                messages.Add(new JObject
+                {
+                    ["role"] = currentRole,
+                    ["content"] = sortedContent
+                });
+            }
+
+#if DEBUG
+            // Log final messages array for debugging
+            try
+            {
+                Debug.WriteLine($"[Anthropic] Final encoded messages array ({messages.Count} messages):");
+                for (int idx = 0; idx < messages.Count; idx++)
+                {
+                    var msg = messages[idx] as JObject;
+                    var role = msg?["role"]?.ToString() ?? "?";
+                    var content = msg?["content"] as JArray;
+                    var blockTypes = content?.Select(b => (b as JObject)?["type"]?.ToString()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    Debug.WriteLine($"  [{idx}] role={role}, blocks=[{string.Join(", ", blockTypes ?? new List<string>())}]");
+                }
+            }
+            catch { }
+#endif
 
             var requestBody = new JObject
             {
@@ -363,6 +562,7 @@ namespace SmartHopper.Providers.Anthropic
                             };
                             toolsAnthropic.Add(toolObj);
                         }
+
                         if (toolsAnthropic.Count > 0)
                         {
                             requestBody["tools"] = toolsAnthropic;
@@ -376,7 +576,15 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
-            Debug.WriteLine($"[Anthropic] Request: {requestBody}");
+#if DEBUG
+            try
+            {
+                Debug.WriteLine($"[Anthropic] Request body:");
+                Debug.WriteLine(requestBody.ToString(Formatting.Indented));
+            }
+            catch { }
+#endif
+
             return requestBody.ToString();
         }
 
@@ -384,7 +592,11 @@ namespace SmartHopper.Providers.Anthropic
         public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
-            if (response == null) return interactions;
+
+            if (response == null)
+            {
+                return interactions;
+            }
 
             try
             {
@@ -407,18 +619,20 @@ namespace SmartHopper.Providers.Anthropic
                         }
                         else if (string.Equals(type, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
+                            // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
                             var toolCall = new AIInteractionToolCall
                             {
                                 Id = block["id"]?.ToString(),
                                 Name = block["name"]?.ToString(),
-                                Arguments = block["input"] as JObject,
+                                Arguments = block["input"] as JObject ?? new JObject(),
                                 Agent = AIAgent.ToolCall,
                             };
+                            Debug.WriteLine($"[Anthropic] Decoded tool_use: id={toolCall.Id}, name={toolCall.Name}");
                             toolCalls.Add(toolCall);
                         }
                         else if (string.Equals(type, "tool_result", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Decode Anthropic tool_result block to AIInteractionToolResult
+                            // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
                             var tr = new AIInteractionToolResult
                             {
                                 Id = block["tool_use_id"]?.ToString() ?? block["id"]?.ToString(),
@@ -452,6 +666,7 @@ namespace SmartHopper.Providers.Anthropic
                             toolResults.Add(tr);
                         }
                     }
+
                     contentText = string.Join(string.Empty, textParts);
                 }
 
@@ -462,19 +677,28 @@ namespace SmartHopper.Providers.Anthropic
                     contentText = JsonSchemaService.Instance.Unwrap(contentText, wrapperInfo);
                 }
 
+                // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
                 var interaction = new AIInteractionText();
                 interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: null);
                 interaction.Metrics = this.DecodeMetrics(response);
+                
+                Debug.WriteLine($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
+                
                 interactions.Add(interaction);
 
                 if (toolCalls.Count > 0)
                 {
+                    Debug.WriteLine($"[Anthropic] Decode adding {toolCalls.Count} tool calls");
                     interactions.AddRange(toolCalls.Cast<IAIInteraction>());
                 }
+
                 if (toolResults.Count > 0)
                 {
+                    Debug.WriteLine($"[Anthropic] Decode adding {toolResults.Count} tool results");
                     interactions.AddRange(toolResults.Cast<IAIInteraction>());
                 }
+                
+                Debug.WriteLine($"[Anthropic] Decode returning {interactions.Count} total interactions");
             }
             catch (Exception ex)
             {
@@ -495,12 +719,14 @@ namespace SmartHopper.Providers.Anthropic
                     m.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? m.InputTokensPrompt;
                     m.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? m.OutputTokensGeneration;
                 }
+
                 m.FinishReason = response["stop_reason"]?.ToString() ?? m.FinishReason;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Anthropic] DecodeMetrics error: {ex.Message}");
             }
+
             return m;
         }
 
@@ -549,6 +775,7 @@ namespace SmartHopper.Providers.Anthropic
                     bodyError = new AIReturn();
                     bodyError.CreateProviderError($"Failed to prepare streaming body: {ex.Message}", request);
                 }
+
                 if (bodyError != null)
                 {
                     yield return bodyError;
@@ -570,6 +797,7 @@ namespace SmartHopper.Providers.Anthropic
                     authError = new AIReturn();
                     authError.CreateProviderError(ex.Message, request);
                 }
+
                 if (authError != null)
                 {
                     yield return authError;
@@ -589,6 +817,7 @@ namespace SmartHopper.Providers.Anthropic
                     sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
                     responseMsg = null!;
                 }
+
                 if (sendError != null)
                 {
                     yield return sendError;
@@ -611,6 +840,11 @@ namespace SmartHopper.Providers.Anthropic
                 var textBuffer = new StringBuilder();
                 var streamMetrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model };
                 string? lastFinishReason = null;
+                
+                // Track tool calls being built during streaming
+                var toolCalls = new List<AIInteractionToolCall>();
+                AIInteractionToolCall? currentToolCall = null;
+                var toolArgsBuffer = new StringBuilder();
 
                 // Determine idle timeout from request (fallback to 60s if invalid)
                 var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
@@ -631,53 +865,170 @@ namespace SmartHopper.Providers.Anthropic
                     }
 
                     var type = parsed["type"]?.ToString();
-                    if (string.Equals(type, "content_block_delta", StringComparison.OrdinalIgnoreCase))
+                    Debug.WriteLine($"[Anthropic] Streaming event type: {type}");
+
+                    if (string.Equals(type, "content_block_start", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Anthropic sends tool_use as content_block_start events
+                        var contentBlock = parsed["content_block"] as JObject;
+                        var blockType = contentBlock?["type"]?.ToString();
+                        var blockIndex = parsed["index"]?.Value<int>();
+                        Debug.WriteLine($"[Anthropic] content_block_start: index={blockIndex}, type={blockType}");
+
+                        if (contentBlock != null && string.Equals(blockType, "tool_use", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Start a new tool call - arguments will come in subsequent deltas
+                            currentToolCall = new AIInteractionToolCall
+                            {
+                                Id = contentBlock["id"]?.ToString(),
+                                Name = contentBlock["name"]?.ToString(),
+                                Arguments = new JObject(), // Will be populated from input_json_delta events
+                                Agent = AIAgent.ToolCall,
+                            };
+                            
+                            toolArgsBuffer.Clear();
+                            Debug.WriteLine($"[Anthropic] Tool call initialized: id={currentToolCall.Id}, name={currentToolCall.Name}, currentToolCall set to non-null");
+                        }
+                    }
+                    else if (string.Equals(type, "content_block_delta", StringComparison.OrdinalIgnoreCase))
                     {
                         var delta = parsed["delta"] as JObject;
-                        var t = delta?["text"]?.ToString();
-                        if (!string.IsNullOrEmpty(t))
+                        var deltaType = delta?["type"]?.ToString();
+                        
+                        // Handle text deltas
+                        if (string.Equals(deltaType, "text_delta", StringComparison.OrdinalIgnoreCase))
                         {
-                            textBuffer.Append(t);
-                            var snapshot = new AIInteractionText
+                            var t = delta?["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(t))
                             {
-                                Agent = AIAgent.Assistant,
-                                Content = textBuffer.ToString(),
-                                Reasoning = string.Empty,
-                                Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
-                            };
+                                textBuffer.Append(t);
 
-                            var deltaRet = new AIReturn { Request = request, Status = AICallStatus.Streaming };
-                            deltaRet.SetBody(new List<IAIInteraction> { snapshot });
-                            yield return deltaRet;
+                                // Each new snapshot gets a fresh DateTime.UtcNow from AIInteractionBase
+                                var snapshot = new AIInteractionText
+                                {
+                                    Agent = AIAgent.Assistant,
+                                    Content = textBuffer.ToString(),
+                                    Reasoning = string.Empty,
+                                    Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
+                                };
+
+                                var deltaRet = new AIReturn { Request = request, Status = AICallStatus.Streaming };
+                                deltaRet.SetBody(new List<IAIInteraction> { snapshot });
+                                yield return deltaRet;
+                            }
+                        }
+                        // Handle tool input deltas (partial arguments)
+                        else if (string.Equals(deltaType, "input_json_delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var partialJson = delta?["partial_json"]?.ToString();
+                            if (!string.IsNullOrEmpty(partialJson))
+                            {
+                                toolArgsBuffer.Append(partialJson);
+                                Debug.WriteLine($"[Anthropic] Streaming tool input delta: {partialJson}");
+                            }
+                        }
+                    }
+                    else if (string.Equals(type, "content_block_stop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var blockIndex = parsed["index"]?.Value<int>();
+                        Debug.WriteLine($"[Anthropic] content_block_stop: index={blockIndex}, hasCurrentToolCall={currentToolCall != null}");
+                        
+                        // Tool arguments are complete - parse and store
+                        if (currentToolCall != null)
+                        {
+                            var argsJson = toolArgsBuffer.ToString();
+                            Debug.WriteLine($"[Anthropic] Tool arguments complete: {argsJson}");
+                            
+                            try
+                            {
+                                currentToolCall.Arguments = string.IsNullOrEmpty(argsJson) ? new JObject() : JObject.Parse(argsJson);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[Anthropic] Failed to parse tool arguments: {ex.Message}");
+                                currentToolCall.Arguments = new JObject();
+                            }
+                            
+                            toolCalls.Add(currentToolCall);
+                            Debug.WriteLine($"[Anthropic] Added tool call to list: id={currentToolCall.Id}, name={currentToolCall.Name}, args={currentToolCall.Arguments}");
+                            
+                            // Yield the tool call
+                            var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                            tcDelta.SetBody(new List<IAIInteraction> { currentToolCall });
+                            yield return tcDelta;
+                            
+                            currentToolCall = null;
+                            toolArgsBuffer.Clear();
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[Anthropic] content_block_stop but no currentToolCall (likely text block)");
                         }
                     }
                     else if (string.Equals(type, "message_delta", StringComparison.OrdinalIgnoreCase))
                     {
+                        Debug.WriteLine($"[Anthropic] message_delta full event: {parsed}");
+
                         if (parsed["usage"] is JObject usage)
                         {
                             streamMetrics.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
                             streamMetrics.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
                         }
-                        lastFinishReason = parsed["stop_reason"]?.ToString() ?? lastFinishReason;
+
+                        // The stop_reason is nested under "delta" in message_delta events
+                        var delta = parsed["delta"] as JObject;
+                        var stopReason = delta?["stop_reason"]?.ToString();
+                        Debug.WriteLine($"[Anthropic] message_delta delta object: {delta}");
+                        Debug.WriteLine($"[Anthropic] message_delta stop_reason from delta: {stopReason}");
+
+                        if (!string.IsNullOrWhiteSpace(stopReason))
+                        {
+                            lastFinishReason = stopReason;
+                            Debug.WriteLine($"[Anthropic] Setting lastFinishReason to: {stopReason}");
+                        }
                     }
                     else if (string.Equals(type, "message_stop", StringComparison.OrdinalIgnoreCase))
                     {
                         lastFinishReason = lastFinishReason ?? "stop";
+                        Debug.WriteLine($"[Anthropic] message_stop, final stop_reason: {lastFinishReason}");
                         break;
                     }
                 }
 
-                var final = new AIReturn { Request = request, Status = AICallStatus.Finished };
+                // Determine final status based on finish reason
+                var finalStatus = string.Equals(lastFinishReason, "tool_use", StringComparison.OrdinalIgnoreCase)
+                    ? AICallStatus.CallingTools
+                    : AICallStatus.Finished;
+                
+                var final = new AIReturn { Request = request, Status = finalStatus };
                 streamMetrics.FinishReason = lastFinishReason ?? streamMetrics.FinishReason;
 
-                var finalInteraction = new AIInteractionText
+                Debug.WriteLine($"[Anthropic] Stream complete: textLen={textBuffer.Length}, toolCalls={toolCalls.Count}, finishReason={streamMetrics.FinishReason}, in={streamMetrics.InputTokensPrompt}, out={streamMetrics.OutputTokensGeneration}");
+
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+                
+                // Add text if present
+                if (textBuffer.Length > 0)
                 {
-                    Agent = AIAgent.Assistant,
-                    Content = textBuffer.ToString(),
-                    Reasoning = string.Empty,
-                    Metrics = streamMetrics,
-                };
-                final.SetBody(new List<IAIInteraction> { finalInteraction });
+                    var finalInteraction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = textBuffer.ToString(),
+                        Reasoning = string.Empty,
+                        Metrics = streamMetrics,
+                    };
+                    finalBuilder.Add(finalInteraction, markAsNew: false);
+                }
+                
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var tc in toolCalls)
+                {
+                    Debug.WriteLine($"[Anthropic] Including tool call in final: {tc.Name}");
+                    finalBuilder.Add(tc, markAsNew: false);
+                }
+                
+                final.SetBody(finalBuilder.Build());
                 yield return final;
             }
         }

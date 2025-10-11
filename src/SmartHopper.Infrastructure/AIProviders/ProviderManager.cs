@@ -61,7 +61,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     try
                     {
-                        LoadProviderAssembly(providerFile);
+                        this.LoadProviderAssembly(providerFile);
                     }
                     catch (Exception ex)
                     {
@@ -81,9 +81,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         public void RefreshProviders()
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
-            
+
             // Discover new providers
-            DiscoverProviders();
+            this.DiscoverProviders();
 
             // After discovery, refresh settings for all providers
             Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
@@ -101,7 +101,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // Authenticode signature validation
                 try
                 {
-                    VerifySignature(assemblyPath);
+                    this.VerifySignature(assemblyPath);
                 }
                 catch (CryptographicException ex)
                 {
@@ -112,6 +112,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }));
                     return;
                 }
+
                 var settings = SmartHopperSettings.Instance;
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
 
@@ -137,6 +138,7 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 // Load the assembly
                 var assembly = Assembly.LoadFrom(assemblyPath);
+
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
                     .Where(t => typeof(IAIProviderFactory).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
@@ -154,7 +156,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                         var providerSettings = factory.CreateProviderSettings();
 
                         // Register the provider
-                        RegisterProvider(provider, providerSettings, assembly);
+                        this.RegisterProvider(provider, providerSettings, assembly);
 
                         Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
                     }
@@ -182,13 +184,13 @@ namespace SmartHopper.Infrastructure.AIProviders
                 return;
 
             // Add the provider and its settings to our dictionaries
-            _providers[provider.Name] = provider;
-            _providerSettings[provider.Name] = settings;
+            this._providers[provider.Name] = provider;
+            this._providerSettings[provider.Name] = settings;
 
             // Store the assembly for future reference
-            if (assembly != null && !_providerAssemblies.ContainsKey(provider.Name))
+            if (assembly != null && !this._providerAssemblies.ContainsKey(provider.Name))
             {
-                _providerAssemblies[provider.Name] = assembly;
+                this._providerAssemblies[provider.Name] = assembly;
             }
 
             // Initialize provider asynchronously without blocking
@@ -216,23 +218,25 @@ namespace SmartHopper.Infrastructure.AIProviders
             if (includeUntrusted)
             {
                 // Return all providers regardless of trust status
-                return _providers.Values;
+                return this._providers.Values;
             }
 
             // Return only trusted providers (existing behavior)
             var settings = SmartHopperSettings.Instance;
-            return _providers.Values.Where(provider =>
+            return this._providers.Values.Where(provider =>
             {
                 // Get assembly name for trust checking
-                if (_providerAssemblies.TryGetValue(provider.Name, out var assembly))
+                if (this._providerAssemblies.TryGetValue(provider.Name, out var assembly))
                 {
                     var asmName = assembly.GetName().Name;
+
                     // If provider is explicitly untrusted, exclude it
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
                         return false;
                     }
                 }
+
                 return true;
             });
         }
@@ -268,19 +272,21 @@ namespace SmartHopper.Infrastructure.AIProviders
                 if (string.IsNullOrEmpty(defaultProviderName))
                 {
                     // No default set, return first available provider
-                    return _providers.Values.FirstOrDefault();
+                    return this._providers.Values.FirstOrDefault();
                 }
+
                 providerName = defaultProviderName;
             }
 
             // Try to get the provider
-            if (_providers.TryGetValue(providerName, out var provider))
+            if (this._providers.TryGetValue(providerName, out var provider))
             {
                 // Verify the provider is still trusted before returning it
-                if (_providerAssemblies.TryGetValue(provider.Name, out var assembly))
+                if (this._providerAssemblies.TryGetValue(provider.Name, out var assembly))
                 {
                     var asmName = assembly.GetName().Name;
                     var settings = SmartHopperSettings.Instance;
+
                     // If provider is explicitly untrusted, don't return it
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
@@ -288,7 +294,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                         return null;
                     }
                 }
-                
+
                 // NOTE: Don't refresh settings here to avoid circular dependencies
                 // The provider's settings will be refreshed when needed by specific operations
                 return provider;
@@ -304,7 +310,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <returns>The provider settings, or null if not found.</returns>
         public IAIProviderSettings GetProviderSettings(string providerName)
         {
-            return _providerSettings.TryGetValue(providerName, out var settings) ? settings : null;
+            return this._providerSettings.TryGetValue(providerName, out var settings) ? settings : null;
         }
 
         /// <summary>
@@ -314,7 +320,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <returns>The assembly, or null if not found.</returns>
         public Assembly GetProviderAssembly(string providerName)
         {
-            return _providerAssemblies.TryGetValue(providerName, out var assembly) ? assembly : null;
+            return this._providerAssemblies.TryGetValue(providerName, out var assembly) ? assembly : null;
         }
 
         /// <summary>
@@ -324,7 +330,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <returns>The provider's icon or null if not found</returns>
         public Image GetProviderIcon(string providerName)
         {
-            var provider = GetProvider(providerName);
+            var provider = this.GetProvider(providerName);
             return provider?.Icon;
         }
 
@@ -335,13 +341,13 @@ namespace SmartHopper.Infrastructure.AIProviders
         public string GetDefaultAIProvider()
         {
             var settings = SmartHopperSettings.Instance;
-            if (!string.IsNullOrWhiteSpace(settings.DefaultAIProvider) && _providers.ContainsKey(settings.DefaultAIProvider))
+            if (!string.IsNullOrWhiteSpace(settings.DefaultAIProvider) && this._providers.ContainsKey(settings.DefaultAIProvider))
             {
                 return settings.DefaultAIProvider;
             }
 
             // Fallback to first provider if default not set or invalid
-            return _providers.Keys.FirstOrDefault() ?? string.Empty;
+            return this._providers.Keys.FirstOrDefault() ?? string.Empty;
         }
 
         /// <summary>
@@ -384,9 +390,9 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                     SmartHopperSettings.Instance.RemoveSetting(providerName, setting.Key);
                 }
-                // Else, set it
                 else
                 {
+                    // Else, set it
                     Debug.WriteLine($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
 
                     SmartHopperSettings.Instance.SetSetting(providerName, setting.Key, setting.Value);

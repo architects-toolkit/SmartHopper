@@ -45,6 +45,7 @@ namespace SmartHopper.Providers.OpenAI
         private OpenAIProvider()
         {
             this.Models = new OpenAIProviderModels(this);
+
             // Register provider-specific JSON schema adapter
             JsonSchemaAdapterRegistry.Register(new OpenAIJsonSchemaAdapter());
         }
@@ -57,7 +58,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.openai.com/v1";
+        public override Uri DefaultServerUrl => new Uri("https://api.openai.com/v1");
 
         /// <summary>
         /// Gets a value indicating whether this provider is enabled and should be available for use.
@@ -91,6 +92,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>
         /// Returns a streaming adapter for OpenAI that yields incremental AIReturn deltas.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new OpenAIStreamingAdapter(this);
@@ -141,21 +143,8 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                // Convert interactions to OpenAI format using the JToken-based encoder
-                var messages = new JArray();
-                foreach (var interaction in request.Body.Interactions)
-                {
-                    try
-                    {
-                        var messageToken = this.EncodeToJToken(interaction);
-                        if (messageToken != null) messages.Add(messageToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[{this.Name}] Warning: Could not encode interaction: {ex.Message}");
-                    }
-                }
-
+                // Convert interactions to OpenAI format (simple sequential encoding like MistralAI)
+                var messages = this.BuildMessages(request.Body.Interactions);
                 return this.FormatChatCompletionsRequestBody(request, messages);
             }
         }
@@ -170,6 +159,12 @@ namespace SmartHopper.Providers.OpenAI
         /// <inheritdoc/>
         private JToken? EncodeToJToken(IAIInteraction interaction)
         {
+            // Skip UI-only diagnostics
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
             var messageObj = new JObject();
 
             switch (interaction.Agent)
@@ -211,6 +206,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     messageObj["name"] = toolResultInteraction.Name;
                 }
+
                 msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -222,7 +218,9 @@ namespace SmartHopper.Providers.OpenAI
                     ["function"] = new JObject
                     {
                         ["name"] = toolCallInteraction.Name,
-                        ["arguments"] = toolCallInteraction.Arguments?.ToString(),
+
+                        // OpenAI requires arguments as a JSON string; never null
+                        ["arguments"] = toolCallInteraction.Arguments?.ToString() ?? "{}",
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
@@ -238,7 +236,7 @@ namespace SmartHopper.Providers.OpenAI
                         ["type"] = "image_url",
                         ["image_url"] = new JObject
                         {
-                            ["url"] = imageInteraction.ImageUrl ?? imageInteraction.ImageData,
+                            ["url"] = imageInteraction.ImageUrl?.ToString() ?? imageInteraction.ImageData,
                         },
                     },
                 };
@@ -259,18 +257,108 @@ namespace SmartHopper.Providers.OpenAI
             return messageObj;
         }
 
+        /// <summary>
+        /// Builds the OpenAI <c>messages</c> array from SmartHopper interactions while enforcing
+        /// OpenAI tool calling sequencing rules.
+        ///
+        /// </summary>
+        /// <param name="interactions">Ordered list of SmartHopper interactions to encode.</param>
+        /// <returns>JArray of OpenAI-formatted messages.</returns>
+        private JArray BuildMessages(IReadOnlyList<IAIInteraction> interactions)
+        {
+            var messages = new JArray();
+
+#if DEBUG
+            try
+            {
+                int cnt = interactions?.Count ?? 0;
+                int tc = interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
+                int tr = interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
+                int tx = interactions?.Count(i => i is AIInteractionText) ?? 0;
+                Debug.WriteLine($"[OpenAI] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+
+                // Log full interaction sequence for debugging
+                Debug.WriteLine($"[OpenAI] Full interaction sequence:");
+                for (int debugIdx = 0; debugIdx < interactions.Count; debugIdx++)
+                {
+                    var it = interactions[debugIdx];
+                    var typeStr = it switch
+                    {
+                        AIInteractionToolResult trDbg => $"ToolResult(id={trDbg.Id}, name={trDbg.Name})",
+                        AIInteractionToolCall tcDbg => $"ToolCall(id={tcDbg.Id}, name={tcDbg.Name})",
+                        AIInteractionText txtDbg => $"Text(agent={txtDbg.Agent}, len={txtDbg.Content?.Length ?? 0})",
+                        AIInteractionError => $"Error",
+                        _ => it?.GetType().Name ?? "null"
+                    };
+                    Debug.WriteLine($"  [{debugIdx}] {typeStr}");
+                }
+            }
+            catch
+            {
+                /* logging only */
+            }
+
+#endif
+
+            // Simple sequential encoding like MistralAI - no complex coalescing or deduplication
+            foreach (var interaction in interactions)
+            {
+                var token = this.EncodeToJToken(interaction);
+                if (token != null)
+                {
+                    messages.Add(token);
+                }
+            }
+
+#if DEBUG
+            try
+            {
+                // Log the final encoded messages array for debugging
+                Debug.WriteLine($"[OpenAI] Final encoded messages array ({messages.Count} messages):");
+                for (int idx = 0; idx < messages.Count; idx++)
+                {
+                    var msg = messages[idx] as JObject;
+                    var role = msg?["role"]?.ToString() ?? "?";
+                    var hasToolCalls = msg?["tool_calls"] != null;
+                    var toolCallId = msg?["tool_call_id"]?.ToString();
+                    var content = msg?["content"]?.ToString();
+                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : "";
+                    
+                    if (hasToolCalls)
+                    {
+                        var tcArray = msg?["tool_calls"] as JArray;
+                        var tcCount = tcArray?.Count ?? 0;
+                        var tcIds = tcArray?.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrEmpty(id)).ToList();
+                        Debug.WriteLine($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}]");
+                    }
+                    else if (!string.IsNullOrEmpty(toolCallId))
+                    {
+                        Debug.WriteLine($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"  [{idx}] role={role}, content={preview}");
+                    }
+                }
+            }
+            catch { }
+#endif
+
+            return messages;
+        }
+
         /// <inheritdoc/>
         public override List<IAIInteraction> Decode(JObject response)
         {
             var interactions = new List<IAIInteraction>();
-            
+
             if (response == null)
             {
                 return interactions;
             }
-            
+
             try
-            {       
+            {
                 // Handle different response types based on the response structure
                 if (response["data"] != null)
                 {
@@ -316,7 +404,7 @@ namespace SmartHopper.Providers.OpenAI
             };
 
             // Configure tokens and parameters based on model family
-            // - o-series (o1/o3/o4...): use max_completion_tokens and reasoning_effort; omit temperature
+            // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
             if (Regex.IsMatch(request.Model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(request.Model, @"^gpt-5", RegexOptions.IgnoreCase))
             {
@@ -337,6 +425,7 @@ namespace SmartHopper.Providers.OpenAI
                     var schemaObj = JObject.Parse(jsonSchema);
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+
                     // Store wrapper info for response unwrapping centrally
                     svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[OpenAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
@@ -355,6 +444,7 @@ namespace SmartHopper.Providers.OpenAI
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
+
                     // Continue without schema if parsing fails
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
@@ -459,7 +549,11 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
                     metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
-                    // Note: TotalTokens is calculated automatically from InputTokensPrompt + OutputTokensGeneration
+
+                    // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
+                    var completionDetails = usage["completion_tokens_details"] as JObject;
+                    var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>() ?? 0;
+                    metrics.OutputTokensReasoning = reasoningTokens;
                 }
 
                 // Handle finish reason for chat completions
@@ -588,6 +682,7 @@ namespace SmartHopper.Providers.OpenAI
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"[OpenAI] Warning: failed to parse tool_call arguments: {ex.Message}");
+
                             // Fallback to empty object to avoid null reference issues in tools
                             argsObj = new JObject();
                         }
@@ -631,7 +726,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Get original image request parameters
                 var originalImageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
-                
+
                 // Create result interaction
                 var resultInteraction = new AIInteractionImage
                 {
@@ -699,7 +794,9 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     body = new JObject();
                 }
+
                 body["stream"] = true;
+
                 // Ask OpenAI to include token usage in the final streaming chunk
                 // See: stream_options.include_usage = true
                 body["stream_options"] = new JObject
@@ -723,6 +820,7 @@ namespace SmartHopper.Providers.OpenAI
                     authError = new AIReturn();
                     authError.CreateProviderError(ex.Message, request);
                 }
+
                 if (authError != null)
                 {
                     yield return authError;
@@ -743,6 +841,7 @@ namespace SmartHopper.Providers.OpenAI
                     sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
                     response = null!;
                 }
+
                 if (sendError != null)
                 {
                     yield return sendError;
@@ -762,6 +861,7 @@ namespace SmartHopper.Providers.OpenAI
                 var buffer = new StringBuilder();
                 var lastEmit = DateTime.UtcNow;
                 var firstChunk = true;
+                bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
                 string finalFinishReason = string.Empty;
                 int promptTokens = 0;
                 int completionTokens = 0;
@@ -831,6 +931,7 @@ namespace SmartHopper.Providers.OpenAI
                             results.Add(d);
                         }
                     }
+
                     return results;
                 }
 
@@ -876,6 +977,10 @@ namespace SmartHopper.Providers.OpenAI
                         if (pt.HasValue) promptTokens = pt.Value;
                         if (ct.HasValue) completionTokens = ct.Value;
 
+                        // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
+                        var completionDetails = usage["completion_tokens_details"] as JObject;
+                        var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
+
                         // Update aggregate metrics
                         assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
                         {
@@ -883,25 +988,137 @@ namespace SmartHopper.Providers.OpenAI
                             Model = request.Model,
                             InputTokensPrompt = pt ?? 0,
                             OutputTokensGeneration = ct ?? 0,
+                            OutputTokensReasoning = rt,
                         });
                     }
 
-                    // Content streaming
-                    var contentDelta = delta?["content"]?.ToString();
-                    if (!string.IsNullOrEmpty(contentDelta))
+                    // Content streaming - handle both plain strings and structured content arrays
+                    var contentToken = delta?["content"];
+                    if (contentToken != null)
                     {
-                        buffer.Append(contentDelta);
-                        if (firstChunk)
+                        bool hasReasoningUpdate = false;
+                        bool hasContentUpdate = false;
+                        
+                        // Check if content is a structured array (o-series models with reasoning)
+                        if (contentToken is JArray contentArray)
                         {
-                            firstChunk = false;
-                            // Force immediate first emit for snappy UX
-                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            foreach (var part in contentArray.OfType<JObject>())
+                            {
+                                var type = part["type"]?.ToString();
+                                if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Extract reasoning/thinking content
+                                    var reasoningText = part["text"]?.ToString() ?? part["content"]?.ToString();
+                                    if (!string.IsNullOrEmpty(reasoningText))
+                                    {
+                                        assistantAggregate.AppendDelta(reasoningDelta: reasoningText);
+                                        hasReasoningUpdate = true;
+                                        Debug.WriteLine($"[OpenAI] Streaming reasoning chunk: {reasoningText.Substring(0, Math.Min(50, reasoningText.Length))}...");
+                                    }
+                                }
+                                else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase) ||
+                                         string.Equals(type, "output_text", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Extract regular text content
+                                    var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                                    if (!string.IsNullOrEmpty(textVal))
+                                    {
+                                        buffer.Append(textVal);
+                                        hasContentUpdate = true;
+                                    }
+                                }
+                            }
                         }
                         else
                         {
-                            var emitted = await FlushAsync(force: false).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            // Plain string content (non-reasoning models)
+                            var contentDelta = contentToken.ToString();
+                            if (!string.IsNullOrEmpty(contentDelta))
+                            {
+                                buffer.Append(contentDelta);
+                                hasContentUpdate = true;
+                            }
+                        }
+
+                        // Flush if we have content OR emit reasoning-only snapshot
+                        if (hasContentUpdate)
+                        {
+                            // If we had a reasoning-only segment, complete it first to trigger segmentation
+                            if (hadReasoningOnlySegment)
+                            {
+                                // Emit completed reasoning-only interaction to set boundary flag
+                                var reasoningComplete = new AIInteractionText
+                                {
+                                    Agent = assistantAggregate.Agent,
+                                    Content = string.Empty,
+                                    Reasoning = assistantAggregate.Reasoning,
+                                    Time = DateTime.UtcNow,
+                                    Metrics = new AIMetrics
+                                    {
+                                        Provider = assistantAggregate.Metrics.Provider,
+                                        Model = assistantAggregate.Metrics.Model,
+                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                    },
+                                };
+
+                                var completeDelta = new AIReturn
+                                {
+                                    Request = request,
+                                    Status = AICallStatus.Finished,
+                                };
+                                completeDelta.SetBody(new List<IAIInteraction> { reasoningComplete });
+                                yield return completeDelta;
+                                await Task.Yield();
+
+                                hadReasoningOnlySegment = false;
+                            }
+
+                            if (firstChunk)
+                            {
+                                firstChunk = false;
+
+                                // Force immediate first emit for snappy UX
+                                var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                foreach (var d in emitted) { yield return d; }
+                            }
+                            else
+                            {
+                                var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                foreach (var d in emitted) { yield return d; }
+                            }
+                        }
+                        else if (hasReasoningUpdate)
+                        {
+                            // Emit reasoning-only snapshot (no text content yet)
+                            var snapshot = new AIInteractionText
+                            {
+                                Agent = assistantAggregate.Agent,
+                                Content = assistantAggregate.Content,
+                                Reasoning = assistantAggregate.Reasoning,
+                                Metrics = new AIMetrics
+                                {
+                                    Provider = assistantAggregate.Metrics.Provider,
+                                    Model = assistantAggregate.Metrics.Model,
+                                    FinishReason = assistantAggregate.Metrics.FinishReason,
+                                    InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                    InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                    OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                    CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                },
+                            };
+
+                            var reasoningDelta = new AIReturn
+                            {
+                                Request = request,
+                                Status = AICallStatus.Streaming,
+                            };
+                            reasoningDelta.SetBody(new List<IAIInteraction> { snapshot });
+                            yield return reasoningDelta;
+                            await Task.Yield();
+
+                            hadReasoningOnlySegment = true; // Mark that we have a reasoning segment
                         }
                     }
 
@@ -977,28 +1194,45 @@ namespace SmartHopper.Providers.OpenAI
                 // Align aggregate metrics finish reason as well
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
 
-                // Snapshot the final assistant interaction
-                var finalSnapshot = new AIInteractionText
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+
+                // Add text interaction if present
+                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
                 {
-                    Agent = assistantAggregate.Agent,
-                    Content = assistantAggregate.Content,
-                    Reasoning = assistantAggregate.Reasoning,
-                    Metrics = new AIMetrics
+                    var finalSnapshot = new AIInteractionText
                     {
-                        Provider = assistantAggregate.Metrics.Provider,
-                        Model = assistantAggregate.Metrics.Model,
-                        FinishReason = assistantAggregate.Metrics.FinishReason,
-                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                    },
-                };
-                final.SetBody(new List<IAIInteraction> { finalSnapshot });
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+                    finalBuilder.Add(finalSnapshot, markAsNew: false);
+                }
+
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                {
+                    var (id, name, argsSb) = kv.Value;
+                    JObject argsObj = null;
+                    var argsStr = argsSb.ToString();
+                    try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
+                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
+                }
+
+                final.SetBody(finalBuilder.Build());
                 yield return final;
             }
         }
     }
 }
-

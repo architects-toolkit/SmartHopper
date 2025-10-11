@@ -249,11 +249,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets the selected AI provider name.
         /// </summary>
-        /// <returns>The selected AI provider name.</returns>
-        protected string GetSelectedProviderName()
-        {
-            return this.aiProvider;
-        }
+        protected string SelectedProviderName => this.aiProvider;
 
         /// <summary>
         /// Sets the selected AI provider name.

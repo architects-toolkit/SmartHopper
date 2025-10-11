@@ -59,8 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
-                execute: this.GhTogglePreviewAsync
-            );
+                execute: this.GhTogglePreviewAsync);
         }
 
         private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)
@@ -72,9 +71,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var guids = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var previewOn = toolInfo.Arguments["previewOn"]?.ToObject<bool>() ?? false;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
                 var updated = new List<string>();
 

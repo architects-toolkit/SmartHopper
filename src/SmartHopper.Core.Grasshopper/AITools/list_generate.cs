@@ -11,10 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -122,11 +121,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string? prompt = toolInfo.Arguments["prompt"]?.ToString();
-                int count = toolInfo.Arguments["count"]?.ToObject<int>() ?? 0;
-                string? type = toolInfo.Arguments["type"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string? prompt = args["prompt"]?.ToString();
+                int count = args["count"]?.ToObject<int>() ?? 0;
+                string? type = args["type"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt) || count <= 0 || string.IsNullOrEmpty(type))
                 {
@@ -149,7 +149,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // 1. Generate initial request
                 var initialUserPrompt = this.userPrompt;
                 initialUserPrompt = initialUserPrompt.Replace("<prompt>", prompt);
-                initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString());
+                initialUserPrompt = initialUserPrompt.Replace("<count>", count.ToString(CultureInfo.InvariantCulture));
 
                 // Initiate immutable AIBody
                 var requestBody = AIBodyBuilder.Create()
@@ -229,7 +229,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            
+
                             var partialResult = new JObject();
                             partialResult.Add("list", new JArray(allItems));
 
@@ -335,4 +335,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

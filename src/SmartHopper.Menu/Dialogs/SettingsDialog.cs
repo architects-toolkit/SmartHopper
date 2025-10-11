@@ -26,7 +26,7 @@ namespace SmartHopper.Menu.Dialogs
     /// <summary>
     /// Tabbed dialog to configure SmartHopper settings including general settings, provider management, assistant configuration, and provider-specific settings
     /// </summary>
-    internal class SettingsDialog : Dialog
+    internal sealed class SettingsDialog : Dialog
     {
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
@@ -53,8 +53,9 @@ namespace SmartHopper.Menu.Dialogs
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
             {
                 if (stream != null)
-                    Icon = new Icon(stream);
+                    this.Icon = new Icon(stream);
             }
+
             this.Title = "SmartHopper Settings";
             this.Size = new Size(600, 500);
             this.MinimumSize = new Size(600, 400);
@@ -62,10 +63,9 @@ namespace SmartHopper.Menu.Dialogs
             this.Padding = new Padding(10);
 
             // Center the dialog on screen
-            Location = new Point(
-                (int)((Screen.PrimaryScreen.Bounds.Width - Size.Width) / 2),
-                (int)((Screen.PrimaryScreen.Bounds.Height - Size.Height) / 2)
-            );
+            this.Location = new Point(
+                (int)((Screen.PrimaryScreen.Bounds.Width - this.Size.Width) / 2),
+                (int)((Screen.PrimaryScreen.Bounds.Height - this.Size.Height) / 2));
 
             // Load settings and synchronously discover providers on Rhino's UI thread
             this._settings = SmartHopperSettings.Instance;
@@ -126,21 +126,21 @@ namespace SmartHopper.Menu.Dialogs
             tabControl.Pages.Add(new TabPage
             {
                 Text = "General",
-                Content = _generalPage,
+                Content = this._generalPage,
             });
 
             // Add Providers tab
             tabControl.Pages.Add(new TabPage
             {
                 Text = "Providers",
-                Content = _providersPage,
+                Content = this._providersPage,
             });
 
             // Add SmartHopper Assistant tab
             tabControl.Pages.Add(new TabPage
             {
-                Text = "The Button",
-                Content = _assistantPage,
+                Text = "Canvas Assistant",
+                Content = this._assistantPage,
             });
 
             // Add provider-specific tabs
@@ -180,8 +180,8 @@ namespace SmartHopper.Menu.Dialogs
             this.AbortButton = cancelButton;
 
             // Handle button clicks
-            saveButton.Click += (sender, e) => SaveSettings();
-            cancelButton.Click += (sender, e) => Close();
+            saveButton.Click += (sender, e) => this.SaveSettings();
+            cancelButton.Click += (sender, e) => this.Close();
         }
 
         /// <summary>
@@ -203,16 +203,16 @@ namespace SmartHopper.Menu.Dialogs
                 }
 
                 // Update global settings from models
-                _settings.DefaultAIProvider = _generalSettings.DefaultAIProvider;
-                _settings.DebounceTime = _generalSettings.DebounceTime;
-                _settings.SmartHopperAssistant.EnableCanvasButton = _assistantSettings.EnableCanvasButton;
-                _settings.SmartHopperAssistant.EnableAIGreeting = _assistantSettings.EnableAIGreeting;
-                _settings.SmartHopperAssistant.AssistantProvider = _assistantSettings.AssistantProvider;
-                _settings.SmartHopperAssistant.AssistantModel = _assistantSettings.AssistantModel;
-                _settings.TrustedProviders = new Dictionary<string, bool>(_trustedProvidersSettings);
+                this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
+                this._settings.DebounceTime = this._generalSettings.DebounceTime;
+                this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
+                this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
+                this._settings.SmartHopperAssistant.AssistantProvider = this._assistantSettings.AssistantProvider;
+                this._settings.SmartHopperAssistant.AssistantModel = this._assistantSettings.AssistantModel;
+                this._settings.TrustedProviders = new Dictionary<string, bool>(this._trustedProvidersSettings);
 
                 // Persist global settings
-                _settings.Save();
+                this._settings.Save();
 
                 this.Close();
             }

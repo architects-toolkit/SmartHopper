@@ -68,13 +68,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string query = toolInfo.Arguments["query"]?.ToString();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string query = args["query"]?.ToString();
                 if (string.IsNullOrEmpty(query))
                 {
                     output.CreateError("Missing 'query' parameter.");
                     return output;
                 }
+
                 using var httpClient = new HttpClient();
                 var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
                 var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
@@ -107,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["query"] = query,
                     ["results"] = result,
-                    ["count"] = result.Count
+                    ["count"] = result.Count,
                 };
 
                 var builder = AIBodyBuilder.Create();

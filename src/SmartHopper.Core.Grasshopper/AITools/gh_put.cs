@@ -51,8 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""json""]
                 }",
-                execute: this.GhPutToolAsync
-            );
+                execute: this.GhPutToolAsync);
         }
 
         private async Task<AIReturn> GhPutToolAsync(AIToolCall toolCall)
@@ -67,8 +66,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var json = toolInfo.Arguments["json"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var json = args["json"]?.ToString() ?? string.Empty;
 
                 GHJsonLocal.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
@@ -82,11 +82,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Placement & wiring using Put utils
                 var placed = Put.PutObjectsOnCanvas(document);
-                
+
                 var toolResult = new JObject
                 {
                     ["components"] = JArray.FromObject(placed),
-                    ["analysis"] = analysisMsg
+                    ["analysis"] = analysisMsg,
                 };
 
                 var body = AIBodyBuilder.Create()

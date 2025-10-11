@@ -21,6 +21,10 @@ using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.Settings
 {
+    /// <summary>
+    /// Application-wide settings for SmartHopper, including provider configuration,
+    /// trust lists, UI options, and secure storage of secrets.
+    /// </summary>
     public class SmartHopperSettings
     {
         private static readonly string SettingsPath = Path.Combine(
@@ -36,18 +40,33 @@ namespace SmartHopper.Infrastructure.Settings
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
 
+        /// <summary>
+        /// Gets or sets the persisted provider settings dictionary keyed by provider name, then setting name.
+        /// </summary>
         [JsonProperty]
         internal Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
 
+        /// <summary>
+        /// Gets or sets the debounce time in milliseconds used for UI/state transitions.
+        /// </summary>
         [JsonProperty]
         public int DebounceTime { get; set; }
 
+        /// <summary>
+        /// Gets or sets the default AI provider name to use when none is specified.
+        /// </summary>
         [JsonProperty]
         public string DefaultAIProvider { get; set; }
 
+        /// <summary>
+        /// Gets or sets the trust list of discovered providers by name (true = trusted/enabled).
+        /// </summary>
         [JsonProperty]
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
+        /// <summary>
+        /// Gets or sets settings related to the SmartHopper assistant features.
+        /// </summary>
         [JsonProperty(nameof(SmartHopperAssistant))]
         public SmartHopperAssistantSettings SmartHopperAssistant { get; set; }
 
@@ -65,8 +84,14 @@ namespace SmartHopper.Infrastructure.Settings
 
         private static SmartHopperSettings? instance;
 
+        /// <summary>
+        /// Gets the singleton instance of <see cref="SmartHopperSettings"/> loaded from disk on first access.
+        /// </summary>
         public static SmartHopperSettings Instance => instance ??= Load();
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SmartHopperSettings"/> class with default values.
+        /// </summary>
         public SmartHopperSettings()
         {
             this.ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
@@ -89,7 +114,7 @@ namespace SmartHopper.Infrastructure.Settings
                 _currentlyGettingSettings = new HashSet<string>();
 
             var settingKey = $"{providerName}.{settingName}";
-            
+
             // Check for recursion
             if (_currentlyGettingSettings.Contains(settingKey))
             {
@@ -101,7 +126,7 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 _currentlyGettingSettings.Add(settingKey);
 
-                if (ProviderSettings.TryGetValue(providerName, out var settings) &&
+                if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
                     settings.TryGetValue(settingName, out var value))
                 {
                     var descriptors = GetProviderDescriptors(providerName);
@@ -112,6 +137,7 @@ namespace SmartHopper.Infrastructure.Settings
                         Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
                         return Decrypt(value.ToString());
                     }
+
                     Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
                     return value;
                 }
@@ -286,7 +312,7 @@ namespace SmartHopper.Infrastructure.Settings
                     Debug.WriteLine("No providers available to refresh");
                     return;
                 }
-                
+
                 // Ensure ALL providers have their settings UI registered before refreshing.
                 // This avoids triggering lazy defaults while providers are still initializing.
                 var notReady = providers
@@ -559,7 +585,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                 // Add basic obfuscation (not cryptographically secure, but better than plaintext)
                 var obfuscated = new byte[data.Length];
-                var seed = Environment.UserName.GetHashCode() ^ Environment.MachineName.GetHashCode();
+                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^ Environment.MachineName.GetHashCode(StringComparison.Ordinal);
                 var rng = new Random(seed);
 
                 for (int i = 0; i < data.Length; i++)
@@ -624,7 +650,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                 // Reverse the obfuscation
                 var data = new byte[obfuscated.Length];
-                var seed = Environment.UserName.GetHashCode() ^ Environment.MachineName.GetHashCode();
+                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^ Environment.MachineName.GetHashCode(StringComparison.Ordinal);
                 var rng = new Random(seed);
 
                 for (int i = 0; i < obfuscated.Length; i++)
@@ -904,7 +930,7 @@ namespace SmartHopper.Infrastructure.Settings
                 // Notify listeners that settings have been saved/updated
                 try
                 {
-                    SettingsSaved?.Invoke(this, EventArgs.Empty);
+                    this.SettingsSaved?.Invoke(this, EventArgs.Empty);
                 }
                 catch (Exception evEx)
                 {

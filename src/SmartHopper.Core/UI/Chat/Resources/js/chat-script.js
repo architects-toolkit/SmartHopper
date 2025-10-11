@@ -8,47 +8,205 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+// Scroll thresholds (pixels)
+const SCROLL_BOTTOM_THRESHOLD = 30; // consider near-bottom within this distance
+const SCROLL_SHOW_BTN_THRESHOLD = 5; // show scroll-to-bottom button when farther than this
+
+/**
+ * Returns the chat container element and whether it was at (or near) bottom before changes.
+ * Helps standardize error handling and scroll-state capture before DOM mutations.
+ * @param {string} context - Caller context for logging
+ * @returns {{ chatContainer: HTMLElement|null, wasAtBottom: boolean }}
+ */
+function getContainerWithBottom(context) {
+    const chatContainer = document.getElementById('chat-container');
+    if (!chatContainer) {
+        console.error(`[JS] ${context}: chat-container element not found`);
+        // Default wasAtBottom to true if container missing to avoid unintended UI side effects
+        return { chatContainer: null, wasAtBottom: true };
+    }
+    return { chatContainer, wasAtBottom: isAtBottom(chatContainer, SCROLL_BOTTOM_THRESHOLD) };
+}
+
+/**
+ * Safely parses an HTML string into a single node (first element or text node).
+ * Returns null and logs on error to keep callers simple.
+ * @param {string} messageHtml - HTML content to parse
+ * @param {string} context - Caller context for logging
+ * @returns {HTMLElement|null}
+ */
+function createNodeFromHtml(messageHtml, context) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml || '';
+    const node = tempDiv.firstElementChild || tempDiv.firstChild;
+    if (!node) {
+        console.error(`[JS] ${context}: no valid node in messageHtml`);
+        return null;
+    }
+    return node;
+}
+
+/**
+ * Parses an HTML string and returns the firstElementChild only.
+ * Logs and returns null when no element is present to avoid text-node insertions.
+ * @param {string} messageHtml
+ * @param {string} context
+ * @returns {HTMLElement|null}
+ */
+function createElementFromHtml(messageHtml, context) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = messageHtml || '';
+    const el = tempDiv.firstElementChild || null;
+    if (!el) {
+        console.error(`[JS] ${context}: no valid element in HTML`);
+        return null;
+    }
+    return el;
+}
+
+/**
+ * Sets dataset.key on a node if possible, ignoring failures (e.g., text nodes).
+ * @param {HTMLElement} node
+ * @param {string} key
+ */
+function setDatasetKeySafe(node, key) {
+    try { if (node && node.dataset) node.dataset.key = key || ''; } catch {}
+}
+
+/**
+ * Finds a message element inside container by its dataset.key value.
+ * @param {HTMLElement} chatContainer
+ * @param {string} key
+ * @returns {HTMLElement|null}
+ */
+function findExistingMessageByKey(chatContainer, key) {
+    const messages = Array.from(chatContainer.querySelectorAll('.message'));
+    return messages.find(m => (m.dataset && m.dataset.key) === (key || '')) || null;
+}
+
+/**
+ * Inserts a node immediately after a reference node within the same container.
+ * If the reference is the last child, appends; otherwise uses insertBefore(nextSibling).
+ * @param {HTMLElement} container
+ * @param {HTMLElement} node
+ * @param {HTMLElement} reference
+ * @param {string} context - Caller context for logging
+ */
+function insertAfterNode(container, node, reference, context) {
+    if (reference && reference.nextSibling) {
+        container.insertBefore(node, reference.nextSibling);
+    } else {
+        container.appendChild(node);
+    }
+    if (context) console.log(`[JS] ${context}: inserted node after reference`);
+}
+
 /**
  * Adds a message to the chat container
  * @param {string} messageHtml - HTML content of the message
  */
 function addMessage(messageHtml) {
     console.log('[JS] addMessage called with HTML length:', messageHtml ? messageHtml.length : 0);
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) {
-        console.error('[JS] addMessage: chat-container element not found');
-        return;
-    }
-    
-    // Create a temporary div to parse the HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml;
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('addMessage');
+    if (!chatContainer) return;
 
-    // Use firstElementChild to avoid appending a text node from leading whitespace
-    const node = tempDiv.firstElementChild || tempDiv.firstChild;
-    if (node) {
-        chatContainer.appendChild(node);
-        console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
+    const node = createNodeFromHtml(messageHtml, 'addMessage');
+    if (!node) return;
+
+    // Insert above the persistent thinking message if present; otherwise append
+    insertAboveThinkingIfPresent(chatContainer, node);
+    console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
+    // Finalize: reprocess dynamic features and auto-scroll if needed
+    finalizeMessageInsertion(node, wasAtBottom);
+}
+
+/**
+ * Upserts a message identified by `key` immediately after the message identified by `followKey`.
+ * If `followKey` is not found, falls back to a normal upsert by key.
+ * @param {string} followKey - The key of the message to insert after
+ * @param {string} key - The key for the incoming message
+ * @param {string} messageHtml - HTML string for the message
+ */
+function upsertMessageAfter(followKey, key, messageHtml) {
+    console.log('[JS] upsertMessageAfter called with followKey:', followKey, 'key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessageAfter');
+    if (!chatContainer) return false;
+
+    const incoming = createNodeFromHtml(messageHtml, 'upsertMessageAfter');
+    if (!incoming) return false;
+    setDatasetKeySafe(incoming, key);
+
+    // Find existing nodes
+    const existing = findExistingMessageByKey(chatContainer, key);
+    const follow = findExistingMessageByKey(chatContainer, followKey);
+
+    // If follow is not found, fallback to upsertMessage
+    if (!follow) {
+        console.warn('[JS] upsertMessageAfter: followKey not found, falling back to upsertMessage');
+        return upsertMessage(key, messageHtml);
+    }
+
+    if (existing) {
+        // Replace existing content and keep relative position by re-inserting after follow
+        existing.replaceWith(incoming);
+        console.log('[JS] upsertMessageAfter: replaced existing message for key:', key);
+    }
+
+    // Insert after follow (handling last-child case)
+    insertAfterNode(chatContainer, incoming, follow, 'upsertMessageAfter');
+    console.log('[JS] upsertMessageAfter: inserted after followKey:', followKey);
+
+    finalizeMessageInsertion(incoming, wasAtBottom);
+    return true;
+}
+
+/**
+ * Upserts a message DOM node identified by a stable key. If a node with the same key exists,
+ * it is replaced; otherwise, the node is appended (just above any persistent loading bubble).
+ * @param {string} key - Stable identity for the message
+ * @param {string} messageHtml - HTML string for the message
+ */
+function upsertMessage(key, messageHtml) {
+    console.log('[JS] upsertMessage called with key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessage');
+    if (!chatContainer) return false;
+
+    const incoming = createNodeFromHtml(messageHtml, 'upsertMessage');
+    if (!incoming) return false;
+    setDatasetKeySafe(incoming, key);
+
+    // Find existing by data-key (avoid querySelector escaping issues by scanning)
+    const existing = findExistingMessageByKey(chatContainer, key);
+
+    if (existing) {
+        chatContainer.replaceChild(incoming, existing);
+        console.log('[JS] upsertMessage: replaced existing message for key:', key);
     } else {
-        console.error('[JS] addMessage: no valid node found in HTML');
+        insertAboveThinkingIfPresent(chatContainer, incoming);
+        console.log('[JS] upsertMessage: appended new message for key:', key);
     }
 
-    // Process any code blocks for syntax highlighting
-    processCodeBlocks();
-    
-    // Make links open in a new window
-    processLinks();
-    
-    // Setup metrics tooltips
-    setupMetricsTooltip();
-    
-    // Scroll to the bottom of the chat
-    scrollToBottom();
-    
-    // Enable collapsible for tool messages and system messages
-    const lastMsg = chatContainer.lastElementChild;
-    if (lastMsg && (lastMsg.classList.contains('tool') || lastMsg.classList.contains('system'))) {
-        lastMsg.addEventListener('click', () => lastMsg.classList.toggle('expanded'));
+    finalizeMessageInsertion(incoming, wasAtBottom);
+    return true;
+}
+
+/**
+ * Removes the last persistent thinking/loading message if present.
+ * @returns {boolean} True if a loader was found and removed
+ */
+function removeThinkingMessage() {
+    try {
+        const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return false;
+        const loaders = Array.from(chatContainer.querySelectorAll('.message.loading'));
+        if (loaders.length === 0) return false;
+        const lastLoader = loaders[loaders.length - 1];
+        chatContainer.removeChild(lastLoader);
+        console.log('[JS] removeThinkingMessage: removed last loading bubble');
+        return true;
+    } catch (e) {
+        console.warn('[JS] removeThinkingMessage error:', e);
+        return false;
     }
 }
 
@@ -60,62 +218,26 @@ function addMessage(messageHtml) {
  */
 function addLoadingMessage(role, text) {
     console.log('[JS] addLoadingMessage called, role:', role, 'text:', text);
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) {
-        console.error('[JS] addLoadingMessage: chat-container element not found');
-        return;
-    }
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('addLoadingMessage');
+    if (!chatContainer) return;
     role = (role || 'assistant').toLowerCase();
     const content = (text || 'Thinking…');
     const wrapper = document.createElement('div');
-    wrapper.className = `message ${role} loading`;
+
+    // If role is 'loading' or falsy, create a generic loading message without role class
+    if (!role || String(role).toLowerCase() === 'loading') {
+        wrapper.className = 'message loading';
+    } else {
+        wrapper.className = `message ${role} loading`;
+    }
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     contentDiv.textContent = content;
     contentDiv.dataset.copyContent = content;
     wrapper.appendChild(contentDiv);
-    chatContainer.appendChild(wrapper);
+    insertAboveThinkingIfPresent(chatContainer, wrapper);
     console.log('[JS] addLoadingMessage: loading bubble added for role:', role);
-    scrollToBottom();
-}
-
-/**
- * Removes the last message of a specific role from the chat container
- * @param {string} role - The role of the message to remove (user, assistant, system)
- * @returns {boolean} True if a message was removed, false otherwise
- */
-function removeLastMessageByRole(role) {
-    const chatContainer = document.getElementById('chat-container');
-    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
-    
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        lastMessage.remove();
-        return true;
-    }
-    
-    return false;
-}
-
-/**
- * Removes the last loading message for a given role (e.g., the temporary Thinking… bubble)
- * @param {string} role - 'assistant' | 'user' | 'system'
- * @returns {boolean} True if a loading message was found and removed
- */
-function removeLastLoadingMessageByRole(role) {
-    try {
-        const chatContainer = document.getElementById('chat-container');
-        if (!chatContainer) return false;
-        const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}.loading`));
-        if (messages.length === 0) return false;
-        const last = messages[messages.length - 1];
-        last.remove();
-        console.log('[JS] removeLastLoadingMessageByRole: removed loading bubble for role:', role);
-        return true;
-    } catch (err) {
-        console.error('[JS] removeLastLoadingMessageByRole error:', err);
-        return false;
-    }
+    finalizeMessageInsertion(wrapper, wasAtBottom);
 }
 
 /**
@@ -126,18 +248,14 @@ function removeLastLoadingMessageByRole(role) {
  */
 function replaceLastMessageByRole(role, messageHtml) {
     console.log('[JS] replaceLastMessageByRole called, role:', role, 'HTML length:', messageHtml ? messageHtml.length : 0);
-    const chatContainer = document.getElementById('chat-container');
+    const { chatContainer, wasAtBottom } = getContainerWithBottom('replaceLastMessageByRole');
+    if (!chatContainer) return false;
     const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
     console.log('[JS] replaceLastMessageByRole: found', messages.length, 'existing messages for role:', role);
 
     // Parse incoming HTML into an element
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
-    const incoming = tempDiv.firstElementChild;
-    if (!incoming) {
-        console.error('[JS] replaceLastMessageByRole: no valid element in HTML');
-        return false;
-    }
+    const incoming = createNodeFromHtml(messageHtml, 'replaceLastMessageByRole');
+    if (!incoming) return false;
 
     if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
@@ -148,61 +266,9 @@ function replaceLastMessageByRole(role, messageHtml) {
         console.log('[JS] replaceLastMessageByRole: appended new message');
     }
 
-    // Re-process dynamic features
-    processCodeBlocks();
-    processLinks();
-    setupMetricsTooltip();
-    scrollToBottom();
+    // Finalize: reprocess dynamic features and auto-scroll if needed
+    finalizeMessageInsertion(incoming, wasAtBottom);
     return true;
-}
-
-/**
- * Backward-compatible helper expected by C# ReplaceLastAssistantMessage.
- * @param {string} messageHtml - Full assistant message HTML
- */
-function replaceLastAssistantMessage(messageHtml) {
-    return replaceLastMessageByRole('assistant', messageHtml);
-}
-
-/**
- * Appends an HTML chunk to the content of the last message of a given role.
- * If no message exists, creates a new minimal message using the chunk as content.
- * @param {string} role - Role class to target
- * @param {string} htmlChunk - HTML snippet to append inside .message-content
- * @returns {boolean} True if appended/created, false otherwise
- */
-function appendToLastMessageByRole(role, htmlChunk) {
-    const chatContainer = document.getElementById('chat-container');
-    const messages = Array.from(chatContainer.querySelectorAll(`.message.${role}`));
-
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        const contentEl = lastMessage.querySelector('.message-content');
-        if (contentEl) {
-            contentEl.insertAdjacentHTML('beforeend', htmlChunk || '');
-            processCodeBlocks();
-            processLinks();
-            setupMetricsTooltip();
-            scrollToBottom();
-            return true;
-        }
-    }
-
-    // Fallback: if no message exists, just add the chunk as a new message
-    // (expects caller to provide a full message when needed; this is a safety net)
-    if (typeof addMessage === 'function') {
-        addMessage(htmlChunk || '');
-        return true;
-    }
-    return false;
-}
-
-/**
- * Convenience wrapper for assistant role chunk appends.
- * @param {string} htmlChunk
- */
-function appendToLastAssistantMessage(htmlChunk) {
-    return appendToLastMessageByRole('assistant', htmlChunk);
 }
 
 /**
@@ -246,27 +312,225 @@ function processLinks() {
  * Scrolls the window to the bottom
  */
 function scrollToBottom() {
-    window.scrollTo(0, document.body.scrollHeight);
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer && typeof chatContainer.scrollTop === 'number') {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    } else {
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+    hideNewMessagesIndicator();
 }
 
 /**
- * Creates a new message using a template
- * @param {string} role - The role of the message sender (user, assistant, system)
- * @param {string} displayName - The display name of the sender
- * @param {string} content - The HTML content of the message
- * @param {string} timestamp - The formatted date-time of the message
- * @returns {string} The HTML for the message
+ * Determines whether the chat container is scrolled to (or near) the bottom.
+ * @param {HTMLElement} container
+ * @param {number} threshold Pixels threshold to still consider as bottom (default 30)
  */
-function createMessageFromTemplate(role, displayName, content, timestamp) {
-    if (typeof MESSAGE_TEMPLATE !== 'undefined') {
-        return MESSAGE_TEMPLATE
-            .replace('{{role}}', role)
-            .replace('{{displayName}}', displayName)
-            .replace('{{content}}', content)
-            .replace('{{timestamp}}', timestamp);
+function isAtBottom(container, threshold = SCROLL_BOTTOM_THRESHOLD) {
+    if (!container) return true;
+    const distanceFromBottom = container.scrollHeight - (container.scrollTop + container.clientHeight);
+    return distanceFromBottom <= threshold;
+}
+
+/**
+ * Shows the new messages indicator and updates scroll controls.
+ */
+function showNewMessagesIndicator() {
+    const indicator = document.getElementById('new-messages-indicator');
+    if (indicator) indicator.classList.remove('hidden');
+    updateScrollControls();
+}
+
+/**
+ * Hides the new messages indicator.
+ */
+function hideNewMessagesIndicator() {
+    const indicator = document.getElementById('new-messages-indicator');
+    if (indicator) indicator.classList.add('hidden');
+}
+
+/**
+ * Updates visibility of scroll-to-bottom button based on current scroll position.
+ */
+function updateScrollControls() {
+    const chatContainer = document.getElementById('chat-container');
+    const btn = document.getElementById('scroll-bottom-btn');
+    if (!btn || !chatContainer) return;
+    if (isAtBottom(chatContainer, SCROLL_SHOW_BTN_THRESHOLD)) {
+        btn.classList.add('hidden');
+        hideNewMessagesIndicator();
+    } else {
+        btn.classList.remove('hidden');
     }
-    
-    return "error";
+}
+
+/**
+ * Finalizes a message insertion by reprocessing dynamic features and deciding auto-scroll behavior.
+ * @param {HTMLElement} rootNode - The root node of the newly added/replaced content.
+ * @param {boolean} wasAtBottom - Whether the chat was at bottom before the DOM change.
+ */
+function finalizeMessageInsertion(rootNode, wasAtBottom) {
+    try {
+        // Re-process dynamic features
+        processCodeBlocks();
+        processLinks();
+        setupMetricsTooltip();
+        if (rootNode) {
+            if (typeof setupCollapsibleHandlers === 'function') {
+                console.log('[JS] finalizeMessageInsertion: binding collapsibles on', rootNode.className || '(no class)');
+                setupCollapsibleHandlers(rootNode);
+            } else {
+                console.warn('[JS] finalizeMessageInsertion: setupCollapsibleHandlers is not defined');
+            }
+        }
+    } finally {
+        console.log('[JS] finalizeMessageInsertion: wasAtBottom =', !!wasAtBottom);
+        // Auto-scroll decision
+        if (wasAtBottom) {
+            scrollToBottom();
+        } else {
+            showNewMessagesIndicator();
+        }
+    }
+}
+
+/**
+ * Sets up collapse/expand handlers for system/tool messages under the given root node.
+ * - Shows the header-integrated chevron only when content overflows the collapsed height.
+ * - Toggles `.expanded` on the `.message` element and updates aria-expanded.
+ * - Supports mouse click and keyboard (Enter/Space) on the chevron.
+ * - Clicking the header (excluding the chevron) also toggles for convenience.
+ * @param {HTMLElement} rootNode
+ */
+function setupCollapsibleHandlers(rootNode) {
+    try {
+        const scope = rootNode && rootNode.classList && rootNode.classList.contains('message')
+            ? [rootNode]
+            : Array.from((rootNode || document).querySelectorAll('.message.tool, .message.system'));
+
+        scope.forEach(msg => {
+            if (!msg || (msg.dataset && msg.dataset.collapsibleBound === '1')) return;
+
+            // Only applicable to tool/system messages
+            if (!(msg.classList.contains('tool') || msg.classList.contains('system'))) return;
+
+            const btn = msg.querySelector('.toggle-arrow');
+            const content = msg.querySelector('.message-content');
+            const header = msg.querySelector('.message-header');
+            if (!btn || !content) return;
+
+            // Link button to content for a11y
+            if (!content.id) {
+                content.id = 'mc-' + Math.random().toString(36).slice(2, 10);
+            }
+            btn.setAttribute('aria-controls', content.id);
+
+            const refresh = () => {
+                try {
+                    const overflow = content.scrollHeight > (content.clientHeight + 2);
+                    if (!overflow) {
+                        // If not overflowing, hide toggle and mark as expanded to remove gradient overlay
+                        btn.style.display = 'none';
+                        msg.classList.add('expanded');
+                        btn.setAttribute('aria-expanded', 'true');
+                    } else {
+                        btn.style.display = '';
+                        const expanded = msg.classList.contains('expanded');
+                        btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                    }
+                } catch (e) {
+                    console.warn('[JS] setupCollapsibleHandlers.refresh error:', e);
+                }
+            };
+
+            const toggle = () => {
+                const expanded = msg.classList.toggle('expanded');
+                btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            };
+
+            // Click + keyboard on chevron
+            btn.addEventListener('click', toggle);
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggle();
+                }
+            });
+
+            // Convenience: click on header toggles (ignore direct chevron clicks)
+            if (header) {
+                header.addEventListener('click', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.toggle-arrow')) return;
+                    toggle();
+                });
+            }
+
+            // Initial state
+            refresh();
+
+            // Recompute on next tick for accurate measurements after layout
+            setTimeout(refresh, 0);
+
+            msg.dataset.collapsibleBound = '1';
+        });
+
+        // One-time global resize observer to refresh visibility
+        if (!window._shCollapsibleResizeBound) {
+            window.addEventListener('resize', () => {
+                try {
+                    document.querySelectorAll('.message.tool, .message.system').forEach(msg => {
+                        const btn = msg.querySelector('.toggle-arrow');
+                        const content = msg.querySelector('.message-content');
+                        if (!btn || !content) return;
+                        const overflow = content.scrollHeight > (content.clientHeight + 2);
+                        if (!overflow) {
+                            btn.style.display = 'none';
+                            msg.classList.add('expanded');
+                            btn.setAttribute('aria-expanded', 'true');
+                        } else {
+                            btn.style.display = '';
+                            const expanded = msg.classList.contains('expanded');
+                            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                        }
+                    });
+                } catch (e) {
+                    console.warn('[JS] collapsible resize update error:', e);
+                }
+            });
+            window._shCollapsibleResizeBound = true;
+        }
+    } catch (err) {
+        console.error('[JS] setupCollapsibleHandlers error:', err);
+    }
+}
+
+/**
+ * Inserts the given node either above the last persistent thinking (loading) message
+ * or appends it to the end when no loader is the last child.
+ * This keeps the thinking bubble as the last item while new messages stack above it.
+ * @param {HTMLElement} chatContainer
+ * @param {HTMLElement} node
+ */
+function insertAboveThinkingIfPresent(chatContainer, node) {
+    try {
+        const loaders = Array.from(chatContainer.querySelectorAll('.message.loading'));
+        const lastLoader = loaders.length > 0 ? loaders[loaders.length - 1] : null;
+        const isLastChildLoader = lastLoader && chatContainer.lastElementChild === lastLoader;
+        if (isLastChildLoader) {
+            chatContainer.insertBefore(node, lastLoader);
+        } else {
+            chatContainer.appendChild(node);
+        }
+        console.log('[JS] insertAboveThinkingIfPresent:', {
+            foundLoader: !!lastLoader,
+            isLastChildLoader: !!isLastChildLoader,
+            action: isLastChildLoader ? 'insertBefore(loader)' : 'append',
+            nodeClass: node && node.className
+        });
+    } catch (err) {
+        console.error('[JS] insertAboveThinkingIfPresent error:', err);
+        try { chatContainer.appendChild(node); } catch {}
+    }
 }
 
 /**
@@ -388,12 +652,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const sendBtn = document.getElementById('send-button');
         const clearBtn = document.getElementById('clear-button');
         const cancelBtn = document.getElementById('cancel-button');
+        const chatContainer = document.getElementById('chat-container');
+        const newIndicator = document.getElementById('new-messages-indicator');
+        const scrollBtn = document.getElementById('scroll-bottom-btn');
 
         console.log('[JS] Element search results:', {
             input: !!input,
             sendBtn: !!sendBtn,
             clearBtn: !!clearBtn,
-            cancelBtn: !!cancelBtn
+            cancelBtn: !!cancelBtn,
+            chatContainer: !!chatContainer,
+            newIndicator: !!newIndicator,
+            scrollBtn: !!scrollBtn
         });
 
         if (sendBtn) {
@@ -405,7 +675,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.log('[JS] No text to send, returning');
                     return;
                 }
+
                 // Host will append the user message; just notify and clear input for UX
+                try { setProcessing(true); } catch {}
                 const url = `sh://event?type=send&text=${encodeURIComponent(text)}`;
                 console.log('[JS] Navigating to:', url);
                 window.location.href = url;
@@ -450,7 +722,32 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[JS] Input element not found!');
         }
 
+        // Scroll controls: click to jump to bottom from indicator or button
+        if (newIndicator) {
+            newIndicator.addEventListener('click', () => {
+                scrollToBottom();
+            });
+        }
+        if (scrollBtn) {
+            scrollBtn.addEventListener('click', () => {
+                scrollToBottom();
+            });
+        }
+
+        // Update scroll controls on container scroll and window resize
+        if (chatContainer) {
+            chatContainer.addEventListener('scroll', () => updateScrollControls());
+            // Initialize based on current position
+            updateScrollControls();
+        }
+        window.addEventListener('resize', () => updateScrollControls());
+
         console.log('[JS] DOMContentLoaded wiring completed successfully');
+
+        // Signal host that the page is ready for injections
+        window.SH_READY = true;
+        console.log('[JS] SH_READY set to true');
+
     } catch (err) {
         console.error('[JS] DOMContentLoaded wiring error:', err);
     }
@@ -471,14 +768,56 @@ function setStatus(text) {
 function setProcessing(on) {
     console.log('[JS] setProcessing called with value:', on);
     const spinner = document.getElementById('spinner');
+    const input = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-button');
+    const clearBtn = document.getElementById('clear-button');
+    const cancelBtn = document.getElementById('cancel-button');
+
     if (spinner) {
         spinner.classList.toggle('hidden', !on);
-        console.log('[JS] setProcessing: spinner', on ? 'shown' : 'hidden');
+
+        // Fail-safe: when processing stops, ensure any lingering loading bubble is removed
+        if (!on && typeof removeThinkingMessage === 'function') {
+            try {
+                const removed = removeThinkingMessage();
+                if (removed) {
+                    console.log('[JS] setProcessing: removed lingering loading bubble');
+                }
+            } catch (e) {
+                console.warn('[JS] setProcessing: removeThinkingMessage threw', e);
+            }
+        }
     } else {
         console.error('[JS] setProcessing: spinner element not found');
     }
-}
 
+    // Toggle controls according to processing state
+    // When processing: disable input + send + clear, enable cancel
+    // When idle: enable input + send + clear, disable cancel
+    try {
+        if (input) input.disabled = !!on;
+        if (sendBtn) sendBtn.disabled = !!on;
+        if (clearBtn) clearBtn.disabled = !!on;
+        if (cancelBtn) cancelBtn.disabled = !on;
+
+        // Optional: reflect disabled state via CSS class and ARIA for better a11y
+        [sendBtn, clearBtn, cancelBtn].forEach(btn => {
+            if (!btn) return;
+            try {
+                btn.classList.toggle('disabled', !!btn.disabled);
+                btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
+            } catch {}
+        });
+        if (input) {
+            try {
+                input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
+            } catch {}
+        }
+    } catch (err) {
+        console.warn('[JS] setProcessing: control toggle failed', err);
+    }
+}
+    
 /**
  * Clears all messages from the chat container
  */

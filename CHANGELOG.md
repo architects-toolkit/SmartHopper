@@ -15,17 +15,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
   - CanvasButton now initializes the chat provider and model from SmartHopper settings (consistent with app-wide configuration).
 
+- Context providers:
+  - New `FileContextProvider` exposing `current-file_selected-count` (number of selected files), `file-name` (the current document file name or "Untitled"), `selected-count` (number of selected objects in the current document), `object-count` (total number of document objects), `component-count` (total number of components in the current document), `param-count` (total number of parameters in the current document), `scribble-count` (total number of scribbles/notes in the current document), and `group-count` (total number of groups in the current document). Registered globally at Core assembly load so it is available to both components and the canvas button.
+
 - Conversation and policies:
   - ConversationSession service introducing:
     - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
-    - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnPartial`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
+    - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
     - Always-on `PolicyPipeline` foundation with request and response policy hooks
+  - Special Turn system for executing AI requests with custom overrides:
+    - New `SpecialTurnConfig` to configure special turns with request overrides (interactions, provider, model, endpoint, capability, context/tool filters), execution behavior (force non-streaming, custom timeout), and history persistence strategies
+    - Four history persistence strategies: `PersistResult` (only result), `PersistAll` (all interactions with filtering), `Ephemeral` (no persistence), `ReplaceAbove` (replace history with result, filtered)
+    - `InteractionFilter` uses flexible allowlist/blocklist approach with `Allow()`, `Block()`, and fluent `WithAllow()`/`WithBlock()` methods; automatically supports future interaction types without code changes
+    - Predefined filters: `InteractionFilter.Default`, `InteractionFilter.PreserveSystemContext`, `InteractionFilter.AllowAll`
+    - `ConversationSession.ExecuteSpecialTurnAsync()` creates isolated `AIRequestCall` clone for execution; observers are not notified during execution, only when results are persisted to main conversation
+    - Isolated execution prevents internal special turn interactions (system prompts, tool calls) from appearing in UI
+    - Built-in `GreetingSpecialTurn` factory for AI-generated greetings
+    - Special turns support both streaming and non-streaming modes in isolated execution context
+    - Parallel special turns allowed (no locking)
+    - Refactored greeting generation to use special turn infrastructure, eliminating 140+ lines of duplicated code
 
 - AICall and core models:
   - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
   - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
   - New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
   - IAIRequest.WantsStreaming flag to indicate streaming intent and surface validation hints.
+  - New IAIKeyedInteraction interface to identify interactions by key.
+  - New IAIRenderInteraction interface to render interactions.
 
 - Model management:
   - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
@@ -81,6 +97,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Providers – Anthropic:
   - Unified encoding/decoding helpers. Extracted `BuildTextMessage`, `BuildToolResultMessage`, and `ExtractToolResultText` in `AnthropicProvider.cs` and updated both `Encode(IAIInteraction)` and `Encode(AIRequestCall)` to use them, removing duplicated logic for `AIInteractionText` and `AIInteractionToolResult`.
+  - Switched URL members to use System.Uri for stronger typing and to satisfy CA1054/CA1055/CA1056:
+    - `AIProvider.DefaultServerUrl` is now `Uri` (was `string`).
+    - `AIProviderStreamingAdapter.BuildFullUrl(string)` now returns `Uri`.
+    - `AIProviderStreamingAdapter.CreateSsePost` now accepts a `Uri` parameter.
+    - `AIInteractionImage.ImageUrl` is now `Uri` (was `string`).
+  - Added `AIInteractionImage.SetResult(Uri imageUrl, string imageData = null, string revisedPrompt = null)` overload; kept string overload for backward compatibility.
+  - Fixed tool call detection in streaming responses
+    - Added `content_block_start` event handling to detect `tool_use` blocks
+    - Streaming adapter now properly yields `AICallStatus.CallingTools` when tools are invoked
+    - Fixed `content_block_delta` to check for `text_delta` type before processing text
+    - Added support for `input_json_delta` events (tool argument streaming)
+    - Enhanced debug logging for streaming events and tool detection
+    - Non-streaming `Decode()` method now ensures `Arguments` field is never null
+
+- Providers – OpenAI:
+  - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.
+  - **Streaming adapter now extracts and streams reasoning content** from structured content arrays (o-series & gpt-5 models). Parses `type: "reasoning"` and `type: "thinking"` parts during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when reasoning is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
+
+- Providers – MistralAI:
+  - **Streaming adapter now extracts and streams thinking content** from structured content arrays. Parses `type: "thinking"` blocks during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when thinking is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
+
+- Providers – DeepSeek:
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when `reasoning_content` is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
 
 - UI and settings:
   - AI Chat component default system prompt to a generic one.
@@ -89,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added tab for Trusted Providers configuration.
   - CanvasButton chat now reuses a single `WebChatDialog` via a stable `componentId`, preventing multiple dialog instances from opening on repeated clicks.
   - Updated the About dialog to reflect the list of currently supported AI providers.
+  - Provider settings: Disabled the "Enable Streaming" option for `DeepSeek` and `OpenRouter` (control is non-interactive) and updated the setting description to "Streaming is not available for this provider yet." Defaults set to `false` for both providers.
 
 - Security/authentication and headers:
   - Improved API key encryption. Includes migration method.
@@ -134,7 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Badge cache computation now evaluates against the currently configured model (immediate UI feedback) and also surfaces replacement intent via selection fallback.
   - AIChatComponent: removed duplicated `_sharedLastReturn` storage and its lock. Removed internal methods `SetLastReturn(AIReturn)` and `GetLastReturn()`; components should rely on the base snapshot via `SetAIReturnSnapshot(...)` and use it for outputs.
   - AIChatComponent: unified snapshot management using base class snapshot exclusively. Renamed method to `SetAIReturnSnapshot(AIReturn)` for consistency across components. Updated chat transcript output to read from the base snapshot, ensuring live updates and metrics stay in sync.
-  - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `GetAIReturnSnapshot()` to keep chat history and metrics consistent.
+  - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `CurrentAIReturnSnapshot` to keep chat history and metrics consistent.
   - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
   - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
 
@@ -147,7 +189,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
   - WebChatDialog greeting flow is now fully event-driven via `ConversationSession` observer callbacks. The UI no longer inserts or replaces a temporary greeting bubble; it only updates the status label during generation and renders greeting content from partial/final events.
   - Interaction override behavior clarified: greeting generation uses the initial request interactions (e.g., system prompt) to preserve context; normal user-initiated turns override from the current conversation history (last return interactions).
+  - Default conversation context enabled for WebChat (Canvas Button and AIChatComponent): sets `AIBody.ContextFilter` to `"time, environment, selection"` so the assistant receives time, environment, and selection count by default. Implemented in `WebChatUtils.EnsureDialogOpen(...)` and `WebChatUtils.WebChatWorker`.
   - Improved default prompts in WebChat for clearer assistant behavior and tool guidance.
+  - Improved UI with better collapsible messages, auto-scroll to bottom feature, "new messages" information tooltip, and improved thinking message
+  - Dedicated error messages for validation errors in UI not being passed to APIs
+  - Ensured fidelity between UI and conversation history
+
+- Conversation orchestration:
+  - `ConversationSession` now uses a unified internal loop (`TurnLoopAsync`) for both streaming and non‑streaming APIs to prevent logic drift.
+  - Streaming persistence semantics updated: deltas are persisted into history per chunk in arrival order (no grouping or reordering at the end of the stream). Finalization only updates the "last return" snapshot.
+  - Tool-call handling: removed internal deduplication-by-Id for `tool_call` interactions. Multiple tool calls with the same Id emitted by providers are now preserved in history. Session avoids introducing duplicates on its own when force-appending missing tool_calls prior to execution.
+  - Fixed streaming delta notifications to only emit `OnDelta` for text interactions; non-text interactions (tool calls, tool results) now properly use `OnInteractionCompleted` after completion.
 
 - Streaming adapters internals:
   - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).
@@ -180,6 +232,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ConversationSession:
+  - Fixed TurnId mismatch between tool calls and their results: tool results now inherit the TurnId from their originating tool call instead of receiving a new TurnId from the current turn iteration. This ensures proper correlation in WebChat rendering keys.
+
+- Streaming providers:
+  - **All providers** (DeepSeek, MistralAI, OpenAI): Fixed reasoning-only streaming chunks being overridden by content chunks in UI. When transitioning from reasoning-only to content streaming, providers now emit a completed (Finished) interaction for reasoning before starting content stream, triggering proper UI segmentation to prevent override.
+  - DeepSeek: Fixed `OutputTokensReasoning` always showing 0. Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
+  - OpenAI: Fixed `OutputTokensReasoning` always showing 0 for reasoning models (o1/o3/GPT-5). Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
+
+- WebChatDialog:
+  - Fixed assistant messages appearing out of order in the UI when tool calls are made. Empty assistant text interactions (which represent the decision to call tools) are now preserved in conversation history but skipped during UI rendering. The actual assistant response after tool execution renders as a separate segment (seg2) in the correct position after tool results.
+  - Fixed duplicate greeting messages in UI. `OnFinal` now uses dedup keys for non-streamed interactions (like greetings) instead of creating new segmented keys, ensuring they upsert into existing bubbles rendered during history replay.
+  - Fixed AI-generated greetings not streaming. Greeting initialization now uses `ConversationSession.Stream()` with streaming validation and fallback to `RunToStableResult()` on failure, matching the pattern used for regular user messages.
+
 - Components – ImageViewer:
   - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
 
@@ -192,6 +257,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
 
 - WebChat and streaming UI:
+  - Prevent assistant replies from overwriting previous assistant messages: final assistant bubble now re-keys from the streaming key to the interaction's dedup key, so each turn is preserved in order.
   - WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
   - WebChatDialog streaming: partial assistant updates now also update internal `_lastReturn` and emit `ChatUpdated` events on every chunk, ensuring state consistency between UI and observers throughout streaming.
   - WebChatDialog non-streaming: fixed loss of AI metrics by merging `AIReturn.Metrics` into the final assistant interaction in `WebChatObserver.OnFinal` so per-message metrics are preserved in chat history and UI.

@@ -24,7 +24,6 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
@@ -38,7 +37,7 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// <typeparam name="T">The type of the derived provider class.</typeparam>
     public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
     {
-        private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
+        private static readonly Lazy<T> InstanceValue = new (() => Activator.CreateInstance(typeof(T), true) as T);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
@@ -46,6 +45,37 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         protected AIProvider()
         {
+        }
+
+        /// <summary>
+        /// Builds an absolute Uri for a provider endpoint using <see cref="DefaultServerUrl"/>.
+        /// Ensures consistent normalization across call and streaming paths.
+        /// </summary>
+        /// <param name="endpoint">Absolute URL or provider-relative endpoint (with or without leading '/').</param>
+        /// <returns>Absolute <see cref="Uri"/> for the request.</returns>
+        public override Uri BuildFullUrl(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
+            }
+
+            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
+            {
+                return abs;
+            }
+
+            var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
+
+            // Normalization of baseUri to ensure it ends with a trailing slash
+            if (!baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal))
+            {
+                baseUri = new Uri(baseUri.AbsoluteUri + "/");
+            }
+
+            var relative = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint.Substring(1) : endpoint;
+
+            return new Uri(baseUri, relative);
         }
 
         /// <summary>
@@ -76,8 +106,10 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public abstract bool IsEnabled { get; }
 
-        /// <inheritdoc/>
-        public abstract string DefaultServerUrl { get; }
+        /// <summary>
+        /// Gets the default server URL for the provider.
+        /// </summary>
+        public abstract Uri DefaultServerUrl { get; }
 
         /// <inheritdoc/>
         public IAIProviderModels Models { get; set; }
@@ -92,6 +124,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 if (!ModelManager.Instance.HasProviderCapabilities(this.Name))
                 {
                     Debug.WriteLine($"[{this.Name}] Registering model capabilities");
+
                     // Retrieve full model metadata and register each model
                     var models = await this.Models.RetrieveModels().ConfigureAwait(false);
                     if (models != null)
@@ -99,10 +132,11 @@ namespace SmartHopper.Infrastructure.AIProviders
                         foreach (var m in models)
                         {
                             if (m == null) continue;
+
                             // Ensure provider name is set and normalized
                             if (string.IsNullOrWhiteSpace(m.Provider))
                             {
-                                m.Provider = this.Name.ToLower();
+                                m.Provider = this.Name.ToLowerInvariant();
                             }
 
                             ModelManager.Instance.SetCapabilities(m);
@@ -118,6 +152,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Error during model registration: {ex.Message}");
+
                 // Continue initialization even if model registration fails
             }
 
@@ -152,6 +187,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Warning: Could not load default values during initialization: {ex.Message}");
+
                 // Continue initialization even if default value loading fails
             }
 
@@ -166,10 +202,10 @@ namespace SmartHopper.Infrastructure.AIProviders
         public abstract string Encode(IAIInteraction interaction);
 
         /// <summary>
-        /// Encode multiple interactions
+        /// Encode multiple interactions.
         /// </summary>
-        /// <param name="interactions">The interactions to encode</param>
-        /// <returns>The encoded string</returns>
+        /// <param name="interactions">The interactions to encode.</param>
+        /// <returns>The encoded string.</returns>
         public virtual string Encode(List<IAIInteraction> interactions)
         {
             var result = string.Empty;
@@ -434,6 +470,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     this._injectedSettings = new Dictionary<string, object>();
                 }
+
                 this._injectedSettings[key] = value;
 
                 // Persist to the global settings with provider scoping
@@ -529,22 +566,10 @@ namespace SmartHopper.Infrastructure.AIProviders
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            // Determine the full URL
-            string fullUrl;
-            if (Uri.IsWellFormedUriString(endpoint, UriKind.Absolute))
-            {
-                // Endpoint is a full URL
-                fullUrl = endpoint;
-            }
-            else
-            {
-                // Endpoint is a relative path, append to DefaultServerUrl
-                var baseUrl = this.DefaultServerUrl.TrimEnd('/');
-                var path = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint : "/" + endpoint;
-                fullUrl = baseUrl + path;
-            }
+            // Determine the full URL using centralized normalization
+            Uri fullUri = this.BuildFullUrl(endpoint);
 
-            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUrl}");
+            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUri}");
 
             using (var httpClient = new HttpClient())
             {
@@ -575,6 +600,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
                     }
+
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                 }
                 else if (auth == "x-api-key")
@@ -583,6 +609,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
                     }
+
                     httpClient.DefaultRequestHeaders.Remove("x-api-key");
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                 }
@@ -603,22 +630,22 @@ namespace SmartHopper.Infrastructure.AIProviders
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
-                            response = await httpClient.GetAsync(fullUrl).ConfigureAwait(false);
+                            response = await httpClient.GetAsync(fullUri).ConfigureAwait(false);
                             break;
                         case "POST":
                             var postContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PostAsync(fullUrl, postContent).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUri, postContent).ConfigureAwait(false);
                             break;
                         case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUrl).ConfigureAwait(false);
+                            response = await httpClient.DeleteAsync(fullUri).ConfigureAwait(false);
                             break;
                         case "PATCH":
                             var patchContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PatchAsync(fullUrl, patchContent).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUri, patchContent).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
@@ -661,6 +688,27 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Builds a full URL by combining the default server URL with the specified endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint path to append to the base URL.</param>
+        /// <returns>A complete URI combining the default server URL with the endpoint.</returns>
+        public virtual Uri BuildFullUrl(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
+            }
+
+            if (this.DefaultServerUrl == null)
+            {
+                throw new InvalidOperationException("DefaultServerUrl is not set");
+            }
+
+            // Combine base URL with endpoint
+            return new Uri(this.DefaultServerUrl, endpoint.TrimStart('/'));
+        }
+
+        /// <summary>
         /// Resets the provider's cached settings, completely replacing them with the specified settings.
         /// </summary>
         /// <param name="settings">The decrypted settings to use.</param>
@@ -671,48 +719,5 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             this._injectedSettings = settings ?? new Dictionary<string, object>();
         }
-
-        /// <summary>
-        /// Finds the default capability for a model by checking exact matches first, then wildcard patterns.
-        /// Supports both directions: wildcard in capabilities matching specific in defaults, and vice versa.
-        /// </summary>
-        /// <param name="modelName">The model name from capabilities (may contain wildcards).</param>
-        /// <param name="defaultModelsDict">Dictionary of default models with their capabilities.</param>
-        /// <returns>The default capability for the model, or AICapability.None if no match found.</returns>
-        private static AICapability FindDefaultCapabilityForModel(string modelName, Dictionary<string, AICapability> defaultModelsDict)
-        {
-            // First, try exact match (existing behavior)
-            if (defaultModelsDict.ContainsKey(modelName))
-            {
-                Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found exact match for {modelName}: {defaultModelsDict[modelName]}");
-                return defaultModelsDict[modelName];
-            }
-
-            // If modelName contains wildcard, match against specific names in defaults
-            if (modelName.Contains("*"))
-            {
-                var pattern = modelName.Replace("*", "");
-                var matchingDefault = defaultModelsDict.FirstOrDefault(kvp => kvp.Key.StartsWith(pattern));
-                if (!matchingDefault.Equals(default(KeyValuePair<string, AICapability>)))
-                {
-                    Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingDefault.Value}");
-                    return matchingDefault.Value;
-                }
-            }
-            
-            // If no wildcard in modelName, check if any defaults contain wildcards that match this specific name
-            var matchingWildcard = defaultModelsDict.FirstOrDefault(kvp =>
-                kvp.Key.Contains("*") && modelName.StartsWith(kvp.Key.Replace("*", "")));
-            if (!matchingWildcard.Equals(default(KeyValuePair<string, AICapability>)))
-            {
-                Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] Found wildcard match for {modelName}: {matchingWildcard.Value}");
-                return matchingWildcard.Value;
-            }
-
-            // No match found
-            Debug.WriteLine($"[ModelManager.FindDefaultCapabilityForModel] No match found for {modelName}");
-            return AICapability.None;
-        }
     }
 }
-

@@ -95,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             }
 
             var result = "";
-            if (output.ToLower() == "array" || output.ToLower() == "arr")
+            if (output.ToLowerInvariant() == "array" || output.ToLowerInvariant() == "arr")
             {
                 // Array format
                 result = "[" + string.Join(",", stringList.Select((value, index) => $"\"{value}\"")) + "]";
@@ -172,11 +172,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
             int depth = 0;
             bool inQuotes = false;
             char quoteChar = '\0';
-            
+
             for (int i = 0; i < input.Length; i++)
             {
                 char c = input[i];
-                
+
                 // Handle quotes to avoid splitting quoted strings
                 if ((c == '"' || c == '\'') && !inQuotes)
                 {
@@ -186,6 +186,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         inQuotes = true;
                         quoteChar = c;
                     }
+
                     current.Append(c);
                 }
                 else if (c == quoteChar && inQuotes)
@@ -196,20 +197,24 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         inQuotes = false;
                         quoteChar = '\0';
                     }
+
                     current.Append(c);
                 }
+
                 // Handle opening delimiters
                 else if (!inQuotes && (c == '{' || c == '(' || c == '['))
                 {
                     depth++;
                     current.Append(c);
                 }
+
                 // Handle closing delimiters
                 else if (!inQuotes && (c == '}' || c == ')' || c == ']'))
                 {
                     depth--;
                     current.Append(c);
                 }
+
                 // Handle comma separator only when not inside any delimiters or quotes
                 else if (c == ',' && depth == 0 && !inQuotes)
                 {
@@ -218,6 +223,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         result.Add(item);
                     }
+
                     current.Clear();
                 }
                 else
@@ -225,14 +231,14 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     current.Append(c);
                 }
             }
-            
+
             // Add the last item
             var lastItem = current.ToString().Trim();
             if (!string.IsNullOrEmpty(lastItem))
             {
                 result.Add(lastItem);
             }
-            
+
             return result;
         }
 
@@ -246,13 +252,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
         private static bool IsEscaped(string input, int position)
         {
             if (position == 0) return false;
-            
+
             int backslashCount = 0;
             for (int i = position - 1; i >= 0 && input[i] == '\\'; i--)
             {
                 backslashCount++;
             }
-            
+
             // If odd number of backslashes, the character is escaped
             return backslashCount % 2 == 1;
         }
@@ -271,6 +277,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
             return jarray.ToString(Formatting.None);
         }
+
         #endregion
     }
 }

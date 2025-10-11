@@ -33,6 +33,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <summary>A tool result.</summary>
         ToolResult,
 
+        /// <summary>A runtime or api error.</summary>
+        Error,
+
         /// <summary>Unknown agent.</summary>
         Unknown,
     }
@@ -57,6 +60,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
                 AIAgent.Assistant => "assistant",
                 AIAgent.ToolCall => "tool_call",
                 AIAgent.ToolResult => "tool_result",
+                AIAgent.Error => "error",
                 _ => "unknown",
             };
         }
@@ -76,6 +80,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
                 AIAgent.Assistant => "Assistant",
                 AIAgent.ToolCall => "Tool Call",
                 AIAgent.ToolResult => "Tool Result",
+                AIAgent.Error => "Error",
                 _ => "Unknown",
             };
         }
@@ -87,7 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <returns>The AIAgent.</returns>
         public static AIAgent FromString(string agent)
         {
-            agent = agent.ToLower();
+            agent = agent.ToLowerInvariant();
             var result = agent switch
             {
                 "context" => AIAgent.Context,
@@ -98,6 +103,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
                 "tool_call" => AIAgent.ToolCall,
                 "tool_result" => AIAgent.ToolResult,
                 "tool" => AIAgent.ToolResult,
+                "error" => AIAgent.Error,
                 _ => AIAgent.Unknown,
             };
             return result;

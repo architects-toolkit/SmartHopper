@@ -32,8 +32,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="providers">Available AI providers</param>
         public ProvidersSettingsPage(IAIProvider[] providers)
         {
-            _providers = providers;
-            _providerCheckBoxes = new Dictionary<string, CheckBox>();
+            this._providers = providers;
+            this._providerCheckBoxes = new Dictionary<string, CheckBox>();
 
             // Create layout
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
@@ -42,38 +42,39 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Label
             {
                 Text = "Trusted Providers",
-                Font = new Font(SystemFont.Bold, 12)
+                Font = new Font(SystemFont.Bold, 12),
             });
+
             layout.Add(new Label
             {
                 Text = "Configure which AI providers are trusted and can be used by SmartHopper components.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
             // Add provider checkboxes
-            foreach (var provider in _providers)
+            foreach (var provider in this._providers)
             {
                 var providerLayout = new StackLayout
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 10,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new Padding(0, 5)
+                    Padding = new Padding(0, 5),
                 };
 
                 // Create checkbox for this provider
                 var checkbox = new CheckBox
                 {
                     Text = provider.Name,
-                    Font = new Font(SystemFont.Default, 11)
+                    Font = new Font(SystemFont.Default, 11),
                 };
-                _providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
+                this._providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
 
                 // Add provider icon if available
                 if (provider.Icon != null)
@@ -87,7 +88,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                             var iconView = new ImageView
                             {
                                 Image = new Bitmap(ms),
-                                Size = new Size(16, 16)
+                                Size = new Size(16, 16),
                             };
                             providerLayout.Items.Insert(0, iconView);
                         }
@@ -107,7 +108,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
-            Content = new Scrollable { Content = layout };
+            this.Content = new Scrollable { Content = layout };
         }
 
         /// <summary>
@@ -116,7 +117,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="settings">Trusted providers settings to load</param>
         public void LoadSettings(TrustedProvidersSettings settings)
         {
-            foreach (var kvp in _providerCheckBoxes)
+            foreach (var kvp in this._providerCheckBoxes)
             {
                 // Default to true if not specified, false if explicitly set to false
                 kvp.Value.Checked = !settings.ContainsKey(kvp.Key) || settings[kvp.Key];
@@ -130,7 +131,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         public void SaveSettings(TrustedProvidersSettings settings)
         {
             settings.Clear();
-            foreach (var kvp in _providerCheckBoxes)
+            foreach (var kvp in this._providerCheckBoxes)
             {
                 settings[kvp.Key] = kvp.Value.Checked ?? false;
             }

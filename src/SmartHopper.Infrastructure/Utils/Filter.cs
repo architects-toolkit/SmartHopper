@@ -72,7 +72,7 @@ namespace SmartHopper.Infrastructure.Utils
             var includeSet = new HashSet<string>(includes.Where(p => p != "*"), StringComparer.OrdinalIgnoreCase);
             var excludeSet = new HashSet<string>(excludes, StringComparer.OrdinalIgnoreCase);
 
-            Debug.WriteLine($"[Filter] raw='{raw}', includeAll={includeAll}, include=[{string.Join(",",includeSet)}], exclude=[{string.Join(",",excludeSet)}]");
+            Debug.WriteLine($"[Filter] raw='{raw}', includeAll={includeAll}, include=[{string.Join(",", includeSet)}], exclude=[{string.Join(",", excludeSet)}]");
 
             return new Filter(false, includeAll, includeSet, excludeSet);
         }

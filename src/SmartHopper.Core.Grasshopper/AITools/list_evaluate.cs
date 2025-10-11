@@ -76,15 +76,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""question""]
                 }",
                 execute: this.EvaluateList,
-                requiredCapabilities: this.toolCapabilityRequirements
-            );
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
         /// Tool wrapper for the EvaluateList function.
         /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
+        /// <param name="toolCall">The tool call containing provider/model context and arguments.</param>
+        /// <returns>The tool execution result envelope.</returns>
         private async Task<AIReturn> EvaluateList(AIToolCall toolCall)
         {
             // Prepare the output
@@ -101,11 +100,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string? question = toolInfo.Arguments["question"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string? question = args["question"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
-                if (toolInfo.Arguments["list"] == null || string.IsNullOrEmpty(question))
+                if (args["list"] == null || string.IsNullOrEmpty(question))
                 {
                     output.CreateError("Missing required parameters");
                     return output;
@@ -177,9 +177,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
         /// </summary>
+        /// <param name="toolCall">The tool interaction containing the raw 'list' argument.</param>
+        /// <returns>A list of string items parsed from the input argument.</returns>
         private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
         {
-            var token = toolCall.Arguments["list"];
+            var args = toolCall.Arguments ?? new JObject();
+            var token = args["list"];
             if (token is JArray array)
             {
                 return array.Select(t => t.ToString()).ToList();
@@ -190,4 +193,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

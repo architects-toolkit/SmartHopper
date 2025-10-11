@@ -18,6 +18,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Sessions;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -31,7 +32,6 @@ namespace SmartHopper.Core.UI.Chat
         private sealed class WebChatObserver : IConversationObserver
         {
             private readonly WebChatDialog _dialog;
-            private readonly HashSet<string> _seen = new HashSet<string>(StringComparer.Ordinal);
 
             // Centralized streaming state per run (role-agnostic)
             private sealed class StreamState
@@ -40,102 +40,190 @@ namespace SmartHopper.Core.UI.Chat
                 public IAIInteraction Aggregated;
             }
 
-            // Tracks UI state for the temporary thinking bubble and whether we've already
-            // appended an assistant message to the chat. This ensures correct ordering:
-            // tool calls/results first, assistant response appended at the end.
-            private bool _thinkingBubbleActive;
-            private bool _assistantBubbleAdded;
-
-        /// <summary>
-        /// Aggregates assistant text across streaming chunks. Handles both cumulative and incremental providers and avoids trimming.
-        /// Rules:
-        /// - First chunk: start stream, set aggregated = first content.
-        /// - Subsequent chunks:
-        ///   - If incoming starts with current -> provider is cumulative: replace with incoming.
-        ///   - Else if current starts with incoming -> regression/noise: ignore to prevent trimming flicker.
-        ///   - Else -> treat as incremental delta: append incoming to current.
-        /// </summary>
-        private static void CoalesceAssistantTextChunk(AIInteractionText incoming, string key, ref StreamState state)
-        {
-            if (!state.Started || state.Aggregated is not AIInteractionText aggExisting)
+            /// <summary>
+            /// Returns the current segmented text key for a base key without creating a new segment.
+            /// </summary>
+            private string GetCurrentSegmentedKey(string baseKey)
             {
-                state.Started = true;
-                state.Aggregated = new AIInteractionText
+                if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
+                if (!this._textInteractionSegments.TryGetValue(baseKey, out var seg))
                 {
-                    Agent = AIAgent.Assistant,
-                    Content = incoming?.Content ?? string.Empty,
-                    // Hide metrics while streaming to avoid showing 0/0 interim values.
-                    // Final metrics will be applied in OnFinal when the response completes.
-                    Metrics = null,
-                    Time = incoming?.Time ?? DateTime.UtcNow,
-                };
-                return;
+                    seg = 1;
+                    this._textInteractionSegments[baseKey] = seg;
+                }
+
+                return $"{baseKey}:seg{seg}";
             }
 
-            var current = aggExisting.Content ?? string.Empty;
-            var incomingText = incoming?.Content ?? string.Empty;
-
-            if (string.IsNullOrEmpty(incomingText))
+            /// <summary>
+            /// Peeks at what the next segment key would be for a base key, without mutating state.
+            /// If boundary is pending and segment exists, returns next segment; otherwise returns current or initial.
+            /// </summary>
+            private string PeekSegmentKey(string baseKey, string turnKey)
             {
-                // Nothing to add; keep existing
-                return;
+                if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
+
+                int seg;
+                if (!this._textInteractionSegments.TryGetValue(baseKey, out seg))
+                {
+                    // Not yet committed: would start at seg1
+                    seg = 1;
+                }
+                else if (!string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey))
+                {
+                    // Boundary pending: would increment
+                    seg = seg + 1;
+                }
+                // else: use current committed seg
+
+                return $"{baseKey}:seg{seg}";
             }
 
-            // Cumulative stream: incoming contains full text so far
-            if (incomingText.Length >= current.Length && incomingText.StartsWith(current, StringComparison.Ordinal))
+            /// <summary>
+            /// Commits the segment for a base key by consuming boundary and initializing/incrementing the segment counter.
+            /// Call this only when you are about to render text for the first time or after a boundary.
+            /// </summary>
+            private void CommitSegment(string baseKey, string turnKey)
             {
-                aggExisting.Content = incomingText;
-                return;
+                if (string.IsNullOrWhiteSpace(baseKey)) return;
+
+                var beforeSegment = this._textInteractionSegments.TryGetValue(baseKey, out var seg) ? seg : 0;
+                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+                Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey}, turnKey={turnKey}, beforeSeg={beforeSegment}, hasBoundary={hasBoundary}");
+
+                // Consume boundary flag and increment if applicable
+                this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
+
+                // Ensure segment counter is initialized (ConsumeBoundaryAndIncrementSegment requires existing entry)
+                if (!this._textInteractionSegments.ContainsKey(baseKey))
+                {
+                    this._textInteractionSegments[baseKey] = 1;
+                    Debug.WriteLine($"[WebChatObserver] CommitSegment: initialized baseKey={baseKey} to seg=1");
+                }
+                else
+                {
+                    var afterSegment = this._textInteractionSegments[baseKey];
+                    Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey} already exists, seg={afterSegment}");
+                }
             }
 
-            // Regression/noise: ignore to avoid trimming visual content
-            if (current.StartsWith(incomingText, StringComparison.Ordinal))
+            // Tracks UI state for the temporary thinking bubble.
+            // We no longer track assistant-specific bubble state; ordering is handled by keys and upserts.
+            private bool _thinkingBubbleActive;
+
+            // Simple per-key throttling to reduce DOM churn during streaming
+            private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
+            private const int ThrottleMs = 10;
+
+            // Tracks per-turn text segments so multiple text messages in a single turn
+            // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:{agent}").
+            private readonly Dictionary<string, int> _textInteractionSegments = new Dictionary<string, int>(StringComparer.Ordinal);
+
+            // Pending segmentation boundary flags per turn. When set, the next text interaction for that turn
+            // starts a new segment (new bubble). Simplified rule: set boundary after ANY completed interaction.
+            private readonly HashSet<string> _pendingNewTextSegmentTurns = new HashSet<string>(StringComparer.Ordinal);
+
+            // Pre-commit aggregates: tracks text aggregates by base key before segment assignment.
+            // This allows lazy segment commitment only when text becomes renderable.
+            private readonly Dictionary<string, StreamState> _preStreamAggregates = new Dictionary<string, StreamState>(StringComparer.Ordinal);
+
+            // Finalized turns: after OnFinal has rendered the assistant text for a turn, ignore any late
+            // OnDelta/OnInteractionCompleted text updates for that same turn to prevent overriding final metrics/time.
+            private readonly HashSet<string> _finalizedTextTurns = new HashSet<string>(StringComparer.Ordinal);
+
+            /// <summary>
+            /// Returns the generic turn base key for a given turn id (e.g., "turn:{TurnId}").
+            /// </summary>
+            private static string GetTurnBaseKey(string turnId)
             {
-                return;
+                return string.IsNullOrWhiteSpace(turnId) ? null : $"turn:{turnId}";
             }
 
-            // Incremental delta: append
-            aggExisting.Content = current + incomingText;
-        }
+            /// <summary>
+            /// Aggregates text message across streaming chunks using the shared TextStreamCoalescer utility.
+            /// Preserves metrics (null) during streaming; final metrics are applied in OnFinal.
+            /// </summary>
+            private static void CoalesceTextStreamChunk(AIInteractionText incoming, string key, ref StreamState state)
+            {
+                if (!state.Started || state.Aggregated is not AIInteractionText)
+                {
+                    state.Started = true;
+                    // Initialize with null metrics - will be applied in OnFinal
+                    state.Aggregated = TextStreamCoalescer.Coalesce(null, incoming, incoming?.TurnId, preserveMetrics: true);
+                    if (state.Aggregated is AIInteractionText agg)
+                    {
+                        agg.Metrics = null; // Hide metrics while streaming
+                    }
 
+                    return;
+                }
+
+                // Use shared coalescer, preserving null metrics during streaming
+                state.Aggregated = TextStreamCoalescer.Coalesce(
+                    state.Aggregated as AIInteractionText,
+                    incoming,
+                    incoming?.TurnId,
+                    preserveMetrics: true);
+            }
+
+            // Tracks active streaming states to distinguish streaming vs non-streaming paths
             private readonly Dictionary<string, StreamState> _streams = new Dictionary<string, StreamState>(StringComparer.Ordinal);
 
+            /// <summary>
+            /// Initializes a new instance of the <see cref="WebChatObserver"/> class that updates the
+            /// associated <see cref="WebChatDialog"/> in response to conversation session events.
+            /// </summary>
+            /// <param name="dialog">The chat dialog instance to update.</param>
             public WebChatObserver(WebChatDialog dialog)
             {
-                _dialog = dialog;
-                _thinkingBubbleActive = false;
-                _assistantBubbleAdded = false;
+                this._dialog = dialog;
+                this._thinkingBubbleActive = false;
             }
 
+            /// <summary>
+            /// Handles the start of a conversation session.
+            /// Resets per-run state and shows a persistent generic loading bubble.
+            /// </summary>
+            /// <param name="request">The request about to be executed.</param>
             public void OnStart(AIRequestCall request)
             {
                 Debug.WriteLine("[WebChatObserver] OnStart called");
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
-                    _dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
 
-                    // Insert a temporary loading bubble for assistant to be replaced on first content
-                    _dialog.ExecuteScript("addLoadingMessage('assistant', 'Thinking…');");
-                    _thinkingBubbleActive = true;
-                    _assistantBubbleAdded = false;
+                    // Reset per-run state
+                    this._streams.Clear();
+                    this._preStreamAggregates.Clear();
+                    this._textInteractionSegments.Clear();
+                    this._pendingNewTextSegmentTurns.Clear();
+                    this._finalizedTextTurns.Clear();
+                    this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
+
+                    // Insert a persistent generic loading bubble that remains until stop state
+                    this._dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
+                    this._thinkingBubbleActive = true;
+
+                    // No assistant-specific state to reset
                     Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
                 });
             }
 
             /// <summary>
-            /// Removes the temporary thinking bubble if it is currently visible.
+            /// Removes the persistent thinking bubble if it is currently visible.
             /// Must be called on the UI thread.
             /// </summary>
             private void RemoveThinkingBubbleIfActive()
             {
-                if (!_thinkingBubbleActive)
+                if (!this._thinkingBubbleActive)
                 {
                     return;
                 }
+
                 try
                 {
-                    _dialog.ExecuteScript("removeLastLoadingMessageByRole('assistant');");
+                    // Remove the generic loader via JS helper
+                    this._dialog.ExecuteScript("removeThinkingMessage();");
                 }
                 catch (Exception ex)
                 {
@@ -143,10 +231,15 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 finally
                 {
-                    _thinkingBubbleActive = false;
+                    this._thinkingBubbleActive = false;
                 }
             }
 
+            /// <summary>
+            /// Handles streaming delta updates for partial interactions.
+            /// Coalesces text chunks and throttles DOM updates for smooth rendering.
+            /// </summary>
+            /// <param name="interaction">The partial interaction being streamed.</param>
             public void OnDelta(IAIInteraction interaction)
             {
                 if (interaction == null)
@@ -158,38 +251,111 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         try
                         {
-                            // For delta updates, only handle assistant text content
-                            if (interaction is not AIInteractionText tt || tt.Agent != AIAgent.Assistant)
+                            // Handle text deltas (assistant/user/system) for live streaming
+                            if (interaction is AIInteractionText tt)
                             {
-                                return;
-                            }
+                                var baseKey = GetStreamKey(interaction);
+                                var turnKey = GetTurnBaseKey(tt?.TurnId);
 
-                            var key = GetStreamKey(interaction);
-                            if (!_streams.TryGetValue(key, out var state))
-                            {
-                                state = new StreamState { Started = false, Aggregated = null };
-                            }
-
-                            // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
-                            CoalesceAssistantTextChunk(tt, key, ref state);
-
-                            this._streams[key] = state;
-                            if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
-                            {
-                                // On first assistant content, remove thinking bubble (if still visible)
-                                RemoveThinkingBubbleIfActive();
-
-                                if (!_assistantBubbleAdded)
+                                // If this turn is finalized, ignore any late deltas to avoid overriding final metrics/time
+                                if (!string.IsNullOrWhiteSpace(turnKey) && this._finalizedTextTurns.Contains(turnKey))
                                 {
-                                    // First assistant chunk: append message at the end to preserve order
-                                    this._dialog.AddInteractionToWebView(aggText);
-                                    _assistantBubbleAdded = true;
+                                    return;
+                                }
+
+                                // Check if we already have a committed segment for this base key
+                                bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
+                                bool hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+                                Debug.WriteLine($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}");
+
+                                // Determine the target key. If a boundary is pending while already committed,
+                                // roll over to a NEW segment now so subsequent deltas do not append to the previous bubble.
+                                string targetKey;
+                                if (isCommitted && hasBoundary)
+                                {
+                                    Debug.WriteLine($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
+                                    this.CommitSegment(baseKey, turnKey); // consumes boundary and increments segment
+                                    var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                    // Initialize fresh stream state for the new segment
+                                    if (!this._streams.ContainsKey(segKey))
+                                    {
+                                        this._streams[segKey] = new StreamState { Started = false, Aggregated = null };
+                                    }
+                                    targetKey = segKey;
                                 }
                                 else
                                 {
-                                    // Subsequent chunks: update the last assistant message
-                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
+                                    // Not committed yet -> use baseKey in pre-commit; else use current segment key
+                                    targetKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : baseKey;
                                 }
+
+                                // Retrieve or create pre-commit aggregate
+                                StreamState state;
+                                if (isCommitted)
+                                {
+                                    // Already committed: use _streams with segmented key
+                                    if (!this._streams.TryGetValue(targetKey, out state))
+                                    {
+                                        state = new StreamState { Started = false, Aggregated = null };
+                                    }
+                                }
+                                else
+                                {
+                                    // Not yet committed: use _preStreamAggregates with baseKey
+                                    if (!this._preStreamAggregates.TryGetValue(baseKey, out state))
+                                    {
+                                        state = new StreamState { Started = false, Aggregated = null };
+                                    }
+                                }
+
+                                // Coalesce text: detect cumulative vs incremental chunks and avoid regressions
+                                CoalesceTextStreamChunk(tt, targetKey, ref state);
+
+                                // Check if text is now renderable
+                                bool isRenderable = state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText);
+                                Debug.WriteLine($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
+
+                                if (isRenderable && !isCommitted)
+                                {
+                                    // First renderable delta: commit the segment now
+                                    Debug.WriteLine($"[WebChatObserver] OnDelta: FIRST RENDER - committing segment");
+                                    this.CommitSegment(baseKey, turnKey);
+                                    var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                    Debug.WriteLine($"[WebChatObserver] OnDelta: committed segKey={segKey}");
+
+                                    // Move from pre-commit to committed storage
+                                    this._streams[segKey] = state;
+                                    this._preStreamAggregates.Remove(baseKey);
+
+                                    // Upsert to DOM
+                                    if (this.ShouldUpsertNow(segKey))
+                                    {
+                                        this._dialog.UpsertMessageByKey(segKey, state.Aggregated as AIInteractionText, source: "OnDelta:FirstRender");
+                                    }
+                                }
+                                else if (isRenderable && isCommitted)
+                                {
+                                    // Already committed: update in place
+                                    this._streams[targetKey] = state;
+                                    if (this.ShouldUpsertNow(targetKey))
+                                    {
+                                        this._dialog.UpsertMessageByKey(targetKey, state.Aggregated as AIInteractionText, source: "OnDelta");
+                                    }
+                                }
+                                else
+                                {
+                                    // Not renderable yet: keep in pre-commit storage
+                                    if (!isCommitted)
+                                    {
+                                        this._preStreamAggregates[baseKey] = state;
+                                    }
+                                    else
+                                    {
+                                        this._streams[targetKey] = state;
+                                    }
+                                }
+
+                                return;
                             }
                         }
                         catch (Exception innerEx)
@@ -204,7 +370,12 @@ namespace SmartHopper.Core.UI.Chat
                 }
             }
 
-            public void OnPartial(IAIInteraction interaction)
+            /// <summary>
+            /// Handles completion of an interaction within the current turn.
+            /// Persists results and updates the corresponding DOM bubble deterministically.
+            /// </summary>
+            /// <param name="interaction">The completed interaction.</param>
+            public void OnInteractionCompleted(IAIInteraction interaction)
             {
                 if (interaction == null)
                     return;
@@ -215,176 +386,323 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         try
                         {
-                            // Tiny UX tweak: any first partial (of any type) should clear the thinking bubble.
-                            // The helper is idempotent and will only remove it once.
-                            RemoveThinkingBubbleIfActive();
+                            // Keep the thinking bubble during processing; do not remove on partials
 
-                            // Compute a stable stream key to isolate concurrent streams per kind (text/toolcall/toolresult)
-                            var key = GetStreamKey(interaction);
-                            if (!_streams.TryGetValue(key, out var state))
+                            // Text interactions (any agent): handle non-streaming preview or finalize existing streaming aggregate.
+                            if (interaction is AIInteractionText tt)
                             {
-                                state = new StreamState { Started = false, Aggregated = null };
+                                var baseKey = GetStreamKey(interaction);
+                                var turnKey = GetTurnBaseKey(tt?.TurnId);
+
+                                // If this turn is finalized, ignore any late partials to avoid overriding final metrics/time
+                                if (!string.IsNullOrWhiteSpace(turnKey) && this._finalizedTextTurns.Contains(turnKey))
+                                {
+                                    return;
+                                }
+
+                                // Check if segment is committed
+                                bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
+                                var activeSegKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : null;
+                                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+#if DEBUG
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
+#endif
+
+                                // Check for existing streaming aggregate (either committed or pre-commit)
+                                StreamState existingState = null;
+                                if (isCommitted && !hasBoundary && this._streams.TryGetValue(activeSegKey, out existingState))
+                                {
+                                    // Streaming completion: update the existing committed aggregate (only if no boundary)
+                                    if (existingState.Aggregated is AIInteractionText agg)
+                                    {
+                                        agg.Content = tt.Content;
+                                        agg.Reasoning = tt.Reasoning;
+                                        agg.Time = tt.Time;
+                                        this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
+                                        
+                                        // Mark boundary: next text in this turn gets a new segment
+                                        this.SetBoundaryFlag(turnKey);
+                                        return;
+                                    }
+                                }
+                                else if (!isCommitted && this._preStreamAggregates.TryGetValue(baseKey, out existingState))
+                                {
+                                    // Had pre-commit aggregate but never rendered (empty deltas): commit now
+                                    if (existingState.Aggregated is AIInteractionText agg)
+                                    {
+                                        agg.Content = tt.Content;
+                                        agg.Reasoning = tt.Reasoning;
+                                        agg.Time = tt.Time;
+
+                                        // Commit segment and move to committed storage
+                                        this.CommitSegment(baseKey, turnKey);
+                                        var segKey = this.GetCurrentSegmentedKey(baseKey);
+                                        this._streams[segKey] = existingState;
+                                        this._preStreamAggregates.Remove(baseKey);
+
+                                        this._dialog.UpsertMessageByKey(segKey, agg, source: "OnInteractionCompletedPreCommitFinal");
+                                        
+                                        // Mark boundary: next text in this turn gets a new segment
+                                        this.SetBoundaryFlag(turnKey);
+                                        return;
+                                    }
+                                }
+
+                                // True non-streaming completion path: no prior aggregate
+                                // Commit segment immediately since we have renderable content
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): NON-STREAMING path - committing segment");
+                                this.CommitSegment(baseKey, turnKey);
+                                var finalSegKey = this.GetCurrentSegmentedKey(baseKey);
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): finalSegKey={finalSegKey}");
+
+                                var state = new StreamState { Started = true, Aggregated = tt };
+                                this._streams[finalSegKey] = state;
+                                this._dialog.UpsertMessageByKey(finalSegKey, tt, source: "OnInteractionCompletedNonStreaming");
+                                
+                                // Mark boundary: next text in this turn gets a new segment
+                                this.SetBoundaryFlag(turnKey);
+
+                                return;
                             }
 
-                            if (interaction is AIInteractionText tt && tt.Agent == AIAgent.Assistant)
+                            // Stream-update non-text interactions immediately using their provided keys.
+                            if (interaction is not AIInteractionText)
                             {
-                                // Coalesce text across partials
-                                CoalesceAssistantTextChunk(tt, key, ref state);
-
-                                _streams[key] = state;
-                                if (state.Aggregated is AIInteractionText aggText && !string.IsNullOrWhiteSpace(aggText.Content))
+                                var streamKey = GetStreamKey(interaction);
+                                var turnKey = GetTurnBaseKey(interaction?.TurnId);
+#if DEBUG
+                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
+#endif
+                                
+                                if (string.IsNullOrWhiteSpace(streamKey))
                                 {
-                                    // On first assistant content, remove thinking bubble and append new assistant message
-                                    RemoveThinkingBubbleIfActive();
-
-                                    if (!_assistantBubbleAdded)
+                                    // Fallback: append if keyless (should be rare)
+                                    this._dialog.AddInteractionToWebView(interaction);
+                                }
+                                else
+                                {
+                                    if (interaction is AIInteractionToolResult tr)
                                     {
-                                        _dialog.AddInteractionToWebView(aggText);
-                                        _assistantBubbleAdded = true;
+                                        var followKey = GetFollowKeyForToolResult(tr);
+                                        this._dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnInteractionCompletedToolResult");
                                     }
                                     else
                                     {
-                                        _dialog.ReplaceLastMessageByRole(AIAgent.Assistant, aggText);
+                                        if (this.ShouldUpsertNow(streamKey))
+                                        {
+                                            this._dialog.UpsertMessageByKey(streamKey, interaction, source: "OnInteractionCompleted");
+                                        }
                                     }
                                 }
-                            }
 
-                            // Optional UX: surface tool call name in status
-                            if (interaction is AIInteractionToolCall call)
-                            {
-                                // Any first partial event (tool call) should also remove thinking bubble
-                                RemoveThinkingBubbleIfActive();
-                                _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {call.Name}")});");
+                                // Mark boundary: next text in this turn gets a new segment
+                                this.SetBoundaryFlag(turnKey);
                             }
                         }
                         catch (Exception innerEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnPartial processing error: {innerEx.Message}");
+                            Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted processing error: {innerEx.Message}");
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] OnPartial error: {ex.Message}");
+                    Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted error: {ex.Message}");
                 }
             }
 
+            /// <summary>
+            /// Notifies that a tool call is being executed.
+            /// Updates the status bar to reflect the ongoing tool name.
+            /// </summary>
+            /// <param name="toolCall">The tool call interaction.</param>
             public void OnToolCall(AIInteractionToolCall toolCall)
             {
                 if (toolCall == null) return;
-                if (!TryAdd(toolCall)) return;
 
+                // During streaming, do not append tool calls; just update status.
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    RemoveThinkingBubbleIfActive();
-                    _dialog.AddToolCallMessage(toolCall);
-                    _dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
+                    this._dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
+
+                    // Mark a boundary so the next assistant text begins a new segment.
+                    var turnKey = GetTurnBaseKey(toolCall?.TurnId);
+                    Debug.WriteLine($"[WebChatObserver] OnToolCall: name={toolCall?.Name}, turnKey={turnKey} -> SetBoundaryFlag");
+                    this.SetBoundaryFlag(turnKey);
                 });
             }
 
+            /// <summary>
+            /// Notifies that a tool result was obtained.
+            /// During streaming, rendering is deferred until the interaction is persisted.
+            /// </summary>
+            /// <param name="toolResult">The tool result interaction.</param>
             public void OnToolResult(AIInteractionToolResult toolResult)
             {
                 if (toolResult == null) return;
-                if (!TryAdd(toolResult)) return;
 
-                RhinoApp.InvokeOnUiThread(() =>
-                {
-                    RemoveThinkingBubbleIfActive();
-                    _dialog.AddToolResultMessage(toolResult);
-                });
+                // Do not append tool results during streaming; they will be added on partial when persisted.
+
+                // Mark a boundary immediately so subsequent assistant text starts a new segment (seg rollover happens on next delta).
+                var turnKey = GetTurnBaseKey(toolResult?.TurnId);
+                Debug.WriteLine($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
+                this.SetBoundaryFlag(turnKey);
             }
 
+            /// <summary>
+            /// Handles the final stable result after a conversation turn completes.
+            /// Renders the final assistant message, removes the thinking bubble, and emits notifications.
+            /// </summary>
+            /// <param name="result">The final <see cref="AIReturn"/> for this turn.</param>
             public void OnFinal(AIReturn result)
             {
-                Debug.WriteLine($"[WebChatObserver] OnFinal: {result?.Body?.Interactions?.Count ?? 0} interactions, {result?.Body?.GetNewInteractions().Count ?? 0} new ones");
-
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    // Delegate history to ConversationSession; UI only emits notifications.
+                    var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
+                    var lastReturn = this._dialog._currentSession.LastReturn;
+
                     try
                     {
-                        // Delegate history to ConversationSession; UI only emits notifications.
-                        var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
-                        var lastReturn = this._dialog._currentSession.GetReturn();
+                        // Determine final assistant item and its base stream key (turn:{TurnId}:assistant)
+                        var finalAssistant = result?.Body?.Interactions?
+                            .OfType<AIInteractionText>()
+                            .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
-                        // Ensure thinking bubble is removed before final rendering
-                        RemoveThinkingBubbleIfActive();
-
-                        try
+                        string streamKey = null;
+                        if (finalAssistant is IAIKeyedInteraction keyedFinal)
                         {
-                            // Determine streaming state and final assistant data
-                            var assistantKey = "text:" + AIAgent.Assistant.ToString();
-                            AIInteractionText aggregated = null;
-                            if (this._streams.TryGetValue(assistantKey, out var state) && state?.Aggregated is AIInteractionText agg && !string.IsNullOrWhiteSpace(agg.Content))
+                            streamKey = keyedFinal.GetStreamKey();
+                        }
+
+                        // Mark this turn as finalized to prevent late partial/delta overrides
+                        var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
+                        if (!string.IsNullOrWhiteSpace(turnKey))
+                        {
+                            this._finalizedTextTurns.Add(turnKey);
+                        }
+
+                        // Prefer the aggregated streaming content for visual continuity
+                        AIInteractionText aggregated = null;
+
+                        // Use the current segmented key for the assistant stream
+                        var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
+                        if (!string.IsNullOrWhiteSpace(segKey)
+                            && this._streams.TryGetValue(segKey, out var st)
+                            && st?.Aggregated is AIInteractionText agg
+                            && !string.IsNullOrWhiteSpace(agg.Content))
+                        {
+                            aggregated = agg;
+                        }
+                        // Do not fallback to arbitrary previous streams to avoid cross-turn duplicates
+
+                        // Merge final metrics/time/content into aggregated for the last render
+                        if (aggregated != null && finalAssistant != null)
+                        {
+                            // CRITICAL: Update content to ensure final complete text is rendered (fixes missing last chunk issue)
+                            if (!string.IsNullOrWhiteSpace(finalAssistant.Content))
                             {
-                                aggregated = agg;
+                                aggregated.Content = finalAssistant.Content;
                             }
 
-                            var finalAssistant = result?.Body?.Interactions?
-                                .OfType<AIInteractionText>()
-                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                            aggregated.Metrics = finalAssistant.Metrics;
+                            aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
 
-                            // If we already appended an assistant bubble during streaming, only update metrics/time and replace
-                            if (_assistantBubbleAdded)
+                            // Ensure reasoning present on final render: prefer the provider's final reasoning
+                            if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
                             {
-                                if (aggregated != null && finalAssistant != null)
-                                {
-                                    aggregated.Metrics = finalAssistant.Metrics;
-                                    aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
-                                }
+                                aggregated.Reasoning = finalAssistant.Reasoning;
+                            }
+                        }
 
-                                // Replace existing assistant message with aggregated (preferred) or finalAssistant fallback
-                                var toRender = aggregated ?? finalAssistant;
-                                if (toRender != null)
-                                {
-                                    this._dialog.ReplaceLastMessageByRole(AIAgent.Assistant, toRender);
-                                }
+                        var toRender = aggregated ?? finalAssistant;
+                        if (toRender != null)
+                        {
+                            // Prefer the segmented key only when a streaming aggregate exists.
+                            // Otherwise (e.g., greetings or non-streamed finals), use the dedup key to avoid duplicates
+                            // with the history replay that uses dedup keys.
+                            string upsertKey;
+                            if (!string.IsNullOrWhiteSpace(segKey) && aggregated != null)
+                            {
+                                upsertKey = segKey;
+                            }
+                            else if (toRender is IAIKeyedInteraction keyed)
+                            {
+                                // Use dedup key for non-streamed interactions
+                                upsertKey = keyed.GetDedupKey() ?? keyed.GetStreamKey() ?? GetStreamKey(toRender);
                             }
                             else
                             {
-                                // No assistant bubble yet (no streaming or no non-empty deltas): append final once
-                                if (finalAssistant != null)
-                                {
-                                    this._dialog.AddInteractionToWebView(finalAssistant);
-                                    _assistantBubbleAdded = true;
-                                }
+                                upsertKey = GetStreamKey(toRender);
                             }
-                        }
-                        catch (Exception repEx)
-                        {
-                            Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
-                        }
 
-                        // Notify listeners with session-managed snapshots
-                        this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
-
-                        // Clear streaming state and finish
-                        this._streams.Clear();
-                        this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
-                        this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                            // Single final debug log for this interaction
+                            var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;
+                            var length = (toRender as AIInteractionText)?.Content?.Length ?? 0;
+                            Debug.WriteLine($"[WebChatObserver] Final render: turn={turnId}, key={upsertKey}, len={length}");
+                            this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
+                        }
                     }
-                    catch (Exception ex)
+                    catch (Exception repEx)
                     {
-                        Debug.WriteLine($"[WebChatObserver] OnFinal UI error: {ex.Message}");
+                        Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                     }
+
+                    // Now that final assistant is rendered, remove the thinking bubble and set status
+                    this.RemoveThinkingBubbleIfActive();
+
+                    // Notify listeners with session-managed snapshots
+                    this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
+
+                    // Clear streaming and per-turn state and finish
+                    this._streams.Clear();
+                    this._preStreamAggregates.Clear();
+                    this._textInteractionSegments.Clear();
+                    this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
+                    this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                 });
             }
 
+            /// <summary>
+            /// Handles an error raised during the conversation session.
+            /// Renders an error message and updates the status bar accordingly.
+            /// </summary>
+            /// <param name="ex">The error that occurred.</param>
             public void OnError(Exception ex)
             {
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
-                        if (ex is OperationCanceledException)
+                        // For all errors (including cancellations), render as an AIInteractionError (red-styled)
+                        var isCancel = ex is OperationCanceledException;
+                        var errInteraction = new AIInteractionError
                         {
-                            this._dialog.AddSystemMessage("Cancelled.", "info");
-                            this._dialog.ExecuteScript("setStatus('Cancelled'); setProcessing(false);");
+                            // Agent is AIAgent.Error by default; content carries message
+                            Content = isCancel ? "Cancelled." : (ex?.Message ?? "Unknown error"),
+                        };
+
+                        // Prefer keyed upsert for idempotent rendering and replay reliability
+                        if (errInteraction is IAIKeyedInteraction keyed)
+                        {
+                            var key = keyed.GetDedupKey();
+                            if (!string.IsNullOrWhiteSpace(key))
+                            {
+                                this._dialog.UpsertMessageByKey(key, errInteraction, source: "OnError");
+                            }
+                            else
+                            {
+                                this._dialog.AddInteractionToWebView(errInteraction);
+                            }
                         }
                         else
                         {
-                            this._dialog.AddSystemMessage($"Error: {ex.Message}", "error");
-                            this._dialog.ExecuteScript("setStatus('Error'); setProcessing(false);");
+                            this._dialog.AddInteractionToWebView(errInteraction);
                         }
+
+                        // After rendering the error, update status and stop processing (removes loader via JS helper)
+                        var status = isCancel ? "Cancelled" : "Error";
+                        this._dialog.ExecuteScript($"setStatus('{status}'); setProcessing(false);");
                     }
                     catch (Exception uiEx)
                     {
@@ -393,77 +711,107 @@ namespace SmartHopper.Core.UI.Chat
                 });
             }
 
-            private bool TryAdd(IAIInteraction interaction)
-            {
-                var key = MakeKey(interaction);
-                if (key == null) return false;
-                return _seen.Add(key);
-            }
-
             /// <summary>
             /// Computes a stream key to track independent streaming flows.
             /// Groups by interaction kind and identity to avoid collisions.
             /// </summary>
             private static string GetStreamKey(IAIInteraction interaction)
             {
-                switch (interaction)
+                if (interaction is IAIKeyedInteraction keyed)
                 {
-                    case AIInteractionToolResult tr:
-                        {
-                            var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
-                            return $"tool.result:{id}";
-                        }
+                    return keyed.GetStreamKey();
+                }
 
-                    case AIInteractionToolCall tc:
-                        {
-                            var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
-                            return $"tool.call:{id}";
-                        }
+                return $"other:{interaction.GetType().Name}:{interaction.Agent}";
+            }
 
-                    case AIInteractionText tt:
-                        {
-                            // One active text stream per agent
-                            return $"text:{tt.Agent}";
-                        }
+            /// <summary>
+            /// Returns true if enough time has elapsed since the last upsert for this key.
+            /// </summary>
+            private bool ShouldUpsertNow(string key)
+            {
+                try
+                {
+                    var now = DateTime.UtcNow;
+                    if (!this._lastUpsertAt.TryGetValue(key, out var last))
+                    {
+                        this._lastUpsertAt[key] = now;
+                        return true;
+                    }
 
-                    default:
-                        {
-                            return $"other:{interaction.GetType().Name}:{interaction.Agent}";
-                        }
+                    if ((now - last).TotalMilliseconds >= ThrottleMs)
+                    {
+                        this._lastUpsertAt[key] = now;
+                        return true;
+                    }
+                }
+                catch { }
+                return false;
+            }
+
+            /// <summary>
+            /// Returns true when there is something to render (either answer content or reasoning).
+            /// This allows live updates even when only reasoning has been streamed so far.
+            /// </summary>
+            private static bool HasRenderableText(AIInteractionText t)
+            {
+                return t != null && (!string.IsNullOrWhiteSpace(t.Content) || !string.IsNullOrWhiteSpace(t.Reasoning));
+            }
+
+            /// <summary>
+            /// Sets the boundary flag for the next text interaction in the given turn.
+            /// </summary>
+            private void SetBoundaryFlag(string turnKey)
+            {
+                if (!string.IsNullOrWhiteSpace(turnKey))
+                {
+                    var wasAdded = this._pendingNewTextSegmentTurns.Add(turnKey);
+                    Debug.WriteLine($"[WebChatObserver] SetBoundaryFlag: turnKey={turnKey}, wasNew={wasAdded}");
                 }
             }
 
-            private static string MakeKey(IAIInteraction interaction)
+            /// <summary>
+            /// Consumes the boundary flag and increments the segment counter if applicable.
+            /// </summary>
+            private void ConsumeBoundaryAndIncrementSegment(string turnKey, string baseKey)
             {
-                switch (interaction)
+                if (!string.IsNullOrWhiteSpace(turnKey))
                 {
-                    case AIInteractionToolResult tr:
-                        {
-                            var id = !string.IsNullOrEmpty(tr.Id) ? tr.Id : tr.Name ?? string.Empty;
-                            var res = (tr.Result != null ? tr.Result.ToString() : string.Empty).Trim();
-                            return $"tool.result:{id}:{res}";
-                        }
-                    case AIInteractionToolCall tc:
-                        {
-                            var id = !string.IsNullOrEmpty(tc.Id) ? tc.Id : tc.Name ?? string.Empty;
-                            var args = (tc.Arguments != null ? tc.Arguments.ToString() : string.Empty).Trim();
-                            return $"tool.call:{id}:{args}";
-                        }
-                    case AIInteractionText tt:
-                        {
-                            var agent = tt.Agent.ToString();
-                            var content = (tt.Content ?? string.Empty).Trim();
-                            return $"text:{agent}:{content}";
-                        }
-                    default:
-                        {
-                            var agent = interaction.Agent.ToString();
-                            var time = interaction.Time.ToString("o");
-                            return $"other:{interaction.GetType().Name}:{agent}:{time}";
-                        }
+                    var hadBoundary = this._pendingNewTextSegmentTurns.Remove(turnKey);
+                    var hasSegment = this._textInteractionSegments.ContainsKey(baseKey);
+                    
+                    if (hadBoundary && hasSegment)
+                    {
+                        var oldSeg = this._textInteractionSegments[baseKey];
+                        this._textInteractionSegments[baseKey] = oldSeg + 1;
+                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
+                    }
+#if DEBUG
+                    else
+                    {
+                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, hadBoundary={hadBoundary}, hasSegment={hasSegment}, NO INCREMENT");
+                    }
+#endif
                 }
+            }
+
+            /// <summary>
+            /// Computes the follow key for a tool result, which should appear immediately after its corresponding tool call.
+            /// </summary>
+            private static string GetFollowKeyForToolResult(AIInteractionToolResult tr)
+            {
+                try
+                {
+                    var id = !string.IsNullOrEmpty(tr?.Id) ? tr.Id : (tr?.Name ?? string.Empty);
+                    if (!string.IsNullOrWhiteSpace(tr?.TurnId))
+                    {
+                        return $"turn:{tr.TurnId}:tool.call:{id}";
+                    }
+
+                    return $"tool.call:{id}";
+                }
+                catch { return null; }
             }
         }
     }
 }
-

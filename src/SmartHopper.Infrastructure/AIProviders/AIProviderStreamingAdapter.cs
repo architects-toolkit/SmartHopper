@@ -9,9 +9,7 @@
  */
 
 using System;
-using System.Buffers;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -20,8 +18,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.Streaming;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -56,23 +52,17 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Builds an absolute URL for the given endpoint using the provider's default server URL when needed.
+        /// Builds an absolute URL for the given endpoint delegating to the provider's centralized normalization.
         /// </summary>
-        protected string BuildFullUrl(string endpoint)
+        protected Uri BuildFullUrl(string endpoint)
         {
             if (string.IsNullOrWhiteSpace(endpoint))
             {
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            if (Uri.IsWellFormedUriString(endpoint, UriKind.Absolute))
-            {
-                return endpoint;
-            }
-
-            var baseUrl = this.Provider.DefaultServerUrl?.TrimEnd('/') ?? string.Empty;
-            var path = endpoint.StartsWith("/", StringComparison.Ordinal) ? endpoint : "/" + endpoint;
-            return baseUrl + path;
+            // Delegate to provider so both call and streaming share identical URL construction rules
+            return this.Provider.BuildFullUrl(endpoint);
         }
 
         /// <summary>
@@ -109,6 +99,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Provider.Name} API key is not configured or is invalid.");
                     }
+
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                     break;
                 case "x-api-key":
@@ -116,6 +107,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         throw new InvalidOperationException($"{this.Provider.Name} API key is not configured or is invalid.");
                     }
+
                     client.DefaultRequestHeaders.Remove("x-api-key");
                     client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                     break;
@@ -127,7 +119,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Creates a POST request configured for SSE consumption.
         /// </summary>
-        protected HttpRequestMessage CreateSsePost(string url, string body, string contentType = "application/json")
+        protected HttpRequestMessage CreateSsePost(Uri url, string body, string contentType = "application/json")
         {
             var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
@@ -189,7 +181,16 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             using var reader = new StreamReader(stream, Encoding.UTF8);
-            using var ctr = cancellationToken.Register(() => { try { stream.Dispose(); } catch { } });
+            using var ctr = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    stream.Dispose();
+                }
+                catch
+                {
+                }
+            });
 
             while (!cancellationToken.IsCancellationRequested)
             {

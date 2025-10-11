@@ -20,6 +20,10 @@ using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
+    /// <summary>
+    /// Defines the contract for AI provider integrations (e.g., MistralAI, OpenAI, Anthropic, DeepSeek).
+    /// Implementations handle request encoding/decoding, calling, and model/settings management.
+    /// </summary>
     public interface IAIProvider
     {
         /// <summary>
@@ -47,31 +51,42 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Initializes the provider.
         /// </summary>
+        /// <returns>A task representing the asynchronous initialization operation.</returns>
         Task InitializeProviderAsync();
 
         /// <summary>
         /// Gets the encoded request for this provider, given an <see cref="AIRequestCall"/>.
         /// </summary>
+        /// <param name="request">The request to encode for transport.</param>
+        /// <returns>A provider-specific encoded representation of the request.</returns>
         string Encode(AIRequestCall request);
 
         /// <summary>
         /// Gets the encoded interaction for this provider, given an <see cref="IAIInteraction"/>.
         /// </summary>
+        /// <param name="interaction">The interaction to encode.</param>
+        /// <returns>A provider-specific encoded representation of the interaction.</returns>
         string Encode(IAIInteraction interaction);
 
         /// <summary>
         /// Gets the encoded list of interactions for this provider, given an <see cref="List{IAIInteraction}"/>.
         /// </summary>
+        /// <param name="interactions">The interactions to encode.</param>
+        /// <returns>A provider-specific encoded representation of the interactions.</returns>
         string Encode(List<IAIInteraction> interactions);
 
         /// <summary>
         /// Gets the decoded list of interactions given the encoded response. Interactions include the response, tool calls and metrics.
         /// </summary>
+        /// <param name="response">The provider response payload to decode.</param>
+        /// <returns>A list of decoded interactions in SmartHopper's internal format.</returns>
         List<IAIInteraction> Decode(JObject response);
 
         /// <summary>
         /// Gets the pre-call request for the provider.
         /// </summary>
+        /// <param name="request">The request to prepare before the provider call.</param>
+        /// <returns>The possibly modified request to use for the provider call.</returns>
         AIRequestCall PreCall(AIRequestCall request);
 
         /// <summary>
@@ -91,6 +106,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Gets the default model name for the provider.
         /// </summary>
+        /// <param name="requiredCapability">Optional capability to constrain the default model.</param>
+        /// <param name="useSettings">True to honor user settings overrides; otherwise use provider defaults.</param>
+        /// <returns>The default model name for this provider.</returns>
         string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true);
 
         /// <summary>
@@ -116,4 +134,3 @@ namespace SmartHopper.Infrastructure.AIProviders
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
     }
 }
-

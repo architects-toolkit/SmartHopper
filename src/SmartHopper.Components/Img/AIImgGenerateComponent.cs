@@ -94,7 +94,7 @@ namespace SmartHopper.Components.Img
         /// <summary>
         /// Async worker for the AI Image Generate component.
         /// </summary>
-        public class AIImgGenerateWorker : AsyncWorkerBase
+        private sealed class AIImgGenerateWorker : AsyncWorkerBase
         {
             private readonly AIImgGenerateComponent _parent;
             private readonly Action<string> _progressReporter;
@@ -131,26 +131,30 @@ namespace SmartHopper.Components.Img
                 // 2: Quality (tree access)
                 // 3: Style (tree access)
 
-                if (!DA.GetDataTree(0, out this._prompts)) // Prompt parameter index
+                // Prompt parameter index
+                if (!DA.GetDataTree(0, out this._prompts))
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get Prompt input");
                     dataCount = 0;
                     return;
                 }
 
-                if (!DA.GetDataTree(1, out this._sizes)) // Size parameter index
+                // Size parameter index
+                if (!DA.GetDataTree(1, out this._sizes))
                 {
                     // Use default if not provided
                     this._sizes.Append(new GH_String("1024x1024"), new GH_Path(0));
                 }
 
-                if (!DA.GetDataTree(2, out this._qualities)) // Quality parameter index
+                // Quality parameter index
+                if (!DA.GetDataTree(2, out this._qualities))
                 {
                     // Use default if not provided
                     this._qualities.Append(new GH_String("standard"), new GH_Path(0));
                 }
 
-                if (!DA.GetDataTree(3, out this._styles)) // Style parameter index
+                // Style parameter index
+                if (!DA.GetDataTree(3, out this._styles))
                 {
                     // Use default if not provided
                     this._styles.Append(new GH_String("vivid"), new GH_Path(0));
@@ -227,7 +231,7 @@ namespace SmartHopper.Components.Img
                                     ["prompt"] = prompt,
                                     ["size"] = size,
                                     ["quality"] = quality,
-                                    ["style"] = style
+                                    ["style"] = style,
                                 };
 
                                 var toolResult = await this._parent.CallAiToolAsync(

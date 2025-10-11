@@ -15,6 +15,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -89,13 +90,13 @@ namespace SmartHopper.Core.UI.Chat
                 string chatTemplate = this.GetChatTemplate();
 
                 // Escape single quotes in the message template to avoid breaking the JavaScript
-                messageTemplate = messageTemplate.Replace("'", "\\'");
+                messageTemplate = messageTemplate.Replace("'", "\\'", StringComparison.Ordinal);
 
                 // Replace all placeholders with actual content
                 string completeHtml = chatTemplate
-                    .Replace("{{cssChat}}", cssContent)
-                    .Replace("{{jsChat}}", jsContent)
-                    .Replace("{{messageTemplate}}", messageTemplate);
+                    .Replace("{{cssChat}}", cssContent, StringComparison.Ordinal)
+                    .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
+                    .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal);
 
                 Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
 
@@ -174,7 +175,7 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Replace error message placeholder
-            string result = this._cachedErrorTemplate.Replace("{{errorMessage}}", WebUtility.HtmlEncode(errorMessage));
+            string result = this._cachedErrorTemplate.Replace("{{errorMessage}}", WebUtility.HtmlEncode(errorMessage), StringComparison.Ordinal);
             Debug.WriteLine("[ChatResourceManager] Error template prepared with error message injected");
 
             return result;
@@ -257,45 +258,39 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="model">AI model name (for AI responses)</param>
         /// <param name="finishReason">AI response finish reason (for AI responses)</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string role, string displayName, string timestamp, IAIInteraction interaction)
+        public string CreateMessageHtml(string timestamp, IAIInteraction interaction)
         {
-            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
-
-            // TODO: Render different types of interaction (AIInteractionText and AIInteractionImage and AIInteractionToolCall and AIInteractionToolResult)
-
             // TODO: Handle case for processing state (loading message)
 
             // TODO: Handle case for AIReturn.Success = false (with errors)
 
-            // Get content from interaction based on type
+            // Get content and reasoning from interaction via IAIRenderInteraction when available
             string rawContent = string.Empty;
             string rawReasoning = string.Empty;
+            string roleClass = string.Empty;
+            string displayName = string.Empty;
             string provider = string.Empty;
             string model = string.Empty;
             string finishReason = "unknown";
             int inTokens = 0;
             int outTokens = 0;
 
-            switch (interaction)
+            if (interaction is IAIRenderInteraction renderable)
             {
-                case AIInteractionText textInteraction:
-                    rawContent = textInteraction.Content ?? string.Empty;
-                    rawReasoning = textInteraction.Reasoning ?? string.Empty;
-                    break;
-                case AIInteractionToolResult toolResult:
-                    rawContent = toolResult.Result.ToString();
-                    break;
-                case AIInteractionToolCall toolCall:
-                    rawContent = $"Tool Call: {toolCall.Name}";
-                    break;
-                case AIInteractionImage imageInteraction:
-                    rawContent = imageInteraction.ImageUrl ?? "[Image]";
-                    break;
-                default:
-                    rawContent = interaction.ToString();
-                    rawReasoning = string.Empty;
-                    break;
+                rawContent = renderable.GetRawContentForRender() ?? string.Empty;
+                rawReasoning = renderable.GetRawReasoningForRender() ?? string.Empty;
+                roleClass = renderable.GetRoleClassForRender();
+                displayName = renderable.GetDisplayNameForRender();
             }
+            else
+            {
+                rawContent = interaction?.ToString() ?? string.Empty;
+                rawReasoning = string.Empty;
+                roleClass = interaction.Agent.ToString().ToLowerInvariant();
+                displayName = interaction.Agent.ToDescription();
+            }
+
+            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role='{roleClass}', displayName='{displayName}', timestamp='{timestamp}'");
 
             // Extract metrics if available
             if (interaction.Metrics != null)
@@ -318,6 +313,7 @@ namespace SmartHopper.Core.UI.Chat
 
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
+
             // Render reasoning panel. Auto-expand when there is no visible answer content.
             var reasoningPanel = this.RenderReasoning(rawReasoning, string.IsNullOrWhiteSpace(rawContent));
             Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
@@ -325,22 +321,22 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
 
             // Escape answer markdown for safe use in an HTML attribute
-            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(rawContent).Replace("'", "&#39;");
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(rawContent).Replace("'", "&#39;", StringComparison.Ordinal);
 
             string template = this.GetMessageTemplate();
 
             string result = template
-                .Replace("{{role}}", role)
-                .Replace("{{displayName}}", displayName)
-                .Replace("{{timestamp}}", timestamp)
-                .Replace("{{htmlContent}}", reasoningPanel + answerHtml)
-                .Replace("{{mdContent}}", mdContentEscaped)
-                .Replace("{{inTokens}}", inTokens.ToString())
-                .Replace("{{outTokens}}", outTokens.ToString())
-                .Replace("{{provider}}", provider)
-                .Replace("{{model}}", model)
-                .Replace("{{finishReason}}", finishReason)
-                .Replace("{{metricsClass}}", metricsClass);
+                .Replace("{{role}}", roleClass, StringComparison.Ordinal)
+                .Replace("{{displayName}}", displayName, StringComparison.Ordinal)
+                .Replace("{{timestamp}}", timestamp, StringComparison.Ordinal)
+                .Replace("{{htmlContent}}", reasoningPanel + answerHtml, StringComparison.Ordinal)
+                .Replace("{{mdContent}}", mdContentEscaped, StringComparison.Ordinal)
+                .Replace("{{inTokens}}", inTokens.ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal)
+                .Replace("{{outTokens}}", outTokens.ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal)
+                .Replace("{{provider}}", provider, StringComparison.Ordinal)
+                .Replace("{{model}}", model, StringComparison.Ordinal)
+                .Replace("{{finishReason}}", finishReason, StringComparison.Ordinal)
+                .Replace("{{metricsClass}}", metricsClass, StringComparison.Ordinal);
 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
 
@@ -417,4 +413,3 @@ namespace SmartHopper.Core.UI.Chat
         }
     }
 }
-

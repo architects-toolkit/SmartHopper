@@ -76,7 +76,10 @@ This ensures scripts (e.g., `ExecuteScript(...)`) are not executed inside `Docum
 JavaScript functions (in `chat-script.js`):
 
 - `addMessage(html)` — Append a pre-rendered HTML message bubble.
+- `upsertMessage(key, html)` — Replace existing or append new bubble identified by `data-key`.
+- `upsertMessageAfter(followKey, key, html)` — Insert or replace a bubble identified by `key` immediately after the bubble identified by `followKey` (falls back to `upsertMessage` when `followKey` not found).
 - `replaceLastMessageByRole(role, html)` — Replace the last message with a given role.
+- `addLoadingMessage(role, text)` / `removeThinkingMessage()` — Show/remove a persistent thinking bubble.
 - `clearMessages()` — Clear transcript area.
 - `setStatus(text)` — Update status bar text.
 - `setProcessing(isProcessing)` — Show/hide spinner and disable input.
@@ -85,9 +88,16 @@ JavaScript functions (in `chat-script.js`):
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 
 - `AddInteractionToWebView(IAIInteraction)`
-- `ReplaceLastMessageByRole(AIAgent, IAIInteraction)`
+- `UpsertMessageByKey(string domKey, IAIInteraction)`
+- `UpsertMessageAfter(string followKey, string domKey, IAIInteraction, string source = null)`
 - `ExecuteScript(string)`
-- Observer callbacks: `OnStart`, `OnDelta`, `OnPartial`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
+- Observer callbacks: `OnStart`, `OnDelta`, `OnInteractionCompleted`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
+
+### Keyed interactions
+
+- Interactions implement `IAIKeyedInteraction` with:
+  - `GetStreamKey()` → grouping key to coalesce streaming deltas into one bubble.
+  - `GetDedupKey()` → stable identity for persisted entries and hydration.
 
 ## Event types and lifecycle
 

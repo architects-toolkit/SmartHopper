@@ -70,8 +70,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhRetrieveToolAsync
-            );
+                execute: this.GhRetrieveToolAsync);
         }
 
         /// <summary>
@@ -88,12 +87,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
                 var server = Instances.ComponentServer;
-                var categoryFilters = toolInfo.Arguments["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var nameFilter = toolInfo.Arguments["nameFilter"]?.ToString() ?? string.Empty;
-                var includeDetails = toolInfo.Arguments["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
-                var maxResults = toolInfo.Arguments["maxResults"]?.ToObject<int>() ?? 100;
+                var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
+                var nameFilter = args["nameFilter"]?.ToString() ?? string.Empty;
+                var includeDetails = args["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
+                var maxResults = args["maxResults"]?.ToObject<int>() ?? 100;
                 var (includeCats, excludeCats) = Get.ParseIncludeExclude(categoryFilters, Get.CategorySynonyms);
 
                 // Retrieve all component proxies in one call
@@ -140,6 +140,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 name = param.Name,
                                 description = param.Description,
                                 dataType = param.GetType().Name,
+
                                 // access = param.Access.ToString(),
                             })
                             .Cast<object>()
@@ -150,6 +151,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 name = param.Name,
                                 description = param.Description,
                                 dataType = param.GetType().Name,
+
                                 // access = param.Access.ToString(),
                             })
                             .Cast<object>()
@@ -165,6 +167,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 name = param.Name,
                                 description = param.Description,
                                 dataType = param.GetType().Name,
+
                                 // access = param.Access.ToString(),
                             },
                         };

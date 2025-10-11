@@ -16,9 +16,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// <summary>
     /// Provides web-related utility functions, including robots.txt parsing.
     /// </summary>
-    internal class WebTools
+    internal sealed class WebTools
     {
-        private readonly List<string> _disallowed = new();
+        private readonly List<string> _disallowed = new ();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WebTools"/> class.
@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             string normalizedPath = path.StartsWith('/') ? path : "/" + path;
 
             // Check against all disallowed patterns
-            foreach (var pattern in _disallowed)
+            foreach (var pattern in this._disallowed)
             {
                 if (string.IsNullOrEmpty(pattern))
                 {
@@ -92,7 +92,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
                 else if (field == "disallow" && appliesToAll && !string.IsNullOrEmpty(value))
                 {
-                    _disallowed.Add(value);
+                    this._disallowed.Add(value);
                 }
             }
         }

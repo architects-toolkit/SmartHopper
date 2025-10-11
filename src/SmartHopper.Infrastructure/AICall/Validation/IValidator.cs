@@ -8,7 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -17,49 +16,6 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
-    /// <summary>
-    /// Result returned by validators, carrying success flag and structured diagnostics.
-    /// </summary>
-    public sealed class ValidationResult
-    {
-        /// <summary>
-        /// Gets or sets a value indicating whether the validation passed considering the validator's FailOn threshold.
-        /// </summary>
-        public bool IsValid { get; set; }
-
-        /// <summary>
-        /// Gets or sets the collected messages emitted during validation.
-        /// </summary>
-        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
-
-        /// <summary>
-        /// Optional structured issues including codes and JSON-like path hints.
-        /// </summary>
-        public List<ValidationIssue> Issues { get; set; } = new List<ValidationIssue>();
-
-        /// <summary>
-        /// Counts by severity for quick gating/metrics.
-        /// </summary>
-        public int ErrorCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Error) ?? 0;
-        public int WarningCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Warning) ?? 0;
-        public int InfoCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Info) ?? 0;
-
-        /// <summary>
-        /// Indicates whether messages have been sanitized to avoid PII leakage.
-        /// </summary>
-        public bool MessagesSanitized { get; set; }
-    }
-
-    /// <summary>
-    /// Structured validation issue with optional code and location path.
-    /// </summary>
-    public sealed class ValidationIssue
-    {
-        public string Code { get; set; }
-        public string Path { get; set; }
-        public AIRuntimeMessageSeverity Severity { get; set; }
-        public string Message { get; set; }
-    }
 
     /// <summary>
     /// Typed validator contract for validating specific models (e.g., tool calls) and returning diagnostics.
@@ -82,5 +38,72 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Validation result.</returns>
         Task<ValidationResult> ValidateAsync(T instance, ValidationContext context, CancellationToken cancellationToken);
+    }
+
+    /// <summary>
+    /// Result returned by validators, carrying success flag and structured diagnostics.
+    /// </summary>
+    public sealed class ValidationResult
+    {
+        /// <summary>
+        /// Gets or sets a value indicating whether the validation passed considering the validator's FailOn threshold.
+        /// </summary>
+        public bool IsValid { get; set; }
+
+        /// <summary>
+        /// Gets or sets the collected messages emitted during validation.
+        /// </summary>
+        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+
+        /// <summary>
+        /// Optional structured issues including codes and JSON-like path hints.
+        /// </summary>
+        public List<ValidationIssue> Issues { get; set; } = new List<ValidationIssue>();
+
+        /// <summary>
+        /// Gets the count of error messages by severity for quick gating/metrics.
+        /// </summary>
+        public int ErrorCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Error) ?? 0;
+
+        /// <summary>
+        /// Gets the count of warning messages by severity for quick gating/metrics.
+        /// </summary>
+        public int WarningCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Warning) ?? 0;
+
+        /// <summary>
+        /// Gets the count of information messages by severity for quick gating/metrics.
+        /// </summary>
+        public int InfoCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Info) ?? 0;
+
+        /// <summary>
+        /// Gets a value indicating whether messages have been sanitized to avoid PII leakage.
+        /// </summary>
+        public bool MessagesSanitized { get; set; }
+    }
+
+    /// <summary>
+    /// Structured validation issue with optional code and location path.
+    /// </summary>
+    public sealed class ValidationIssue
+    {
+        /// <summary>
+        /// Gets or sets an optional short code identifying the issue type.
+        /// </summary>
+        public string Code { get; set; }
+
+        /// <summary>
+        /// Gets or sets a JSON-like path to the location of the issue, if applicable.
+        /// </summary>
+        public string Path { get; set; }
+
+        /// <summary>
+        /// Gets or sets the severity of the issue.
+        /// </summary>
+        public AIRuntimeMessageSeverity Severity { get; set; }
+
+        /// <summary>
+        /// Gets or sets the human-readable message describing the issue.
+        /// </summary>
+        public string Message { get; set; }
     }
 }

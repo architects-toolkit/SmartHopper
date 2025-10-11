@@ -60,8 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.ScriptNewToolAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput
-            );
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
         }
 
         /// <summary>
@@ -77,13 +76,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var prompt = toolInfo.Arguments["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
-                var language = toolInfo.Arguments["language"]?.ToString() ?? "python";
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var prompt = args["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
+                var language = args["language"]?.ToString() ?? "python";
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
                 var endpoint = this.toolName;
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -120,6 +120,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var proxy = GHObjectFactory.FindProxy(displayName)
                                ?? throw new Exception($"Component type '{displayName}' not found in this Grasshopper installation.");
                 IGH_Component tempComp = null;
+
                 // Instantiate component proxy on UI thread
                 RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -176,12 +177,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .WithContextFilter(contextFilter)
                     .AddSystem($"""
                     You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
-                    
+
                     Your response MUST be a valid JSON object with the following structure:
                     - script: The complete script code
                     - inputs: Array of input parameters with name, type, description, and access (item/list/tree)
                     - outputs: Array of output parameters with name, type, and description
-                    
+
                     The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
                     """)
                     .AddUser(prompt);
@@ -230,8 +231,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["variableName"] = input["name"]?.ToString() ?? "input",
                         ["name"] = input["name"]?.ToString() ?? "Input",
                         ["description"] = input["description"]?.ToString() ?? string.Empty,
-                        ["access"] = input["access"]?.ToString()?.ToLower() ?? "item",
-                        ["type"] = inputType
+                        ["access"] = input["access"]?.ToString()?.ToLowerInvariant() ?? "item",
+                        ["type"] = inputType,
                     };
                     scriptInputs.Add(inputObj);
                 }
@@ -285,7 +286,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             Value = scriptOutputs,
                             Type = typeof(JArray).Name
                         },
-                    }
+                    },
                 };
                 doc.Components.Add(comp);
 
@@ -320,6 +321,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateSuccess(outImmutable, toolCall);
                     return output;
                 }
+
                 output.CreateError("Failed to retrieve placed component GUID.");
                 return output;
             }

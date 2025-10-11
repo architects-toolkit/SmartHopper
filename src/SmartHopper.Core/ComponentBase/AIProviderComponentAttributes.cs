@@ -32,12 +32,12 @@ namespace SmartHopper.Core.ComponentBase
 
         // Hover state for inline provider label
         private RectangleF providerIconRect = RectangleF.Empty;
-        private bool hoverProviderIcon = false;
+        private bool hoverProviderIcon;
 
         // Timer-based auto-hide for inline label (disappears after 5s even if still hovered)
         // Purpose: avoid sticky labels when the cursor remains stationary.
         private Timer? providerLabelTimer;
-        private bool providerLabelAutoHidden = false;
+        private bool providerLabelAutoHidden;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProviderComponentAttributes"/> class.
@@ -123,11 +123,8 @@ namespace SmartHopper.Core.ComponentBase
                     BADGESIZE);
                 this.providerIconRect = iconRect;
 
-                // Draw the provider icon using GH methods
-                if (providerIcon != null)
-                {
-                    GH_GraphicsUtil.RenderIcon(graphics, iconRect, providerIcon);
-                }
+                // Draw the provider icon using GH methods (providerIcon guaranteed non-null here)
+                GH_GraphicsUtil.RenderIcon(graphics, iconRect, providerIcon);
 
                 // Draw inline label for provider when hovered and not auto-hidden (rendered after icon)
                 if (this.hoverProviderIcon && !this.providerLabelAutoHidden && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
@@ -161,11 +158,11 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.hoverProviderIcon)
                 {
                     this.providerLabelAutoHidden = false;
-                    StartProviderLabelTimer();
+                    this.StartProviderLabelTimer();
                 }
                 else
                 {
-                    StopProviderLabelTimer();
+                    this.StopProviderLabelTimer();
                     this.providerLabelAutoHidden = false; // reset for next hover
                 }
 
@@ -180,14 +177,14 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StartProviderLabelTimer()
         {
-            StopProviderLabelTimer();
+            this.StopProviderLabelTimer();
             this.providerLabelTimer = new Timer(5000) { AutoReset = false };
             this.providerLabelTimer.Elapsed += (_, __) =>
             {
                 // Mark as auto-hidden and request display refresh
                 this.providerLabelAutoHidden = true;
                 try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                StopProviderLabelTimer();
+                this.StopProviderLabelTimer();
             };
             this.providerLabelTimer.Start();
         }
