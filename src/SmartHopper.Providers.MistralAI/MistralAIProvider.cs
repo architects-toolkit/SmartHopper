@@ -37,6 +37,7 @@ namespace SmartHopper.Providers.MistralAI
         private MistralAIProvider()
         {
             this.Models = new MistralAIProviderModels(this);
+
             // Register provider-specific JSON schema adapter
             JsonSchemaAdapterRegistry.Register(new MistralAIJsonSchemaAdapter());
         }
@@ -49,7 +50,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
-        public override string DefaultServerUrl => "https://api.mistral.ai/v1";
+        public override Uri DefaultServerUrl => new Uri("https://api.mistral.ai/v1");
 
         /// <summary>
         /// Gets a value indicating whether gets whether this provider is enabled and should be available for use.
@@ -83,6 +84,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <summary>
         /// Returns a streaming adapter for MistralAI that yields incremental AIReturn deltas.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
         public IStreamingAdapter GetStreamingAdapter()
         {
             return new MistralAIStreamingAdapter(this);
@@ -106,6 +108,7 @@ namespace SmartHopper.Providers.MistralAI
                     request.Endpoint = "/chat/completions";
                     break;
             }
+
             request.ContentType = "application/json";
             request.Authentication = "bearer";
 
@@ -115,52 +118,106 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            // This method should encode a single interaction to string
-            // For MistralAI, we'll serialize the interaction as JSON
+            // Reuse a single conversion path to the Mistral chat message format
             try
             {
-                if (interaction is AIInteractionText textInteraction)
-                {
-                    return JsonConvert.SerializeObject(new
-                    {
-                        agent = textInteraction.Agent.ToString(),
-                        content = textInteraction.Content,
-                        reasoning = textInteraction.Reasoning
-                    });
-                }
-                else if (interaction is AIInteractionToolCall toolCallInteraction)
-                {
-                    return JsonConvert.SerializeObject(new
-                    {
-                        agent = toolCallInteraction.Agent.ToString(),
-                        id = toolCallInteraction.Id,
-                        name = toolCallInteraction.Name,
-                        arguments = toolCallInteraction.Arguments
-                    });
-                }
-                else if (interaction is AIInteractionToolResult toolResultInteraction)
-                {
-                    return JsonConvert.SerializeObject(new
-                    {
-                        agent = toolResultInteraction.Agent.ToString(),
-                        result = toolResultInteraction.Result,
-                        id = toolResultInteraction.Id,
-                        name = toolResultInteraction.Name
-                    });
-                }
-
-                // Fallback
-                return JsonConvert.SerializeObject(new
-                {
-                    agent = interaction.Agent.ToString(),
-                    content = string.Empty,
-                });
+                var token = this.EncodeToJToken(interaction);
+                return token?.ToString() ?? string.Empty;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MistralAI] Encode error: {ex.Message}");
                 return string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Converts a single interaction to a Mistral chat message object (JToken).
+        /// Returns null for interactions that should not be sent (e.g., UI-only errors).
+        /// </summary>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
+            if (interaction == null)
+            {
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            var messageObj = new JObject();
+
+            // Map role
+            switch (interaction.Agent)
+            {
+                case AIAgent.System:
+                case AIAgent.Context:
+                    messageObj["role"] = "system";
+                    break;
+                case AIAgent.User:
+                    messageObj["role"] = "user";
+                    break;
+                case AIAgent.Assistant:
+                    messageObj["role"] = "assistant";
+                    break;
+                case AIAgent.ToolResult:
+                    messageObj["role"] = "tool";
+                    break;
+                case AIAgent.ToolCall:
+                    messageObj["role"] = "assistant";
+                    break;
+                default:
+                    // Unknown/unsupported -> skip
+                    return null;
+            }
+
+            // Handle content and tool fields per interaction type
+            if (interaction is AIInteractionText textInteraction)
+            {
+                messageObj["content"] = textInteraction.Content ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                messageObj["tool_call_id"] = toolResultInteraction.Id;
+                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
+                {
+                    messageObj["name"] = toolResultInteraction.Name;
+                }
+
+                messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                var toolCallObj = new JObject
+                {
+                    ["id"] = toolCallInteraction.Id,
+                    ["type"] = "function",
+                    ["function"] = new JObject
+                    {
+                        ["name"] = toolCallInteraction.Name,
+                        ["arguments"] = toolCallInteraction.Arguments is JToken jt
+                            ? jt.ToString()
+                            : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
+                    },
+                };
+                messageObj["tool_calls"] = new JArray { toolCallObj };
+                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                // Mistral does not (yet) support vision in the same way; fallback to prompt as content
+                messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+            }
+            else
+            {
+                // Fallback: empty content
+                messageObj["content"] = string.Empty;
+            }
+
+            return messageObj;
         }
 
         /// <inheritdoc/>
@@ -170,6 +227,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 return "GET and DELETE requests do not use a request body";
             }
+
             // Encode request body for Mistral. Supports string and AIText content in interactions.
 
             int maxTokens = this.GetSetting<int>("MaxTokens");
@@ -180,96 +238,14 @@ namespace SmartHopper.Providers.MistralAI
 
             Debug.WriteLine($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
-            // Format messages for Mistral API
+            // Format messages for Mistral API (reuse per-interaction encoder)
             var convertedMessages = new JArray();
             foreach (var interaction in request.Body.Interactions)
             {
-                AIAgent role = interaction.Agent;
-                string roleName = string.Empty;
-                string msgContent;
-                // Handle different interaction types by casting to concrete types
-                if (interaction is AIInteractionText textInteraction)
+                var token = this.EncodeToJToken(interaction);
+                if (token != null)
                 {
-                    msgContent = textInteraction.Content ?? string.Empty;
-                }
-                else if (interaction is AIInteractionToolResult toolResultInteraction)
-                {
-                    msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
-                }
-                else if (interaction is AIInteractionToolCall toolCallInteraction)
-                {
-                    msgContent = string.Empty; // Tool calls don't have content
-                }
-                else if (interaction is AIInteractionImage imageInteraction)
-                {
-                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
-                }
-                else
-                {
-                    // Fallback to empty string for unknown types
-                    msgContent = string.Empty;
-                }
-
-                var messageObj = new JObject
-                {
-                    ["content"] = msgContent,
-                };
-
-                // Map role names
-                if (role == AIAgent.System || role == AIAgent.Context)
-                {
-                    roleName = "system";
-                }
-                else if (role == AIAgent.Assistant)
-                {
-                    roleName = "assistant";
-
-                    // Tool calls are handled separately as AIInteractionToolCall objects
-                    // Assistant messages don't directly contain tool calls in our architecture
-                }
-                else if (role == AIAgent.ToolResult)
-                {
-                    roleName = "tool";
-
-                    // Propagate tool_call ID and name - cast to concrete type
-                    if (interaction is AIInteractionToolResult toolResultInteraction)
-                    {
-                        messageObj["name"] = toolResultInteraction.Name;
-                        messageObj["tool_call_id"] = toolResultInteraction.Id;
-                    }
-                }
-                else if (role == AIAgent.ToolCall)
-                {
-                    roleName = "assistant";
-                    
-                    // Handle tool call as assistant message with tool_calls
-                    if (interaction is AIInteractionToolCall toolCallInteraction)
-                    {
-                        var toolCallsArray = new JArray();
-                        var toolCallObj = new JObject
-                        {
-                            ["id"] = toolCallInteraction.Id,
-                            ["type"] = "function",
-                            ["function"] = new JObject
-                            {
-                                ["name"] = toolCallInteraction.Name,
-                                ["arguments"] = toolCallInteraction.Arguments is JToken jToken ? jToken.ToString() : (toolCallInteraction.Arguments?.ToString() ?? string.Empty),
-                            },
-                        };
-                        toolCallsArray.Add(toolCallObj);
-                        messageObj["tool_calls"] = toolCallsArray;
-                        msgContent = string.Empty; // Tool calls don't have content
-                    }
-                }
-                else
-                {
-                    roleName = "user";
-                }
-
-                if(!string.IsNullOrEmpty(roleName))
-                {
-                    messageObj["role"] = roleName;
-                    convertedMessages.Add(messageObj);
+                    convertedMessages.Add(token);
                 }
             }
 
@@ -290,6 +266,7 @@ namespace SmartHopper.Providers.MistralAI
                     var schemaObj = JObject.Parse(jsonSchema);
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+
                     // Store wrapper info for response unwrapping centrally
                     svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[MistralAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
@@ -307,6 +284,7 @@ namespace SmartHopper.Providers.MistralAI
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[MistralAI] Failed to parse JSON schema: {ex.Message}");
+
                     // Continue without schema if parsing fails
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
@@ -427,11 +405,34 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     foreach (JObject tc in tcs)
                     {
+                        // Mistral may return function.arguments as a JSON string; parse when necessary
+                        var func = tc["function"] as JObject;
+                        var argsToken = func?[(object)"arguments"];
+                        JObject? argsObj = null;
+                        if (argsToken is JObject ao)
+                        {
+                            argsObj = ao;
+                        }
+                        else if (argsToken != null)
+                        {
+                            var s = argsToken.Type == JTokenType.String ? argsToken.ToString() : argsToken.ToString(Newtonsoft.Json.Formatting.None);
+                            if (string.IsNullOrWhiteSpace(s))
+                            {
+                                // Treat empty string as empty object to satisfy schema presence
+                                argsObj = new JObject();
+                            }
+                            else
+                            {
+                                try { argsObj = JObject.Parse(s); }
+                                catch { /* leave null if unparsable */ }
+                            }
+                        }
+
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),
-                            Name = tc["function"]?["name"]?.ToString(),
-                            Arguments = tc["function"]?["arguments"] as JObject,
+                            Name = func?[(object)"name"]?.ToString(),
+                            Arguments = argsObj,
                         };
                         interactions.Add(toolCall);
                     }
@@ -520,6 +521,7 @@ namespace SmartHopper.Providers.MistralAI
                     bodyError = new AIReturn();
                     bodyError.CreateProviderError($"Failed to prepare streaming body: {ex.Message}", request);
                 }
+
                 if (bodyError != null)
                 {
                     yield return bodyError;
@@ -540,6 +542,7 @@ namespace SmartHopper.Providers.MistralAI
                     authError = new AIReturn();
                     authError.CreateProviderError(ex.Message, request);
                 }
+
                 if (authError != null)
                 {
                     yield return authError;
@@ -559,6 +562,7 @@ namespace SmartHopper.Providers.MistralAI
                     sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
                     response = null!;
                 }
+
                 if (sendError != null)
                 {
                     yield return sendError;
@@ -581,6 +585,8 @@ namespace SmartHopper.Providers.MistralAI
 
                 var textBuffer = new StringBuilder();
                 var haveStreamedAny = false;
+                bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
+
                 // Collect metrics from streaming (Mistral includes usage in the last chunk per docs)
                 var streamMetrics = new AIMetrics
                 {
@@ -597,6 +603,9 @@ namespace SmartHopper.Providers.MistralAI
                     Reasoning = string.Empty,
                     Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
                 };
+
+                // Tool call accumulation for final body
+                var toolCallsList = new List<AIInteractionToolCall>();
 
                 // Determine idle timeout from request (fallback to 60s if invalid)
                 var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
@@ -650,6 +659,7 @@ namespace SmartHopper.Providers.MistralAI
 
                     // Try delta.content (string or array); fallback to message.content
                     string newText = string.Empty;
+                    string newReasoning = string.Empty;
                     var delta = choice["delta"] as JObject;
                     if (delta != null)
                     {
@@ -658,7 +668,34 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             foreach (var part in contentArray.OfType<JObject>())
                             {
-                                if (string.Equals(part["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                var type = part["type"]?.ToString();
+                                if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Extract thinking/reasoning content
+                                    var thinkingToken = part["thinking"];
+                                    if (thinkingToken is JArray thinkingArray)
+                                    {
+                                        foreach (var t in thinkingArray)
+                                        {
+                                            if (t is JObject to && string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                var textVal = to["text"]?.ToString();
+                                                if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                            }
+                                            else
+                                            {
+                                                var textVal = t?.ToString();
+                                                if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        var textVal = thinkingToken?.ToString();
+                                        if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                    }
+                                }
+                                else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
                                 {
                                     var t = part["text"]?.ToString();
                                     if (!string.IsNullOrEmpty(t)) newText += t;
@@ -684,6 +721,7 @@ namespace SmartHopper.Providers.MistralAI
                                     Agent = AIAgent.ToolCall,
                                 };
                                 toolInteractions.Add(toolCall);
+                                toolCallsList.Add(toolCall); // Store for final body
                             }
 
                             var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
@@ -713,11 +751,58 @@ namespace SmartHopper.Providers.MistralAI
                         }
                     }
 
+                    // Append reasoning/content deltas and track updates
+                    bool hasReasoningUpdate = false;
+                    bool hasContentUpdate = false;
+
+                    if (!string.IsNullOrEmpty(newReasoning))
+                    {
+                        assistantAggregate.AppendDelta(reasoningDelta: newReasoning);
+                        hasReasoningUpdate = true;
+                        Debug.WriteLine($"[MistralAI] Streaming reasoning chunk: {newReasoning.Substring(0, Math.Min(50, newReasoning.Length))}...");
+                    }
+
                     if (!string.IsNullOrEmpty(newText))
                     {
                         textBuffer.Append(newText);
+
                         // Append to provider-local aggregate and emit a snapshot
                         assistantAggregate.AppendDelta(contentDelta: newText);
+                        hasContentUpdate = true;
+                    }
+
+                    if(hasContentUpdate)
+                    {
+                        // If we had a reasoning-only segment, complete it first to trigger segmentation
+                        if (hadReasoningOnlySegment)
+                        {
+                            // Emit completed reasoning-only interaction to set boundary flag
+                            var reasoningComplete = new AIInteractionText
+                            {
+                                Agent = assistantAggregate.Agent,
+                                Content = string.Empty,
+                                Reasoning = assistantAggregate.Reasoning,
+                                Time = DateTime.UtcNow,
+                                Metrics = new AIMetrics
+                                {
+                                    Provider = assistantAggregate.Metrics.Provider,
+                                    Model = assistantAggregate.Metrics.Model,
+                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                },
+                            };
+
+                            var completeDelta = new AIReturn
+                            {
+                                Request = request,
+                                Status = AICallStatus.Finished,
+                            };
+
+                            completeDelta.SetBody(new List<IAIInteraction> { reasoningComplete });
+                            yield return completeDelta;
+                            await Task.Yield();
+
+                            hadReasoningOnlySegment = false;
+                        }
 
                         var snapshot = new AIInteractionText
                         {
@@ -746,6 +831,38 @@ namespace SmartHopper.Providers.MistralAI
                         yield return deltaRet;
                         haveStreamedAny = true;
                     }
+                    else if (hasReasoningUpdate)
+                    {
+                        // Emit reasoning-only snapshot (no text content yet)
+                        var snapshot = new AIInteractionText
+                        {
+                            Agent = assistantAggregate.Agent,
+                            Content = assistantAggregate.Content,
+                            Reasoning = assistantAggregate.Reasoning,
+                            Metrics = new AIMetrics
+                            {
+                                Provider = assistantAggregate.Metrics.Provider,
+                                Model = assistantAggregate.Metrics.Model,
+                                FinishReason = assistantAggregate.Metrics.FinishReason,
+                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            },
+                        };
+
+                        var deltaRet = new AIReturn
+                        {
+                            Request = request,
+                            Status = AICallStatus.Streaming,
+                        };
+                        deltaRet.SetBody(new List<IAIInteraction> { snapshot });
+                        yield return deltaRet;
+
+                        hadReasoningOnlySegment = true; // Mark that we have a reasoning segment
+                        haveStreamedAny = true;
+                    }
 
                     // Handle finish reason if present to emit final status later (record before potential break)
                     var finishReason = choice["finish_reason"]?.ToString();
@@ -753,6 +870,7 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         lastFinishReason = finishReason;
                     }
+
                     if (!string.IsNullOrEmpty(finishReason) && string.Equals(finishReason, "stop", StringComparison.OrdinalIgnoreCase))
                     {
                         break;
@@ -772,24 +890,39 @@ namespace SmartHopper.Providers.MistralAI
                 // Align aggregate finish reason
                 assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });
 
-                var finalSnapshot = new AIInteractionText
+                // Build final body with text and tool calls
+                var finalBuilder = AIBodyBuilder.Create();
+
+                // Add text interaction if present
+                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
                 {
-                    Agent = assistantAggregate.Agent,
-                    Content = assistantAggregate.Content,
-                    Reasoning = assistantAggregate.Reasoning,
-                    Metrics = new AIMetrics
+                    var finalSnapshot = new AIInteractionText
                     {
-                        Provider = assistantAggregate.Metrics.Provider,
-                        Model = assistantAggregate.Metrics.Model,
-                        FinishReason = assistantAggregate.Metrics.FinishReason,
-                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                    },
-                };
-                final.SetBody(new List<IAIInteraction> { finalSnapshot });
+                        Agent = assistantAggregate.Agent,
+                        Content = assistantAggregate.Content,
+                        Reasoning = assistantAggregate.Reasoning,
+                        Metrics = new AIMetrics
+                        {
+                            Provider = assistantAggregate.Metrics.Provider,
+                            Model = assistantAggregate.Metrics.Model,
+                            FinishReason = assistantAggregate.Metrics.FinishReason,
+                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                        },
+                    };
+                    finalBuilder.Add(finalSnapshot, markAsNew: false);
+                }
+
+                // Add tool calls if present (already marked as NOT new since they were yielded)
+                foreach (var tc in toolCallsList)
+                {
+                    finalBuilder.Add(tc, markAsNew: false);
+                }
+
+                final.SetBody(finalBuilder.Build());
                 yield return final;
             }
         }

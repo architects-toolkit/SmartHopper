@@ -122,7 +122,7 @@ namespace SmartHopper.Providers.OpenRouter
                     return new List<string>();
                 }
 
-                var raw = (response as AIReturn)?.GetRaw();
+                var raw = (response as AIReturn)?.Raw;
                 if (raw == null)
                 {
                     return new List<string>();

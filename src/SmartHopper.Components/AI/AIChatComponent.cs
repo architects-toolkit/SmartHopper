@@ -17,15 +17,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Core.AIContext;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.AI
@@ -35,8 +34,6 @@ namespace SmartHopper.Components.AI
     /// </summary>
     public class AIChatComponent : AIStatefulAsyncComponentBase
     {
-        private readonly TimeContextProvider timeProvider;
-        private readonly EnvironmentContextProvider environmentProvider;
         private string _systemPrompt;
 
         // Removed duplicated last-return storage; use base AIReturn snapshot instead
@@ -60,13 +57,6 @@ namespace SmartHopper.Components.AI
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;
-
-            // Create and register time and environment context providers
-            this.timeProvider = new TimeContextProvider();
-            this.environmentProvider = new EnvironmentContextProvider();
-
-            AIContextManager.RegisterProvider(this.timeProvider);
-            AIContextManager.RegisterProvider(this.environmentProvider);
         }
 
         /// <summary>
@@ -75,10 +65,6 @@ namespace SmartHopper.Components.AI
         /// <param name="document">The Grasshopper document.</param>
         public override void RemovedFromDocument(GH_Document document)
         {
-            // Unregister the context providers
-            AIContextManager.UnregisterProvider(this.timeProvider);
-            AIContextManager.UnregisterProvider(this.environmentProvider);
-
             // Ensure we detach ChatUpdated handlers for this component's dialog
             try { WebChatUtils.Unsubscribe(this.InstanceGuid); } catch { /* ignore */ }
 
@@ -143,7 +129,7 @@ namespace SmartHopper.Components.AI
 
                         Debug.WriteLine($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
 
-                        var ts = interaction.Time.ToLocalTime().ToString("HH:mm");
+                        var ts = interaction.Time.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
                         var role = interaction.Agent.ToDescription();
                         var content = interaction.ToString() ?? string.Empty;
 
@@ -161,6 +147,7 @@ namespace SmartHopper.Components.AI
 
             // Persistently set (or clear) the chat history so downstream updates occur
             this.SetPersistentOutput("Chat History", historyItems, DA);
+
             // Set metrics synchronously with chat history to ensure consistent downstream updates
             this.SetMetricsOutput(DA);
         }
@@ -172,16 +159,13 @@ namespace SmartHopper.Components.AI
         private void SetSystemPrompt(string systemPrompt)
         {
             this._systemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? this._defaultSystemPrompt : systemPrompt;
+            this.SystemPrompt = this._systemPrompt;
         }
 
         /// <summary>
         /// Gets the current system prompt.
         /// </summary>
-        /// <returns>The current system prompt.</returns>
-        protected string GetSystemPrompt()
-        {
-            return this._systemPrompt;
-        }
+        protected string SystemPrompt { get; private set; }
 
         /// <summary>
         /// Creates a worker for the component.
@@ -208,6 +192,13 @@ namespace SmartHopper.Components.AI
         /// </summary>
         public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
+        /// <summary>
+        /// Disable automatic restoration of persistent outputs from the base class.
+        /// The AIChat component manages its outputs explicitly each solve using the
+        /// latest AIReturn snapshot pushed by the WebChat dialog (partial updates only).
+        /// </summary>
+        protected override bool AutoRestorePersistentOutputs => false;
+
         // No local getters/setters for last return; rely on SetAIReturnSnapshot/GetAIReturnSnapshot from base
 
         /// <summary>
@@ -215,7 +206,7 @@ namespace SmartHopper.Components.AI
         /// </summary>
         internal AIReturn GetSnapshot()
         {
-            return this.GetAIReturnSnapshot();
+            return this.CurrentAIReturnSnapshot;
         }
 
         /// <summary>
@@ -233,6 +224,7 @@ namespace SmartHopper.Components.AI
         {
             private readonly AIChatComponent component;
             private readonly Action<string> progressReporter;
+
             // No local copy: rely solely on component's AIReturn snapshot
 
             /// <summary>
@@ -277,8 +269,8 @@ namespace SmartHopper.Components.AI
                         providerName: actualProvider,
                         modelName: this.component.GetModel(),
                         endpoint: "ai-chat",
-                        systemPrompt: this.component.GetSystemPrompt(),
-                        toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
+                        systemPrompt: this.component.SystemPrompt,
+                        toolFilter: "Components,ComponentsRetrieval,Knowledge,Scripting",
                         componentId: this.component.InstanceGuid,
                         progressReporter: this.progressReporter,
                         onUpdate: snapshot =>
@@ -288,11 +280,13 @@ namespace SmartHopper.Components.AI
                                 // Store full AIReturn in the base snapshot so metrics and other
                                 // downstream outputs can be derived from a single source of truth
                                 this.component.SetAIReturnSnapshot(snapshot);
+
                                 // Force downstream recompute so UI and dependents update promptly
                                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                                 {
                                     this.component.ExpireSolution(true);
                                 });
+
                                 // Nudge GH to keep UI responsive
                                 this.progressReporter?.Invoke("Chatting...");
                             }
@@ -335,4 +329,3 @@ namespace SmartHopper.Components.AI
         }
     }
 }
-

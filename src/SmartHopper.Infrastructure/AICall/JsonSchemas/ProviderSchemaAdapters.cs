@@ -108,7 +108,7 @@ namespace SmartHopper.Infrastructure.AICall.JsonSchemas
                     ["required"] = new JArray { "value" },
                     ["additionalProperties"] = false,
                 };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType ?? "primitive", PropertyName = "value" });
+                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType, PropertyName = "value" });
             }
 
             // Unknown type: wrap under data

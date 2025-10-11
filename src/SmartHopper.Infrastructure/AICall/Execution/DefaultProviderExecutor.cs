@@ -29,6 +29,7 @@ namespace SmartHopper.Infrastructure.AICall.Execution
         {
             if (request == null) return null;
             ct.ThrowIfCancellationRequested();
+
             // AIRequestCall.Exec() has its own cancellation handling internally for HTTP timeouts; we pre-check here.
             var res = await request.Exec().ConfigureAwait(false);
             return res;

@@ -44,7 +44,7 @@ namespace SmartHopper.Core.UI
 
         // Predefined system prompt for SmartHopper assistant
         private const string DefaultSystemPrompt = """
-            You are a helpful AI assistant specialized in Grasshopper 3D and computational design. Follow these guidelines:
+            You are a helpful AI assistant specialized in Grasshopper 3D. Follow these guidelines:
 
             - Be concise and technical in your responses
             - Explain complex concepts in simple terms
@@ -361,6 +361,7 @@ namespace SmartHopper.Core.UI
                 {
                     UnhookCanvasEvents(c);
                 }
+
                 hookedCanvases.Clear();
             }
             catch (Exception ex)
@@ -383,6 +384,7 @@ namespace SmartHopper.Core.UI
                     isPressed = false;
                     return;
                 }
+
                 // Update button position based on current canvas and window
                 UpdateButtonPosition(canvas);
                 DrawButton(canvas.Graphics);
@@ -506,6 +508,7 @@ namespace SmartHopper.Core.UI
             {
                 return;
             }
+
             if (IsPointInButton(new PointF(e.X, e.Y)))
             {
                 isPressed = true;
@@ -522,6 +525,7 @@ namespace SmartHopper.Core.UI
             {
                 return;
             }
+
             if (isPressed && IsPointInButton(new PointF(e.X, e.Y)))
             {
                 isPressed = false;
@@ -547,6 +551,7 @@ namespace SmartHopper.Core.UI
             {
                 return;
             }
+
             var wasHovering = isHovering;
             isHovering = IsPointInButton(new PointF(e.X, e.Y));
 
@@ -565,6 +570,7 @@ namespace SmartHopper.Core.UI
             {
                 return false;
             }
+
             // Check if point is within circular button bounds
             var center = new PointF(
                 buttonBounds.X + (buttonBounds.Width / 2),
@@ -614,7 +620,13 @@ namespace SmartHopper.Core.UI
                         }
 
                         // Refresh active canvas to reflect UI change immediately
-                        try { Instances.ActiveCanvas?.Refresh(); } catch { }
+                        try
+                        {
+                            Instances.ActiveCanvas?.Refresh();
+                        }
+                        catch
+                        {
+                        }
                     }
                 });
             }
@@ -638,6 +650,7 @@ namespace SmartHopper.Core.UI
                 var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
 
                 var requestedProviderName = assistant?.AssistantProvider;
+
                 // Treat "(Default)" as request to use configured default provider
                 var isDefaultProviderSelected = string.Equals(requestedProviderName, "(Default)", StringComparison.Ordinal);
                 var providerNameToUse = (!string.IsNullOrWhiteSpace(requestedProviderName) && !isDefaultProviderSelected)
@@ -665,23 +678,28 @@ namespace SmartHopper.Core.UI
 
                 var providerName = provider.Name;
                 var requestedModel = assistant?.AssistantModel;
+
                 // If user selected (Default) provider, always use provider default model
                 var model = isDefaultProviderSelected
-                    ? provider.GetDefaultModel(AICapability.ToolReasoningChat)
+                    ? provider.GetDefaultModel(AICapability.Text2Text)
                     : (!string.IsNullOrWhiteSpace(requestedModel)
                         ? requestedModel
-                        : provider.GetDefaultModel(AICapability.ToolReasoningChat));
+                        : provider.GetDefaultModel(AICapability.Text2Text));
 
                 Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
 
                 // Create and process the web chat worker
+                var greetingEnabled = assistant?.EnableAIGreeting == true;
                 var chatWorker = WebChatUtils.CreateWebChatWorker(
                     providerName,
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Knowledge, Components, Scripting, ComponentsRetrieval",
-                    componentId: CanvasChatDialogId);
+                    toolFilter: "Components,ComponentsRetrieval,Knowledge", // Removed the Scripting tools since they are still under development. TODO: reenable scripting tools
+                    componentId: CanvasChatDialogId,
+                    progressReporter: null,
+                    onUpdate: null,
+                    generateGreeting: greetingEnabled);
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 

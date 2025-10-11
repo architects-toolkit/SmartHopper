@@ -25,6 +25,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,9 +57,17 @@ namespace SmartHopper.Core.ComponentBase
         public bool RunOnlyOnInputChanges { get; set; } = true;
 
         /// <summary>
-        /// Progress information for tracking processing operations.
+        /// Gets the progress information for tracking processing operations.
         /// </summary>
         protected ProgressInfo ProgressInfo { get; private set; } = new ProgressInfo();
+
+        /// <summary>
+        /// Gets a value indicating whether the base class should automatically restore persistent outputs
+        /// during Completed/Waiting states. Override in derived components that wish to fully
+        /// manage their outputs each solve and avoid duplicate setting in a single cycle.
+        /// Default is true for backward compatibility.
+        /// </summary>
+        protected virtual bool AutoRestorePersistentOutputs => true;
 
         #region CONSTRUCTOR
 
@@ -136,6 +145,9 @@ namespace SmartHopper.Core.ComponentBase
 
         private bool run;
 
+        /// <summary>
+        /// Gets a value indicating whether the component is requested to run for the current solve.
+        /// </summary>
         public bool Run => this.run;
 
         /// <summary>
@@ -176,6 +188,9 @@ namespace SmartHopper.Core.ComponentBase
 
         #region LIFECYCLE
 
+        /// <summary>
+        /// Performs pre-solve initialization and guards against unintended resets during processing.
+        /// </summary>
         protected override void BeforeSolveInstance()
         {
             if (this.currentState == ComponentState.Processing && !this.run)
@@ -210,7 +225,7 @@ namespace SmartHopper.Core.ComponentBase
             DA.GetData("Run?", ref run);
             this.run = run;
 
-            Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - Current State: {this.currentState}, InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}, Run: {this.run}, IsTransitioning: {this.isTransitioning}, Pending Transitions: {this.pendingTransitions.Count}");
+            Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - Current State: {this.currentState}, InPreSolve: {this.InPreSolve}, State: {this.State}, SetData: {this.SetData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}, Run: {this.run}, IsTransitioning: {this.isTransitioning}, Pending Transitions: {this.pendingTransitions.Count}");
 
             // Execute the appropriate state handler
             switch (this.currentState)
@@ -291,6 +306,9 @@ namespace SmartHopper.Core.ComponentBase
             this.ResetInputChanged();
         }
 
+        /// <summary>
+        /// Finalizes processing by transitioning to Completed state, restoring outputs, and expiring the solution.
+        /// </summary>
         protected override void OnWorkerCompleted()
         {
             // Update input hashes before transitioning to prevent false input changes
@@ -319,9 +337,9 @@ namespace SmartHopper.Core.ComponentBase
         private TaskCompletionSource<bool> stateCompletionSource;
         private Queue<ComponentState> pendingTransitions = new ();
         private IGH_DataAccess lastDA;
-        
+
         // Flag to track if component was just restored from file with existing outputs
-        private bool justRestoredFromFile = false;
+        private bool justRestoredFromFile;
 
         // PUBLIC PROPERTIES
 
@@ -379,13 +397,13 @@ namespace SmartHopper.Core.ComponentBase
                         Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition from {oldState}");
                         this.ResetAsyncState();
                         this.ResetProgress();
-                        
+
                         // Fix for Issue #260: Async mechanism to handle boolean toggle case
                         // If component is still in Processing state without workers (didn't start processing) after debounce time, force execution
                         _ = Task.Run(async () =>
                         {
                             await Task.Delay(this.GetDebounceTime());
-                            
+
                             // Check if we're still in Processing state but no workers are running
                             if (this.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
                             {
@@ -397,8 +415,10 @@ namespace SmartHopper.Core.ComponentBase
                             }
                         });
                     }
+
                     // Set the message after Resetting the progress
                     this.Message = this.GetStateMessage();
+
                     // OnStateProcessing(DA) is called in SolveInstance, not during transition
                     break;
                 case ComponentState.Cancelled:
@@ -417,6 +437,9 @@ namespace SmartHopper.Core.ComponentBase
             return;
         }
 
+        /// <summary>
+        /// Completes the current state transition by signaling any awaiters that the transition finished.
+        /// </summary>
         protected void CompleteStateTransition()
         {
             this.stateCompletionSource?.TrySetResult(true);
@@ -462,7 +485,7 @@ namespace SmartHopper.Core.ComponentBase
 
         private void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this._state}, InPreSolve: {this.InPreSolve}, SetData: {this._setData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}");
+            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted, _state: {this.State}, InPreSolve: {this.InPreSolve}, SetData: {this.SetData}, Workers: {this.Workers.Count}, Changes during debounce: {this.inputChangedDuringDebounce}");
 
             // Ensure message is set correctly for Completed state
             // This is especially important after file restoration when ProcessTransition might not be called
@@ -472,7 +495,10 @@ namespace SmartHopper.Core.ComponentBase
             this.ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
-            this.RestorePersistentOutputs(DA);
+            if (this.AutoRestorePersistentOutputs)
+            {
+                this.RestorePersistentOutputs(DA);
+            }
 
             this.CompleteStateTransition();
         }
@@ -485,7 +511,10 @@ namespace SmartHopper.Core.ComponentBase
             this.ApplyPersistentRuntimeMessages();
 
             // Restore data from persistent storage, necessary when opening the file
-            this.RestorePersistentOutputs(DA);
+            if (this.AutoRestorePersistentOutputs)
+            {
+                this.RestorePersistentOutputs(DA);
+            }
 
             this.CompleteStateTransition();
         }
@@ -684,10 +713,10 @@ namespace SmartHopper.Core.ComponentBase
         {
             this.ProgressInfo.UpdateCurrent(current);
             Debug.WriteLine($"[{this.GetType().Name}] Progress updated - {current}/{this.ProgressInfo.Total}");
-            
+
             // Update the message with current progress information
             this.Message = this.GetStateMessage();
-            
+
             // Trigger UI refresh to update the displayed message
             Rhino.RhinoApp.InvokeOnUiThread(() =>
             {
@@ -718,14 +747,14 @@ namespace SmartHopper.Core.ComponentBase
         /// This is a convenience wrapper around DataTreeProcessor.RunFunctionAsync that automatically
         /// handles progress reporting for this component.
         /// </summary>
-        /// <typeparam name="T">Type of input tree items</typeparam>
-        /// <typeparam name="U">Type of output tree items</typeparam>
-        /// <param name="trees">Dictionary of input data trees</param>
-        /// <param name="function">Function to run on each branch</param>
-        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees</param>
-        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing</param>
-        /// <param name="token">Cancellation token</param>
-        /// <returns>Dictionary of output data trees</returns>
+        /// <typeparam name="T">Type of input tree items.</typeparam>
+        /// <typeparam name="U">Type of output tree items.</typeparam>
+        /// <param name="trees">Dictionary of input data trees.</param>
+        /// <param name="function">Function to run on each branch.</param>
+        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees.</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Dictionary of output data trees.</returns>
         protected async Task<Dictionary<string, GH_Structure<U>>> RunDataTreeFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
@@ -762,6 +791,7 @@ namespace SmartHopper.Core.ComponentBase
 
             return result;
         }
+
         #endregion
 
         #region DEBOUNCE
@@ -791,6 +821,10 @@ namespace SmartHopper.Core.ComponentBase
             return Math.Max(settingsDebounceTime, MINDEBOUNCETIME);
         }
 
+        /// <summary>
+        /// Restarts the debounce timer using the current <see cref="debounceTargetState"/>.
+        /// Increments the internal change counter and schedules a transition after the debounce interval.
+        /// </summary>
         protected void RestartDebounceTimer()
         {
             lock (this.timerLock)
@@ -801,6 +835,10 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        /// <summary>
+        /// Sets a new target state for the debounce transition and restarts the debounce timer.
+        /// </summary>
+        /// <param name="targetState">The state to transition to after the debounce interval.</param>
         protected void RestartDebounceTimer(ComponentState targetState)
         {
             this.debounceTargetState = targetState;
@@ -835,11 +873,53 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var param = this.Params.Output[i];
                 var savedValue = this.GetPersistentOutput<object>(param.Name);
-                if (savedValue != null)
+                if (savedValue == null)
+                    continue;
+
+                try
                 {
-                    try
+                    // Structured value previously persisted
+                    if (savedValue is IGH_Structure structure)
                     {
-                        // Create a new IGH_Goo instance if the value isn't already one
+                        if (param.Access == GH_ParamAccess.tree)
+                        {
+                            // Pass the structure through as-is for tree outputs
+                            this.SetPersistentOutput(param.Name, structure, DA);
+                        }
+                        else if (param.Access == GH_ParamAccess.list)
+                        {
+                            // Flatten to list (handled by SetPersistentOutput for list outputs)
+                            this.SetPersistentOutput(param.Name, structure, DA);
+                        }
+                        else
+                        {
+                            // Single output: take the first element from the structure, if any
+                            IGH_Goo first = null;
+                            foreach (var path in structure.Paths)
+                            {
+                                var branch = structure.get_Branch(path);
+                                if (branch != null && branch.Count > 0)
+                                {
+                                    first = branch[0] as IGH_Goo ?? GH_Convert.ToGoo(branch[0]);
+                                    break;
+                                }
+                            }
+
+                            if (first != null)
+                            {
+                                this.SetPersistentOutput(param.Name, first, DA);
+                            }
+                        }
+                    }
+
+                    // List output saved as IEnumerable
+                    else if (param.Access == GH_ParamAccess.list && savedValue is System.Collections.IEnumerable enumerable && savedValue is not string)
+                    {
+                        this.SetPersistentOutput(param.Name, enumerable, DA);
+                    }
+                    else
+                    {
+                        // Single item or already-goo
                         IGH_Goo gooValue;
                         if (savedValue is IGH_Goo existingGoo)
                         {
@@ -863,10 +943,10 @@ namespace SmartHopper.Core.ComponentBase
 
                         Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Successfully restored output '{param.Name}' with value '{gooValue}' of runtime type '{gooValue?.GetType()?.FullName ?? "null"}'");
                     }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
-                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("[StatefulAsyncComponentBase] [PersistentData] Failed to restore output '" + param.Name + "': " + ex.Message);
                 }
             }
         }
@@ -903,7 +983,11 @@ namespace SmartHopper.Core.ComponentBase
                 var outputsByGuid = new Dictionary<Guid, GH_Structure<IGH_Goo>>();
                 foreach (var p in this.Params.Output)
                 {
-                    if (this.persistentOutputs.TryGetValue(p.Name, out var value) && value is IGH_Structure structure)
+                    if (!this.persistentOutputs.TryGetValue(p.Name, out var value))
+                        continue;
+
+                    // Case 1: Already a structure → convert to GH_Structure<IGH_Goo> and persist
+                    if (value is IGH_Structure structure)
                     {
 #if DEBUG
                         LogStructureDetails(structure);
@@ -911,10 +995,34 @@ namespace SmartHopper.Core.ComponentBase
                         var tree = ConvertToGooTree(structure);
                         outputsByGuid[p.InstanceGuid] = tree;
                         Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 output for '{p.Name}' ({p.InstanceGuid}) paths={tree.PathCount} items={tree.DataCount}");
+                        continue;
                     }
-                    else if (this.persistentOutputs.TryGetValue(p.Name, out value))
+
+                    // Case 2: List outputs (IEnumerable but not string) → build a 1-branch tree and persist
+                    if (p.Access == GH_ParamAccess.list && value is System.Collections.IEnumerable enumerable && value is not string)
                     {
-                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Skipping non-structure output '{p.Name}' of type '{value?.GetType().FullName ?? "null"}'");
+                        var tree = new GH_Structure<IGH_Goo>();
+                        var path = new GH_Path(0, 0); // single canonical branch
+                        foreach (var item in enumerable)
+                        {
+                            if (item == null) continue;
+                            var goo = item as IGH_Goo ?? GH_Convert.ToGoo(item) ?? new GH_String(item.ToString());
+                            tree.Append(goo, path);
+                        }
+
+                        outputsByGuid[p.InstanceGuid] = tree;
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 list output for '{p.Name}' items={tree.DataCount}");
+                        continue;
+                    }
+
+                    // Case 3: Single item → wrap as a 1-branch tree and persist
+                    {
+                        var tree = new GH_Structure<IGH_Goo>();
+                        var path = new GH_Path(0, 0);
+                        var goo = value as IGH_Goo ?? GH_Convert.ToGoo(value) ?? new GH_String(value?.ToString() ?? string.Empty);
+                        tree.Append(goo, path);
+                        outputsByGuid[p.InstanceGuid] = tree;
+                        Debug.WriteLine($"[StatefulAsyncComponentBase] [Write] Prepared V2 single output for '{p.Name}'");
                     }
                 }
 
@@ -1085,6 +1193,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
         }
+
 #endif
 
         /// <summary>
@@ -1117,9 +1226,11 @@ namespace SmartHopper.Core.ComponentBase
                             goo = new GH_String(item?.ToString() ?? string.Empty);
                         }
                     }
+
                     dst.Append(goo, path);
                 }
             }
+
             return dst;
         }
 
@@ -1128,6 +1239,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="paramName">Name of the parameter to store.</param>
         /// <param name="value">Value to store.</param>
+        /// <param name="DA">The data access object used to set the output immediately.</param>
         /// <remarks>
         /// This method is protected to allow derived classes to manually store values if needed.
         /// However, values are automatically stored after solving, so manual storage is rarely necessary.
@@ -1171,6 +1283,7 @@ namespace SmartHopper.Core.ComponentBase
                             if (value is IGH_Structure tree)
                             {
                                 Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Using existing tree of type: {tree.GetType().FullName}");
+
                                 // Guard: only set data if the tree has at least one branch and at least one item
                                 bool hasBranch = tree.PathCount > 0;
                                 bool hasItems = false;
@@ -1230,7 +1343,7 @@ namespace SmartHopper.Core.ComponentBase
                                         if (targetType == typeof(GH_Number) && rawValue is IConvertible)
                                         {
                                             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Converting to GH_Number");
-                                            value = new GH_Number(Convert.ToDouble(rawValue));
+                                            value = new GH_Number(Convert.ToDouble(rawValue, CultureInfo.InvariantCulture));
                                             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Conversion successful: {value.GetType().FullName}");
                                         }
                                         else
@@ -1260,7 +1373,25 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             // Handle list outputs properly
                             Debug.WriteLine($"[StatefulAsyncComponentBase] [PersistentData] Setting list output for '{param.Name}'");
-                            if (value is System.Collections.IEnumerable enumerable && !(value is string))
+                            if (value is IGH_Structure structValue)
+                            {
+                                // Flatten structure to a single list branch
+                                var list = new List<IGH_Goo>();
+                                foreach (var path in structValue.Paths)
+                                {
+                                    var branch = structValue.get_Branch(path);
+                                    if (branch == null) continue;
+                                    foreach (var item in branch)
+                                    {
+                                        if (item == null) continue;
+                                        var gooItem = item as IGH_Goo ?? GH_Convert.ToGoo(item);
+                                        if (gooItem != null) list.Add(gooItem);
+                                    }
+                                }
+
+                                DA.SetDataList(paramIndex, list);
+                            }
+                            else if (value is System.Collections.IEnumerable enumerable && !(value is string))
                             {
                                 var list = new List<IGH_Goo>();
                                 foreach (var item in enumerable)
@@ -1269,6 +1400,7 @@ namespace SmartHopper.Core.ComponentBase
                                     var gooItem = item as IGH_Goo ?? GH_Convert.ToGoo(item);
                                     if (gooItem != null) list.Add(gooItem);
                                 }
+
                                 // Always set the list, even if empty, to ensure outputs are cleared when needed
                                 DA.SetDataList(paramIndex, list);
                             }
@@ -1350,7 +1482,7 @@ namespace SmartHopper.Core.ComponentBase
                         // Use value-based hashing instead of object-instance hashing
                         // to prevent false-positive changes when connecting new sources with same values
                         int itemHash;
-                        
+
                         // Try to get the actual value for common Grasshopper types
                         if (item is IGH_Goo goo && goo.IsValid)
                         {
@@ -1362,14 +1494,14 @@ namespace SmartHopper.Core.ComponentBase
                             // Fallback to string representation for consistent value-based hashing
                             itemHash = item.GetHashCode();
                         }
-                        
+
                         branchHash = CombineHashCodes(branchHash, itemHash);
                     }
                 }
 
                 // Combine the branch data hash (captures the VALUES in this branch)
                 currentHash = CombineHashCodes(currentHash, branchHash);
-                
+
                 // Combine the branch path hash (captures the STRUCTURE/PATH of this branch)
                 // This is crucial because branches {0} and {1} with identical data should have different hashes
                 currentHash = CombineHashCodes(currentHash, branch.GetHashCode());
@@ -1404,6 +1536,11 @@ namespace SmartHopper.Core.ComponentBase
             this.previousInputBranchCounts[param.Name] = branchCount;
         }
 
+        /// <summary>
+        /// Determines which input parameters have changed since the last successful run by comparing
+        /// both value hashes and branch structure counts.
+        /// </summary>
+        /// <returns>List of input parameter names that have changed.</returns>
         protected virtual List<string> InputsChanged()
         {
             if (this.previousInputHashes == null)
@@ -1538,6 +1675,11 @@ namespace SmartHopper.Core.ComponentBase
 
         #region AUX
 
+        /// <summary>
+        /// Expires downstream objects when appropriate so that connected components recompute.
+        /// Allows expiration in <see cref="ComponentState.Completed"/> and during the post-solve pass
+        /// of <see cref="ComponentState.Processing"/> once outputs have been set.
+        /// </summary>
         protected override void ExpireDownStreamObjects()
         {
             // Prefer expiring when data is ready:
@@ -1545,11 +1687,11 @@ namespace SmartHopper.Core.ComponentBase
             // - Also allow in Processing during the post-solve pass (after outputs have been set)
             bool allowDuringProcessing = this.currentState == ComponentState.Processing
                                          && !this.InPreSolve
-                                         && (this._setData == 1 || (this.persistentOutputs != null && this.persistentOutputs.Count > 0));
+                                         && (this.SetData == 1 || (this.persistentOutputs != null && this.persistentOutputs.Count > 0));
 
             if (this.currentState == ComponentState.Completed || allowDuringProcessing)
             {
-                Debug.WriteLine($"[StatefulAsyncComponentBase] Expiring downstream objects (state: {this.currentState}, InPreSolve: {this.InPreSolve}, setData: {this._setData})");
+                Debug.WriteLine($"[StatefulAsyncComponentBase] Expiring downstream objects (state: {this.currentState}, InPreSolve: {this.InPreSolve}, setData: {this.SetData})");
                 base.ExpireDownStreamObjects();
             }
 
@@ -1557,6 +1699,10 @@ namespace SmartHopper.Core.ComponentBase
         }
 
 #if DEBUG
+        /// <summary>
+        /// Appends debug-only context menu items useful for manual testing while developing.
+        /// </summary>
+        /// <param name="menu">The target menu.</param>
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
@@ -1564,51 +1710,54 @@ namespace SmartHopper.Core.ComponentBase
             Menu_AppendItem(menu, "Debug: OnDisplayExpired(true)", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(true)");
-                OnDisplayExpired(true);
+                this.OnDisplayExpired(true);
             });
             Menu_AppendItem(menu, "Debug: OnDisplayExpired(false)", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual OnDisplayExpired(false)");
-                OnDisplayExpired(false);
+                this.OnDisplayExpired(false);
             });
             Menu_AppendItem(menu, "Debug: ExpireSolution", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireSolution");
-                ExpireSolution(true);
+                this.ExpireSolution(true);
             });
             Menu_AppendItem(menu, "Debug: ExpireDownStreamObjects", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual ExpireDownStreamObjects");
-                ExpireDownStreamObjects();
+                this.ExpireDownStreamObjects();
             });
             Menu_AppendItem(menu, "Debug: ClearData", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearData");
-                ClearData();
+                this.ClearData();
             });
             Menu_AppendItem(menu, "Debug: ClearDataOnly", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual ClearDataOnly");
-                ClearDataOnly();
+                this.ClearDataOnly();
             });
             Menu_AppendItem(menu, "Debug: Add Error", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Error");
-                SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
+                this.SetPersistentRuntimeMessage("test-error", GH_RuntimeMessageLevel.Error, "This is an error");
             });
             Menu_AppendItem(menu, "Debug: Add Warning", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Warning");
-                SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
+                this.SetPersistentRuntimeMessage("test-warning", GH_RuntimeMessageLevel.Warning, "This is a warning");
             });
             Menu_AppendItem(menu, "Debug: Add Remark", (s, e) =>
             {
                 Debug.WriteLine("[StatefulAsyncComponentBase] Manual Add Remark");
-                SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
+                this.SetPersistentRuntimeMessage("test-remark", GH_RuntimeMessageLevel.Remark, "This is a remark");
             });
         }
-#endif
 
+#endif
+        /// <summary>
+        /// Requests cancellation of any running tasks and transitions the component to the Cancelled state.
+        /// </summary>
         public override void RequestTaskCancellation()
         {
             base.RequestTaskCancellation();

@@ -19,34 +19,117 @@ namespace SmartHopper.Infrastructure.AIModels
     [Flags]
     public enum AICapability
     {
+        /// <summary>
+        /// No capabilities. Used as a default or placeholder value.
+        /// </summary>
         None = 0,
 
         // Input capabilities
+
+        /// <summary>
+        /// Supports accepting textual input (prompts or text content).
+        /// </summary>
         TextInput = 1 << 0,
+
+        /// <summary>
+        /// Supports accepting image input (image understanding or vision).
+        /// </summary>
         ImageInput = 1 << 1,
+
+        /// <summary>
+        /// Supports accepting audio input (speech or other audio signals).
+        /// </summary>
         AudioInput = 1 << 2,
+
+        /// <summary>
+        /// Supports accepting structured JSON input.
+        /// </summary>
         JsonInput = 1 << 3,
 
         // Output capabilities
+
+        /// <summary>
+        /// Can produce textual output.
+        /// </summary>
         TextOutput = 1 << 4,
+
+        /// <summary>
+        /// Can generate images as output.
+        /// </summary>
         ImageOutput = 1 << 5,
+
+        /// <summary>
+        /// Can produce audio as output (e.g., text-to-speech).
+        /// </summary>
         AudioOutput = 1 << 6,
+
+        /// <summary>
+        /// Can produce structured JSON output.
+        /// </summary>
         JsonOutput = 1 << 7,
 
         // Advanced capabilities
+
+        /// <summary>
+        /// Supports tool/function calling with structured arguments.
+        /// </summary>
         FunctionCalling = 1 << 8,
+
+        /// <summary>
+        /// Enhanced reasoning capabilities (e.g., long deliberation or thinking).
+        /// </summary>
         Reasoning = 1 << 9,
 
         // Composite capabilities for default definition
+
+        /// <summary>
+        /// Text-in to text-out chat capability.
+        /// </summary>
         Text2Text = TextInput | TextOutput,
+
+        /// <summary>
+        /// Text chat with tool/function calling.
+        /// </summary>
         ToolChat = Text2Text | FunctionCalling,
+
+        /// <summary>
+        /// Text chat with enhanced reasoning.
+        /// </summary>
         ReasoningChat = Text2Text | Reasoning,
+
+        /// <summary>
+        /// Text chat with both enhanced reasoning and tool/function calling.
+        /// </summary>
         ToolReasoningChat = Text2Text | Reasoning | FunctionCalling,
+
+        /// <summary>
+        /// Text-in to JSON-out (structured output generation).
+        /// </summary>
         Text2Json = TextInput | JsonOutput,
+
+        /// <summary>
+        /// Text-in to image-out (image generation).
+        /// </summary>
         Text2Image = TextInput | ImageOutput,
+
+        /// <summary>
+        /// Text-in to audio-out (text-to-speech).
+        /// </summary>
         Text2Speech = TextInput | AudioOutput,
+
+        /// <summary>
+        /// Audio-in to text-out (automatic speech recognition).
+        /// </summary>
         Speech2Text = AudioInput | TextOutput,
+
+        /// <summary>
+        /// Image-in to text-out (image description or understanding, vision capabilities).
+        /// </summary>
         Image2Text = ImageInput | TextOutput,
+
+        /// <summary>
+        /// Image-in to image-out (image editing or transformation).
+        /// </summary>
         Image2Image = ImageInput | ImageOutput,
     }
 

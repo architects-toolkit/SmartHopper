@@ -65,8 +65,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guids""]
                 }",
-                execute: this.GhGroupAsync
-            );
+                execute: this.GhGroupAsync);
         }
 
         private Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
@@ -81,9 +80,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var guidStrings = toolInfo.Arguments["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var groupName = toolInfo.Arguments["groupName"]?.ToString();
-                var colorStr = toolInfo.Arguments["color"]?.ToString();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guidStrings = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var groupName = args["groupName"]?.ToString();
+                var colorStr = args["color"]?.ToString();
                 var validGuids = new List<Guid>();
 
                 foreach (var s in guidStrings)
@@ -138,7 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var toolResult = new JObject
                     {
                         ["group"] = group.InstanceGuid.ToString(),
-                        ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString()))
+                        ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
                     };
 
                     var body = AIBodyBuilder.Create()

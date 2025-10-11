@@ -36,10 +36,10 @@ namespace SmartHopper.Menu
             }
 
             // Start a timer to check for the editor
-            _timer = new Timer();
-            _timer.Interval = 1000; // Check every second
-            _timer.Tick += Timer_Tick;
-            _timer.Start();
+            this._timer = new Timer();
+            this._timer.Interval = 1000; // Check every second
+            this._timer.Tick += this.Timer_Tick;
+            this._timer.Start();
 
             return GH_LoadingInstruction.Proceed;
         }
@@ -48,8 +48,8 @@ namespace SmartHopper.Menu
         {
             if (Instances.DocumentEditor != null)
             {
-                _timer.Stop();
-                AddToMainMenu();
+                this._timer.Stop();
+                this.AddToMainMenu();
             }
         }
 
@@ -61,16 +61,16 @@ namespace SmartHopper.Menu
                 if (editor?.MainMenuStrip != null)
                 {
                     var mainMenu = editor.MainMenuStrip;
-                    if (!MenuExists(mainMenu))
+                    if (!this.MenuExists(mainMenu))
                     {
-                        var menuItem = CreateMenuItem();
+                        var menuItem = this.CreateMenuItem();
                         mainMenu.Items.Add(menuItem);
                     }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to add menu: {ex.Message}");
+                Debug.WriteLine($"Failed to add menu: {ex.Message}");
             }
         }
 
@@ -81,6 +81,7 @@ namespace SmartHopper.Menu
                 if (item.Text == "SmartHopper")
                     return true;
             }
+
             return false;
         }
 
@@ -93,7 +94,7 @@ namespace SmartHopper.Menu
                 SettingsMenuItem.Create(),
                 RefreshProvidersMenuItem.Create(),
                 new ToolStripSeparator(),
-                AboutMenuItem.Create()
+                AboutMenuItem.Create(),
             });
 
             return menu;

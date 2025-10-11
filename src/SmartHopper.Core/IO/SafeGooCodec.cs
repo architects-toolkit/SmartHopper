@@ -79,42 +79,55 @@ namespace SmartHopper.Core.IO
                 {
                     case "GH_String":
                         goo = new GH_String(data);
+
                         return true;
+
                     case "GH_Number":
                         if (double.TryParse(data, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
                         {
                             goo = new GH_Number(d);
                             return true;
                         }
+
                         goo = new GH_String(data);
                         warning = "Failed to parse GH_Number; restored as GH_String.";
+
                         return true;
+
                     case "GH_Integer":
                         if (int.TryParse(data, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
                         {
                             goo = new GH_Integer(i);
                             return true;
                         }
+
                         goo = new GH_String(data);
                         warning = "Failed to parse GH_Integer; restored as GH_String.";
+
                         return true;
+
                     case "GH_Boolean":
                         if (data == "1" || data.Equals("true", StringComparison.OrdinalIgnoreCase))
                         {
                             goo = new GH_Boolean(true);
                             return true;
                         }
+
                         if (data == "0" || data.Equals("false", StringComparison.OrdinalIgnoreCase))
                         {
                             goo = new GH_Boolean(false);
                             return true;
                         }
+
                         goo = new GH_String(data);
                         warning = "Failed to parse GH_Boolean; restored as GH_String.";
+
                         return true;
+
                     default:
                         goo = new GH_String(data);
                         warning = $"Unknown type hint '{typeHint}'; restored as GH_String.";
+
                         return true;
                 }
             }
@@ -122,6 +135,7 @@ namespace SmartHopper.Core.IO
             {
                 goo = new GH_String(data);
                 warning = $"Exception decoding payload: {ex.Message}; restored as GH_String.";
+
                 return true;
             }
         }

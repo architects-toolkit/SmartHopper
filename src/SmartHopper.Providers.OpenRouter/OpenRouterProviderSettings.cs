@@ -87,6 +87,7 @@ namespace SmartHopper.Providers.OpenRouter
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Some underlying models may ignore this parameter.",
                 },
+
                 // Provider selection controls
                 new SettingDescriptor
                 {
@@ -208,6 +209,7 @@ namespace SmartHopper.Providers.OpenRouter
                     {
                         StyledMessageDialog.ShowError("Sort must be one of: price, throughput, latency.", "Validation Error");
                     }
+
                     return false;
                 }
             }
@@ -223,6 +225,7 @@ namespace SmartHopper.Providers.OpenRouter
                     {
                         StyledMessageDialog.ShowError("Data Collection must be either 'deny' or 'allow'.", "Validation Error");
                     }
+
                     return false;
                 }
             }

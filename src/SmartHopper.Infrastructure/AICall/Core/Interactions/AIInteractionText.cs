@@ -9,23 +9,18 @@
  */
 
 using System;
+using System.Globalization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
     /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionText in text generation operations.
     /// </summary>
-    public class AIInteractionText : IAIInteraction
+    public class AIInteractionText : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
-        /// <inheritdoc/>
-        public AIAgent Agent { get; set; }
-
-        /// <inheritdoc/>
-        public DateTime Time { get; set; } = DateTime.UtcNow;
-
         /// <summary>
         /// Gets or sets the content of the message.
         /// </summary>
@@ -36,9 +31,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// </summary>
         public string Reasoning { get; set; }
 
-        /// <inheritdoc/>
-        public AIMetrics Metrics { get; set; } = new AIMetrics();
-
         /// <summary>
         /// Returns a string representation of the AIInteractionText.
         /// </summary>
@@ -47,14 +39,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var result = string.Empty;
 
-            if(!string.IsNullOrEmpty(Reasoning))
+            if (!string.IsNullOrEmpty(this.Reasoning))
             {
-                result += $"<think>{Reasoning}</think>";
+                result += $"<think>{this.Reasoning}</think>";
             }
 
-            if(!string.IsNullOrEmpty(Content))
+            if (!string.IsNullOrEmpty(this.Content))
             {
-                result += $"{Content}";
+                result += $"{this.Content}";
             }
 
             return result;
@@ -99,8 +91,76 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 {
                     this.Metrics = new AIMetrics();
                 }
+
                 this.Metrics.Combine(metricsDelta);
             }
+        }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this interaction.
+        /// When a TurnId exists, the key is stable across streaming chunks (no timestamp),
+        /// ensuring UI upserts replace the same DOM node. For non-turn messages, includes a timestamp.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public string GetStreamKey()
+        {
+            var agent = (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
+            var timestamp = this.Time.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                // Stable per-turn key (no timestamp) so streaming chunks upsert the same element
+                return $"turn:{this.TurnId}:{agent}";
+            }
+
+            // Fallback for messages without a TurnId
+            return $"text:{agent}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this interaction using agent and trimmed content.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public string GetDedupKey()
+        {
+            var turnIdPart = !string.IsNullOrWhiteSpace(this.TurnId) ? this.TurnId : string.Empty;
+            var agentPart = (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
+            var content = (this.Content ?? string.Empty).Trim();
+            var hash = HashUtility.ComputeShortHash($"{turnIdPart}:{agentPart}:{content}");
+
+            return $"{this.GetStreamKey()}:{hash}";
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction.
+        /// </summary>
+        public string GetRoleClassForRender()
+        {
+            return (this.Agent.ToString() ?? "assistant").ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public string GetDisplayNameForRender()
+        {
+            return this.Agent.ToDescription();
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction.
+        /// </summary>
+        public string GetRawContentForRender()
+        {
+            return this.Content ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Gets the raw reasoning content to render for this interaction.
+        /// </summary>
+        public string GetRawReasoningForRender()
+        {
+            return this.Reasoning ?? string.Empty;
         }
     }
 }

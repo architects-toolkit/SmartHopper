@@ -84,7 +84,7 @@ namespace SmartHopper.Components.Grasshopper
 
             var parameters = new JObject
             {
-                ["categoryFilter"] = JArray.FromObject(filters)
+                ["categoryFilter"] = JArray.FromObject(filters),
             };
 
             try
@@ -130,4 +130,3 @@ namespace SmartHopper.Components.Grasshopper
         }
     }
 }
-

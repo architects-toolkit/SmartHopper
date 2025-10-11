@@ -22,10 +22,10 @@ namespace SmartHopper.Menu.Dialogs
     /// <summary>
     /// Dialog to display information about SmartHopper, including version, copyright, and support information
     /// </summary>
-    internal class AboutDialog : Dialog
+    internal sealed class AboutDialog : Dialog
     {
         private const string GitHubUrl = "https://github.com/architects-toolkit/SmartHopper";
-        private const string RktkUrl = "https://rktk.tools";
+        private const string GitHubCompanyUrl = "https://github.com/architects-toolkit";
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
 
@@ -35,33 +35,34 @@ namespace SmartHopper.Menu.Dialogs
         /// <param name="version">The version of SmartHopper to display</param>
         public AboutDialog(string version)
         {
-            Title = "About SmartHopper";
+            this.Title = "About SmartHopper";
+
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
             {
                 if (stream != null)
                 {
-                    Icon = new Icon(stream);
+                    this.Icon = new Icon(stream);
                 }
             }
-            Resizable = true;
-            Size = new Size(800, 550);
-            MinimumSize = new Size(600, 500);
-            Padding = new Padding(20);
+
+            this.Resizable = true;
+            this.Size = new Size(800, 550);
+            this.MinimumSize = new Size(600, 500);
+            this.Padding = new Padding(20);
 
             var mainLayout = new TableLayout
             {
                 Spacing = new Size(20, 0),
-                Rows = { new TableRow { Cells = { CreateLogoPanel(), CreateContentPanel(version) } } }
+                Rows = { new TableRow { Cells = { CreateLogoPanel(), this.CreateContentPanel(version) } } },
             };
 
-            Content = mainLayout;
+            this.Content = mainLayout;
 
             // Center the dialog on screen
-            Location = new Point(
-                (int)((Screen.PrimaryScreen.Bounds.Width - Size.Width) / 2),
-                (int)((Screen.PrimaryScreen.Bounds.Height - Size.Height) / 2)
-            );
+            this.Location = new Point(
+                (int)((Screen.PrimaryScreen.Bounds.Width - this.Size.Width) / 2),
+                (int)((Screen.PrimaryScreen.Bounds.Height - this.Size.Height) / 2));
         }
 
         private static Control CreateLogoPanel()
@@ -83,7 +84,7 @@ namespace SmartHopper.Menu.Dialogs
                 Spacing = 0,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Top,
-                Items = { new StackLayoutItem(imageView, false) }
+                Items = { new StackLayoutItem(imageView, false) },
             };
         }
 
@@ -93,7 +94,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Text = "SmartHopper",
                 Font = new Font(SystemFont.Bold, 22),
-                TextColor = SystemColors.ControlText
+                TextColor = SystemColors.ControlText,
             };
 
             var subtitleLabel = new Label
@@ -101,7 +102,7 @@ namespace SmartHopper.Menu.Dialogs
                 Text = "An AI-powered assistant for Grasshopper3D",
                 Font = new Font(SystemFont.Default, 12),
                 TextColor = SystemColors.ControlText,
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var versionLabel = new Label
@@ -109,44 +110,44 @@ namespace SmartHopper.Menu.Dialogs
                 Text = $"Version {version}",
                 Font = new Font(SystemFont.Default, 10),
                 TextColor = SystemColors.DisabledText,
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var copyrightLabel = new Label
             {
                 Text = "Copyright (c) 2024-2025 Marc Roca Musach",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var licenseLabel = new Label
             {
                 Text = "Licensed under GNU Lesser General Public License v3.0",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var supportLabel = new Label
             {
                 Text = "Supported by:",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
-            var supportLinkLabel = CreateLinkButton("Architect's Toolkit (RKTK.tools)", RktkUrl);
+            var supportLinkLabel = CreateLinkButton("Architect's Toolkit", GitHubCompanyUrl);
 
             var communityLabel = new Label
             {
                 Text = "and the SmartHopper Community",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var descriptionLabel = new Label
             {
                 Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic and OpenRouter (in order of implementation).",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var warningLabel = new Label
@@ -154,7 +155,7 @@ namespace SmartHopper.Menu.Dialogs
                 Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS. FILES SAVED WITH THIS VERSION MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                TextColor = Colors.DarkRed
+                TextColor = Colors.DarkRed,
             };
 
             var aiDisclaimerLabel = new Label
@@ -165,14 +166,14 @@ namespace SmartHopper.Menu.Dialogs
                        "SmartHopper and any of its authors, contributors, or affiliates are not liable for any errors or omissions in the content generated by these AI services.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                TextColor = Colors.DarkGray
+                TextColor = Colors.DarkGray,
             };
 
             var openSourceThanksLabel = new Label
             {
                 Text = "Special thanks to all the Open Source Projects that inspired or were used as a base for this project:",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var speckleLink = new StackLayout
@@ -184,7 +185,7 @@ namespace SmartHopper.Menu.Dialogs
                     new Label { Text = "- Speckle Systems for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
                     new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var ghptLink = new StackLayout
@@ -196,7 +197,7 @@ namespace SmartHopper.Menu.Dialogs
                     new Label { Text = "- enmerk4r for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
                     new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var materialIconsLink = new StackLayout
@@ -208,7 +209,7 @@ namespace SmartHopper.Menu.Dialogs
                     new Label { Text = "- Google for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
                     new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var lobeIconsLink = new StackLayout
@@ -220,14 +221,14 @@ namespace SmartHopper.Menu.Dialogs
                     new Label { Text = "- LobeHub for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Lobe Icons", "https://github.com/lobehub/lobe-icons"),
                     new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
-                }
+                },
             };
 
             var logoDesignThanksLabel = new Label
             {
                 Text = "Acknowledgement to Jordina Roca Musach for the SmartHopper logo design.",
                 Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
             };
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
@@ -235,7 +236,7 @@ namespace SmartHopper.Menu.Dialogs
             var okButton = new Button
             {
                 Text = "OK",
-                Command = new Command((sender, e) => Close())
+                Command = new Command((sender, e) => this.Close()),
             };
 
             // Create a layout for the scrollable content and OK button
@@ -264,7 +265,7 @@ namespace SmartHopper.Menu.Dialogs
                         {
                             Orientation = Orientation.Horizontal,
                             Spacing = 5,
-                            Items = { supportLabel, supportLinkLabel, communityLabel }
+                            Items = { supportLabel, supportLinkLabel, communityLabel },
                         },
                         null, // spacing
                         warningLabel,
@@ -277,7 +278,7 @@ namespace SmartHopper.Menu.Dialogs
                             {
                                 new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
                                 githubLinkLabel
-                            }
+                            },
                         },
                         null, // spacing
                         openSourceThanksLabel,
@@ -306,7 +307,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Text = text,
                 Font = new Font(SystemFont.Default, 10),
-                TextColor = Colors.Blue
+                TextColor = Colors.Blue,
             };
 
             link.Click += (sender, e) => OpenUrl(url);
@@ -320,7 +321,7 @@ namespace SmartHopper.Menu.Dialogs
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = url,
-                    UseShellExecute = true
+                    UseShellExecute = true,
                 });
             }
             catch (Exception ex)

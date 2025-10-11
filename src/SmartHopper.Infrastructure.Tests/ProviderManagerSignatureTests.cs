@@ -87,7 +87,7 @@ namespace SmartHopper.Infrastructure.Tests
             }
 
             // Skip if certificate creation is not supported (e.g., in CI environments)
-            if (!IsCertificateCreationSupported())
+            if (!this.IsCertificateCreationSupported())
             {
                 this.output.WriteLine("Skipping certificate creation test - not supported in current environment");
                 return;
@@ -574,7 +574,7 @@ namespace SmartHopper.Infrastructure.Tests
                     var isCI = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) ||
                               !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")) ||
                               !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TF_BUILD"));
-                    
+
                     // In CI environments, certificate creation often fails
                     return !isCI;
                 }

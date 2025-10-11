@@ -69,7 +69,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         public virtual AIBody Body { get; set; } = AIBody.Empty;
 
         /// <inheritdoc/>
-        public virtual bool WantsStreaming { get; set; } = false;
+        public virtual bool WantsStreaming { get; set; }
 
         /// <inheritdoc/>
         public virtual AIRequestKind RequestKind { get; set; } = AIRequestKind.Generation;
@@ -136,6 +136,29 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             if (this.PrivateMessages != null && this.PrivateMessages.Count > 0)
             {
                 messages.AddRange(this.PrivateMessages);
+            }
+
+            // Unified TurnId invariant: all interactions must have TurnId.
+            // Validate early at request level so providers always receive well-formed bodies.
+            try
+            {
+                if (this.Body != null && !this.Body.AreTurnIdsValid())
+                {
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.BodyInvalid,
+                        "Request body contains interactions without TurnId. Ensure TurnId is set (e.g., via AIBodyBuilder.WithTurnId(...)) before building the body."));
+                }
+            }
+            catch
+            {
+                // Defensive: validation should never throw
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
+                    "Failed to validate TurnId invariants for the request body."));
             }
 
             // Streaming support validation (blocking for streaming flows): when streaming is requested but unsupported, flag as error to fallback to non-streaming
@@ -205,10 +228,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 builder.AddRange(interactions);
             }
+
             if (!string.IsNullOrEmpty(toolFilter))
             {
                 builder.WithToolFilter(toolFilter);
             }
+
             var body = builder.Build();
             this.Initialize(provider, model, body, endpoint ?? string.Empty, capability);
         }
@@ -225,7 +250,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 // Model selection (validation/fallback) must happen only when a capability is known.
                 return this.model ?? string.Empty;
             }
-            
+
             if (string.IsNullOrEmpty(this.Provider))
             {
                 return string.Empty;

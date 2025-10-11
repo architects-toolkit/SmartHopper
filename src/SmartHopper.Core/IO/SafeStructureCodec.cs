@@ -47,6 +47,7 @@ namespace SmartHopper.Core.IO
                     dst.Append(new GH_String(payload), path);
                 }
             }
+
             return dst;
         }
 
@@ -85,6 +86,7 @@ namespace SmartHopper.Core.IO
                     }
                 }
             }
+
             return dst;
         }
     }

@@ -13,7 +13,8 @@ Purpose: Centralize multi-turn conversation orchestration with optional streamin
   - `void Cancel()`
 - `IConversationObserver`
   - `OnStart(AIRequestCall request)`
-  - `OnPartial(AIReturn delta)`
+  - `OnDelta(IAIInteraction interaction)`
+  - `OnInteractionCompleted(IAIInteraction interaction)`
   - `OnToolCall(AIInteractionToolCall toolCall)`
   - `OnToolResult(AIInteractionToolResult toolResult)`
   - `OnFinal(AIReturn finalResult)`
@@ -51,7 +52,7 @@ var streaming = new StreamingOptions
 {
     CoalesceTokens = true,
     CoalesceDelayMs = 40,
-    PreferredChunkSize = 64,
+    PreferredChunkSize = 24,
 };
 
 await foreach (var delta in session.Stream(options, streaming, ct))
@@ -62,13 +63,68 @@ await foreach (var delta in session.Stream(options, streaming, ct))
 
 Notes:
 
-- `ConversationSession.Stream(...)` will gate streaming using request validation rules. If streaming is unsupported or disabled, an error `AIReturn` is yielded and the sequence ends.
-- Streaming uses provider-specific adapters that implement `IStreamingAdapter`. The session probes the provider for `GetStreamingAdapter()` and falls back to a single-turn non-streaming call if unavailable.
-- `IConversationObserver.OnPartial(...)` is invoked for each delta, and tool call/result notifications are surfaced as they occur.
-
-## Additional notes
-
+- `ConversationSession.Stream(...)` gates streaming using request validation rules. If streaming is unsupported or disabled, an error `AIReturn` is yielded and the sequence ends.
+- For the canonical and detailed streaming behavior (adapter probing, delta vs partial events, persistence timing, fallback, and tool passes), see `docs/Providers/AICall/Streaming.md`. This page intentionally summarizes to avoid duplication.
 - `Exec()` performs a single provider call. Use `ConversationSession` for orchestration and streaming.
 - Policy pipeline hooks remain active in both streaming and non-streaming paths.
 - See also: Tools overview and `AIToolCall` usage in [./tools.md](./tools.md).
 
+## Conversation flow (Unified)
+
+The diagram below shows the unified orchestration used by `ConversationSession.cs`. Both `RunToStableResult(...)` and `Stream(...)` delegate to the same internal turn loop; the only difference is emission: `Stream(...)` yields deltas and final snapshots, while `RunToStableResult(...)` collects and returns the final stable result.
+
+```mermaid
+flowchart TD
+%% Entry
+START["Start (RunToStableResult | Stream)"] --> VAL{"Validate (wantsStreaming?)"}
+VAL -->|invalid| ERR["Emit/Return error"]
+VAL -->|valid| G{"Generate greeting?"}
+G -->|yes| GE["Emit greeting (stream) / Return greeting (non-stream)"]
+G -->|no| T{"turns < MaxTurns"}
+
+%% Per-turn processing
+T --> PEND{"ProcessTools && PendingToolCalls > 0"}
+PEND -->|yes| DRAIN["ProcessPendingToolsAsync (drain per limits)"] --> T
+PEND -->|no| EXEC["Execute provider turn (streaming adapter if available)"]
+
+EXEC -->|"deltas (stream)"| YIELD["Yield deltas; remember last delta"]
+EXEC -->|"single (non-stream)"| SINGLE["Got single result"]
+
+YIELD --> PERSIST["Persist per chunk in arrival order (no reordering)"]
+SINGLE --> PERSIST["Persist provider result"]
+
+PERSIST --> STABLE{"Stable (no pending tool calls)?"}
+STABLE -->|yes| FINAL["NotifyFinal; yield/return final"]
+STABLE -->|no| INC["turn++"] --> T
+
+T -->|exceeded| MAX["Max turns reached → error final"]
+```
+
+Notes:
+
+- Both public APIs now delegate to the same internal loop `TurnLoopAsync(...)` for consistent behavior.
+- Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
+- Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
+- **Duplicate prevention**: Tool calls are checked for existence by ID before persisting during streaming to prevent duplicate tool call interactions that would cause API validation errors.
+
+## Special Turns
+
+Special turns allow executing AI requests with custom overrides (interactions, provider, model, tools, context) while leveraging the regular conversation flow infrastructure.
+
+```csharp
+var greetingConfig = GreetingSpecialTurn.Create(providerName, systemPrompt);
+var greeting = await session.ExecuteSpecialTurnAsync(
+    greetingConfig,
+    preferStreaming: true,
+    cancellationToken);
+```
+
+**Key features:**
+
+- Execute through regular conversation flow with automatic state snapshot/restore
+- Four persistence strategies: `PersistResult`, `PersistAll`, `Ephemeral`, `ReplaceAbove`
+- Interaction filtering for granular control over what's persisted
+- Support both streaming and non-streaming modes
+- Transparent to observers (they only see what gets persisted)
+
+**See also:** [SpecialTurns.md](./SpecialTurns.md) for detailed documentation and use cases.

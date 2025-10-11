@@ -76,8 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""text"", ""question"" ]
                 }",
                 execute: this.EvaluateText,
-                requiredCapabilities: this.toolCapabilityRequirements
-            );
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
@@ -101,10 +100,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                string? text = toolInfo.Arguments["text"]?.ToString();
-                string? question = toolInfo.Arguments["question"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string? text = args["text"]?.ToString();
+                string? question = args["question"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
@@ -168,4 +168,3 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
     }
 }
-

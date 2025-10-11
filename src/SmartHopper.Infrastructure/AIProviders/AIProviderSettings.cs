@@ -20,11 +20,16 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// </summary>
     public abstract class AIProviderSettings : IAIProviderSettings
     {
-        protected readonly IAIProvider provider;
+        private readonly IAIProvider _provider;
+
+        /// <summary>
+        /// Gets the provider instance these settings are associated with.
+        /// </summary>
+        protected IAIProvider Provider => this._provider;
 
         protected AIProviderSettings(IAIProvider provider)
         {
-            this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            this._provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
         public abstract IEnumerable<SettingDescriptor> GetSettingDescriptors();
@@ -39,11 +44,12 @@ namespace SmartHopper.Infrastructure.AIProviders
                 try
                 {
                     // Try persisted value first
-                    var value = SmartHopperSettings.Instance.GetSetting(this.provider.Name, "EnableStreaming");
+                    var value = SmartHopperSettings.Instance.GetSetting(this.Provider.Name, "EnableStreaming");
                     if (value is bool b)
                     {
                         return b;
                     }
+
                     if (value != null && bool.TryParse(value.ToString(), out bool parsed))
                     {
                         return parsed;

@@ -12,15 +12,14 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-
+using SmartHopper.Infrastructure.AICall.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Represents an AI-generated text result with associated metadata.
-    /// Used as the Result type for AIInteractionTool in tool operations.
+    /// Represents an AI-generated tool result with associated metadata.
     /// </summary>
-    public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction
+    public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
         public override AIAgent Agent { get; set; } = AIAgent.ToolResult;
@@ -44,17 +43,85 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             var result = "Tool result";
 
-            if (!string.IsNullOrEmpty(Name))
+            if (!string.IsNullOrEmpty(this.Name))
             {
-                result += $" from {Name}";
+                result += $" from {this.Name}";
             }
 
-            if (Result != null && Result.HasValues)
+            if (this.Result != null && this.Result.HasValues)
             {
-                result += $":\n{JsonConvert.SerializeObject(Result, Formatting.Indented)}";
+                result += $":\n{JsonConvert.SerializeObject(this.Result, Formatting.Indented)}";
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Returns a stable stream grouping key for this interaction using tool.result:{IdOrName}.
+        /// </summary>
+        /// <returns>Stream group key.</returns>
+        public override string GetStreamKey()
+        {
+            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(this.TurnId))
+            {
+                return $"turn:{this.TurnId}:tool.result:{id}";
+            }
+
+            return $"tool.result:{id}";
+        }
+
+        /// <summary>
+        /// Returns a stable de-duplication key for this interaction including a compact result string.
+        /// </summary>
+        /// <returns>De-duplication key.</returns>
+        public override string GetDedupKey()
+        {
+            // Compact representation of the result to avoid massive keys
+            var resultStr = this.Result != null
+                ? (this.Result.Type == JTokenType.String
+                    ? ((string)this.Result).Trim()
+                    : this.Result.ToString(Formatting.None))
+                : string.Empty;
+
+            var res = resultStr.Length > 64 ? resultStr.Substring(0, 64) : resultStr;
+
+            var idPart = $"{this.Id ?? this.Name ?? string.Empty}:{res}";
+            var hash = HashUtility.ComputeShortHash(idPart);
+
+            return $"{this.GetStreamKey()}:{hash}";
+        }
+
+        /// <summary>
+        /// Gets the CSS role class to use when rendering this interaction.
+        /// </summary>
+        public override string GetRoleClassForRender()
+        {
+            return "tool";
+        }
+
+        /// <summary>
+        /// Gets the display name for rendering (header label).
+        /// </summary>
+        public override string GetDisplayNameForRender()
+        {
+            return string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}";
+        }
+
+        /// <summary>
+        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON result).
+        /// </summary>
+        public override string GetRawContentForRender()
+        {
+            return this.Result != null && this.Result.HasValues ? JsonConvert.SerializeObject(this.Result, Formatting.Indented) : string.Empty;
+        }
+
+        /// <summary>
+        /// Tool results do not include reasoning by default.
+        /// </summary>
+        public override string GetRawReasoningForRender()
+        {
+            return string.Empty;
         }
     }
 }

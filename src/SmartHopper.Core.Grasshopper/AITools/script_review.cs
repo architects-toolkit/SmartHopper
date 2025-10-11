@@ -36,10 +36,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "script_review";
-        
+
         /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
+        /// <returns>An enumerable containing the single "script_review" tool definition.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
@@ -61,14 +62,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guid""]
                 }",
                 execute: this.ScriptReviewToolAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput
-            );
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput);
         }
 
         /// <summary>
         /// Executes the "script_review" tool: retrieves the component by GUID, runs coded checks, and obtains an AI-based review.
         /// </summary>
-        /// <param name="parameters">JSON object with "guid" field.</param>
+        /// <param name="toolCall">Tool invocation with provider/model context and arguments (expects a 'guid' field and optional 'question').</param>
         /// <returns>Result containing success flag, codedIssues array, and aiReview string, or error details.</returns>
         private async Task<AIReturn> ScriptReviewToolAsync(AIToolCall toolCall)
         {
@@ -81,18 +81,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Parse and validate parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                var guidStr = toolInfo.Arguments["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guidStr = args["guid"]?.ToString() ?? throw new ArgumentException("Missing 'guid' parameter.");
                 if (!Guid.TryParse(guidStr, out var scriptGuid))
                 {
                     output.CreateError($"Invalid GUID: {guidStr}");
                     return output;
                 }
+
                 var providerName = toolCall.Provider;
                 var modelName = toolCall.Model;
                 var endpoint = this.toolName;
-                var question = toolInfo.Arguments["question"]?.ToString();
-                string? contextFilter = toolInfo.Arguments["contextFilter"]?.ToString() ?? string.Empty;
+                var question = args["question"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
                 var objects = GHCanvasUtils.GetCurrentObjects();
@@ -109,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var codedIssues = new List<string>();
 
                 // Always check for TODO comments
-                if (scriptCode.IndexOf("TODO", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (scriptCode.Contains("TODO", StringComparison.OrdinalIgnoreCase))
                     codedIssues.Add("Found TODO comments in script.");
 
                 // Check line count
@@ -119,7 +121,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Language-specific debug checks
                 if (Regex.IsMatch(scriptCode, @"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase)
-                    || scriptCode.IndexOf("import ", StringComparison.OrdinalIgnoreCase) >= 0)
+                    || scriptCode.Contains("import ", StringComparison.OrdinalIgnoreCase))
                 {
                     // Python/IronPython
                     var debugPy = Regex.Matches(scriptCode, @"print\(", RegexOptions.IgnoreCase).Count;
@@ -129,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
                 else if (Regex.IsMatch(scriptCode, @"void\s+RunScript", RegexOptions.IgnoreCase)
-                         || scriptCode.IndexOf("using ", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || scriptCode.Contains("using ", StringComparison.OrdinalIgnoreCase))
                 {
                     // C#
                     var debugCs = Regex.Matches(scriptCode, @"Console\.WriteLine", RegexOptions.IgnoreCase).Count;
@@ -137,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         codedIssues.Add("Remove debug 'Console.WriteLine' statements from C# script.");
                 }
                 else if (Regex.IsMatch(scriptCode, @"sub\s+RunScript", RegexOptions.IgnoreCase)
-                         || scriptCode.IndexOf("imports ", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || scriptCode.Contains("imports ", StringComparison.OrdinalIgnoreCase))
                 {
                     // VB.NET
                     var debugVb = Regex.Matches(scriptCode, @"Debug\.Print|Console\.WriteLine", RegexOptions.IgnoreCase).Count;
@@ -164,6 +166,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
                 }
+
                 builder.AddUser(userPrompt);
                 var immutableBody = builder.Build();
 

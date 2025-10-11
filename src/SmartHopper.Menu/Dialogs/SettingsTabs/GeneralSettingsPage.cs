@@ -31,21 +31,21 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="providers">Available AI providers</param>
         public GeneralSettingsPage(IAIProvider[] providers)
         {
-            _providers = providers;
+            this._providers = providers;
 
             // Create controls
-            _defaultProviderComboBox = new DropDown();
-            _debounceControl = new NumericStepper
+            this._defaultProviderComboBox = new DropDown();
+            this._debounceControl = new NumericStepper
             {
                 MinValue = 1000,
                 MaxValue = 5000,
-                Increment = 100
+                Increment = 100,
             };
 
             // Populate provider dropdown
-            foreach (var provider in _providers)
+            foreach (var provider in this._providers)
             {
-                _defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
+                this._defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
             }
 
             // Create layout
@@ -54,21 +54,21 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Default provider section
             var providerRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
             providerRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(_defaultProviderComboBox, true)
+                new TableCell(this._defaultProviderComboBox, true)
             ));
             layout.Add(providerRowLayout);
-            
+
             layout.Add(new Label
             {
                 Text = "The default AI provider to use for new components",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
@@ -77,27 +77,29 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Debounce time section
             var debounceRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
+
             debounceRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Debounce Time (ms):", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(_debounceControl, true)
+                new TableCell(this._debounceControl, true)
             ));
+
             layout.Add(debounceRowLayout);
-            
+
             layout.Add(new Label
             {
                 Text = "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
-            Content = new Scrollable { Content = layout };
+            this.Content = new Scrollable { Content = layout };
         }
 
         /// <summary>
@@ -109,22 +111,22 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Set default provider
             if (!string.IsNullOrEmpty(settings.DefaultAIProvider))
             {
-                for (int i = 0; i < _defaultProviderComboBox.Items.Count; i++)
+                for (int i = 0; i < this._defaultProviderComboBox.Items.Count; i++)
                 {
-                    if (_defaultProviderComboBox.Items[i].Text == settings.DefaultAIProvider)
+                    if (this._defaultProviderComboBox.Items[i].Text == settings.DefaultAIProvider)
                     {
-                        _defaultProviderComboBox.SelectedIndex = i;
+                        this._defaultProviderComboBox.SelectedIndex = i;
                         break;
                     }
                 }
             }
-            else if (_defaultProviderComboBox.Items.Count > 0)
+            else if (this._defaultProviderComboBox.Items.Count > 0)
             {
-                _defaultProviderComboBox.SelectedIndex = 0;
+                this._defaultProviderComboBox.SelectedIndex = 0;
             }
 
             // Set debounce time
-            _debounceControl.Value = settings.DebounceTime;
+            this._debounceControl.Value = settings.DebounceTime;
         }
 
         /// <summary>
@@ -134,13 +136,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         public void SaveSettings(GeneralSettings settings)
         {
             // Save default provider
-            if (_defaultProviderComboBox.SelectedIndex >= 0)
+            if (this._defaultProviderComboBox.SelectedIndex >= 0)
             {
-                settings.DefaultAIProvider = _defaultProviderComboBox.Items[_defaultProviderComboBox.SelectedIndex].Text;
+                settings.DefaultAIProvider = this._defaultProviderComboBox.Items[this._defaultProviderComboBox.SelectedIndex].Text;
             }
 
             // Save debounce time
-            settings.DebounceTime = (int)_debounceControl.Value;
+            settings.DebounceTime = (int)this._debounceControl.Value;
         }
     }
 }

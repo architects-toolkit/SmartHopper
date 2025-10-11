@@ -68,13 +68,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();;
-                int? idNullable = toolInfo.Arguments["id"]?.Value<int>();
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                int? idNullable = args["id"]?.Value<int>();
                 if (!idNullable.HasValue)
                 {
                     output.CreateError("Missing 'id' parameter.");
                     return output;
                 }
+
                 int id = idNullable.Value;
                 using var httpClient = new HttpClient();
                 var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
@@ -85,7 +87,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject
                 {
                     ["id"] = id,
-                    ["post"] = json
+                    ["post"] = json,
                 };
 
                 var builder = AIBodyBuilder.Create();

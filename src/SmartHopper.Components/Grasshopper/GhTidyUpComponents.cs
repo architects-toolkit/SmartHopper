@@ -110,6 +110,10 @@ namespace SmartHopper.Components.Grasshopper
                 return;
             }
 
+            this.AddRuntimeMessage(
+                GH_RuntimeMessageLevel.Warning,
+                "Heads up: this component is still in alpha and might cheekily mess up your file instead of tidying it... for now!");
+
             if (!run.Value)
             {
                 if (this.LastErrors.Count > 0)
@@ -127,9 +131,11 @@ namespace SmartHopper.Components.Grasshopper
                 DA.SetDataList(0, this.LastErrors);
                 return;
             }
+
             try
             {
                 var parameters = new JObject { ["guids"] = JArray.FromObject(guids) };
+
                 // Create AIToolCall and execute
                 var toolCallInteraction = new AIInteractionToolCall
                 {
@@ -167,8 +173,8 @@ namespace SmartHopper.Components.Grasshopper
             {
                 this.LastErrors.Add(ex.Message);
             }
+
             DA.SetDataList(0, this.LastErrors);
         }
     }
 }
-

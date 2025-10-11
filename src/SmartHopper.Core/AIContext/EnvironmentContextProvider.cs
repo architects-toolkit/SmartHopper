@@ -37,7 +37,7 @@ namespace SmartHopper.Core.AIContext
             {
                 { "operating-system", Environment.OSVersion.ToString() },
                 { "rhino-version", rhinoVersion },
-                { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" }
+                { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" },
             };
         }
     }

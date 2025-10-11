@@ -36,30 +36,30 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <param name="providers">Available AI providers</param>
         public AssistantSettingsPage(IAIProvider[] providers)
         {
-            _providers = providers;
+            this._providers = providers;
 
             // Create controls
-            _assistantProviderComboBox = new DropDown();
-            _assistantModelTextBox = new TextBox
+            this._assistantProviderComboBox = new DropDown();
+            this._assistantModelTextBox = new TextBox
             {
-                PlaceholderText = "Enter model name or leave empty for default"
+                PlaceholderText = "Enter model name or leave empty for default",
             };
 
-            _enableCanvasButtonCheckBox = new CheckBox
+            this._enableCanvasButtonCheckBox = new CheckBox
             {
-                Text = "Enable canvas button"
+                Text = "Enable canvas button",
             };
 
-            _enableAIGreetingCheckBox = new CheckBox
+            this._enableAIGreetingCheckBox = new CheckBox
             {
-                Text = "Enable AI-generated greetings in chat"
+                Text = "Enable AI-generated greetings in chat",
             };
 
             // Populate provider dropdown
-            _assistantProviderComboBox.Items.Add(new ListItem { Text = "(Default)" });
-            foreach (var provider in _providers)
+            this._assistantProviderComboBox.Items.Add(new ListItem { Text = "(Default)" });
+            foreach (var provider in this._providers)
             {
-                _assistantProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
+                this._assistantProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
             }
 
             // Create layout
@@ -69,15 +69,16 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Label
             {
                 Text = "SmartHopper Canvas Assistant",
-                Font = new Font(SystemFont.Bold, 12)
+                Font = new Font(SystemFont.Bold, 12),
             });
+
             layout.Add(new Label
             {
                 Text = "Configure settings for the SmartHopper Canvas Assistant. Talk to it by clicking on the top-right button in the canvas.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
@@ -88,12 +89,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             {
                 Spacing = new Size(10, 0),
             };
+
             providerRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Assistant Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(_assistantProviderComboBox, true)
+                new TableCell(this._assistantProviderComboBox, true)
             ));
+
             layout.Add(providerRowLayout);
-            
+
             layout.Add(new Label
             {
                 Text = "AI provider to use specifically for SmartHopper Assistant.",
@@ -109,14 +112,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Assistant model section
             var modelRowLayout = new TableLayout
             {
-                Spacing = new Size(10, 0)
+                Spacing = new Size(10, 0),
             };
+
             modelRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Assistant Model:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(_assistantModelTextBox, true)
+                new TableCell(this._assistantModelTextBox, true)
             ));
             layout.Add(modelRowLayout);
-            
+
             layout.Add(new Label
             {
                 Text = "Specific AI model to use for assistant features. Leave empty to use the provider's default model.",
@@ -130,34 +134,34 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Panel { Height = 10 });
 
             // Canvas Button section
-            layout.Add(_enableCanvasButtonCheckBox);
+            layout.Add(this._enableCanvasButtonCheckBox);
             layout.Add(new Label
             {
                 Text = "When enabled, the canvas button will show at the top-right corner of the canvas.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
             // AI Greeting section
-            layout.Add(_enableAIGreetingCheckBox);
+            layout.Add(this._enableAIGreetingCheckBox);
             layout.Add(new Label
             {
                 Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation. Disable it to prevent extra tokens being used.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-                Width = 500  // Max width for better text wrapping
+                Width = 500,  // Max width for better text wrapping
             });
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
-            Content = new Scrollable { Content = layout };
+            this.Content = new Scrollable { Content = layout };
         }
 
         /// <summary>
@@ -169,28 +173,28 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Set assistant provider
             if (!string.IsNullOrEmpty(settings.AssistantProvider))
             {
-                for (int i = 0; i < _assistantProviderComboBox.Items.Count; i++)
+                for (int i = 0; i < this._assistantProviderComboBox.Items.Count; i++)
                 {
-                    if (_assistantProviderComboBox.Items[i].Text == settings.AssistantProvider)
+                    if (this._assistantProviderComboBox.Items[i].Text == settings.AssistantProvider)
                     {
-                        _assistantProviderComboBox.SelectedIndex = i;
+                        this._assistantProviderComboBox.SelectedIndex = i;
                         break;
                     }
                 }
             }
-            else if (_assistantProviderComboBox.Items.Count > 0)
+            else if (this._assistantProviderComboBox.Items.Count > 0)
             {
-                _assistantProviderComboBox.SelectedIndex = 0;
+                this._assistantProviderComboBox.SelectedIndex = 0;
             }
 
             // Set assistant model in text box
-            _assistantModelTextBox.Text = settings.AssistantModel ?? string.Empty;
+            this._assistantModelTextBox.Text = settings.AssistantModel ?? string.Empty;
 
             // Set canvas button checkbox
-            _enableCanvasButtonCheckBox.Checked = settings.EnableCanvasButton;
+            this._enableCanvasButtonCheckBox.Checked = settings.EnableCanvasButton;
 
             // Set greeting checkbox
-            _enableAIGreetingCheckBox.Checked = settings.EnableAIGreeting;
+            this._enableAIGreetingCheckBox.Checked = settings.EnableAIGreeting;
         }
 
         /// <summary>
@@ -200,19 +204,19 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         public void SaveSettings(AssistantSettings settings)
         {
             // Save assistant provider
-            if (_assistantProviderComboBox.SelectedIndex >= 0)
+            if (this._assistantProviderComboBox.SelectedIndex >= 0)
             {
-                settings.AssistantProvider = _assistantProviderComboBox.Items[_assistantProviderComboBox.SelectedIndex].Text;
+                settings.AssistantProvider = this._assistantProviderComboBox.Items[this._assistantProviderComboBox.SelectedIndex].Text;
             }
 
             // Save assistant model (trim whitespace)
-            settings.AssistantModel = _assistantModelTextBox.Text?.Trim() ?? string.Empty;
+            settings.AssistantModel = this._assistantModelTextBox.Text?.Trim() ?? string.Empty;
 
             // Save canvas button setting
-            settings.EnableCanvasButton = _enableCanvasButtonCheckBox.Checked ?? false;
+            settings.EnableCanvasButton = this._enableCanvasButtonCheckBox.Checked ?? false;
 
             // Save greeting setting
-            settings.EnableAIGreeting = _enableAIGreetingCheckBox.Checked ?? false;
+            settings.EnableAIGreeting = this._enableAIGreetingCheckBox.Checked ?? false;
         }
     }
 }

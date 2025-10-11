@@ -79,8 +79,9 @@ namespace SmartHopper.Core.ComponentBase
                 case ComponentState.Processing:
                     if (progressInfo?.IsActive == true)
                     {
-                        return $"Process {progressInfo.GetProgressString()}...";
+                        return $"Process {progressInfo.ProgressString}...";
                     }
+
                     return "Processing...";
                 case ComponentState.Completed:
                     return "Done";

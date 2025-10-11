@@ -46,14 +46,14 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                     .WithToolFilter(normalized);
 
                 // Attach a light diagnostic to the request body for traceability
-                // Note: Request diagnostics are represented as a System interaction in the body
+                // Use AIInteractionError so it can be surfaced in UI but skipped by providers during encoding
                 if (string.IsNullOrWhiteSpace(raw))
                 {
-                    builder = builder.AddSystem($"Tool filter was empty; interpreted as '{normalized}'.");
+                    builder = builder.AddError($"Tool filter was empty; interpreted as '{normalized}'.");
                 }
                 else
                 {
-                    builder = builder.AddSystem($"Tool filter normalized from '{raw}' to '{normalized}'.");
+                    builder = builder.AddError($"Tool filter normalized from '{raw}' to '{normalized}'.");
                 }
 
                 rq.Body = builder.Build();

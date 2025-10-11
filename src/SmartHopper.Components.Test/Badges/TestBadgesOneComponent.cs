@@ -87,7 +87,7 @@ namespace SmartHopper.Components.Test.Badges
         /// <returns>A worker that performs no computation.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new NoopWorker(this, AddRuntimeMessage);
+            return new NoopWorker(this, this.AddRuntimeMessage);
         }
 
         /// <summary>
@@ -128,7 +128,7 @@ namespace SmartHopper.Components.Test.Badges
         /// <summary>
         /// Custom attributes contributing one additional badge.
         /// </summary>
-        private class OneBadgeAttributes : ComponentBadgesAttributes
+        private sealed class OneBadgeAttributes : ComponentBadgesAttributes
         {
             private static void DrawSampleBadge(Graphics g, float x, float y)
             {

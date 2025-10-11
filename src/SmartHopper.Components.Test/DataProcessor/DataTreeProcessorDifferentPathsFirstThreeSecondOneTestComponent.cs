@@ -51,10 +51,10 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
-        private class Worker : AsyncWorkerBase
+        private sealed class Worker : AsyncWorkerBase
         {
             private GH_Structure<GH_Integer> _resultTree = new GH_Structure<GH_Integer>();
             private GH_Boolean _success = new GH_Boolean(false);
@@ -90,7 +90,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
                         { "A", treeA },
-                        { "B", treeB }
+                        { "B", treeB },
                     };
 
                     var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: false);

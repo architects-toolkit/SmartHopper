@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Test.Misc
             return new TestStatefulPrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        private class TestStatefulPrimeCalculatorWorker : AsyncWorkerBase
+        private sealed class TestStatefulPrimeCalculatorWorker : AsyncWorkerBase
         {
             private int _nthPrime = 100;
             private long _result = -1;
@@ -95,6 +95,7 @@ namespace SmartHopper.Components.Test.Misc
                             isPrime = false;
                             break;
                         }
+
                         b++;
                     }
 
@@ -102,6 +103,7 @@ namespace SmartHopper.Components.Test.Misc
                     {
                         count++;
                     }
+
                     a++;
 
                     // Add small delay to prevent UI freeze

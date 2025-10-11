@@ -24,6 +24,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     public interface IAIInteraction
     {
         /// <summary>
+        /// Gets or sets the per-turn stable identifier for this interaction.
+        /// All interactions that belong to the same logical assistant turn must share the same TurnId.
+        /// UI renderers may use this as a unified key for both streaming aggregation and persisted history.
+        /// </summary>
+        string TurnId { get; set; }
+
+        /// <summary>
         /// Gets or sets the timestamp of the interaction.
         /// </summary>
         DateTime Time { get; set; }

@@ -9,7 +9,6 @@
  */
 
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -17,6 +16,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
@@ -68,15 +68,8 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 return Task.FromResult(ok);
             }
 
-            // Require arguments when schema is present
-            if (instance.Arguments == null)
-            {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    $"Tool '{instance.Name}' requires arguments matching its parameters schema, but arguments are missing"));
-            }
-            else
+            // Check arguments against schema
+            if (instance.Arguments != null)
             {
                 var svc = JsonSchemaService.Instance;
                 var json = instance.Arguments.ToString(Formatting.None);
@@ -88,25 +81,25 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                         $"Arguments for tool '{instance.Name}' do not match schema: {error}"));
                 }
             }
+            else
+            {
+                // If a schema exists but no arguments were provided, initialize to an empty object
+                // so downstream execution receives a valid JSON object. This mirrors permissive
+                // handling for tools that support optional arguments.
+                instance.Arguments = new JObject();
+                messages.Add(new AIRuntimeMessage(
+                    AIRuntimeMessageSeverity.Info,
+                    AIRuntimeMessageOrigin.Validation,
+                    $"No arguments provided for tool '{instance.Name}'. Created default empty arguments {{}} to satisfy the schema."));
+            }
 
             var result = new ValidationResult
             {
                 Messages = messages,
             };
-            result.IsValid = !HasAtOrAbove(messages, this.FailOn);
-            return Task.FromResult(result);
-        }
+            result.IsValid = !RuntimeMessageUtility.HasSeverityAtOrAbove(messages, this.FailOn);
 
-        private static bool HasAtOrAbove(List<AIRuntimeMessage> messages, AIRuntimeMessageSeverity threshold)
-        {
-            foreach (var m in messages)
-            {
-                if (m != null && m.Severity >= threshold)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return Task.FromResult(result);
         }
     }
 }

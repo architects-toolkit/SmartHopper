@@ -10,7 +10,7 @@ Supply dynamic key-value context injected into `AIBody` so prompts and tools can
 
 - `src/SmartHopper.Core/AIContext/` — interfaces and concrete providers
   - `IAIContextProvider` — contract for context sources
-  - `EnvironmentContextProvider`, `TimeContextProvider`, etc.
+  - `EnvironmentContextProvider`, `TimeContextProvider`, `SelectionContextProvider`
 
 ## How it works
 
@@ -23,3 +23,15 @@ Supply dynamic key-value context injected into `AIBody` so prompts and tools can
 - Keep context minimal, deterministic, and privacy-aware.
 - Prefer whitelisting of keys; avoid leaking sensitive data.
 - Document each provider's keys and intended consumers (prompts/tools).
+
+## Available providers
+
+- `time`: provides `time_current-datetime`, `time_current-timezone`
+- `environment`: provides `environment_operating-system`, `environment_rhino-version`, `environment_platform`
+- `current-file`: provides `current-file-file-name`, `current-file-selected-count`, `current-file-object-count`, `current-file-component-count`, `current-file-param-count`, `current-file-scribble-count`, `current-file-group-count`
+
+## WebChat defaults
+
+WebChat (both the Canvas Button and the AIChatComponent dialog) enables a curated context set by default:
+
+- `time, environment, current-file`
