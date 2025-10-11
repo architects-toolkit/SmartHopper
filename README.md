@@ -45,34 +45,25 @@ Quick start via Rhino Package Manager (Yak):
 
 Install, enable a provider, and set up an API key.
 
-<a href="https://vimeo.com/1126454690" title="Quickstart — click to watch on Vimeo">
-<div style="position: relative; display: inline-block;">
-  <img src="./img/video-installation.png" alt="Quickstart ▶" style="width: 100%; max-width: 960px;">
-  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">▶</div>
-</div>
-</a>
+[![Quickstart ▶](./img/video-installation.png)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
+
+[View the video on Vimeo](https://vimeo.com/1126454690)
 
 ### Canvas assistant (AI chat)
 
 Start a chat, ask for help, search the McNeel forum, or talk about life.
 
-<a href="https://vimeo.com/1126454713" title="Canvas Assistant — click to watch on Vimeo">
-<div style="position: relative; display: inline-block;">
-  <img src="./img/video-chat.png" alt="Canvas Assistant ▶" style="width: 100%; max-width: 960px;">
-  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">▶</div>
-</div>
-</a>
+[![Canvas Assistant ▶](./img/video-chat.png)](https://vimeo.com/1126454713 "Canvas Assistant ▶ — click to watch on Vimeo")
+
+[View the video on Vimeo](https://vimeo.com/1126454713)
 
 ### AI-powered components
 
 Do things that were impossible before.
 
-<a href="https://vimeo.com/1126454744" title="AI Components — click to watch on Vimeo">
-<div style="position: relative; display: inline-block;">
-  <img src="./img/video-components.png" alt="AI Components ▶" style="width: 100%; max-width: 960px;">
-  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">▶</div>
-</div>
-</a>
+[![AI Components ▶](./img/video-components.png)](https://vimeo.com/1126454744 "AI Components ▶ — click to watch on Vimeo")
+
+[View the video on Vimeo](https://vimeo.com/1126454744)
 
 More examples and recipes coming soon on the website and docs.
 
