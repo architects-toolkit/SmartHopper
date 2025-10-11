@@ -49,11 +49,17 @@ jobs:
         with:
           new-version: ${{ steps.strip-date.outputs.new-version }}
 
+      # Update badges to match the new version
+      - name: Update badges
+        id: update-badges
+        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
+        uses: ./.github/actions/documentation/update-badges
+
       - name: Commit and push changes
         if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add Solution.props
+          git add Solution.props README.md
           git commit -m "chore: remove date from version for main release"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
