@@ -1,5 +1,5 @@
 name: 'Update Badges'
-description: 'Update the version and status badges in README.md (HTML for-the-badge)'
+description: 'Update version and status badges in README.md (for-the-badge style only)'
 inputs:
   branch:
     description: 'Branch name (for context)'
@@ -25,7 +25,7 @@ runs:
         echo "Current version: $VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Update badges in README.md (HTML)
+    - name: Update badges in README.md
       id: update-badge
       shell: bash
       run: |
@@ -33,12 +33,12 @@ runs:
         VERSION="${{ steps.get-version.outputs.version }}"
         echo "Current version from Solution.props: $VERSION"
 
-        # Shields escaping for version: '-' -> '--', '_' -> '__', ' ' -> '_'
+        # Shields.io escaping: '-' -> '--', '_' -> '__', ' ' -> '_'
         SHIELDS_VERSION=${VERSION//_/__}
         SHIELDS_VERSION=${SHIELDS_VERSION//-/--}
         SHIELDS_VERSION=${SHIELDS_VERSION// /_}
 
-        # Determine status color/text from suffix
+        # Determine status color and text based on version suffix
         STATUS_COLOR="brightgreen"
         STATUS_TEXT="Stable"
         if [[ $VERSION == *"-dev"* ]]; then
@@ -55,27 +55,28 @@ runs:
           STATUS_TEXT="Release%20Candidate"
         fi
 
-        BADGES_CHANGED=false
-        if [[ -f "README.md" ]]; then
-          # Update VERSION badge: set color to STATUS_COLOR and replace the version segment
-          if grep -q 'img.shields.io/badge/version-' README.md; then
-            sed -i -E "s|(img.shields.io/badge/version-)[^-?]+-[a-zA-Z]+(\?style=for-the-badge)|\1${SHIELDS_VERSION}-${STATUS_COLOR}\2|" README.md && BADGES_CHANGED=true
-            echo "Updated HTML version badge to ${SHIELDS_VERSION} with color ${STATUS_COLOR}"
-          else
-            echo "No HTML version badge found to update"
-          fi
+        echo "Target version badge: ${SHIELDS_VERSION} / ${STATUS_COLOR}"
+        echo "Target status badge: ${STATUS_TEXT} / ${STATUS_COLOR}"
 
-          # Update STATUS badge: replace status text and color
-          if grep -q 'img.shields.io/badge/status-' README.md; then
-            # Replace status text segment between 'status-' and '-<color>?style=for-the-badge'
-            sed -i -E "s|(img.shields.io/badge/status-)[^-?]+(-)[a-zA-Z]+(\?style=for-the-badge)|\1${STATUS_TEXT}\2${STATUS_COLOR}\3|" README.md && BADGES_CHANGED=true
-            echo "Updated HTML status badge to ${STATUS_TEXT} / ${STATUS_COLOR}"
-          else
-            echo "No HTML status badge found to update"
-          fi
-
-          echo "badges-changed=$BADGES_CHANGED" >> $GITHUB_OUTPUT
-        else
-          echo "README.md not found, skipping badge update"
+        if [[ ! -f "README.md" ]]; then
+          echo "README.md not found"
           echo "badges-changed=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Update VERSION badge (for-the-badge format only)
+        # Pattern: https://img.shields.io/badge/version-{VERSION}-{COLOR}?style=for-the-badge
+        sed -i -E "s|(https://img\.shields\.io/badge/version-)[^?]+-([a-zA-Z]+)(\?style=for-the-badge)|\1${SHIELDS_VERSION}-${STATUS_COLOR}\3|" README.md
+
+        # Update STATUS badge (for-the-badge format only)
+        # Pattern: https://img.shields.io/badge/status-{TEXT}-{COLOR}?style=for-the-badge
+        sed -i -E "s|(https://img\.shields\.io/badge/status-)[^?]+-([a-zA-Z]+)(\?style=for-the-badge)|\1${STATUS_TEXT}-${STATUS_COLOR}\3|" README.md
+
+        # Check if any changes were made
+        if git diff --quiet README.md 2>/dev/null; then
+          echo "Badges already up to date"
+          echo "badges-changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "Badges updated successfully"
+          echo "badges-changed=true" >> $GITHUB_OUTPUT
         fi
