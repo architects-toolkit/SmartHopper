@@ -11,10 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -25,13 +24,14 @@ namespace SmartHopper.Providers.DeepSeek
     /// </summary>
     public class DeepSeekProviderSettings : AIProviderSettings
     {
-        private readonly IAIProvider provider;
+        private new readonly IAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.
         /// </summary>
         /// <param name="provider">The provider associated with these settings.</param>
-        public DeepSeekProviderSettings(IAIProvider provider) : base(provider)
+        public DeepSeekProviderSettings(IAIProvider provider)
+            : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Name = "ApiKey",
                     DisplayName = "API Key",
-                    Description = "Your API key for the DeepSeek service",
+                    Description = "Your API key for DeepSeek. Get one at https://platform.deepseek.com/",
                     IsSecret = true, // Set to true for sensitive data like API keys
                     Type = typeof(string),
                 },
@@ -57,6 +57,14 @@ namespace SmartHopper.Providers.DeepSeek
                     Description = "The model to use for generating responses",
                     Type = typeof(string),
                 }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
+                new SettingDescriptor
+                {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Allow streaming responses for this provider. When enabled, you will receive the response as it is generated",
+                },
                 new SettingDescriptor
                 {
                     Name = "MaxTokens",
@@ -101,8 +109,8 @@ namespace SmartHopper.Providers.DeepSeek
             var showErrorDialogs = true;
 
             // Extract values from settings dictionary
-            string apiKey = null;
-            string model = null;
+            string? apiKey = null;
+            string? model = null;
             int? maxTokens = null;
             double? temperature = null;
 
@@ -154,7 +162,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 // Ensure temperature is between 0.0 and 2.0 (both included)
-                if (temperature <= 0.0 || temperature >= 2.0)
+                if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs)
                     {

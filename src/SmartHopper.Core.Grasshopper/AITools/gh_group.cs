@@ -19,8 +19,12 @@ using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -30,12 +34,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class gh_group : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "gh_group";
+        /// <summary>
         /// Returns the gh_group AI tool.
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_group",
+                name: this.toolName,
                 description: "Group Grasshopper components by GUID into a single Grasshopper group.",
                 category: "Components",
                 parametersSchema: @"{
@@ -57,79 +65,101 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guids""]
                 }",
-                execute: this.GhGroupAsync
-            );
+                execute: this.GhGroupAsync);
         }
 
-        private Task<object> GhGroupAsync(JObject parameters)
+        private Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
         {
-            var guidStrings = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var groupName = parameters["groupName"]?.ToString();
-            var colorStr = parameters["color"]?.ToString();
-            var validGuids = new List<Guid>();
-
-            foreach (var s in guidStrings)
+            // Prepare the output
+            var output = new AIReturn()
             {
-                if (Guid.TryParse(s, out var g))
-                    validGuids.Add(g);
+                Request = toolCall,
+            };
+
+            try
+            {
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guidStrings = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var groupName = args["groupName"]?.ToString();
+                var colorStr = args["color"]?.ToString();
+                var validGuids = new List<Guid>();
+
+                foreach (var s in guidStrings)
+                {
+                    if (Guid.TryParse(s, out var g))
+                    {
+                        validGuids.Add(g);
+                    }
+                }
+
+                if (!validGuids.Any())
+                {
+                output.CreateError("No valid GUIDs provided for grouping.");
+                return Task.FromResult(output);
+                }
+
+                GH_Group group = null;
+
+                // Combine UI operations and result resolution in a single UI thread callback
+                var tcs = new TaskCompletionSource<object>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    // Parse color if provided
+                    var groupColor = System.Drawing.Color.Empty;
+                    if (!string.IsNullOrEmpty(colorStr))
+                    {
+                        try
+                        {
+                            groupColor = StringConverter.StringToColor(colorStr);
+                            Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
+                        }
+                        catch
+                        {
+                            // Invalid color string, ignoring
+                        }
+                    }
+                    else
+                    {
+                        groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
+                        Debug.WriteLine("[gh_group] No color provided, using default color");
+                    }
+
+                    // Create group with undo support
+                    group = GHDocumentUtils.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
+
+                    // Update UI
+                    Instances.RedrawCanvas();
+
+                    // Resolve task result
+                    if (group != null)
+                    {
+                    var toolResult = new JObject
+                    {
+                        ["group"] = group.InstanceGuid.ToString(),
+                        ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
+                    };
+
+                    var body = AIBodyBuilder.Create()
+                        .AddToolResult(toolResult)
+                        .Build();
+
+                    output.CreateSuccess(body, toolCall);
+                    }
+                    else
+                    {
+                        output.CreateError("Failed to create group.");
+                    }
+                });
+
+                return Task.FromResult(output);
             }
-
-            if (!validGuids.Any())
-                return Task.FromResult<object>(new { success = false, error = "No valid GUIDs provided for grouping." });
-
-            GH_Group group = null;
-            
-            // Combine UI operations and result resolution in a single UI thread callback
-            var tcs = new TaskCompletionSource<object>();
-            Rhino.RhinoApp.InvokeOnUiThread(() =>
+            catch (Exception ex)
             {
-                // Parse color if provided
-                var groupColor = System.Drawing.Color.Empty;
-                if (!string.IsNullOrEmpty(colorStr))
-                {
-                    try
-                    {
-                        groupColor = StringConverter.StringToColor(colorStr);
-                        Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
-                    }
-                    catch
-                    {
-                        // Invalid color string, ignoring
-                    }
-                }
-                else
-                {
-                    groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
-                    Debug.WriteLine("[gh_group] No color provided, using default color");
-                }
-
-                // Create group with undo support
-                group = GHDocumentUtils.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
-
-                // Update UI
-                Instances.RedrawCanvas();
-
-                // Resolve task result
-                if (group != null)
-                {
-                    tcs.SetResult(new
-                    {
-                        success = true,
-                        group = group.InstanceGuid.ToString(),
-                        grouped = validGuids.Select(g => g.ToString()).ToList()
-                    });
-                }
-                else
-                {
-                    tcs.SetResult(new
-                    {
-                        success = false,
-                        error = "Failed to create group."
-                    });
-                }
-            });
-
-            return tcs.Task;
+                output.CreateError($"Error: {ex.Message}");
+                return Task.FromResult(output);
+            }
         }
     }
 }

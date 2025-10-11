@@ -12,9 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -49,7 +49,7 @@ namespace SmartHopper.Providers.OpenAI
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your OpenAI API key",
+                    Description = "Your OpenAI API key. Get one at https://platform.openai.com/",
                 },
                 new SettingDescriptor
                 {
@@ -58,6 +58,14 @@ namespace SmartHopper.Providers.OpenAI
                     DisplayName = "Model",
                     Description = "The model to use for completions",
                 }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
+                new SettingDescriptor
+                {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Allow streaming responses for this provider. When enabled, you will receive the response as it is generated",
+                },
                 new SettingDescriptor
                 {
                     Name = "MaxTokens",
@@ -71,7 +79,7 @@ namespace SmartHopper.Providers.OpenAI
                         Min = 1,
                         Max = 100000,
                         Step = 1,
-                    }
+                    },
                 },
                 new SettingDescriptor
                 {
@@ -89,7 +97,7 @@ namespace SmartHopper.Providers.OpenAI
                     Type = typeof(string),
                     DefaultValue = "0.5",
                     DisplayName = "Temperature",
-                    Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+                    Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Some models like o-series or gpt-5 do not support this parameter and it will be ignored.",
                 },
             };
         }
@@ -107,9 +115,9 @@ namespace SmartHopper.Providers.OpenAI
             var showErrorDialogs = true;
 
             // Extract values from settings dictionary
-            string apiKey = null;
-            string model = null;
-            string reasoningEffort = null;
+            string? apiKey = null;
+            string? model = null;
+            string? reasoningEffort = null;
             int? maxTokens = null;
             double? temperature = null;
 
@@ -146,6 +154,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
                     }
+
                     return false;
                 }
             }
@@ -166,6 +175,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
                     }
+
                     return false;
                 }
             }
@@ -179,12 +189,13 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 // Ensure temperature is between 0.0 and 2.0 (both included)
-                if (temperature <= 0.0 || temperature >= 2.0)
+                if (temperature < 0.0 || temperature > 2.0)
                 {
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
                     }
+
                     return false;
                 }
             }

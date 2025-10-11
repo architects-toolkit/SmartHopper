@@ -11,9 +11,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.MistralAI
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your MistralAI API key",
+                    Description = "Your MistralAI API key. Get one at https://console.mistral.ai/",
                 },
                 new SettingDescriptor
                 {
@@ -55,6 +55,14 @@ namespace SmartHopper.Providers.MistralAI
                     DisplayName = "Model",
                     Description = "The model to use for completions",
                 }.Apply(d => d.SetLazyDefault(() => this.provider.GetDefaultModel())),
+                new SettingDescriptor
+                {
+                    Name = "EnableStreaming",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Enable Streaming",
+                    Description = "Allow streaming responses for this provider. When enabled, you will receive the response as it is generated",
+                },
                 new SettingDescriptor
                 {
                     Name = "MaxTokens",
@@ -95,8 +103,8 @@ namespace SmartHopper.Providers.MistralAI
             var showErrorDialogs = true;
 
             // Extract values from settings dictionary
-            string apiKey = null;
-            string model = null;
+            string? apiKey = null;
+            string? model = null;
             int? maxTokens = null;
             double? temperature = null;
 
@@ -148,7 +156,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
 
                 // Ensure temperature is between 0.0 and 3.0 (both included)
-                if (temperature <= 0.0 || temperature >= 3.0)
+                if (temperature < 0.0 || temperature > 3.0)
                 {
                     if (showErrorDialogs)
                     {

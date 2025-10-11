@@ -10,6 +10,7 @@
 
 using System;
 using System.Drawing;
+using System.Globalization;
 using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Converters
@@ -34,9 +35,9 @@ namespace SmartHopper.Core.Grasshopper.Converters
             if (parts.Length == 3)
             {
                 // Parse RGB values
-                int r = int.Parse(parts[0]);
-                int g = int.Parse(parts[1]);
-                int b = int.Parse(parts[2]);
+                int r = int.Parse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture);
+                int g = int.Parse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture);
+                int b = int.Parse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture);
 
                 // Create and return the Color object (full opacity)
                 return Color.FromArgb(r, g, b);
@@ -44,10 +45,10 @@ namespace SmartHopper.Core.Grasshopper.Converters
             else if (parts.Length == 4)
             {
                 // Parse ARGB values
-                int a = int.Parse(parts[0]);
-                int r = int.Parse(parts[1]);
-                int g = int.Parse(parts[2]);
-                int b = int.Parse(parts[3]);
+                int a = int.Parse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture);
+                int r = int.Parse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture);
+                int g = int.Parse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture);
+                int b = int.Parse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture);
 
                 // Create and return the Color object
                 return Color.FromArgb(a, r, g, b);
@@ -78,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 fontSizeString = fontSizeString.Substring(0, fontSizeString.Length - 2).Trim();
             }
 
-            if (!float.TryParse(fontSizeString, out float fontSize))
+            if (!float.TryParse(fontSizeString, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out float fontSize))
             {
                 throw new ArgumentException("Invalid font size.");
             }
@@ -99,6 +100,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 // Try parse enum by name
                 if (Enum.TryParse<GH_DataMapping>(s, true, out var namedMapping))
                     return namedMapping;
+
                 // Fallback to numeric string
                 if (int.TryParse(s, out var intVal))
                     value = intVal;

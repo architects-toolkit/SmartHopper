@@ -33,7 +33,7 @@ namespace SmartHopper.Components.Test.Misc
         public TestStatefulPrimeCalculatorComponent()
             : base("Test Stateful Prime Calculator", "TEST-STATEFUL-PRIME",
                   "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Testing")
+                  "SmartHopper", "Testing Base")
         {
         }
 
@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Test.Misc
             return new TestStatefulPrimeCalculatorWorker(this, AddRuntimeMessage);
         }
 
-        private class TestStatefulPrimeCalculatorWorker : AsyncWorkerBase
+        private sealed class TestStatefulPrimeCalculatorWorker : AsyncWorkerBase
         {
             private int _nthPrime = 100;
             private long _result = -1;
@@ -63,14 +63,15 @@ namespace SmartHopper.Components.Test.Misc
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
             : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 int n = 100;
                 DA.GetData(0, ref n);
-                _nthPrime = Math.Max(1, Math.Min(n, 1000000));
+                this._nthPrime = Math.Max(1, Math.Min(n, 1000000));
+                dataCount = 1;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -78,7 +79,7 @@ namespace SmartHopper.Components.Test.Misc
                 int count = 0;
                 long a = 2;
 
-                while (count < _nthPrime)
+                while (count < this._nthPrime)
                 {
                     token.ThrowIfCancellationRequested();
 
@@ -94,6 +95,7 @@ namespace SmartHopper.Components.Test.Misc
                             isPrime = false;
                             break;
                         }
+
                         b++;
                     }
 
@@ -101,6 +103,7 @@ namespace SmartHopper.Components.Test.Misc
                     {
                         count++;
                     }
+
                     a++;
 
                     // Add small delay to prevent UI freeze
@@ -110,13 +113,13 @@ namespace SmartHopper.Components.Test.Misc
                     }
                 }
 
-                _result = --a;
+                this._result = --a;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Output", _result, DA);
-                message = $"Found {_nthPrime}th prime: {_result}";
+                this._parent.SetPersistentOutput("Output", this._result, DA);
+                message = $"Found {this._nthPrime}th prime: {this._result}";
             }
         }
     }

@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 
@@ -101,7 +102,7 @@ namespace SmartHopper.Core.Models.Components
             {
                 try
                 {
-                    return (T)Convert.ChangeType(property.Value, typeof(T));
+                    return (T)Convert.ChangeType(property.Value, typeof(T), CultureInfo.InvariantCulture);
                 }
                 catch
                 {

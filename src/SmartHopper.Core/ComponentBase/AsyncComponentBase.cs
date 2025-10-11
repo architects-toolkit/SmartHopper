@@ -41,6 +41,16 @@ namespace SmartHopper.Core.ComponentBase
         private readonly List<CancellationTokenSource> _cancellationSources;
 
         /// <summary>
+        /// Backing field for the number of data items to output.
+        /// </summary>
+        private int _dataCount;
+
+        /// <summary>
+        /// Gets the number of data items to output (read-only for derived classes).
+        /// </summary>
+        protected int DataCount => this._dataCount;
+
+        /// <summary>
         /// Tracks the state of worker task completion:
         /// - Starts at 0 when component initializes
         /// - Increments when a worker task completes
@@ -49,7 +59,13 @@ namespace SmartHopper.Core.ComponentBase
         /// This is used in conjunction with _setData to coordinate the async execution flow
         /// and ensure proper ordering of worker output processing.
         /// </summary>
-        protected int _state;
+        // Backing field for the async state counter. Private to allow safe interlocked operations.
+        private int _state;
+
+        /// <summary>
+        /// Gets the current async worker completion state value.
+        /// </summary>
+        protected int State => this._state;
 
         /// <summary>
         /// Flag indicating whether the component is ready to process worker outputs:
@@ -59,9 +75,16 @@ namespace SmartHopper.Core.ComponentBase
         /// prevent re-execution of workers during the output phase.
         /// Set to 1 via Interlocked.Exchange when _state equals Workers.Count.
         /// </summary>
-        protected int _setData;
+        // Backing field for the output processing latch. Private to allow safe interlocked operations.
+        private int _setData;
 
-        protected bool _inPreSolve;
+        /// <summary>
+        /// Gets the current output processing latch value (0/1).
+        /// </summary>
+        protected int SetData => this._setData;
+
+        // Backing field for InPreSolve flag.
+        private bool _inPreSolve;
 
         protected List<AsyncWorkerBase> Workers { get; private set; }
 
@@ -112,7 +135,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             Debug.WriteLine("[AsyncComponentBase] BeforeSolveInstance - Cleaning up previous run");
-            
+
             // Cancel any running tasks before reset
             this.TaskCancellation();
 
@@ -139,8 +162,9 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine("[AsyncComponentBase] Gathering input");
 
                 // Gather input before starting the task
-                worker.GatherInput(DA);
+                worker.GatherInput(DA, out int dataCount);
                 this.CurrentWorker = worker;
+                this._dataCount = dataCount;
 
                 // Create cancellation token source
                 var source = new CancellationTokenSource();
@@ -195,6 +219,9 @@ namespace SmartHopper.Core.ComponentBase
 
                 Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {this._state}");
                 this.OnSolveInstancePostSolve(DA);
+
+                // Do not expire downstream during an active solution.
+                // Expiration is handled after tasks completion via the continuation in AfterSolveInstance.
             }
 
             if (this._state != 0)
@@ -238,24 +265,29 @@ namespace SmartHopper.Core.ComponentBase
                             // Ensure state is valid even on error
                             if (this._state == 0)
                             {
-                                this._state = this.Workers.Count;
-                                this._setData = 1;
+                                // When tasks fault, still proceed to post-solve once to surface messages
+                                int workerCount = this.Workers.Count;
+                                Debug.WriteLine($"[AsyncComponentBase] Faulted: setting state to Workers.Count ({workerCount}) and enabling output phase");
+                                Interlocked.Exchange(ref this._state, workerCount);
+                                Interlocked.Exchange(ref this._setData, 1);
+
+                                // Preserve LIFO output order
+                                this.Workers.Reverse();
                             }
                         }
                         else
                         {
-                            // Only increment state and set data if we haven't already
+                            // All tasks completed successfully; set state to total workers so post-solve can decrement to zero
                             if (this._state == 0 && this._setData == 0)
                             {
-                                Interlocked.Increment(ref this._state);
-                                if (this._state == this.Workers.Count)
-                                {
-                                    Interlocked.Exchange(ref this._setData, 1);
-                                    this.Workers.Reverse();
-                                }
-                            }
+                                int workerCount = this.Workers.Count;
+                                Interlocked.Exchange(ref this._state, workerCount);
+                                Interlocked.Exchange(ref this._setData, 1);
 
-                            Debug.WriteLine($"[AsyncComponentBase] All tasks completed successfully. State: {this._state}, SetData: {this._setData}, Workers: {this.Workers.Count}");
+                                // Process outputs in reverse (LIFO) to match expected ordering
+                                this.Workers.Reverse();
+                                Debug.WriteLine($"[AsyncComponentBase] All tasks completed. Preparing output phase: State set to {workerCount}, SetData=1");
+                            }
                         }
 
                         // Schedule component update on UI thread

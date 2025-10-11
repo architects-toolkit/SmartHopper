@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Grasshopper.Kernel;
@@ -56,12 +57,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
 
             // Record undo event before adding the group
             group.RecordUndoEvent("[SH] Group");
-            
+
             // Add the group to the document with undo support enabled
             doc.AddObject(group, true);
-            
+
             return group;
         }
+
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects)
         {
             var document = new GrasshopperDocument
@@ -188,6 +190,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             };
                             inputParamsArray.Add(paramObj);
                         }
+
                         propertyValues["ScriptInputs"] = inputParamsArray;
                     }
 
@@ -214,6 +217,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             };
                             outputParamsArray.Add(paramObj);
                         }
+
                         propertyValues["ScriptOutputs"] = outputParamsArray;
                     }
                 }
@@ -242,6 +246,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                             humanReadable = hr;
                         }
                     }
+
                     componentProps.Properties[prop.Key] = new ComponentProperty
                     {
                         Value = val,
@@ -267,7 +272,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         {
             Type type = obj.Attributes.DocObject.GetType();
             PropertyInfo[] properties = type.GetProperties();
-            Dictionary<string, object> propertyValues = new();
+            Dictionary<string, object> propertyValues = new ();
 
             foreach (PropertyInfo property in properties)
             {
@@ -293,7 +298,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     {
                         var instanceDesc = slider.InstanceDescription;
                         var (accuracy, lowerLimit, upperLimit) = NumberSliderUtils.ParseInstanceDescription(instanceDesc);
-                        var currentValue = Convert.ToDecimal(value);
+                        var currentValue = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
                         value = NumberSliderUtils.FormatSliderValue(lowerLimit, upperLimit, currentValue);
                     }
 

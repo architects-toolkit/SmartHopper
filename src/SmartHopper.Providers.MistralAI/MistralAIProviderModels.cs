@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -25,182 +26,165 @@ namespace SmartHopper.Providers.MistralAI
     /// </summary>
     public class MistralAIProviderModels : AIProviderModels
     {
-        private readonly MistralAIProvider _mistralProvider;
-
-        public MistralAIProviderModels(MistralAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
-        {
-            this._mistralProvider = provider;
-        }
+        private readonly MistralAIProvider mistralProvider;
 
         /// <summary>
-        /// Retrieves the list of available model names for MistralAI.
+        /// Initializes a new instance of the <see cref="MistralAIProviderModels"/> class.
         /// </summary>
-        /// <returns>A list of available model names.</returns>
-        public override async Task<List<string>> RetrieveAvailable()
+        /// <param name="provider">The MistralAI provider instance.</param>
+        public MistralAIProviderModels(MistralAIProvider provider)
+            : base(provider)
         {
-            try
-            {
-                Debug.WriteLine("[MistralAI] Retrieving available models");
+            this.mistralProvider = provider;
+        }
 
-                var content = await this._apiCaller("/models","GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelNames = new List<string>();
-                if (data != null)
+        /// <inheritdoc/>
+        public override Task<List<AIModelCapabilities>> RetrieveModels()
+        {
+            var provider = this.mistralProvider.Name.ToLowerInvariant();
+
+            var models = new List<AIModelCapabilities>
+            {
+                new AIModelCapabilities
                 {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var name = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(name)) modelNames.Add(name);
-                    }
-                }
-
-                // Fallback when API returns an empty list
-                if (modelNames.Count == 0)
+                    Provider = provider,
+                    Model = "mistral-small-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
+                    SupportsStreaming = true,
+                    Verified = true,
+                    Rank = 90,
+                },
+                new AIModelCapabilities
                 {
-                    Debug.WriteLine("[MistralAI] API returned 0 models, using fallback list");
-                    return GetFallbackAvailableModels();
-                }
-
-                return modelNames;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[MistralAI] Error retrieving available models: {ex.Message}");
-                // Fallback to a sensible offline list when API is unavailable (e.g., missing API key)
-                return GetFallbackAvailableModels();
-            }
-        }
-
-        /// <summary>
-        /// Gets all models and their capabilities supported by MistralAI, fetching fresh data from API.
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
-        {
-            var result = new Dictionary<string, AIModelCapability>();
-
-            try
-            {
-                Debug.WriteLine("[MistralAI] Fetching models and capabilities via API");
-
-                // Get list of available models
-                var models = await this.RetrieveAvailable();
-                var processedCount = 0;
-
-                foreach (var modelName in models)
+                    Provider = provider,
+                    Model = "mistral-medium-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                },
+                new AIModelCapabilities
                 {
-                    // Call the Mistral models/{model_id} endpoint
-                    var response = await this._apiCaller($"/models/{modelName}", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                    var modelInfo = JsonConvert.DeserializeObject<dynamic>(response);
-
-                    var capabilities = AIModelCapability.None;
-
-                    // Map Mistral capabilities to our enum
-                    if (modelInfo?.capabilities?.completion_chat == true)
-                    {
-                        capabilities |= AIModelCapability.BasicChat;
-                    }
-                    if (modelInfo?.capabilities?.function_calling == true)
-                    {
-                        capabilities |= AIModelCapability.FunctionCalling;
-                    }
-                    if (modelInfo?.capabilities?.vision == true)
-                    {
-                        capabilities |= AIModelCapability.ImageInput;
-                    }
-
-                    // Currently Mistral offers json_mode for all models
-                    capabilities |= AIModelCapability.StructuredOutput;
-
-                    result[modelName] = capabilities;
-                    processedCount++;
-                    Debug.WriteLine($"[MistralAI] Processed capabilities for {modelName}: {capabilities}");
-                }
-
-                Debug.WriteLine($"[MistralAI] Processed {processedCount} models with capabilities");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[MistralAI] Error in RetrieveCapabilities: {ex.Message}");
-                Debug.WriteLine("[MistralAI] Falling back to static/default model capabilities");
-                
-                // Fallback to static capabilities when API is unavailable (e.g., missing API key)
-                result = GetFallbackCapabilities();
-            }
-
-            // If we still have no results, use fallback
-            if (result.Count == 0)
-            {
-                Debug.WriteLine("[MistralAI] No models found, using fallback capabilities");
-                result = GetFallbackCapabilities();
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets fallback model capabilities when API is unavailable.
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        private Dictionary<string, AIModelCapability> GetFallbackCapabilities()
-        {
-            var result = new Dictionary<string, AIModelCapability>();
-
-            // Mistral Small models - text input/output, structured output, function calling
-            result["mistral-small*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
-
-            // Ensure concrete default ID exists alongside wildcard to allow default registration
-            result["mistral-small-latest"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
-
-            // Mistral Medium models - text input/output, structured output, function calling
-            result["mistral-medium*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
-
-            // Mistral Large models - text input/output, structured output, function calling
-            result["mistral-large*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
-
-            // Magistral Small models - text input/output, structured output, function calling
-            result["magistral-small*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-
-            // Ensure concrete default ID exists alongside wildcard to allow default registration
-            result["magistral-small-latest"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-
-            // Magistral Medium models - text input/output, structured output, function calling
-            result["magistral-medium*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-
-            Debug.WriteLine($"[MistralAI] Registered {result.Count} fallback model patterns");
-            return result;
-        }
-
-        /// <summary>
-        /// Fallback list of available model IDs when API is unavailable.
-        /// </summary>
-        private List<string> GetFallbackAvailableModels()
-        {
-            return new List<string>
-            {
-                // Concrete, commonly used names
-                "mistral-small-latest",
-                "mistral-medium-latest",
-                "mistral-large-latest",
-                "magistral-small-latest",
-                "magistral-medium-latest",
+                    Provider = provider,
+                    Model = "mistral-large-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "magistral-small-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 85,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "magistral-medium-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 75,
+                },
             };
+
+            return Task.FromResult(models);
         }
 
-        /// <summary>
-        /// Gets all default models supported by MistralAI
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
+        /// <inheritdoc/>
+        public override async Task<List<string>> RetrieveApiModels()
         {
-            var result = new Dictionary<string, AIModelCapability>();
+            try
+            {
+                Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: preparing request to /models");
+                var request = new AIRequestCall
+                {
+                    Endpoint = "/models",
+                };
 
-            // Align with OpenAI pattern: defaults use concrete IDs; capabilities can be wildcard.
-            result["mistral-small-latest"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator;
-            result["magistral-small-latest"] = AIModelCapability.ReasoningChat;
+                var response = await this.mistralProvider.Call(request).ConfigureAwait(false);
 
-            return result;
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: call returned Success={response?.Success}, Error='{response?.ErrorMessage}'");
+
+                if (response == null || !response.Success)
+                {
+                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: response null or not success; returning empty list");
+                    return new List<string>();
+                }
+
+                var raw = (response as AIReturn)?.Raw;
+                if (raw == null)
+                {
+                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: raw payload is null; returning empty list");
+                    return new List<string>();
+                }
+
+                var data = raw["data"] as JArray;
+                if (data == null)
+                {
+                    Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: 'data' array not found. Raw keys: {string.Join(", ", raw.Properties().Select(p => p.Name))}");
+                    return new List<string>();
+                }
+
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: data items count = {data.Count}");
+
+                var models = new List<string>();
+                int added = 0, skipped = 0, index = 0;
+                foreach (var token in data)
+                {
+                    index++;
+                    if (token is not JObject item)
+                    {
+                        skipped++;
+                        Debug.WriteLine($"[MistralAIProviderModels] Item #{index} is not an object (type={token?.Type}); skipping");
+                        continue;
+                    }
+
+                    try
+                    {
+                        var id = item["id"]?.ToString();
+                        var name = item["name"]?.ToString();
+                        var model = !string.IsNullOrWhiteSpace(id) ? id : name;
+
+                        if (!string.IsNullOrWhiteSpace(model))
+                        {
+                            models.Add(model);
+                            added++;
+                        }
+                        else
+                        {
+                            skipped++;
+                            var keys = string.Join(", ", item.Properties().Select(p => p.Name));
+                            Debug.WriteLine($"[MistralAIProviderModels] Item #{index} missing 'id' and 'name'. Keys: [{keys}]");
+                        }
+                    }
+                    catch (Exception exItem)
+                    {
+                        skipped++;
+                        Debug.WriteLine($"[MistralAIProviderModels] Exception parsing item #{index}: {exItem.Message}");
+                    }
+                }
+
+                var distinctSorted = models
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: extracted {distinctSorted.Count} models (added={added}, skipped={skipped})");
+
+                return distinctSorted;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: exception thrown; returning empty list. Details: {ex}");
+                return new List<string>();
+            }
         }
     }
 }

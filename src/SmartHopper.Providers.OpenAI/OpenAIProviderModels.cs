@@ -13,12 +13,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -27,126 +26,157 @@ namespace SmartHopper.Providers.OpenAI
     /// </summary>
     public class OpenAIProviderModels : AIProviderModels
     {
-        private readonly OpenAIProvider _openAIProvider;
-
-        public OpenAIProviderModels(OpenAIProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
-        {
-            this._openAIProvider = provider;
-        }
+        private readonly OpenAIProvider openAIProvider;
 
         /// <summary>
-        /// Retrieves the list of available model names for OpenAI.
+        /// Initializes a new instance of the <see cref="OpenAIProviderModels"/> class.
         /// </summary>
-        /// <returns>A list of available model names.</returns>
-        public override async Task<List<string>> RetrieveAvailable()
+        /// <param name="provider">The OpenAI provider instance.</param>
+        public OpenAIProviderModels(OpenAIProvider provider)
+            : base(provider)
         {
-            Debug.WriteLine("[OpenAI] Retrieving available models");
+            this.openAIProvider = provider;
+        }
+
+        /// <inheritdoc/>
+        public override Task<List<AIModelCapabilities>> RetrieveModels()
+        {
+            var provider = this.openAIProvider.Name.ToLowerInvariant();
+
+            var models = new List<AIModelCapabilities>
+            {
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-nano",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.Text2Text,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 95,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Verified = true,
+                    Rank = 90,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4.1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 75,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4.1-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 85,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o4-mini",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 90,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "dall-e-3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image,
+                    SupportsStreaming = false,
+                    Verified = true,
+                    Rank = 80,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
+                },
+            };
+
+            return Task.FromResult(models);
+        }
+
+        /// <inheritdoc/>
+        public override async Task<List<string>> RetrieveApiModels()
+        {
             try
             {
-                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelIds = new List<string>();
-                if (data != null)
+                var request = new AIRequestCall
                 {
-                    foreach (var item in data.OfType<JObject>())
+                    Endpoint = "/models",
+                };
+
+                var response = await this.openAIProvider.Call(request).ConfigureAwait(false);
+
+                Debug.WriteLine("[OpenAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
+
+                if (response == null || !response.Success)
+                {
+                    return new List<string>();
+                }
+
+                var raw = (response as AIReturn)?.Raw;
+                if (raw == null)
+                {
+                    return new List<string>();
+                }
+
+                var data = raw["data"] as JArray;
+                if (data == null)
+                {
+                    return new List<string>();
+                }
+
+                var models = new List<string>();
+                foreach (var item in data.OfType<JObject>())
+                {
+                    var id = item["id"]?.ToString();
+                    var model = id;
+                    if (!string.IsNullOrWhiteSpace(model))
                     {
-                        var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
+                        models.Add(model);
                     }
                 }
 
-                // Fallback when API returns an empty list
-                if (modelIds.Count == 0)
-                {
-                    Debug.WriteLine("[OpenAI] API returned 0 models, using fallback list");
-                    return GetFallbackAvailableModels();
-                }
-
-                return modelIds;
+                return models
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.WriteLine($"[OpenAI] Exception retrieving models: {ex.Message}");
-                // Fallback to a sensible offline list when API is unavailable (e.g., missing API key)
-                return GetFallbackAvailableModels();
+                return new List<string>();
             }
-        }
-
-        /// <summary>
-        /// Gets all models and their capabilities supported by OpenAI, fetching fresh data from API.
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
-        {
-            var result = new Dictionary<string, AIModelCapability>();
-
-            // GPT-5 models - text input/output, image input, structured output, function calling, reasoning
-            result["gpt-5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-            result["gpt-5-mini"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-            
-            // GPT-4.1 models - text input/output, image input, structured output, function calling
-            result["gpt-4.1*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
-
-            // O4-mini models - text input/output, image input, structured output, function calling
-            result["o4-mini*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-
-            // O3 models - text input/output, structured output, function calling
-            result["o3*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling | AIModelCapability.Reasoning;
-
-            // GPT-4o models - text input/output, image input, structured output, function calling
-            result["gpt-4o*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.ImageInput | AIModelCapability.StructuredOutput | AIModelCapability.FunctionCalling;
-
-            // GPT-image-1 - text input, image input and output
-            result["gpt-image-1"] = AIModelCapability.TextInput | AIModelCapability.ImageInput | AIModelCapability.ImageOutput;
-
-            // DALL-E 3 - text input, image output
-            result["dall-e-3"] = AIModelCapability.TextInput | AIModelCapability.ImageOutput;
-
-            // DALL-E 2 - text input, image output
-            result["dall-e-2"] = AIModelCapability.TextInput | AIModelCapability.ImageOutput;
-
-            // GPT-3.5 models - text input and output
-            result["gpt-3.5*"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
-
-            // GPT-4 models - text input and output
-            result["gpt-4"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
-            result["gpt-4-0613"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
-            result["gpt-4-0314"] = AIModelCapability.TextInput | AIModelCapability.TextOutput;
-
-            return result;
-        }
-
-        /// <summary>
-        /// Fallback list of available model IDs when API is unavailable.
-        /// </summary>
-        private List<string> GetFallbackAvailableModels()
-        {
-            return new List<string>
-            {
-                // Concrete, commonly used names aligned with our capability map
-                "gpt-5",
-                "gpt-5-mini",
-                "gpt-5-nano",
-                "gpt-4.1-mini",
-                "o4-mini",
-                "gpt-4o-mini",
-                "dall-e-3",
-            };
-        }
-
-        /// <summary>
-        /// Gets all default models supported by OpenAI
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
-        {
-            var result = new Dictionary<string, AIModelCapability>();
-
-            result["gpt-5-mini"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat | AIModelCapability.JsonGenerator | AIModelCapability.ReasoningChat;
-            result["dall-e-3"] = AIModelCapability.ImageGenerator;
-
-            return result;
         }
     }
 }

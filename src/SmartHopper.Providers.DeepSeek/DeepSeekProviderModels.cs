@@ -10,15 +10,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -27,76 +21,46 @@ namespace SmartHopper.Providers.DeepSeek
     /// </summary>
     public class DeepSeekProviderModels : AIProviderModels
     {
-        private readonly DeepSeekProvider _DeepSeekProvider;
-
-        public DeepSeekProviderModels(DeepSeekProvider provider, Func<string, string, string, string, string, Task<string>> apiCaller) : base(provider, apiCaller)
-        {
-            this._DeepSeekProvider = provider;
-        }
+        private readonly DeepSeekProvider deepSeekProvider;
 
         /// <summary>
-        /// Retrieves the list of available model names for DeepSeek.
+        /// Initializes a new instance of the <see cref="DeepSeekProviderModels"/> class.
         /// </summary>
-        /// <returns>A list of available model names.</returns>
-        public override async Task<List<string>> RetrieveAvailable()
+        /// <param name="provider">The DeepSeek provider instance.</param>
+        public DeepSeekProviderModels(DeepSeekProvider provider)
+            : base(provider)
         {
-            Debug.WriteLine("[DeepSeek] Retrieving available models");
-            try
+            this.deepSeekProvider = provider;
+        }
+
+        /// <inheritdoc/>
+        public override Task<List<AIModelCapabilities>> RetrieveModels()
+        {
+            var provider = this.deepSeekProvider.Name.ToLowerInvariant();
+
+            var models = new List<AIModelCapabilities>
             {
-                var content = await this._apiCaller("/models", "GET", string.Empty, "application/json", "bearer").ConfigureAwait(false);
-                var json = JObject.Parse(content);
-                var data = json["data"] as JArray;
-                var modelIds = new List<string>();
-                if (data != null)
+                new AIModelCapabilities
                 {
-                    foreach (var item in data.OfType<JObject>())
-                    {
-                        var id = item["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(id)) modelIds.Add(id);
-                    }
-                }
+                    Provider = provider,
+                    Model = "deepseek-reasoner",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Rank = 80,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-chat",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Default = AICapability.Text2Text | AICapability.ToolChat,
+                    SupportsStreaming = true,
+                    Rank = 90,
+                },
+            };
 
-                return modelIds;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[DeepSeek] Exception retrieving models: {ex.Message}");
-                throw new Exception($"Error retrieving models from DeepSeek API: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Gets all models and their capabilities supported by DeepSeek
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override async Task<Dictionary<string, AIModelCapability>> RetrieveCapabilities()
-        {
-            var result = new Dictionary<string, AIModelCapability>();
-
-            // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
-
-            // Add deepseek-chat model
-            result["deepseek-chat"] = AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.FunctionCalling | AIModelCapability.StructuredOutput;
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets all default models supported by DeepSeek
-        /// </summary>
-        /// <returns>Dictionary of model names and their capabilities.</returns>
-        public override Dictionary<string, AIModelCapability> RetrieveDefault()
-        {
-            var result = new Dictionary<string, AIModelCapability>();
-
-            // Add deepseek-reasoner model
-            result["deepseek-reasoner"] = AIModelCapability.ReasoningChat;
-
-            // Add deepseek-chat model as default for both BasicChat and AdvancedChat
-            result["deepseek-chat"] = AIModelCapability.BasicChat | AIModelCapability.AdvancedChat;
-
-            return result;
+            return Task.FromResult(models);
         }
     }
 }

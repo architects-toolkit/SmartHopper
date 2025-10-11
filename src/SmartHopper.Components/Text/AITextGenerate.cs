@@ -22,6 +22,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Text
 {
@@ -32,6 +33,8 @@ namespace SmartHopper.Components.Text
         protected override Bitmap Icon => Resources.textgenerate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override AICapability RequiredCapability => AICapability.Text2Text;
 
         public AITextGenerate()
             : base("AI Text Generate", "AITextGenerate",
@@ -56,7 +59,7 @@ namespace SmartHopper.Components.Text
             return new AITextGenerateWorker(this, this.AddRuntimeMessage);
         }
 
-        private class AITextGenerateWorker : AsyncWorkerBase
+        private sealed class AITextGenerateWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
@@ -74,7 +77,7 @@ namespace SmartHopper.Components.Text
                 };
             }
 
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
@@ -88,6 +91,9 @@ namespace SmartHopper.Components.Text
                 // The first defined tree is the one that overrides paths in case they don't match between trees
                 this.inputTree["Prompt"] = promptTree;
                 this.inputTree["Instructions"] = instructionsTree;
+
+                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
+                dataCount = metrics.dataCount;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -100,10 +106,10 @@ namespace SmartHopper.Components.Text
 
                     this.result = await this.parent.RunDataTreeFunctionAsync(
                         this.inputTree,
-                        async (branches, reuseCount) =>
+                        async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches, reuse count: {reuseCount}");
-                            return await ProcessData(branches, this.parent, reuseCount).ConfigureAwait(false);
+                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         onlyMatchingPaths: false,
                         groupIdenticalBranches: true,
@@ -117,7 +123,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent, int reuseCount = 1)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -128,7 +134,7 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees with reuse count: {reuseCount}");
+                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
@@ -160,11 +166,11 @@ namespace SmartHopper.Components.Text
                     {
                         ["prompt"] = promptTree[i]?.Value,
                         ["instructions"] = instructionsTree[i]?.Value,
-                        ["contextProviderFilter"] = "-*",
+                        ["contextFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync(
-                        "text_generate", parameters, reuseCount)
+                        "text_generate", parameters)
                         .ConfigureAwait(false);
 
                     string result = toolResult?["result"]?.ToString() ?? string.Empty;

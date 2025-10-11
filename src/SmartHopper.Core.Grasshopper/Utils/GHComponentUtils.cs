@@ -56,6 +56,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             else if (obj is IGH_Param param)
             {
                 Debug.WriteLine($"[GHComponentUtils] IGH_Param found: {param.GetType().Name}");
+
                 // Check if the parameter implements IGH_PreviewObject for preview capabilities
                 if (param is IGH_PreviewObject paramPreview)
                 {
@@ -142,6 +143,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             {
                 return obj.Attributes.Bounds;
             }
+
             return RectangleF.Empty;
         }
     }

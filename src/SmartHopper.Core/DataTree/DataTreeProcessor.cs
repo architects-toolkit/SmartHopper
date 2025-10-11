@@ -20,7 +20,7 @@ using Grasshopper.Kernel.Types;
 namespace SmartHopper.Core.DataTree
 {
     /// <summary>
-    /// Provides utility methods for processing Grasshopper data trees
+    /// Provides utility methods for processing Grasshopper data trees.
     /// </summary>
     public static class DataTreeProcessor
     {
@@ -31,8 +31,9 @@ namespace SmartHopper.Core.DataTree
         /// If the tree is flat, returns the first branch for any path. If structured, returns the branch at the matching path.
         /// Returns empty list if no matching branch is found and preserveStructure is true.
         /// </summary>
-        /// <param name="tree">The input data tree</param>
-        /// <param name="path">The path to get the branch from</param>
+        /// <typeparam name="T">Type of items contained in the data tree.</typeparam>
+        /// <param name="tree">The input data tree.</param>
+        /// <param name="path">The path to get the branch from.</param>
         /// <param name="preserveStructure">If true, returns empty list for non-existing paths. If false, returns null.</param>
         public static List<T> GetBranchFromTree<T>(GH_Structure<T> tree, GH_Path path, bool preserveStructure = true) where T : IGH_Goo
         {
@@ -61,45 +62,7 @@ namespace SmartHopper.Core.DataTree
         }
 
         /// <summary>
-        /// Finds paths that have identical branch data for a given set of trees and current branches
-        /// </summary>
-        /// <param name="trees">The complete dictionary of trees</param>
-        /// <param name="currentBranches">The current branches being processed</param>
-        /// <returns>List of paths that have identical branch data</returns>
-        private static List<GH_Path> FindIdenticalBranches<T>(
-            Dictionary<string, GH_Structure<T>> trees,
-            Dictionary<string, List<T>> currentBranches,
-            GH_Path currentPath,
-            bool onlyMatchingPaths = false) where T : IGH_Goo
-        {
-            var result = new List<GH_Path>();
-            var currentKey = GetBranchesKey(currentBranches);
-            var allPaths = GetProcessingPaths(trees, onlyMatchingPaths).uniquePaths;
-
-            foreach (var path in allPaths)
-            {
-                // Avoid comparing the current path
-                if (path == currentPath)
-                    continue;
-
-                // Get branches for this path from all trees
-                var siblingBranches = trees.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
-                );
-
-                // Compare the branch data
-                if (GetBranchesKey(siblingBranches) == currentKey)
-                {
-                    result.Add(path);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Generates a unique key for a set of branches based on their content
+        /// Generates a unique key for a set of branches based on their content.
         /// </summary>
         private static string GetBranchesKey<T>(Dictionary<string, List<T>> branches) where T : IGH_Goo
         {
@@ -122,8 +85,9 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Returns all unique paths that exist in ANY of the provided data trees.
         /// </summary>
-        /// <param name="trees">List of data trees to combine</param>
-        /// <returns>List of all unique paths found across all trees</returns>
+        /// <typeparam name="T">Type of items contained in the data trees.</typeparam>
+        /// <param name="trees">List of data trees to combine.</param>
+        /// <returns>List of all unique paths found across all trees.</returns>
         public static List<GH_Path> GetAllUniquePaths<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
         {
             if (trees == null || !trees.Any())
@@ -150,8 +114,9 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Returns all paths that exist in ALL provided data trees (intersection).
         /// </summary>
-        /// <param name="trees">List of data trees to compare</param>
-        /// <returns>List of paths that exist in all trees</returns>
+        /// <typeparam name="T">Type of items contained in the data trees.</typeparam>
+        /// <param name="trees">List of data trees to compare.</param>
+        /// <returns>List of paths that exist in all trees.</returns>
         public static List<GH_Path> GetMatchingPaths<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
         {
             if (trees == null || !trees.Any())
@@ -176,7 +141,24 @@ namespace SmartHopper.Core.DataTree
         }
 
         /// <summary>
-        /// Gets the amount of items in each tree, indexed by position
+        /// Gets the amount of iterations (unique processing operations) and total data paths to process.
+        /// </summary>
+        /// <typeparam name="T">Type of items contained in the data trees.</typeparam>
+        /// <param name="trees">Dictionary of input data trees keyed by a logical name.</param>
+        /// <param name="onlyMatchingPaths">If true, only consider paths that exist in all trees (intersection); otherwise use union.</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to reduce redundant processing.</param>
+        /// <returns>A tuple with <c>iterationCount</c> (unique operations) and <c>dataCount</c> (total affected paths).</returns>
+        public static (int iterationCount, int dataCount) GetProcessingPathMetrics<T>(Dictionary<string, GH_Structure<T>> trees, bool onlyMatchingPaths = false, bool groupIdenticalBranches = false) where T : IGH_Goo
+        {
+            var (allPaths, pathsToApplyMap) = GetProcessingPaths(trees, onlyMatchingPaths, groupIdenticalBranches);
+
+            Debug.WriteLine($"[DataTreeProcessor] Applying {pathsToApplyMap.Count} paths to a total of {pathsToApplyMap.Sum(p => p.Value.Count)} paths");
+
+            return (pathsToApplyMap.Count, pathsToApplyMap.Sum(p => p.Value.Count));
+        }
+
+        /// <summary>
+        /// Gets the amount of items in each tree, indexed by position.
         /// </summary>
         private static Dictionary<int, int> TreesLength<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
         {
@@ -187,13 +169,14 @@ namespace SmartHopper.Core.DataTree
                 treeLengths.Add(index, tree.DataCount);
                 index++;
             }
+
             return treeLengths;
         }
 
         /// <summary>
-        /// Gets paths from trees based on the onlyMatchingPaths parameter and groups identical branches if requested
+        /// Gets paths from trees based on the onlyMatchingPaths parameter and groups identical branches if requested.
         /// </summary>
-        /// <returns>A tuple containing the list of unique processing paths and a dictionary mapping paths to their identical branches</returns>
+        /// <returns>A tuple containing the list of unique processing paths and a dictionary mapping paths to their identical branches.</returns>
         private static (List<GH_Path> uniquePaths, Dictionary<GH_Path, List<GH_Path>> pathsToApplyMap) GetProcessingPaths<T>(
             Dictionary<string, GH_Structure<T>> trees,
             bool onlyMatchingPaths = false,
@@ -258,6 +241,7 @@ namespace SmartHopper.Core.DataTree
 
                 // Track processed paths to avoid redundant processing
                 var processedPaths = new HashSet<GH_Path>();
+
                 // Track paths that should be removed from processing (they'll be handled by another path)
                 var pathsToRemove = new HashSet<GH_Path>();
 
@@ -294,8 +278,7 @@ namespace SmartHopper.Core.DataTree
                         // Get branches for this path from all trees
                         var siblingBranches = trees.ToDictionary(
                             kvp => kvp.Key,
-                            kvp => GetBranchFromTree(kvp.Value, siblingPath, preserveStructure: true)
-                        );
+                            kvp => GetBranchFromTree(kvp.Value, siblingPath, preserveStructure: true));
 
                         var siblingKey = GetBranchesKey(siblingBranches);
 
@@ -360,18 +343,18 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Runs a function on all branches of multiple data trees with progress reporting.
         /// </summary>
-        /// <typeparam name="T">Type of input tree items</typeparam>
-        /// <typeparam name="U">Type of output tree items</typeparam>
-        /// <param name="trees">Dictionary of input data trees</param>
-        /// <param name="function">Function to run on each branch</param>
-        /// <param name="progressCallback">Optional callback to report progress (current, total)</param>
-        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees</param>
-        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing</param>
-        /// <param name="token">Cancellation token</param>
-        /// <returns>Dictionary of output data trees</returns>
+        /// <typeparam name="T">Type of input tree items.</typeparam>
+        /// <typeparam name="U">Type of output tree items.</typeparam>
+        /// <param name="trees">Dictionary of input data trees.</param>
+        /// <param name="function">Asynchronous function to run on each unique processing branch. Receives a dictionary of branch lists by key and returns a dictionary of output lists by key.</param>
+        /// <param name="progressCallback">Optional callback to report progress (current, total).</param>
+        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees.</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Dictionary of output data trees keyed by the same keys as the input dictionary.</returns>
         public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
-            Func<Dictionary<string, List<T>>, int, Task<Dictionary<string, List<U>>>> function,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
             Action<int, int> progressCallback = null,
             bool onlyMatchingPaths = false,
             bool groupIdenticalBranches = false,
@@ -410,8 +393,7 @@ namespace SmartHopper.Core.DataTree
                 var branches = trees
                     .ToDictionary(
                         kvp => kvp.Key,
-                        kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true)
-                    );
+                        kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true));
 
                 // Check for empty branches
                 var emptyBranches = branches.Where(kvp => !kvp.Value.Any()).ToList();
@@ -434,12 +416,8 @@ namespace SmartHopper.Core.DataTree
                     // Get the paths to apply the result to (could be multiple if they have identical branch data)
                     var pathsToApply = pathsToApplyMap[path];
 
-                    // Calculate the reuse count as the number of paths this result will be applied to
-                    int reuseCount = pathsToApply.Count;
-                    Debug.WriteLine($"[DataTreeProcessor] Result for path {path} will be reused {reuseCount} times");
-
-                    // Apply the function to the current branch and await its completion, passing the reuse count
-                    var branchResult = await function(branches, reuseCount);
+                    // Apply the function to the current branch and await its completion
+                    var branchResult = await function(branches);
 
                     // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
                     foreach (var applyPath in pathsToApply)
@@ -482,11 +460,11 @@ namespace SmartHopper.Core.DataTree
         #region NORMALIZATION
 
         /// <summary>
-        /// Normalizes branch lengths by extending shorter branches with their last item
+        /// Normalizes branch lengths by extending shorter branches with their last item.
         /// </summary>
-        /// <typeparam name="T">Type of items in the branches</typeparam>
-        /// <param name="branches">Collection of branches to normalize</param>
-        /// <returns>List of normalized branches with equal length</returns>
+        /// <typeparam name="T">Type of items in the branches.</typeparam>
+        /// <param name="branches">Collection of branches to normalize.</param>
+        /// <returns>List of normalized branches with equal length.</returns>
         public static List<List<T>> NormalizeBranchLengths<T>(IEnumerable<List<T>> branches) where T : IGH_Goo
         {
             if (branches == null || !branches.Any())

@@ -15,11 +15,13 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Models;
-using SmartHopper.Core.Messaging;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -30,13 +32,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class text_generate : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "text_generate";
+
+        /// <summary>
+        /// Defines the required capabilities for the AI tool provided by this class.
+        /// </summary>
+        private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
+
+        /// <summary>
+        /// Default system prompt for the AI tool provided by this class.
+        /// </summary>
+        private readonly string defaultSystemPrompt =
+            "- You will receive some user prompts and you have to do what the user asks for.\n- Generate clear, relevant, and well-structured text based on the user's prompt.\n- Provide thoughtful and accurate responses that directly address what the user is asking for.\n- Keep answers very short.";
+
+        /// <summary>
         /// Get all tools provided by this class.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "text_generate",
+                name: this.toolName,
                 description: "Generates text based on a prompt and optional instructions",
                 category: "DataProcessing",
                 parametersSchema: @"{
@@ -53,65 +71,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""prompt""]
                 }",
-                execute: this.GenerateTextToolWrapper,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput
-            );
-        }
-
-        /// <summary>
-        /// Generates text from a prompt and optional instructions using AI with a custom GetResponse function.
-        /// </summary>
-        /// <param name="prompt">The user's prompt.</param>
-        /// <param name="instructions">Optional instructions for the AI.</param>
-        /// <param name="getResponse">Custom function to get AI response.</param>
-        /// <returns>The generated text as a GH_String.</returns>
-        private static async Task<AIEvaluationResult<GH_String>> GenerateTextAsync(
-            GH_String prompt,
-            GH_String instructions,
-            Func<List<KeyValuePair<string, string>>, Task<AIResponse>> getResponse)
-        {
-            try
-            {
-                // Initiate the messages array
-                var messages = new List<KeyValuePair<string, string>>();
-
-                // Add system prompt if available
-                var systemPrompt = instructions.Value;
-                if (!string.IsNullOrWhiteSpace(systemPrompt))
-                {
-                    messages.Add(new KeyValuePair<string, string>("system", systemPrompt));
-                }
-
-                // Add the user prompt
-                messages.Add(new KeyValuePair<string, string>("user", prompt.Value));
-
-                // Get response using the provided function
-                var response = await getResponse(messages).ConfigureAwait(false);
-
-                // Check for API errors
-                if (response.FinishReason == "error")
-                {
-                    return AIEvaluationResult<GH_String>.CreateError(
-                        response.Response,
-                        GH_RuntimeMessageLevel.Error,
-                        response);
-                }
-
-                // Strip thinking tags from response before using
-                var cleanedResponse = AI.StripThinkTags(response.Response);
-                
-                // Success case
-                return AIEvaluationResult<GH_String>.CreateSuccess(
-                    response,
-                    new GH_String(cleanedResponse));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[TextTools] Error in GenerateTextAsync: {ex.Message}");
-                return AIEvaluationResult<GH_String>.CreateError(
-                    $"Error generating text: {ex.Message}",
-                    GH_RuntimeMessageLevel.Error);
-            }
+                execute: this.GenerateText,
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
@@ -119,63 +80,100 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
         /// <returns>Result object.</returns>
-        private async Task<object> GenerateTextToolWrapper(JObject parameters)
+        private async Task<AIReturn> GenerateText(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
-                Debug.WriteLine("[TextTools] Running GenerateTextToolWrapper");
+                Debug.WriteLine("[TextTools] Running GenerateText tool");
 
                 // Extract parameters
-                string providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                string modelName = parameters["model"]?.ToString() ?? string.Empty;
-                string endpoint = "text_generate";
-                string? prompt = parameters["prompt"]?.ToString();
-                string instructions = parameters["instructions"]?.ToString() ?? string.Empty;
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
+                string endpoint = this.toolName;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                string? prompt = args["prompt"]?.ToString();
+                string? instructions = args["instructions"]?.ToString();
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt))
                 {
-                    // Return error object as JObject
-                    return new JObject
-                    {
-                        ["success"] = false,
-                        ["error"] = "Missing required parameter: prompt"
-                    };
+                    output.CreateToolError("Missing required parameter: prompt", toolCall);
+                    return output;
                 }
 
-                // Execute the tool
-                var result = await GenerateTextAsync(
-                    new GH_String(prompt),
-                    new GH_String(instructions),
-                    messages => AIUtils.GetResponse(
-                        providerName,
-                        modelName,
-                        messages,
-                        endpoint: endpoint,
-                        contextProviderFilter: contextProviderFilter,
-                        contextKeyFilter: contextKeyFilter)
-                ).ConfigureAwait(false);
+                // Use custom instructions if provided, otherwise use default system prompt
+                string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
 
-                // Build standardized result as JObject
-                var responseObj = new JObject
+                // Initiate immutable AIBody
+                var requestBody = AIBodyBuilder.Create()
+                    .AddSystem(systemPrompt)
+                    .AddUser(prompt)
+                    .WithContextFilter(contextFilter)
+                    .Build();
+
+                // Initiate AIRequestCall
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    capability: this.toolCapabilityRequirements,
+                    endpoint: endpoint,
+                    body: requestBody);
+
+                // Execute the AIRequestCall
+                var result = await request.Exec().ConfigureAwait(false);
+
+                // Early exit on provider error to avoid null deref (standardize as tool error)
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
                 {
-                    ["success"] = result.Success,
-                    ["result"] = result.Success ? new JValue(result.Result.Value) : JValue.CreateNull(),
-                    ["error"] = result.Success ? JValue.CreateNull() : new JValue(result.ErrorMessage),
-                    ["rawResponse"] = JToken.FromObject(result.Response),
-                };
-                return responseObj;
+                    output.CreateToolError(result.ErrorMessage, toolCall);
+                    return output;
+                }
+
+                // Get the assistant response safely
+                var last = result.Body?.GetLastInteraction(AIAgent.Assistant);
+                if (last == null)
+                {
+                    output.CreateToolError("Provider returned no content", toolCall);
+                    return output;
+                }
+
+                var response = last.ToString();
+
+                // Success case
+                var toolResult = new JObject();
+                toolResult.Add("result", response);
+
+                // Attach non-breaking result envelope
+                toolResult.WithEnvelope(
+                    ToolResultEnvelope.Create(
+                        tool: this.toolName,
+                        type: ToolResultContentType.Text,
+                        payloadPath: "result",
+                        provider: providerName,
+                        model: modelName,
+                        toolCallId: toolInfo?.Id));
+
+                var toolBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                    .Build();
+
+                output.CreateSuccess(toolBody);
+                return output;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in GenerateTextToolWrapper: {ex.Message}");
-                // Return error object as JObject
-                return new JObject
-                {
-                    ["success"] = false,
-                    ["error"] = $"Error: {ex.Message}",
-                };
+                Debug.WriteLine($"[TextTools] Error in GenerateText: {ex.Message}");
+
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
         }
     }

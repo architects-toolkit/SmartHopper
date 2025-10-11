@@ -8,6 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -16,8 +17,12 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -27,13 +32,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class gh_tidy_up : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "gh_tidy_up";
+        /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_tidy_up",
+                name: this.toolName,
                 description: "Organize selected components into a tidy grid layout. Call `gh_get` first to get the list of GUIDs.",
                 category: "Components",
                 parametersSchema: @"{
@@ -55,56 +64,86 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"" ]
                 }",
-                execute: this.GhTidyUpAsync
-            );
+                execute: this.GhTidyUpAsync);
         }
 
         /// <summary>
         /// Reorganize selected components into a tidy grid layout by GUID list.
         /// </summary>
-        private async Task<object> GhTidyUpAsync(JObject parameters)
+        private async Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
         {
-            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var startToken = parameters["startPoint"];
-            var hasStart = startToken != null;
-            PointF origin = default;
-            if (hasStart)
+            // Prepare the output
+            var output = new AIReturn()
             {
-                var sx = startToken["x"]?.ToObject<float>() ?? 0f;
-                var sy = startToken["y"]?.ToObject<float>() ?? 0f;
-                origin = new PointF(sx, sy);
-            }
-            var currentObjs = GHCanvasUtils.GetCurrentObjects();
-            var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
-            if (!selected.Any())
-            {
-                Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
-                return new { success = false, error = "No matching components found for provided GUIDs." };
-            }
-            var doc = GHDocumentUtils.GetObjectsDetails(selected);
-            var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+                Request = toolCall,
+            };
 
-            if (!hasStart)
+            try
             {
-                // Anchor grid at original pivot of top-left component
-                var firstNode = layoutNodes.OrderBy(n => n.Pivot.X).ThenBy(n => n.Pivot.Y).First();
-                var origObj = selected.First(o => o.InstanceGuid == firstNode.ComponentId);
-                var origPivot = origObj.Attributes.Pivot;
-                origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var startToken = args["startPoint"];
+                var hasStart = startToken != null;
+                PointF origin = default;
+                if (hasStart)
+                {
+                    var sx = startToken["x"]?.ToObject<float>() ?? 0f;
+                    var sy = startToken["y"]?.ToObject<float>() ?? 0f;
+                    origin = new PointF(sx, sy);
+                }
+
+                var currentObjs = GHCanvasUtils.GetCurrentObjects();
+                var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
+                    if (!selected.Any())
+                    {
+                        Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
+                    output.CreateError("No matching components found for provided GUIDs.");
+                    return output;
+                }
+
+                var doc = GHDocumentUtils.GetObjectsDetails(selected);
+                var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+
+                if (!hasStart)
+                {
+                    // Anchor grid at original pivot of top-left component
+                    var firstNode = layoutNodes.OrderBy(n => n.Pivot.X).ThenBy(n => n.Pivot.Y).First();
+                    var origObj = selected.First(o => o.InstanceGuid == firstNode.ComponentId);
+                    var origPivot = origObj.Attributes.Pivot;
+                    origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
+                }
+
+                var moved = new List<string>();
+                foreach (var node in layoutNodes)
+                {
+                    var guid = node.ComponentId;
+                    var rel = node.Pivot;
+                    var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
+                    var ok = GHCanvasUtils.MoveInstance(guid, target, relative: false);
+                    Debug.WriteLine(ok
+                        ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
+                        : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
+                    if (ok) moved.Add(guid.ToString());
+                }
+
+                var toolResult = new JObject
+                {
+                    ["moved"] = JArray.FromObject(moved),
+                };
+                var immutableBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)
+                    .Build();
+
+                output.CreateSuccess(immutableBody, toolCall);
+                return output;
             }
-            var moved = new List<string>();
-            foreach (var node in layoutNodes)
+            catch (Exception ex)
             {
-                var guid = node.ComponentId;
-                var rel = node.Pivot;
-                var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
-                var ok = GHCanvasUtils.MoveInstance(guid, target, relative: false);
-                Debug.WriteLine(ok
-                    ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
-                    : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
-                if (ok) moved.Add(guid.ToString());
+                output.CreateError($"Error: {ex.Message}");
+                return output;
             }
-            return new { success = true, moved };
         }
     }
 }

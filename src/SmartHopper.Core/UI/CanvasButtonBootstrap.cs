@@ -1,0 +1,52 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+using System.Runtime.CompilerServices;
+using Rhino;
+using SmartHopper.Infrastructure.Settings;
+
+namespace SmartHopper.Core.UI
+{
+    internal static class CanvasButtonBootstrap
+    {
+        /// <summary>
+        /// Module initializer to auto-run CanvasButton.EnsureInitialized at assembly load.
+        /// </summary>
+        [ModuleInitializer]
+        public static void Init()
+        {
+            // Only trigger initialization process if setting is enabled (defaults to true if unset)
+            try
+            {
+                if (SmartHopperSettings.Instance?.SmartHopperAssistant?.EnableCanvasButton ?? true)
+                {
+                    CanvasButton.EnsureInitialized();
+                }
+
+                // Subscribe to settings saved to dynamically toggle the canvas button visibility
+                SmartHopperSettings.Instance.SettingsSaved += OnSettingsSaved;
+            }
+            catch
+            {
+                // Be permissive on errors: initialize by default
+                CanvasButton.EnsureInitialized();
+            }
+        }
+
+        private static void OnSettingsSaved(object? sender, System.EventArgs e)
+        {
+            // Always marshal to Rhino UI thread for UI operations
+            RhinoApp.InvokeOnUiThread(() =>
+            {
+                CanvasButton.UpdateEnabledStateFromSettings();
+            });
+        }
+    }
+}

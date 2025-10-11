@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.Models
             Text,
             Number,
             Integer,
-            Boolean
+            Boolean,
         };
 
         /// <summary>
@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         {
             Item,
             List,
-            Tree
+            Tree,
         };
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace SmartHopper.Core.Grasshopper.Models
         {
             Generic,
             Geometry,
-            Color
+            Color,
         };
 
         /// <summary>
