@@ -189,7 +189,7 @@ namespace SmartHopper.Components.List
                         "list_filter", parameters)
                         .ConfigureAwait(false);
 
-                    var indices = toolResult?["indices"]?.ToObject<List<int>>() ?? new List<int>();
+                    var indices = toolResult?["result"]?.ToObject<List<int>>() ?? new List<int>();
                     var filteredItems = indices
                         .Where(idx => idx >= 0 && idx < branches["List"].Count)
                         .Select(idx => new GH_String(branches["List"][idx].Value));

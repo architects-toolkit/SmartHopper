@@ -11,6 +11,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -20,8 +21,30 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// <summary>
     /// Helper methods for parsing AI responses into specific data types.
     /// </summary>
-    public static class ParsingTools
+    public static partial class ParsingTools
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for extracting content from markdown code blocks.
+        /// </summary>
+        [GeneratedRegex(@"```(?:json|txt|text)?\s*\n?(.*?)\n?```", RegexOptions.Singleline)]
+        private static partial Regex MarkdownCodeBlockRegex();
+
+        /// <summary>
+        /// Regex pattern for extracting the first bracketed array from text.
+        /// </summary>
+        [GeneratedRegex(@"\[([^\[\]]*)\]")]
+        private static partial Regex FirstBracketedArrayRegex();
+
+        /// <summary>
+        /// Regex pattern for matching range notation (N-M or N..M).
+        /// </summary>
+        [GeneratedRegex(@"(\d+)(?:-|\.\.)(\d+)")]
+        private static partial Regex RangeRegex();
+
+        #endregion
+
         #region Response Parsing
 
         /// <summary>
@@ -51,10 +74,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
         }
 
         /// <summary>
-        /// Parses a comma-separated list of indices from the AI response.
+        /// Parses a list of indices from the AI response.
+        /// Supports: JSON arrays (numbers/strings), comma/space/newline-separated numbers,
+        /// markdown code blocks, text-wrapped arrays, JSON objects with known keys,
+        /// dictionaries with index->bool, ranges (N-M, N..M), and "none"/empty indicators.
         /// </summary>
         /// <param name="response">Raw response from the AI.</param>
-        /// <returns>List of parsed integer indices.</returns>
+        /// <returns>List of parsed integer indices (unique, sorted).</returns>
         public static List<int> ParseIndicesFromResponse(string response)
         {
             var indices = new List<int>();
@@ -63,16 +89,237 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 return indices;
             }
 
-            var parts = response.Split(',');
+            var trimmed = response.Trim();
+
+            // Check for explicit "none" or empty indicators
+            var lowerTrimmed = trimmed.ToLowerInvariant();
+            if (lowerTrimmed == "[]" || lowerTrimmed == "none" || lowerTrimmed == "no matches" || lowerTrimmed == "empty")
+            {
+                return indices;
+            }
+
+            // 1. Extract from markdown code blocks
+            var codeBlockContent = ExtractFromMarkdownCodeBlock(trimmed);
+            if (!string.IsNullOrEmpty(codeBlockContent))
+            {
+                trimmed = codeBlockContent;
+            }
+
+            // 2. Try parsing as complete JSON array
+            try
+            {
+                var jarray = JArray.Parse(trimmed);
+                foreach (var token in jarray)
+                {
+                    if (int.TryParse(token.ToString(), out int index))
+                    {
+                        indices.Add(index);
+                    }
+                }
+
+                return DeduplicateAndSort(indices);
+            }
+            catch
+            {
+                // Not a valid JSON array, continue
+            }
+
+            // 3. Try parsing as JSON object with known keys
+            try
+            {
+                var jobject = JObject.Parse(trimmed);
+
+                // Check for common keys: indices, result, data
+                if (TryExtractIndicesFromObject(jobject, out var objIndices))
+                {
+                    return DeduplicateAndSort(objIndices);
+                }
+
+                // Check if it's a dictionary of index->bool/value
+                if (TryExtractIndicesFromDictionary(jobject, out var dictIndices))
+                {
+                    return DeduplicateAndSort(dictIndices);
+                }
+            }
+            catch
+            {
+                // Not a valid JSON object, continue
+            }
+
+            // 4. Extract first bracketed array from text (text-wrapped arrays)
+            var bracketedArray = ExtractFirstBracketedArray(trimmed);
+            if (!string.IsNullOrEmpty(bracketedArray))
+            {
+                try
+                {
+                    var jarray = JArray.Parse(bracketedArray);
+                    foreach (var token in jarray)
+                    {
+                        if (int.TryParse(token.ToString(), out int index))
+                        {
+                            indices.Add(index);
+                        }
+                    }
+
+                    return DeduplicateAndSort(indices);
+                }
+                catch
+                {
+                    // Parse as comma-separated from bracketed content
+                    trimmed = bracketedArray.TrimStart('[').TrimEnd(']');
+                }
+            }
+
+            // 5. Expand ranges (N-M or N..M)
+            trimmed = ExpandRanges(trimmed);
+
+            // 6. Extract all numbers from comma/space/newline-separated text
+            var parts = trimmed.Split(new[] { ',', ' ', '\t', '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
-                if (int.TryParse(part.Trim(), out int index))
+                var cleaned = part.Trim().TrimStart('[').TrimEnd(']').Trim('"', '\'');
+                if (int.TryParse(cleaned, out int index))
                 {
                     indices.Add(index);
                 }
             }
 
-            return indices;
+            return DeduplicateAndSort(indices);
+        }
+
+        /// <summary>
+        /// Extracts content from markdown code blocks (```json, ```txt, etc.).
+        /// </summary>
+        private static string ExtractFromMarkdownCodeBlock(string text)
+        {
+            var match = MarkdownCodeBlockRegex().Match(text);
+            return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
+        }
+
+        /// <summary>
+        /// Extracts the first bracketed array [...] from text.
+        /// </summary>
+        private static string ExtractFirstBracketedArray(string text)
+        {
+            var match = FirstBracketedArrayRegex().Match(text);
+            return match.Success ? match.Value : string.Empty;
+        }
+
+        /// <summary>
+        /// Tries to extract indices from a JSON object with known keys (indices, result, data).
+        /// </summary>
+        private static bool TryExtractIndicesFromObject(JObject obj, out List<int> indices)
+        {
+            indices = new List<int>();
+
+            // Check common keys
+            var keys = new[] { "indices", "result", "data" };
+            foreach (var key in keys)
+            {
+                if (obj.TryGetValue(key, out var token))
+                {
+                    if (token is JArray array)
+                    {
+                        foreach (var item in array)
+                        {
+                            if (int.TryParse(item.ToString(), out int index))
+                            {
+                                indices.Add(index);
+                            }
+                        }
+
+                        return indices.Count > 0;
+                    }
+
+                    // Handle nested objects like {"data": {"indices": [...]}}
+                    if (token is JObject nestedObj && nestedObj.TryGetValue("indices", out var nestedToken) && nestedToken is JArray nestedArray)
+                    {
+                        foreach (var item in nestedArray)
+                        {
+                            if (int.TryParse(item.ToString(), out int index))
+                            {
+                                indices.Add(index);
+                            }
+                        }
+
+                        return indices.Count > 0;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Tries to extract indices from a dictionary where keys are indices and values are bool/truthy.
+        /// Example: {"2": true, "3": true} or {"2": "selected", "3": "selected"}
+        /// </summary>
+        private static bool TryExtractIndicesFromDictionary(JObject obj, out List<int> indices)
+        {
+            indices = new List<int>();
+
+            foreach (var prop in obj.Properties())
+            {
+                if (int.TryParse(prop.Name, out int index))
+                {
+                    // Check if value is truthy (true, non-zero number, non-empty string)
+                    var value = prop.Value;
+                    bool isTruthy = false;
+
+                    if (value.Type == JTokenType.Boolean && value.ToObject<bool>())
+                    {
+                        isTruthy = true;
+                    }
+                    else if (value.Type == JTokenType.Integer && value.ToObject<int>() != 0)
+                    {
+                        isTruthy = true;
+                    }
+                    else if (value.Type == JTokenType.String && !string.IsNullOrWhiteSpace(value.ToString()))
+                    {
+                        isTruthy = true;
+                    }
+
+                    if (isTruthy)
+                    {
+                        indices.Add(index);
+                    }
+                }
+            }
+
+            return indices.Count > 0;
+        }
+
+        /// <summary>
+        /// Expands range notation (N-M or N..M) into comma-separated numbers.
+        /// Example: "2-4, 7" becomes "2,3,4,7"
+        /// </summary>
+        private static string ExpandRanges(string text)
+        {
+            var result = RangeRegex().Replace(text, match =>
+            {
+                if (int.TryParse(match.Groups[1].Value, out int start) && int.TryParse(match.Groups[2].Value, out int end))
+                {
+                    var expanded = new List<string>();
+                    for (int i = start; i <= end; i++)
+                    {
+                        expanded.Add(i.ToString());
+                    }
+
+                    return string.Join(",", expanded);
+                }
+
+                return match.Value;
+            });
+
+            return result;
+        }
+
+        /// <summary>
+        /// Deduplicates and sorts a list of indices.
+        /// </summary>
+        private static List<int> DeduplicateAndSort(List<int> indices)
+        {
+            return indices.Distinct().OrderBy(i => i).ToList();
         }
 
         #endregion

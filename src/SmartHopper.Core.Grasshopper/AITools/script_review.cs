@@ -30,8 +30,47 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Provides the "script_review" AI tool for code reviewing script components.
     /// </summary>
-    public class script_review : IAIToolProvider
+    public partial class script_review : IAIToolProvider
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for detecting Python function definitions.
+        /// </summary>
+        [GeneratedRegex(@"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+        private static partial Regex PythonDefRegex();
+
+        /// <summary>
+        /// Regex pattern for detecting Python print statements.
+        /// </summary>
+        [GeneratedRegex(@"print\(", RegexOptions.IgnoreCase)]
+        private static partial Regex PythonPrintRegex();
+
+        /// <summary>
+        /// Regex pattern for detecting C# RunScript method.
+        /// </summary>
+        [GeneratedRegex(@"void\s+RunScript", RegexOptions.IgnoreCase)]
+        private static partial Regex CSharpRunScriptRegex();
+
+        /// <summary>
+        /// Regex pattern for detecting C# Console.WriteLine statements.
+        /// </summary>
+        [GeneratedRegex(@"Console\.WriteLine", RegexOptions.IgnoreCase)]
+        private static partial Regex CSharpConsoleWriteLineRegex();
+
+        /// <summary>
+        /// Regex pattern for detecting VB.NET RunScript subroutine.
+        /// </summary>
+        [GeneratedRegex(@"sub\s+RunScript", RegexOptions.IgnoreCase)]
+        private static partial Regex VBRunScriptRegex();
+
+        /// <summary>
+        /// Regex pattern for detecting VB.NET debug statements.
+        /// </summary>
+        [GeneratedRegex(@"Debug\.Print|Console\.WriteLine", RegexOptions.IgnoreCase)]
+        private static partial Regex VBDebugRegex();
+
+        #endregion
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
@@ -120,29 +159,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     codedIssues.Add($"Script has {lineCount} lines; consider refactoring into smaller methods.");
 
                 // Language-specific debug checks
-                if (Regex.IsMatch(scriptCode, @"^\s*def\s+", RegexOptions.Multiline | RegexOptions.IgnoreCase)
+                if (PythonDefRegex().IsMatch(scriptCode)
                     || scriptCode.Contains("import ", StringComparison.OrdinalIgnoreCase))
                 {
                     // Python/IronPython
-                    var debugPy = Regex.Matches(scriptCode, @"print\(", RegexOptions.IgnoreCase).Count;
+                    var debugPy = PythonPrintRegex().Matches(scriptCode).Count;
                     if (debugPy > 0)
                     {
                         codedIssues.Add("Remove debug 'print' statements from Python script.");
                     }
                 }
-                else if (Regex.IsMatch(scriptCode, @"void\s+RunScript", RegexOptions.IgnoreCase)
+                else if (CSharpRunScriptRegex().IsMatch(scriptCode)
                          || scriptCode.Contains("using ", StringComparison.OrdinalIgnoreCase))
                 {
                     // C#
-                    var debugCs = Regex.Matches(scriptCode, @"Console\.WriteLine", RegexOptions.IgnoreCase).Count;
+                    var debugCs = CSharpConsoleWriteLineRegex().Matches(scriptCode).Count;
                     if (debugCs > 0)
                         codedIssues.Add("Remove debug 'Console.WriteLine' statements from C# script.");
                 }
-                else if (Regex.IsMatch(scriptCode, @"sub\s+RunScript", RegexOptions.IgnoreCase)
+                else if (VBRunScriptRegex().IsMatch(scriptCode)
                          || scriptCode.Contains("imports ", StringComparison.OrdinalIgnoreCase))
                 {
                     // VB.NET
-                    var debugVb = Regex.Matches(scriptCode, @"Debug\.Print|Console\.WriteLine", RegexOptions.IgnoreCase).Count;
+                    var debugVb = VBDebugRegex().Matches(scriptCode).Count;
                     if (debugVb > 0)
                         codedIssues.Add("Remove debug statements (Debug.Print or Console.WriteLine) from VB script.");
                 }
