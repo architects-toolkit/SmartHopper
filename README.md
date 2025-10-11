@@ -41,29 +41,38 @@ Quick start via Rhino Package Manager (Yak):
 
 ## 🚀 How to use
 
-### Getting started in 60 seconds
+### Getting started
 
-Install, enable a provider, drop a component, run.
+Install, enable a provider, and set up an API key.
 
-![Quickstart](https://placehold.co/960x540?text=Quickstart)
+<a href="https://vimeo.com/1126454690" title="Quickstart — click to watch on Vimeo">
+<div style="position: relative; display: inline-block;">
+  <img src="./img/video-installation.png" alt="Quickstart ▶" style="width: 100%; max-width: 960px;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">▶</div>
+</div>
+</a>
 
 ### Canvas assistant (AI chat)
 
-Start a chat, tidy up components, search the McNeel forum, or generate a script.
+Start a chat, ask for help, search the McNeel forum, or talk about life.
 
-![Canvas chat](https://placehold.co/960x540?text=Canvas+Assistant)
+<a href="https://vimeo.com/1126454713" title="Canvas Assistant — click to watch on Vimeo">
+<div style="position: relative; display: inline-block;">
+  <img src="./img/video-chat.png" alt="Canvas Assistant ▶" style="width: 100%; max-width: 960px;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">▶</div>
+</div>
+</a>
 
-### AI components
+### AI-powered components
 
-Examples: Text Generate, List Generate, JSON Generate, Image Generate, Script New/Review/Edit.
+Do things that were impossible before.
 
-![AI Components](https://placehold.co/960x540?text=AI+Components)
-
-### Provider setup
-
-Configure an API key for your preferred provider in Settings.
-
-![Providers setup](https://placehold.co/960x540?text=Providers+Setup)
+<a href="https://vimeo.com/1126454744" title="AI Components — click to watch on Vimeo">
+<div style="position: relative; display: inline-block;">
+  <img src="./img/video-components.png" alt="AI Components ▶" style="width: 100%; max-width: 960px;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">▶</div>
+</div>
+</a>
 
 More examples and recipes coming soon on the website and docs.
 

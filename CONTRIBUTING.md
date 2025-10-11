@@ -1,6 +1,6 @@
 # Contributing to SmartHopper
 
-We are so happy to have you here! We welcome contributions to SmartHopper! Here's how you can help:
+I'm so happy to have you here! All contributions are welcome to SmartHopper! Here's how you can help:
 
 ## Code of Conduct
 
@@ -42,7 +42,7 @@ Before submitting a release, please ensure you have completed the checks in the 
 
 ## Discussion Forum
 
-We have a discussion forum available for you to engage with the community:
+You can use the discussion forum to engage with the community:
 - Share your work: [Show and Tell](https://github.com/architects-toolkit/SmartHopper/discussions/categories/show-and-tell)
 - Feature requests: [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas)
 - Support questions: [Q&A](https://github.com/architects-toolkit/SmartHopper/discussions/categories/q-a)
