@@ -1,0 +1,44 @@
+name: "Update Ready Badge"
+description: "Update the Ready to use badge in README.md to a specific status and color"
+author: "SmartHopper"
+
+inputs:
+  status:
+    description: "Badge status text (e.g., YES, NO)"
+    required: false
+    default: "YES"
+  color:
+    description: "Badge color (e.g., brightgreen, red, brown)"
+    required: false
+    default: "brightgreen"
+  file:
+    description: "Path to README file"
+    required: false
+    default: "README.md"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Update Ready badge in README
+      shell: bash
+      run: |
+        set -euo pipefail
+        FILE="${{ inputs.file }}"
+        STATUS="${{ inputs.status }}"
+        COLOR="${{ inputs.color }}"
+
+        if [[ ! -f "$FILE" ]]; then
+          echo "File not found: $FILE" >&2
+          exit 1
+        fi
+
+        # Replace shields.io 'ready_to_use-<status>-<color>' portion, keeping query params
+        # Supports any current value and preserves surrounding markdown link
+        pattern='(https://img\.shields\.io/badge/ready_to_use-)[^?-]+-[^?]+(\?style=for-the-badge)'
+        replacement="\\1${STATUS}-${COLOR}\\2"
+
+        # Use perl for cross-platform inline regex with capture groups
+        perl -0777 -pe "s#$pattern#$replacement#g" "$FILE" > "$FILE.tmp"
+        mv "$FILE.tmp" "$FILE"
+
+        echo "Updated Ready badge to: status=$STATUS color=$COLOR in $FILE"
