@@ -1,4 +1,4 @@
-# SmartHopper - AI-Powered Grasshopper3D Assistant and Tools
+# SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
 [![Version](https://img.shields.io/badge/version-1.0.0--dev.251011-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
