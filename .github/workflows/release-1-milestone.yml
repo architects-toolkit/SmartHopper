@@ -65,6 +65,13 @@ jobs:
         uses: ./.github/actions/documentation/update-badges
         id: update-badges
 
+      - name: Update Ready badge to YES (brightgreen)
+        uses: ./.github/actions/documentation/update-ready-badge
+        with:
+          status: YES
+          color: brightgreen
+          file: README.md
+
       # - name: Fix code style
       #   uses: ./.github/actions/code-style
       #   with:
