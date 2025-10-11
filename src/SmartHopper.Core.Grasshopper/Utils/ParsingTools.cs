@@ -11,6 +11,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -20,8 +21,30 @@ namespace SmartHopper.Core.Grasshopper.Utils
     /// <summary>
     /// Helper methods for parsing AI responses into specific data types.
     /// </summary>
-    public static class ParsingTools
+    public static partial class ParsingTools
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for extracting content from markdown code blocks.
+        /// </summary>
+        [GeneratedRegex(@"```(?:json|txt|text)?\s*\n?(.*?)\n?```", RegexOptions.Singleline)]
+        private static partial Regex MarkdownCodeBlockRegex();
+
+        /// <summary>
+        /// Regex pattern for extracting the first bracketed array from text.
+        /// </summary>
+        [GeneratedRegex(@"\[([^\[\]]*)\]")]
+        private static partial Regex FirstBracketedArrayRegex();
+
+        /// <summary>
+        /// Regex pattern for matching range notation (N-M or N..M).
+        /// </summary>
+        [GeneratedRegex(@"(\d+)(?:-|\.\.)(\d+)")]
+        private static partial Regex RangeRegex();
+
+        #endregion
+
         #region Response Parsing
 
         /// <summary>
@@ -151,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
             trimmed = ExpandRanges(trimmed);
 
             // 6. Extract all numbers from comma/space/newline-separated text
-            var parts = System.Text.RegularExpressions.Regex.Split(trimmed, @"[,\s\n\r]+");
+            var parts = trimmed.Split(new[] { ',', ' ', '\t', '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 var cleaned = part.Trim().TrimStart('[').TrimEnd(']').Trim('"', '\'');
@@ -169,7 +192,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// </summary>
         private static string ExtractFromMarkdownCodeBlock(string text)
         {
-            var match = System.Text.RegularExpressions.Regex.Match(text, @"```(?:json|txt|text)?\s*\n?(.*?)\n?```", System.Text.RegularExpressions.RegexOptions.Singleline);
+            var match = MarkdownCodeBlockRegex().Match(text);
             return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
         }
 
@@ -178,7 +201,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// </summary>
         private static string ExtractFirstBracketedArray(string text)
         {
-            var match = System.Text.RegularExpressions.Regex.Match(text, @"\[([^\[\]]*)\]");
+            var match = FirstBracketedArrayRegex().Match(text);
             return match.Success ? match.Value : string.Empty;
         }
 
@@ -272,7 +295,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// </summary>
         private static string ExpandRanges(string text)
         {
-            var result = System.Text.RegularExpressions.Regex.Replace(text, @"(\d+)(?:-|\.\.)(\d+)", match =>
+            var result = RangeRegex().Replace(text, match =>
             {
                 if (int.TryParse(match.Groups[1].Value, out int start) && int.TryParse(match.Groups[2].Value, out int end))
                 {

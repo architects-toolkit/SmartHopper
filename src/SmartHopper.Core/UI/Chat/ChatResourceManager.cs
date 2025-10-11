@@ -33,8 +33,17 @@ namespace SmartHopper.Core.UI.Chat
     /// <summary>
     /// Manages resources for the chat interface, including HTML templates, CSS, and JavaScript.
     /// </summary>
-    internal class ChatResourceManager
+    internal partial class ChatResourceManager
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for extracting content from think tags.
+        /// </summary>
+        [GeneratedRegex(@"<think>([\s\S]*?)</think>", RegexOptions.Singleline)]
+        private static partial Regex ThinkTagRegex();
+
+        #endregion
         private string _cachedChatTemplate;
         private string _cachedMessageTemplate;
         private string _cachedErrorTemplate;
@@ -230,7 +239,7 @@ namespace SmartHopper.Core.UI.Chat
 
             // If input contains <think>...</think>, extract inner content; otherwise use as-is
             string reasoningMd;
-            var m = Regex.Match(reasoning, @"<think>([\s\S]*?)</think>", RegexOptions.Singleline);
+            var m = ThinkTagRegex().Match(reasoning);
             if (m.Success)
             {
                 reasoningMd = m.Groups[1].Value;

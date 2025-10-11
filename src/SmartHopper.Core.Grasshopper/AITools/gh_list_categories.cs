@@ -11,7 +11,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Grasshopper;
 using Newtonsoft.Json.Linq;
@@ -79,7 +78,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var server = Instances.ComponentServer;
                 var filterString = args["filter"]?.ToObject<string>() ?? string.Empty;
                 var includeSubcategories = args["includeSubcategories"]?.ToObject<bool>() ?? false;
-                var tokens = Regex.Replace(filterString, @"[,;\-_]", " ")
+
+                // Replace delimiter characters with spaces for tokenization
+                var normalizedFilter = filterString
+                    .Replace(',', ' ')
+                    .Replace(';', ' ')
+                    .Replace('-', ' ')
+                    .Replace('_', ' ');
+
+                var tokens = normalizedFilter
                     .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(t => t.ToLowerInvariant())
                     .ToList();

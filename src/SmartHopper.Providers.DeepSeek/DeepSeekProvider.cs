@@ -36,8 +36,24 @@ namespace SmartHopper.Providers.DeepSeek
     /// <summary>
     /// DeepSeek AI provider implementation.
     /// </summary>
-    public sealed class DeepSeekProvider : AIProvider<DeepSeekProvider>
+    public sealed partial class DeepSeekProvider : AIProvider<DeepSeekProvider>
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for normalizing whitespace to single spaces.
+        /// </summary>
+        [GeneratedRegex(@"\s+")]
+        private static partial Regex WhitespaceRegex();
+
+        /// <summary>
+        /// Regex pattern for extracting enum arrays from malformed JSON.
+        /// </summary>
+        [GeneratedRegex(@"enum[""']?:\s*\[([^\]]+)\]")]
+        private static partial Regex EnumArrayRegex();
+
+        #endregion
+
         /// <summary>
         /// The name of the provider. This will be displayed in the UI and used for provider selection.
         /// </summary>
@@ -428,7 +444,7 @@ namespace SmartHopper.Providers.DeepSeek
                 jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
                 jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = Regex.Replace(jsonString, @"\s+", " ");
+                jsonString = WhitespaceRegex().Replace(jsonString, " ");
 
                 messageObj["content"] = jsonString;
 
@@ -657,8 +673,8 @@ namespace SmartHopper.Providers.DeepSeek
                     catch
                     {
                         // If JSON parsing fails, try regex extraction as fallback
-                        // Look for pattern like: enum":["item1", "item2", ...]
-                        var enumMatch = Regex.Match(content, @"enum[""']?:\s*\[([^\]]+)\]");
+                        // Look for pattern like: enum":"["item1", "item2", ...]
+                        var enumMatch = EnumArrayRegex().Match(content);
                         if (enumMatch.Success)
                         {
                             var enumContent = enumMatch.Groups[1].Value;
