@@ -35,8 +35,24 @@ namespace SmartHopper.Providers.OpenAI
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public sealed class OpenAIProvider : AIProvider<OpenAIProvider>
+    public partial class OpenAIProvider : AIProvider<OpenAIProvider>
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for detecting o-series models (o1, o3, o4, etc.).
+        /// </summary>
+        [GeneratedRegex(@"^o[0-9]", RegexOptions.IgnoreCase)]
+        private static partial Regex OSeriesModelRegex();
+
+        /// <summary>
+        /// Regex pattern for detecting GPT-5 models.
+        /// </summary>
+        [GeneratedRegex(@"^gpt-5", RegexOptions.IgnoreCase)]
+        private static partial Regex Gpt5ModelRegex();
+
+        #endregion
+
         // Schema wrapper information is centralized in JsonSchemaService via AsyncLocal.
 
         /// <summary>
@@ -406,7 +422,7 @@ namespace SmartHopper.Providers.OpenAI
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
-            if (Regex.IsMatch(request.Model, @"^o[0-9]", RegexOptions.IgnoreCase) || Regex.IsMatch(request.Model, @"^gpt-5", RegexOptions.IgnoreCase))
+            if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
                 requestBody["max_completion_tokens"] = maxTokens;

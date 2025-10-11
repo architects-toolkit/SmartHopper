@@ -18,8 +18,18 @@ using Newtonsoft.Json.Linq;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
-    public static class IGHStructureProcessor
+    public static partial class IGHStructureProcessor
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for removing list indices in parentheses from path keys.
+        /// </summary>
+        [GeneratedRegex(@"\(\d+\)")]
+        private static partial Regex ListIndicesRegex();
+
+        #endregion
+
         public static Dictionary<string, List<object>> IGHStructureToDictionary(IGH_Structure structure)
         {
             Dictionary<string, List<object>> result = new ();
@@ -119,7 +129,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         private static GH_Path ParseKeyToPath(string key)
         {
             // Remove list indices in parentheses and split the key by semicolons
-            string cleanedKey = Regex.Replace(key, @"\(\d+\)", string.Empty);
+            string cleanedKey = ListIndicesRegex().Replace(key, string.Empty);
             var pathElements = cleanedKey.Trim('{', '}').Split(';');
 
             // Convert the path elements to integers and create a new GH_Path
