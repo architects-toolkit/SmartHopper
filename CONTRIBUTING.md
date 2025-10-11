@@ -24,7 +24,7 @@ If you encounter a bug when using SmartHopper, please do the following:
 
 Would you like to see a feature added to SmartHopper? If so, please do the following:
 
-   - Open a **Feature Request** in [GitHub Issues](https://github.com/architects-toolkit/SmartHopper/issues/new/choose)
+   - Open a new discussion in the **Ideas** category in [GitHub Discussions](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas)
    - Describe the use case
    - Provide examples if possible
 
@@ -43,7 +43,7 @@ Before submitting a release, please ensure you have completed the checks in the 
 ## Discussion Forum
 
 We have a discussion forum available for you to engage with the community:
-- General discussions: [SmartHopper Discussions](https://github.com/architects-toolkit/SmartHopper/discussions/categories/general)
+- Share your work: [Show and Tell](https://github.com/architects-toolkit/SmartHopper/discussions/categories/show-and-tell)
 - Feature requests: [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas)
 - Support questions: [Q&A](https://github.com/architects-toolkit/SmartHopper/discussions/categories/q-a)
 
