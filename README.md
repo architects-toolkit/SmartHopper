@@ -3,22 +3,26 @@
 [![Version](https://img.shields.io/badge/version-1.0.0--dev.251011-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
-[![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
+[![Ready to use](https://img.shields.io/badge/ready_to_use-YES-brightgreen?style=for-the-badge)](https://smarthopper.xyz/#installation)
 [![License](https://img.shields.io/badge/license-LGPL%20v3-white?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/blob/main/LICENSE)
 
-> **Design with AI directly on your Grasshopper canvas — chat, generate, organize, and build smarter definitions faster.**
+<div align="center">
 
-![SmartHopper hero placeholder](https://placehold.co/1200x400/111111/FFFFFF?text=SmartHopper+%E2%80%94+AI+for+Grasshopper+3D)
+[![SmartHopper](./img/smarthopper.png)](https://smarthopper.xyz)
+
+**Design with AI directly on your Grasshopper canvas — chat, generate, organize, and build smarter definitions faster.**
+
+</div>
+
+---
 
 SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered components into Grasshopper3D.
 
-- ✨ Two strong points
+- 🔧 **AI‑powered components**
+  Use Grasshopper in a way that was impossible before AI — generate text, generate and sort lists based on prompt, create images, and more.
 
-  - 🔧 **AI‑powered components**
-    Use Grasshopper in a way that was impossible before AI — generate text, sort lists, create images, structure JSON, write scripts, and more.
-
-  - 💬 **Canvas assistant**
-    An on‑canvas AI chat truly aware of your components and connected to the McNeel forum for real answers.
+- 💬 **Canvas assistant**
+  An on‑canvas AI chat truly aware of your components and connected to the McNeel forum for real answers.
 
 - 🤝 Multiple compatible providers (check the [full provider feature matrix](DEV.md#➡️-available-providers) for details)
 
@@ -41,33 +45,31 @@ Quick start via Rhino Package Manager (Yak):
 - Enable “Include pre-releases” (this is still alpha)
 - Search for “SmartHopper” and install
 
-## 🚀 How to use (TODO)
+## 🚀 How to use
 
-Use this section as a guided tour. We’ll keep it concise and visual. You can help us improve it by opening a PR.
+### Getting started
 
-### ⚡ Getting started in 60 seconds
+Install, enable a provider, and set up an API key.
 
-- Install, enable a provider, drop a component, run.
+[![Quickstart ▶](./img/video-installation.png)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
 
-![Quickstart](https://placehold.co/960x540?text=Quickstart)
+[View the video on Vimeo](https://vimeo.com/1126454690)
 
-### 💬 Canvas assistant (AI chat)
+### Canvas assistant (AI chat)
 
-- Start a chat, tidy up components, search the McNeel forum, or generate a script.
+Start a chat, ask for help, search the McNeel forum, or talk about life.
 
-![Canvas chat](https://placehold.co/960x540?text=Canvas+Assistant)
+[![Canvas Assistant ▶](./img/video-chat.png)](https://vimeo.com/1126454713 "Canvas Assistant ▶ — click to watch on Vimeo")
 
-### 🧩 AI components
+[View the video on Vimeo](https://vimeo.com/1126454713)
 
-- Examples: Text Generate, List Generate, JSON Generate, Image Generate, Script New/Review/Edit.
+### AI-powered components
 
-![AI Components](https://placehold.co/960x540?text=AI+Components)
+Do things that were impossible before.
 
-### 🔐 Provider setup
+[![AI Components ▶](./img/video-components.png)](https://vimeo.com/1126454744 "AI Components ▶ — click to watch on Vimeo")
 
-- Configure an API key for your preferred provider in Settings.
-
-![Providers setup](https://placehold.co/960x540?text=Providers+Setup)
+[View the video on Vimeo](https://vimeo.com/1126454744)
 
 More examples and recipes coming soon on the website and docs.
 
@@ -86,3 +88,9 @@ See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a
 ## ⚖️ License
 
 This project is licensed under the GNU Lesser General Public License v3 (LGPL) - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+Started in Barcelona — spread worldwide • <a href="https://smarthopper.xyz">smarthopper.xyz</a>
+</div>

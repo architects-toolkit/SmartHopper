@@ -1,0 +1,43 @@
+name: ♻️ Reset Ready Badge on Dev Merges (non-release)
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  reset-ready-badge:
+    if: >-
+      ${{ github.event.pull_request.merged == true &&
+          github.event.pull_request.base.ref == 'dev' &&
+          !startsWith(github.event.pull_request.head.ref, 'release/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      - name: Set Ready badge to NO (brown)
+        uses: ./.github/actions/documentation/update-ready-badge
+        with:
+          status: NO
+          color: brown
+          file: README.md
+
+      - name: Commit and push if changed
+        run: |
+          if ! git diff --quiet README.md; then
+            git add README.md
+            git commit -m "docs(readme): reset Ready-to-use badge to NO on dev merge (non-release)"
+            git push origin dev
+          else
+            echo "No changes to README.md; skipping commit"
+          fi
