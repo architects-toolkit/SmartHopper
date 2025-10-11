@@ -6,9 +6,15 @@
 [![Ready to use](https://img.shields.io/badge/ready_to_use-YES-brightgreen?style=for-the-badge)](https://smarthopper.xyz/#installation)
 [![License](https://img.shields.io/badge/license-LGPL%20v3-white?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/blob/main/LICENSE)
 
+<div align="center">
+
+![SmartHopper](./img/smarthopper.png)
+
 **Design with AI directly on your Grasshopper canvas — chat, generate, organize, and build smarter definitions faster.**
 
-![SmartHopper hero placeholder](https://placehold.co/1200x400/111111/FFFFFF?text=SmartHopper+%E2%80%94+AI+for+Grasshopper+3D)
+</div>
+
+---
 
 SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered components into Grasshopper3D.
 
