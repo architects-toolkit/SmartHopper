@@ -15,30 +15,34 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.Interfaces;
-    using SmartHopper.Infrastructure.Managers.AIProviders;
-    using SmartHopper.Infrastructure.Managers.ModelManager;
-    using SmartHopper.Infrastructure.Models;
+    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.Infrastructure.AICall.Core.Requests;
+    using SmartHopper.Infrastructure.AICall.Core.Returns;
+    using SmartHopper.Infrastructure.AIModels;
+    using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
     using Xunit;
 
     public class AdvancedConfigTests
     {
-        private class DummyProvider : IAIProvider
+        private sealed class DummyProvider : IAIProvider
         {
             public string Name => "DummyProvider";
 
-            public string DefaultServerUrl => "https://example.com";
-
             public bool IsEnabled => true;
 
-            public System.Drawing.Image? Icon => null;
+            public System.Drawing.Image Icon => null;
 
-            public IAIProviderModels Models { get; protected set; }
+            public IAIProviderModels Models { get; private set; } = new DummyProviderModels();
 
             public async Task InitializeProviderAsync()
             {
-                await Task.CompletedTask;
+                // Register dummy models into ModelManager following the new unified flow
+                var models = await this.Models.RetrieveModels().ConfigureAwait(false);
+                foreach (var m in models)
+                {
+                    ModelManager.Instance.SetCapabilities(m);
+                }
             }
 
             public DummyProvider()
@@ -49,24 +53,82 @@ namespace SmartHopper.Infrastructure.Tests
             {
             }
 
-            public Task<AIResponse> GetResponse(JArray messages, string model, string jsonSchema = "", string endpoint = "", string? toolFilter = null) => Task.FromResult(default(AIResponse));
+            public string Encode(AIRequestCall request) => "{\"test\":\"encoded_request\"}";
+
+            public string Encode(IAIInteraction interaction) => "{\"test\":\"encoded_interaction\"}";
+
+            public string Encode(List<IAIInteraction> interactions) => "{\"test\":\"encoded_interactions\"}";
+
+            public List<IAIInteraction> Decode(JObject response) => new List<IAIInteraction>();
+
+            public AIRequestCall PreCall(AIRequestCall request) => request;
+
+            public async Task<IAIReturn> Call(AIRequestCall request)
+            {
+                var result = new AIReturn();
+                result.CreateSuccess(AIBody.Empty, request);
+                return await Task.FromResult(result);
+            }
+
+            public IAIReturn PostCall(IAIReturn response) => response;
+
+            public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true) => "dummy_test_model";
+
+            public string SelectModel(AICapability requiredCapability, string requestedModel)
+            {
+                // For tests, prefer requested model when provided; otherwise fall back to default.
+                return string.IsNullOrEmpty(requestedModel)
+                    ? this.GetDefaultModel(requiredCapability, useSettings: true)
+                    : requestedModel;
+            }
 
             public void RefreshCachedSettings(Dictionary<string, object> settings)
             {
             }
 
-            public void ResetCachedSettings(Dictionary<string, object> settings)
-            {
-            }
-
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
-
-            public Task<AIResponse> GenerateImage(string prompt, string model = "", string size = "1024x1024", string quality = "standard", string style = "vivid") => Task.FromResult(new AIResponse { FinishReason = "error", ErrorMessage = "Test provider does not support image generation" });
-
-            public string GetDefaultModel(AIModelCapability capability, bool useSettings = true) { return "dummy_test_model"; }
         }
 
-        private class DummySettings : IAIProviderSettings
+        private sealed class DummyProviderModels : IAIProviderModels
+        {
+            public async Task<List<AIModelCapabilities>> RetrieveModels()
+            {
+                var list = new List<AIModelCapabilities>
+                {
+                    new AIModelCapabilities
+                    {
+                        Provider = "dummyprovider",
+                        Model = "dummy_model_1",
+                        Capabilities = AICapability.Text2Text,
+                        Default = AICapability.Text2Text,
+                        Verified = true,
+                        Rank = 10,
+                    },
+                    new AIModelCapabilities
+                    {
+                        Provider = "dummyprovider",
+                        Model = "dummy_model_2",
+                        Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                        Verified = false,
+                        Rank = 0,
+                    },
+                };
+                return await Task.FromResult(list);
+            }
+
+            public async Task<List<string>> RetrieveApiModels()
+            {
+                // Return the names corresponding to the dummy models above
+                var list = new List<string>
+                {
+                    "dummy_model_1",
+                    "dummy_model_2",
+                };
+                return await Task.FromResult(list);
+            }
+        }
+
+        private sealed class DummySettings : IAIProviderSettings
         {
             private readonly IAIProvider provider;
 
@@ -78,6 +140,9 @@ namespace SmartHopper.Infrastructure.Tests
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
             public bool ValidateSettings(Dictionary<string, object> settings) => true;
+
+            // For tests, just return a constant value. Real implementations should read from persisted settings.
+            public bool EnableStreaming => true;
         }
 
 #if NET7_WINDOWS
@@ -85,7 +150,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "CustomModel_DefaultValues_AreSet [Core]")]
 #endif
-        public void CustomModelDefaultValuesAreSet()
+        public void CustomModel_DefaultValuesAreSet()
         {
             var settings = new SmartHopperSettings();
             Assert.Equal(1000, settings.DebounceTime);
@@ -98,7 +163,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetAvailableProviders_ReturnsAllDiscoveredFactories [Core]")]
 #endif
-        public void GetAvailableProvidersReturnsAllDiscoveredFactories()
+        public void GetAvailableProviders_ReturnsAllDiscoveredFactories()
         {
             var mgr = ProviderManager.Instance;
             var providers = mgr.GetProviders();
@@ -110,7 +175,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetProviderByName_ReturnsCorrectFactory [Core]")]
 #endif
-        public void GetProviderByNameReturnsCorrectFactory()
+        public void GetProviderByName_ReturnsCorrectFactory()
         {
             // Skip test for now
             Assert.True(true);
@@ -121,7 +186,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetProviderByName_ThrowsIfNotFound [Core]")]
 #endif
-        public void GetProviderByNameThrowsIfNotFound()
+        public void GetProviderByName_ThrowsIfNotFound()
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider("Nonexistent"));
@@ -132,7 +197,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ProviderSettings_SerializationRoundTrip [Core]")]
 #endif
-        public void ProviderSettingsSerializationRoundTrip()
+        public void ProviderSettings_SerializationRoundTrip()
         {
             var settings = new SmartHopperSettings { DebounceTime = 555, DefaultAIProvider = "ProvX" };
             var json = JsonConvert.SerializeObject(settings);
@@ -146,7 +211,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "IAIProviderSettings_SchemaValidation [Core]")]
 #endif
-        public void IAIProviderSettingsSchemaValidation()
+        public void IAIProviderSettings_SchemaValidation()
         {
             // Skip test for now
             Assert.True(true);
@@ -157,7 +222,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ConfigurationLoader_RegistersAllServices [Core]")]
 #endif
-        public void ConfigurationLoaderRegistersAllServices()
+        public void ConfigurationLoader_RegistersAllServices()
         {
             // Settings singleton and provider manager should be available
             var settings = SmartHopperSettings.Instance;
@@ -171,7 +236,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ProviderManager_LoadsFromServiceProvider [Core]")]
 #endif
-        public void ProviderManagerLoadsFromServiceProvider()
+        public void ProviderManager_LoadsFromServiceProvider()
         {
             // Singleton instance consistency
             var m1 = ProviderManager.Instance;
@@ -184,7 +249,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ProviderManager_HandlesInvalidAssemblyGracefully [Core]")]
 #endif
-        public void ProviderManagerHandlesInvalidAssemblyGracefully()
+        public void ProviderManager_HandlesInvalidAssemblyGracefully()
         {
             // Should not throw on refresh with no external providers
             var ex = Record.Exception(() => ProviderManager.Instance.RefreshProviders());
@@ -196,7 +261,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "ConfigurationLoader_ThrowsOnMalformedJson [Core]")]
 #endif
-        public void ConfigurationLoaderThrowsOnMalformedJson()
+        public void ConfigurationLoader_ThrowsOnMalformedJson()
         {
             // Malformed JSON should throw JsonReaderException
             var bad = "{ \"DebounceTime\": , }";

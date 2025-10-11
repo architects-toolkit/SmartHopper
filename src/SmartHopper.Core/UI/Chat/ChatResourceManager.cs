@@ -15,21 +15,35 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Markdig;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
     /// Manages resources for the chat interface, including HTML templates, CSS, and JavaScript.
     /// </summary>
-    internal class ChatResourceManager
+    internal partial class ChatResourceManager
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for extracting content from think tags.
+        /// </summary>
+        [GeneratedRegex(@"<think>([\s\S]*?)</think>", RegexOptions.Singleline)]
+        private static partial Regex ThinkTagRegex();
+
+        #endregion
         private string _cachedChatTemplate;
         private string _cachedMessageTemplate;
         private string _cachedErrorTemplate;
@@ -52,10 +66,10 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine("[ChatResourceManager] Initializing ChatResourceManager");
 
             // List all embedded resources for debugging
-            ListAllEmbeddedResources();
+            this.ListAllEmbeddedResources();
 
             // Configure Markdig pipeline with needed extensions
-            _markdownPipeline = new MarkdownPipelineBuilder()
+            this._markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .UseSoftlineBreakAsHardlineBreak()
                 .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Default)
@@ -79,19 +93,19 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 // Load all required resources
-                string cssContent = GetCssContent();
-                string jsContent = GetJsContent();
-                string messageTemplate = GetMessageTemplate();
-                string chatTemplate = GetChatTemplate();
+                string cssContent = this.GetCssContent();
+                string jsContent = this.GetJsContent();
+                string messageTemplate = this.GetMessageTemplate();
+                string chatTemplate = this.GetChatTemplate();
 
                 // Escape single quotes in the message template to avoid breaking the JavaScript
-                messageTemplate = messageTemplate.Replace("'", "\\'");
+                messageTemplate = messageTemplate.Replace("'", "\\'", StringComparison.Ordinal);
 
                 // Replace all placeholders with actual content
                 string completeHtml = chatTemplate
-                    .Replace("{{cssChat}}", cssContent)
-                    .Replace("{{jsChat}}", jsContent)
-                    .Replace("{{messageTemplate}}", messageTemplate);
+                    .Replace("{{cssChat}}", cssContent, StringComparison.Ordinal)
+                    .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
+                    .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal);
 
                 Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
 
@@ -125,14 +139,14 @@ namespace SmartHopper.Core.UI.Chat
         {
             Debug.WriteLine("[ChatResourceManager] Getting chat template");
 
-            if (string.IsNullOrEmpty(_cachedChatTemplate))
+            if (string.IsNullOrEmpty(this._cachedChatTemplate))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CHAT_TEMPLATE_RESOURCE}");
-                _cachedChatTemplate = ReadEmbeddedResource(CHAT_TEMPLATE_RESOURCE);
-                Debug.WriteLine($"[ChatResourceManager] Chat template loaded, length: {_cachedChatTemplate?.Length ?? 0}");
+                this._cachedChatTemplate = this.ReadEmbeddedResource(CHAT_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Chat template loaded, length: {this._cachedChatTemplate?.Length ?? 0}");
             }
 
-            return _cachedChatTemplate;
+            return this._cachedChatTemplate;
         }
 
         /// <summary>
@@ -143,14 +157,14 @@ namespace SmartHopper.Core.UI.Chat
         {
             Debug.WriteLine("[ChatResourceManager] Getting message template");
 
-            if (string.IsNullOrEmpty(_cachedMessageTemplate))
+            if (string.IsNullOrEmpty(this._cachedMessageTemplate))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {MESSAGE_TEMPLATE_RESOURCE}");
-                _cachedMessageTemplate = ReadEmbeddedResource(MESSAGE_TEMPLATE_RESOURCE);
-                Debug.WriteLine($"[ChatResourceManager] Message template loaded, length: {_cachedMessageTemplate?.Length ?? 0}");
+                this._cachedMessageTemplate = this.ReadEmbeddedResource(MESSAGE_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Message template loaded, length: {this._cachedMessageTemplate?.Length ?? 0}");
             }
 
-            return _cachedMessageTemplate;
+            return this._cachedMessageTemplate;
         }
 
         /// <summary>
@@ -162,15 +176,15 @@ namespace SmartHopper.Core.UI.Chat
         {
             Debug.WriteLine("[ChatResourceManager] Getting error template");
 
-            if (string.IsNullOrEmpty(_cachedErrorTemplate))
+            if (string.IsNullOrEmpty(this._cachedErrorTemplate))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {ERROR_TEMPLATE_RESOURCE}");
-                _cachedErrorTemplate = ReadEmbeddedResource(ERROR_TEMPLATE_RESOURCE);
-                Debug.WriteLine($"[ChatResourceManager] Error template loaded, length: {_cachedErrorTemplate?.Length ?? 0}");
+                this._cachedErrorTemplate = this.ReadEmbeddedResource(ERROR_TEMPLATE_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] Error template loaded, length: {this._cachedErrorTemplate?.Length ?? 0}");
             }
 
             // Replace error message placeholder
-            string result = _cachedErrorTemplate.Replace("{{errorMessage}}", WebUtility.HtmlEncode(errorMessage));
+            string result = this._cachedErrorTemplate.Replace("{{errorMessage}}", WebUtility.HtmlEncode(errorMessage), StringComparison.Ordinal);
             Debug.WriteLine("[ChatResourceManager] Error template prepared with error message injected");
 
             return result;
@@ -184,14 +198,14 @@ namespace SmartHopper.Core.UI.Chat
         {
             Debug.WriteLine("[ChatResourceManager] Getting CSS content");
 
-            if (string.IsNullOrEmpty(_cachedCssContent))
+            if (string.IsNullOrEmpty(this._cachedCssContent))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {CSS_RESOURCE}");
-                _cachedCssContent = ReadEmbeddedResource(CSS_RESOURCE);
-                Debug.WriteLine($"[ChatResourceManager] CSS content loaded, length: {_cachedCssContent?.Length ?? 0}");
+                this._cachedCssContent = this.ReadEmbeddedResource(CSS_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] CSS content loaded, length: {this._cachedCssContent?.Length ?? 0}");
             }
 
-            return _cachedCssContent;
+            return this._cachedCssContent;
         }
 
         /// <summary>
@@ -202,38 +216,42 @@ namespace SmartHopper.Core.UI.Chat
         {
             Debug.WriteLine("[ChatResourceManager] Getting JavaScript content");
 
-            if (string.IsNullOrEmpty(_cachedJsContent))
+            if (string.IsNullOrEmpty(this._cachedJsContent))
             {
                 Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {JS_RESOURCE}");
-                _cachedJsContent = ReadEmbeddedResource(JS_RESOURCE);
-                Debug.WriteLine($"[ChatResourceManager] JavaScript content loaded, length: {_cachedJsContent?.Length ?? 0}");
+                this._cachedJsContent = this.ReadEmbeddedResource(JS_RESOURCE);
+                Debug.WriteLine($"[ChatResourceManager] JavaScript content loaded, length: {this._cachedJsContent?.Length ?? 0}");
             }
 
-            return _cachedJsContent;
+            return this._cachedJsContent;
         }
 
         /// <summary>
         /// Renders the reasoning panel (if any) as a collapsible HTML details block.
+        /// Accepts either a raw response containing <think> tags or a plain reasoning string.
         /// </summary>
-        /// <param name="rawResponse">Raw markdown response including <think> tags.</param>
+        /// <param name="reasoning">Reasoning text. May already be plain text (no <think>) or include <think>...</think> wrapper.</param>
+        /// <param name="expand">If true, the panel will be rendered expanded (open attribute).</param>
         /// <returns>HTML for reasoning panel or empty string.</returns>
-        private string RenderReasoning(string rawResponse)
+        private string RenderReasoning(string reasoning, bool expand)
         {
-            var m = Regex.Match(rawResponse, @"<think>([\s\S]*?)</think>", RegexOptions.Singleline);
-            if (!m.Success) return "";
-            var reasoningMd = m.Groups[1].Value;
-            var reasoningHtml = Markdown.ToHtml(reasoningMd, _markdownPipeline);
-            return $"<details class=\"think\"><summary>Reasoning</summary>{reasoningHtml}</details>";
-        }
+            if (string.IsNullOrWhiteSpace(reasoning)) return string.Empty;
 
-        /// <summary>
-        /// Strips any <think>…</think> sections from the raw response.
-        /// </summary>
-        /// <param name="rawResponse">Raw markdown response including <think> tags.</param>
-        /// <returns>Markdown string without reasoning sections.</returns>
-        private string StripReasoning(string rawResponse)
-        {
-            return Regex.Replace(rawResponse, @"<think>[\s\S]*?</think>", "", RegexOptions.Singleline).Trim();
+            // If input contains <think>...</think>, extract inner content; otherwise use as-is
+            string reasoningMd;
+            var m = ThinkTagRegex().Match(reasoning);
+            if (m.Success)
+            {
+                reasoningMd = m.Groups[1].Value;
+            }
+            else
+            {
+                reasoningMd = reasoning;
+            }
+
+            var reasoningHtml = Markdown.ToHtml(reasoningMd, this._markdownPipeline);
+            var openAttr = expand ? " open" : string.Empty;
+            return $"<details class=\"think\"{openAttr}><summary>Reasoning</summary>{reasoningHtml}</details>";
         }
 
         /// <summary>
@@ -249,35 +267,85 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="model">AI model name (for AI responses)</param>
         /// <param name="finishReason">AI response finish reason (for AI responses)</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string role, string displayName, string timestamp, AIResponse response)
+        public string CreateMessageHtml(string timestamp, IAIInteraction interaction)
         {
-            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role: {role}");
+            // TODO: Handle case for processing state (loading message)
+
+            // TODO: Handle case for AIReturn.Success = false (with errors)
+
+            // Get content and reasoning from interaction via IAIRenderInteraction when available
+            string rawContent = string.Empty;
+            string rawReasoning = string.Empty;
+            string roleClass = string.Empty;
+            string displayName = string.Empty;
+            string provider = string.Empty;
+            string model = string.Empty;
+            string finishReason = "unknown";
+            int inTokens = 0;
+            int outTokens = 0;
+
+            if (interaction is IAIRenderInteraction renderable)
+            {
+                rawContent = renderable.GetRawContentForRender() ?? string.Empty;
+                rawReasoning = renderable.GetRawReasoningForRender() ?? string.Empty;
+                roleClass = renderable.GetRoleClassForRender();
+                displayName = renderable.GetDisplayNameForRender();
+            }
+            else
+            {
+                rawContent = interaction?.ToString() ?? string.Empty;
+                rawReasoning = string.Empty;
+                roleClass = interaction.Agent.ToString().ToLowerInvariant();
+                displayName = interaction.Agent.ToDescription();
+            }
+
+            Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role='{roleClass}', displayName='{displayName}', timestamp='{timestamp}'");
+
+            // Extract metrics if available
+            if (interaction.Metrics != null)
+            {
+                provider = interaction.Metrics.Provider ?? "";
+                model = interaction.Metrics.Model ?? "";
+                finishReason = interaction.Metrics.FinishReason ?? "unknown";
+                inTokens = interaction.Metrics.InputTokens;
+                outTokens = interaction.Metrics.OutputTokens;
+            }
+
+            // Decide whether to show metrics icon. Hide when metrics are missing or not meaningful (e.g., during streaming).
+            // Consider metrics meaningful if we have token counts or provider+model info.
+            bool hasMeaningfulMetrics =
+                (interaction.Metrics != null) &&
+                ((inTokens > 0) || (outTokens > 0) ||
+                 (!string.IsNullOrWhiteSpace(provider) && !string.IsNullOrWhiteSpace(model)));
+            string metricsClass = hasMeaningfulMetrics ? string.Empty : "hidden";
+            Debug.WriteLine($"[ChatResourceManager] Metrics visibility: {(hasMeaningfulMetrics ? "show" : "hide")}; in={inTokens}, out={outTokens}, provider='{provider}', model='{model}', reason='{finishReason}'");
 
             // Convert markdown to HTML
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
-            var raw = response?.Response ?? "";
-            var reasoningPanel = RenderReasoning(raw);
-            var answerMd = StripReasoning(raw);
+
+            // Render reasoning panel. Auto-expand when there is no visible answer content.
+            var reasoningPanel = this.RenderReasoning(rawReasoning, string.IsNullOrWhiteSpace(rawContent));
             Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
-            string answerHtml = Markdown.ToHtml(answerMd, _markdownPipeline);
+            string answerHtml = Markdown.ToHtml(rawContent, this._markdownPipeline);
             Debug.WriteLine($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
 
             // Escape answer markdown for safe use in an HTML attribute
-            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(answerMd).Replace("'", "&#39;");
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(rawContent).Replace("'", "&#39;", StringComparison.Ordinal);
 
-            string template = GetMessageTemplate();
+            string template = this.GetMessageTemplate();
 
             string result = template
-                .Replace("{{role}}", role)
-                .Replace("{{displayName}}", displayName)
-                .Replace("{{timestamp}}", timestamp)
-                .Replace("{{htmlContent}}", reasoningPanel + answerHtml)
-                .Replace("{{mdContent}}", mdContentEscaped)
-                .Replace("{{inTokens}}", response?.InTokens.ToString() ?? "")
-                .Replace("{{outTokens}}", response?.OutTokens.ToString() ?? "")
-                .Replace("{{provider}}", response?.Provider ?? "")
-                .Replace("{{model}}", response?.Model ?? "")
-                .Replace("{{finishReason}}", response?.FinishReason ?? "unknown");
+                .Replace("{{role}}", roleClass, StringComparison.Ordinal)
+                .Replace("{{displayName}}", displayName, StringComparison.Ordinal)
+                .Replace("{{timestamp}}", timestamp, StringComparison.Ordinal)
+                .Replace("{{htmlContent}}", reasoningPanel + answerHtml, StringComparison.Ordinal)
+                .Replace("{{mdContent}}", mdContentEscaped, StringComparison.Ordinal)
+                .Replace("{{inTokens}}", inTokens.ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal)
+                .Replace("{{outTokens}}", outTokens.ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal)
+                .Replace("{{provider}}", provider, StringComparison.Ordinal)
+                .Replace("{{model}}", model, StringComparison.Ordinal)
+                .Replace("{{finishReason}}", finishReason, StringComparison.Ordinal)
+                .Replace("{{metricsClass}}", metricsClass, StringComparison.Ordinal);
 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");
 

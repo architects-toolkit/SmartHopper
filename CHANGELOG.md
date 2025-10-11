@@ -7,6 +7,297 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha] - 2025-10-11
+
+### Added
+
+- Improvements in `CanvasButton`:
+  - New SmartHopper Assistant setting `EnableCanvasButton` (default: `true`) to enable/disable the canvas button.
+  - `CanvasButton` now respects `EnableCanvasButton`: when disabled, the button is hidden and non-interactive.
+  - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
+  - CanvasButton now initializes the chat provider and model from SmartHopper settings (consistent with app-wide configuration).
+
+- Context providers:
+  - New `FileContextProvider` exposing `current-file_selected-count` (number of selected files), `file-name` (the current document file name or "Untitled"), `selected-count` (number of selected objects in the current document), `object-count` (total number of document objects), `component-count` (total number of components in the current document), `param-count` (total number of parameters in the current document), `scribble-count` (total number of scribbles/notes in the current document), and `group-count` (total number of groups in the current document). Registered globally at Core assembly load so it is available to both components and the canvas button.
+
+- Conversation and policies:
+  - ConversationSession service introducing:
+    - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
+    - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
+    - Always-on `PolicyPipeline` foundation with request and response policy hooks
+  - Special Turn system for executing AI requests with custom overrides:
+    - New `SpecialTurnConfig` to configure special turns with request overrides (interactions, provider, model, endpoint, capability, context/tool filters), execution behavior (force non-streaming, custom timeout), and history persistence strategies
+    - Four history persistence strategies: `PersistResult` (only result), `PersistAll` (all interactions with filtering), `Ephemeral` (no persistence), `ReplaceAbove` (replace history with result, filtered)
+    - `InteractionFilter` uses flexible allowlist/blocklist approach with `Allow()`, `Block()`, and fluent `WithAllow()`/`WithBlock()` methods; automatically supports future interaction types without code changes
+    - Predefined filters: `InteractionFilter.Default`, `InteractionFilter.PreserveSystemContext`, `InteractionFilter.AllowAll`
+    - `ConversationSession.ExecuteSpecialTurnAsync()` creates isolated `AIRequestCall` clone for execution; observers are not notified during execution, only when results are persisted to main conversation
+    - Isolated execution prevents internal special turn interactions (system prompts, tool calls) from appearing in UI
+    - Built-in `GreetingSpecialTurn` factory for AI-generated greetings
+    - Special turns support both streaming and non-streaming modes in isolated execution context
+    - Parallel special turns allowed (no locking)
+    - Refactored greeting generation to use special turn infrastructure, eliminating 140+ lines of duplicated code
+
+- AICall and core models:
+  - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
+  - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
+  - New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
+  - IAIRequest.WantsStreaming flag to indicate streaming intent and surface validation hints.
+  - New IAIKeyedInteraction interface to identify interactions by key.
+  - New IAIRenderInteraction interface to render interactions.
+
+- Model management:
+  - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
+  - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
+
+- Streaming infrastructure:
+  - Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
+  - `AIProviderStreamingAdapter.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` helper to apply request-scoped headers (excluding Authorization) from `AIRequestCall.Headers`.
+  - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
+  - Provider-level streaming toggle via `IAIProviderSettings.EnableStreaming`. Added `EnableStreaming` setting descriptors to OpenAI, MistralAI, and DeepSeek provider settings (default `true`).
+
+- Tools validation:
+  - AI tool validation system to improve reliability and observability:
+    - Added three validators implementing `IValidator<AIInteractionToolCall>`:
+      - `ToolExistsValidator` (ensures tool is registered)
+      - `ToolJsonSchemaValidator` (validates tool arguments against JSON schema)
+      - `ToolCapabilityValidator` (ensures selected provider/model supports tool-required capabilities)
+    - New request policy `AIToolValidationRequestPolicy` runs after `ToolFilterNormalizationRequestPolicy`, validates all pending tool calls, and attaches diagnostics to the request and policy context; errors block execution early.
+    - `PolicyPipeline.Default` updated to register `AIToolValidationRequestPolicy`.
+    - Request validation now considers request-level messages so policy diagnostics can gate execution.
+
+- Components UI and badges:
+  - New component badges to visually identify verified and deprecated models.
+  - Component badges extended to surface model validation state without executing an AI call:
+    - Invalid/Incompatible model badge (red cross) when the configured model lacks the component's required capability or is unknown.
+    - Replaced/Fallback model badge (blue refresh) when the current configured model would be auto-replaced by selection logic.
+    - Badge display logic simplified to prioritize a single, most relevant badge for clarity.
+  - `AIStatefulAsyncComponentBase.RequiredCapability` virtual property (default `Text2Text`) to declare per-component capability requirements.
+  - `AIStatefulAsyncComponentBase.TryGetCachedBadgeFlags(out verified, out deprecated, out invalid, out replaced)` to expose the extended badge cache.
+
+- Diagnostics:
+  - Introduced `AIMessageCode` enum and `AIRuntimeMessage.Code` property for machine‑readable diagnostics. Default code is `Unknown (0)` to keep all existing emits backward compatible.
+
+- Utilities:
+  - Shared `HttpHeadersHelper.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` utility under `src/SmartHopper.Infrastructure/Utils/` to centralize extra header application across streaming and non‑streaming calls (excludes reserved headers).
+
+- Providers:
+  - New `Anthropic` and `OpenRouter` providers.
+  - Anthropic provider: Full round-trip support for tool results. Decodes `tool_result` content blocks to `AIInteractionToolResult` and encodes tool results back to Anthropic-compliant `tool_result` blocks (`{"type":"tool_result","tool_use_id":"...","content":[{"type":"text","text":"..."}]}`).
+  - Updated provider icons using the latest Lobe Icons set.
+
+- Documentation:
+  - Summary documentation at `docs/` (linked in README).
+
+- Repository organization:
+  - AICall folder reorganization.
+
+- Tests:
+  - New test component `DataTreeProcessorEqualPathsTestComponent` under `SmartHopper.Components.Test/DataProcessor/` to manually validate `DataTreeProcessor.RunFunctionAsync` with equal-path, single-item trees. Outputs result tree, success flag, and messages.
+  - New tests for Context Manager and Model Manager.
+
+### Changed
+
+- Providers – Anthropic:
+  - Unified encoding/decoding helpers. Extracted `BuildTextMessage`, `BuildToolResultMessage`, and `ExtractToolResultText` in `AnthropicProvider.cs` and updated both `Encode(IAIInteraction)` and `Encode(AIRequestCall)` to use them, removing duplicated logic for `AIInteractionText` and `AIInteractionToolResult`.
+  - Switched URL members to use System.Uri for stronger typing and to satisfy CA1054/CA1055/CA1056:
+    - `AIProvider.DefaultServerUrl` is now `Uri` (was `string`).
+    - `AIProviderStreamingAdapter.BuildFullUrl(string)` now returns `Uri`.
+    - `AIProviderStreamingAdapter.CreateSsePost` now accepts a `Uri` parameter.
+    - `AIInteractionImage.ImageUrl` is now `Uri` (was `string`).
+  - Added `AIInteractionImage.SetResult(Uri imageUrl, string imageData = null, string revisedPrompt = null)` overload; kept string overload for backward compatibility.
+  - Fixed tool call detection in streaming responses
+    - Added `content_block_start` event handling to detect `tool_use` blocks
+    - Streaming adapter now properly yields `AICallStatus.CallingTools` when tools are invoked
+    - Fixed `content_block_delta` to check for `text_delta` type before processing text
+    - Added support for `input_json_delta` events (tool argument streaming)
+    - Enhanced debug logging for streaming events and tool detection
+    - Non-streaming `Decode()` method now ensures `Arguments` field is never null
+
+- Providers – OpenAI:
+  - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.
+  - **Streaming adapter now extracts and streams reasoning content** from structured content arrays (o-series & gpt-5 models). Parses `type: "reasoning"` and `type: "thinking"` parts during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when reasoning is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
+
+- Providers – MistralAI:
+  - **Streaming adapter now extracts and streams thinking content** from structured content arrays. Parses `type: "thinking"` blocks during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when thinking is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
+
+- Providers – DeepSeek:
+  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when `reasoning_content` is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
+
+- UI and settings:
+  - AI Chat component default system prompt to a generic one.
+  - Settings dialog now organized in tabs.
+    - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
+    - Added tab for Trusted Providers configuration.
+  - CanvasButton chat now reuses a single `WebChatDialog` via a stable `componentId`, preventing multiple dialog instances from opening on repeated clicks.
+  - Updated the About dialog to reflect the list of currently supported AI providers.
+  - Provider settings: Disabled the "Enable Streaming" option for `DeepSeek` and `OpenRouter` (control is non-interactive) and updated the setting description to "Streaming is not available for this provider yet." Defaults set to `false` for both providers.
+
+- Security/authentication and headers:
+  - Improved API key encryption. Includes migration method.
+  - Authentication refactor and centralized API key handling:
+    - Providers select the auth scheme in `PreCall(...)`, while API keys are resolved internally by providers (never placed on `AIRequestCall`).
+    - `AIProvider.CallApi(...)` now supports `"none"`, `"bearer"` and `"x-api-key"` (applies header using provider API key).
+    - Streaming adapters apply auth via `AIProviderStreamingAdapter.ApplyAuthentication(...)` using provider-internal keys; `ApplyExtraHeaders(...)` now excludes reserved headers (`Authorization`, `x-api-key`).
+  - Unified extra header handling via `HttpHeadersHelper`: both `AIProvider.CallApi(...)` and `AIProviderStreamingAdapter.ApplyExtraHeaders(...)` now delegate to the shared helper to eliminate duplication and ensure consistent reserved header filtering for streaming and non-streaming paths.
+
+- Infrastructure and core models:
+  - Complete refactor of `SmartHopper.Infrastructure` for clarity and organization.
+  - Added `AIAgent`, `AIRequest` and `AIBody` models to improve clarity and extensibility. Refactored all code to use the new models.
+  - Renamed `IChatModel` to `AIInteraction`.
+  - Renamed `AIEvaluationResult` to `AIReturn`.
+  - Renamed `AIResponse` to `AIReturnBody`.
+  - Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
+  - Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
+  - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
+  - Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
+  - Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
+
+- Model management and selection:
+  - Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
+  - Unified model retrieval via `IAIProviderModels.RetrieveModels()` with centralized registration in `ModelManager`. Components (e.g., `AIModelsComponent`) and tests updated to query `ModelManager` instead of calling per-provider legacy methods.
+  - Provider-scoped model selection:
+    - Added `IAIProvider.SelectModel(requiredCapability, requestedModel)` to encapsulate model resolution behind provider interface.
+    - `AIProvider` base now implements `SelectModel(...)` delegating to centralized `ModelManager.SelectBestModel` while honoring provider defaults/settings.
+    - `AIRequestBase.GetModelToUse()` refactored to call `provider.SelectModel(...)` instead of `ModelManager.Instance` directly.
+    - Removed remaining direct calls to `ModelManager.Instance.SelectBestModel` outside provider internals.
+    - Propagated model validation messages to components UI.
+
+- Requests execution and validation:
+  - `AIRequestCall.Exec()` is now explicitly single-turn (no tool orchestration). Multi-turn and tool processing are handled by `ConversationSession.RunToStableResult` when used explicitly.
+  - `AIRequestBase.IsValid()` now blocks streaming when the selected provider disables streaming via settings or when the model is not streaming-capable, surfacing a clear validation error; these streaming validations now include `AIMessageCode` values (`StreamingDisabledProvider`, `StreamingUnsupportedModel`).
+  - `AIRequestCall.IsValid()` now emits structured `AIMessageCode` values for provider/model and body validation:
+    - `ProviderMissing`, `UnknownProvider`, `UnknownModel`, `NoCapableModel`, `CapabilityMismatch`
+    - Endpoint/body issues are tagged as `BodyInvalid`
+  - `AIStatefulAsyncComponentBase.UpdateBadgeCache()` prioritizes structured `Message.Code` for invalid/replaced decisions (`ProviderMissing`, `UnknownProvider`, `UnknownModel`, `NoCapableModel`, `CapabilityMismatch`) and falls back to message text only when `Code == Unknown`.
+
+- Tools and components:
+  - Grasshopper AI tools refactor: replaced legacy mutable `AIBody` usage with `AIBodyBuilder` + `AIReturn.CreateSuccess(body, toolCall)` for consistent immutable response construction. Updated tools: `gh_get`, `gh_put`, `gh_list_categories`. Ensured `AIToolCall.FromToolCallInteraction` is used and preserved existing error handling.
+  - Verified badge now requires capability match (`Verified && HasCapability(RequiredCapability)`).
+  - Badge cache computation now evaluates against the currently configured model (immediate UI feedback) and also surfaces replacement intent via selection fallback.
+  - AIChatComponent: removed duplicated `_sharedLastReturn` storage and its lock. Removed internal methods `SetLastReturn(AIReturn)` and `GetLastReturn()`; components should rely on the base snapshot via `SetAIReturnSnapshot(...)` and use it for outputs.
+  - AIChatComponent: unified snapshot management using base class snapshot exclusively. Renamed method to `SetAIReturnSnapshot(AIReturn)` for consistency across components. Updated chat transcript output to read from the base snapshot, ensuring live updates and metrics stay in sync.
+  - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `CurrentAIReturnSnapshot` to keep chat history and metrics consistent.
+  - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
+  - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
+  - AIListFilter: fix incorrect index array parsing
+
+- Streaming behavior:
+  - OpenAI provider: nested `OpenAIStreamingAdapter` now derives from `AIProviderStreamingAdapter` and reuses shared helpers; streaming behavior and statuses remain unchanged.
+  - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
+  - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
+
+- WebChat:
+  - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
+  - WebChatDialog greeting flow is now fully event-driven via `ConversationSession` observer callbacks. The UI no longer inserts or replaces a temporary greeting bubble; it only updates the status label during generation and renders greeting content from partial/final events.
+  - Interaction override behavior clarified: greeting generation uses the initial request interactions (e.g., system prompt) to preserve context; normal user-initiated turns override from the current conversation history (last return interactions).
+  - Default conversation context enabled for WebChat (Canvas Button and AIChatComponent): sets `AIBody.ContextFilter` to `"time, environment, selection"` so the assistant receives time, environment, and selection count by default. Implemented in `WebChatUtils.EnsureDialogOpen(...)` and `WebChatUtils.WebChatWorker`.
+  - Improved default prompts in WebChat for clearer assistant behavior and tool guidance.
+  - Improved UI with better collapsible messages, auto-scroll to bottom feature, "new messages" information tooltip, and improved thinking message
+  - Dedicated error messages for validation errors in UI not being passed to APIs
+  - Ensured fidelity between UI and conversation history
+
+- Conversation orchestration:
+  - `ConversationSession` now uses a unified internal loop (`TurnLoopAsync`) for both streaming and non‑streaming APIs to prevent logic drift.
+  - Streaming persistence semantics updated: deltas are persisted into history per chunk in arrival order (no grouping or reordering at the end of the stream). Finalization only updates the "last return" snapshot.
+  - Tool-call handling: removed internal deduplication-by-Id for `tool_call` interactions. Multiple tool calls with the same Id emitted by providers are now preserved in history. Session avoids introducing duplicates on its own when force-appending missing tool_calls prior to execution.
+  - Fixed streaming delta notifications to only emit `OnDelta` for text interactions; non-text interactions (tool calls, tool results) now properly use `OnInteractionCompleted` after completion.
+
+- Streaming adapters internals:
+  - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).
+  - Providers updated to use enhanced SSE reader with a conservative 60s idle timeout:
+    - OpenAI: uses new overload while keeping provider-level final chunk handling intact.
+    - Anthropic: passes terminal predicate for `type == "message_stop"` to ensure early completion even without `[DONE]`.
+    - MistralAI: passes terminal predicate when `finish_reason` appears in the payload to end the stream reliably.
+
+### Security
+
+- Prevented secret leakage by centralizing API key usage inside provider internals for both non-streaming and streaming flows.
+- `AIRequestCall`, `AIReturn`, and logs do not contain API keys; reserved headers are applied internally only.
+
+### Deprecated
+
+- `CustomizeHttpClientHeaders` is deprecated for authentication/header setup. Providers must stop overriding it for auth and use request-scoped headers instead.
+
+### Removed
+
+- Providers and models:
+  - Removed legacy model retrieval methods across providers/tests/docs: `RetrieveAvailable`, `RetrieveCapabilities`, and `RetrieveDefault`. Providers must expose models exclusively via `RetrieveModels()` during async initialization.
+  - Removed the `TemplateProvider` since it will be explained in documentation.
+
+- Context and metrics:
+  - Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
+  - Removed `AIToolCall.ReplaceReuseCount()` in favor of unified metrics handling.
+
+- WebChat:
+  - WebChatDialog: removed the assistant greeting loading placeholder and manual replacement logic in `InitializeNewConversation()`; greeting is appended by the session and rendered solely from observer updates.
+
+### Fixed
+
+- ConversationSession:
+  - Fixed TurnId mismatch between tool calls and their results: tool results now inherit the TurnId from their originating tool call instead of receiving a new TurnId from the current turn iteration. This ensures proper correlation in WebChat rendering keys.
+
+- Streaming providers:
+  - **All providers** (DeepSeek, MistralAI, OpenAI): Fixed reasoning-only streaming chunks being overridden by content chunks in UI. When transitioning from reasoning-only to content streaming, providers now emit a completed (Finished) interaction for reasoning before starting content stream, triggering proper UI segmentation to prevent override.
+  - DeepSeek: Fixed `OutputTokensReasoning` always showing 0. Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
+  - OpenAI: Fixed `OutputTokensReasoning` always showing 0 for reasoning models (o1/o3/GPT-5). Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
+
+- WebChatDialog:
+  - Fixed assistant messages appearing out of order in the UI when tool calls are made. Empty assistant text interactions (which represent the decision to call tools) are now preserved in conversation history but skipped during UI rendering. The actual assistant response after tool execution renders as a separate segment (seg2) in the correct position after tool results.
+  - Fixed duplicate greeting messages in UI. `OnFinal` now uses dedup keys for non-streamed interactions (like greetings) instead of creating new segmented keys, ensuring they upsert into existing bubbles rendered during history replay.
+  - Fixed AI-generated greetings not streaming. Greeting initialization now uses `ConversationSession.Stream()` with streaming validation and fallback to `RunToStableResult()` on failure, matching the pattern used for regular user messages.
+
+- Components – ImageViewer:
+  - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
+
+- Model selection and metrics:
+  - Fixed "Invalid model" when model manager was providing the wildcard instead of the actual default model name.
+  - Corrected DataCount in metrics.
+
+- Tools:
+  - Fixed incorrect result output in `list_generate` tool.
+  - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
+
+- WebChat and streaming UI:
+  - Prevent assistant replies from overwriting previous assistant messages: final assistant bubble now re-keys from the streaming key to the interaction's dedup key, so each turn is preserved in order.
+  - WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
+  - WebChatDialog streaming: partial assistant updates now also update internal `_lastReturn` and emit `ChatUpdated` events on every chunk, ensuring state consistency between UI and observers throughout streaming.
+  - WebChatDialog non-streaming: fixed loss of AI metrics by merging `AIReturn.Metrics` into the final assistant interaction in `WebChatObserver.OnFinal` so per-message metrics are preserved in chat history and UI.
+  - WebChat: reasoning-only assistant messages now render. `ChatResourceManager` renders the `Reasoning` as a collapsible panel and auto-expands it when there is no answer content, fixing empty message bubbles during streaming.
+  - AIChat/WebChatDialog: Ensure the initial system prompt is added as the first system message in chat history and rendered in the UI on dialog initialization.
+  - WebChatDialog: fixed compile-time errors by implementing missing methods (`InitializeWebViewAsync`, `ExecuteScript`, `RenderAndUpdateDom`) and UI handlers (`ClearButton_Click`, `SendButton_Click`, `UserInputTextArea_KeyDown`); added internal `DomUpdateKind` enum; ensured all UI/WebView operations marshal to Rhino's main UI thread.
+  - HtmlChatRenderer: restored compatibility by adding `RenderInteraction(...)` wrapper used by `WebChatDialog`.
+  - Introduced an internal DOM update queue to avoid running multiple WebView scripts concurrently, preventing race conditions and render glitches.
+  - Fixed a loop in tool-call execution that could cause repeated or stuck tool-handling cycles.
+
+- Providers:
+  - DeepSeek: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
+  - MistralAI:
+    - Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
+    - Fixed retrieval of available models when the API did not return the expected model list.
+  - Anthropic: Fixed mapping/placement of system messages to ensure correct role semantics and prompt conditioning.
+
+- Components – AIChat:
+  - AIChatComponent: Prevent NullReferenceException when closing chat without responses. `SetOutput()` now null-checks the last interaction and outputs an empty string (with a debug notice) when none exists.
+  - AIChatComponent: Eliminated duplicated/nested branches in "Chat History" output by centralizing output setting in `SolveInstance()` and removing the worker's `SetPersistentOutput` call. Ensures last interaction appears and output updates consistently from a single snapshot source.
+  - AIChatComponent: Synchronized outputs. Metrics are now emitted from `SolveInstance()` together with "Chat History" (reading from base snapshot). Base post-solve metrics emission disabled via `ShouldEmitMetricsInPostSolve()` override to avoid duplicates. Fixes intermittent metrics not updating alongside chat during streaming/incremental updates.
+
+- Components – Persistence and stability:
+  - Prevent crash on GH file open by introducing a safe, versioned persistence (v2) for `StatefulAsyncComponentBase` that stores outputs as canonical string trees keyed by output parameter GUIDs. Legacy output restore is skipped by default and can be enabled via a feature flag.
+  - WebChatDialog stability issues in certain scenarios.
+  - Build stability after refactor (compilation issues resolved).
+  - Infrastructure stability fixes.
+
+- Image generation pipeline:
+  - Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
+
+- Streaming stability:
+  - Streaming metrics propagation: after streaming completes, usage metrics (provider, model, input/output tokens, finish_reason) are now displayed in the chat UI. Implemented by:
+    - Requesting OpenAI to include usage in the final stream chunk via `stream_options.include_usage = true` and parsing `prompt_tokens`/`completion_tokens` in `OpenAIProvider` streaming adapter.
+    - Suppressing metrics during partial updates and merging final `AIReturn.Metrics` into the last assistant message in `WebChatObserver.OnFinal` when the final result has no interactions.
+  - Streaming stability: Fixed indefinite streaming hangs across providers by using the enhanced SSE reader with idle timeouts and terminal event detection. OpenAI, Anthropic, and Mistral adapters now properly detect completion signals (e.g., `finish_reason`, `message_stop`) and exit the stream even if `[DONE]` is omitted by the provider.
+
 ## [0.5.3-alpha] - 2025-08-20
 
 ### Fixed
@@ -32,7 +323,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Greeting generation was using stored settings models instead of the provider's default model. To solve it, now if `AIUtils.GetResponse` doesn't get a model, it will use the provider's default model.
 - Components triggered with a Boolean Toggle (permanent true value) weren't calculating when the toggle was turned to true.
 - Lazy default values in `AI Provider Settings` to prevent race conditions at initialization.
-- Fixed "List length in list_generate was not met for long requests" ([#277)](https://github.com/architects-toolkit/SmartHopper/issues/277))
+- Fixed "List length in list_generate was not met for long requests" ([#277](https://github.com/architects-toolkit/SmartHopper/issues/277)).
 
 ## [0.5.0-alpha] - 2025-07-29
 

@@ -15,9 +15,14 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using Markdig;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -26,8 +31,8 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     internal class HtmlChatRenderer
     {
-        private readonly MarkdownPipeline _markdownPipeline;
         private readonly ChatResourceManager _resourceManager;
+        private readonly MarkdownPipeline _markdownPipeline;
 
         /// <summary>
         /// Initializes a new instance of the HtmlChatRenderer class.
@@ -37,7 +42,7 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine("[HtmlChatRenderer] Initializing HtmlChatRenderer");
 
             // Configure Markdig pipeline with needed extensions
-            _markdownPipeline = new MarkdownPipelineBuilder()
+            this._markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .UseSoftlineBreakAsHardlineBreak()
                 .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Default)
@@ -50,7 +55,7 @@ namespace SmartHopper.Core.UI.Chat
                 .Build();
 
             // Initialize the resource manager
-            _resourceManager = new ChatResourceManager();
+            this._resourceManager = new ChatResourceManager();
             Debug.WriteLine("[HtmlChatRenderer] Resource manager initialized");
         }
 
@@ -64,7 +69,7 @@ namespace SmartHopper.Core.UI.Chat
 
             try
             {
-                string html = _resourceManager.GetCompleteHtml();
+                string html = this._resourceManager.GetCompleteHtml();
                 Debug.WriteLine($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
 
                 // For debugging, output the first 200 characters of the HTML
@@ -82,60 +87,30 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
 
                 // Use the error template from resources
-                return _resourceManager.GetErrorTemplate(ex.Message);
+                return this._resourceManager.GetErrorTemplate(ex.Message);
             }
         }
 
         /// <summary>
         /// Generates HTML for a chat message.
         /// </summary>
-        /// <param name="role">The role of the message sender (user, assistant, system).</param>
-        /// <param name="response">The AIResponse containing metrics data.</param>
+        /// <param name="interaction">The AIInteraction containing metrics data.</param>
         /// <returns>HTML representation of the message.</returns>
-        public string GenerateMessageHtml(string role, AIResponse response)
+        public string RenderInteraction(IAIInteraction interaction)
         {
-            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for role: {role}");
+            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
 
             try
             {
-                string displayRole;
-
-                // Determine display role based on message role
-                switch (role)
-                {
-                    case "user":
-                        displayRole = "You";
-                        break;
-                    case "assistant":
-                        displayRole = "AI";
-                        break;
-                    case "system":
-                        displayRole = "System";
-                        break;
-                    case "tool":
-                        displayRole = "Tool";
-                        break;
-                    case "tool_call":
-                        displayRole = "Calling a tool...";
-                        break;
-                    default:
-                        displayRole = role;
-                        break;
-                }
-
                 try
                 {
-                    // Create timestamp for the message
-                    string timestamp = DateTime.Now.ToString("HH:mm");
-                    // Use the resource manager to create the message HTML
-                    string messageHtml = _resourceManager.CreateMessageHtml(
-                        role,
-                        WebUtility.HtmlEncode(displayRole),
-                        timestamp,
-                        response);
-                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML created, length: {messageHtml?.Length ?? 0}");
+                    // Create timestamp for the message (user-visible)
+                    string timestamp = DateTime.Now.ToString("HH:mm", CultureInfo.CurrentCulture);
 
-                    Debug.WriteLine($"[HtmlChatRenderer] Message HTML (truncated): {messageHtml?.Substring(0, Math.Min(100, messageHtml.Length))}...");
+                    // Use the resource manager to create the message HTML
+                    string messageHtml = this._resourceManager.CreateMessageHtml(
+                        timestamp,
+                        interaction);
 
                     return messageHtml;
                 }

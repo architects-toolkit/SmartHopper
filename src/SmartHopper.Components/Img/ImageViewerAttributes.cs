@@ -84,7 +84,7 @@ namespace SmartHopper.Components.Img
         {
             // Let base handle all default rendering (component box, inputs, outputs, etc.)
             base.Render(canvas, graphics, channel);
-            
+
             // Only add our custom image display if rendering objects
             if (channel == GH_CanvasChannel.Objects)
             {
@@ -170,7 +170,7 @@ namespace SmartHopper.Components.Img
                 var format = new StringFormat
                 {
                     Alignment = StringAlignment.Center,
-                    LineAlignment = StringAlignment.Center
+                    LineAlignment = StringAlignment.Center,
                 };
 
                 graphics.DrawString(text, font, brush, bounds, format);

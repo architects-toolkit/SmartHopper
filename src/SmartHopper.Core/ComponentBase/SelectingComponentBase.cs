@@ -12,6 +12,7 @@
  * SelectingComponentBase - base class for components with a "Select Components" button.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -21,6 +22,7 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
+using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -29,8 +31,11 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class SelectingComponentBase : GH_Component
     {
-        /// <summary>Currently selected GH objects.</summary>
-        public List<IGH_ActiveObject> SelectedObjects = new();
+        /// <summary>
+        /// Gets the currently selected Grasshopper objects for this component's selection mode.
+        /// Exposed as a property to encapsulate internal state while allowing read access.
+        /// </summary>
+        public List<IGH_ActiveObject> SelectedObjects { get; private set; } = new();
 
         private bool inSelectionMode;
 
@@ -108,6 +113,11 @@ namespace SmartHopper.Core.ComponentBase
         private bool isHovering;
         private bool isClicking;
 
+        // Timer-based auto-hide of the visual highlight for selected objects.
+        // Purpose: ensure the dashed highlight disappears after 5s even if the cursor stays hovered.
+        private Timer? selectDisplayTimer;
+        private bool selectAutoHidden;
+
         public SelectingComponentAttributes(SelectingComponentBase owner)
             : base(owner)
         {
@@ -145,7 +155,7 @@ namespace SmartHopper.Core.ComponentBase
                 var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
                 graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
 
-                if (this.isHovering && this.owner.SelectedObjects.Count > 0)
+                if (this.isHovering && !this.selectAutoHidden && this.owner.SelectedObjects.Count > 0)
                 {
                     using (var pen = new Pen(Color.DodgerBlue, 2f))
                     {
@@ -181,7 +191,20 @@ namespace SmartHopper.Core.ComponentBase
             this.isHovering = this.buttonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
             if (was != this.isHovering)
             {
-                this.owner.ExpireSolution(true);
+                // Start/stop 5s auto-hide timer based on hover transitions
+                if (this.isHovering)
+                {
+                    this.selectAutoHidden = false;
+                    this.StartSelectDisplayTimer();
+                }
+                else
+                {
+                    this.StopSelectDisplayTimer();
+                    this.selectAutoHidden = false; // reset for next hover
+                }
+
+                // Use display invalidation for hover-only visual changes
+                this.owner.OnDisplayExpired(false);
             }
 
             return base.RespondToMouseMove(sender, e);
@@ -196,6 +219,35 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return base.RespondToMouseUp(sender, e);
+        }
+
+        /// <summary>
+        /// Starts a one-shot 5s timer to auto-hide the selection highlight and request a repaint.
+        /// </summary>
+        private void StartSelectDisplayTimer()
+        {
+            this.StopSelectDisplayTimer();
+            this.selectDisplayTimer = new Timer(5000) { AutoReset = false };
+            this.selectDisplayTimer.Elapsed += (_, __) =>
+            {
+                this.selectAutoHidden = true;
+                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                this.StopSelectDisplayTimer();
+            };
+            this.selectDisplayTimer.Start();
+        }
+
+        /// <summary>
+        /// Stops and disposes the selection display timer if active.
+        /// </summary>
+        private void StopSelectDisplayTimer()
+        {
+            if (this.selectDisplayTimer != null)
+            {
+                try { this.selectDisplayTimer.Stop(); } catch { /* ignore */ }
+                try { this.selectDisplayTimer.Dispose(); } catch { /* ignore */ }
+                this.selectDisplayTimer = null;
+            }
         }
     }
 }

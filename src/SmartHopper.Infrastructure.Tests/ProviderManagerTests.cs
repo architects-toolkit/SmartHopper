@@ -10,7 +10,7 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
-    using SmartHopper.Infrastructure.Managers.AIProviders;
+    using SmartHopper.Infrastructure.AIProviders;
     using Xunit;
 
     public class ProviderManagerTests
@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetProviders_ReturnsNonNullCollection [Core]")]
 #endif
-        public void GetProvidersReturnsNonNullCollection()
+        public void GetProviders_ReturnsNonNullCollection()
         {
             var mgr = ProviderManager.Instance;
             var providers = mgr.GetProviders();
@@ -34,7 +34,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         [InlineData(null)]
         [InlineData("")]
-        public void GetProviderNullOrEmptyNameReturnsNull(string name)
+        public void GetProvider_NullOrEmptyName_ReturnsNull(string name)
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider(name));
@@ -45,7 +45,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "GetProvider_NotFound_ReturnsNull [Core]")]
 #endif
-        public void GetProviderNotFoundReturnsNull()
+        public void GetProvider_NotFound_ReturnsNull()
         {
             var mgr = ProviderManager.Instance;
             Assert.Null(mgr.GetProvider("nonexistent"));

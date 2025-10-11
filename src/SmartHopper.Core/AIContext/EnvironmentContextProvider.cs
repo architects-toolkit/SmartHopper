@@ -11,7 +11,7 @@
 using System;
 using System.Collections.Generic;
 using Rhino;
-using SmartHopper.Infrastructure.Interfaces;
+using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Core.AIContext
 {
@@ -37,7 +37,7 @@ namespace SmartHopper.Core.AIContext
             {
                 { "operating-system", Environment.OSVersion.ToString() },
                 { "rhino-version", rhinoVersion },
-                { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" }
+                { "platform", Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit" },
             };
         }
     }

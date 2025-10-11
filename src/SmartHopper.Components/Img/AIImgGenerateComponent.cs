@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,7 +21,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Img
 {
@@ -45,6 +44,8 @@ namespace SmartHopper.Components.Img
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override AICapability RequiredCapability => AICapability.Text2Image;
 
         /// <summary>
         /// Initializes a new instance of the AIImgGenerateComponent class.
@@ -93,7 +94,7 @@ namespace SmartHopper.Components.Img
         /// <summary>
         /// Async worker for the AI Image Generate component.
         /// </summary>
-        public class AIImgGenerateWorker : AsyncWorkerBase
+        private sealed class AIImgGenerateWorker : AsyncWorkerBase
         {
             private readonly AIImgGenerateComponent _parent;
             private readonly Action<string> _progressReporter;
@@ -117,7 +118,7 @@ namespace SmartHopper.Components.Img
             /// Gathers input from the component.
             /// </summary>
             /// <param name="DA">Data access object.</param>
-            public override void GatherInput(IGH_DataAccess DA)
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 this._prompts = new GH_Structure<GH_String>();
                 this._sizes = new GH_Structure<GH_String>();
@@ -130,29 +131,36 @@ namespace SmartHopper.Components.Img
                 // 2: Quality (tree access)
                 // 3: Style (tree access)
 
-                if (!DA.GetDataTree(0, out this._prompts)) // Prompt parameter index
+                // Prompt parameter index
+                if (!DA.GetDataTree(0, out this._prompts))
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get Prompt input");
+                    dataCount = 0;
                     return;
                 }
 
-                if (!DA.GetDataTree(1, out this._sizes)) // Size parameter index
+                // Size parameter index
+                if (!DA.GetDataTree(1, out this._sizes))
                 {
                     // Use default if not provided
                     this._sizes.Append(new GH_String("1024x1024"), new GH_Path(0));
                 }
 
-                if (!DA.GetDataTree(2, out this._qualities)) // Quality parameter index
+                // Quality parameter index
+                if (!DA.GetDataTree(2, out this._qualities))
                 {
                     // Use default if not provided
                     this._qualities.Append(new GH_String("standard"), new GH_Path(0));
                 }
 
-                if (!DA.GetDataTree(3, out this._styles)) // Style parameter index
+                // Style parameter index
+                if (!DA.GetDataTree(3, out this._styles))
                 {
                     // Use default if not provided
                     this._styles.Append(new GH_String("vivid"), new GH_Path(0));
                 }
+
+                dataCount = 1;
             }
 
             /// <summary>
@@ -223,34 +231,30 @@ namespace SmartHopper.Components.Img
                                     ["prompt"] = prompt,
                                     ["size"] = size,
                                     ["quality"] = quality,
-                                    ["style"] = style
+                                    ["style"] = style,
                                 };
 
                                 var toolResult = await this._parent.CallAiToolAsync(
-                                    "img_generate", parameters, 1)
+                                    "img_generate", parameters)
                                     .ConfigureAwait(false);
 
-                                if (toolResult != null && toolResult["success"]?.Value<bool>() == true)
+                                // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)
+                                // and ensure there's no 'error' key to consider it a success.
+                                if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && string.IsNullOrEmpty(toolResult["error"]?.ToString())))
                                 {
                                     // Get the image result (could be URL or base64 data)
                                     string imageResult = toolResult["result"]?.ToString() ?? string.Empty;
-                                    
-                                    // Get revised prompt from rawResponse if available
-                                    string revisedPrompt = prompt; // Default fallback
-                                    var rawResponse = toolResult["rawResponse"];
-                                    if (rawResponse != null)
-                                    {
-                                        revisedPrompt = rawResponse["RevisedPrompt"]?.ToString() ??
-                                                       rawResponse["revisedPrompt"]?.ToString() ??prompt;
-                                    }
-                                    
+
+                                    // Get revised prompt - now returned directly from new schema
+                                    string revisedPrompt = toolResult["revisedPrompt"]?.ToString() ?? prompt;
+
                                     // Process the image result (URL or base64)
                                     if (!string.IsNullOrEmpty(imageResult))
                                     {
                                         try
                                         {
                                             Bitmap bitmap;
-                                            
+
                                             // Check if it's a URL or base64 data
                                             if (imageResult.StartsWith("http://") || imageResult.StartsWith("https://"))
                                             {
@@ -260,27 +264,27 @@ namespace SmartHopper.Components.Img
                                                 using var stream = new MemoryStream(imageData);
                                                 bitmap = new Bitmap(stream);
                                             }
-                                             else
-                                             {
-                                                 // Convert from base64
-                                                 var base64Data = imageResult.StartsWith("data:image/")
-                                                     ? imageResult.Substring(imageResult.IndexOf(",") + 1)
-                                                     : imageResult;
-                                                 var imageBytes = Convert.FromBase64String(base64Data);
-                                                 using var stream = new MemoryStream(imageBytes);
-                                                 bitmap = new Bitmap(stream);
-                                             }
-                                             
-                                             // Wrap the bitmap in a Grasshopper-compatible image object
-                                             branchResults.Add(new GH_ObjectWrapper(bitmap));
-                                             branchRevisedPrompts.Add(new GH_String(revisedPrompt));
-                                         }
-                                         catch (Exception processEx)
-                                         {
-                                             this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
-                                             branchResults.Add(new GH_ObjectWrapper(null));
-                                             branchRevisedPrompts.Add(new GH_String(revisedPrompt));
-                                         }
+                                            else
+                                            {
+                                                // Convert from base64
+                                                var base64Data = imageResult.StartsWith("data:image/")
+                                                    ? imageResult.Substring(imageResult.IndexOf(",") + 1)
+                                                    : imageResult;
+                                                var imageBytes = Convert.FromBase64String(base64Data);
+                                                using var stream = new MemoryStream(imageBytes);
+                                                bitmap = new Bitmap(stream);
+                                            }
+
+                                            // Wrap the bitmap in a Grasshopper-compatible image object
+                                            branchResults.Add(new GH_ObjectWrapper(bitmap));
+                                            branchRevisedPrompts.Add(new GH_String(revisedPrompt));
+                                        }
+                                        catch (Exception processEx)
+                                        {
+                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
+                                            branchResults.Add(new GH_ObjectWrapper(null));
+                                            branchRevisedPrompts.Add(new GH_String(revisedPrompt));
+                                        }
                                     }
                                     else
                                     {

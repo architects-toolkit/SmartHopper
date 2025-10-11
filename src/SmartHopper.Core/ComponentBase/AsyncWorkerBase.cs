@@ -20,25 +20,32 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract class AsyncWorkerBase
     {
-        protected readonly Action<string> ReportProgress;
-        protected readonly GH_Component Parent;
-        protected readonly Action<GH_RuntimeMessageLevel, string> AddRuntimeMessage;
+        // Backing fields to avoid visible instance fields (CA1051)
+        private readonly GH_Component _parent;
+        private readonly Action<GH_RuntimeMessageLevel, string> _addRuntimeMessage;
+
+        /// <summary>
+        /// Gets the parent component instance that owns this worker.
+        /// </summary>
+        protected GH_Component Parent => this._parent;
+
+        /// <summary>
+        /// Provides a helper to add runtime messages from the worker in a standardized way.
+        /// </summary>
+        protected Action<GH_RuntimeMessageLevel, string> AddRuntimeMessage => this._addRuntimeMessage;
 
         protected AsyncWorkerBase(
-
-            // Action<string> progressReporter,
             GH_Component parent,
             Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
         {
-            // ReportProgress = progressReporter;
-            this.Parent = parent;
-            this.AddRuntimeMessage = addRuntimeMessage;
+            this._parent = parent;
+            this._addRuntimeMessage = addRuntimeMessage;
         }
 
         /// <summary>
         /// Gather input data from the component's input parameters.
         /// </summary>
-        public abstract void GatherInput(IGH_DataAccess DA);
+        public abstract void GatherInput(IGH_DataAccess DA, out int dataCount);
 
         /// <summary>
         /// Perform the asynchronous computation.

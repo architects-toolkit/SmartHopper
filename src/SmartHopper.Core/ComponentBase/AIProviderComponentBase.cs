@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
-using SmartHopper.Infrastructure.Managers.AIProviders;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -165,7 +165,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public override void CreateAttributes()
         {
-            this.m_attributes = new AIComponentAttributes(this);
+            this.m_attributes = new AIProviderComponentAttributes(this);
         }
 
         /// <summary>
@@ -249,11 +249,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets the selected AI provider name.
         /// </summary>
-        /// <returns>The selected AI provider name.</returns>
-        protected string GetSelectedProviderName()
-        {
-            return this.aiProvider;
-        }
+        protected string SelectedProviderName => this.aiProvider;
 
         /// <summary>
         /// Sets the selected AI provider name.

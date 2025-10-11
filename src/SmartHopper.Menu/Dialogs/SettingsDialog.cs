@@ -10,106 +10,42 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.AIProviders;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Menu.Dialogs.SettingsTabs;
+using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 
 namespace SmartHopper.Menu.Dialogs
 {
     /// <summary>
-    /// Dialog to configure SmartHopper settings, including provider settings and general configuration
+    /// Tabbed dialog to configure SmartHopper settings including general settings, provider management, assistant configuration, and provider-specific settings
     /// </summary>
-    internal class SettingsDialog : Dialog
+    internal sealed class SettingsDialog : Dialog
     {
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
-
-        private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories = new Dictionary<Type, Func<SettingDescriptor, Control>>
-        {
-            // If descriptor is a string
-            [typeof(string)] = descriptor =>
-            {
-                // If descriptor has allowed values, render a dropdown
-                if (descriptor.AllowedValues != null && descriptor.AllowedValues.Any())
-                {
-                    var drop = new DropDown();
-                    foreach (var val in descriptor.AllowedValues)
-                        drop.Items.Add(new ListItem { Text = val.ToString() });
-
-                    // Select default value if present
-                    if (descriptor.DefaultValue != null)
-                    {
-                        var def = descriptor.DefaultValue.ToString();
-                        for (int i = 0; i < drop.Items.Count; i++)
-                        {
-                            if (drop.Items[i].Text == def)
-                            {
-                                drop.SelectedIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                    return drop;
-                }
-
-                // If descriptor is secret, render a password box
-                if (descriptor.IsSecret)
-                {
-                    return new PasswordBox();
-                }
-
-                // If descriptor is a string, render a text box
-                else
-                {
-                    return new TextBox();
-                }
-            },
-
-            // If descriptor is an int, CreateNumericControl
-            [typeof(int)] = CreateNumericControl,
-
-            // If descriptor is a double, CreateNumericControl
-            [typeof(double)] = CreateNumericControl,
-        };
-
-        /// <summary>
-        /// Creates either a Slider or NumericStepper for numeric settings.
-        /// </summary>
-        private static Control CreateNumericControl(SettingDescriptor descriptor)
-        {
-            var p = descriptor.ControlParams as NumericSettingDescriptorControl;
-            if (p != null && p.UseSlider)
-            {
-                // TODO: Implement slider control creation with double type compatibility
-            }
-
-            return new NumericStepper
-            {
-                MinValue = p?.Min ?? 1,
-                MaxValue = p?.Max ?? int.MaxValue,
-                Increment = p?.Step ?? 1,
-                Value = Convert.ToDouble(descriptor.DefaultValue ?? 0),
-            };
-        }
-
-        private readonly Dictionary<string, Dictionary<string, Control>> _allControls = new Dictionary<string, Dictionary<string, Control>>();
-        private readonly Dictionary<string, Dictionary<string, string>> _originalValues = new Dictionary<string, Dictionary<string, string>>();
-        private readonly DropDown _defaultProviderComboBox;
-        private readonly NumericStepper _debounceControl;
-        private readonly CheckBox _enableAIGreetingCheckBox;
+        private readonly IAIProvider[] _providers;
         private readonly SmartHopperSettings _settings;
-        private readonly IEnumerable<IAIProvider> _providers;
+
+        // Tab pages
+        private readonly GeneralSettingsPage _generalPage;
+        private readonly ProvidersSettingsPage _providersPage;
+        private readonly AssistantSettingsPage _assistantPage;
+        private readonly List<GenericProviderSettingsPage> _providerPages;
+
+        // Settings models
+        private readonly GeneralSettings _generalSettings;
+        private readonly TrustedProvidersSettings _trustedProvidersSettings;
+        private readonly AssistantSettings _assistantSettings;
 
         /// <summary>
-        /// Initializes a new instance of the SettingsDialog
+        /// Initializes a new instance of the SettingsDialog with tabbed interface.
         /// </summary>
         public SettingsDialog()
         {
@@ -117,294 +53,126 @@ namespace SmartHopper.Menu.Dialogs
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
             {
                 if (stream != null)
-                    Icon = new Icon(stream);
+                    this.Icon = new Icon(stream);
             }
-            Title = "SmartHopper Settings";
-            Size = new Size(500, 400);
-            MinimumSize = new Size(500, 400);
-            Resizable = true;
-            Padding = new Padding(10);
+
+            this.Title = "SmartHopper Settings";
+            this.Size = new Size(600, 500);
+            this.MinimumSize = new Size(600, 400);
+            this.Resizable = true;
+            this.Padding = new Padding(10);
 
             // Center the dialog on screen
-            Location = new Point(
-                (int)((Screen.PrimaryScreen.Bounds.Width - Size.Width) / 2),
-                (int)((Screen.PrimaryScreen.Bounds.Height - Size.Height) / 2)
-            );
+            this.Location = new Point(
+                (int)((Screen.PrimaryScreen.Bounds.Width - this.Size.Width) / 2),
+                (int)((Screen.PrimaryScreen.Bounds.Height - this.Size.Height) / 2));
 
-            // Load settings and synchronously discover providers on Rhino’s UI thread
+            // Load settings and synchronously discover providers on Rhino's UI thread
             this._settings = SmartHopperSettings.Instance;
             IAIProvider[] providers = null;
             RhinoApp.InvokeOnUiThread(() =>
             {
-                ProviderManager.Instance.RefreshProviders();
-                providers = ProviderManager.Instance.GetProviders().ToArray();
+                Infrastructure.AIProviders.ProviderManager.Instance.RefreshProviders();
+                providers = Infrastructure.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
             });
             this._providers = providers;
 
-            // Create the main layout
-            var layout = new TableLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
-            var scrollable = new Scrollable { Content = layout };
-
-            // Add general settings section
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "General Settings",
-                    Font = new Font(SystemFont.Bold, 12),
-                    VerticalAlignment = VerticalAlignment.Center,
-                })
-            ));
-
-            // Add default provider selection
-            var defaultProviderRow = new TableLayout { Spacing = new Size(5, 5) };
-            this._defaultProviderComboBox = new DropDown();
-
-            // Add all providers to the dropdown and select current default
-            foreach (var provider in _providers)
+            // Initialize settings models from global settings
+            this._generalSettings = new GeneralSettings
             {
-                this._defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
-            }
-
-            if (!string.IsNullOrEmpty(_settings.DefaultAIProvider))
-            {
-                for (int i = 0; i < this._defaultProviderComboBox.Items.Count; i++)
-                {
-                    if (this._defaultProviderComboBox.Items[i].Text == this._settings.DefaultAIProvider)
-                    {
-                        this._defaultProviderComboBox.SelectedIndex = i;
-                        break;
-                    }
-                }
-            }
-            else if (this._defaultProviderComboBox.Items.Count > 0)
-            {
-                this._defaultProviderComboBox.SelectedIndex = 0;
-            }
-
-            defaultProviderRow.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center }),
-                new TableCell(this._defaultProviderComboBox)
-            ));
-            layout.Rows.Add(defaultProviderRow);
-
-            // Add default provider description
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "The default AI provider to use",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                })
-            ));
-
-            // Add debounce time setting
-            var debounceRow = new TableLayout { Spacing = new Size(5, 5) };
-            _debounceControl = new NumericStepper
-            {
-                MinValue = 1000,
-                MaxValue = 5000,
-                Value = _settings.DebounceTime,
+                DefaultAIProvider = this._settings.DefaultAIProvider,
+                DebounceTime = this._settings.DebounceTime,
             };
 
-            debounceRow.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Debounce Time (ms):", VerticalAlignment = VerticalAlignment.Center }),
-                new TableCell(_debounceControl)
-            ));
-            layout.Rows.Add(debounceRow);
+            this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
 
-            // Add debounce description
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "Time to wait for input data to stabilize (no more changes) before sending a request to the AI provider (in milliseconds), specially relevant when run is permanently set to true",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word,
-                    Width = 400,
-                })
-            ));
-
-            // Add AI greeting checkbox
-            var greetingRow = new TableLayout { Spacing = new Size(5, 5) };
-            _enableAIGreetingCheckBox = new CheckBox
+            this._assistantSettings = new AssistantSettings
             {
-                Text = "Enable AI-generated greetings in chat",
-                Checked = _settings.EnableAIGreeting
+                EnableCanvasButton = this._settings.SmartHopperAssistant.EnableCanvasButton,
+                EnableAIGreeting = this._settings.SmartHopperAssistant.EnableAIGreeting,
+                AssistantProvider = this._settings.SmartHopperAssistant.AssistantProvider,
+                AssistantModel = this._settings.SmartHopperAssistant.AssistantModel,
             };
 
-            greetingRow.Rows.Add(new TableRow(
-                new TableCell(_enableAIGreetingCheckBox)
-            ));
-            layout.Rows.Add(greetingRow);
+            // Create tab pages
+            this._generalPage = new GeneralSettingsPage(this._providers);
+            this._assistantPage = new AssistantSettingsPage(this._providers);
+            this._providersPage = new ProvidersSettingsPage(this._providers);
+            this._providerPages = new List<GenericProviderSettingsPage>();
 
-            // Add greeting description
-            layout.Rows.Add(new TableRow(
-                new TableCell(new Label
-                {
-                    Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation",
-                    TextColor = Colors.Gray,
-                    Font = new Font(SystemFont.Default, 10),
-                    Wrap = WrapMode.Word,
-                    Width = 400,
-                })
-            ));
-
-            // Add provider settings
-            foreach (var provider in _providers)
+            // Create provider-specific tabs
+            foreach (var provider in this._providers)
             {
-                var descriptors = provider.GetSettingDescriptors().ToList();
-                var controls = new Dictionary<string, Control>();
-                _originalValues[provider.Name] = new Dictionary<string, string>();
+                var providerPage = new GenericProviderSettingsPage(provider);
+                this._providerPages.Add(providerPage);
+            }
 
-                // Create provider header with icon
-                var headerLayout = new StackLayout
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 5,
-                    VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new Padding(0, 15, 0, 10),
-                };
+            // Load settings into pages
+            this._generalPage.LoadSettings(this._generalSettings);
+            this._providersPage.LoadSettings(this._trustedProvidersSettings);
+            this._assistantPage.LoadSettings(this._assistantSettings);
 
-                // Add provider icon if available
-                if (provider.Icon != null)
-                {
-                    using (var ms = new MemoryStream())
-                    {
-                        provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                        ms.Position = 0;
-                        headerLayout.Items.Add(new ImageView
-                        {
-                            Image = new Bitmap(ms),
-                            Size = new Size(16, 16),
-                        });
-                    }
-                }
+            this.CreateTabLayout();
+        }
 
-                // Add provider name
-                headerLayout.Items.Add(new Label
+        /// <summary>
+        /// Creates the tabbed layout with all settings pages
+        /// </summary>
+        private void CreateTabLayout()
+        {
+            var tabControl = new TabControl();
+
+            // Add General tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "General",
+                Content = this._generalPage,
+            });
+
+            // Add Providers tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "Providers",
+                Content = this._providersPage,
+            });
+
+            // Add SmartHopper Assistant tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "Canvas Assistant",
+                Content = this._assistantPage,
+            });
+
+            // Add provider-specific tabs
+            for (int i = 0; i < this._providers.Length; i++)
+            {
+                var provider = this._providers[i];
+                var providerPage = this._providerPages[i];
+
+                tabControl.Pages.Add(new TabPage
                 {
                     Text = provider.Name,
-                    Font = new Font(SystemFont.Bold, 12),
-                    VerticalAlignment = VerticalAlignment.Center
+                    Content = providerPage,
                 });
-
-                layout.Rows.Add(new TableRow(new TableCell(headerLayout)));
-
-                // Cache settings for this provider
-                var providerSettings = this._settings.GetProviderSettings(provider.Name);
-
-                // Add settings for this provider
-                foreach (var descriptor in descriptors)
-                {
-                    // Create control for this setting
-                    var control = this._controlFactories[descriptor.Type](descriptor);
-                    controls[descriptor.Name] = control;
-
-                    // Add label and control
-                    var settingRow = new TableLayout { Spacing = new Size(5, 5) };
-                    settingRow.Rows.Add(new TableRow(
-                        new TableCell(new Label
-                        {
-                            Text = descriptor.DisplayName + ":",
-                            VerticalAlignment = VerticalAlignment.Center,
-                        }),
-                        new TableCell(control)
-                    ));
-                    layout.Rows.Add(settingRow);
-
-                    // Add description if available
-                    if (!string.IsNullOrWhiteSpace(descriptor.Description))
-                    {
-                        layout.Rows.Add(new TableRow(
-                            new TableCell(new Label
-                            {
-                                Text = descriptor.Description,
-                                TextColor = Colors.Gray,
-                                Font = new Font(SystemFont.Default, 10),
-                                Wrap = WrapMode.Word,
-                                Width = 400,
-                            })
-                        ));
-                    }
-
-                    // Load current value (show placeholder for secrets)
-                    string currentValue = null;
-                    if (descriptor.IsSecret)
-                    {
-                        bool defined = false;
-                        if (providerSettings.TryGetValue(descriptor.Name, out var raw) && raw is string secret && !string.IsNullOrEmpty(secret))
-                            defined = true;
-                        currentValue = defined ? "<secret-defined>" : string.Empty;
-                    }
-                    else if (providerSettings.ContainsKey(descriptor.Name))
-                    {
-                        currentValue = providerSettings[descriptor.Name]?.ToString();
-                    }
-                    else if (descriptor.DefaultValue != null)
-                    {
-                        currentValue = descriptor.DefaultValue.ToString();
-                    }
-
-                    // Set value to control and store original for comparison
-                    if (currentValue != null)
-                    {
-                        if (control is TextBox textBox)
-                        {
-                            textBox.Text = currentValue;
-                        }
-                        else if (control is PasswordBox passwordBox)
-                        {
-                            passwordBox.Text = currentValue;
-                        }
-                        else if (control is NumericStepper numericStepper)
-                        {
-                            numericStepper.Value = Convert.ToDouble(currentValue);
-                        }
-                        else if (control is Slider slider)
-                        {
-                            slider.Value = Convert.ToInt32(currentValue);
-                        }
-                        else if (control is DropDown dropDown)
-                        {
-                            for (int i = 0; i < dropDown.Items.Count; i++)
-                            {
-                                if (dropDown.Items[i].Text == currentValue)
-                                {
-                                    dropDown.SelectedIndex = i;
-                                    break;
-                                }
-                            }
-                        }
-
-                        // Store original value for comparison
-                        this._originalValues[provider.Name][descriptor.Name] = currentValue;
-                    }
-                }
-
-                this._allControls[provider.Name] = controls;
             }
 
-            // Add a spacer row at the end
-            layout.Rows.Add(TableLayout.AutoSized(null));
-
             // Create buttons
-            var buttonLayout = new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 5,
-                HorizontalContentAlignment = HorizontalAlignment.Right
-            };
-
             var saveButton = new Button { Text = "Save" };
             var cancelButton = new Button { Text = "Cancel" };
 
-            buttonLayout.Items.Add(new StackLayoutItem(null, true)); // Spacer
+            var buttonLayout = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                HorizontalContentAlignment = HorizontalAlignment.Right,
+                Padding = new Padding(0, 10, 0, 0),
+            };
             buttonLayout.Items.Add(saveButton);
             buttonLayout.Items.Add(cancelButton);
 
             // Set up the dialog content
             var content = new DynamicLayout();
-            content.Add(scrollable, yscale: true);
+            content.Add(tabControl, yscale: true);
             content.Add(buttonLayout);
 
             this.Content = content;
@@ -412,95 +180,46 @@ namespace SmartHopper.Menu.Dialogs
             this.AbortButton = cancelButton;
 
             // Handle button clicks
-            saveButton.Click += (sender, e) => SaveSettings();
-            cancelButton.Click += (sender, e) => Close();
+            saveButton.Click += (sender, e) => this.SaveSettings();
+            cancelButton.Click += (sender, e) => this.Close();
         }
 
         /// <summary>
-        /// Saves the current settings and closes the dialog
+        /// Saves all settings from all tabs and closes the dialog
         /// </summary>
         private void SaveSettings()
         {
-            // Prepare containers for updated values (merge happens in ProviderManager)
-            var updatedSettings = new Dictionary<string, Dictionary<string, object>>();
-            foreach (var provider in this._providers)
+            try
             {
-                updatedSettings[provider.Name] = new Dictionary<string, object>();
-            }
+                // Save settings from each tab page
+                this._generalPage.SaveSettings(this._generalSettings);
+                this._providersPage.SaveSettings(this._trustedProvidersSettings);
+                this._assistantPage.SaveSettings(this._assistantSettings);
 
-            // Update with new values from the UI
-            foreach (var provider in _providers)
-            {
-                if (!updatedSettings.ContainsKey(provider.Name))
+                // Save provider-specific settings
+                foreach (var providerPage in this._providerPages)
                 {
-                    updatedSettings[provider.Name] = new Dictionary<string, object>();
+                    providerPage.SaveSettings();
                 }
 
-                var controls = this._allControls[provider.Name];
-                foreach (var descriptor in provider.GetSettingDescriptors())
-                {
-                    var control = controls[descriptor.Name];
+                // Update global settings from models
+                this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
+                this._settings.DebounceTime = this._generalSettings.DebounceTime;
+                this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
+                this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
+                this._settings.SmartHopperAssistant.AssistantProvider = this._assistantSettings.AssistantProvider;
+                this._settings.SmartHopperAssistant.AssistantModel = this._assistantSettings.AssistantModel;
+                this._settings.TrustedProviders = new Dictionary<string, bool>(this._trustedProvidersSettings);
 
-                    // Get new value from control
-                    object newValue = null;
-                    if (control is TextBox textBox)
-                    {
-                        newValue = textBox.Text;
-                    }
-                    else if (control is PasswordBox passwordBox)
-                    {
-                        newValue = passwordBox.Text;
-                    }
-                    else if (control is NumericStepper numericStepper)
-                    {
-                        newValue = (int)numericStepper.Value;
-                    }
-                    else if (control is Slider slider)
-                    {
-                        newValue = (double)slider.Value;
-                    }
-                    else if (control is DropDown dropDown)
-                    {
-                        if (dropDown.SelectedIndex >= 0)
-                        {
-                            newValue = dropDown.Items[dropDown.SelectedIndex].Text;
-                        }
-                    }
+                // Persist global settings
+                this._settings.Save();
 
-                    // For sensitive data, only update if changed and not empty
-                    if (descriptor.IsSecret && newValue is string strValue)
-                    {
-                        if (this._originalValues[provider.Name].ContainsKey(descriptor.Name) &&
-                            strValue == this._originalValues[provider.Name][descriptor.Name])
-                        {
-                            continue; // Skip unchanged values
-                        }
-                    }
-
-                    // Update the setting
-                    updatedSettings[provider.Name][descriptor.Name] = newValue;
-                }
+                this.Close();
             }
-
-            // Persist each provider's partial updates via ProviderManager
-            foreach (var kvp in updatedSettings)
+            catch (Exception ex)
             {
-                ProviderManager.Instance.UpdateProviderSettings(kvp.Key, kvp.Value);
+                MessageBox.Show(this, $"Error saving settings: {ex.Message}", "Error", MessageBoxType.Error);
             }
-
-            // Update settings
-            this._settings.DebounceTime = (int)this._debounceControl.Value;
-            this._settings.EnableAIGreeting = this._enableAIGreetingCheckBox.Checked ?? false;
-
-            // Save default provider
-            if (this._defaultProviderComboBox.SelectedIndex >= 0)
-            {
-                this._settings.DefaultAIProvider = this._defaultProviderComboBox.Items[this._defaultProviderComboBox.SelectedIndex].Text;
-            }
-
-            // Persist global settings
-            this._settings.Save();
-            this.Close();
         }
     }
 }

@@ -17,12 +17,16 @@ using Newtonsoft.Json.Linq;
 using Rhino;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Core.Messaging;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Utils;
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
 
@@ -34,12 +38,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class script_new : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "script_new";
+
+        /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "script_new",
+                name: this.toolName,
                 description: "Generate a script component in the specified language (default python) based on user instructions and place it on the canvas.",
                 category: "Scripting",
                 parametersSchema: @"{
@@ -51,24 +60,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.ScriptNewToolAsync,
-                requiredCapabilities: AIModelCapability.TextInput | AIModelCapability.TextOutput | AIModelCapability.StructuredOutput
-            );
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
         }
 
         /// <summary>
         /// Executes the "script_new" tool: generates a script component based on user instructions and places it on the canvas.
         /// </summary>
-        private async Task<object> ScriptNewToolAsync(JObject parameters)
+        private async Task<AIReturn> ScriptNewToolAsync(AIToolCall toolCall)
         {
+            // Prepare the output
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
             try
             {
-                var prompt = parameters.Value<string>("prompt") ?? throw new ArgumentException("Missing 'prompt' parameter.");
-                var language = parameters.Value<string>("language") ?? "python";
-                var providerName = parameters["provider"]?.ToString() ?? string.Empty;
-                var modelName = parameters["model"]?.ToString() ?? string.Empty;
-                var endpoint = "script_new";
-                string? contextProviderFilter = parameters["contextProviderFilter"]?.ToString() ?? string.Empty;
-                string? contextKeyFilter = parameters["contextKeyFilter"]?.ToString() ?? string.Empty;
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var prompt = args["prompt"]?.ToString() ?? throw new ArgumentException("Missing 'prompt' parameter.");
+                var language = args["language"]?.ToString() ?? "python";
+                var providerName = toolCall.Provider;
+                var modelName = toolCall.Model;
+                var endpoint = this.toolName;
+                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
                 string objectType;
@@ -105,6 +120,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var proxy = GHObjectFactory.FindProxy(displayName)
                                ?? throw new Exception($"Component type '{displayName}' not found in this Grasshopper installation.");
                 IGH_Component tempComp = null;
+
                 // Instantiate component proxy on UI thread
                 RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -155,32 +171,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""additionalProperties"": false
                 }".Replace('"', '"');
 
-                // Prepare AI messages with instructions for structured output
-                var messages = new List<KeyValuePair<string, string>>
-                {
-                    new("system", $"""
+                // Build AIRequestCall with schema and context filter using immutable body
+                var bodyBuilder = AIBodyBuilder.Create()
+                    .WithJsonOutputSchema(jsonSchema)
+                    .WithContextFilter(contextFilter)
+                    .AddSystem($"""
                     You are a Grasshopper script component generator. Generate a complete {language} script for a Grasshopper script component based on the user prompt.
-                    
+
                     Your response MUST be a valid JSON object with the following structure:
                     - script: The complete script code
                     - inputs: Array of input parameters with name, type, description, and access (item/list/tree)
                     - outputs: Array of output parameters with name, type, and description
-                    
-                    The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
-                    """),
-                    new("user", prompt)
-                };
 
-                // Get AI response with JSON schema
-                var aiResponse = await AIUtils.GetResponse(
-                    providerName,
-                    modelName,
-                    messages,
-                    jsonSchema,
+                    The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
+                    """)
+                    .AddUser(prompt);
+                var immutableRequestBody = bodyBuilder.Build();
+
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: providerName,
+                    model: modelName,
+                    capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     endpoint: endpoint,
-                    contextProviderFilter: contextProviderFilter,
-                    contextKeyFilter: contextKeyFilter).ConfigureAwait(false);
-                var responseJson = JObject.Parse(aiResponse.Response);
+                    body: immutableRequestBody);
+
+                var result = await request.Exec().ConfigureAwait(false);
+                if (!result.Success)
+                {
+                    output.CreateError(result.ErrorMessage);
+                    return output;
+                }
+
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                var responseJson = JObject.Parse(response);
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();
                 var outputs = responseJson["outputs"] as JArray ?? new JArray();
@@ -207,16 +231,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["variableName"] = input["name"]?.ToString() ?? "input",
                         ["name"] = input["name"]?.ToString() ?? "Input",
                         ["description"] = input["description"]?.ToString() ?? string.Empty,
-                        ["access"] = input["access"]?.ToString()?.ToLower() ?? "item",
-                        ["type"] = inputType
+                        ["access"] = input["access"]?.ToString()?.ToLowerInvariant() ?? "item",
+                        ["type"] = inputType,
                     };
                     scriptInputs.Add(inputObj);
                 }
 
                 var scriptOutputs = new JArray();
-                foreach (var output in outputs)
+                foreach (var data in outputs)
                 {
-                    var outputType = output["type"]?.ToString() ?? Generic;
+                    var outputType = data["type"]?.ToString() ?? Generic;
 
                     // Validate output type
                     if (!SupportedDataTypes.IsValidType(outputType))
@@ -227,10 +251,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     var outputObj = new JObject
                     {
-                        ["variableName"] = output["name"]?.ToString() ?? "output",
-                        ["name"] = output["name"]?.ToString() ?? "Output",
-                        ["description"] = output["description"]?.ToString() ?? string.Empty,
-                        ["type"] = outputType
+                        ["variableName"] = data["name"]?.ToString() ?? "output",
+                        ["name"] = data["name"]?.ToString() ?? "Output",
+                        ["description"] = data["description"]?.ToString() ?? string.Empty,
+                        ["type"] = outputType,
                     };
                     scriptOutputs.Add(outputObj);
                 }
@@ -262,7 +286,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             Value = scriptOutputs,
                             Type = typeof(JArray).Name
                         },
-                    }
+                    },
                 };
                 doc.Components.Add(comp);
 
@@ -285,13 +309,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Retrieve actual placed GUID
                 if (mapping.TryGetValue(comp.InstanceGuid, out var actualGuid))
                 {
-                    return new { success = true, script = scriptCode, guid = actualGuid, inputs = scriptInputs, outputs = scriptOutputs };
+                    var toolResult = new JObject();
+                    toolResult.Add("script", scriptCode);
+                    toolResult.Add("guid", actualGuid.ToString());
+                    toolResult.Add("inputs", scriptInputs);
+                    toolResult.Add("outputs", scriptOutputs);
+
+                    var outBuilder = AIBodyBuilder.Create();
+                    outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, result.Messages);
+                    var outImmutable = outBuilder.Build();
+                    output.CreateSuccess(outImmutable, toolCall);
+                    return output;
                 }
-                return new { success = false, error = "Failed to retrieve placed component GUID." };
+
+                output.CreateError("Failed to retrieve placed component GUID.");
+                return output;
             }
             catch (Exception ex)
             {
-                return new { success = false, error = ex.Message };
+                output.CreateError(ex.Message);
+                return output;
             }
         }
     }

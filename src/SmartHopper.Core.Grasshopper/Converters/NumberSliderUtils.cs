@@ -67,6 +67,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                             accuracy = parsedAccuracy;
                         }
                     }
+
                     // Parse lower limit
                     else if (trimmedLine.StartsWith("Lower limit:"))
                     {
@@ -76,6 +77,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                             lowerLimit = parsedLower;
                         }
                     }
+
                     // Parse upper limit
                     else if (trimmedLine.StartsWith("Upper limit:"))
                     {
@@ -97,4 +99,3 @@ namespace SmartHopper.Core.Grasshopper.Converters
         }
     }
 }
-

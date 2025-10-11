@@ -16,8 +16,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -27,13 +31,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class gh_move : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "gh_move";
+        /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_move",
+                name: this.toolName,
                 description: "Move Grasshopper components by GUID with specific targets and optional relative offset.",
                 category: "Components",
                 parametersSchema: @"{
@@ -61,35 +69,67 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""targets"" ]
                 }",
-                execute: this.GhMoveObjAsync
-            );
+                execute: this.GhMoveObjAsync);
         }
 
-        private async Task<object> GhMoveObjAsync(JObject parameters)
+        private async Task<AIReturn> GhMoveObjAsync(AIToolCall toolCall)
         {
-            var targetsObj = parameters["targets"] as JObject;
-            if (targetsObj == null)
-                return new { success = false, error = "Missing or invalid 'targets' parameter." };
-            var relative = parameters["relative"]?.ToObject<bool>() ?? false;
-            var dict = new Dictionary<Guid, PointF>();
-            foreach (var prop in targetsObj.Properties())
+            // Prepare the output
+            var output = new AIReturn()
             {
-                if (Guid.TryParse(prop.Name, out var g))
+                Request = toolCall,
+            };
+
+            try
+            {
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var targetsObj = args["targets"] as JObject;
+                if (targetsObj == null)
                 {
-                    var xToken = prop.Value["x"];
-                    var yToken = prop.Value["y"];
-                    if (xToken == null || yToken == null)
-                    {
-                        Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
-                        continue;
-                    }
-                    dict[g] = new PointF(
-                        xToken.ToObject<float>(),
-                        yToken.ToObject<float>());
+                    output.CreateError("Missing or invalid 'targets' parameter.");
+                    return output;
                 }
+
+                var relative = args["relative"]?.ToObject<bool>() ?? false;
+                var dict = new Dictionary<Guid, PointF>();
+                foreach (var prop in targetsObj.Properties())
+                {
+                    if (Guid.TryParse(prop.Name, out var g))
+                    {
+                        var xToken = prop.Value["x"];
+                        var yToken = prop.Value["y"];
+                        if (xToken == null || yToken == null)
+                        {
+                            Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
+                            continue;
+                        }
+
+                        dict[g] = new PointF(
+                            xToken.ToObject<float>(),
+                            yToken.ToObject<float>());
+                    }
+                }
+
+                var movedList = GHCanvasUtils.MoveInstance(dict, relative);
+
+                var toolResult = new JObject
+                {
+                    ["updated"] = JArray.FromObject(movedList.Select(g => g.ToString())),
+                };
+
+                var builder = AIBodyBuilder.Create();
+                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
+                var immutable = builder.Build();
+                output.CreateSuccess(immutable, toolCall);
+                return output;
             }
-            var movedList = GHCanvasUtils.MoveInstance(dict, relative);
-            return new { success = movedList.Any(), updated = movedList.Select(g => g.ToString()).ToList() };
+            catch (Exception ex)
+            {
+                output.CreateError($"Error: {ex.Message}");
+                return output;
+            }
         }
     }
 }

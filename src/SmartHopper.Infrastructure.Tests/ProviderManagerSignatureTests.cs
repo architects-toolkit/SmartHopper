@@ -21,7 +21,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Security.Cryptography;
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
-    using SmartHopper.Infrastructure.Managers.AIProviders;
+    using SmartHopper.Infrastructure.AIProviders;
     using Xunit;
     using Xunit.Abstractions;
     using Xunit.Sdk;
@@ -37,7 +37,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "VerifySignature_UnsignedDll_ThrowsCryptographicException [Core]")]
 #endif
-        public void VerifySignatureUnsignedDllThrowsCryptographicException()
+        public void VerifySignature_UnsignedDll_ThrowsCryptographicException()
         {
             // Arrange: create an unsigned dummy assembly file
             var manager = ProviderManager.Instance;
@@ -77,7 +77,7 @@ namespace SmartHopper.Infrastructure.Tests
         /// The verification may fail with either SecurityException or CryptographicException
         /// depending on which validation check runs first.
         /// </summary>
-        public void VerifySignatureAuthenticodeSignedNoStrongNameFailsVerification()
+        public void VerifySignature_AuthenticodeSignedNoStrongName_FailsVerification()
         {
             // Skip on macOS where code signing is different
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -87,7 +87,7 @@ namespace SmartHopper.Infrastructure.Tests
             }
 
             // Skip if certificate creation is not supported (e.g., in CI environments)
-            if (!IsCertificateCreationSupported())
+            if (!this.IsCertificateCreationSupported())
             {
                 this.output.WriteLine("Skipping certificate creation test - not supported in current environment");
                 return;
@@ -159,7 +159,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "VerifySignature_AuthenticodeUnsigned_StrongNameCorrect_ThrowsCryptographicException [Core]")]
 #endif
-        public void VerifySignatureAuthenticodeUnsignedStrongNameCorrectThrowsCryptographicException()
+        public void VerifySignature_AuthenticodeUnsigned_StrongNameCorrect_ThrowsCryptographicException()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -574,7 +574,7 @@ namespace SmartHopper.Infrastructure.Tests
                     var isCI = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) ||
                               !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")) ||
                               !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TF_BUILD"));
-                    
+
                     // In CI environments, certificate creation often fails
                     return !isCI;
                 }

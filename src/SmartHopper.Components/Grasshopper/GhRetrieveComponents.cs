@@ -14,7 +14,9 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -66,32 +68,45 @@ namespace SmartHopper.Components.Grasshopper
 
             if (!run)
             {
-                if (lastNames.Count > 0)
+                if (this.lastNames.Count > 0)
                 {
-                    DA.SetDataList(0, lastNames);
-                    DA.SetDataList(1, lastGuids);
-                    DA.SetData(2, lastJson);
+                    DA.SetDataList(0, this.lastNames);
+                    DA.SetDataList(1, this.lastGuids);
+                    DA.SetData(2, this.lastJson);
                 }
                 else
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
-                        "Set Run to True to execute the component");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
                 }
+
                 return;
             }
 
             var parameters = new JObject
             {
-                ["categoryFilter"] = JArray.FromObject(filters)
+                ["categoryFilter"] = JArray.FromObject(filters),
             };
 
             try
             {
-                var toolResult = AIToolManager.ExecuteTool("gh_list_components", parameters, null)
-                    .GetAwaiter().GetResult() as JObject;
+                // Create AIToolCall and execute
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_list_components",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var toolCall = new AIToolCall();
+                toolCall.Endpoint = "gh_list_components";
+                toolCall.FromToolCallInteraction(toolCallInteraction);
+
+                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
+                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                         "Tool 'gh_list_components' did not return a valid result");
                     return;
                 }
@@ -100,9 +115,9 @@ namespace SmartHopper.Components.Grasshopper
                 var guids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var json = toolResult["json"]?.ToString() ?? string.Empty;
 
-                lastNames = names;
-                lastGuids = guids;
-                lastJson = json;
+                this.lastNames = names;
+                this.lastGuids = guids;
+                this.lastJson = json;
 
                 DA.SetDataList(0, names);
                 DA.SetDataList(1, guids);
@@ -110,7 +125,7 @@ namespace SmartHopper.Components.Grasshopper
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
     }

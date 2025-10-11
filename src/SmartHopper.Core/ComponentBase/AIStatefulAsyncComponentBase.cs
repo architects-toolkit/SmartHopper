@@ -24,9 +24,13 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Managers.AITools;
-using SmartHopper.Infrastructure.Managers.ModelManager;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -40,16 +44,34 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// The model to use for AI processing. Set up from the component's inputs.
         /// </summary>
-        private string _model;
+        private string model;
 
         /// <summary>
+        /// Last AI return snapshot stored by this component.
+        /// </summary>
+        private AIReturn AIReturnSnapshot;
+
+        // Flag to ensure we only clear metrics once per new Processing run
+        private bool metricsInitializedForRun;
+
+        /// <summary>
+        /// Cached badge flags (to prevent recomputation during Render/panning).
+        /// </summary>
+        private bool badgeVerified;
+        private bool badgeDeprecated;
+        private bool badgeCacheValid;
+        private bool badgeInvalidModel;
+        private bool badgeReplacedModel;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
         /// Creates a new instance of the AI-powered stateful asynchronous component.
         /// </summary>
-        /// <param name="name">The component's display name</param>
-        /// <param name="nickname">The component's nickname</param>
-        /// <param name="description">Description of the component's functionality</param>
-        /// <param name="category">Category in the Grasshopper toolbar</param>
-        /// <param name="subCategory">Subcategory in the Grasshopper toolbar</param>
+        /// <param name="name">The component's display name.</param>
+        /// <param name="nickname">The component's nickname.</param>
+        /// <param name="description">Description of the component's functionality.</param>
+        /// <param name="category">Category in the Grasshopper toolbar.</param>
+        /// <param name="subCategory">Subcategory in the Grasshopper toolbar.</param>
         protected AIStatefulAsyncComponentBase(
             string name,
             string nickname,
@@ -60,6 +82,12 @@ namespace SmartHopper.Core.ComponentBase
         {
         }
 
+        /// <summary>
+        /// Required capability for this component. Derived components should override to specify
+        /// the exact capability they need (e.g., Text2Image, ToolChat, etc.). Defaults to Text2Text.
+        /// </summary>
+        protected virtual AICapability RequiredCapability => AICapability.Text2Text;
+
         #region PARAMS
 
         /// <summary>
@@ -69,9 +97,9 @@ namespace SmartHopper.Core.ComponentBase
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             // Allow derived classes to add their specific inputs
-            RegisterAdditionalInputParams(pManager);
+            this.RegisterAdditionalInputParams(pManager);
 
-            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.\nIf none is specified, the default model will be used.\nYou can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, "");
+            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.\nIf none is specified, the default model will be used.\nYou can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, string.Empty);
             pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
@@ -102,9 +130,12 @@ namespace SmartHopper.Core.ComponentBase
         /// </remarks>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            string model = null;
+            string? model = null;
             DA.GetData("Model", ref model);
-            SetModel(model);
+            this.SetModel(model);
+
+            // Update badge cache using current inputs before executing the solution
+            this.UpdateBadgeCache();
 
             base.SolveInstance(DA);
         }
@@ -118,29 +149,36 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Sets the model to use for AI processing.
         /// </summary>
-        /// <param name="model">The model to use</param>
+        /// <param name="model">The model to use.</param>
         protected void SetModel(string model)
         {
-            _model = model;
+            this.model = model;
         }
 
         /// <summary>
         /// Gets the model to use for AI processing.
         /// </summary>
-        /// <returns>The model to use, or empty string for default model</returns>
+        /// <returns>The model to use, or empty string for default model.</returns>
         protected string GetModel()
         {
             // Get the model, using provider settings default if empty
-            string model = this._model;
+            string model = this.model;
             var provider = this.GetActualAIProvider();
             if (provider == null)
             {
                 // Handle null provider scenario, return default model
                 return string.Empty;
             }
-            string actualModel = provider.Models.GetModel(model);
 
-            return actualModel;
+            // If user specified a model, pass it through
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                return model;
+            }
+
+            // Otherwise, use provider-level default resolution (respects settings and capabilities)
+            var selected = provider.GetDefaultModel(this.RequiredCapability, useSettings: true);
+            return selected ?? string.Empty;
         }
 
         #endregion
@@ -153,82 +191,59 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="toolName">Name of the registered tool.</param>
         /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
-        /// <param name="reuseCount">Reuse count for metrics accounting.</param>
         /// <returns>Raw tool result as JObject.</returns>
-        protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters, int reuseCount = 1)
+        protected async Task<JObject> CallAiToolAsync(string toolName, JObject parameters)
         {
             parameters ??= new JObject();
 
-            // Inject provider and model
+            // Provider and model
             var providerName = this.GetActualAIProviderName();
             var model = this.GetModel();
 
+            // Create the tool call interaction with proper structure
+            var toolCallInteraction = new AIInteractionToolCall
+            {
+                Name = toolName,
+                Arguments = parameters,
+                Agent = AIAgent.Assistant,
+            };
+
+            // Create the tool call request with proper body
+            var toolCall = new AIToolCall();
+            toolCall.Provider = providerName;
+            toolCall.Model = model;
+            toolCall.Endpoint = toolName;
+            var immutableBody = AIBodyBuilder.Create()
+                .Add(toolCallInteraction)
+                .Build();
+            toolCall.Body = immutableBody;
+
+            // Validation/capability messages will be surfaced from AIReturn after execution
+
+            AIReturn toolResult;
             JObject result;
 
-            // Validate capability requirements before execution
             try
             {
-                var currentProvider = this.GetActualAIProvider();
-                if (currentProvider != null)
+                toolResult = await toolCall.Exec().ConfigureAwait(false);
+
+                // Extract the result from the AIReturn
+                var toolResultInteraction = toolResult.Body.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                if (toolResultInteraction?.Result != null)
                 {
-                    var capabilities = ModelManager.Instance.GetCapabilities(currentProvider.Name, model);
-                    if (capabilities == null)
-                    {
-                        this.SetPersistentRuntimeMessage(
-                            "model_not_registered",
-                            GH_RuntimeMessageLevel.Remark,
-                            $"The selected model is not registered in the compatibility matrix. It could generate unexpected results",
-                            false);
-                    }
-                    else
-                    {
-                        var validationResult = ModelManager.Instance.ValidateToolExecution(toolName, currentProvider, model);
-                        if (!validationResult)
-                        {
-                            model = ModelManager.Instance.GetDefaultModelForTool(currentProvider.Name, toolName);
-
-                            if (model == null)
-                            {
-                                this.SetPersistentRuntimeMessage(
-                                    "provider_not_compatible",
-                                    GH_RuntimeMessageLevel.Error,
-                                    $"The selected provider does not have any model compatible with this component.",
-                                    false);
-
-                                result = new JObject
-                                {
-                                    ["success"] = false,
-                                    ["error"] = "The selected provider does not have any model compatible with this component.\nPlease, choose another AI provider.",
-                                };
-
-                                return result;
-                            }
-
-                            this.SetPersistentRuntimeMessage(
-                                "model_replaced",
-                                GH_RuntimeMessageLevel.Remark,
-                                $"The selected model was not found compatible with this component.\nIt was automatically replaced with the default model for this function: {model}",
-                                false);
-                        }
-                    }
+                    result = toolResultInteraction.Result;
                 }
-            }
-            catch (Exception capEx)
-            {
-                // Log capability check error but don't fail execution
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Capability validation error: {capEx.Message}");
-            }
-
-            // Inject provider and model
-            parameters["provider"] = providerName;
-            parameters["model"] = model;
-            parameters["reuseCount"] = reuseCount;
-
-            try
-            {
-                result = await AIToolManager
-                    .ExecuteTool(toolName, parameters, null)
-                    .ConfigureAwait(false) as JObject;
+                else
+                {
+                    result = new JObject
+                    {
+                        ["success"] = toolResult.Success,
+                        ["error"] = toolResult.ErrorMessage,
+                    };
+                }
             }
             catch (Exception ex)
             {
@@ -243,53 +258,37 @@ namespace SmartHopper.Core.ComponentBase
                     ["success"] = false,
                     ["error"] = ex.Message,
                 };
+                toolResult = null;
             }
 
-            // Store metrics if present
-            if (result.TryGetValue("rawResponse", out var metricsToken))
+            // Store full AIReturn for downstream metrics/output usage
+            if (toolResult != null)
             {
-                var aiResp = metricsToken.ToObject<AIResponse>();
-                StoreResponseMetrics(aiResp, reuseCount);
+                this.AIReturnSnapshot = toolResult;
+            }
+
+            // Surface propagated validation/capability messages from AIReturn
+            if (toolResult?.Messages != null && toolResult.Messages.Count > 0)
+            {
+                this.SurfaceMessagesFromReturn(toolResult, "ai");
             }
 
             // Handle tool-level failure
             bool ok = result.Value<bool?>("success") ?? true;
             if (!ok)
             {
-                var errorMsg = result.Value<string>("error") ?? "Unknown error occurred";
-                SetPersistentRuntimeMessage(
-                    "ai_error",
-                    GH_RuntimeMessageLevel.Error,
-                    errorMsg,
-                    false);
+                var errorMsg = result.Value<string>("error") ?? toolResult?.ErrorMessage;
+                if (!string.IsNullOrEmpty(errorMsg))
+                {
+                    this.SetPersistentRuntimeMessage(
+                        "ai_error",
+                        GH_RuntimeMessageLevel.Error,
+                        errorMsg,
+                        false);
+                }
             }
 
             return result;
-        }
-
-        protected void AIErrorToPersistentRuntimeMessage(AIResponse response)
-        {
-            var responseMessage = response.Response.ToLower();
-
-            if (responseMessage.Contains("401") ||
-                responseMessage.Contains("unauthorized"))
-            {
-                SetPersistentRuntimeMessage(
-                    "ai_error",
-                    GH_RuntimeMessageLevel.Error,
-                    $"AUTHENTICATION ERROR: is the API key correct?",
-                    false
-                );
-            }
-            else
-            {
-                SetPersistentRuntimeMessage(
-                    "ai_error",
-                    GH_RuntimeMessageLevel.Error,
-                    $"AI error while processing the response:\n{response.Response}",
-                    false
-                );
-            }
         }
 
         #endregion
@@ -297,93 +296,259 @@ namespace SmartHopper.Core.ComponentBase
         #region METRICS
 
         /// <summary>
-        /// List of AI response metrics.
+        /// Replaces the internal last AIReturn snapshot.
+        /// Use this when an external source (e.g., WebChat) provides the full response state.
         /// </summary>
-        private List<AIResponse> _responseMetrics = new List<AIResponse>();
-
-        /// <summary>
-        /// Stores the given AI response metrics in the component's internal metrics list.
-        /// </summary>
-        /// <param name="response">The AI response to store metrics from.</param>
-        /// <param name="reuseCount">Optional. The number of times this response is reused across different branches. Default is 1.</param>
-        public void StoreResponseMetrics(AIResponse response, int reuseCount = 1)
+        /// <param name="ret">AIReturn snapshot to store.</param>
+        public virtual void SetAIReturnSnapshot(AIReturn ret)
         {
-            if (response != null)
+            if (ret == null)
             {
-                // Set the reuse count on the response
-                response.ReuseCount = reuseCount;
-
-                _responseMetrics.Add(response);
-
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] [StoreResponseMetrics] Added response to metrics list with reuse count: {reuseCount}");
+                return;
             }
+
+            this.AIReturnSnapshot = ret;
         }
 
         /// <summary>
-        /// Sets the metrics output parameters (input tokens, output tokens, finish reason)
+        /// Gets the current <see cref="AIReturn"/> snapshot stored in this component.
+        /// Intended for derived components that need to render outputs (e.g., chat history)
+        /// from the same source of truth used for metrics.
         /// </summary>
-        /// <param name="DA">The data access object</param>
-        protected void SetMetricsOutput(IGH_DataAccess DA)
+        protected AIReturn CurrentAIReturnSnapshot => this.AIReturnSnapshot;
+
+        /// <summary>
+        /// Sets the metrics output parameters (input tokens, output tokens, finish reason).
+        /// </summary>
+        /// <param name="dA">The data access object.</param>
+        protected void SetMetricsOutput(IGH_DataAccess dA)
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            if (!_responseMetrics.Any())
+            var metrics = this.AIReturnSnapshot?.Metrics;
+            if (metrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
             }
 
-            // Get the actual provider name
-            string actualProvider = GetActualAIProviderName();
-
-            // Aggregate metrics
-            int totalInTokens = _responseMetrics.Sum(r => r.InTokens);
-            int totalOutTokens = _responseMetrics.Sum(r => r.OutTokens);
-            string finishReason = _responseMetrics.Last().FinishReason;
-            double totalCompletionTime = _responseMetrics.Sum(r => r.CompletionTime);
-            string usedModels = string.Join(", ", _responseMetrics
-                .Select(r => r.Model)
-                .Distinct());
-
             // Create JSON object with metrics
             var metricsJson = new JObject(
-                new JProperty("ai_provider", actualProvider),
-                new JProperty("ai_model", usedModels),
-                new JProperty("tokens_input", totalInTokens),
-                new JProperty("tokens_output", totalOutTokens),
-                new JProperty("finish_reason", finishReason),
-                new JProperty("completion_time", totalCompletionTime),
-                new JProperty("data_count", _responseMetrics.Sum(r => r.ReuseCount)),
-                new JProperty("iterations_count", _responseMetrics.Count)
-            );
+                new JProperty("ai_provider", metrics.Provider),
+                new JProperty("ai_model", metrics.Model),
+                new JProperty("tokens_input", metrics.InputTokens),
+                new JProperty("tokens_output", metrics.OutputTokens),
+                new JProperty("finish_reason", metrics.FinishReason),
+                new JProperty("completion_time", metrics.CompletionTime),
+                new JProperty("data_count", this.DataCount),
+                new JProperty("iterations_count", this.ProgressInfo.Total));
 
             // Convert metricsJson to GH_String
             var metricsJsonString = metricsJson.ToString();
             var ghString = new GH_String(metricsJsonString);
 
             // Set the metrics output
-            SetPersistentOutput("Metrics", ghString, DA);
+            this.SetPersistentOutput("Metrics", ghString, dA);
 
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
+        }
+
+        /// <summary>
+        /// Controls whether the base class should emit metrics during the post-solve phase.
+        /// Derived classes can override to return false when they set metrics synchronously
+        /// within their own SolveInstance implementation.
+        /// </summary>
+        protected virtual bool ShouldEmitMetricsInPostSolve()
+        {
+            return true;
         }
 
         protected override void BeforeSolveInstance()
         {
             base.BeforeSolveInstance();
 
-            // Clear previous response metrics only when starting a new run
-            // Fix for boolean toggle issue: Only clear when Run is true AND we have no active workers
-            // This ensures we're truly starting a new processing run, not in the middle of one
-            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0)
+            // Reset the one-time init flag when not processing
+            if (this.CurrentState != ComponentState.Processing)
+            {
+                this.metricsInitializedForRun = false;
+            }
+
+            // Clear previous response metrics only once when truly starting a new Processing run
+            // Conditions:
+            //  - In Processing state
+            //  - Run is true
+            //  - No active workers yet (fresh run)
+            //  - Not already initialized for this run (prevents repeated clears on multiple presolves)
+            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0 && !this.metricsInitializedForRun)
             {
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
-                _responseMetrics.Clear();
+                this.AIReturnSnapshot = null;
+                this.metricsInitializedForRun = true;
             }
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
-            SetMetricsOutput(DA);
+            if (this.ShouldEmitMetricsInPostSolve())
+            {
+                this.SetMetricsOutput(DA);
+            }
+
+            // Update badge cache again after solving, so last metrics model is considered
+            this.UpdateBadgeCache();
+        }
+
+        #endregion
+
+        #region UI
+
+        /// <summary>
+        /// Creates the custom attributes for this component, enabling provider and model badges.
+        /// Uses <see cref="ComponentBadgesAttributes"/> to render provider icon (via base) and model state badges.
+        /// </summary>
+        public override void CreateAttributes()
+        {
+            this.m_attributes = new ComponentBadgesAttributes(this);
+        }
+
+        /// <summary>
+        /// Updates the cached badge flags based on the most relevant model and provider.
+        /// Priority for model: last metrics model, then configured/default model.
+        /// </summary>
+        internal void UpdateBadgeCache()
+        {
+            try
+            {
+                // Resolve provider
+                string providerName = this.GetActualAIProviderName();
+                if (providerName == AIProviderComponentBase.DEFAULT_PROVIDER)
+                {
+                    providerName = SmartHopperSettings.Instance.DefaultAIProvider;
+                }
+
+                // Resolve model the user currently configured (for validation/replacement decisions)
+                string configuredModel = this.GetModel();
+
+                // If provider is missing, we cannot resolve anything
+                if (string.IsNullOrWhiteSpace(providerName))
+                {
+                    this.badgeVerified = false;
+                    this.badgeDeprecated = false;
+                    this.badgeInvalidModel = true;
+                    this.badgeReplacedModel = false;
+                    this.badgeCacheValid = false;
+                    return;
+                }
+
+                // Build a minimal request to leverage centralized validation/model selection
+                // Use a dummy endpoint and a single system interaction to satisfy validators
+                var interactions = new List<IAIInteraction>
+                {
+                    new AIInteractionText { Agent = AIAgent.System, Content = "badge-check" },
+                };
+
+                var req = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
+                req.Initialize(providerName, configuredModel ?? string.Empty, interactions, endpoint: "badge_check", capability: this.RequiredCapability, toolFilter: null);
+
+                // This triggers provider-scoped selection/fallback based on capability
+                string resolvedModel = req.Model;
+
+                // Gather validation messages (may include provider/model issues)
+                var (isValid, validationMessages) = req.IsValid();
+
+                // Prefer structured codes; fall back to text checks when Code is Unknown
+                bool hasProviderMissing = validationMessages?.Any(m =>
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    (m.Code == AIMessageCode.ProviderMissing)) == true;
+
+                bool hasUnknownProvider = validationMessages?.Any(m =>
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    (m.Code == AIMessageCode.UnknownProvider)) == true;
+
+                bool hasNoCapableModel = validationMessages?.Any(m =>
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    (m.Code == AIMessageCode.NoCapableModel)) == true;
+
+                bool hasUnknownModel = validationMessages?.Any(m =>
+                    (m.Code == AIMessageCode.UnknownModel)) == true;
+
+                bool hasCapabilityMismatch = validationMessages?.Any(m =>
+                    (m.Code == AIMessageCode.CapabilityMismatch)) == true;
+
+                // Replaced when selection adjusted or an explicit CapabilityMismatch is present
+                this.badgeReplacedModel = (!string.IsNullOrWhiteSpace(configuredModel)
+                                           && !string.IsNullOrWhiteSpace(resolvedModel)
+                                           && !string.Equals(configuredModel, resolvedModel, StringComparison.Ordinal))
+                                          || hasCapabilityMismatch;
+
+                // Invalid when missing/unknown provider, unknown model, no capable model, capability mismatch, or empty configured model
+                this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
+                                         || hasProviderMissing
+                                         || hasUnknownProvider
+
+                                         // || hasUnknownModel
+                                         || hasNoCapableModel
+                                         || hasCapabilityMismatch
+                                         || this.badgeReplacedModel;
+
+                // Read metadata from the resolved model to set Verified/Deprecated when available
+                var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : ModelManager.Instance.GetCapabilities(providerName, resolvedModel);
+                if (resolvedCaps == null)
+                {
+                    // No metadata available for the resolved model – do not render badges
+                    this.badgeVerified = false;
+                    this.badgeDeprecated = false;
+                    this.badgeCacheValid = true;
+                }
+                else
+                {
+                    // Verified/Deprecated reflect the model actually selected for execution; Verified requires capability match
+                    this.badgeVerified = resolvedCaps.Verified && resolvedCaps.HasCapability(this.RequiredCapability);
+                    this.badgeDeprecated = resolvedCaps.Deprecated;
+                    this.badgeCacheValid = true;
+                }
+
+                return;
+            }
+            catch
+            {
+                // On any failure, mark cache invalid to avoid rendering
+                this.badgeVerified = false;
+                this.badgeDeprecated = false;
+                this.badgeInvalidModel = false;
+                this.badgeReplacedModel = false;
+                this.badgeCacheValid = false;
+            }
+        }
+
+        /// <summary>
+        /// Tries to get the cached badge flags without recomputation.
+        /// </summary>
+        /// <param name="verified">True if model is verified.</param>
+        /// <param name="deprecated">True if model is deprecated.</param>
+        /// <returns>True if cache is valid; otherwise false.</returns>
+        internal bool TryGetCachedBadgeFlags(out bool verified, out bool deprecated)
+        {
+            verified = this.badgeVerified;
+            deprecated = this.badgeDeprecated;
+            return this.badgeCacheValid;
+        }
+
+        /// <summary>
+        /// Tries to get the cached badge flags including invalid and replaced, without recomputation.
+        /// </summary>
+        /// <param name="verified">True if model is verified and capable.</param>
+        /// <param name="deprecated">True if model is deprecated.</param>
+        /// <param name="invalid">True if model is unknown or not capable of the required capability.</param>
+        /// <param name="replaced">True if the selected model would be replaced by a fallback due to capability mismatch.</param>
+        /// <returns>True if cache is valid; otherwise false.</returns>
+        internal bool TryGetCachedBadgeFlags(out bool verified, out bool deprecated, out bool invalid, out bool replaced)
+        {
+            verified = this.badgeVerified;
+            deprecated = this.badgeDeprecated;
+            invalid = this.badgeInvalidModel;
+            replaced = this.badgeReplacedModel;
+            return this.badgeCacheValid;
         }
 
         #endregion
@@ -401,6 +566,7 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     stringBranch.Add(new GH_String(item.ToString()));
                 }
+
                 stringTree.AppendRange(stringBranch, path);
             }
 
@@ -408,6 +574,47 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         #endregion
+
+        /// <summary>
+        /// Surfaces structured runtime messages contained in an <see cref="IAIReturn"/> as persistent
+        /// Grasshopper runtime messages. Maps <see cref="AIRuntimeMessageSeverity"/> to
+        /// <see cref="GH_RuntimeMessageLevel"/> and prefixes the text with the message <see cref="AIRuntimeMessage.Origin"/>.
+        /// </summary>
+        /// <param name="aiReturn">The AI return object containing messages.</param>
+        /// <param name="keyPrefix">A key prefix to namespace the persistent message keys.</param>
+        private void SurfaceMessagesFromReturn(IAIReturn aiReturn, string keyPrefix)
+        {
+            if (aiReturn?.Messages == null || aiReturn.Messages.Count == 0)
+            {
+                return;
+            }
+
+            int idx = 0;
+            foreach (var item in aiReturn.Messages)
+            {
+                idx++;
+
+                // Only surface messages intended for end users
+                if (item == null || !item.Surfaceable)
+                {
+                    continue;
+                }
+
+                // Map structured severity to GH level
+                GH_RuntimeMessageLevel level = item.Severity switch
+                {
+                    AIRuntimeMessageSeverity.Warning => GH_RuntimeMessageLevel.Warning,
+                    AIRuntimeMessageSeverity.Error => GH_RuntimeMessageLevel.Error,
+                    _ => GH_RuntimeMessageLevel.Remark,
+                };
+
+                // Include origin for context, then the message text
+                var originTag = $"[{item.Origin}] ";
+                var msg = (item.Message ?? string.Empty);
+
+                this.SetPersistentRuntimeMessage($"{keyPrefix}_msg_{idx}", level, originTag + msg, false);
+            }
+        }
 
     }
 }

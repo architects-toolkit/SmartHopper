@@ -11,11 +11,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.Interfaces;
-using SmartHopper.Infrastructure.Models;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -25,13 +30,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class gh_toggle_preview : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "gh_toggle_preview";
+
+        /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_toggle_preview",
+                name: this.toolName,
                 description: "Toggle Grasshopper component preview on or off by GUID.",
                 category: "Components",
                 parametersSchema: @"{
@@ -49,34 +59,55 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
-                execute: this.GhTogglePreviewAsync
-            );
+                execute: this.GhTogglePreviewAsync);
         }
 
-        private async Task<object> GhTogglePreviewAsync(JObject parameters)
+        private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)
         {
-            var guids = parameters["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var previewOn = parameters["previewOn"]?.ToObject<bool>() ?? false;
-            Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
-            var updated = new List<string>();
-
-            foreach (var s in guids)
+            var output = new AIReturn()
             {
-                Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
-                if (Guid.TryParse(s, out var guid))
-                {
-                    Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                    GHComponentUtils.SetComponentPreview(guid, previewOn);
-                    Debug.WriteLine($"[GhObjTools] Set preview to {previewOn} for GUID: {guid}");
-                    updated.Add(guid.ToString());
-                }
-                else
-                {
-                    Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
-                }
-            }
+                Request = toolCall,
+            };
 
-            return new { success = true, updated };
+            try
+            {
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
+                Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
+                var updated = new List<string>();
+
+                foreach (var s in guids)
+                {
+                    Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
+                    if (Guid.TryParse(s, out var guid))
+                    {
+                        Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
+                        GHComponentUtils.SetComponentPreview(guid, previewOn);
+                        Debug.WriteLine($"[GhObjTools] Set preview to {previewOn} for GUID: {guid}");
+                        updated.Add(guid.ToString());
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
+                    }
+                }
+
+                var toolResult = new JObject();
+                toolResult["updated"] = JToken.FromObject(updated);
+                var immutableBody = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)
+                    .Build();
+
+                output.CreateSuccess(immutableBody, toolCall);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                output.CreateError($"Error: {ex.Message}");
+                return output;
+            }
         }
     }
 }

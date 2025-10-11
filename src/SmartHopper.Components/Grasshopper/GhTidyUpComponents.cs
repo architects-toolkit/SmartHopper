@@ -18,7 +18,12 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.Managers.AITools;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -29,6 +34,9 @@ namespace SmartHopper.Components.Grasshopper
     {
         private List<string> LastErrors = new List<string>();
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GhTidyUpComponents"/> class.
+        /// </summary>
         public GhTidyUpComponents()
           : base("Tidy Up", "GhTidyUp",
                  "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
@@ -36,6 +44,9 @@ namespace SmartHopper.Components.Grasshopper
         {
         }
 
+        /// <summary>
+        /// Gets the unique identifier for this component.
+        /// </summary>
         public override Guid ComponentGuid => new Guid("D4C8A9E5-B123-4F67-8C90-1234567890AB");
 
         /// <summary>
@@ -43,6 +54,9 @@ namespace SmartHopper.Components.Grasshopper
         /// </summary>
         protected override Bitmap Icon => Properties.Resources.tidyup;
 
+        /// <summary>
+        /// Enables the selection mode for this component.
+        /// </summary>
         public void EnableSelectionMode()
         {
             base.EnableSelectionMode();
@@ -51,21 +65,37 @@ namespace SmartHopper.Components.Grasshopper
             canvas.ContextMenuStrip?.Hide();
         }
 
+        /// <summary>
+        /// Appends additional menu items to the component's context menu.
+        /// </summary>
+        /// <param name="menu">The menu to append items to.</param>
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
         }
 
+        /// <summary>
+        /// Registers the input parameters for this component.
+        /// </summary>
+        /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
         }
 
+        /// <summary>
+        /// Registers the output parameters for this component.
+        /// </summary>
+        /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Errors", "E", "List of errors during tidy up", GH_ParamAccess.list);
         }
 
+        /// <summary>
+        /// Solves the component for the given data access.
+        /// </summary>
+        /// <param name="DA">The data access object for input/output operations.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             object runObj = null;
@@ -76,49 +106,75 @@ namespace SmartHopper.Components.Grasshopper
 
             if (!(runObj is GH_Boolean run))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
                 return;
             }
+
+            this.AddRuntimeMessage(
+                GH_RuntimeMessageLevel.Warning,
+                "Heads up: this component is still in alpha and might cheekily mess up your file instead of tidying it... for now!");
 
             if (!run.Value)
             {
-                if (LastErrors.Count > 0)
-                    DA.SetDataList(0, LastErrors);
+                if (this.LastErrors.Count > 0)
+                    DA.SetDataList(0, this.LastErrors);
                 else
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute tidy up");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute tidy up");
                 return;
             }
 
-            LastErrors.Clear();
-            var guids = SelectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
+            this.LastErrors.Clear();
+            var guids = this.SelectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
             if (!guids.Any())
             {
-                LastErrors.Add("No components selected");
-                DA.SetDataList(0, LastErrors);
+                this.LastErrors.Add("No components selected");
+                DA.SetDataList(0, this.LastErrors);
                 return;
             }
+
             try
             {
                 var parameters = new JObject { ["guids"] = JArray.FromObject(guids) };
-                var result = AIToolManager.ExecuteTool("gh_tidy_up", parameters, null)
-                                  .GetAwaiter().GetResult() as JObject;
-                if (result == null)
-                    LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
-                else if (result["success"]?.ToObject<bool>() == false)
-                    LastErrors.Add(result["error"]?.ToString() ?? "Unknown error");
+
+                // Create AIToolCall and execute
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_tidy_up",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var toolCall = new AIToolCall();
+                toolCall.Endpoint = "gh_tidy_up";
+                toolCall.FromToolCallInteraction(toolCallInteraction);
+
+                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
+                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
+                if (toolResult == null)
+                {
+                    this.LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
+                }
+                else if (toolResult["success"]?.ToObject<bool>() == false)
+                {
+                    this.LastErrors.Add(toolResult["error"]?.ToString() ?? "Unknown error");
+                }
                 else
                 {
-                    var moved = result["moved"]?.ToObject<List<string>>() ?? new List<string>();
+                    var moved = toolResult["moved"]?.ToObject<List<string>>() ?? new List<string>();
                     var failed = guids.Except(moved);
                     foreach (var g in failed)
-                        LastErrors.Add($"Component {g} not moved");
+                    {
+                        this.LastErrors.Add($"Component {g} not moved");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                LastErrors.Add(ex.Message);
+                this.LastErrors.Add(ex.Message);
             }
-            DA.SetDataList(0, LastErrors);
+
+            DA.SetDataList(0, this.LastErrors);
         }
     }
 }

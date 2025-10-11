@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 var nodes = DependencyGraphUtils.CreateComponentGrid(document);
                 var posMap = nodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
                 var positionedCount = 0;
-                
+
                 foreach (var component in document.Components)
                 {
                     if (posMap.TryGetValue(component.InstanceGuid, out var pivot))
@@ -61,17 +61,17 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         positionedCount++;
                     }
                 }
-                
+
                 // Fallback: If not all components got positions, use force layout like gh_tidy_up.cs
                 if (positionedCount < document.Components.Count)
                 {
                     Debug.WriteLine($"[Put] Initial positioning incomplete ({positionedCount}/{document.Components.Count}). Using fallback with force layout.");
-                    
+
                     try
                     {
                         var forceNodes = DependencyGraphUtils.CreateComponentGrid(document, force: true);
                         var forcePosMap = forceNodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
-                        
+
                         // Apply positions from force layout to components that don't have positions
                         foreach (var component in document.Components)
                         {
@@ -95,13 +95,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Put] Error in initial position calculation: {ex.Message}. Attempting fallback.");
-                
+
                 // Complete fallback: Use force layout for all components
                 try
                 {
                     var fallbackNodes = DependencyGraphUtils.CreateComponentGrid(document, force: true);
                     var fallbackPosMap = fallbackNodes.ToDictionary(n => n.ComponentId, n => n.Pivot);
-                    
+
                     foreach (var component in document.Components)
                     {
                         if (fallbackPosMap.TryGetValue(component.InstanceGuid, out var fallbackPivot))
@@ -143,9 +143,11 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 {
                     // clear default script inputs and outputs
                     var ghComp = (IGH_Component)scriptComp;
+
                     // remove all existing inputs
                     foreach (var p in ghComp.Params.Input.ToArray())
                         ghComp.Params.UnregisterInputParameter(p);
+
                     // remove all existing outputs
                     foreach (var p in ghComp.Params.Output.ToArray())
                         ghComp.Params.UnregisterOutputParameter(p);
@@ -174,7 +176,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 {
                                     PrettyName = prettyName,
                                     Description = description,
-                                    Access = access
+                                    Access = access,
                                 };
                                 param.CreateAttributes();
                                 if (o["simplify"] != null)
@@ -217,7 +219,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                                 {
                                     PrettyName = prettyName,
                                     Description = description,
-                                    Access = access
+                                    Access = access,
                                 };
                                 param.CreateAttributes();
                                 if (o["simplify"] != null)
@@ -338,6 +340,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         idToGuidMap[id] = mappedGuid;
                         Debug.WriteLine($"[Put] Mapped ID '{id}' to GUID '{mappedGuid}'");
                     }
+
                     return mappedGuid;
                 }
 
