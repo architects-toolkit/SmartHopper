@@ -16,8 +16,18 @@ using SmartHopper.Infrastructure.AICall.JsonSchemas;
 
 namespace SmartHopper.Providers.DeepSeek
 {
-    internal sealed class DeepSeekJsonSchemaAdapter : IJsonSchemaAdapter
+    internal sealed partial class DeepSeekJsonSchemaAdapter : IJsonSchemaAdapter
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for extracting enum arrays from malformed JSON.
+        /// </summary>
+        [GeneratedRegex(@"enum[""']?:\s*\[([^\]]+)\]")]
+        private static partial Regex EnumArrayRegex();
+
+        #endregion
+
         public string ProviderName => "DeepSeek";
 
         public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
@@ -93,7 +103,7 @@ namespace SmartHopper.Providers.DeepSeek
             try
             {
                 // Fallback: try regex extraction if JSON parsing fails
-                var match = Regex.Match(content, @"enum[""']?:\s*\[([^\]]+)\]");
+                var match = EnumArrayRegex().Match(content);
                 if (match.Success)
                 {
                     var inner = match.Groups[1].Value;

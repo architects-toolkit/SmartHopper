@@ -30,8 +30,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// Provides AI tools for fetching webpage text content,
     /// omitting HTML, scripts, styles, images, and respecting robots.txt rules.
     /// </summary>
-    public class web_generic_page_read : IAIToolProvider
+    public partial class web_generic_page_read : IAIToolProvider
     {
+        #region Compiled Regex Patterns
+
+        /// <summary>
+        /// Regex pattern for normalizing whitespace to single spaces.
+        /// </summary>
+        [GeneratedRegex(@"\s+")]
+        private static partial Regex WhitespaceRegex();
+
+        #endregion
+
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
@@ -222,7 +232,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract and normalize text
                 string text = doc.DocumentNode.InnerText;
-                text = Regex.Replace(text, @"\s+", " ").Trim();
+                text = WhitespaceRegex().Replace(text, " ").Trim();
                 Debug.WriteLine($"[WebTools] Normalized text length: {text.Length}");
                 Debug.WriteLine($"[WebTools] Normalized snippet: {text.Substring(0, Math.Min(text.Length, 200))}");
 
