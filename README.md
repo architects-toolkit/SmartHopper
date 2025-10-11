@@ -8,7 +8,7 @@
 
 <div align="center">
 
-![SmartHopper](./img/smarthopper.png)
+[![SmartHopper](./img/smarthopper.png)](https://smarthopper.xyz)
 
 **Design with AI directly on your Grasshopper canvas — chat, generate, organize, and build smarter definitions faster.**
 
@@ -88,3 +88,9 @@ See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a
 ## ⚖️ License
 
 This project is licensed under the GNU Lesser General Public License v3 (LGPL) - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p style="text-align: center; font-size: small;">
+Started in Barcelona — spread worldwide • <a href="https://smarthopper.xyz">smarthopper.xyz</a>
+</p>
