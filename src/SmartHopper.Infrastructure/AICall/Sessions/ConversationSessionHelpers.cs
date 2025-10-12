@@ -132,7 +132,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             var toolRq = new AIToolCall();
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
+            
+            // Measure tool execution time
+            var stopwatch = Stopwatch.StartNew();
             var toolRet = await this.executor.ExecToolAsync(toolRq, ct).ConfigureAwait(false);
+            stopwatch.Stop();
 
             var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
             if (toolInteraction == null)
@@ -165,10 +169,24 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             this.PersistToolResult(toolInteraction, turnId);
 
-            // Attach tool metrics to the tool result interaction
+            // Attach tool metrics and completion time to the tool result interaction
             if (toolRet?.Metrics != null)
             {
                 toolInteraction.Metrics = toolRet.Metrics;
+
+                // Override with actual measured time (includes tool execution + any overhead)
+                toolInteraction.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+            }
+            else if (toolInteraction.Metrics == null)
+            {
+                // Create metrics with at least the completion time
+                toolInteraction.Metrics = new AIMetrics
+                {
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    Provider = this.Request.Provider,
+                    Model = this.Request.Model,
+                    FinishReason = "stop" // I'm not sure which finish reason should be used here
+                };
             }
 
             var deltaOk = new AIReturn();
@@ -205,7 +223,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Persists final streaming snapshot (tool_calls and assistant text), updates last return,
         /// and logs unresolved pending tool-calls if any.
         /// </summary>
-        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText)
+        /// <param name="completionTime">Total time taken for the streaming operation in seconds.</param>
+        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText, double completionTime = 0)
         {
             // Persist the final aggregated text interaction (accumulated during streaming)
             if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
@@ -224,6 +243,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     if (finalAssistant.Metrics != null)
                     {
                         accumulatedText.Metrics = finalAssistant.Metrics;
+
+                        // Override with actual measured streaming time
+                        accumulatedText.Metrics.CompletionTime = completionTime;
                     }
 
                     // Update time if available
