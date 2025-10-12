@@ -385,8 +385,8 @@ namespace SmartHopper.Core.ComponentBase
                 this.SetMetricsOutput(DA);
             }
 
-            // Update badge cache again after solving, so last metrics model is considered
-            this.UpdateBadgeCache();
+            // Badge cache was already updated in SolveInstance (before base.SolveInstance)
+            // No need to update again here - the configured model hasn't changed
         }
 
         #endregion
