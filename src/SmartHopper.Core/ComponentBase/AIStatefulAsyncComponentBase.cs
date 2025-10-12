@@ -274,19 +274,8 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Handle tool-level failure
-            bool ok = result.Value<bool?>("success") ?? true;
-            if (!ok)
-            {
-                var errorMsg = result.Value<string>("error") ?? toolResult?.ErrorMessage;
-                if (!string.IsNullOrEmpty(errorMsg))
-                {
-                    this.SetPersistentRuntimeMessage(
-                        "ai_error",
-                        GH_RuntimeMessageLevel.Error,
-                        errorMsg,
-                        false);
-                }
-            }
+            // Note: Structured messages from toolResult are already surfaced via SurfaceMessagesFromReturn above
+            // ErrorMessage is preserved for backward compatibility and Success flag
 
             return result;
         }

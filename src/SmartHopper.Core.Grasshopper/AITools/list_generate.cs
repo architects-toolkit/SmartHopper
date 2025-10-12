@@ -190,7 +190,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (string.IsNullOrWhiteSpace(response))
                     {
-                        output.CreateError("Empty response from AI assistant.");
+                        // Propagate runtime messages from the AI call (e.g., token length truncation)
+                        if (result != null && result.Messages != null)
+                        {
+                            output.Messages = result.Messages;
+                        }
+
+                        // Standardize the tool error so it appears with Tool origin alongside the propagated messages
+                        output.CreateToolError("Empty response from AI assistant.");
                         return output;
                     }
 

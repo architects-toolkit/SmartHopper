@@ -121,7 +121,13 @@ namespace SmartHopper.Infrastructure.AITools
 
                 output.SetBody(result.Body);
 
-                // Propagate tool-level error and messages into wrapper AIReturn
+                // Propagate tool execution messages so downstream components can surface them
+                if (result?.Messages != null && result.Messages.Count > 0)
+                {
+                    output.Messages = result.Messages;
+                }
+
+                // Propagate tool-level error
                 if (!string.IsNullOrEmpty(result.ErrorMessage))
                 {
                     output.ErrorMessage = result.ErrorMessage;
