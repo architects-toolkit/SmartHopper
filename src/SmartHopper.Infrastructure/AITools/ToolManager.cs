@@ -127,12 +127,6 @@ namespace SmartHopper.Infrastructure.AITools
                     output.Messages = result.Messages;
                 }
 
-                // Propagate tool-level error
-                if (!string.IsNullOrEmpty(result.ErrorMessage))
-                {
-                    output.ErrorMessage = result.ErrorMessage;
-                }
-
                 return output;
             }
             catch (Exception ex)

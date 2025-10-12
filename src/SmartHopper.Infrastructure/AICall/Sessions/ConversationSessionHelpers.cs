@@ -141,7 +141,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     Id = tc.Id,
                     Name = tc.Name,
-                    Result = new JObject { ["error"] = toolRet?.ErrorMessage ?? "Tool execution failed or returned no result" },
+                    Result = new JObject 
+                    { 
+                        ["success"] = false,
+                        ["messages"] = toolRet?.Messages != null ? JArray.FromObject(toolRet.Messages) : new JArray()
+                    },
                 };
                 this.PersistToolResult(fallback, turnId);
 

@@ -179,7 +179,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (!result.Success)
                     {
-                        output.CreateError($"AI request failed: {result.ErrorMessage}");
+                        // Propagate structured messages from AI call
+                        output.Messages = result.Messages;
                         return output;
                     }
 

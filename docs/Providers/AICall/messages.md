@@ -12,7 +12,6 @@ This document explains the centralized propagation and aggregation of structured
 - Interaction messages:
   - `AIInteractionToolResult.Messages` for tool outputs.
   - `AIInteractionImage.Messages` for image outputs.
-- Error mirroring: `AIReturn.ErrorMessage` is mirrored into `AIReturn.Messages` for visibility with origin and severity.
 
 ## Aggregation flow
 
@@ -21,8 +20,7 @@ This document explains the centralized propagation and aggregation of structured
   - Messages from all interactions: `AIInteractionToolResult.Messages` and `AIInteractionImage.Messages`.
   - Deduplicates by message text while preserving severity and origin.
 - `AIReturn.Messages` aggregates:
-  - Private structured messages added during processing.
-  - Error mirror from `ErrorMessage`.
+  - Private structured messages added during processing via `AddRuntimeMessage()` or `Create*Error()` methods.
   - `Request.Messages` (structured validation/capability notes).
   - `Body.Messages` (aggregated interaction and body validation messages).
   - Performs final deduplication and severity-first ordering.
@@ -33,7 +31,8 @@ This document explains the centralized propagation and aggregation of structured
   - Use `AIBody.AddInteractionToolResult(jObject, metrics, messages)` and pass the inner return's `Metrics` and `Messages`.
 - On provider/tool errors:
   - Standardize with `output.CreateToolError(errorText, toolCall)` (wrappers) or appropriate `AIReturn.Create*Error(...)` helpers (infra).
-  - Do not copy or synthesize legacy string messages; rely on `AIReturn.Messages` mirroring of `ErrorMessage`.
+  - All `Create*Error()` methods add structured messages directly to `Messages` collection.
+  - Propagate messages: `output.Messages = result.Messages` to preserve all error context.
 - For image outputs:
   - Attach any structured messages to `AIInteractionImage.Messages` so they flow via `AIBody.Messages`.
 
@@ -50,15 +49,17 @@ This document explains the centralized propagation and aggregation of structured
 // Inside a tool wrapper after calling the provider
 var result = await request.Exec().ConfigureAwait(false);
 
-if (!string.IsNullOrEmpty(result.ErrorMessage))
+if (!result.Success)
 {
-    output.CreateToolError(result.ErrorMessage, toolCall);
+    // Propagate all structured messages from the AI call
+    output.Messages = result.Messages;
     return output;
 }
 
 var toolResult = new JObject { ["result"] = result.Body?.GetLastInteraction(AIAgent.Assistant)?.ToString() ?? string.Empty };
-var toolBody = new AIBody();
-toolBody.AddInteractionToolResult(toolResult, result.Metrics, result.Messages);
+var toolBody = AIBodyBuilder.Create()
+    .AddToolResult(toolResult, id: toolInfo?.Id, name: toolName, metrics: result.Metrics, messages: result.Messages)
+    .Build();
 
 output.CreateSuccess(toolBody);
 return output;

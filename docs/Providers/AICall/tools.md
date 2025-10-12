@@ -51,9 +51,13 @@ var call = new AIToolCall
 };
 
 var result = await call.Exec();
-if (!string.IsNullOrEmpty(result.ErrorMessage))
+if (!result.Success)
 {
-    // Handle standardized error; details also appear in result.Messages
+    // Handle errors - all error details are in result.Messages collection
+    foreach (var msg in result.Messages.Where(m => m.Severity == AIRuntimeMessageSeverity.Error))
+    {
+        Console.WriteLine($"[{msg.Origin}] {msg.Message}");
+    }
 }
 else
 {

@@ -124,7 +124,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Check for errors
                 if (!result.Success)
                 {
-                    output.CreateError(result.ErrorMessage ?? "Image generation failed");
+                    // Propagate structured messages from AI call
+                    output.Messages = result.Messages;
                     return output;
                 }
 
