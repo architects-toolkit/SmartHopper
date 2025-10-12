@@ -426,8 +426,11 @@ namespace SmartHopper.Core.ComponentBase
                     providerName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
 
+                Debug.WriteLine($"[UpdateBadgeCache] START: provider={providerName}, component={this.Name}");
+
                 // Resolve model the user currently configured (for validation/replacement decisions)
                 string configuredModel = this.GetModel();
+                Debug.WriteLine($"[UpdateBadgeCache] configuredModel={configuredModel}, capability={this.RequiredCapability}");
 
                 // If provider is missing, we cannot resolve anything
                 if (string.IsNullOrWhiteSpace(providerName))
@@ -452,9 +455,18 @@ namespace SmartHopper.Core.ComponentBase
 
                 // This triggers provider-scoped selection/fallback based on capability
                 string resolvedModel = req.Model;
+                Debug.WriteLine($"[UpdateBadgeCache] resolvedModel={resolvedModel}");
 
                 // Gather validation messages (may include provider/model issues)
                 var (isValid, validationMessages) = req.IsValid();
+                Debug.WriteLine($"[UpdateBadgeCache] isValid={isValid}, messageCount={validationMessages?.Count ?? 0}");
+                if (validationMessages != null)
+                {
+                    foreach (var msg in validationMessages)
+                    {
+                        Debug.WriteLine($"[UpdateBadgeCache]   - {msg.Severity} {msg.Code}: {msg.Message}");
+                    }
+                }
 
                 // Prefer structured codes; fall back to text checks when Code is Unknown
                 bool hasProviderMissing = validationMessages?.Any(m =>
@@ -482,16 +494,16 @@ namespace SmartHopper.Core.ComponentBase
                                             && !string.IsNullOrWhiteSpace(resolvedModel)
                                             && !string.Equals(configuredModel, resolvedModel, StringComparison.Ordinal))
                                            || hasCapabilityMismatch);
+                Debug.WriteLine($"[UpdateBadgeCache] badgeReplacedModel={this.badgeReplacedModel}");
 
                 // Invalid when missing/unknown provider, unknown model, no capable model, capability mismatch, or empty configured model
                 this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
                                          || hasProviderMissing
                                          || hasUnknownProvider
-
-                                         // || hasUnknownModel
                                          || hasNoCapableModel
                                          || hasCapabilityMismatch
                                          || this.badgeReplacedModel;
+                Debug.WriteLine($"[UpdateBadgeCache] badgeInvalidModel={this.badgeInvalidModel}");
 
                 // Read metadata from the resolved model to set Verified/Deprecated when available
                 var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : ModelManager.Instance.GetCapabilities(providerName, resolvedModel);
@@ -510,11 +522,14 @@ namespace SmartHopper.Core.ComponentBase
                     this.badgeCacheValid = true;
                 }
 
+                Debug.WriteLine($"[UpdateBadgeCache] END: verified={this.badgeVerified}, deprecated={this.badgeDeprecated}, invalid={this.badgeInvalidModel}, replaced={this.badgeReplacedModel}, cacheValid={this.badgeCacheValid}");
+
                 return;
             }
-            catch
+            catch (Exception ex)
             {
                 // On any failure, mark cache invalid to avoid rendering
+                Debug.WriteLine($"[UpdateBadgeCache] EXCEPTION: {ex.Message}");
                 this.badgeVerified = false;
                 this.badgeDeprecated = false;
                 this.badgeInvalidModel = false;
