@@ -92,6 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             {
                 Messages = messages,
             };
+
             result.IsValid = !RuntimeMessageUtility.HasSeverityAtOrAbove(messages, this.FailOn);
             return Task.FromResult(result);
         }
