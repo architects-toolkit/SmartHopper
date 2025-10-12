@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
 - Centralized error handling in AIReturn and tool calls.
-- Accuratelly aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc.
+- Accuratelly aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
 
 ### Fixed
 
