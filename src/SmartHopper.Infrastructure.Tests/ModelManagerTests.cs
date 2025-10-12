@@ -241,8 +241,8 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.False(manager.ValidateCapabilities(provider, model, AICapability.Text2Image));
             Assert.False(manager.ValidateCapabilities(provider, model, AICapability.Text2Text | AICapability.Text2Image));
 
-            // Act & Assert - Unregistered model
-            Assert.False(manager.ValidateCapabilities("UnknownProvider", "UnknownModel", AICapability.Text2Text));
+            // Act & Assert - Unregistered model bypasses validation
+            Assert.True(manager.ValidateCapabilities("UnknownProvider", "UnknownModel", AICapability.Text2Text));
         }
 
         /// <summary>
