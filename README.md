@@ -1,7 +1,7 @@
 # SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
 [![Version](https://img.shields.io/badge/version-1.0.1--dev.251012-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
-[![Status](https://img.shields.io/badge/status-Unstable%20development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
 [![License](https://img.shields.io/badge/license-LGPL%20v3-white?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/blob/main/LICENSE)
