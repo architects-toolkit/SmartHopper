@@ -74,7 +74,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                     response.AddRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Return,
-                        "AI response was cut off by the maximum token limit; the result was not fully calculated.");
+                        "AI response was cut off by the maximum token limit. You should increase the token limit for this provider in SmartHopper Settings.");
                 }
 
                 // Attach diagnostics when applicable
