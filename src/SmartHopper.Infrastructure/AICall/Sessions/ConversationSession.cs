@@ -210,16 +210,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                         catch (OperationCanceledException oce)
                         {
-                            this.NotifyError(oce);
-                            nsError = new AIReturn();
-                            nsError.CreateProviderError("Call cancelled or timed out", this.Request);
+                            nsError = this.HandleAndNotifyError(oce);
                             nsShouldBreak = true;
                         }
                         catch (Exception ex)
                         {
-                            this.NotifyError(ex);
-                            nsError = new AIReturn();
-                            nsError.CreateProviderError(ex.Message, this.Request);
+                            nsError = this.HandleAndNotifyError(ex);
                             nsShouldBreak = true;
                         }
 
@@ -397,18 +393,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     }
                     catch (OperationCanceledException oce)
                     {
-                        this.NotifyError(oce);
-                        var cancelled = new AIReturn();
-                        cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
-                        state.ErrorYield = cancelled;
+                        state.ErrorYield = this.HandleAndNotifyError(oce);
                         state.ShouldBreak = true;
                     }
                     catch (Exception ex)
                     {
-                        this.NotifyError(ex);
-                        var error = new AIReturn();
-                        error.CreateProviderError(ex.Message, this.Request);
-                        state.ErrorYield = error;
+                        state.ErrorYield = this.HandleAndNotifyError(ex);
                         state.ShouldBreak = true;
                     }
 
