@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
+
 ## [1.0.0-alpha] - 2025-10-11
 
 ### Added
