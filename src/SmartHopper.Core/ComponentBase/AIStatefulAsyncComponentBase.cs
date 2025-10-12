@@ -476,10 +476,12 @@ namespace SmartHopper.Core.ComponentBase
                     (m.Code == AIMessageCode.CapabilityMismatch)) == true;
 
                 // Replaced when selection adjusted or an explicit CapabilityMismatch is present
-                this.badgeReplacedModel = (!string.IsNullOrWhiteSpace(configuredModel)
-                                           && !string.IsNullOrWhiteSpace(resolvedModel)
-                                           && !string.Equals(configuredModel, resolvedModel, StringComparison.Ordinal))
-                                          || hasCapabilityMismatch;
+                // Do not mark as replaced if the provider has no capable model at all; that case must surface as Invalid.
+                this.badgeReplacedModel = !hasNoCapableModel && (
+                                           (!string.IsNullOrWhiteSpace(configuredModel)
+                                            && !string.IsNullOrWhiteSpace(resolvedModel)
+                                            && !string.Equals(configuredModel, resolvedModel, StringComparison.Ordinal))
+                                           || hasCapabilityMismatch);
 
                 // Invalid when missing/unknown provider, unknown model, no capable model, capability mismatch, or empty configured model
                 this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
