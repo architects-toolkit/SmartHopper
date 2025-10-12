@@ -147,7 +147,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     if (requestedCaps == null)
                     {
                         messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Warning,
+                            AIRuntimeMessageSeverity.Info,
                             AIRuntimeMessageOrigin.Validation,
                             AIMessageCode.UnknownModel,
                             $"Requested model '{requestedModel}' is not registered for provider '{this.Provider}'."));
@@ -158,7 +158,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         if (!string.IsNullOrWhiteSpace(resolvedModel) && !string.Equals(resolvedModel, requestedModel, StringComparison.Ordinal))
                         {
                             messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Warning,
+                                AIRuntimeMessageSeverity.Info,
                                 AIRuntimeMessageOrigin.Validation,
                                 AIMessageCode.CapabilityMismatch,
                                 $"Requested model '{requestedModel}' does not support {effectiveCapability.ToString()}; selected '{resolvedModel}' instead."));
