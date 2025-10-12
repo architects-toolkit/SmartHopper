@@ -672,6 +672,38 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             ret.CreateProviderError(message, this.Request);
             return ret;
         }
+
+        /// <summary>
+        /// Creates a provider error return, surfaces error interactions to observers, and notifies error.
+        /// Centralizes error handling to avoid duplication across catch blocks.
+        /// </summary>
+        /// <param name="ex">The exception that occurred.</param>
+        /// <returns>The error AIReturn.</returns>
+        private AIReturn HandleAndNotifyError(Exception ex)
+        {
+            var errorMessage = ex is OperationCanceledException
+                ? "Call cancelled or timed out"
+                : ex.Message;
+
+            var error = new AIReturn();
+            error.CreateProviderError(errorMessage, this.Request);
+
+            // Surface error interactions from the body before calling OnError
+            var errorInteractions = error.Body?.Interactions;
+            if (errorInteractions != null && errorInteractions.Count > 0)
+            {
+                foreach (var errInteraction in errorInteractions)
+                {
+                    if (errInteraction is AIInteractionError)
+                    {
+                        this.Observer?.OnInteractionCompleted(errInteraction);
+                    }
+                }
+            }
+
+            this.NotifyError(ex);
+            return error;
+        }
 #if DEBUG
 
         /// <summary>
