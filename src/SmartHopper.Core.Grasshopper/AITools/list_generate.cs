@@ -20,6 +20,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
@@ -36,6 +37,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "list_generate";
+
+        /// <summary>
+        /// Minimum batch size for chunked requests.
+        /// </summary>
+        private const int MinBatchSize = 5;
+
+        /// <summary>
+        /// Minimum batch size when further reducing after truncation.
+        /// </summary>
+        private const int MinReducedBatchSize = 3;
+
+        /// <summary>
+        /// Default batch size divisor (e.g., count / 3).
+        /// </summary>
+        private const int DefaultBatchDivisor = 3;
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.
@@ -101,6 +117,91 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
+        /// Unwraps a JSON response that may be wrapped in an object with 'items' or 'list' property.
+        /// </summary>
+        /// <param name="response">The response string to unwrap.</param>
+        /// <returns>Unwrapped response string.</returns>
+        private static string UnwrapResponseIfNeeded(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return response;
+            }
+
+            try
+            {
+                var trimmed = response.TrimStart();
+                if (trimmed.StartsWith("{"))
+                {
+                    var obj = JObject.Parse(response);
+                    var itemsArray = (obj["items"] as JArray) ?? (obj["list"] as JArray);
+                    if (itemsArray != null)
+                    {
+                        return itemsArray.ToString(Newtonsoft.Json.Formatting.None);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ListTools] Could not unwrap response: {ex.Message}");
+            }
+
+            return response;
+        }
+
+        /// <summary>
+        /// Trims the list to the exact count if it exceeds it.
+        /// </summary>
+        /// <param name="items">List to trim.</param>
+        /// <param name="targetCount">Target count.</param>
+        private static void TrimToCount(List<string> items, int targetCount)
+        {
+            if (items.Count > targetCount)
+            {
+                items.RemoveRange(targetCount, items.Count - targetCount);
+            }
+        }
+
+        /// <summary>
+        /// Creates a tool result JObject with envelope.
+        /// </summary>
+        /// <param name="items">List items to include.</param>
+        /// <param name="toolName">Tool name.</param>
+        /// <param name="providerName">Provider name.</param>
+        /// <param name="modelName">Model name.</param>
+        /// <param name="toolCallId">Tool call ID.</param>
+        /// <returns>JObject with envelope.</returns>
+        private JObject CreateToolResultWithEnvelope(List<string> items, string providerName, string modelName, string? toolCallId)
+        {
+            var toolResult = new JObject();
+            toolResult.Add("list", new JArray(items));
+
+            toolResult.WithEnvelope(
+                ToolResultEnvelope.Create(
+                    tool: this.toolName,
+                    type: ToolResultContentType.List,
+                    payloadPath: "list",
+                    provider: providerName,
+                    model: modelName,
+                    toolCallId: toolCallId));
+
+            return toolResult;
+        }
+
+        /// <summary>
+        /// Calculates a safe batch size based on received items and target count.
+        /// </summary>
+        /// <param name="receivedCount">Number of items received.</param>
+        /// <param name="targetCount">Total target count.</param>
+        /// <returns>Calculated batch size.</returns>
+        private static int CalculateBatchSize(int receivedCount, int targetCount)
+        {
+            return receivedCount > 0
+                ? Math.Max(MinBatchSize, receivedCount)
+                : Math.Max(MinBatchSize, targetCount / DefaultBatchDivisor);
+        }
+
+        /// <summary>
         /// Tool wrapper for the GenerateList function.
         /// </summary>
         /// <param name="parameters">Parameters passed from the AI.</param>
@@ -144,7 +245,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var allItems = new List<string>();
                 const int maxIterations = 10;
                 int iteration = 0;
+                int currentBatchSize = count; // Start with full count, will adjust if truncated
                 AIReturn? result = null;
+
+                // Accumulate metrics across all iterations
+                var accumulatedMetrics = new AIMetrics();
+                var allMessages = new List<AIRuntimeMessage>();
 
                 // 1. Generate initial request
                 var initialUserPrompt = this.userPrompt;
@@ -168,6 +274,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     endpoint: endpoint,
                     body: requestBody);
 
+                // Set extended timeout for iterative list generation (5 minutes)
+                // The while loop may require multiple AI calls, each taking 20-40 seconds
+                request.TimeoutSeconds = 300;
+
                 while (allItems.Count < count && iteration < maxIterations)
                 {
                     iteration++;
@@ -177,9 +287,93 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // 2. Execute the AIRequestCall
                     result = await request.Exec().ConfigureAwait(false);
 
+                    // Accumulate metrics from this iteration
+                    if (result.Metrics != null)
+                    {
+                        accumulatedMetrics = AIMetrics.Combine(accumulatedMetrics, result.Metrics);
+                        Debug.WriteLine($"[ListTools] Iteration {iteration} metrics: Tokens In={result.Metrics.InputTokensPrompt}, Out={result.Metrics.OutputTokensGeneration}, Time={result.Metrics.CompletionTime:F2}s");
+                    }
+
+                    // Accumulate messages from this iteration
+                    if (result.Messages != null && result.Messages.Count > 0)
+                    {
+                        allMessages.AddRange(result.Messages);
+                    }
+
+                    // Check if first attempt was truncated due to token limits (check BEFORE success check)
+                    if (iteration == 1 && result.Metrics?.FinishReason?.Equals("length", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        Debug.WriteLine($"[ListTools] First attempt truncated (finish_reason=length). Attempting to parse partial response and restart with batch strategy.");
+
+                        // Try to parse and save any valid items from the truncated response
+                        var assistantTruncated = result.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
+                        var responseTruncated = assistantTruncated?.Content ?? string.Empty;
+                        Debug.WriteLine($"[ListTools] Truncated response length: {responseTruncated.Length} chars");
+
+                        List<string> partialItems = new List<string>();
+                        if (!string.IsNullOrWhiteSpace(responseTruncated))
+                        {
+                            try
+                            {
+                                // Try to unwrap and parse partial response
+                                responseTruncated = UnwrapResponseIfNeeded(responseTruncated);
+                                partialItems = ParsingTools.ParseStringArrayFromResponse(responseTruncated);
+                                Debug.WriteLine($"[ListTools] Successfully parsed {partialItems.Count} items from truncated response");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[ListTools] Could not parse truncated response: {ex.Message}. Starting fresh.");
+                                partialItems.Clear();
+                            }
+                        }
+
+                        // Add any valid items we got
+                        if (partialItems.Count > 0)
+                        {
+                            allItems.AddRange(partialItems);
+                            Debug.WriteLine($"[ListTools] Saved {partialItems.Count} items from truncated response. Total now: {allItems.Count}");
+                        }
+
+                        // If we already have all items needed, we're done
+                        if (allItems.Count >= count)
+                        {
+                            TrimToCount(allItems, count);
+                            Debug.WriteLine($"[ListTools] Target count {count} reached from truncated response");
+                            break;
+                        }
+
+                        // Calculate a safe batch size based on what was received
+                        int receivedCount = partialItems.Count;
+                        currentBatchSize = CalculateBatchSize(receivedCount, count);
+                        Debug.WriteLine($"[ListTools] Parsed {receivedCount} items from truncated response. Setting batch size to {currentBatchSize} for remaining items");
+
+                        // Start a new conversation with a batch-based approach
+                        int batchStart = allItems.Count + 1;
+                        int batchEnd = Math.Min(allItems.Count + currentBatchSize, count);
+                        int batchCount = batchEnd - batchStart + 1;
+
+                        var batchUserPrompt = $"The full list will have {count} items. Generate items {batchStart} through {batchEnd} ({batchCount} items) based on this prompt: \"{prompt}\"\n\n" +
+                                            $"Return only the JSON array of these {batchCount} items.";
+
+                        requestBody = AIBodyBuilder.Create()
+                            .WithJsonOutputSchema(this.listJsonSchema)
+                            .AddSystem(this.systemPrompt)
+                            .AddUser(batchUserPrompt)
+                            .WithContextFilter(contextFilter)
+                            .Build();
+
+                        request.Body = requestBody;
+
+                        // Reset iteration counter to restart the loop with new strategy
+                        Debug.WriteLine($"[ListTools] Restarting with batch strategy: requesting {batchCount} items (range {batchStart}-{batchEnd})");
+                        iteration = 0;
+                        continue;
+                    }
+
+                    // Check for general failure (non-truncation errors)
                     if (!result.Success)
                     {
-                        // Propagate structured messages from AI call
+                        Debug.WriteLine($"[ListTools] Request failed: {result.Messages?.FirstOrDefault()?.Message ?? "Unknown error"}");
                         output.Messages = result.Messages;
                         return output;
                     }
@@ -203,24 +397,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Unwrap cases where providers return an object with an 'items' (or 'list') array
-                    try
-                    {
-                        var trimmed = response.TrimStart();
-                        if (trimmed.StartsWith("{"))
-                        {
-                            var obj = JObject.Parse(response);
-                            var itemsArray = (obj["items"] as JArray) ?? (obj["list"] as JArray);
-                            if (itemsArray != null)
-                            {
-                                response = itemsArray.ToString(Newtonsoft.Json.Formatting.None);
-                                Debug.WriteLine($"[ListTools] Unwrapped array from object ('items'/'list'). Count: {itemsArray.Count}");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ListTools] Warning: could not unwrap 'items' from object: {ex.Message}");
-                    }
+                    response = UnwrapResponseIfNeeded(response);
 
                     // Parse JSON array of strings
                     List<string> newItems;
@@ -237,22 +414,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (allItems.Count > 0)
                         {
                             Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
+                            Debug.WriteLine($"[ListTools] Partial accumulated metrics: Tokens In={accumulatedMetrics.InputTokensPrompt}, Out={accumulatedMetrics.OutputTokensGeneration}, Time={accumulatedMetrics.CompletionTime:F2}s");
 
-                            var partialResult = new JObject();
-                            partialResult.Add("list", new JArray(allItems));
-
-                            // Attach non-breaking result envelope
-                            partialResult.WithEnvelope(
-                                ToolResultEnvelope.Create(
-                                    tool: this.toolName,
-                                    type: ToolResultContentType.List,
-                                    payloadPath: "list",
-                                    provider: providerName,
-                                    model: modelName,
-                                    toolCallId: toolInfo?.Id));
-
+                            var partialResult = this.CreateToolResultWithEnvelope(allItems, providerName, modelName, toolInfo?.Id);
                             var partialBody = AIBodyBuilder.Create()
-                                .AddToolResult(partialResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
+                                .AddToolResult(partialResult, id: toolInfo?.Id, name: this.toolName, metrics: accumulatedMetrics, messages: allMessages)
                                 .Build();
 
                             output.CreateSuccess(partialBody);
@@ -275,11 +441,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // If we have enough items, trim to exact count and return
                     if (allItems.Count >= count)
                     {
-                        if (allItems.Count > count)
-                        {
-                            allItems = allItems.GetRange(0, count);
-                        }
-
+                        TrimToCount(allItems, count);
                         Debug.WriteLine($"[ListTools] Target count {count} reached after {iteration} iterations");
                         break;
                     }
@@ -289,8 +451,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     stillNeeded = count - allItems.Count;
                     Debug.WriteLine($"[ListTools] Requesting {stillNeeded} more items in next iteration");
 
+                    // Check if this iteration was also truncated - reduce batch size further
+                    if (result.Metrics?.FinishReason?.Equals("length", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        int itemsReceived = newItems.Count;
+                        currentBatchSize = Math.Max(MinReducedBatchSize, itemsReceived / 2);
+                        Debug.WriteLine($"[ListTools] Iteration {iteration} truncated. Reducing batch size to {currentBatchSize}");
+                    }
+
+                    // Calculate next batch size
+                    int nextBatchSize = Math.Min(stillNeeded, currentBatchSize);
+                    int nextStart = allItems.Count + 1;
+                    int nextEnd = allItems.Count + nextBatchSize;
+
                     // Add the assistant response and follow-up user message to the conversation immutably
-                    var followUpMessage = $"I need {stillNeeded} more items to complete the list. Please generate {stillNeeded} additional items to the ones already provided. Current list has {allItems.Count} items: [{string.Join(", ", allItems.Select(item => $"'{item}'"))}].\n\nGenerate {stillNeeded} NEW items as a JSON array, meeting my initial request: {prompt}.\n\nReturn only the JSON array of the new items, nothing else.";
+                    var followUpMessage = $"Good! I now have {allItems.Count} items. The full list will have {count} items total. " +
+                                         $"Generate items {nextStart} through {nextEnd} ({nextBatchSize} items) based on the original prompt: \"{prompt}\"\n\n" +
+                                         $"Return only the JSON array of the next {nextBatchSize} items.";
+
                     request.Body = AIBodyBuilder.FromImmutable(request.Body)
                         .AddAssistant(response)
                         .AddUser(followUpMessage)
@@ -299,7 +477,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (allItems.Count == 0)
                 {
-                    output.CreateError("AI failed to generate any valid items");
+                    // Add diagnostic info about what happened
+                    var diagMessage = $"AI failed to generate any valid items after {iteration} iterations. ";
+                    if (result?.Metrics?.FinishReason != null)
+                    {
+                        diagMessage += $"Last finish reason: {result.Metrics.FinishReason}. ";
+                    }
+
+                    diagMessage += "This may indicate the response was truncated and retry logic failed.";
+                    Debug.WriteLine($"[ListTools] {diagMessage}");
+                    output.CreateError(diagMessage);
                     return output;
                 }
 
@@ -307,27 +494,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (allItems.Count > count)
                 {
                     Debug.WriteLine($"[ListTools] Trimming final list from {allItems.Count} to {count} items");
-                    allItems = allItems.GetRange(0, count);
+                    TrimToCount(allItems, count);
                 }
 
                 Debug.WriteLine($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
+                Debug.WriteLine($"[ListTools] Total accumulated metrics: Tokens In={accumulatedMetrics.InputTokensPrompt}, Out={accumulatedMetrics.OutputTokensGeneration}, Time={accumulatedMetrics.CompletionTime:F2}s, Iterations={iteration}");
 
-                // Success case
-                var toolResult = new JObject();
-                toolResult.Add("list", new JArray(allItems));
-
-                // Attach non-breaking result envelope
-                toolResult.WithEnvelope(
-                    ToolResultEnvelope.Create(
-                        tool: this.toolName,
-                        type: ToolResultContentType.List,
-                        payloadPath: "list",
-                        provider: providerName,
-                        model: modelName,
-                        toolCallId: toolInfo?.Id));
-
+                // Success case - use accumulated metrics from all iterations
+                var toolResult = this.CreateToolResultWithEnvelope(allItems, providerName, modelName, toolInfo?.Id);
                 var toolBody = AIBodyBuilder.Create()
-                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result?.Metrics, messages: result?.Messages ?? new List<AIRuntimeMessage>())
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: accumulatedMetrics, messages: allMessages)
                     .Build();
 
                 output.CreateSuccess(toolBody);
