@@ -165,9 +165,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             this.PersistToolResult(toolInteraction, turnId);
 
+            // Attach tool metrics to the tool result interaction
+            if (toolRet?.Metrics != null)
+            {
+                toolInteraction.Metrics = toolRet.Metrics;
+            }
+
             var deltaOk = new AIReturn();
-            var okBody = AIBodyBuilder.Create().WithTurnId(turnId).Add(toolInteraction).Build();
+            var okBody = AIBodyBuilder.Create()
+                .WithTurnId(turnId)
+                .Add(toolInteraction)
+                .Build();
             deltaOk.SetBody(okBody);
+            
             return deltaOk;
         }
 
@@ -247,11 +257,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         /// <summary>
         /// Updates the cached last return with the current request body.
+        /// Metrics are already attached to individual interactions via NotifyInteractionCompleted,
+        /// and AIBody.Metrics aggregates them automatically.
         /// </summary>
         private void UpdateLastReturn()
         {
             var snapshot = new AIReturn();
             snapshot.SetBody(this.Request.Body);
+            
+            // Debug: log final aggregated metrics from body
+            var aggregatedMetrics = snapshot.Metrics;
+            if (aggregatedMetrics != null)
+            {
+                Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}");
+            }
+            
             this._lastReturn = snapshot;
         }
 
