@@ -115,9 +115,9 @@ namespace SmartHopper.Providers.OpenRouter
 
                 var response = await this.openRouterProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine("[OpenRouterProviderModels] RetrieveApiModels response: " + (response?.Success == true));
+                Debug.WriteLine("[OpenRouterProviderModels] RetrieveApiModels response received: " + (response != null));
 
-                if (response == null || !response.Success)
+                if (response == null)
                 {
                     return new List<string>();
                 }

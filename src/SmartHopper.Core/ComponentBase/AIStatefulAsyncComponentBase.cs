@@ -241,7 +241,7 @@ namespace SmartHopper.Core.ComponentBase
                     result = new JObject
                     {
                         ["success"] = toolResult.Success,
-                        ["error"] = toolResult.ErrorMessage,
+                        ["messages"] = JArray.FromObject(toolResult.Messages),
                     };
                 }
             }
@@ -256,7 +256,12 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"] = ex.Message,
+                    ["messages"] = new JArray(new JObject
+                    {
+                        ["severity"] = "Error",
+                        ["origin"] = "Return",
+                        ["message"] = ex.Message
+                    }),
                 };
                 toolResult = null;
             }
@@ -273,10 +278,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.SurfaceMessagesFromReturn(toolResult, "ai");
             }
 
-            // Handle tool-level failure
-            // Note: Structured messages from toolResult are already surfaced via SurfaceMessagesFromReturn above
-            // ErrorMessage is preserved for backward compatibility and Success flag
-
+            // Structured messages from toolResult are already surfaced via SurfaceMessagesFromReturn above
             return result;
         }
 

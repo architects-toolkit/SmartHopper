@@ -110,11 +110,9 @@ namespace SmartHopper.Providers.MistralAI
 
                 var response = await this.mistralProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: call returned Success={response?.Success}, Error='{response?.ErrorMessage}'");
-
-                if (response == null || !response.Success)
+                if (response == null)
                 {
-                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: response null or not success; returning empty list");
+                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: response null; returning empty list");
                     return new List<string>();
                 }
 

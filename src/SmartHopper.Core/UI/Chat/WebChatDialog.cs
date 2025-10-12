@@ -827,8 +827,16 @@ namespace SmartHopper.Core.UI.Chat
                     }
                 }
 
+                // Check if streaming actually failed (API error, network error, not just validation)
+                bool streamingFailed = lastStreamReturn == null ||
+                    lastStreamReturn.Messages.Any(m => 
+                        m != null && 
+                        m.Severity == AIRuntimeMessageSeverity.Error &&
+                        (m.Origin == AIRuntimeMessageOrigin.Provider ||
+                        m.Origin == AIRuntimeMessageOrigin.Network));
+
                 // If streaming finished with an error or yielded nothing or no streaming was attempted, fallback to non-streaming.
-                if (lastStreamReturn == null || !lastStreamReturn.Success || !shouldTryStreaming)
+                if (streamingFailed || !shouldTryStreaming)
                 {
                     Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
 
