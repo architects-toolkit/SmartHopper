@@ -130,22 +130,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);
 
-                // Early exit on provider error to avoid null deref (standardize as tool error)
-                if (!string.IsNullOrEmpty(result.ErrorMessage))
+                if (!result.Success)
                 {
-                    output.CreateToolError(result.ErrorMessage, toolCall);
+                    output.CreateError(result.ErrorMessage);
                     return output;
                 }
 
-                // Get the assistant response safely
-                var last = result.Body?.GetLastInteraction(AIAgent.Assistant);
-                if (last == null)
-                {
-                    output.CreateToolError("Provider returned no content", toolCall);
-                    return output;
-                }
-
-                var response = last.ToString();
+                var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Success case
                 var toolResult = new JObject();

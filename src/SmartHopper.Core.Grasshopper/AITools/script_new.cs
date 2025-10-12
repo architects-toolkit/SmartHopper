@@ -197,6 +197,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     body: immutableRequestBody);
 
                 var result = await request.Exec().ConfigureAwait(false);
+
                 if (!result.Success)
                 {
                     output.CreateError(result.ErrorMessage);

@@ -119,17 +119,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     body: requestBody);
 
                 // Execute the request
-                var response = await aiRequest.Exec().ConfigureAwait(false);
+                var result = await aiRequest.Exec().ConfigureAwait(false);
 
                 // Check for errors
-                if (!response.Success)
+                if (!result.Success)
                 {
-                    output.CreateError(response.ErrorMessage ?? "Image generation failed");
+                    output.CreateError(result.ErrorMessage ?? "Image generation failed");
                     return output;
                 }
 
                 // Extract image result from interactions
-                var resultImageInteraction = response.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionImage;
+                var resultImageInteraction = result.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionImage;
                 if (resultImageInteraction == null)
                 {
                     output.CreateError("No image result received from AI provider");
@@ -167,7 +167,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         toolCallId: toolInfo?.Id));
 
                 var toolBody = AIBodyBuilder.Create()
-                    .AddToolResult(toolResult, id: toolInfo?.Id, name: "img_generate", metrics: response.Metrics, messages: response.Messages)
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: "img_generate", metrics: result.Metrics, messages: result.Messages)
                     .Build();
 
                 output.CreateSuccess(toolBody);

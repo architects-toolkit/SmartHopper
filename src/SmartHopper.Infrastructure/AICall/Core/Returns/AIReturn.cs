@@ -80,19 +80,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 2) Reflect ErrorMessage as a structured error message (mirroring, without mutating storage)
-                if (!string.IsNullOrEmpty(this.ErrorMessage))
-                {
-                    if (seen.Add(this.ErrorMessage))
-                    {
-                        combined.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Error,
-                            AIRuntimeMessageOrigin.Return,
-                            this.ErrorMessage));
-                    }
-                }
+                // ErrorMessage mirroring removed: all Create*Error methods now add structured messages directly
 
-                // 3) Include body messages (aggregated from interactions and body validation)
+                // 2) Include body messages (aggregated from interactions and body validation)
                 if (this.Body != null && this.Body.Messages != null)
                 {
                     foreach (var m in this.Body.Messages)
@@ -104,7 +94,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 4) Include request messages (request computes validation dynamically)
+                // 3) Include request messages (request computes validation dynamically)
                 if (this.Request != null && this.Request.Messages != null)
                 {
                     foreach (var m in this.Request.Messages)
@@ -116,7 +106,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 5) Add this return's validation messages dynamically (do not store)
+                // 4) Add this return's validation messages dynamically (do not store)
                 var (isValid, errors) = this.IsValid();
                 if (!isValid && errors != null)
                 {
@@ -129,7 +119,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 6) Sort by severity: Error > Warning > Info
+                // 5) Sort by severity: Error > Warning > Info
                 int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
                 combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
 
