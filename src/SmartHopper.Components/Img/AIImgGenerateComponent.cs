@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -239,8 +240,9 @@ namespace SmartHopper.Components.Img
                                     .ConfigureAwait(false);
 
                                 // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)
-                                // and ensure there's no 'error' key to consider it a success.
-                                if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && string.IsNullOrEmpty(toolResult["error"]?.ToString())))
+                                // Check for errors in messages array
+                                var hasErrors = toolResult?["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
+                                if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && !hasErrors))
                                 {
                                     // Get the image result (could be URL or base64 data)
                                     string imageResult = toolResult["result"]?.ToString() ?? string.Empty;
@@ -294,8 +296,28 @@ namespace SmartHopper.Components.Img
                                 }
                                 else
                                 {
-                                    var errorMessage = toolResult?["error"]?.ToString() ?? "Unknown error occurred";
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Image generation failed: {errorMessage}");
+                                    // Surface all error messages from the messages array
+                                    var hasErrorsLocal = false;
+                                    if (toolResult?["messages"] is JArray msgs)
+                                    {
+                                        foreach (var msg in msgs.Where(m => m["severity"]?.ToString() == "Error"))
+                                        {
+                                            var errorText = msg["message"]?.ToString();
+                                            var origin = msg["origin"]?.ToString();
+                                            if (!string.IsNullOrEmpty(errorText))
+                                            {
+                                                var prefix = !string.IsNullOrEmpty(origin) ? $"[{origin}] " : string.Empty;
+                                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"{prefix}{errorText}");
+                                                hasErrorsLocal = true;
+                                            }
+                                        }
+                                    }
+
+                                    if (!hasErrorsLocal)
+                                    {
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Image generation failed: Unknown error occurred");
+                                    }
+
                                     branchResults.Add(new GH_ObjectWrapper(null));
                                     branchRevisedPrompts.Add(new GH_String(""));
                                 }

@@ -170,7 +170,6 @@ namespace SmartHopper.Components.AI
 
                         this._result["Models"] = tree;
                         this._result["Success"] = true;
-                        this._result["Info"] = "Using dynamic model list from provider API";
                         Debug.WriteLine("[AIModelsComponent] Using dynamic model list from provider API. Total amount of models: " + apiModels.Count);
                         return;
                     }

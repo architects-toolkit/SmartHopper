@@ -47,19 +47,35 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// System prompt for the AI tool provided by this class.
         /// </summary>
         private readonly string systemPrompt =
-            "You are a list filtering assistant. Your task is to filter a list of items based on natural language criteria and return the indices of items that match.\n\n" +
-            "The list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\n" +
-            "Based on the filtering criteria, return ONLY the indices (as integers) of the items that should remain in the list. " +
-            "Return the indices as a JSON array, for example: [0, 2, 5]. If no items match, return an empty array: [].\n\n" +
-            "Do not include the actual items in your response, only the indices.";
+            "You are a list manipulation assistant. Your task is to process a list based on natural language criteria and return the POSITIONS (zero-based indices) of items.\n\n" +
+            "IMPORTANT: The list is provided as a JSON dictionary where:\n" +
+            "- The KEY is the POSITION (zero-based index) in the original list\n" +
+            "- The VALUE is the actual ITEM content\n\n" +
+            "Example: {\"0\":\"apple\", \"1\":\"banana\", \"2\":\"cherry\"}\n" +
+            "- Position 0 contains the value \"apple\"\n" +
+            "- Position 1 contains the value \"banana\"\n" +
+            "- Position 2 contains the value \"cherry\"\n\n" +
+            "Your task: Evaluate the criteria against the VALUES (item content), then return the KEYS (positions) based on the operation requested.\n\n" +
+            "CRITICAL RULES:\n" +
+            "1. Return ONLY the positions (keys) as integers in a JSON array, NOT the values\n" +
+            "2. For FILTERING operations (e.g., \"keep only items > 5\", \"items starting with 'a'\"), return positions of matching items in ascending order\n" +
+            "3. For REORDERING operations (e.g., \"sort alphabetically\", \"reverse order\", \"shuffle\"), return ALL positions reordered according to the criteria\n" +
+            "4. For SELECTION operations (e.g., \"first 3 items\", \"every other item\"), return the selected positions\n" +
+            "5. For EXPANSION operations (e.g., \"repeat each item twice\", \"duplicate the list\"), return positions with repetitions - the same index can appear multiple times\n\n" +
+            "Examples:\n" +
+            "- Filter: \"items starting with 'a'\" on {\"0\":\"banana\", \"1\":\"apple\", \"2\":\"cherry\"} → [1]\n" +
+            "- Sort: \"sort alphabetically\" on {\"0\":\"banana\", \"1\":\"orange\", \"2\":\"apple\"} → [2, 0, 1] (apple, banana, orange)\n" +
+            "- Select: \"first 2 items\" on {\"0\":\"a\", \"1\":\"b\", \"2\":\"c\"} → [0, 1]\n" +
+            "- Expand: \"repeat each item twice\" on {\"0\":\"a\", \"1\":\"b\"} → [0, 0, 1, 1]\n\n" +
+            "If no items match (for filters), return an empty array: [].";
 
         /// <summary>
         /// User prompt for the AI tool provided by this class. Use <criteria> and <list> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            $"Apply this filtering criteria: \"<criteria>\"\n\n" +
-            $"To the following list:\n<list>\n\n" +
-            $"Return only the indices of items that match the criteria as a JSON array.";
+            $"Apply this operation to the list: \"<criteria>\"\n\n" +
+            $"List (key=position, value=item):\n<list>\n\n" +
+            $"Return the positions (keys) as a JSON array of integers based on the operation.";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -69,13 +85,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Filters a list based on natural language criteria",
+                description: "Manipulates a list based on natural language criteria: filter, sort, reorder, select, shuffle, expand, or rearrange items",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to filter (e.g., ['apple', 'banana', 'orange'])"" },
-                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language criteria to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'remove duplicates')"" }
+                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to process (e.g., ['apple', 'banana', 'orange'])"" },
+                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language operation to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'reverse order', 'first 3 items', 'every other item', 'repeat each item twice')"" }
                     },
                     ""required"": [""list"", ""criteria""]
                 }",
@@ -147,6 +163,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);
+
+                if (!result.Success)
+                {
+                    // Propagate structured messages from AI call
+                    output.Messages = result.Messages;
+                    return output;
+                }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 

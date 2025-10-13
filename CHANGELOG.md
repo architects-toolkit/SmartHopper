@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha] - 2025-10-13
+
+### Changed
+
+- Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
+- Centralized error handling in AIReturn and tool calls.
+- Accurately aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
+- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_hidden, gh_get_visible, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
+- Enhanced `list_filter` tool prompts to explicitly distinguish between indices (positions/keys) and values (item content), and expanded capabilities to support filtering, sorting, reordering, selecting, and other list manipulation operations based on natural language criteria.
+- Added more predefined models in the provider's database.
+
+### Fixed
+
+- Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)) ([#329](https://github.com/architects-toolkit/SmartHopper/issues/329)).
+- Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
+- Fixed `list_filter` tool automatically sorting and deduplicating indices, which prevented reordering and expansion operations from working correctly. Now preserves both order and duplicates as returned by the AI ([#335](https://github.com/architects-toolkit/SmartHopper/issues/335)).
+
 ## [1.0.0-alpha] - 2025-10-11
 
 ### Added

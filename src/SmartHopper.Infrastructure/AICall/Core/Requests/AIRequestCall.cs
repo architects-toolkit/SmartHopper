@@ -147,7 +147,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     if (requestedCaps == null)
                     {
                         messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Warning,
+                            AIRuntimeMessageSeverity.Info,
                             AIRuntimeMessageOrigin.Validation,
                             AIMessageCode.UnknownModel,
                             $"Requested model '{requestedModel}' is not registered for provider '{this.Provider}'."));
@@ -158,7 +158,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         if (!string.IsNullOrWhiteSpace(resolvedModel) && !string.Equals(resolvedModel, requestedModel, StringComparison.Ordinal))
                         {
                             messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Warning,
+                                AIRuntimeMessageSeverity.Info,
                                 AIRuntimeMessageOrigin.Validation,
                                 AIMessageCode.CapabilityMismatch,
                                 $"Requested model '{requestedModel}' does not support {effectiveCapability.ToString()}; selected '{resolvedModel}' instead."));
@@ -275,8 +275,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     return none;
                 }
 
-                // If provider produced no body and no explicit error, standardize it
-                if (result.Body == null && string.IsNullOrEmpty(result.ErrorMessage))
+                // If provider produced no body and no error messages, standardize it
+                if (result.Body == null && !result.Messages.Any(m => m.Severity == AIRuntimeMessageSeverity.Error))
                 {
                     result.CreateProviderError("Provider returned no response", this);
                 }

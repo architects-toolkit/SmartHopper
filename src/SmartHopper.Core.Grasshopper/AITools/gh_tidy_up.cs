@@ -43,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Organize selected components into a tidy grid layout. Call `gh_get` first to get the list of GUIDs.",
+                description: "Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -65,6 +65,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""guids"" ]
                 }",
                 execute: this.GhTidyUpAsync);
+
+            // Specialized wrapper: gh_tidy_up_selected
+            yield return new AITool(
+                name: "gh_tidy_up_selected",
+                description: "Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""startPoint"": {
+                            ""type"": ""object"",
+                            ""properties"": {
+                                ""x"": { ""type"": ""number"" },
+                                ""y"": { ""type"": ""number"" }
+                            },
+                            ""description"": ""Optional absolute start point for the top-left of the grid. Overrides selection's top-left if provided.""
+                        }
+                    }
+                }",
+                execute: this.GhTidyUpSelectedAsync);
         }
 
         /// <summary>
@@ -144,6 +164,51 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
+        }
+
+        private async Task<AIReturn> GhTidyUpSelectedAsync(AIToolCall toolCall)
+        {
+            // Get selected component GUIDs
+            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+                .Where(o => o.Attributes.Selected)
+                .Select(o => o.InstanceGuid.ToString())
+                .ToList();
+
+            if (!selectedGuids.Any())
+            {
+                Debug.WriteLine("[GhObjTools] GhTidyUpSelectedAsync: No components selected.");
+                var output = new AIReturn() { Request = toolCall };
+                output.CreateError("No components are currently selected.");
+                return output;
+            }
+
+            // Create a modified tool call with the selected GUIDs
+            var toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+            var modifiedArgs = new JObject
+            {
+                ["guids"] = JArray.FromObject(selectedGuids)
+            };
+
+            // Preserve optional startPoint parameter if provided
+            if (args["startPoint"] != null)
+                modifiedArgs["startPoint"] = args["startPoint"];
+
+            // Create a new tool call with modified arguments
+            var modifiedToolCall = new AIToolCall
+            {
+                Provider = toolCall.Provider,
+                Model = toolCall.Model,
+                Body = AIBodyBuilder.Create()
+                    .AddToolCall(
+                        id: toolInfo.Id,
+                        name: toolInfo.Name ?? this.toolName,
+                        args: modifiedArgs)
+                    .Build()
+            };
+
+            // Delegate to the general method
+            return await this.GhTidyUpAsync(modifiedToolCall);
         }
     }
 }

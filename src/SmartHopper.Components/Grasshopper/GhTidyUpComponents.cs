@@ -157,7 +157,27 @@ namespace SmartHopper.Components.Grasshopper
                 }
                 else if (toolResult["success"]?.ToObject<bool>() == false)
                 {
-                    this.LastErrors.Add(toolResult["error"]?.ToString() ?? "Unknown error");
+                    // Surface all error messages from the messages array
+                    var hasErrors = false;
+                    if (toolResult["messages"] is JArray msgs)
+                    {
+                        foreach (var msg in msgs.Where(m => m["severity"]?.ToString() == "Error"))
+                        {
+                            var errorText = msg["message"]?.ToString();
+                            var origin = msg["origin"]?.ToString();
+                            if (!string.IsNullOrEmpty(errorText))
+                            {
+                                var prefix = !string.IsNullOrEmpty(origin) ? $"[{origin}] " : string.Empty;
+                                this.LastErrors.Add($"{prefix}{errorText}");
+                                hasErrors = true;
+                            }
+                        }
+                    }
+
+                    if (!hasErrors)
+                    {
+                        this.LastErrors.Add("Unknown error");
+                    }
                 }
                 else
                 {

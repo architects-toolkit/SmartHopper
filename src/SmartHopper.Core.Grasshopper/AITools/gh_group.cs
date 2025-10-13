@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Group Grasshopper components by GUID into a single Grasshopper group.",
+                description: "Create a visual group container around components to organize and annotate them. Use this to highlight related components, mark areas of interest, or add notes to the canvas. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -66,6 +66,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guids""]
                 }",
                 execute: this.GhGroupAsync);
+
+            // Specialized wrapper: gh_group_selected
+            yield return new AITool(
+                name: "gh_group_selected",
+                description: "Create a group around currently selected components. Quick way to organize selected items without needing to specify GUIDs manually.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""groupName"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional name for the group.""
+                        },
+                        ""color"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional group color as ARGB 'A,R,G,B', RGB 'R,G,B', HTML hex '#RRGGBB', or known color name (e.g., 'Red'). Alpha defaults to 255 (100% opacity).""
+                        }
+                    }
+                }",
+                execute: this.GhGroupSelectedAsync);
         }
 
         private Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
@@ -160,6 +180,52 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return Task.FromResult(output);
             }
+        }
+
+        private Task<AIReturn> GhGroupSelectedAsync(AIToolCall toolCall)
+        {
+            // Get selected component GUIDs
+            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+                .Where(o => o.Attributes.Selected)
+                .Select(o => o.InstanceGuid.ToString())
+                .ToList();
+
+            if (!selectedGuids.Any())
+            {
+                var output = new AIReturn() { Request = toolCall };
+                output.CreateError("No components are currently selected.");
+                return Task.FromResult(output);
+            }
+
+            // Create a modified tool call with the selected GUIDs
+            var toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+            var modifiedArgs = new JObject
+            {
+                ["guids"] = JArray.FromObject(selectedGuids)
+            };
+
+            // Preserve optional parameters if provided
+            if (args["groupName"] != null)
+                modifiedArgs["groupName"] = args["groupName"];
+            if (args["color"] != null)
+                modifiedArgs["color"] = args["color"];
+
+            // Create a new tool call with modified arguments
+            var modifiedToolCall = new AIToolCall
+            {
+                Provider = toolCall.Provider,
+                Model = toolCall.Model,
+                Body = AIBodyBuilder.Create()
+                    .AddToolCall(
+                        id: toolInfo.Id,
+                        name: toolInfo.Name ?? "gh_group_selected",
+                        args: modifiedArgs)
+                    .Build()
+            };
+
+            // Delegate to the general method
+            return this.GhGroupAsync(modifiedToolCall);
         }
     }
 }

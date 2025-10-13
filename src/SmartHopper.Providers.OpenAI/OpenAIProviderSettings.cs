@@ -85,7 +85,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Name = "ReasoningEffort",
                     Type = typeof(string),
-                    DefaultValue = "medium",
+                    DefaultValue = "low",
                     IsSecret = false,
                     DisplayName = "Reasoning Effort",
                     Description = "Level of reasoning effort for reasoning models (low, medium, or high)",

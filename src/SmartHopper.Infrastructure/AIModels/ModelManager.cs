@@ -391,9 +391,9 @@ namespace SmartHopper.Infrastructure.AIModels
             var capabilities = this.GetCapabilities(provider, model);
             if (capabilities == null)
             {
-                // Do not pass validation if model is unregistered
-                Debug.WriteLine($"[ModelManager] Model '{model}' from '{provider}' not registered");
-                return false;
+                // Bypass validation for unregistered models - assume they support the required capabilities
+                Debug.WriteLine($"[ModelManager] Model '{model}' from '{provider}' not registered; bypassing capability validation");
+                return true;
             }
 
             Debug.WriteLine($"[ModelManager] Model '{model}' from '{provider}' has capabilities {capabilities.Capabilities.ToDetailedString()}");

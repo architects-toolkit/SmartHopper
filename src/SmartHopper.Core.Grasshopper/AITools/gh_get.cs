@@ -28,6 +28,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
+    /// Provides both a generic gh_get tool and specialized wrapper tools for common use cases.
     /// </summary>
     public class gh_get : IAIToolProvider
     {
@@ -41,6 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
+            // Generic gh_get tool with all options
             yield return new AITool(
                 name: this.toolName,
                 description: "Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file.",
@@ -70,15 +72,125 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhGetToolAsync);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null));
+
+            // Specialized wrapper: gh_get_selected
+            yield return new AITool(
+                name: "gh_get_selected",
+                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only selected components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }));
+
+            // Specialized wrapper: gh_get_by_guid
+            yield return new AITool(
+                name: "gh_get_by_guid",
+                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""guidFilter"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""Required list of component GUIDs to retrieve.""
+                        },
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only specified components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    },
+                    ""required"": [""guidFilter""]
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null));
+
+            // Specialized wrapper: gh_get_errors
+            yield return new AITool(
+                name: "gh_get_errors",
+                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only error components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }));
+
+            // Specialized wrapper: gh_get_locked
+            yield return new AITool(
+                name: "gh_get_locked",
+                description: "Read only locked (disabled) components from the Grasshopper canvas. Use this when the user asks about locked or disabled components. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only locked components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }));
+
+            // Specialized wrapper: gh_get_hidden
+            yield return new AITool(
+                name: "gh_get_hidden",
+                description: "Read only components with preview turned off (hidden geometry). Use this when the user asks about hidden components or components with disabled preview. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only hidden components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }));
+
+            // Specialized wrapper: gh_get_visible
+            yield return new AITool(
+                name: "gh_get_visible",
+                description: "Read only components with preview turned on (visible geometry). Use this when the user asks about visible components or components with enabled preview. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only visible components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }));
         }
 
         /// <summary>
-        /// Executes the Grasshopper get components tool.
+        /// Executes the Grasshopper get components tool with optional predefined filters.
         /// </summary>
-        /// <param name="parameters">Parameters object containing filter settings.</param>
+        /// <param name="toolCall">The tool call containing parameters.</param>
+        /// <param name="predefinedAttrFilters">Predefined attribute filters to apply (used by wrapper tools).</param>
+        /// <param name="predefinedTypeFilters">Predefined type filters to apply (used by wrapper tools).</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall)
+        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -93,8 +205,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Arguments may be null when calling gh_get with no parameters; default to empty filters
                 var args = toolInfo.Arguments ?? new JObject();
-                var attrFilters = args["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
-                var typeFilters = args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
+                
+                // Use predefined filters if provided (for wrapper tools), otherwise use filters from arguments
+                var attrFilters = predefinedAttrFilters != null
+                    ? new List<string>(predefinedAttrFilters)
+                    : args["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
+                var typeFilters = predefinedTypeFilters != null
+                    ? new List<string>(predefinedTypeFilters)
+                    : args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 var objects = GHCanvasUtils.GetCurrentObjects();
 
                 // Filter by manual UI selection if provided

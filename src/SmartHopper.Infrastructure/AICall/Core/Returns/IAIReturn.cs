@@ -42,11 +42,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         AICallStatus Status { get; set; }
 
         /// <summary>
-        /// Gets or sets the error message if any occurred during evaluation.
-        /// </summary>
-        string ErrorMessage { get; set; }
-
-        /// <summary>
         /// Gets a value indicating whether the evaluation was successful.
         /// </summary>
         bool Success { get; }
@@ -70,7 +65,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         void SetBody(AIBody body);
 
         /// <summary>
-        /// Creates a standardized provider error while preserving the raw provider message in ErrorMessage.
+        /// Creates a standardized provider error.
         /// Adds a structured message tagged as originating from the provider.
         /// </summary>
         /// <param name="rawMessage">Raw provider error message.</param>
@@ -94,7 +89,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         void CreateToolError(string rawMessage, IAIRequest? request = null);
 
         /// <summary>
-        /// Adds a structured runtime message without modifying ErrorMessage.
+        /// Adds a structured runtime message.
         /// </summary>
         /// <param name="severity">The message severity.</param>
         /// <param name="origin">The message origin.</param>
