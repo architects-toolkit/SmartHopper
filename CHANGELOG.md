@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New AI Tools for component generation and connection:
+  - `gh_generate`: Generate GhJSON from component specifications (name + parameters), returns valid GhJSON for gh_put.
+  - `gh_connect`: Connect Grasshopper components by creating wires between outputs and inputs using component GUIDs.
+- New AI Tools for Rhino 3DM file analysis:
+  - `rhino_read_3dm`: Analyze .3dm files and extract metadata, object counts, layer information, and detailed object properties.
+  - `rhino_get_geometry`: Extract detailed geometry information from the active Rhino document (selected objects, by layer, or by type).
+
 ### Changed
 
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
