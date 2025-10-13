@@ -132,13 +132,13 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 // Check for common keys: indices, result, data
                 if (TryExtractIndicesFromObject(jobject, out var objIndices))
                 {
-                    return DeduplicateAndSort(objIndices);
+                    return objIndices;
                 }
 
                 // Check if it's a dictionary of index->bool/value
                 if (TryExtractIndicesFromDictionary(jobject, out var dictIndices))
                 {
-                    return DeduplicateAndSort(dictIndices);
+                    return dictIndices;
                 }
             }
             catch
@@ -184,7 +184,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 }
             }
 
-            return DeduplicateAndSort(indices);
+            return indices;
         }
 
         /// <summary>
