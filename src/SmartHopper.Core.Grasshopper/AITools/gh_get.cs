@@ -72,7 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhGetToolAsync);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null));
 
             // Specialized wrapper: gh_get_selected
             yield return new AITool(
@@ -112,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guidFilter""]
                 }",
-                execute: this.GhGetToolAsync);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null));
 
             // Specialized wrapper: gh_get_errors
             yield return new AITool(
