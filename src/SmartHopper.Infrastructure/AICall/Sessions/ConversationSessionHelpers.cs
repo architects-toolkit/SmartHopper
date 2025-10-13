@@ -132,7 +132,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             var toolRq = new AIToolCall();
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
+            
+            // Measure tool execution time
+            var stopwatch = Stopwatch.StartNew();
             var toolRet = await this.executor.ExecToolAsync(toolRq, ct).ConfigureAwait(false);
+            stopwatch.Stop();
 
             var toolInteraction = toolRet?.Body?.GetLastInteraction() as AIInteractionToolResult;
             if (toolInteraction == null)
@@ -141,7 +145,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     Id = tc.Id,
                     Name = tc.Name,
-                    Result = new JObject { ["error"] = toolRet?.ErrorMessage ?? "Tool execution failed or returned no result" },
+                    Result = new JObject
+                    {
+                        ["success"] = false,
+                        ["messages"] = toolRet?.Messages != null ? JArray.FromObject(toolRet.Messages) : new JArray()
+                    },
                 };
                 this.PersistToolResult(fallback, turnId);
 
@@ -161,9 +169,33 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             this.PersistToolResult(toolInteraction, turnId);
 
+            // Attach tool metrics and completion time to the tool result interaction
+            if (toolRet?.Metrics != null)
+            {
+                toolInteraction.Metrics = toolRet.Metrics;
+
+                // Override with actual measured time (includes tool execution + any overhead)
+                toolInteraction.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+            }
+            else if (toolInteraction.Metrics == null)
+            {
+                // Create metrics with at least the completion time
+                toolInteraction.Metrics = new AIMetrics
+                {
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                    Provider = this.Request.Provider,
+                    Model = this.Request.Model,
+                    FinishReason = "stop" // Tool completed normally
+                };
+            }
+
             var deltaOk = new AIReturn();
-            var okBody = AIBodyBuilder.Create().WithTurnId(turnId).Add(toolInteraction).Build();
+            var okBody = AIBodyBuilder.Create()
+                .WithTurnId(turnId)
+                .Add(toolInteraction)
+                .Build();
             deltaOk.SetBody(okBody);
+            
             return deltaOk;
         }
 
@@ -191,7 +223,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Persists final streaming snapshot (tool_calls and assistant text), updates last return,
         /// and logs unresolved pending tool-calls if any.
         /// </summary>
-        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText)
+        /// <param name="completionTime">Total time taken for the streaming operation in seconds.</param>
+        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText, double completionTime = 0)
         {
             // Persist the final aggregated text interaction (accumulated during streaming)
             if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
@@ -210,6 +243,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     if (finalAssistant.Metrics != null)
                     {
                         accumulatedText.Metrics = finalAssistant.Metrics;
+
+                        // Override with actual measured streaming time
+                        accumulatedText.Metrics.CompletionTime = completionTime;
                     }
 
                     // Update time if available
@@ -243,11 +279,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         /// <summary>
         /// Updates the cached last return with the current request body.
+        /// Metrics are already attached to individual interactions via NotifyInteractionCompleted,
+        /// and AIBody.Metrics aggregates them automatically.
         /// </summary>
         private void UpdateLastReturn()
         {
             var snapshot = new AIReturn();
             snapshot.SetBody(this.Request.Body);
+#if DEBUG
+            // Debug: log final aggregated metrics from body
+            var aggregatedMetrics = snapshot.Metrics;
+            if (aggregatedMetrics != null)
+            {
+                Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}");
+            }
+#endif
             this._lastReturn = snapshot;
         }
 
@@ -625,6 +671,38 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var ret = new AIReturn();
             ret.CreateProviderError(message, this.Request);
             return ret;
+        }
+
+        /// <summary>
+        /// Creates a provider error return, surfaces error interactions to observers, and notifies error.
+        /// Centralizes error handling to avoid duplication across catch blocks.
+        /// </summary>
+        /// <param name="ex">The exception that occurred.</param>
+        /// <returns>The error AIReturn.</returns>
+        private AIReturn HandleAndNotifyError(Exception ex)
+        {
+            var errorMessage = ex is OperationCanceledException
+                ? "Call cancelled or timed out"
+                : ex.Message;
+
+            var error = new AIReturn();
+            error.CreateProviderError(errorMessage, this.Request);
+
+            // Surface error interactions from the body before calling OnError
+            var errorInteractions = error.Body?.Interactions;
+            if (errorInteractions != null && errorInteractions.Count > 0)
+            {
+                foreach (var errInteraction in errorInteractions)
+                {
+                    if (errInteraction is AIInteractionError)
+                    {
+                        this.Observer?.OnInteractionCompleted(errInteraction);
+                    }
+                }
+            }
+
+            this.NotifyError(ex);
+            return error;
         }
 #if DEBUG
 

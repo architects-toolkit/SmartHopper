@@ -275,8 +275,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     return none;
                 }
 
-                // If provider produced no body and no explicit error, standardize it
-                if (result.Body == null && string.IsNullOrEmpty(result.ErrorMessage))
+                // If provider produced no body and no error messages, standardize it
+                if (result.Body == null && !result.Messages.Any(m => m.Severity == AIRuntimeMessageSeverity.Error))
                 {
                     result.CreateProviderError("Provider returned no response", this);
                 }

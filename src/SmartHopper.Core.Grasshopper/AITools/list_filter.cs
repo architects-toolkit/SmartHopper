@@ -148,6 +148,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);
 
+                if (!result.Success)
+                {
+                    // Propagate structured messages from AI call
+                    output.Messages = result.Messages;
+                    return output;
+                }
+
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Parse indices from response

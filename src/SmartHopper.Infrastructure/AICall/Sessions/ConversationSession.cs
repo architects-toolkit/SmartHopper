@@ -210,16 +210,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                         catch (OperationCanceledException oce)
                         {
-                            this.NotifyError(oce);
-                            nsError = new AIReturn();
-                            nsError.CreateProviderError("Call cancelled or timed out", this.Request);
+                            nsError = this.HandleAndNotifyError(oce);
                             nsShouldBreak = true;
                         }
                         catch (Exception ex)
                         {
-                            this.NotifyError(ex);
-                            nsError = new AIReturn();
-                            nsError.CreateProviderError(ex.Message, this.Request);
+                            nsError = this.HandleAndNotifyError(ex);
                             nsShouldBreak = true;
                         }
 
@@ -277,6 +273,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         else
                         {
                             // Streaming path: forward each chunk to observer, accumulate text in memory, persist non-text immediately
+                            var streamStopwatch = Stopwatch.StartNew();
                             await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions!, linkedCts.Token))
                             {
                                 if (delta == null)
@@ -353,6 +350,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
 
                             // After streaming ends, either error (no deltas) or persist final snapshot then continue
+                            streamStopwatch.Stop();
+
                             if (state.LastDelta == null)
                             {
                                 var errDelta = this.CreateError("Provider returned no response");
@@ -362,8 +361,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
                             else
                             {
-                                // Persist final aggregated text and update last-return snapshot
-                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId, state.AccumulatedText);
+                                // Persist final aggregated text and update last-return snapshot with measured time
+                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId, state.AccumulatedText, streamStopwatch.Elapsed.TotalSeconds);
 
                                 if (!options.ProcessTools)
                                 {
@@ -394,18 +393,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     }
                     catch (OperationCanceledException oce)
                     {
-                        this.NotifyError(oce);
-                        var cancelled = new AIReturn();
-                        cancelled.CreateProviderError("Call cancelled or timed out", this.Request);
-                        state.ErrorYield = cancelled;
+                        state.ErrorYield = this.HandleAndNotifyError(oce);
                         state.ShouldBreak = true;
                     }
                     catch (Exception ex)
                     {
-                        this.NotifyError(ex);
-                        var error = new AIReturn();
-                        error.CreateProviderError(ex.Message, this.Request);
-                        state.ErrorYield = error;
+                        state.ErrorYield = this.HandleAndNotifyError(ex);
                         state.ShouldBreak = true;
                     }
 
@@ -602,14 +595,28 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Executes the provider once using non-streaming mode.
+        /// Executes the provider request without streaming and measures completion time.
         /// </summary>
         /// <param name="ct">A cancellation token for the operation.</param>
         /// <returns>The provider's <see cref="AIReturn"/>, or null if execution failed to produce a result.</returns>
         private async Task<AIReturn?> ExecProviderAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            
+            var stopwatch = Stopwatch.StartNew();
             var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
+            stopwatch.Stop();
+            
+            // Attach completion time to the last interaction in the result
+            if (res?.Body != null)
+            {
+                var lastInteraction = res.Body.GetLastInteraction();
+                if (lastInteraction?.Metrics != null)
+                {
+                    lastInteraction.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+                }
+            }
+            
             return res;
         }
 
@@ -696,26 +703,27 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 // Provider consumes tool results
                 ct.ThrowIfCancellationRequested();
-                
+
                 // Use streaming if requested and available
                 if (useStreaming && streamingOptions != null)
                 {
                     var exec = new DefaultProviderExecutor();
                     var adapter = exec.TryGetStreamingAdapter(this.Request);
-                    
+
                     if (adapter != null)
                     {
                         // Stream the follow-up response
                         AIInteractionText? accumulatedText = null;
                         AIReturn? lastDelta = null;
-                        
+                        var followUpStopwatch = Stopwatch.StartNew();
+
                         await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, ct))
                         {
                             if (delta == null) continue;
-                            
+
                             var newInteractions = delta.Body?.GetNewInteractions();
                             InteractionUtility.EnsureTurnId(newInteractions, turnId);
-                            
+
                             if (newInteractions != null)
                             {
                                 foreach (var interaction in newInteractions)
@@ -752,10 +760,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     }
                                 }
                             }
-                            
+
                             lastDelta = delta;
                         }
-                        
+
+                        followUpStopwatch.Stop();
+
                         if (lastDelta == null)
                         {
                             var err = this.CreateError("Provider returned no response");
@@ -776,6 +786,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 if (finalAssistant.Metrics != null)
                                 {
                                     accumulatedText.Metrics = finalAssistant.Metrics;
+
+                                    // Override with actual measured streaming time
+                                    accumulatedText.Metrics.CompletionTime = followUpStopwatch.Elapsed.TotalSeconds;
                                 }
 
                                 if (finalAssistant.Time != default)
