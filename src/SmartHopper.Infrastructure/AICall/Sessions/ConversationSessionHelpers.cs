@@ -145,8 +145,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     Id = tc.Id,
                     Name = tc.Name,
-                    Result = new JObject 
-                    { 
+                    Result = new JObject
+                    {
                         ["success"] = false,
                         ["messages"] = toolRet?.Messages != null ? JArray.FromObject(toolRet.Messages) : new JArray()
                     },
@@ -185,7 +185,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     Provider = this.Request.Provider,
                     Model = this.Request.Model,
-                    FinishReason = "stop" // I'm not sure which finish reason should be used here
+                    FinishReason = "stop" // Tool completed normally
                 };
             }
 
@@ -286,14 +286,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             var snapshot = new AIReturn();
             snapshot.SetBody(this.Request.Body);
-            
+#if DEBUG
             // Debug: log final aggregated metrics from body
             var aggregatedMetrics = snapshot.Metrics;
             if (aggregatedMetrics != null)
             {
                 Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}");
             }
-            
+#endif
             this._lastReturn = snapshot;
         }
 

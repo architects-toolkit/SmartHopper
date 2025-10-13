@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Minimum batch size for chunked requests.
         /// </summary>
-        private const int MinBatchSize = 5;
+        private const int MinBatchSize = 10;
 
         /// <summary>
         /// Minimum batch size when further reducing after truncation.
@@ -52,6 +52,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Default batch size divisor (e.g., count / 3).
         /// </summary>
         private const int DefaultBatchDivisor = 3;
+
+        /// <summary>
+        /// Default timeout for AI requests.
+        /// </summary>
+        private const int DefaultTimeoutSeconds = 300;
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.
@@ -276,7 +281,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Set extended timeout for iterative list generation (5 minutes)
                 // The while loop may require multiple AI calls, each taking 20-40 seconds
-                request.TimeoutSeconds = 300;
+                request.TimeoutSeconds = DefaultTimeoutSeconds;
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {

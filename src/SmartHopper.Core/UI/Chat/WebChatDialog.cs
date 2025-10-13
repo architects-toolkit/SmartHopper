@@ -829,8 +829,8 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Check if streaming actually failed (API error, network error, not just validation)
                 bool streamingFailed = lastStreamReturn == null ||
-                    lastStreamReturn.Messages.Any(m => 
-                        m != null && 
+                    lastStreamReturn.Messages.Any(m =>
+                        m != null &&
                         m.Severity == AIRuntimeMessageSeverity.Error &&
                         (m.Origin == AIRuntimeMessageOrigin.Provider ||
                         m.Origin == AIRuntimeMessageOrigin.Network));
