@@ -62,11 +62,20 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-sonnet-4-0",
+                    Model = "claude-sonnet-4-5",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 80,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-sonnet-4-0",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
                 },
                 new AIModelCapabilities
                 {
