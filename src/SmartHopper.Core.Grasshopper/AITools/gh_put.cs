@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Place Grasshopper components on the canvas from GhJSON format",
+                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
