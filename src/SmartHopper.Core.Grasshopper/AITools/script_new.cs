@@ -311,11 +311,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Retrieve actual placed GUID
                 if (mapping.TryGetValue(comp.InstanceGuid, out var actualGuid))
                 {
+                    // Force the component to refresh its solution after script is set
+                    // This ensures the script is properly compiled without requiring restart
+                    var refreshTcs = new TaskCompletionSource<bool>();
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        try
+                        {
+                            var placedComponent = GHCanvasUtils.FindInstance(actualGuid);
+                            if (placedComponent != null)
+                            {
+                                // Expire the solution to trigger recompilation
+                                placedComponent.ExpireSolution(true);
+                                Debug.WriteLine($"[script_new] Expired solution for component {actualGuid}");
+                            }
+                            refreshTcs.SetResult(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[script_new] Could not refresh component: {ex.Message}");
+                            refreshTcs.SetResult(false);
+                        }
+                    });
+                    await refreshTcs.Task.ConfigureAwait(false);
+
                     var toolResult = new JObject();
                     toolResult.Add("script", scriptCode);
                     toolResult.Add("guid", actualGuid.ToString());
                     toolResult.Add("inputs", scriptInputs);
                     toolResult.Add("outputs", scriptOutputs);
+                    toolResult.Add("message", "Script component created successfully. Double-click the component to view/edit the code.");
 
                     var outBuilder = AIBodyBuilder.Create();
                     outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, result.Messages);
