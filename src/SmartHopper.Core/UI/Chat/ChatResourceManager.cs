@@ -269,10 +269,6 @@ namespace SmartHopper.Core.UI.Chat
         /// <returns>The HTML for the message.</returns>
         public string CreateMessageHtml(string timestamp, IAIInteraction interaction)
         {
-            // TODO: Handle case for processing state (loading message)
-
-            // TODO: Handle case for AIReturn.Success = false (with errors)
-
             // Get content and reasoning from interaction via IAIRenderInteraction when available
             string rawContent = string.Empty;
             string rawReasoning = string.Empty;

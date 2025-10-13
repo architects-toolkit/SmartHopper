@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
-[![Version](https://img.shields.io/badge/version-1.0.0--alpha-orange?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-1.0.1--alpha-orange?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Alpha-orange?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-YES-brightgreen?style=for-the-badge)](https://smarthopper.xyz/#installation)
@@ -59,6 +59,12 @@ Do things that were impossible before.
 [![AI Components ▶](./img/video-components.png)](https://vimeo.com/1126454744 "AI Components ▶ — click to watch on Vimeo")
 
 [View the video on Vimeo](https://vimeo.com/1126454744)
+
+Choose a default provider, or specify a provider for each component.
+
+[![Select AI provider ▶](./img/video-select-provider.jpg)](https://vimeo.com/1126547055 "Select AI provider ▶ — click to watch on Vimeo")
+
+[View the video on Vimeo](https://vimeo.com/1126547055)
 
 More examples and recipes coming soon on the website and docs.
 

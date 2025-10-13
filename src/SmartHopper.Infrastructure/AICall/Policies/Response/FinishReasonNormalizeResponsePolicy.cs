@@ -68,6 +68,15 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                         .ReplaceLast(lastInteraction)
                         .Build());
 
+                // Surface an error when the provider stopped due to length/token limit
+                if (string.Equals(normalized, "length", StringComparison.Ordinal))
+                {
+                    response.AddRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Return,
+                        "AI response was cut off by the maximum token limit. You should increase the token limit for this provider in SmartHopper Settings.");
+                }
+
                 // Attach diagnostics when applicable
                 if (usedDefault)
                 {

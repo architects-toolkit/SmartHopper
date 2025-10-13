@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "List all available categories and subcategories for components in the current environment with optional soft string filter. Use filters wisely to target the results and avoid wasting tokens.",
+                description: "Discover what component categories are available in the user's Grasshopper installation (e.g., 'Maths', 'Curve', 'Surface'). Use this before gh_list_components to narrow your search. Apply filters to find specific categories and save tokens.",
                 category: "ComponentsRetrieval",
                 parametersSchema: @"{
                     ""type"": ""object"",

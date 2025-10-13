@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -57,9 +58,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         public AICallStatus Status { get; set; } = AICallStatus.Idle;
 
         /// <inheritdoc/>
-        public string ErrorMessage { get; set; }
-
-        /// <inheritdoc/>
         public List<AIRuntimeMessage> Messages
         {
             get
@@ -80,19 +78,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 2) Reflect ErrorMessage as a structured error message (mirroring, without mutating storage)
-                if (!string.IsNullOrEmpty(this.ErrorMessage))
-                {
-                    if (seen.Add(this.ErrorMessage))
-                    {
-                        combined.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Error,
-                            AIRuntimeMessageOrigin.Return,
-                            this.ErrorMessage));
-                    }
-                }
-
-                // 3) Include body messages (aggregated from interactions and body validation)
+                // 2) Include body messages (aggregated from interactions and body validation)
                 if (this.Body != null && this.Body.Messages != null)
                 {
                     foreach (var m in this.Body.Messages)
@@ -104,7 +90,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 4) Include request messages (request computes validation dynamically)
+                // 3) Include request messages (request computes validation dynamically)
                 if (this.Request != null && this.Request.Messages != null)
                 {
                     foreach (var m in this.Request.Messages)
@@ -116,7 +102,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 5) Add this return's validation messages dynamically (do not store)
+                // 4) Add this return's validation messages dynamically (do not store)
                 var (isValid, errors) = this.IsValid();
                 if (!isValid && errors != null)
                 {
@@ -129,7 +115,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 6) Sort by severity: Error > Warning > Info
+                // 5) Sort by severity: Error > Warning > Info
                 int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
                 combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
 
@@ -143,7 +129,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         }
 
         /// <inheritdoc/>
-        public bool Success => string.IsNullOrEmpty(this.ErrorMessage);
+        public bool Success
+        {
+            get
+            {
+                // Computed from structured messages - no errors = success
+                return !this.Messages.Any(m => m != null && m.Severity == AIRuntimeMessageSeverity.Error);
+            }
+        }
 
         /// <summary>
         /// Gets the raw JSON returned by the provider, if available.
@@ -180,9 +173,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 }
             }
 
-            if (this.Body == null && this.ErrorMessage == null)
+            if (this.Body == null && !this.Messages.Any())
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Either body or error message must be set"));
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Either body or messages must be set"));
             }
 
             return (errors.Count == 0, errors);
@@ -285,8 +278,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             }
 
             this.Request = request;
-            this.ErrorMessage = message;
             this.Status = AICallStatus.Finished;
+
+            // Add structured error message instead of setting ErrorMessage directly
+            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, message);
 
             this.Body = AIBodyBuilder.Create()
                 .AddError(message, metrics)
@@ -294,37 +289,87 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         }
 
         /// <summary>
-        /// Creates a standardized provider error while preserving the raw provider message in <see cref="ErrorMessage"/>.
-        /// Adds a structured message "Provider error: ..." for consistent UI surfacing.
+        /// Creates a standardized provider error.
+        /// Adds a structured message with Provider origin for consistent UI surfacing.
         /// </summary>
         /// <param name="rawMessage">Raw provider error message.</param>
         /// <param name="request">The request context.</param>
         public void CreateProviderError(string rawMessage, IAIRequest? request = null)
         {
-            this.CreateError(rawMessage, request);
+            if (request == null && this.Request != null)
+            {
+                request = this.Request;
+            }
+            else if (request == null)
+            {
+                request = new AIRequestCall();
+            }
+
+            this.Request = request;
+            this.Status = AICallStatus.Finished;
+
+            // Add structured message with Provider origin (not calling CreateError to avoid Return origin)
             this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Provider, $"Provider error: {rawMessage}");
+
+            this.Body = AIBodyBuilder.Create()
+                .AddError(rawMessage, null)
+                .Build();
         }
 
         /// <summary>
-        /// Creates a standardized network error (e.g., DNS, connectivity) while preserving the raw message.
+        /// Creates a standardized network error (e.g., DNS, connectivity).
+        /// Adds a structured message with Network origin.
         /// </summary>
         /// <param name="rawMessage">The raw network error message.</param>
         /// <param name="request">The request context.</param>
         public void CreateNetworkError(string rawMessage, IAIRequest? request = null)
         {
-            this.CreateError(rawMessage, request);
+            if (request == null && this.Request != null)
+            {
+                request = this.Request;
+            }
+            else if (request == null)
+            {
+                request = new AIRequestCall();
+            }
+
+            this.Request = request;
+            this.Status = AICallStatus.Finished;
+
+            // Add structured message with Network origin
             this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Network, $"Network error: {rawMessage}");
+
+            this.Body = AIBodyBuilder.Create()
+                .AddError(rawMessage, null)
+                .Build();
         }
 
         /// <summary>
-        /// Creates a standardized tool error while preserving the raw message.
+        /// Creates a standardized tool error.
+        /// Adds a structured message with Tool origin.
         /// </summary>
         /// <param name="rawMessage">The raw tool error message.</param>
         /// <param name="request">The request context.</param>
         public void CreateToolError(string rawMessage, IAIRequest? request = null)
         {
-            this.CreateError(rawMessage, request);
+            if (request == null && this.Request != null)
+            {
+                request = this.Request;
+            }
+            else if (request == null)
+            {
+                request = new AIRequestCall();
+            }
+
+            this.Request = request;
+            this.Status = AICallStatus.Finished;
+
+            // Add structured message with Tool origin
             this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Tool, $"Tool error: {rawMessage}");
+
+            this.Body = AIBodyBuilder.Create()
+                .AddError(rawMessage, null)
+                .Build();
         }
 
         /// <summary>
@@ -428,7 +473,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             {
                 ["success"] = "Success",
                 ["result"] = "Result",
-                ["error"] = "ErrorMessage",
+                ["messages"] = "Messages",
             };
 
             var jo = new JObject();

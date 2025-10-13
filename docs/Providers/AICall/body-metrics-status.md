@@ -33,16 +33,25 @@ Covers `AIBody`, `AIMetrics`, `AICallStatus`, and `AIReturn`.
 ## AIReturn and IAIReturn
 
 - Files: `AIReturn.cs`, `IAIReturn.cs`
-- `AIReturn` carries `Body`, `Request`, aggregated `Metrics`, `Status`, `ErrorMessage`, `Success`
-- Validity: checks `Request.IsValid()`, `Metrics.IsValid()`, and that either `Body` or `ErrorMessage` is present
+- `AIReturn` carries `Body`, `Request`, aggregated `Metrics`, `Status`, `Messages`, and computed `Success`
+- `Success` is computed: returns `true` when no error messages exist in `Messages` collection
+- `Messages` aggregates structured runtime messages from:
+  - Private messages added via `AddRuntimeMessage()` or `Create*Error()` methods
+  - `Request.Messages` (validation/capability notes)
+  - `Body.Messages` (interaction and body validation messages)
+  - Deduplicates and sorts by severity (Error > Warning > Info)
+- Validity: checks `Request.IsValid()`, `Metrics.IsValid()`, and that either `Body` or `Messages` is present
 - Builders:
   - `CreateSuccess(AIBody body, IAIRequest? request = null)`
   - `CreateSuccess(List<IAIInteraction> interactions, IAIRequest? request = null, AIMetrics? metrics = null)`
   - `CreateSuccess(JObject raw, IAIRequest? request = null)` stores raw provider JSON; decoding to interactions is handled by response policies
-  - `CreateError(string message, IAIRequest? request = null)`
-  - `CreateProviderError(string rawMessage, IAIRequest? request = null)` and `CreateNetworkError(...)` add standardized structured messages while preserving raw error text
+  - `CreateError(string message, IAIRequest? request = null)` adds structured error message with Return origin
+  - `CreateProviderError(string rawMessage, IAIRequest? request = null)` adds structured error with Provider origin
+  - `CreateNetworkError(string rawMessage, IAIRequest? request = null)` adds structured error with Network origin
+  - `CreateToolError(string rawMessage, IAIRequest? request = null)` adds structured error with Tool origin
 - `SetBody(...)` overloads update `Body` directly
-- `AIReturnExtensions.ToJObject(...)` maps selected fields from `AIReturn`, `Request`, `Metrics` via reflection; customizable mapping
+- `AddRuntimeMessage(severity, origin, text)` adds structured messages without affecting Success flag directly
+- `AIReturnExtensions.ToJObject(...)` maps selected fields from `AIReturn`, `Request`, `Metrics` via reflection; default mapping includes `messages` instead of legacy `error`
 
 Policy notes:
 

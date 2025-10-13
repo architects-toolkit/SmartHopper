@@ -53,7 +53,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.Text2Text,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 95,
+                    Rank = 90,
                 },
                 new AIModelCapabilities
                 {
@@ -63,7 +63,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 90,
+                    Rank = 95,
                 },
                 new AIModelCapabilities
                 {
@@ -95,12 +95,108 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "o4-mini",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning | AICapability.ImageInput,
+                    Model = "gpt-4.1-nano",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 90,
+                    Rank = 65,
                 },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4-turbo",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-3.5-turbo",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o4-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o3-mini",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = 50,
+                },
+
+                // ChatGPT
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-chat-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 30,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 30,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "chatgpt-4o-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 30,
+                },
+
+                // Image
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -114,12 +210,104 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-image-1",
+                    Model = "dall-e-2",
+                    Capabilities = AICapability.TextInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
                     Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
                     Rank = 60,
+                },
+
+                // Audio
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-tts",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-transcribe",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-transcribe",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-audio-mini",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-audio",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-audio-preview",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 45,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-audio-preview",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "whisper-1",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 40,
                 },
             };
 
@@ -138,9 +326,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 var response = await this.openAIProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine("[OpenAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
-
-                if (response == null || !response.Success)
+                if (response == null)
                 {
                     return new List<string>();
                 }

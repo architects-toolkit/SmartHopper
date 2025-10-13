@@ -132,8 +132,8 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                     return none;
                 }
 
-                // If the tool didn't provide a body and no explicit error, standardize it
-                if (result.Body == null && string.IsNullOrEmpty(result.ErrorMessage))
+                // If the tool didn't provide a body and no error messages, standardize it
+                if (result.Body == null && !result.Messages.Any(m => m.Severity == AIRuntimeMessageSeverity.Error))
                 {
                     result.CreateToolError("Tool execution returned no result", this);
                 }

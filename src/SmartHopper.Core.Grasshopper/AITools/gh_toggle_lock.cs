@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Toggle Grasshopper component locked state (enable/disable) by GUID.",
+                description: "Lock (disable) or unlock (enable) components. Locked components don't execute and show as grayed out. Use this to temporarily disable parts of a definition without deleting them. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -59,6 +59,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""guids"", ""locked"" ]
                 }",
                 execute: this.GhToggleLockAsync);
+
+            // Specialized wrapper: gh_lock_selected
+            yield return new AITool(
+                name: "gh_lock_selected",
+                description: "Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {}
+                }",
+                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: true));
+
+            // Specialized wrapper: gh_unlock_selected
+            yield return new AITool(
+                name: "gh_unlock_selected",
+                description: "Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {}
+                }",
+                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: false));
         }
 
         private async Task<AIReturn> GhToggleLockAsync(AIToolCall toolCall)
@@ -111,6 +133,46 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
+        }
+
+        private async Task<AIReturn> GhToggleLockSelectedAsync(AIToolCall toolCall, bool locked)
+        {
+            // Get selected component GUIDs
+            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+                .Where(o => o.Attributes.Selected)
+                .Select(o => o.InstanceGuid.ToString())
+                .ToList();
+
+            if (!selectedGuids.Any())
+            {
+                var output = new AIReturn() { Request = toolCall };
+                output.CreateError("No components are currently selected.");
+                return output;
+            }
+
+            // Create a modified tool call with the selected GUIDs
+            var toolInfo = toolCall.GetToolCall();
+            var modifiedArgs = new JObject
+            {
+                ["guids"] = JArray.FromObject(selectedGuids),
+                ["locked"] = locked
+            };
+
+            // Create a new tool call with modified arguments
+            var modifiedToolCall = new AIToolCall
+            {
+                Provider = toolCall.Provider,
+                Model = toolCall.Model,
+                Body = AIBodyBuilder.Create()
+                    .AddToolCall(
+                        id: toolInfo.Id,
+                        name: toolInfo.Name ?? (locked ? "gh_lock_selected" : "gh_unlock_selected"),
+                        args: modifiedArgs)
+                    .Build()
+            };
+
+            // Delegate to the general method
+            return await this.GhToggleLockAsync(modifiedToolCall);
         }
     }
 }

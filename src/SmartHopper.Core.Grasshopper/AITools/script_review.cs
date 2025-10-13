@@ -218,9 +218,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     body: immutableBody);
 
                 var result = await request.Exec().ConfigureAwait(false);
+
                 if (!result.Success)
                 {
-                    output.CreateError(result.ErrorMessage ?? "AI request failed");
+                    // Propagate structured messages from AI call
+                    output.Messages = result.Messages;
                     return output;
                 }
 
