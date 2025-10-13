@@ -103,7 +103,7 @@ namespace SmartHopper.Providers.Anthropic
                 };
 
                 var response = await this.provider.Call(request).ConfigureAwait(false);
-                if (response == null || !response.Success)
+                if (response == null)
                 {
                     return new List<string>();
                 }

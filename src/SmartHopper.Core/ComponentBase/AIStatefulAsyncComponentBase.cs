@@ -241,7 +241,7 @@ namespace SmartHopper.Core.ComponentBase
                     result = new JObject
                     {
                         ["success"] = toolResult.Success,
-                        ["error"] = toolResult.ErrorMessage,
+                        ["messages"] = JArray.FromObject(toolResult.Messages),
                     };
                 }
             }
@@ -256,7 +256,12 @@ namespace SmartHopper.Core.ComponentBase
                 result = new JObject
                 {
                     ["success"] = false,
-                    ["error"] = ex.Message,
+                    ["messages"] = new JArray(new JObject
+                    {
+                        ["severity"] = "Error",
+                        ["origin"] = "Return",
+                        ["message"] = ex.Message
+                    }),
                 };
                 toolResult = null;
             }
@@ -273,21 +278,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.SurfaceMessagesFromReturn(toolResult, "ai");
             }
 
-            // Handle tool-level failure
-            bool ok = result.Value<bool?>("success") ?? true;
-            if (!ok)
-            {
-                var errorMsg = result.Value<string>("error") ?? toolResult?.ErrorMessage;
-                if (!string.IsNullOrEmpty(errorMsg))
-                {
-                    this.SetPersistentRuntimeMessage(
-                        "ai_error",
-                        GH_RuntimeMessageLevel.Error,
-                        errorMsg,
-                        false);
-                }
-            }
-
+            // Structured messages from toolResult are already surfaced via SurfaceMessagesFromReturn above
             return result;
         }
 
@@ -394,8 +385,8 @@ namespace SmartHopper.Core.ComponentBase
                 this.SetMetricsOutput(DA);
             }
 
-            // Update badge cache again after solving, so last metrics model is considered
-            this.UpdateBadgeCache();
+            // Badge cache was already updated in SolveInstance (before base.SolveInstance)
+            // No need to update again here - the configured model hasn't changed
         }
 
         #endregion

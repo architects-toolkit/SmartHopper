@@ -138,9 +138,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 var response = await this.openAIProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine("[OpenAIProviderModels] RetrieveApiModels response successful: " + response.Success + " - " + response.ErrorMessage);
-
-                if (response == null || !response.Success)
+                if (response == null)
                 {
                     return new List<string>();
                 }
