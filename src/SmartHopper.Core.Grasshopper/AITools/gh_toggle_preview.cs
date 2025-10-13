@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Toggle Grasshopper component preview on or off by GUID.",
+                description: "Show or hide component geometry preview in the Rhino viewport. Hiding preview improves performance for complex definitions. Only affects components that generate geometry. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -60,6 +60,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
                 execute: this.GhTogglePreviewAsync);
+
+            // Specialized wrapper: gh_hide_preview_selected
+            yield return new AITool(
+                name: "gh_hide_preview_selected",
+                description: "Hide geometry preview for currently selected components. Quick way to hide preview for selected items without needing to specify GUIDs manually. Improves performance for complex definitions.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {}
+                }",
+                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false));
+
+            // Specialized wrapper: gh_show_preview_selected
+            yield return new AITool(
+                name: "gh_show_preview_selected",
+                description: "Show geometry preview for currently selected components. Quick way to enable preview for selected items without needing to specify GUIDs manually.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {}
+                }",
+                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true));
         }
 
         private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)
@@ -108,6 +130,48 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
+        }
+
+        private async Task<AIReturn> GhTogglePreviewSelectedAsync(AIToolCall toolCall, bool previewOn)
+        {
+            // Get selected component GUIDs
+            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+                .Where(o => o.Attributes.Selected)
+                .Select(o => o.InstanceGuid.ToString())
+                .ToList();
+
+            if (!selectedGuids.Any())
+            {
+                var output = new AIReturn() { Request = toolCall };
+                output.CreateError("No components are currently selected.");
+                return output;
+            }
+
+            // Create a modified tool call with the selected GUIDs
+            var toolInfo = toolCall.GetToolCall();
+            var modifiedArgs = new JObject
+            {
+                ["guids"] = JArray.FromObject(selectedGuids),
+                ["previewOn"] = previewOn
+            };
+
+            // Create a new tool call with modified arguments
+            var modifiedToolCall = new AIToolCall
+            {
+                Provider = toolCall.Provider,
+                Model = toolCall.Model,
+                Body = AIBodyBuilder.Create()
+                    .AddToolCall(new AIInteractionToolCall
+                    {
+                        Id = toolInfo.Id,
+                        Name = toolInfo.Name ?? (previewOn ? "gh_show_preview_selected" : "gh_hide_preview_selected"),
+                        Arguments = modifiedArgs
+                    })
+                    .Build()
+            };
+
+            // Delegate to the general method
+            return await this.GhTogglePreviewAsync(modifiedToolCall);
         }
     }
 }
