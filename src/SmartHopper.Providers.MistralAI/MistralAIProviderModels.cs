@@ -90,7 +90,8 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 60,
-                },new AIModelCapabilities
+                },
+                new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "mistral-large",
@@ -107,7 +108,8 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 50,
-                },new AIModelCapabilities
+                },
+                new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "ministral-3b-latest",
