@@ -164,12 +164,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
                 Body = AIBodyBuilder.Create()
-                    .AddToolCall(new AIInteractionToolCall
-                    {
-                        Id = toolInfo.Id,
-                        Name = toolInfo.Name ?? (locked ? "gh_lock_selected" : "gh_unlock_selected"),
-                        Arguments = modifiedArgs
-                    })
+                    .AddToolCall(
+                        id: toolInfo.Id,
+                        name: toolInfo.Name ?? (locked ? "gh_lock_selected" : "gh_unlock_selected"),
+                        args: modifiedArgs)
                     .Build()
             };
 

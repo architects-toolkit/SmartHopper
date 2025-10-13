@@ -161,12 +161,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
                 Body = AIBodyBuilder.Create()
-                    .AddToolCall(new AIInteractionToolCall
-                    {
-                        Id = toolInfo.Id,
-                        Name = toolInfo.Name ?? (previewOn ? "gh_show_preview_selected" : "gh_hide_preview_selected"),
-                        Arguments = modifiedArgs
-                    })
+                    .AddToolCall(
+                        id: toolInfo.Id,
+                        name: toolInfo.Name ?? (previewOn ? "gh_show_preview_selected" : "gh_hide_preview_selected"),
+                        args: modifiedArgs)
                     .Build()
             };
 

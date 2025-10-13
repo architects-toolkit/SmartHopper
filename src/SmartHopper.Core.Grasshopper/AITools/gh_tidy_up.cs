@@ -200,12 +200,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
                 Body = AIBodyBuilder.Create()
-                    .AddToolCall(new AIInteractionToolCall
-                    {
-                        Id = toolInfo.Id,
-                        Name = toolInfo.Name ?? this.toolName,
-                        Arguments = modifiedArgs
-                    })
+                    .AddToolCall(
+                        id: toolInfo.Id,
+                        name: toolInfo.Name ?? this.toolName,
+                        args: modifiedArgs)
                     .Build()
             };
 
