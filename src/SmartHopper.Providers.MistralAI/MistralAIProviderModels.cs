@@ -50,6 +50,15 @@ namespace SmartHopper.Providers.MistralAI
                     Provider = provider,
                     Model = "mistral-small-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = true,
+                    Rank = 90,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-small",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = true,
@@ -67,11 +76,45 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "mistral-medium",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "mistral-large-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 70,
+                    Rank = 60,
+                },new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-large",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 60,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-8b-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 50,
+                },new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-3b-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 30,
                 },
                 new AIModelCapabilities
                 {
@@ -91,6 +134,24 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-small-latest",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-latest",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
                 },
             };
 
