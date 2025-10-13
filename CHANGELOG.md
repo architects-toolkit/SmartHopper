@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha] - 2025-10-13
+
 ### Changed
 
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
@@ -21,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)).
 - Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
 - Fixed `list_filter` tool automatically sorting and deduplicating indices, which prevented reordering and expansion operations from working correctly. Now preserves both order and duplicates as returned by the AI.
+- (automatically added) Fixes "AI List Filter fails to reorder items" ([#335](https://github.com/architects-toolkit/SmartHopper/issues/335)).
+- (automatically added) Fixes "Confusing error message on wrong model-provider combination" ([#329](https://github.com/architects-toolkit/SmartHopper/issues/329)).
 
 ## [1.0.0-alpha] - 2025-10-11
 
