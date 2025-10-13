@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
         /// dictionaries with index->bool, ranges (N-M, N..M), and "none"/empty indicators.
         /// </summary>
         /// <param name="response">Raw response from the AI.</param>
-        /// <returns>List of parsed integer indices (unique, sorted).</returns>
+        /// <returns>List of parsed integer indices (order and duplicates preserved for expansion operations).</returns>
         public static List<int> ParseIndicesFromResponse(string response)
         {
             var indices = new List<int>();
@@ -117,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                     }
                 }
 
-                return DeduplicateAndSort(indices);
+                return indices;
             }
             catch
             {
@@ -161,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.Utils
                         }
                     }
 
-                    return DeduplicateAndSort(indices);
+                    return indices;
                 }
                 catch
                 {
@@ -312,14 +312,6 @@ namespace SmartHopper.Core.Grasshopper.Utils
             });
 
             return result;
-        }
-
-        /// <summary>
-        /// Deduplicates and sorts a list of indices.
-        /// </summary>
-        private static List<int> DeduplicateAndSort(List<int> indices)
-        {
-            return indices.Distinct().OrderBy(i => i).ToList();
         }
 
         #endregion
