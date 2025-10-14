@@ -14,14 +14,18 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
-using Rhino.DocObjects;
-using Rhino.FileIO;
+using RhinoDocObjects = global::Rhino.DocObjects;
+using RhinoFileIO = global::Rhino.FileIO;
+using RhinoGeometry = global::Rhino.Geometry;
+using SmartHopper.Core.Grasshopper.Utils.Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
     /// <summary>
     /// Utilities for reading and analyzing Rhino 3DM files.
     /// </summary>
+    /// <remarks>OBSOLETE: Moved to SmartHopper.Core.Grasshopper.Utils.Rhino.File3dmReader</remarks>
+    [System.Obsolete("This class has been moved to SmartHopper.Core.Grasshopper.Utils.Rhino.File3dmReader. Please update your references.", false)]
     public static class RhinoFileUtils
     {
         /// <summary>
@@ -36,200 +40,9 @@ namespace SmartHopper.Core.Grasshopper.Utils
             string filePath,
             bool includeObjectDetails = false,
             int maxObjects = 100,
-            HashSet<ObjectType> typeFilter = null)
+            HashSet<RhinoDocObjects.ObjectType> typeFilter = null)
         {
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-            {
-                Debug.WriteLine($"[RhinoFileUtils] File not found: {filePath}");
-                return null;
-            }
-
-            if (!filePath.EndsWith(".3dm", StringComparison.OrdinalIgnoreCase))
-            {
-                Debug.WriteLine("[RhinoFileUtils] File must be a .3dm file.");
-                return null;
-            }
-
-            try
-            {
-                var file3dm = File3dm.Read(filePath);
-                if (file3dm == null)
-                {
-                    Debug.WriteLine($"[RhinoFileUtils] Failed to read 3DM file: {filePath}");
-                    return null;
-                }
-
-                var result = new JObject();
-
-                // Extract file metadata
-                var fileInfo = new FileInfo(filePath);
-                result["metadata"] = new JObject
-                {
-                    ["fileName"] = fileInfo.Name,
-                    ["filePath"] = filePath,
-                    ["fileSize"] = fileInfo.Length,
-                    ["createdDate"] = fileInfo.CreationTime.ToString("yyyy-MM-dd HH:mm:ss"),
-                    ["modifiedDate"] = fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"),
-                    ["unitSystem"] = file3dm.Settings.ModelUnitSystem.ToString()
-                };
-
-                // Count objects by type
-                var objectCounts = new Dictionary<string, int>();
-                var totalObjects = 0;
-
-                foreach (var obj in file3dm.Objects)
-                {
-                    var typeName = obj.Geometry.ObjectType.ToString();
-                    if (!objectCounts.ContainsKey(typeName))
-                        objectCounts[typeName] = 0;
-                    objectCounts[typeName]++;
-                    totalObjects++;
-                }
-
-                result["summary"] = new JObject
-                {
-                    ["totalObjects"] = totalObjects,
-                    ["objectsByType"] = JObject.FromObject(objectCounts),
-                    ["layerCount"] = file3dm.AllLayers.Count,
-                    ["groupCount"] = file3dm.AllGroups.Count,
-                    ["materialCount"] = file3dm.AllMaterials.Count
-                };
-
-                // Extract layer information
-                var layers = new JArray();
-                foreach (var layer in file3dm.AllLayers)
-                {
-                    layers.Add(new JObject
-                    {
-                        ["name"] = layer.Name,
-                        ["fullPath"] = layer.FullPath,
-                        ["visible"] = layer.IsVisible,
-                        ["locked"] = layer.IsLocked,
-                        ["color"] = $"#{layer.Color.R:X2}{layer.Color.G:X2}{layer.Color.B:X2}"
-                    });
-                }
-                result["layers"] = layers;
-
-                // Include detailed object information if requested
-                if (includeObjectDetails)
-                {
-                    var objects = ExtractObjectDetails(file3dm, maxObjects, typeFilter);
-                    result["objects"] = objects;
-                    result["objectsIncluded"] = objects.Count;
-                    result["objectsTotal"] = totalObjects;
-                }
-
-                file3dm.Dispose();
-
-                Debug.WriteLine($"[RhinoFileUtils] Successfully analyzed {filePath}: {totalObjects} objects");
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[RhinoFileUtils] Error reading 3DM file: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Extracts detailed information about objects from a 3DM file.
-        /// </summary>
-        private static JArray ExtractObjectDetails(File3dm file3dm, int maxObjects, HashSet<ObjectType> typeFilter)
-        {
-            var objects = new JArray();
-            var count = 0;
-
-            foreach (var obj in file3dm.Objects)
-            {
-                if (count >= maxObjects)
-                    break;
-
-                // Apply type filter if specified
-                if (typeFilter != null && !typeFilter.Contains(obj.Geometry.ObjectType))
-                    continue;
-
-                var objInfo = new JObject
-                {
-                    ["id"] = obj.Id.ToString(),
-                    ["type"] = obj.Geometry.ObjectType.ToString(),
-                    ["layer"] = obj.Attributes.LayerIndex >= 0 && obj.Attributes.LayerIndex < file3dm.AllLayers.Count
-                        ? file3dm.AllLayers[obj.Attributes.LayerIndex].Name
-                        : "Unknown",
-                    ["name"] = obj.Attributes.Name ?? string.Empty,
-                    ["visible"] = obj.Attributes.Visible
-                };
-
-                // Add geometry-specific information
-                var geometry = obj.Geometry;
-                if (geometry != null)
-                {
-                    var bbox = geometry.GetBoundingBox(false);
-                    objInfo["boundingBox"] = new JObject
-                    {
-                        ["min"] = new JArray { bbox.Min.X, bbox.Min.Y, bbox.Min.Z },
-                        ["max"] = new JArray { bbox.Max.X, bbox.Max.Y, bbox.Max.Z }
-                    };
-
-                    AddGeometryTypeDetails(objInfo, geometry);
-                }
-
-                objects.Add(objInfo);
-                count++;
-            }
-
-            return objects;
-        }
-
-        /// <summary>
-        /// Adds type-specific geometry details to the object info.
-        /// </summary>
-        private static void AddGeometryTypeDetails(JObject objInfo, Rhino.Geometry.GeometryBase geometry)
-        {
-            switch (geometry.ObjectType)
-            {
-                case ObjectType.Point:
-                    var pt = geometry as Rhino.Geometry.Point;
-                    if (pt != null)
-                    {
-                        objInfo["location"] = new JArray { pt.Location.X, pt.Location.Y, pt.Location.Z };
-                    }
-                    break;
-
-                case ObjectType.Curve:
-                    var curve = geometry as Rhino.Geometry.Curve;
-                    if (curve != null)
-                    {
-                        objInfo["length"] = curve.GetLength();
-                        objInfo["isClosed"] = curve.IsClosed;
-                        objInfo["degree"] = curve.Degree;
-                    }
-                    break;
-
-                case ObjectType.Surface:
-                case ObjectType.Brep:
-                    var brep = geometry as Rhino.Geometry.Brep;
-                    if (brep != null)
-                    {
-                        objInfo["faceCount"] = brep.Faces.Count;
-                        objInfo["edgeCount"] = brep.Edges.Count;
-                        objInfo["isSolid"] = brep.IsSolid;
-                        if (brep.IsSolid)
-                        {
-                            objInfo["volume"] = brep.GetVolume();
-                        }
-                    }
-                    break;
-
-                case ObjectType.Mesh:
-                    var mesh = geometry as Rhino.Geometry.Mesh;
-                    if (mesh != null)
-                    {
-                        objInfo["vertexCount"] = mesh.Vertices.Count;
-                        objInfo["faceCount"] = mesh.Faces.Count;
-                        objInfo["isClosed"] = mesh.IsClosed;
-                    }
-                    break;
-            }
+            return File3dmReader.Read3dmFile(filePath, includeObjectDetails, maxObjects, typeFilter);
         }
     }
 }

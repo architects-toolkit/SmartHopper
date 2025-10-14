@@ -18,6 +18,8 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using Rhino;
+using RhinoCodePlatform.GH;
+using RhinoCodePluginGH.Parameters;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -150,9 +152,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 currentInputs.Add(new JObject
                                 {
                                     ["name"] = svp.NickName,
-                                    ["type"] = svp.TypeHint?.TypeName ?? Generic,
+                                    ["type"] = Generic,
                                     ["description"] = svp.Description,
-                                    ["access"] = svp.Access.ToString().ToLowerInvariant()
+                                    ["access"] = svp.Access.ToString().ToLowerInvariant(),
                                 });
                             }
                         }
@@ -165,7 +167,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 currentOutputs.Add(new JObject
                                 {
                                     ["name"] = svp.NickName,
-                                    ["type"] = svp.TypeHint?.TypeName ?? Generic,
+                                    ["type"] = Generic,
                                     ["description"] = svp.Description
                                 });
                             }
