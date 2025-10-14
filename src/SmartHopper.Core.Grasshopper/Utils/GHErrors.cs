@@ -1,6 +1,6 @@
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024 Marc Roca Musach
+ * Copyright (C) 2025 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -8,29 +8,25 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 
 namespace SmartHopper.Core.Grasshopper.Utils
 {
+    /// <summary>
+    /// OBSOLETE: Moved to SmartHopper.Core.Grasshopper.Utils.Serialization.ErrorAccess
+    /// </summary>
+    [System.Obsolete("This class has been moved to SmartHopper.Core.Grasshopper.Utils.Serialization.ErrorAccess. Please update your references.", false)]
     public static class GHErrors
     {
         public static IList<string> GetRuntimeErrors(IGH_ActiveObject obj, string type = "error")
         {
-            switch (type)
-            {
-                case "warning":
-                    return obj.RuntimeMessages(GH_RuntimeMessageLevel.Warning);
-                case "error":
-                    return obj.RuntimeMessages(GH_RuntimeMessageLevel.Error);
-                case "remark":
-                case "info":
-                    return obj.RuntimeMessages(GH_RuntimeMessageLevel.Remark);
-                default:
-                    Debug.WriteLine($"Unknown error type '{type}'. Returning error by default.");
-                    return obj.RuntimeMessages(GH_RuntimeMessageLevel.Error);
-            }
+            return ErrorAccess.GetRuntimeErrors(obj, type);
         }
     }
 }
