@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GHGenerateUtils`: Generate GhJSON component specifications.
   - `RhinoFileUtils`: Read and analyze .3dm files.
   - `RhinoGeometryUtils`: Extract geometry information from active Rhino document.
+- New test project `SmartHopper.Core.Grasshopper.Tests` with comprehensive unit test coverage:
+  - `AIResponseParserTests`: 40+ tests for parsing edge cases (JSON arrays, markdown blocks, ranges, text formats)
+  - `PropertyManagerTests`: 30+ tests for type conversion, property setting, and persistent data handling
 
 ### Changed
 
