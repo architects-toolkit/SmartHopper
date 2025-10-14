@@ -15,7 +15,6 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 {
@@ -53,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             // Create a temporary instance to get metadata
-            var instance = GHObjectFactory.CreateInstance(proxy);
+            var instance = ObjectFactory.CreateInstance(proxy);
             var guid = instanceGuid ?? Guid.NewGuid();
 
             var ghComponent = new JObject

@@ -14,10 +14,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Rhino.DocObjects;
-using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Core.Grasshopper.Utils.Rhino;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
@@ -106,8 +104,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Use utility to read 3DM file
-                var toolResult = RhinoFileUtils.Read3dmFile(filePath, includeDetails, maxObjects, typeFilter);
-                
+                var toolResult = File3dmReader.Read3dmFile(filePath, includeDetails, maxObjects, typeFilter);
+
                 if (toolResult == null)
                 {
                     output.CreateError($"Failed to read 3DM file: {filePath}");
