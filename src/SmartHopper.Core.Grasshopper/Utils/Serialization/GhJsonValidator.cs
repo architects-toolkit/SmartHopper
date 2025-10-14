@@ -356,8 +356,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             try
             {
                 // Get component proxies
-                var fromProxy = GHObjectFactory.FindProxy(fromComponentGuid);
-                var toProxy = GHObjectFactory.FindProxy(toComponentGuid);
+                var fromProxy = ObjectFactory.FindProxy(fromComponentGuid);
+                var toProxy = ObjectFactory.FindProxy(toComponentGuid);
 
                 if (fromProxy == null || toProxy == null)
                 {

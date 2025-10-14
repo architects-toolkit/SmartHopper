@@ -22,7 +22,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.List
@@ -144,7 +144,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"], "array");
+                var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
                 var criteriaTree = branches["Criteria"];
 
                 // Normalize tree lengths

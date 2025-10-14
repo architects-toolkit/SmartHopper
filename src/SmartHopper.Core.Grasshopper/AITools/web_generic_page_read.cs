@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -110,7 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (robotsResponse.IsSuccessStatusCode)
                     {
                         string robotsContent = await robotsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        var robots = new WebTools(robotsContent);
+                        var robots = new WebUtilities(robotsContent);
                         if (!robots.IsPathAllowed(uri.PathAndQuery))
                         {
                             output.CreateError($"Access to '{uri}' is disallowed by robots.txt.");

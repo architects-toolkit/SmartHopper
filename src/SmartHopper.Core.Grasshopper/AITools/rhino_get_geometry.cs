@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Rhino.DocObjects;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Rhino;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -104,7 +104,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Use utility to get geometry
-                var toolResult = RhinoGeometryUtils.GetGeometry(filter, layerName, objectType, includeDetails, maxObjects);
+                var toolResult = DocumentGeometryExtractor.GetGeometry(filter, layerName, objectType, includeDetails, maxObjects);
 
                 if (toolResult == null)
                 {
