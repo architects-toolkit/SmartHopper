@@ -1,0 +1,88 @@
+name: 🔥 0 Create Hotfix Branch
+
+# Description: This workflow creates a new hotfix branch from main for emergency patches.
+# It calculates the next patch version and creates a hotfix/X.X.X-description branch.
+#
+# Triggers:
+# - Manually via workflow_dispatch with a hotfix description
+#
+# Permissions:
+# - contents:write - Required to create branches
+
+on:
+  workflow_dispatch:
+    inputs:
+      description:
+        description: 'Hotfix description (will be used in branch name)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-hotfix-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      - name: Get current version from main
+        id: current-version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Calculate next patch version
+        id: calculate-version
+        uses: ./.github/actions/versioning/calculate-version
+        with:
+          version: ${{ steps.current-version.outputs.version }}
+          increment: patch
+
+      - name: Sanitize description for branch name
+        id: sanitize
+        run: |
+          # Convert description to lowercase, replace spaces with hyphens, remove special chars
+          SANITIZED=$(echo "${{ github.event.inputs.description }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
+          echo "description=$SANITIZED" >> $GITHUB_OUTPUT
+
+      - name: Set branch name
+        id: set-branch
+        run: |
+          echo "hotfix_branch=hotfix/${{ steps.calculate-version.outputs.new-version }}-${{ steps.sanitize.outputs.description }}" >> $GITHUB_OUTPUT
+
+      - name: Check if branch already exists
+        id: check-branch
+        run: |
+          if git ls-remote --exit-code --heads origin ${{ steps.set-branch.outputs.hotfix_branch }}; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Exit if branch exists
+        if: steps.check-branch.outputs.exists == 'true'
+        run: |
+          echo "::error::Branch ${{ steps.set-branch.outputs.hotfix_branch }} already exists"
+          exit 1
+
+      - name: Create hotfix branch
+        run: |
+          git checkout -b ${{ steps.set-branch.outputs.hotfix_branch }}
+          git push origin ${{ steps.set-branch.outputs.hotfix_branch }}
+
+      - name: Output branch info
+        run: |
+          echo "✅ Created hotfix branch: ${{ steps.set-branch.outputs.hotfix_branch }}"
+          echo "📝 Next version will be: ${{ steps.calculate-version.outputs.new-version }}"
+          echo ""
+          echo "Next steps:"
+          echo "1. Make your hotfix changes in the ${{ steps.set-branch.outputs.hotfix_branch }} branch"
+          echo "2. When ready, run the 'hotfix-1-release-hotfix' workflow to prepare the release"

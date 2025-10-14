@@ -1,0 +1,375 @@
+name: 🔥 1 Prepare Hotfix Release
+
+# Description: This workflow prepares a hotfix release by updating version, changelog, and badges.
+# It creates a release/X.X.X-hotfix-description branch with a PR to main.
+#
+# Triggers:
+# - Manually via workflow_dispatch from a hotfix/* branch
+#
+# Permissions:
+# - contents:write - Required to create branches and commit changes
+# - issues:read - Required to read issue information
+# - pull-requests:write - Required to create pull requests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
+
+jobs:
+  prepare-hotfix-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+          if [[ ! $BRANCH_NAME =~ ^hotfix/ ]]; then
+            echo "::error::This workflow must be run from a hotfix/* branch. Current branch: $BRANCH_NAME"
+            exit 1
+          fi
+
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      - name: Extract version from branch name
+        id: extract-version
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+          # Extract version from hotfix/X.X.X-description format
+          VERSION=$(echo "$BRANCH_NAME" | sed -n 's/^hotfix\/\([0-9]\+\.[0-9]\+\.[0-9]\+\)-.*/\1/p')
+          
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::Could not extract version from branch name: $BRANCH_NAME"
+            echo "Expected format: hotfix/X.X.X-description"
+            exit 1
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Extract description from branch name
+        id: extract-description
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+          # Extract description from hotfix/X.X.X-description format
+          DESCRIPTION=$(echo "$BRANCH_NAME" | sed -n 's/^hotfix\/[0-9]\+\.[0-9]\+\.[0-9]\+-\(.*\)/\1/p')
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "Extracted description: $DESCRIPTION"
+
+      - name: Set release branch name
+        id: set-branch
+        run: |
+          echo "release_branch=release/${{ steps.extract-version.outputs.version }}-hotfix-${{ steps.extract-description.outputs.description }}" >> $GITHUB_OUTPUT
+
+      - name: Remove existing release branch if it exists
+        run: |
+          if git ls-remote --exit-code --heads origin ${{ steps.set-branch.outputs.release_branch }}; then
+            git push origin --delete ${{ steps.set-branch.outputs.release_branch }}
+          fi
+
+      - name: Create release branch
+        run: git checkout -b ${{ steps.set-branch.outputs.release_branch }}
+
+      - name: Update version in Solution.props
+        uses: ./.github/actions/versioning/update-version
+        with:
+          new-version: ${{ steps.extract-version.outputs.version }}
+
+      - name: Include missing issues in changelog
+        uses: ./.github/actions/documentation/update-changelog-issues
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days-lookback: 30
+
+      - name: Update changelog section
+        uses: ./.github/actions/documentation/update-changelog
+        with:
+          action: create-release
+          version: ${{ steps.extract-version.outputs.version }}
+          
+      - name: Update README badges
+        uses: ./.github/actions/documentation/update-badges
+        id: update-badges
+
+      - name: Update Ready badge to YES (brightgreen)
+        uses: ./.github/actions/documentation/update-ready-badge
+        with:
+          status: YES
+          color: brightgreen
+          file: README.md
+
+      - name: Commit and push changes
+        run: |
+          git add Solution.props CHANGELOG.md README.md
+          git commit -m "chore: prepare hotfix release ${{ steps.extract-version.outputs.version }}"
+          git push origin ${{ steps.set-branch.outputs.release_branch }}
+
+      - name: Check milestones for version collision
+        id: check-milestones
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            const newVersion = '${{ steps.extract-version.outputs.version }}';
+            const versionMatch = newVersion.match(/^(\d+)\.(\d+)\.(\d+)$/);
+            if (!versionMatch) {
+              console.log('Invalid version format, skipping milestone check');
+              return { updatedMilestones: [] };
+            }
+            
+            const major = versionMatch[1];
+            const minor = versionMatch[2];
+            const patch = parseInt(versionMatch[3]);
+            
+            // Collect milestones that need updating
+            const milestonesToUpdate = [];
+            
+            for (const milestone of milestones.data) {
+              // Check if milestone shares the same major.minor
+              if (milestone.title.match(new RegExp(`^${major}\\.${minor}\\.\\d+(-[a-zA-Z0-9]+(\\.[0-9]+)?)?$`))) {
+                // Parse milestone version
+                const match = milestone.title.match(/^(\d+)\.(\d+)\.(\d+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$/);
+                if (match) {
+                  const milestoneMajor = match[1];
+                  const milestoneMinor = match[2];
+                  const milestonePatch = parseInt(match[3]);
+                  const milestoneSuffix = match[4] || '';
+                  
+                  // If milestone patch is less than or equal to our hotfix patch, it needs updating
+                  if (milestonePatch >= patch) {
+                    milestonesToUpdate.push({
+                      milestone: milestone,
+                      major: milestoneMajor,
+                      minor: milestoneMinor,
+                      patch: milestonePatch,
+                      suffix: milestoneSuffix
+                    });
+                  }
+                }
+              }
+            }
+            
+            // Sort by patch number in DESCENDING order (highest first)
+            // This prevents collisions during the increment process
+            milestonesToUpdate.sort((a, b) => b.patch - a.patch);
+            
+            const updatedMilestones = [];
+            
+            // Update milestones from highest to lowest patch number
+            for (const item of milestonesToUpdate) {
+              const newMilestonePatch = item.patch + 1;
+              const updatedMilestoneVersion = `${item.major}.${item.minor}.${newMilestonePatch}${item.suffix}`;
+              
+              console.log(`Updating milestone ${item.milestone.title} to ${updatedMilestoneVersion}`);
+              
+              // Update milestone title
+              await github.rest.issues.updateMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone_number: item.milestone.number,
+                title: updatedMilestoneVersion
+              });
+              
+              updatedMilestones.push({
+                from: item.milestone.title,
+                to: updatedMilestoneVersion
+              });
+            }
+            
+            return { updatedMilestones: updatedMilestones };
+
+      - name: Check dev branch for version collision
+        id: check-dev
+        run: |
+          # Fetch dev branch
+          git fetch origin dev
+          
+          # Check if dev branch exists
+          if git rev-parse --verify origin/dev >/dev/null 2>&1; then
+            # Checkout dev branch
+            git checkout origin/dev
+            
+            # Get version from dev branch
+            DEV_VERSION=$(grep -oP '(?<=<SolutionVersion>)[^<]+' Solution.props)
+            echo "Dev version: $DEV_VERSION"
+            
+            # Parse dev version components
+            if [[ $DEV_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+              DEV_MAJOR="${BASH_REMATCH[1]}"
+              DEV_MINOR="${BASH_REMATCH[2]}"
+              DEV_PATCH="${BASH_REMATCH[3]}"
+              DEV_SUFFIX="${BASH_REMATCH[4]}"
+              
+              # Extract hotfix version components
+              HOTFIX_VERSION="${{ steps.extract-version.outputs.version }}"
+              if [[ $HOTFIX_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+                HOTFIX_MAJOR="${BASH_REMATCH[1]}"
+                HOTFIX_MINOR="${BASH_REMATCH[2]}"
+                HOTFIX_PATCH="${BASH_REMATCH[3]}"
+                
+                # Check if dev version has same major.minor as our hotfix version
+                if [ "$DEV_MAJOR" == "$HOTFIX_MAJOR" ] && [ "$DEV_MINOR" == "$HOTFIX_MINOR" ]; then
+                  # Check if dev patch is less than or equal to our hotfix patch
+                  if [ "$DEV_PATCH" -le "$HOTFIX_PATCH" ]; then
+                    echo "DEV_COLLISION=true" >> $GITHUB_OUTPUT
+                    
+                    # Increment patch version to be one more than our hotfix patch
+                    DEV_NEW_PATCH=$((HOTFIX_PATCH + 1))
+                    if [[ -n "$DEV_SUFFIX" ]]; then
+                      DEV_NEW_VERSION="$DEV_MAJOR.$DEV_MINOR.$DEV_NEW_PATCH$DEV_SUFFIX"
+                    else
+                      DEV_NEW_VERSION="$DEV_MAJOR.$DEV_MINOR.$DEV_NEW_PATCH"
+                    fi
+                    
+                    echo "New dev version: $DEV_NEW_VERSION"
+                    echo "DEV_NEW_VERSION=$DEV_NEW_VERSION" >> $GITHUB_OUTPUT
+                    echo "DEV_VERSION=$DEV_VERSION" >> $GITHUB_OUTPUT
+                  else
+                    echo "Dev patch is already higher than our hotfix patch, no collision"
+                    echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+                  fi
+                else
+                  echo "Dev version has different major.minor, no collision"
+                  echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+                fi
+              else
+                echo "Error parsing hotfix version, skipping collision check"
+                echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "Error parsing dev version, skipping collision check"
+              echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Dev branch does not exist, skipping check"
+            echo "DEV_COLLISION=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Return to release branch
+          git checkout ${{ steps.set-branch.outputs.release_branch }}
+
+      - name: Create PR to update dev branch if version collision
+        if: steps.check-dev.outputs.DEV_COLLISION == 'true'
+        run: |
+          # Set branch name for dev version update
+          DEV_UPDATE_BRANCH="chore/bump-dev-version-for-hotfix-${{ steps.extract-version.outputs.version }}"
+          
+          # Delete existing branch if it exists
+          git push origin --delete $DEV_UPDATE_BRANCH || true
+          
+          # Delete existing PR if it exists
+          PR_NUMBER=$(gh pr list --base dev --head $DEV_UPDATE_BRANCH --json number --jq '.[0].number' || echo "")
+          if [ ! -z "$PR_NUMBER" ]; then
+            echo "Found existing PR #$PR_NUMBER, closing it"
+            gh pr close $PR_NUMBER --delete-branch || true
+          fi
+          
+          # Checkout dev branch and create new branch
+          git fetch origin dev
+          git checkout -b $DEV_UPDATE_BRANCH origin/dev
+          
+          # Update Solution.props with new dev version
+          sed -i "s/<SolutionVersion>.*<\/SolutionVersion>/<SolutionVersion>${{ steps.check-dev.outputs.DEV_NEW_VERSION }}<\/SolutionVersion>/" Solution.props
+          echo "Updated Solution.props in dev branch with new version: ${{ steps.check-dev.outputs.DEV_NEW_VERSION }}"
+          
+          # Update README badges
+          CURRENT_VERSION="${{ steps.check-dev.outputs.DEV_VERSION }}"
+          NEW_VERSION="${{ steps.check-dev.outputs.DEV_NEW_VERSION }}"
+          
+          # Update version badge
+          sed -i "s|version-${CURRENT_VERSION}-|version-${NEW_VERSION}-|g" README.md
+          sed -i "s|${CURRENT_VERSION}\.svg|${NEW_VERSION}.svg|g" README.md
+          echo "Updated README.md badges"
+          
+          # Commit and push changes
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Solution.props README.md
+          git commit -m "chore: bump version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} to avoid collision with hotfix ${{ steps.extract-version.outputs.version }}"
+          git push origin $DEV_UPDATE_BRANCH
+          
+          # Create PR to dev
+          PR_TITLE="chore: bump dev version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} (hotfix collision)"
+          PR_BODY="This PR updates the dev branch version to avoid collision with hotfix release ${{ steps.extract-version.outputs.version }}.
+          
+          **Version Changes:**
+          - Previous: ${{ steps.check-dev.outputs.DEV_VERSION }}
+          - New: ${{ steps.check-dev.outputs.DEV_NEW_VERSION }}
+          
+          **Reason:** Hotfix ${{ steps.extract-version.outputs.version }} is being released from main, so dev needs to skip to the next patch version.
+          
+          This is an automated PR created by the hotfix workflow."
+          
+          gh pr create --base dev --head $DEV_UPDATE_BRANCH --title "$PR_TITLE" --body "$PR_BODY"
+          
+          # Return to release branch
+          git checkout ${{ steps.set-branch.outputs.release_branch }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request to main
+        id: create-pr
+        run: |
+          gh pr create \
+            --base main \
+            --head ${{ steps.set-branch.outputs.release_branch }} \
+            --title "chore: hotfix release ${{ steps.extract-version.outputs.version }}" \
+            --body $'## 🔥 Hotfix Release ${{ steps.extract-version.outputs.version }}\n\n**Description:** ${{ steps.extract-description.outputs.description }}\n\nThis PR contains a hotfix release that addresses critical issues in production.\n\n### Changes\n\n- Updated version to ${{ steps.extract-version.outputs.version }}\n- Updated CHANGELOG.md with release notes\n- Updated README badges\n\n### Release Process\n\nOnce this PR is merged to main:\n1. A GitHub Release will be created automatically (workflow: release-3-pr-to-main-closed.yml)\n2. The project will be built (workflow: release-4-build.yml)\n3. Artifacts will be uploaded to Yak (workflow: release-5-upload-yak.yml)\n\n⚠️ **Note:** After merging to main, you may want to cherry-pick or merge these changes back to dev to keep it in sync.'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update PR description with collision info
+        if: steps.check-milestones.outputs.result != '' || steps.check-dev.outputs.DEV_COLLISION == 'true'
+        run: |
+          PR_NUMBER=$(gh pr view ${{ steps.set-branch.outputs.release_branch }} --json number -q .number)
+          
+          # Build additional info
+          ADDITIONAL_INFO=""
+          
+          # Add milestone update info if available
+          MILESTONE_RESULT='${{ steps.check-milestones.outputs.result }}'
+          if [[ -n "$MILESTONE_RESULT" && "$MILESTONE_RESULT" != "null" ]]; then
+            UPDATED_MILESTONES=$(echo "$MILESTONE_RESULT" | jq -r '.updatedMilestones')
+            if [[ "$UPDATED_MILESTONES" != "null" && "$UPDATED_MILESTONES" != "[]" ]]; then
+              ADDITIONAL_INFO="${ADDITIONAL_INFO}\n\n### Updated Milestones\n\n"
+              echo "$MILESTONE_RESULT" | jq -r '.updatedMilestones[] | "- \(.from) → \(.to)"' | while read line; do
+                ADDITIONAL_INFO="${ADDITIONAL_INFO}${line}\n"
+              done
+            fi
+          fi
+          
+          # Add dev branch update info if applicable
+          if [[ "${{ steps.check-dev.outputs.DEV_COLLISION }}" == "true" ]]; then
+            ADDITIONAL_INFO="${ADDITIONAL_INFO}\n\n### Dev Branch Update\n\nA PR has been created to update the dev branch version from ${{ steps.check-dev.outputs.DEV_VERSION }} to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} to avoid version collision.\n\nPlease review and merge the dev version bump PR before or after merging this hotfix."
+          fi
+          
+          # Get current PR body and append additional info
+          CURRENT_BODY=$(gh pr view $PR_NUMBER --json body -q .body)
+          NEW_BODY="${CURRENT_BODY}${ADDITIONAL_INFO}"
+          
+          gh pr edit $PR_NUMBER --body "$NEW_BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add priority label to PR
+        run: |
+          PR_NUMBER=$(gh pr view ${{ steps.set-branch.outputs.release_branch }} --json number -q .number)
+          gh pr edit $PR_NUMBER --add-label "priority: critical" || echo "Could not add priority label (label may not exist)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
