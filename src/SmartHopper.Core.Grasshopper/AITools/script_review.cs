@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -136,7 +136,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
-                var objects = GHCanvasUtils.GetCurrentObjects();
+                var objects = CanvasAccess.GetCurrentObjects();
                 var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid) as IScriptComponent;
                 if (target == null)
                 {

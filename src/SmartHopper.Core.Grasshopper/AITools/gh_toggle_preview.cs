@@ -14,7 +14,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -106,7 +106,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (Guid.TryParse(s, out var guid))
                     {
                         Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                        GHComponentUtils.SetComponentPreview(guid, previewOn);
+                        ComponentManipulation.SetComponentPreview(guid, previewOn);
                         Debug.WriteLine($"[GhObjTools] Set preview to {previewOn} for GUID: {guid}");
                         updated.Add(guid.ToString());
                     }
@@ -135,7 +135,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<AIReturn> GhTogglePreviewSelectedAsync(AIToolCall toolCall, bool previewOn)
         {
             // Get selected component GUIDs
-            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+            var selectedGuids = CanvasAccess.GetCurrentObjects()
                 .Where(o => o.Attributes.Selected)
                 .Select(o => o.InstanceGuid.ToString())
                 .ToList();

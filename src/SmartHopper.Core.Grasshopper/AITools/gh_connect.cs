@@ -14,7 +14,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -101,7 +101,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                if (GHCanvasUtils.GetCurrentCanvas() == null)
+                if (CanvasAccess.GetCurrentCanvas() == null)
                 {
                     output.CreateError("No active Grasshopper document found.");
                     return Task.FromResult(output);
@@ -139,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Use utility to connect components
-                    bool success = GHConnectionUtils.ConnectComponents(
+                    bool success = ConnectionBuilder.ConnectComponents(
                         sourceGuid,
                         targetGuid,
                         sourceParamName,
@@ -171,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Redraw once after all connections
                 if (successfulConnections.Any())
                 {
-                    var doc = GHCanvasUtils.GetCurrentCanvas();
+                    var doc = CanvasAccess.GetCurrentCanvas();
                     doc.NewSolution(false);
                     Instances.RedrawCanvas();
                 }

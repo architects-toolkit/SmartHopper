@@ -16,7 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -139,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Use utility to generate component spec
-                    var ghComponent = GHGenerateUtils.GenerateComponentSpec(name, parameters, position);
+                    var ghComponent = ComponentSpecBuilder.GenerateComponentSpec(name, parameters, position);
                     if (ghComponent == null)
                     {
                         Debug.WriteLine($"[gh_generate] Component not found: {name}");
@@ -157,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Use utility to build GhJSON document
-                var ghJson = GHGenerateUtils.GenerateGhJsonDocument(ghComponents);
+                var ghJson = ComponentSpecBuilder.GenerateGhJsonDocument(ghComponents);
                 var ghJsonString = ghJson.ToString(Formatting.Indented);
 
                 var toolResult = new JObject

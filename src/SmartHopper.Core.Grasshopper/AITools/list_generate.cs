@@ -15,7 +15,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -322,7 +322,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             {
                                 // Try to unwrap and parse partial response
                                 responseTruncated = UnwrapResponseIfNeeded(responseTruncated);
-                                partialItems = ParsingTools.ParseStringArrayFromResponse(responseTruncated);
+                                partialItems = AIResponseParser.ParseStringArrayFromResponse(responseTruncated);
                                 Debug.WriteLine($"[ListTools] Successfully parsed {partialItems.Count} items from truncated response");
                             }
                             catch (Exception ex)
@@ -408,7 +408,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     List<string> newItems;
                     try
                     {
-                        newItems = ParsingTools.ParseStringArrayFromResponse(response);
+                        newItems = AIResponseParser.ParseStringArrayFromResponse(response);
                     }
                     catch (Exception parseEx)
                     {

@@ -14,7 +14,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -107,7 +107,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (Guid.TryParse(s, out var guid))
                     {
                         Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                        GHComponentUtils.SetComponentLock(guid, locked);
+                        ComponentManipulation.SetComponentLock(guid, locked);
                         Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
                         updated.Add(guid.ToString());
                     }
@@ -138,7 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<AIReturn> GhToggleLockSelectedAsync(AIToolCall toolCall, bool locked)
         {
             // Get selected component GUIDs
-            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+            var selectedGuids = CanvasAccess.GetCurrentObjects()
                 .Where(o => o.Attributes.Selected)
                 .Select(o => o.InstanceGuid.ToString())
                 .ToList();

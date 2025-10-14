@@ -16,7 +16,8 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using Rhino;
 using SmartHopper.Core.Grasshopper.Models;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -117,14 +118,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Discover component GUID dynamically
-                var proxy = GHObjectFactory.FindProxy(displayName)
+                var proxy = ObjectFactory.FindProxy(displayName)
                                ?? throw new Exception($"Component type '{displayName}' not found in this Grasshopper installation.");
                 IGH_Component tempComp = null;
 
                 // Instantiate component proxy on UI thread
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    var inst = GHObjectFactory.CreateInstance(proxy);
+                    var inst = ObjectFactory.CreateInstance(proxy);
                     tempComp = inst as IGH_Component;
                 });
                 if (tempComp == null)
@@ -298,7 +299,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
-                        var map = Put.PutObjectsOnCanvasWithMapping(doc);
+                        var map = GhJsonPlacer.PutObjectsOnCanvasWithMapping(doc);
                         tcs.SetResult(map);
                     }
                     catch (Exception ex)
@@ -318,7 +319,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         try
                         {
-                            var placedComponent = GHCanvasUtils.FindInstance(actualGuid);
+                            var placedComponent = CanvasAccess.FindInstance(actualGuid);
                             if (placedComponent != null)
                             {
                                 // Expire the solution to trigger recompilation

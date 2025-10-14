@@ -21,7 +21,7 @@ using Rhino;
 using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;
 using SmartHopper.Core.Grasshopper.Models;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -115,7 +115,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
-                        var component = GHCanvasUtils.FindInstance(componentGuid);
+                        var component = CanvasAccess.FindInstance(componentGuid);
                         if (component == null)
                         {
                             findTcs.SetResult(false);
