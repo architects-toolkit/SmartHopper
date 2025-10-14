@@ -20,6 +20,11 @@ name: 🚀 5 Upload to Yak Rhino Server
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Version to upload (leave empty to use version from main branch)'
+        required: false
+        type: string
+        default: ''
       upload_to_yak:
         description: 'Confirm upload to Yak?'
         required: false
@@ -45,11 +50,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version
-        id: get_version
+      - name: Get version from branch
+        id: get_version_from_branch
+        if: inputs.version == ''
         uses: ./.github/actions/versioning/get-version
         with:
           branch: main
+
+      - name: Set version
+        id: get_version
+        shell: pwsh
+        run: |
+          if ("${{ inputs.version }}" -ne "") {
+            $version = "${{ inputs.version }}"
+            Write-Host "Using manually specified version: $version"
+          } else {
+            $version = "${{ steps.get_version_from_branch.outputs.version }}"
+            Write-Host "Using version from main branch: $version"
+          }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Create artifacts directory
         shell: pwsh
