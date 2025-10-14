@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New hotfix workflow system for emergency production fixes:
+  - **hotfix-0-new-branch.yml** - Creates `hotfix/X.X.X-description` branch from main with automatic patch version increment
+  - **hotfix-1-release-hotfix.yml** - Prepares `release/X.X.X-hotfix-description` branch with version updates, changelog, and PR to main
+  - Automatic version conflict resolution:
+    - All milestones with patch ≥ hotfix patch are incremented (updated from highest to lowest to prevent collisions)
+    - Dev branch version is bumped via PR if it conflicts (respects protected branch)
+  - Hotfix PRs trigger all existing validations (version check, code style, tests) before merging
+  - After merge to main, existing release workflows (release-3, release-4, release-5) handle GitHub Release creation, build, and Yak upload
+  - Comprehensive documentation in `.github/workflows/HOTFIX_WORKFLOW.md`
+- Comprehensive workflow documentation:
+  - **RELEASE_WORKFLOW.md** - Complete guide for regular milestone-based releases
+  - **HOTFIX_WORKFLOW.md** - Complete guide for emergency hotfix releases
+
+### Changed
+
+- Extended PR validation and CI test workflows to run on `hotfix/**` and `release/**` branches
+- **user-security-patch.yml** workflow is now obsolete, removed from workflows
+
 ## [1.0.1-alpha] - 2025-10-13
 
 ### Changed
