@@ -16,7 +16,9 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -213,7 +215,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var typeFilters = predefinedTypeFilters != null
                     ? new List<string>(predefinedTypeFilters)
                     : args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var objects = GHCanvasUtils.GetCurrentObjects();
+                var objects = CanvasAccess.GetCurrentObjects();
 
                 // Filter by manual UI selection if provided
                 var selectedGuids = args["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
@@ -224,8 +226,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
-                var (includeTypes, excludeTypes) = Get.ParseIncludeExclude(typeFilters, Get.TypeSynonyms);
-                var (includeTags, excludeTags) = Get.ParseIncludeExclude(attrFilters, Get.FilterSynonyms);
+                var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
+                var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
 
                 // Apply typeFilters on base objects
                 var typeFiltered = new List<IGH_ActiveObject>(objects);
@@ -244,7 +246,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = GHDocumentUtils.GetObjectsDetails(objects);
+                        var tempDoc = DocumentIntrospection.GetObjectsDetails(objects);
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
@@ -296,7 +298,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = GHDocumentUtils.GetObjectsDetails(typeFiltered);
+                        var tempDoc = DocumentIntrospection.GetObjectsDetails(typeFiltered);
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
@@ -452,8 +454,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (connectionDepth > 0)
                 {
-                    var allObjects = GHCanvasUtils.GetCurrentObjects();
-                    var fullDoc = GHDocumentUtils.GetObjectsDetails(allObjects);
+                    var allObjects = CanvasAccess.GetCurrentObjects();
+                    var fullDoc = DocumentIntrospection.GetObjectsDetails(allObjects);
                     var edges = fullDoc.Connections.Select(c => (c.From.InstanceId, c.To.InstanceId));
                     var initialIds = resultObjects.Select(o => o.InstanceGuid);
                     var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
@@ -464,7 +466,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var document = GHDocumentUtils.GetObjectsDetails(resultObjects);
+                var document = DocumentIntrospection.GetObjectsDetails(resultObjects);
 
                 // only keep connections where both components are in our filtered set
                 var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();

@@ -14,7 +14,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using Grasshopper.Kernel;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Graph
@@ -149,9 +149,9 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
                     // compute input parameter index on child
                     int inputIndex = -1;
-                    if (GHCanvasUtils.FindInstance(toNode.ComponentId) is IGH_Component childComp)
+                    if (CanvasAccess.FindInstance(toNode.ComponentId) is IGH_Component childComp)
                     {
-                        var inputs = GHParameterUtils.GetAllInputs(childComp);
+                        var inputs = ParameterAccess.GetAllInputs(childComp);
                         inputIndex = inputs.FindIndex(p => p.Name == conn.To.ParamName);
                     }
 
@@ -159,9 +159,9 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
                     // compute output parameter index on parent
                     int outputIndex = -1;
-                    if (GHCanvasUtils.FindInstance(fromNode.ComponentId) is IGH_Component parentComp)
+                    if (CanvasAccess.FindInstance(fromNode.ComponentId) is IGH_Component parentComp)
                     {
-                        var outputs = GHParameterUtils.GetAllOutputs(parentComp);
+                        var outputs = ParameterAccess.GetAllOutputs(parentComp);
                         outputIndex = outputs.FindIndex(p => p.Name == conn.From.ParamName);
                     }
 
@@ -473,7 +473,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
             float xOffset = 0;
             foreach (var group in columns)
             {
-                float maxWidth = group.Max(n => GHComponentUtils.GetComponentBounds(n.ComponentId).Width);
+                float maxWidth = group.Max(n => ComponentManipulation.GetComponentBounds(n.ComponentId).Width);
                 colOffsets[group.Key] = xOffset;
                 xOffset += maxWidth + spacingX;
             }
@@ -484,7 +484,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
             float yOffset = 0;
             foreach (var group in rows)
             {
-                float maxHeight = group.Max(n => GHComponentUtils.GetComponentBounds(n.ComponentId).Height);
+                float maxHeight = group.Max(n => ComponentManipulation.GetComponentBounds(n.ComponentId).Height);
                 rowOffsets[group.Key] = yOffset;
                 yOffset += maxHeight + spacingY;
             }
@@ -532,11 +532,11 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
                     // param-case: one slider per input -> reorder to input order and align to port Ys
                     if (parents.Count > 1
-                        && GHCanvasUtils.FindInstance(child.ComponentId) is IGH_Component childComp
+                        && CanvasAccess.FindInstance(child.ComponentId) is IGH_Component childComp
                         && childComp.Params.Input.Count == parents.Count
-                        && parents.All(p => GHCanvasUtils.FindInstance(p.ComponentId) is IGH_Param))
+                        && parents.All(p => CanvasAccess.FindInstance(p.ComponentId) is IGH_Param))
                     {
-                        var inputs = GHParameterUtils.GetAllInputs(childComp);
+                        var inputs = ParameterAccess.GetAllInputs(childComp);
                         foreach (var p in parents.OrderBy(p => child.Parents[p.ComponentId]))
                         {
                             int inputIdx = child.Parents[p.ComponentId];
@@ -546,7 +546,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
                                 // calculate relative grid Y based on canvas offset
                                 float inputPivotY = rect.Y + rect.Height / 2f;
-                                var canvasChildBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
+                                var canvasChildBounds = ComponentManipulation.GetComponentBounds(child.ComponentId);
                                 float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height / 2f;
                                 float deltaCanvasY = inputPivotY - canvasChildCenterY;
 
@@ -601,11 +601,11 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     var orderedParents = parents.OrderBy(p => p.Pivot.Y).ToList();
 
                     // compute total group height including margins between parents
-                    var heights = orderedParents.Select(p => GHComponentUtils.GetComponentBounds(p.ComponentId).Height).ToList();
+                    var heights = orderedParents.Select(p => ComponentManipulation.GetComponentBounds(p.ComponentId).Height).ToList();
                     float totalHeight = heights.Sum() + spacingY * (orderedParents.Count - 1);
 
                     // compute child center Y
-                    var childBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
+                    var childBounds = ComponentManipulation.GetComponentBounds(child.ComponentId);
                     float childCenterY = child.Pivot.Y + childBounds.Height / 2f;
 
                     // position group such that its center aligns with child center
@@ -615,7 +615,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                     foreach (var p in orderedParents)
                     {
                         var oldY = p.Pivot.Y;
-                        var bounds = GHComponentUtils.GetComponentBounds(p.ComponentId);
+                        var bounds = ComponentManipulation.GetComponentBounds(p.ComponentId);
                         p.Pivot = new PointF(p.Pivot.X, yCursor);
                         Debug.WriteLine($"[AlignParentsAndChildren] Moving parent {p.ComponentId} from Y={oldY} to Y={yCursor}");
                         yCursor += bounds.Height + spacingY;
@@ -683,15 +683,15 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 if (inputIndex < 0) continue;
 
                 // fetch input port bounds
-                if (!(GHCanvasUtils.FindInstance(child.ComponentId) is IGH_Component childComp)) continue;
-                var inputs = GHParameterUtils.GetAllInputs(childComp);
+                if (!(CanvasAccess.FindInstance(child.ComponentId) is IGH_Component childComp)) continue;
+                var inputs = ParameterAccess.GetAllInputs(childComp);
                 if (inputIndex >= inputs.Count) continue;
                 var port = inputs[inputIndex];
                 var rect = port.Attributes.Bounds;
 
                 // compute offset from child's center
                 float inputPivotY = rect.Y + rect.Height / 2f;
-                var canvasChildBounds = GHComponentUtils.GetComponentBounds(child.ComponentId);
+                var canvasChildBounds = ComponentManipulation.GetComponentBounds(child.ComponentId);
                 float canvasChildCenterY = canvasChildBounds.Y + canvasChildBounds.Height / 2f;
                 float deltaCanvasY = inputPivotY - canvasChildCenterY;
 
@@ -716,7 +716,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 float lastBottom = float.MinValue;
                 foreach (var node in sorted)
                 {
-                    var bounds = GHComponentUtils.GetComponentBounds(node.ComponentId);
+                    var bounds = ComponentManipulation.GetComponentBounds(node.ComponentId);
                     if (node.Pivot.Y < lastBottom)
                         node.Pivot = new PointF(node.Pivot.X, lastBottom);
                     lastBottom = node.Pivot.Y + bounds.Height;
@@ -741,10 +741,10 @@ namespace SmartHopper.Core.Grasshopper.Graph
         // Helper to unify pivot origin: params use top-left by default, center-align for grid
         private static PointF UnifyCenterPivot(Guid id, PointF pivot)
         {
-            var obj = GHCanvasUtils.FindInstance(id);
+            var obj = CanvasAccess.FindInstance(id);
             if (obj is IGH_Param)
             {
-                var bounds = GHComponentUtils.GetComponentBounds(id);
+                var bounds = ComponentManipulation.GetComponentBounds(id);
                 if (!bounds.IsEmpty)
                 {
                     pivot = new PointF(

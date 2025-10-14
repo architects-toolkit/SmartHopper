@@ -18,7 +18,8 @@ using Grasshopper;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -147,7 +148,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Create group with undo support
-                    group = GHDocumentUtils.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
+                    group = DocumentIntrospection.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
 
                     // Update UI
                     Instances.RedrawCanvas();
@@ -185,7 +186,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private Task<AIReturn> GhGroupSelectedAsync(AIToolCall toolCall)
         {
             // Get selected component GUIDs
-            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+            var selectedGuids = CanvasAccess.GetCurrentObjects()
                 .Where(o => o.Attributes.Selected)
                 .Select(o => o.InstanceGuid.ToString())
                 .ToList();

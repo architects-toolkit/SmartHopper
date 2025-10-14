@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -146,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Parse the boolean from the response
-                var parsedResult = ParsingTools.ParseBooleanFromResponse(response);
+                var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
 
                 if (parsedResult == null)
                 {

@@ -14,7 +14,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -70,7 +71,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.Arguments ?? new JObject();
                 var json = args["json"]?.ToString() ?? string.Empty;
 
-                GHJsonLocal.Validate(json, out analysisMsg);
+                GhJsonValidator.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
 
                 if (document?.Components == null || !document.Components.Any())
@@ -81,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Placement & wiring using Put utils
-                var placed = Put.PutObjectsOnCanvas(document);
+                var placed = GhJsonPlacer.PutObjectsOnCanvas(document);
 
                 var toolResult = new JObject
                 {
