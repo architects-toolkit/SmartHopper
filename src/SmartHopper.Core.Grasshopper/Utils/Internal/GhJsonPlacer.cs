@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json;
@@ -435,9 +436,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             // Recreate groups if present in the document
             if (document.Groups != null && document.Groups.Count > 0)
             {
+                Debug.WriteLine($"[GhJsonPlacer] About to recreate {document.Groups.Count} groups");
                 RecreateGroups(document, mapping);
+                Debug.WriteLine("[GhJsonPlacer] Groups recreated");
             }
 
+            Debug.WriteLine("[GhJsonPlacer] PutObjectsOnCanvas returning");
             return document.Components.Select(c => c.Name).Distinct().ToList();
         }
 
@@ -496,11 +500,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                         try
                         {
                             groupColor = StringConverter.StringToColor(groupInfo.Color);
+                            Debug.WriteLine($"[GhJsonPlacer] Parsed group color from '{groupInfo.Color}' to ARGB({groupColor.Value.A},{groupColor.Value.R},{groupColor.Value.G},{groupColor.Value.B})");
                         }
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"[GhJsonPlacer] Error parsing group color '{groupInfo.Color}': {ex.Message}");
                         }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonPlacer] No color provided for group '{groupInfo.Name}'");
                     }
 
                     // Create the group using DocumentIntrospection.GroupObjects
