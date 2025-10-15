@@ -22,6 +22,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Models.Components;
+using SmartHopper.Core.Serialization.DataTypes;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 {
@@ -277,9 +278,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     case "Color":
                         if (value is string stringValue)
                         {
-                            // Use centralized conversion for both comma-based and HTML/named colors
+                            // Try DataTypeSerializer first (comma-separated format)
+                            if (DataTypeSerializer.TryDeserialize("Color", stringValue, out object colorResult))
+                            {
+                                Debug.WriteLine($"Color deserialized via DataTypeSerializer: {colorResult}");
+                                return colorResult;
+                            }
+
+                            // Fallback to StringConverter for HTML/named colors
                             Color color = StringConverter.StringToColor(stringValue);
-                            Debug.WriteLine($"Color converted: {color}");
+                            Debug.WriteLine($"Color converted via StringConverter: {color}");
                             return color;
                         }
 

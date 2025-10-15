@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Serialization.DataTypes;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 {
@@ -41,8 +42,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 // Iterate over the data items in the path
                 foreach (object dataItem in structure.get_Branch(path))
                 {
-                    // Add the data item to the list
-                    dataList.Add(dataItem);
+                    // Serialize complex types using DataTypeSerializer
+                    object serializedItem = SerializeDataItem(dataItem);
+                    dataList.Add(serializedItem);
 
                     // Debug.WriteLine($"{path.ToString()}: {dataItem.ToString()}");
                 }
@@ -52,6 +54,51 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Serializes a data item, converting complex types to inline prefixed format.
+        /// </summary>
+        /// <param name="dataItem">The data item to serialize.</param>
+        /// <returns>A serialized representation (string with inline type prefix or simple value).</returns>
+        private static object SerializeDataItem(object dataItem)
+        {
+            if (dataItem == null)
+            {
+                return null;
+            }
+
+            // Unwrap IGH_Goo types to get the actual value
+            object actualValue = dataItem;
+            if (dataItem is IGH_Goo goo)
+            {
+                actualValue = goo.ScriptVariable();
+            }
+
+            if (actualValue == null)
+            {
+                return null;
+            }
+
+            // Check if we have a serializer for this type
+            Type valueType = actualValue.GetType();
+            if (DataTypeSerializer.IsTypeSupported(valueType))
+            {
+                try
+                {
+                    // Return inline prefixed format: "typePrefix:serializedValue"
+                    string serializedValue = DataTypeSerializer.Serialize(actualValue);
+                    return serializedValue;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[DataTreeConverter] Error serializing {valueType.Name}: {ex.Message}");
+                    return actualValue;
+                }
+            }
+
+            // Return as-is for simple types (string, number, bool)
+            return actualValue;
         }
 
         public static Dictionary<string, object> IGHStructureDictionaryTo1DDictionary(Dictionary<string, List<object>> dictionary)
@@ -109,10 +156,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     {
                         foreach (var property in item.Value as JObject)
                         {
-                            if (property.Key == "Value")
+                            if (property.Key == "Value" || property.Key == "value")
                             {
-                                result.Append(convertFunction(property.Value), p);
-                                Debug.WriteLine($"{p} value found to be: {property.Value}");
+                                // Check if this is a complex type with inline prefix
+                                JToken valueToken = property.Value;
+                                string valueString = valueToken.ToString();
+                                
+                                // Try to detect and deserialize inline prefixed types automatically
+                                if (DataTypeSerializer.TryDeserializeFromPrefix(valueString, out object deserializedValue))
+                                {
+                                    valueToken = JToken.FromObject(deserializedValue);
+                                    Debug.WriteLine($"{p} deserialized from inline format: {valueString}");
+                                }
+
+                                result.Append(convertFunction(valueToken), p);
+                                Debug.WriteLine($"{p} value found to be: {valueToken}");
                             }
                         }
                     }

@@ -148,17 +148,16 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 
 | Type | Format | Example | Notes |
 |------|--------|---------|-------|
-| **Color** | `r,g,b,a` | `"255,128,64,255"` | RGBA values 0-255 |
-| **Point3d** | `x,y,z` | `"10.5,20.0,30.5"` | 3D coordinates |
-| **Vector3d** | `x,y,z` | `"1.0,0.0,0.0"` | 3D direction vector |
-| **Point2d** | `x,y` | `"10.5,20.0"` | 2D coordinates |
-| **Line** | `x1,y1,z1,x2,y2,z2` | `"0,0,0,10,10,10"` | Start and end points |
-| **Plane** | `ox,oy,oz,xx,xy,xz,yx,yy,yz` | `"0,0,0,1,0,0,0,1,0"` | Origin + X/Y axes |
-| **Circle** | `cx,cy,cz,nx,ny,nz,r` | `"0,0,0,0,0,1,5.0"` | Center + normal + radius |
-| **Arc** | `cx,cy,cz,nx,ny,nz,r,a1,a2` | `"0,0,0,0,0,1,5.0,0,1.57"` | Circle + start/end angles |
-| **BoundingBox** | `x1,y1,z1,x2,y2,z2` | `"0,0,0,10,10,10"` | Min and max corners |
-| **Interval** | `min,max` | `"0.0,10.0"` | Domain/range |
-| **Rectangle3d** | `cx,cy,cz,nx,ny,nz,w,h` | `"0,0,0,0,0,1,10,5"` | Corner + normal + width/height |
+| **Color** | `a,r,g,b` | `"argb:255,128,64,255"` | ARGB values 0-255 |
+| **Point** | `x,y,z` | `"pointXYZ:10.5,20.0,30.5"` | 3D coordinates |
+| **Vector** | `x,y,z` | `"vectorXYZ:1.0,0.0,0.0"` | 3D direction vector |
+| **Line** | `x1,y1,z1;x2,y2,z2` | `"line2p:0,0,0;10,10,10"` | Start and end points |
+| **Plane** | `ox,oy,oz;xx,xy,xz;yx,yy,yz` | `"planeOXY:0,0,0;1,0,0;0,1,0"` | Origin + X/Y axes |
+| **Circle** | `cx,cy,cz;nx,ny,nz;r` | `"circleCNR:0,0,0;0,0,1;5.0"` | Center + normal + radius |
+| **Arc** | `cx,cy,cz;nx,ny,nz;r;a1;a2` | `"arcCNRAB:0,0,0;0,0,1;5.0;0;1.57"` | Circle + start/end angles |
+| **BoundingBox** | `x1,y1,z1;x2,y2,z2` | `"box2p:0,0,0;10,10,10"` | Min and max corners |
+| **Domain** | `min,max` | `"domain:0.0<10.0"` | Domain/range |
+| **Rectangle** | `cx,cy,cz;nx,ny,nz;w,h` | `"rectangleCNWH:0,0,0;0,0,1;10,5"` | Corner + normal + width/height |
 
 #### Persistent Data Encoding
 
@@ -578,8 +577,9 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `locked` | ✅ | ✅ | boolean | `true`, `false` | Component locked state | ✅ Implemented | |
 | `hidden` | ✅ | ✅ | boolean | `true`, `false` | Preview visibility state | ✅ Implemented | |
 | `value` | ✅ | ✅ | various | Component value | **Universal value property** | 💡 **Consolidate** | See mapping table below |
+| `humanReadable` | ❌ | ❌ | string | Human-readable value | Debug/display helper | 🗑️ **ToRemove** | Not necessary if `value` is properly serialized |
 | **Number Slider** |
-| `currentValue` | ✅ | ✅ | string | `"5.0<0.0,10.0>"` | Slider value with range | ✅ Implemented | Maps to `value` |
+| `currentValue` | ✅ | ✅ | string | `"5.0<0.0,10.0>"` | Slider value with range | 🗑️ **ToRemove** | Maps to `value` |
 | `minimum` | ✅ | ❌ | number | Min value | Slider minimum | 🗑️ **ToRemove** | Redundant (in currentValue) |
 | `maximum` | ✅ | ❌ | number | Max value | Slider maximum | 🗑️ **ToRemove** | Redundant (in currentValue) |
 | `decimals` | ✅ | ❌ | integer | Decimal places | Slider precision | 🗑️ **ToRemove** | Redundant (in currentValue) |
@@ -605,7 +605,7 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `y` | ✅ | ❌ | number | Y value | Current Y | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
 | `z` | ✅ | ❌ | number | Z value | Current Z | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
 | **Script Component** |
-| `script` | ✅ | ✅ | string | Script code | Script content | ✅ Implemented | Maps to `value` |
+| `script` | ✅ | ✅ | string | Script code | Script content | 🗑️ **ToRemove** | Maps to `value` |
 | **Geometry Pipeline** |
 | `layerFilter` | ✅ | ❌ | string | Layer filter | Filter pattern | ✅ Implemented | |
 | `nameFilter` | ✅ | ❌ | string | Name filter | Filter pattern | ✅ Implemented | |
@@ -878,6 +878,10 @@ public enum ValidationLevel
 - [ ] **Stable Ordering**: Consistent component/connection ordering
 - [ ] **Canonical Form**: Single canonical representation
 - [ ] **Idempotency**: Serialize → Deserialize → Serialize yields same result
+
+### 3.4 Undo Support
+
+- [ ] **Undo Support**: Support undo/redo for gh_put
 
 ---
 
