@@ -431,6 +431,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, PointF startPoint)
         {
             var mapping = InternalPutObjects(document, startPoint);
+
+            // Recreate groups if present in the document
+            if (document.Groups != null && document.Groups.Count > 0)
+            {
+                RecreateGroups(document, mapping);
+            }
+
             return document.Components.Select(c => c.Name).Distinct().ToList();
         }
 
@@ -449,6 +456,73 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         public static Dictionary<Guid, Guid> PutObjectsOnCanvasWithMapping(GrasshopperDocument document, PointF startPoint)
         {
             return InternalPutObjects(document, startPoint);
+        }
+
+        /// <summary>
+        /// Recreates groups from the document using the GUID mapping from placed components.
+        /// </summary>
+        /// <param name="document">The document containing group information.</param>
+        /// <param name="guidMapping">Mapping from template GUIDs to placed component GUIDs.</param>
+        private static void RecreateGroups(GrasshopperDocument document, Dictionary<Guid, Guid> guidMapping)
+        {
+            try
+            {
+                foreach (var groupInfo in document.Groups)
+                {
+                    // Map member GUIDs from template to placed components
+                    var placedMemberGuids = new List<Guid>();
+                    foreach (var templateMemberGuid in groupInfo.Members)
+                    {
+                        if (guidMapping.TryGetValue(templateMemberGuid, out var placedGuid))
+                        {
+                            placedMemberGuids.Add(placedGuid);
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[GhJsonPlacer] Warning: Group member {templateMemberGuid} not found in placed components");
+                        }
+                    }
+
+                    if (placedMemberGuids.Count == 0)
+                    {
+                        Debug.WriteLine($"[GhJsonPlacer] Skipping group {groupInfo.Name} - no valid members found");
+                        continue;
+                    }
+
+                    // Parse color if provided
+                    Color? groupColor = null;
+                    if (!string.IsNullOrEmpty(groupInfo.Color))
+                    {
+                        try
+                        {
+                            groupColor = StringConverter.StringToColor(groupInfo.Color);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[GhJsonPlacer] Error parsing group color '{groupInfo.Color}': {ex.Message}");
+                        }
+                    }
+
+                    // Create the group using DocumentIntrospection.GroupObjects
+                    var createdGroup = DocumentIntrospection.GroupObjects(
+                        placedMemberGuids,
+                        groupInfo.Name,
+                        groupColor);
+
+                    if (createdGroup != null)
+                    {
+                        Debug.WriteLine($"[GhJsonPlacer] Successfully recreated group '{groupInfo.Name}' with {placedMemberGuids.Count} members");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonPlacer] Failed to create group '{groupInfo.Name}'");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GhJsonPlacer] Error recreating groups: {ex.Message}");
+            }
         }
     }
 }

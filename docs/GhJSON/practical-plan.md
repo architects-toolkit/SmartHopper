@@ -4,7 +4,7 @@
 
 - **Phase 1: Enhanced Schema and Metadata**
 - [x] 1.1 Document-level metadata (schemaVersion + metadata in `GrasshopperDocument`, metadata population in `DocumentIntrospection`, `includeMetadata` in `gh_get`, UI wiring in `GhGetComponents`)
-- [ ] 1.2 Groups support (IDs on components, group extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer`, `gh_get` flag)
+- [x] 1.2 Groups support (groups array in `GrasshopperDocument`, `GroupInfo` model, extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer` - always included, no flag needed)
 - [ ] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
 - [ ] 1.4 Component schema improvements (position→`position.x/y`, `params`, `inputSettings`/`outputSettings`, `componentState`)
 

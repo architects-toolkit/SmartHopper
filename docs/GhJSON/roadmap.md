@@ -44,11 +44,11 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 - [x] **Environment**: Rhino/Grasshopper version information
 - [x] **Dependencies**: Required plugins and versions
 
-### 1.2 Groups Support (Full Format Only)
+### 1.2 Groups Support (Full Format Only) ✅
 
-**Current Gap**: No group information serialization.
+**Status**: Implemented - Groups are always serialized.
 
-**Proposed Schema**:
+**Implemented Schema**:
 
 ```json
 {

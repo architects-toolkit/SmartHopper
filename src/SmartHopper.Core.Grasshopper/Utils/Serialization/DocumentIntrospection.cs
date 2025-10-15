@@ -271,17 +271,25 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 
         /// <summary>
         /// Gets details of Grasshopper objects with optional metadata.
+        /// Groups are extracted by default (can be disabled for lite format).
         /// </summary>
         /// <param name="objects">The objects to extract details from.</param>
         /// <param name="includeMetadata">Whether to include document metadata.</param>
-        /// <returns>A GrasshopperDocument with component and connection details.</returns>
-        public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects, bool includeMetadata)
+        /// <param name="includeGroups">Whether to include group information. Default is true.</param>
+        /// <returns>A GrasshopperDocument with component, connection, and optionally group details.</returns>
+        public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects, bool includeMetadata, bool includeGroups = true)
         {
             var document = GetObjectsDetails(objects);
 
+            // Extract groups by default (can be skipped for lite format)
+            if (includeGroups)
+            {
+                ExtractGroupInformation(document);
+            }
+
             if (includeMetadata)
             {
-                document.SchemaVersion = "1"; // TODO: constant to specify version
+                document.SchemaVersion = "1";
                 document.Metadata = CreateDocumentMetadata(objects);
             }
 
@@ -357,6 +365,59 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             return metadata;
+        }
+
+        /// <summary>
+        /// Extracts group information from the current canvas and populates the document.
+        /// </summary>
+        /// <param name="document">The document to populate with group information.</param>
+        private static void ExtractGroupInformation(GrasshopperDocument document)
+        {
+            try
+            {
+                var ghDoc = CanvasAccess.GetCurrentCanvas();
+                if (ghDoc == null) return;
+
+                var groups = new List<GroupInfo>();
+
+                // Find all groups in the document
+                foreach (var obj in ghDoc.Objects)
+                {
+                    if (obj is GH_Group group)
+                    {
+                        var groupInfo = new GroupInfo
+                        {
+                            InstanceGuid = group.InstanceGuid,
+                            Name = group.NickName,
+                            Members = new List<Guid>(),
+                        };
+
+                        // Extract color in ARGB format
+                        if (group.Colour != System.Drawing.Color.Empty)
+                        {
+                            groupInfo.Color = $"{group.Colour.A},{group.Colour.R},{group.Colour.G},{group.Colour.B}";
+                        }
+
+                        // Get all members of this group
+                        foreach (var memberObj in group.Objects())
+                        {
+                            groupInfo.Members.Add(memberObj.InstanceGuid);
+                        }
+
+                        groups.Add(groupInfo);
+                    }
+                }
+
+                // Populate document groups
+                if (groups.Count > 0)
+                {
+                    document.Groups = groups;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error extracting group information: {ex.Message}");
+            }
         }
 
         public static Dictionary<string, object> GetObjectProperties(IGH_DocumentObject obj)
