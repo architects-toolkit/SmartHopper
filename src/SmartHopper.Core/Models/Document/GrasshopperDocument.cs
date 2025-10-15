@@ -47,6 +47,12 @@ namespace SmartHopper.Core.Models.Document
         public List<ConnectionPairing> Connections { get; set; } = new List<ConnectionPairing>();
 
         /// <summary>
+        /// Gets or sets list of all groups in the document (optional).
+        /// </summary>
+        [JsonProperty("groups", NullValueHandling = NullValueHandling.Ignore)]
+        public List<GroupInfo> Groups { get; set; }
+
+        /// <summary>
         /// Gets all components with validation issues (errors or warnings).
         /// </summary>
         /// <returns>A list of components that have either errors or warnings.</returns>
