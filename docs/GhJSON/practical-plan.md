@@ -5,7 +5,7 @@
 - **Phase 1: Enhanced Schema and Metadata**
 - [x] 1.1 Document-level metadata (schemaVersion + metadata in `GrasshopperDocument`, metadata population in `DocumentIntrospection`, `includeMetadata` in `gh_get`, UI wiring in `GhGetComponents`)
 - [x] 1.2 Groups support (groups array in `GrasshopperDocument`, `GroupInfo` model, extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer` - always included, no flag needed)
-- [ ] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
+- [x] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
 - [ ] 1.4 Component schema improvements (position→`position.x/y`, `params`, `inputSettings`/`outputSettings`, `componentState`)
 
 - **Phase 2: GhJSON-Lite**
@@ -17,6 +17,7 @@
 - [ ] 3.1 Validation framework (levels + JSON Schema)
 - [ ] 3.2 Error handling and recovery (graceful degradation, auto-repair)
 - [ ] 3.3 Consistency guarantees (deterministic ordering, idempotency)
+- [ ] 3.4 Undo support to gh_put
 
 ---
 
