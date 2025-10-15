@@ -36,3 +36,4 @@ trigger: always_on
 - Use English only.
 - Prefer copy/pasting, renaming, and removing files via PowerShell commands.
 - You are running on Windows - use windows commands in terminal, prefered PowerShell commands.
+- Never add unit tests that require Rhino or Grasshopper references. There is a license conflict that doesn't allow testing these functions unless Rhino is running and license is verified.
