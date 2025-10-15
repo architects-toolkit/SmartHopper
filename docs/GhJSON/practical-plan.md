@@ -1,5 +1,25 @@
 # GhJSON Roadmap: Practical Implementation Plan
 
+## Implementation Status Checklist
+
+- **Phase 1: Enhanced Schema and Metadata**
+- [x] 1.1 Document-level metadata (schemaVersion + metadata in `GrasshopperDocument`, metadata population in `DocumentIntrospection`, `includeMetadata` in `gh_get`, UI wiring in `GhGetComponents`)
+- [ ] 1.2 Groups support (IDs on components, group extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer`, `gh_get` flag)
+- [ ] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
+- [ ] 1.4 Component schema improvements (position→`position.x/y`, `params`, `inputSettings`/`outputSettings`, `componentState`)
+
+- **Phase 2: GhJSON-Lite**
+- [ ] 2.1 Lite converter (structure-only)
+- [ ] 2.2 Type dictionary optimization
+- [ ] 2.3 Diff generation utility
+
+- **Phase 3: Reliability and Consistency**
+- [ ] 3.1 Validation framework (levels + JSON Schema)
+- [ ] 3.2 Error handling and recovery (graceful degradation, auto-repair)
+- [ ] 3.3 Consistency guarantees (deterministic ordering, idempotency)
+
+---
+
 ## Executive Summary
 
 This document provides a concrete, step-by-step implementation plan for evolving the GhJSON format from its current state to the enhanced schema outlined in the roadmap. The plan is organized into discrete, testable phases that can be implemented incrementally without breaking existing functionality.
@@ -471,7 +491,27 @@ public static class DataTypeSerializer
 
 ## Testing Strategy
 
+### Testing Environment
+
+**Primary Testing Method**: Round-trip serialization using `gh_get` and `gh_put` tools:
+
+1. Use `gh_get` to serialize components from canvas to GhJSON, exposed to UI via GhGetComponents component
+2. Use `gh_put` to deserialize and place components back on canvas, exposed to UI via GhPutComponents component
+3. Use `gh_get` again to serialize the placed components, exposed to UI via GhGetComponents component
+4. Compare original and final GhJSON to verify consistency
+
+This approach validates:
+
+- Serialization correctness (gh_get)
+- Deserialization correctness (gh_put)
+- Idempotency (serialize → deserialize → serialize yields same result)
+- Backward compatibility (old format still works)
+- New features (metadata, groups, etc. are preserved)
+
+**Note**: Ensure both `gh_get` and `gh_put` are updated with latest features before testing each phase.
+
 ### Unit Tests
+
 - Model serialization/deserialization
 - Property extraction and application
 - Lite format conversion
@@ -480,12 +520,14 @@ public static class DataTypeSerializer
 - Error recovery
 
 ### Integration Tests
+
 - Full gh_get → gh_put round-trip
 - Group serialization → recreation
 - New schema → old schema compatibility
 - Lite format → full format expansion
 
 ### Performance Tests
+
 - Large document serialization (1000+ components)
 - Lite format size reduction benchmarks
 - Diff generation performance
@@ -497,17 +539,20 @@ public static class DataTypeSerializer
 ### For Existing Users
 
 **Phase 1 Rollout**:
+
 1. Deploy with new schema support (opt-in via `useNewSchema` parameter)
 2. Default to old schema for backward compatibility
 3. Provide migration utility for converting existing JSON files
 4. After 2-3 releases, switch default to new schema
 
 **Phase 2 Rollout**:
+
 1. Deploy lite format as opt-in (via `format` parameter)
 2. Use for AI context optimization
 3. Keep full format as default for gh_put
 
 **Phase 3 Rollout**:
+
 1. Deploy enhanced validation as opt-in (via `validationLevel` parameter)
 2. Default to permissive mode
 3. Gradually increase default validation level
@@ -515,6 +560,7 @@ public static class DataTypeSerializer
 ### Breaking Changes
 
 **None expected** - all changes are additive with backward compatibility maintained through:
+
 - Optional new properties (nullable, omit if null)
 - Fallback to old properties during deserialization
 - Migration utilities for explicit conversion
@@ -525,6 +571,7 @@ public static class DataTypeSerializer
 ## Success Criteria
 
 ### Phase 1
+
 - [ ] Metadata populated correctly for all documents
 - [ ] Groups serialize and deserialize with correct members
 - [ ] New schema properties extract correctly
@@ -532,12 +579,14 @@ public static class DataTypeSerializer
 - [ ] Zero breaking changes for existing users
 
 ### Phase 2
+
 - [ ] Lite format achieves 40-60% size reduction
 - [ ] Lite → full conversion is lossless for behavioral data
 - [ ] Diff generation produces accurate change tracking
 - [ ] AI context window usage reduced by 40%+
 
 ### Phase 3
+
 - [ ] Validation catches 95%+ of common errors
 - [ ] Auto-repair fixes 80%+ of fixable issues
 - [ ] Serialize → Deserialize → Serialize is idempotent
@@ -565,17 +614,6 @@ public static class DataTypeSerializer
 
 **Risk**: Insufficient testing  
 **Mitigation**: Test-driven development, integration tests, user testing
-
----
-
-## Next Steps
-
-1. **Review and approve** this practical plan
-2. **Set up project tracking** (GitHub issues/milestones for each phase)
-3. **Begin Phase 1.1** (Document metadata - lowest risk, highest value)
-4. **Establish testing infrastructure** (unit tests, integration tests)
-5. **Create feature branch** for Phase 1 development
-6. **Regular reviews** after each sub-phase completion
 
 ---
 
