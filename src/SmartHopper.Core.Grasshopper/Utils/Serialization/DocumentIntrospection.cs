@@ -269,6 +269,96 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             return document;
         }
 
+        /// <summary>
+        /// Gets details of Grasshopper objects with optional metadata.
+        /// </summary>
+        /// <param name="objects">The objects to extract details from.</param>
+        /// <param name="includeMetadata">Whether to include document metadata.</param>
+        /// <returns>A GrasshopperDocument with component and connection details.</returns>
+        public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects, bool includeMetadata)
+        {
+            var document = GetObjectsDetails(objects);
+
+            if (includeMetadata)
+            {
+                document.SchemaVersion = "1"; // TODO: constant to specify version
+                document.Metadata = CreateDocumentMetadata(objects);
+            }
+
+            return document;
+        }
+
+        /// <summary>
+        /// Creates document metadata by analyzing the components.
+        /// </summary>
+        /// <param name="objects">The objects to analyze for metadata.</param>
+        /// <returns>A DocumentMetadata object with populated fields.</returns>
+        private static DocumentMetadata CreateDocumentMetadata(IEnumerable<IGH_ActiveObject> objects)
+        {
+            var metadata = new DocumentMetadata
+            {
+                Created = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                Modified = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                Author = "SmartHopper AI", // TODO: settings to allow custom author
+            };
+
+            // Get Rhino version
+            try
+            {
+                var rhinoVersion = global::Rhino.RhinoApp.Version;
+                metadata.RhinoVersion = $"{rhinoVersion.Major}.{rhinoVersion.Minor}";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting Rhino version: {ex.Message}");
+            }
+
+            // Get Grasshopper version
+            try
+            {
+                var ghVersion = global::Grasshopper.Versioning.Version;
+                metadata.GrasshopperVersion = ghVersion.ToString();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting Grasshopper version: {ex.Message}");
+            }
+
+            // Scan for plugin dependencies
+            var dependencies = new HashSet<string>();
+            foreach (var obj in objects)
+            {
+                try
+                {
+                    var assembly = obj.GetType().Assembly;
+                    var assemblyName = assembly.GetName().Name;
+
+                    // Skip standard Grasshopper and Rhino assemblies
+                    if (assemblyName != null &&
+                        !assemblyName.StartsWith("Grasshopper") &&
+                        !assemblyName.StartsWith("Rhino") &&
+                        !assemblyName.StartsWith("System") &&
+                        !assemblyName.StartsWith("Microsoft") &&
+                        !assemblyName.StartsWith("SmartHopper"))
+                    {
+                        var version = assembly.GetName().Version;
+                        dependencies.Add($"{assemblyName} {version.Major}.{version.Minor}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error scanning dependencies: {ex.Message}");
+                }
+            }
+
+            if (dependencies.Count > 0)
+            {
+                metadata.Dependencies = dependencies.OrderBy(d => d).ToList();
+            }
+
+            return metadata;
+        }
+
         public static Dictionary<string, object> GetObjectProperties(IGH_DocumentObject obj)
         {
             Type type = obj.Attributes.DocObject.GetType();

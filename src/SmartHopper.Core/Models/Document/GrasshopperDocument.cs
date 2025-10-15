@@ -23,6 +23,18 @@ namespace SmartHopper.Core.Models.Document
     public class GrasshopperDocument
     {
         /// <summary>
+        /// Gets or sets the GhJSON schema version.
+        /// </summary>
+        [JsonProperty("schemaVersion", NullValueHandling = NullValueHandling.Ignore)]
+        public string SchemaVersion { get; set; }
+
+        /// <summary>
+        /// Gets or sets the document metadata (optional).
+        /// </summary>
+        [JsonProperty("metadata", NullValueHandling = NullValueHandling.Ignore)]
+        public DocumentMetadata Metadata { get; set; }
+
+        /// <summary>
         /// Gets or sets list of all components in the document.
         /// </summary>
         [JsonProperty("components")]

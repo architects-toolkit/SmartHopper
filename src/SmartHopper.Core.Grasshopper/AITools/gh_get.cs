@@ -71,6 +71,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""integer"",
                             ""default"": 0,
                             ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        },
+                        ""includeMetadata"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""Whether to include document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
                         }
                     }
                 }",
@@ -226,6 +231,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
+                var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
                 var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
 
@@ -466,7 +472,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var document = DocumentIntrospection.GetObjectsDetails(resultObjects);
+                var document = DocumentIntrospection.GetObjectsDetails(resultObjects, includeMetadata);
 
                 // only keep connections where both components are in our filtered set
                 var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
