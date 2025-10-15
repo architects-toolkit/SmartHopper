@@ -40,11 +40,15 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             GH_Document doc = CanvasAccess.GetCurrentCanvas();
             GH_Group group = new GH_Group();
 
+            // Set group name if provided
             if (!string.IsNullOrEmpty(groupName))
             {
                 group.NickName = groupName;
-                group.Colour = color ?? System.Drawing.Color.FromArgb(255, 0, 200, 0);
             }
+
+            // Set group color (use provided color or default green)
+            group.Colour = color ?? System.Drawing.Color.FromArgb(255, 0, 200, 0);
+            System.Diagnostics.Debug.WriteLine($"[GroupObjects] Setting group color to ARGB({group.Colour.A},{group.Colour.R},{group.Colour.G},{group.Colour.B})");
 
             // Add objects to group
             foreach (var guid in guids)
@@ -56,11 +60,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 }
             }
 
-            // Record undo event before adding the group
-            group.RecordUndoEvent("[SH] Group");
-
-            // Add the group to the document with undo support enabled
-            doc.AddObject(group, true);
+            // Add the group to the document WITHOUT undo support to prevent infinite loops
+            // Setting the second parameter to false prevents document change events from firing
+            // Note: Canvas refresh will be handled by the caller after all operations complete
+            doc.AddObject(group, false);
 
             return group;
         }

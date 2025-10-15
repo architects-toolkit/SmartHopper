@@ -82,7 +82,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Placement & wiring using Put utils
+                Debug.WriteLine("[gh_put] About to call PutObjectsOnCanvas");
                 var placed = GhJsonPlacer.PutObjectsOnCanvas(document);
+                Debug.WriteLine("[gh_put] PutObjectsOnCanvas returned");
 
                 var toolResult = new JObject
                 {
@@ -94,7 +96,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .AddToolResult(toolResult)
                     .Build();
 
+                Debug.WriteLine("[gh_put] Creating success output");
                 output.CreateSuccess(body, toolCall);
+                Debug.WriteLine("[gh_put] Returning from GhPutToolAsync");
                 return output;
             }
             catch (Exception ex)
