@@ -13,14 +13,20 @@
 - **[Format Specification](./format-specification.md)**  
   Complete schema reference for GhJSON format including component structure, properties, connections, and validation rules.
 
-- **[Property Whitelist](./property-whitelist.md)**  
-  Comprehensive list of whitelisted component properties that are serialized in GhJSON, organized by component type.
+- **[Property Management System](./property-whitelist.md)**  
+  Advanced property management with context-aware filtering, component categories, and flexible configuration system.
+
+- **[Property Management V2 - Implementation Status](./property-management-v2.md)**  
+  Detailed status of the new property management system implementation and alignment with roadmap goals.
 
 - **[Examples](./examples.md)**  
   Practical examples of GhJSON format for common Grasshopper patterns and component types.
 
 - **[Roadmap](./roadmap.md)**  
-  Future development plans for GhJSON format including enhanced metadata, GhJSON-Lite variant, and reliability improvements.
+  Development roadmap with Phase 1 completed (Enhanced Schema and Metadata) and future plans.
+
+- **[Practical Implementation Plan](./practical-plan.md)**  
+  Step-by-step implementation plan with current status and next phases.
 
 ---
 

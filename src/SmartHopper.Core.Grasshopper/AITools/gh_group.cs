@@ -145,7 +145,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Create group with undo support
-                    group = DocumentIntrospection.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
+                    group = DocumentIntrospectionV2.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
 
                     // Update UI
                     Instances.RedrawCanvas();

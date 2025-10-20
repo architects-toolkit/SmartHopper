@@ -252,7 +252,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = DocumentIntrospection.GetObjectsDetails(objects, includeMetadata: false, includeGroups: false);
+                        var tempDoc = DocumentIntrospectionV2.GetObjectsDetails(objects, includeMetadata: false, includeGroups: false);
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
@@ -304,7 +304,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = DocumentIntrospection.GetObjectsDetails(typeFiltered, includeMetadata: false, includeGroups: false);
+                        var tempDoc = DocumentIntrospectionV2.GetObjectsDetails(typeFiltered, includeMetadata: false, includeGroups: false);
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
@@ -461,7 +461,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (connectionDepth > 0)
                 {
                     var allObjects = CanvasAccess.GetCurrentObjects();
-                    var fullDoc = DocumentIntrospection.GetObjectsDetails(allObjects, includeMetadata: false, includeGroups: false);
+                    var fullDoc = DocumentIntrospectionV2.GetObjectsDetails(allObjects, includeMetadata: false, includeGroups: false);
                     var edges = fullDoc.Connections.Select(c => (c.From.InstanceId, c.To.InstanceId));
                     var initialIds = resultObjects.Select(o => o.InstanceGuid);
                     var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
@@ -472,7 +472,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var document = DocumentIntrospection.GetObjectsDetails(resultObjects, includeMetadata, includeGroups: true);
+                var document = DocumentIntrospectionV2.GetObjectsDetails(resultObjects, includeMetadata, includeGroups: true);
 
                 // only keep connections where both components are in our filtered set
                 var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();

@@ -14,6 +14,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
+using SmartHopper.Core.Models.Serialization;
 
 namespace SmartHopper.Core.Models.Components
 {
@@ -51,14 +52,15 @@ namespace SmartHopper.Core.Models.Components
         /// <summary>
         /// Gets or sets a value indicating whether indicates whether the component is currently selected in the Grasshopper canvas.
         /// </summary>
-        [JsonProperty("selected")]
-        public bool Selected { get; set; }
+        [JsonProperty("selected", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Selected { get; set; }
 
         /// <summary>
         /// Gets or sets the pivot point of the component on the canvas.
+        /// Uses compact string format "X,Y" instead of object format for optimization.
         /// </summary>
         [JsonProperty("pivot")]
-        public PointF Pivot { get; set; }
+        public CompactPosition Pivot { get; set; }
 
         /// <summary>
         /// Gets or sets the integer ID for the component (used for group references and connections).
@@ -93,19 +95,20 @@ namespace SmartHopper.Core.Models.Components
         /// <summary>
         /// Gets or sets a list of warnings associated with the component.
         /// </summary>
-        [JsonProperty("warnings")]
-        public List<string> Warnings { get; set; } = new List<string>();
+        [JsonProperty("warnings", NullValueHandling = NullValueHandling.Ignore)]
+        public List<string>? Warnings { get; set; }
 
         /// <summary>
         /// Gets or sets a list of errors associated with the component.
         /// </summary>
-        [JsonProperty("errors")]
-        public List<string> Errors { get; set; } = new List<string>();
+        [JsonProperty("errors", NullValueHandling = NullValueHandling.Ignore)]
+        public List<string>? Errors { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether checks if the component has any validation errors or warnings.
         /// </summary>
-        public bool HasIssues => this.Warnings.Any() || this.Errors.Any();
+        [JsonIgnore]
+        public bool HasIssues => this.Warnings?.Any() == true || this.Errors?.Any() == true;
 
         /// <summary>
         /// Gets a property value by its key, with optional type conversion.
@@ -141,9 +144,7 @@ namespace SmartHopper.Core.Models.Components
         {
             this.Properties[key] = new ComponentProperty
             {
-                Value = value,
-                Type = value?.GetType().Name ?? "null",
-                HumanReadable = humanReadable ?? value?.ToString(),
+                Value = value
             };
         }
     }
