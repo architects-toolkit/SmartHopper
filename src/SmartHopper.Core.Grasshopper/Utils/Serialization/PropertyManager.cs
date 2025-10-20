@@ -20,6 +20,7 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using Rhino.Geometry;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Serialization.DataTypes;
@@ -378,6 +379,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                         {
                             values.Add(itemData["value"]);
                         }
+                        else
+                        {
+                            // Handle direct string values (serialized data types)
+                            values.Add(item.Value);
+                        }
                     }
                 }
             }
@@ -411,8 +417,150 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     paramBoolean.SetPersistentData(pDataBoolean);
                     break;
 
+                // Geometric data types - fail explicitly if deserialization fails
+                case Param_Colour paramColour:
+                    Func<JToken, GH_Colour> convertFunctionToColour = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object colorResult) && colorResult is System.Drawing.Color color)
+                        {
+                            return new GH_Colour(color);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize color: {valueStr}");
+                    };
+                    var pDataColour = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToColour);
+                    paramColour.SetPersistentData(pDataColour);
+                    break;
+
+                case Param_Point paramPoint:
+                    Func<JToken, GH_Point> convertFunctionToPoint = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object pointResult) && pointResult is Point3d point)
+                        {
+                            return new GH_Point(point);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize point: {valueStr}");
+                    };
+                    var pDataPoint = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToPoint);
+                    paramPoint.SetPersistentData(pDataPoint);
+                    break;
+
+                case Param_Vector paramVector:
+                    Func<JToken, GH_Vector> convertFunctionToVector = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object vectorResult) && vectorResult is Vector3d vector)
+                        {
+                            return new GH_Vector(vector);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize vector: {valueStr}");
+                    };
+                    var pDataVector = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToVector);
+                    paramVector.SetPersistentData(pDataVector);
+                    break;
+
+                case Param_Line paramLine:
+                    Func<JToken, GH_Line> convertFunctionToLine = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object lineResult) && lineResult is Line line)
+                        {
+                            return new GH_Line(line);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize line: {valueStr}");
+                    };
+                    var pDataLine = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToLine);
+                    paramLine.SetPersistentData(pDataLine);
+                    break;
+
+                case Param_Plane paramPlane:
+                    Func<JToken, GH_Plane> convertFunctionToPlane = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object planeResult) && planeResult is Plane plane)
+                        {
+                            return new GH_Plane(plane);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize plane: {valueStr}");
+                    };
+                    var pDataPlane = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToPlane);
+                    paramPlane.SetPersistentData(pDataPlane);
+                    break;
+
+                case Param_Circle paramCircle:
+                    Func<JToken, GH_Circle> convertFunctionToCircle = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object circleResult) && circleResult is Circle circle)
+                        {
+                            return new GH_Circle(circle);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize circle: {valueStr}");
+                    };
+                    var pDataCircle = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToCircle);
+                    paramCircle.SetPersistentData(pDataCircle);
+                    break;
+
+                case Param_Arc paramArc:
+                    Func<JToken, GH_Arc> convertFunctionToArc = (token) => 
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object arcResult) && arcResult is Arc arc)
+                        {
+                            return new GH_Arc(arc);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize arc: {valueStr}");
+                    };
+                    var pDataArc = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToArc);
+                    paramArc.SetPersistentData(pDataArc);
+                    break;
+
+                case Param_Box paramBox:
+                    Func<JToken, GH_Box> convertFunctionToBox = (token) =>
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object boxResult) && boxResult is Box box)
+                        {
+                            return new GH_Box(box);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize box: {valueStr}");
+                    };
+                    var pDataBox = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToBox);
+                    paramBox.SetPersistentData(pDataBox);
+                    break;
+
+                case Param_Rectangle paramRectangle:
+                    Func<JToken, GH_Rectangle> convertFunctionToRectangle = (token) =>
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object rectangleResult) && rectangleResult is Rectangle3d rectangle)
+                        {
+                            return new GH_Rectangle(rectangle);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize rectangle: {valueStr}");
+                    };
+                    var pDataRectangle = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToRectangle);
+                    paramRectangle.SetPersistentData(pDataRectangle);
+                    break;
+
+                case Param_Interval paramInterval:
+                    Func<JToken, GH_Interval> convertFunctionToInterval = (token) =>
+                    {
+                        string valueStr = token.ToString();
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(valueStr, out object intervalResult) && intervalResult is Interval interval)
+                        {
+                            return new GH_Interval(interval);
+                        }
+                        throw new InvalidOperationException($"Failed to deserialize interval: {valueStr}");
+                    };
+                    var pDataInterval = DataTreeConverter.JObjectToIGHStructure(arrayData, convertFunctionToInterval);
+                    paramInterval.SetPersistentData(pDataInterval);
+                    break;
+
                 default:
-                    Debug.WriteLine($"No handling implemented for type {instance.GetType().Name}"); break;
+                    Debug.WriteLine($"No handling implemented for type {instance.GetType().Name}"); 
+                    break;
             }
         }
     }

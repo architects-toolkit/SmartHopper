@@ -134,7 +134,13 @@ namespace SmartHopper.Core.Serialization.DataTypes
 
         private void RegisterBuiltInSerializers()
         {
-            // Register all built-in serializers
+            // Register basic data type serializers
+            this.RegisterSerializer(new TextSerializer());
+            this.RegisterSerializer(new NumberSerializer());
+            this.RegisterSerializer(new IntegerSerializer());
+            this.RegisterSerializer(new BooleanSerializer());
+
+            // Register geometric data type serializers
             this.RegisterSerializer(new ColorSerializer());
             this.RegisterSerializer(new PointSerializer());
             this.RegisterSerializer(new VectorSerializer());
@@ -142,8 +148,9 @@ namespace SmartHopper.Core.Serialization.DataTypes
             this.RegisterSerializer(new PlaneSerializer());
             this.RegisterSerializer(new CircleSerializer());
             this.RegisterSerializer(new ArcSerializer());
-            this.RegisterSerializer(new BoundingBoxSerializer());
-            this.RegisterSerializer(new DomainSerializer());
+            this.RegisterSerializer(new BoxSerializer());
+            this.RegisterSerializer(new RectangleSerializer());
+            this.RegisterSerializer(new IntervalSerializer());
 
             Debug.WriteLine($"[DataTypeRegistry] Registered {this.serializersByName.Count} built-in serializers");
         }
