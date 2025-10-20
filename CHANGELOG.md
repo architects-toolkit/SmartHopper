@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
+  - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
+  - **PropertyFilter**: Intelligent property filtering based on object type and serialization context
+  - **PropertyHandlers**: Specialized handlers for different property types (PersistentData, SliderCurrentValue, Expression, etc.)
+  - **PropertyFilterConfig**: Centralized configuration for property whitelists, blacklists, and category-specific properties
+  - **SerializationContext**: Support for different contexts (AIOptimized, FullSerialization, CompactSerialization, ParametersOnly)
+  - **ComponentCategory**: Proper categorization of components (Panel, Slider, Script, etc.) for targeted property extraction
+  - **PropertyManagerFactory**: Factory methods for creating PropertyManagerV2 instances with common configurations
+- **GhJSON Optimization**: Reduced irrelevant data in serialization output:
+  - Groups now only include members present in the current GhJSON components selection
+  - Removed runtime-only properties: `VolatileData`, `IsValid`, `IsValidWhyNot`, `TypeDescription`, `TypeName`, `Boundingbox`, `ClippingBox`, `ReferenceID`, `IsReferencedGeometry`, `IsGeometryLoaded`, `QC_Type`
+  - Fixed contradictory property handling where `VolatileData` and `DataType` were in both omitted and whitelist
+  - Fixed `IsPropertyInWhitelist()` method to properly check omitted properties before whitelist
+  - Removed `Type` and `HumanReadable` properties from `ComponentProperty` model to reduce JSON size
 - **Enhanced GhJSON Schema**: Implemented component schema improvements following complete property reference specification:
   - **Parameter Properties**: `parameterName`, `dataMapping`, `simplify`, `reverse`, `invert`, `expression`, `variableName`, `isPrincipal`, `locked`
   - **Component Properties**: `locked`, `hidden`, universal `value` property with type-specific mapping
@@ -52,6 +66,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed utility classes for clarity (e.g., `GHCanvasUtils` → `CanvasAccess`, `GHComponentUtils` → `ComponentManipulation`)
   - Updated all internal references to use new organized namespaces
   - **Note:** This is an internal refactoring with no impact on public APIs or plugin functionality
+
+### Removed
+
+- **Legacy PropertyManager**: Removed obsolete `PropertyManager.cs` and all references to the old property management system:
+  - Removed `PropertyManager.IsPropertyInWhitelist()`, `PropertyManager.SetProperties()`, `PropertyManager.IsPropertyOmitted()`, and `PropertyManager.GetChildProperties()` methods
+  - Updated `DocumentIntrospection.cs` to use `PropertyManagerV2` with `PropertyManagerFactory.CreateForAI()`
+  - Updated `GhJsonPlacer.cs` to use `PropertyManagerV2` for property application
+  - Updated `PropertyManagerTests.cs` to test the new `PropertyManagerV2` system instead of the old `PropertyManager`
+  - Migration utility `PropertyManagerMigration.cs` provides compatibility methods for gradual migration
 
 ### Fixed
 

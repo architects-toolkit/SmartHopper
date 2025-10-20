@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 namespace SmartHopper.Core.Models.Components
 {
     /// <summary>
-    /// Represents a property of a Grasshopper component with type information and human-readable format.
+    /// Represents a property of a Grasshopper component.
     /// </summary>
     public class ComponentProperty
     {
@@ -22,17 +22,5 @@ namespace SmartHopper.Core.Models.Components
         /// </summary>
         [JsonProperty("value")]
         public object Value { get; set; }
-
-        /// <summary>
-        /// Gets or sets the type name of the property.
-        /// </summary>
-        [JsonProperty("type")]
-        public string Type { get; set; }
-
-        /// <summary>
-        /// Gets or sets a human-readable representation of the property value.
-        /// </summary>
-        [JsonProperty("humanReadable", NullValueHandling = NullValueHandling.Ignore)]
-        public string HumanReadable { get; set; }
     }
 }

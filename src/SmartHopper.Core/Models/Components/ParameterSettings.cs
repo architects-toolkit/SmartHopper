@@ -37,13 +37,8 @@ namespace SmartHopper.Core.Models.Components
         public bool? IsReparameterized { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the parameter has an expression.
-        /// </summary>
-        [JsonProperty("hasExpression", NullValueHandling = NullValueHandling.Ignore)]
-        public bool? HasExpression { get; set; }
-
-        /// <summary>
         /// Gets or sets the parameter expression that transforms data.
+        /// The presence of this property implies hasExpression=true, making that flag redundant.
         /// </summary>
         [JsonProperty("expression", NullValueHandling = NullValueHandling.Ignore)]
         public string? Expression { get; set; }

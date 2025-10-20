@@ -14,12 +14,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Serialization
     using System.Drawing;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Core.Grasshopper.Utils.Serialization;
+    using SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters;
     using SmartHopper.Core.Models.Components;
     using Xunit;
 
     /// <summary>
-    /// Unit tests for PropertyManager utility class.
-    /// Tests property whitelisting, type conversion, and property setting.
+    /// Unit tests for PropertyManagerV2 utility class.
+    /// Tests property filtering, extraction, and application.
     /// </summary>
     public class PropertyManagerTests
     {
@@ -34,66 +35,75 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Serialization
         [InlineData("CurrentValue", true)]
         [InlineData("Minimum", true)]
         [InlineData("Maximum", true)]
-        [InlineData("InvalidProperty", false)]
-        [InlineData("RandomName", false)]
-        public void IsPropertyInWhitelist_VariousProperties_ReturnsExpectedResult(string propertyName, bool expected)
+        [InlineData("VolatileData", false)]
+        [InlineData("DataType", false)]
+        public void ShouldIncludeProperty_VariousProperties_ReturnsExpectedResult(string propertyName, bool expected)
         {
+            // Arrange
+            var propertyManager = PropertyManagerFactory.CreateForAI();
+            var mockObject = new TestComponent(); // Mock object for context
+
             // Act
-            var result = PropertyManager.IsPropertyInWhitelist(propertyName);
+            var result = propertyManager.ShouldIncludeProperty(propertyName, mockObject);
 
             // Assert
             Assert.Equal(expected, result);
         }
 
         [Fact]
-        public void GetChildProperties_PropertiesKey_ReturnsChildList()
+        public void ExtractProperties_TestComponent_ReturnsExpectedProperties()
         {
+            // Arrange
+            var propertyManager = PropertyManagerFactory.CreateForAI();
+            var testComponent = new TestComponent();
+
             // Act
-            var result = PropertyManager.GetChildProperties("Properties");
+            var result = propertyManager.ExtractProperties(testComponent);
 
             // Assert
             Assert.NotNull(result);
-            Assert.Single(result);
-            Assert.Equal("Properties", result[0]);
+            Assert.True(result.Count > 0);
+            Assert.True(result.ContainsKey("NickName"));
+            Assert.True(result.ContainsKey("Locked"));
         }
 
         [Fact]
-        public void GetChildProperties_ValueKey_ReturnsNull()
+        public void CreateExtractionSummary_TestComponent_ReturnsValidSummary()
         {
+            // Arrange
+            var propertyManager = PropertyManagerFactory.CreateForAI();
+            var testComponent = new TestComponent();
+
             // Act
-            var result = PropertyManager.GetChildProperties("Value");
+            var summary = propertyManager.CreateExtractionSummary(testComponent);
 
             // Assert
-            Assert.Null(result);
-        }
-
-        [Fact]
-        public void GetChildProperties_NonExistentKey_ReturnsNull()
-        {
-            // Act
-            var result = PropertyManager.GetChildProperties("NonExistent");
-
-            // Assert
-            Assert.Null(result);
+            Assert.NotNull(summary);
+            Assert.Equal("TestComponent", summary.ObjectType);
+            Assert.True(summary.TotalProperties > 0);
+            Assert.NotNull(summary.AllowedProperties);
+            Assert.NotNull(summary.ExcludedProperties);
         }
 
         #endregion
 
-        #region Omitted Properties Tests
+        #region Test Helper Classes
 
-        [Theory]
-        [InlineData("VolatileData", true)]
-        [InlineData("DataType", true)]
-        [InlineData("Properties", true)]
-        [InlineData("NickName", false)]
-        [InlineData("Value", false)]
-        public void IsPropertyOmitted_VariousProperties_ReturnsExpectedResult(string propertyName, bool expected)
+        /// <summary>
+        /// Mock component class for testing property extraction.
+        /// </summary>
+        private class TestComponent
         {
-            // Act
-            var result = PropertyManager.IsPropertyOmitted(propertyName);
-
-            // Assert
-            Assert.Equal(expected, result);
+            public string NickName { get; set; } = "Test Component";
+            public bool Locked { get; set; } = false;
+            public string Value { get; set; } = "TestValue";
+            public object VolatileData { get; set; } = null;
+            public string DataType { get; set; } = "TestType";
+            public string Expression { get; set; } = "x + y";
+            public object PersistentData { get; set; } = null;
+            public double CurrentValue { get; set; } = 42.0;
+            public double Minimum { get; set; } = 0.0;
+            public double Maximum { get; set; } = 100.0;
         }
 
         #endregion

@@ -91,8 +91,36 @@ namespace SmartHopper.Core.Models.Serialization
                 bool allHavePivot = true;
                 foreach (var comp in comps)
                 {
-                    if (comp["pivot"] == null || comp["pivot"]["X"] == null || comp["pivot"]["Y"] == null)
+                    var pivotToken = comp["pivot"];
+                    if (pivotToken == null)
                     {
+                        allHavePivot = false;
+                        break;
+                    }
+
+                    // Handle both old object format {"X": ..., "Y": ...} and new compact string format "X,Y"
+                    if (pivotToken.Type == JTokenType.Object)
+                    {
+                        // Old format - check for X and Y properties
+                        if (pivotToken["X"] == null || pivotToken["Y"] == null)
+                        {
+                            allHavePivot = false;
+                            break;
+                        }
+                    }
+                    else if (pivotToken.Type == JTokenType.String)
+                    {
+                        // New compact format - check if string is not empty
+                        var pivotStr = pivotToken.ToString();
+                        if (string.IsNullOrEmpty(pivotStr) || !pivotStr.Contains(","))
+                        {
+                            allHavePivot = false;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Unknown format
                         allHavePivot = false;
                         break;
                     }

@@ -29,6 +29,7 @@ namespace SmartHopper.Core.Models.Serialization
         {
             Formatting = Formatting.Indented,
             NullValueHandling = NullValueHandling.Ignore,
+            Converters = { new CompactPositionConverter() }
         };
 
         /// <summary>

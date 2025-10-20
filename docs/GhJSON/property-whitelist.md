@@ -1,13 +1,33 @@
-# GhJSON Property Whitelist
+# GhJSON Property Management System
 
 ## Overview
 
-SmartHopper uses a whitelist approach for component property serialization. Only explicitly whitelisted properties are included in GhJSON output to:
+SmartHopper uses an advanced property management system for component serialization. The system provides flexible, context-aware filtering to optimize GhJSON output for different use cases:
 
-- **Reduce payload size**: Exclude irrelevant or redundant data
-- **Improve AI comprehension**: Focus on actionable properties
-- **Ensure consistency**: Standardize serialization across components
+- **Reduce payload size**: Exclude irrelevant or redundant data based on context
+- **Improve AI comprehension**: Focus on actionable properties with AI-optimized contexts
+- **Ensure consistency**: Standardized serialization across components with clear rules
 - **Prevent errors**: Avoid circular references and non-serializable data
+- **Easy maintenance**: Centralized configuration with component categories
+
+## Property Management Architecture
+
+The new system uses a **three-layer approach**:
+
+1. **Property Filtering** (`PropertyFilter`) - Determines which properties to include/exclude
+2. **Property Handling** (`PropertyHandler`) - Manages extraction and application of specific property types  
+3. **Property Management** (`PropertyManagerV2`) - Orchestrates the entire process
+
+### Serialization Contexts
+
+Different contexts optimize property selection for specific use cases:
+
+| Context | Purpose | Properties Included | Size Reduction |
+|---------|---------|-------------------|----------------|
+| `AIOptimized` | Clean structure for AI processing | Core + Parameters + Essential UI | ~60% |
+| `FullSerialization` | Maximum fidelity preservation | All properties except runtime-only | ~10% |
+| `CompactSerialization` | Minimal data for storage efficiency | Core properties only | ~80% |
+| `ParametersOnly` | Parameter-focused extraction | Core + Parameter properties | ~70% |
 
 ## Whitelisted Properties
 
@@ -153,16 +173,55 @@ SmartHopper uses a whitelist approach for component property serialization. Only
 
 ---
 
+## Component Categories
+
+Properties are organized by component categories for easy management:
+
+| Category | Components | Key Properties |
+|----------|------------|----------------|
+| `Panel` | GH_Panel | `UserText`, `Font`, `Alignment` |
+| `Scribble` | GH_Scribble | `Text`, `Font`, `Corners` |
+| `Slider` | GH_NumberSlider | `CurrentValue`, `Minimum`, `Maximum`, `Range` |
+| `MultidimensionalSlider` | GH_MultiDimensionalSlider | `SliderMode`, `XInterval`, `YInterval`, `ZInterval` |
+| `ValueList` | GH_ValueList | `ListMode`, `ListItems` |
+| `Script` | IScriptComponent | `Script`, `MarshInputs`, `MarshOutputs` |
+| `GeometryPipeline` | GH_GeometryPipeline | `LayerFilter`, `NameFilter`, `TypeFilter` |
+| `Essential` | Panel + Scribble + Slider + ValueList + Script | Combined essential components |
+| `UI` | Panel + Scribble + Button + ColorWheel | UI-focused components |
+
+### Category Usage
+
+```csharp
+// Include only essential component categories
+var essentialManager = PropertyManagerFactory.CreateWithCategories(ComponentCategory.Essential);
+
+// Include UI components only
+var uiManager = PropertyManagerFactory.CreateWithCategories(ComponentCategory.UI);
+
+// Custom combination
+var customManager = PropertyFilterBuilder.Create()
+    .WithCategories(ComponentCategory.Slider | ComponentCategory.Script)
+    .BuildManager();
+```
+
 ## Omitted Properties
 
-The following properties are explicitly omitted from serialization:
+The following properties are globally blacklisted from all serialization contexts:
 
 | Property | Reason |
 |----------|--------|
 | `VolatileData` | Runtime-only, not persistent |
-| `DataType` | Redundant with type information |
-| `Properties` | Circular reference risk |
-| `Params` | Circular reference (handled separately) |
+| `IsValid` | Runtime validation state |
+| `IsValidWhyNot` | Runtime validation messages |
+| `TypeDescription` | Redundant with component type |
+| `TypeName` | Redundant with component type |
+| `Boundingbox` | Runtime geometry bounds |
+| `ClippingBox` | Runtime geometry bounds |
+| `ReferenceID` | Internal framework property |
+| `IsReferencedGeometry` | Runtime geometry state |
+| `IsGeometryLoaded` | Runtime geometry state |
+| `QC_Type` | Internal quality control type |
+| `humanReadable` | Redundant metadata |
 
 ---
 
@@ -218,19 +277,63 @@ Script parameters are serialized as structured arrays:
 
 ## Implementation
 
-The whitelist is defined in `PropertyManager.cs`:
+The new property management system is implemented across multiple components:
+
+### PropertyFilterConfig.cs
+
+Central configuration defining property rules:
 
 ```csharp
-private static Dictionary<string, List<string>> PropertiesWhitelist { get; } = new Dictionary<string, List<string>>
+// Global blacklist - never serialize these
+public static readonly HashSet<string> GlobalBlacklist = new()
 {
-    { "Value", null },
-    { "Locked", null },
-    { "Simplify", null },
-    // ... additional properties
+    "VolatileData", "IsValid", "TypeDescription", "Boundingbox", // ...
+};
+
+// Core properties - essential for all objects  
+public static readonly HashSet<string> CoreProperties = new()
+{
+    "NickName", "Locked", "PersistentData"
+};
+
+// Category-specific properties
+public static readonly Dictionary<ComponentCategory, HashSet<string>> CategoryProperties = new()
+{
+    [ComponentCategory.Panel] = new() { "UserText", "Font", "Alignment" },
+    [ComponentCategory.Slider] = new() { "CurrentValue", "Minimum", "Maximum" },
+    // ...
 };
 ```
 
-Properties with `null` values are leaf properties. Properties with list values support nested property access.
+### PropertyManagerV2.cs
+
+Main orchestrator providing high-level API:
+
+```csharp
+// Use predefined contexts
+var aiManager = PropertyManagerFactory.CreateForAI();
+var properties = aiManager.ExtractProperties(grasshopperObject);
+
+// Custom configuration
+var customManager = PropertyFilterBuilder.Create()
+    .WithCore(true)
+    .WithCategories(ComponentCategory.Essential)
+    .Include("CustomProperty")
+    .BuildManager();
+```
+
+### Migration from Old System
+
+The old `PropertyManager` is deprecated but maintained for compatibility:
+
+```csharp
+// OLD WAY (deprecated)
+var isAllowed = PropertyManager.IsPropertyInWhitelist("CurrentValue");
+
+// NEW WAY
+var manager = PropertyManagerFactory.CreateForAI();
+var isAllowed = manager.ShouldIncludeProperty("CurrentValue", grasshopperObject);
+```
 
 ---
 

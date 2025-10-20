@@ -274,18 +274,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["Script"] = new ComponentProperty
                         {
                             Value = scriptCode,
-                            Type = typeof(string).Name,
-                            HumanReadable = scriptCode
                         },
                         ["ScriptInputs"] = new ComponentProperty
                         {
                             Value = scriptInputs,
-                            Type = typeof(JArray).Name
                         },
                         ["ScriptOutputs"] = new ComponentProperty
                         {
                             Value = scriptOutputs,
-                            Type = typeof(JArray).Name
                         },
                     },
                 };

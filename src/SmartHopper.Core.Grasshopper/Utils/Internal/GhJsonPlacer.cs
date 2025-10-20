@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json;
@@ -24,7 +23,9 @@ using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Serialization;
+using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
+using SmartHopper.Core.Models.Serialization;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Internal
 {
@@ -80,10 +81,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                         // Apply positions from force layout to components that don't have positions
                         foreach (var component in document.Components)
                         {
-                            if (component.Pivot.IsEmpty && forcePosMap.TryGetValue(component.InstanceGuid, out var forcePivot))
+                            if (component.Pivot.IsEmpty && forcePosMap.TryGetValue(component.InstanceGuid, out var forcePivotPointF))
                             {
-                                component.Pivot = forcePivot;
-                                Debug.WriteLine($"[GhJsonPlacer] Applied fallback position to component {component.InstanceGuid}: ({forcePivot.X}, {forcePivot.Y})");
+                                component.Pivot = new CompactPosition(forcePivotPointF.X, forcePivotPointF.Y);
+                                Debug.WriteLine($"[GhJsonPlacer] Applied fallback position to component {component.InstanceGuid}: ({forcePivotPointF.X}, {forcePivotPointF.Y})");
                             }
                         }
                     }
@@ -256,12 +257,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 }
                 else if (component.Properties != null)
                 {
-                    // Apply legacy properties for backward compatibility
-                    // TODO
-                    var filtered = component.Properties
-                        .Where(kvp => !PropertyManager.IsPropertyOmitted(kvp.Key))
-                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                    PropertyManager.SetProperties(instance, filtered);
+                    // Apply legacy properties for backward compatibility using PropertyManagerV2
+                    var propertyManager = PropertyManagerFactory.CreateForAI();
+                    var componentProperties = component.Properties.ToDictionary(
+                        kvp => kvp.Key, 
+                        kvp => new ComponentProperty { Value = kvp.Value });
+                    propertyManager.ApplyProperties(instance, componentProperties);
                 }
 
                 // Apply schema properties
@@ -456,9 +457,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     param.DataMapping = StringConverter.StringToGHDataMapping(setting.DataMapping);
                 }
 
-                // Expression - not directly settable through IGH_Param interface
-                // Would need to be handled through specific parameter implementations
-                // TODO: Implement expression setting if needed
+                // Expression - apply through reflection since IGH_Param doesn't expose it directly
+                if (!string.IsNullOrEmpty(setting.Expression))
+                {
+                    ApplyParameterExpression(param, setting.Expression);
+                }
 
                 // Additional settings
                 if (setting.AdditionalSettings != null)
@@ -474,6 +477,15 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     if (additional.Locked.HasValue)
                         param.Locked = additional.Locked.Value;
 
+                    // Note: IsPrincipal is read-only and managed by the component
+                    // It cannot be set directly on parameters
+                    // This would need to be handled at the component level via PrincipalParameterIndex
+                    if (additional.IsPrincipal.HasValue)
+                    {
+                        // TODO: Handle principal parameter setting at component level
+                        // For now, we acknowledge the setting but cannot apply it directly
+                    }
+
                     // Note: Invert is for boolean parameters only and is not directly supported by Grasshopper parameters
                     // It should be handled at the data level, not parameter level
                     // TODO: Implement invert functionality for boolean data processing
@@ -482,6 +494,33 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error applying parameter setting to {param.Name}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies parameter expression using reflection since it's not exposed through IGH_Param interface.
+        /// </summary>
+        /// <param name="param">The parameter to apply expression to.</param>
+        /// <param name="expression">The expression string to apply.</param>
+        private static void ApplyParameterExpression(IGH_Param param, string expression)
+        {
+            try
+            {
+                // Try to set Expression property through reflection
+                var expressionProperty = param.GetType().GetProperty("Expression");
+                if (expressionProperty != null && expressionProperty.CanWrite)
+                {
+                    expressionProperty.SetValue(param, expression);
+                    Debug.WriteLine($"Applied expression '{expression}' to parameter {param.Name}");
+                }
+                else
+                {
+                    Debug.WriteLine($"Cannot set expression on parameter {param.Name} - property not found or not writable");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying expression '{expression}' to parameter {param.Name}: {ex.Message}");
             }
         }
 
@@ -757,8 +796,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                         Debug.WriteLine($"[GhJsonPlacer] No color provided for group '{groupInfo.Name}'");
                     }
 
-                    // Create the group using DocumentIntrospection.GroupObjects
-                    var createdGroup = DocumentIntrospection.GroupObjects(
+                    // Create the group using DocumentIntrospectionV2.GroupObjects
+                    var createdGroup = DocumentIntrospectionV2.GroupObjects(
                         placedMemberGuids,
                         groupInfo.Name,
                         groupColor);
