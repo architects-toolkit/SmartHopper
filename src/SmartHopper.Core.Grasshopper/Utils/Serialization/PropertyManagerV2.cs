@@ -33,7 +33,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// Initializes a new instance of PropertyManagerV2 with the specified context.
         /// </summary>
         /// <param name="context">The serialization context that determines which properties to include.</param>
-        public PropertyManagerV2(SerializationContext context = SerializationContext.AIOptimized)
+        public PropertyManagerV2(SerializationContext context = SerializationContext.Standard)
         {
             _filter = new PropertyFilter(context);
             _handlerRegistry = PropertyHandlerRegistry.Instance;
@@ -310,53 +310,33 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
     public static class PropertyManagerFactory
     {
         /// <summary>
-        /// Creates a PropertyManagerV2 optimized for AI processing.
+        /// Creates a PropertyManagerV2 with standard format (default).
         /// </summary>
-        public static PropertyManagerV2 CreateForAI()
+        public static PropertyManagerV2 CreateStandard()
         {
-            return new PropertyManagerV2(SerializationContext.AIOptimized);
+            return new PropertyManagerV2(SerializationContext.Standard);
         }
 
         /// <summary>
-        /// Creates a PropertyManagerV2 for full serialization with maximum fidelity.
+        /// Creates a PropertyManagerV2 with lite format.
         /// </summary>
-        public static PropertyManagerV2 CreateForFullSerialization()
+        public static PropertyManagerV2 CreateLite()
         {
-            return new PropertyManagerV2(SerializationContext.FullSerialization);
-        }
-
-        /// <summary>
-        /// Creates a PropertyManagerV2 for compact serialization with minimal data.
-        /// </summary>
-        public static PropertyManagerV2 CreateForCompactSerialization()
-        {
-            return new PropertyManagerV2(SerializationContext.CompactSerialization);
-        }
-
-        /// <summary>
-        /// Creates a PropertyManagerV2 for parameter-only extraction.
-        /// </summary>
-        public static PropertyManagerV2 CreateForParametersOnly()
-        {
-            return new PropertyManagerV2(SerializationContext.ParametersOnly);
+            return new PropertyManagerV2(SerializationContext.Lite);
         }
 
         /// <summary>
         /// Creates a PropertyManagerV2 with custom component categories.
         /// </summary>
         /// <param name="includeCategories">Component categories to include.</param>
-        /// <param name="excludeDataType">Whether to exclude DataType property.</param>
-        public static PropertyManagerV2 CreateWithCategories(
-            ComponentCategory includeCategories, 
-            bool excludeDataType = true)
+        public static PropertyManagerV2 CreateWithCategories(ComponentCategory includeCategories)
         {
             var customRule = new PropertyFilterRule
             {
                 IncludeCore = true,
                 IncludeParameters = true,
                 IncludeComponents = true,
-                IncludeCategories = includeCategories,
-                ExcludeDataType = excludeDataType
+                IncludeCategories = includeCategories
             };
 
             return PropertyManagerV2.CreateCustom(customRule);

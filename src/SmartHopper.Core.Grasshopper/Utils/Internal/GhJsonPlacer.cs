@@ -259,7 +259,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 {
                     // Apply legacy properties for backward compatibility using PropertyManagerV2
                     // Note: component.Properties is already Dictionary<string, ComponentProperty> after deserialization
-                    var propertyManager = PropertyManagerFactory.CreateForAI();
+                    var propertyManager = PropertyManagerFactory.CreateStandard();
                     propertyManager.ApplyProperties(instance, component.Properties);
                 }
 

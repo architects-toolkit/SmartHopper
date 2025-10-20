@@ -187,40 +187,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         /// </summary>
         public static readonly Dictionary<SerializationContext, PropertyFilterRule> ContextRules = new()
         {
-            [SerializationContext.FullSerialization] = new()
-            {
-                IncludeCore = true,
-                IncludeParameters = true,
-                IncludeComponents = true,
-                IncludeCategories = ComponentCategory.All,
-                ExcludeDataType = false // Include for backward compatibility
-            },
-
-            [SerializationContext.CompactSerialization] = new()
-            {
-                IncludeCore = true,
-                IncludeParameters = true,
-                IncludeComponents = false,
-                IncludeCategories = ComponentCategory.Essential,
-                ExcludeDataType = true
-            },
-
-            [SerializationContext.AIOptimized] = new()
+            [SerializationContext.Standard] = new()
             {
                 IncludeCore = true,
                 IncludeParameters = true,
                 IncludeComponents = true,
                 IncludeCategories = ComponentCategory.Essential | ComponentCategory.UI,
-                ExcludeDataType = true
             },
 
-            [SerializationContext.ParametersOnly] = new()
+            [SerializationContext.Lite] = new()
             {
                 IncludeCore = true,
                 IncludeParameters = true,
-                IncludeComponents = false,
-                IncludeCategories = ComponentCategory.None,
-                ExcludeDataType = true
+                IncludeComponents = false,  // No componentState in Lite format
+                IncludeCategories = ComponentCategory.Essential,
+                AdditionalExcludes = new() { "ComponentGuid", "InstanceGuid", "Selected", "DisplayName" }
             }
         };
     }
@@ -260,24 +241,18 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
     public enum SerializationContext
     {
         /// <summary>
-        /// Include all properties for complete fidelity.
+        /// Standard format - balanced, clean structure for AI processing.
+        /// Includes core properties, parameters, and essential UI components.
+        /// This is the default format used throughout SmartHopper.
         /// </summary>
-        FullSerialization,
+        Standard,
 
         /// <summary>
-        /// Include only essential properties for smaller output.
+        /// Lite format - compressed variant optimized for minimal token usage.
+        /// Excludes GUIDs, UI state, and component-specific properties.
+        /// Planned for Phase 2.1 implementation.
         /// </summary>
-        CompactSerialization,
-
-        /// <summary>
-        /// Optimized for AI processing - clean, predictable structure.
-        /// </summary>
-        AIOptimized,
-
-        /// <summary>
-        /// Only parameter-related properties.
-        /// </summary>
-        ParametersOnly
+        Lite
     }
 
     /// <summary>
@@ -289,7 +264,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         public bool IncludeParameters { get; set; } = true;
         public bool IncludeComponents { get; set; } = true;
         public ComponentCategory IncludeCategories { get; set; } = ComponentCategory.All;
-        public bool ExcludeDataType { get; set; } = true;
         public HashSet<string> AdditionalIncludes { get; set; } = new();
         public HashSet<string> AdditionalExcludes { get; set; } = new();
     }

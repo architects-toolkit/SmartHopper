@@ -28,7 +28,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         private readonly PropertyFilterRule _rule;
         private readonly HashSet<string> _allowedProperties;
 
-        public PropertyFilter(SerializationContext context = SerializationContext.AIOptimized)
+        public PropertyFilter(SerializationContext context = SerializationContext.Standard)
         {
             _context = context;
             _rule = PropertyFilterConfig.ContextRules[context];
@@ -59,12 +59,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             if (_rule.AdditionalIncludes.Contains(propertyName))
             {
                 return true;
-            }
-
-            // Special handling for DataType based on context
-            if (propertyName == "DataType" && _rule.ExcludeDataType)
-            {
-                return false;
             }
 
             // Check if property is in the allowed set for this context
@@ -112,12 +106,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             result.ExceptWith(_rule.AdditionalExcludes);
             result.UnionWith(_rule.AdditionalIncludes);
 
-            // Handle DataType exclusion
-            if (_rule.ExcludeDataType)
-            {
-                result.Remove("DataType");
-            }
-
             return result;
         }
 
@@ -128,12 +116,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         /// <returns>New PropertyFilter instance.</returns>
         public static PropertyFilter CreateCustom(PropertyFilterRule customRule)
         {
-            var filter = new PropertyFilter(SerializationContext.AIOptimized);
+            var filter = new PropertyFilter(SerializationContext.Standard);
             filter._rule.IncludeCore = customRule.IncludeCore;
             filter._rule.IncludeParameters = customRule.IncludeParameters;
             filter._rule.IncludeComponents = customRule.IncludeComponents;
             filter._rule.IncludeCategories = customRule.IncludeCategories;
-            filter._rule.ExcludeDataType = customRule.ExcludeDataType;
             filter._rule.AdditionalIncludes.UnionWith(customRule.AdditionalIncludes);
             filter._rule.AdditionalExcludes.UnionWith(customRule.AdditionalExcludes);
             

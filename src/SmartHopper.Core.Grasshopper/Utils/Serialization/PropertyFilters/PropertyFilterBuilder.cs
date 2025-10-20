@@ -49,7 +49,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             builder._rule.IncludeParameters = baseRule.IncludeParameters;
             builder._rule.IncludeComponents = baseRule.IncludeComponents;
             builder._rule.IncludeCategories = baseRule.IncludeCategories;
-            builder._rule.ExcludeDataType = baseRule.ExcludeDataType;
             builder._rule.AdditionalIncludes.UnionWith(baseRule.AdditionalIncludes);
             builder._rule.AdditionalExcludes.UnionWith(baseRule.AdditionalExcludes);
 
@@ -140,16 +139,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             return WithCategories(ComponentCategory.UI);
         }
 
-        /// <summary>
-        /// Includes or excludes the DataType property.
-        /// </summary>
-        /// <param name="exclude">Whether to exclude DataType property.</param>
-        /// <returns>Builder instance for method chaining.</returns>
-        public PropertyFilterBuilder ExcludeDataType(bool exclude = true)
-        {
-            _rule.ExcludeDataType = exclude;
-            return this;
-        }
 
         /// <summary>
         /// Adds specific properties to the include list (these will always be included).
@@ -210,8 +199,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             return WithCore(true)
                    .WithParameters(false)
                    .WithComponents(false)
-                   .WithCategories(ComponentCategory.None)
-                   .ExcludeDataType(true);
+                   .WithCategories(ComponentCategory.None);
         }
 
         /// <summary>
@@ -223,8 +211,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             return WithCore(true)
                    .WithParameters(true)
                    .WithComponents(true)
-                   .WithCategories(ComponentCategory.All)
-                   .ExcludeDataType(false);
+                   .WithCategories(ComponentCategory.All);
         }
 
         /// <summary>
@@ -285,7 +272,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 IncludeParameters = _rule.IncludeParameters,
                 IncludeComponents = _rule.IncludeComponents,
                 IncludeCategories = _rule.IncludeCategories,
-                ExcludeDataType = _rule.ExcludeDataType,
                 AdditionalIncludes = new HashSet<string>(_rule.AdditionalIncludes),
                 AdditionalExcludes = new HashSet<string>(_rule.AdditionalExcludes)
             };
@@ -324,7 +310,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                          .WithParameters(true)
                          .WithComponents(true)
                          .WithEssentialCategories()
-                         .ExcludeDataType(true)
                          .Exclude("VolatileData", "IsValid", "TypeDescription");
         }
 

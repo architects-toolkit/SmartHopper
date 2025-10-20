@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// <returns>GhJSON document with extracted object details.</returns>
         public static GrasshopperDocument ExtractDocument(
             IEnumerable<IGH_ActiveObject> objects,
-            SerializationContext context = SerializationContext.AIOptimized,
+            SerializationContext context = SerializationContext.Standard,
             bool includeMetadata = false,
             bool includeGroups = true)
         {
@@ -656,27 +656,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         public static class ExtractionFactory
         {
             /// <summary>
-            /// Extracts document optimized for AI processing.
+            /// Extracts document with standard format (default).
             /// </summary>
-            public static GrasshopperDocument ForAI(IEnumerable<IGH_ActiveObject> objects)
+            public static GrasshopperDocument ForStandard(IEnumerable<IGH_ActiveObject> objects)
             {
-                return ExtractDocument(objects, SerializationContext.AIOptimized, false, true);
+                return ExtractDocument(objects, SerializationContext.Standard, false, true);
             }
 
             /// <summary>
-            /// Extracts document with full fidelity.
+            /// Extracts document with lite format (compressed for AI).
             /// </summary>
-            public static GrasshopperDocument ForFullSerialization(IEnumerable<IGH_ActiveObject> objects)
+            public static GrasshopperDocument ForLite(IEnumerable<IGH_ActiveObject> objects)
             {
-                return ExtractDocument(objects, SerializationContext.FullSerialization, true, true);
-            }
-
-            /// <summary>
-            /// Extracts document with minimal data for compact storage.
-            /// </summary>
-            public static GrasshopperDocument ForCompactSerialization(IEnumerable<IGH_ActiveObject> objects)
-            {
-                return ExtractDocument(objects, SerializationContext.CompactSerialization, false, false);
+                return ExtractDocument(objects, SerializationContext.Lite, false, false);
             }
 
             /// <summary>
@@ -741,7 +733,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// <returns>A complete GrasshopperDocument with all requested information.</returns>
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects, bool includeMetadata, bool includeGroups = true)
         {
-            return ExtractDocument(objects, SerializationContext.AIOptimized, includeMetadata, includeGroups);
+            return ExtractDocument(objects, SerializationContext.Standard, includeMetadata, includeGroups);
         }
     }
 }
