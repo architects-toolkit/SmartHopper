@@ -6,7 +6,7 @@
 - [x] 1.1 Document-level metadata (schemaVersion + metadata in `GrasshopperDocument`, metadata population in `DocumentIntrospection`, `includeMetadata` in `gh_get`, UI wiring in `GhGetComponents`)
 - [x] 1.2 Groups support (groups array in `GrasshopperDocument`, `GroupInfo` model, extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer` - always included, no flag needed)
 - [x] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
-- [ ] 1.4 Component schema improvements (position→`position.x/y`, `params`, `inputSettings`/`outputSettings`, `componentState`)
+- [x] 1.4 Component schema improvements (`params`, `inputSettings`/`outputSettings`, `componentState` - keeping legacy `pivot` for compactness)
 
 - **Phase 2: GhJSON-Lite**
 - [ ] 2.1 Lite converter (structure-only)

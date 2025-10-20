@@ -29,7 +29,8 @@ using SmartHopper.Core.Models.Document;
 namespace SmartHopper.Core.Grasshopper.Utils.Internal
 {
     /// <summary>
-    /// Utility to place deserialized Grasshopper objects onto the canvas.
+    /// Places GhJSON document components onto the Grasshopper canvas.
+    /// Handles component instantiation, property application, positioning, and connections.
     /// </summary>
     internal static class GhJsonPlacer
     {
@@ -40,9 +41,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         }
 
         /// <summary>
-        /// Core placement logic; returns mapping from template InstanceGuid to placed component InstanceGuid.
+        /// Places all components from a GhJSON document onto the canvas.
+        /// Returns mapping from template GUIDs to placed component GUIDs.
         /// </summary>
-        private static Dictionary<Guid, Guid> InternalPutObjects(GrasshopperDocument document, PointF startPoint)
+        private static Dictionary<Guid, Guid> PlaceDocumentComponents(GrasshopperDocument document, PointF startPoint)
         {
             // Replace integer IDs with proper GUIDs before processing
             document = ReplaceIntegerIdsInGhJson(document);
@@ -254,16 +256,22 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 }
                 else if (component.Properties != null)
                 {
+                    // Apply legacy properties for backward compatibility
+                    // TODO
                     var filtered = component.Properties
                         .Where(kvp => !PropertyManager.IsPropertyOmitted(kvp.Key))
                         .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                     PropertyManager.SetProperties(instance, filtered);
                 }
 
-                // Position and add
+                // Apply schema properties
+                ApplySchemaProperties(instance, component);
+
+                // Position and add component
                 var position = component.Pivot.IsEmpty
                     ? startPoint
                     : new PointF(component.Pivot.X + startPoint.X, component.Pivot.Y + startPoint.Y);
+
                 CanvasAccess.AddObjectToCanvas(instance, position, true);
                 guidMapping[component.InstanceGuid] = instance.InstanceGuid;
             }
@@ -309,6 +317,243 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             }
 
             return guidMapping;
+        }
+
+        /// <summary>
+        /// Applies schema properties to a Grasshopper component instance.
+        /// </summary>
+        /// <param name="instance">The component instance to configure.</param>
+        /// <param name="component">The component properties from the schema.</param>
+        private static void ApplySchemaProperties(IGH_DocumentObject instance, SmartHopper.Core.Models.Components.ComponentProperties component)
+        {
+            try
+            {
+                // Apply basic params
+                if (component.Params != null)
+                {
+                    ApplyBasicParams(instance, component.Params);
+                }
+
+                // Apply input/output parameter settings
+                if (component.InputSettings != null || component.OutputSettings != null)
+                {
+                    ApplyParameterSettings(instance, component.InputSettings, component.OutputSettings);
+                }
+
+                // Apply component state
+                if (component.ComponentState != null)
+                {
+                    ApplyComponentState(instance, component.ComponentState);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying new schema properties to {instance.InstanceGuid}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies basic parameters to a component instance.
+        /// </summary>
+        /// <param name="instance">The component instance.</param>
+        /// <param name="basicParams">The basic parameters to apply.</param>
+        private static void ApplyBasicParams(IGH_DocumentObject instance, Dictionary<string, object> basicParams)
+        {
+            foreach (var param in basicParams)
+            {
+                try
+                {
+                    switch (param.Key)
+                    {
+                        case "NickName":
+                            if (param.Value is string nickName)
+                            {
+                                instance.NickName = nickName;
+                            }
+                            break;
+                        case "UserText":
+                            if (instance is GH_Panel panel && param.Value is string userText)
+                            {
+                                panel.UserText = userText;
+                            }
+                            break;
+                        case "Text":
+                            if (instance is GH_Scribble scribble && param.Value is string text)
+                            {
+                                scribble.Text = text;
+                            }
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error applying basic param {param.Key}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Applies parameter settings to component inputs and outputs.
+        /// </summary>
+        /// <param name="instance">The component instance.</param>
+        /// <param name="inputSettings">Input parameter settings.</param>
+        /// <param name="outputSettings">Output parameter settings.</param>
+        private static void ApplyParameterSettings(IGH_DocumentObject instance, 
+            List<SmartHopper.Core.Models.Components.ParameterSettings> inputSettings, 
+            List<SmartHopper.Core.Models.Components.ParameterSettings> outputSettings)
+        {
+            if (instance is IGH_Component component)
+            {
+                // Apply input settings
+                if (inputSettings != null)
+                {
+                    foreach (var setting in inputSettings)
+                    {
+                        var param = ParameterAccess.GetInputByName(component, setting.ParameterName);
+                        if (param != null)
+                        {
+                            ApplyParameterSetting(param, setting);
+                        }
+                    }
+                }
+
+                // Apply output settings
+                if (outputSettings != null)
+                {
+                    foreach (var setting in outputSettings)
+                    {
+                        var param = ParameterAccess.GetOutputByName(component, setting.ParameterName);
+                        if (param != null)
+                        {
+                            ApplyParameterSetting(param, setting);
+                        }
+                    }
+                }
+            }
+            else if (instance is IGH_Param param && outputSettings != null)
+            {
+                // For standalone parameters, apply output settings
+                var setting = outputSettings.FirstOrDefault(s => s.ParameterName == param.Name);
+                if (setting != null)
+                {
+                    ApplyParameterSetting(param, setting);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Applies a single parameter setting to a Grasshopper parameter.
+        /// </summary>
+        /// <param name="param">The parameter to configure.</param>
+        /// <param name="setting">The parameter settings.</param>
+        private static void ApplyParameterSetting(IGH_Param param, SmartHopper.Core.Models.Components.ParameterSettings setting)
+        {
+            try
+            {
+                // Data mapping
+                if (!string.IsNullOrEmpty(setting.DataMapping))
+                {
+                    param.DataMapping = StringConverter.StringToGHDataMapping(setting.DataMapping);
+                }
+
+                // Expression - not directly settable through IGH_Param interface
+                // Would need to be handled through specific parameter implementations
+                // TODO: Implement expression setting if needed
+
+                // Additional settings
+                if (setting.AdditionalSettings != null)
+                {
+                    var additional = setting.AdditionalSettings;
+
+                    if (additional.Reverse.HasValue)
+                        param.Reverse = additional.Reverse.Value;
+
+                    if (additional.Simplify.HasValue)
+                        param.Simplify = additional.Simplify.Value;
+
+                    if (additional.Locked.HasValue)
+                        param.Locked = additional.Locked.Value;
+
+                    // Note: Invert is for boolean parameters only and is not directly supported by Grasshopper parameters
+                    // It should be handled at the data level, not parameter level
+                    // TODO: Implement invert functionality for boolean data processing
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying parameter setting to {param.Name}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies component state to a component instance.
+        /// </summary>
+        /// <param name="instance">The component instance.</param>
+        /// <param name="state">The component state to apply.</param>
+        private static void ApplyComponentState(IGH_DocumentObject instance, SmartHopper.Core.Models.Components.ComponentState state)
+        {
+            try
+            {
+                // Apply component-level properties
+                if (instance is GH_Component ghComponent)
+                {
+                    if (state.Locked.HasValue)
+                    {
+                        ghComponent.Locked = state.Locked.Value;
+                    }
+                    if (state.Hidden.HasValue)
+                    {
+                        ghComponent.Hidden = state.Hidden.Value;
+                    }
+                }
+
+                // Handle universal value property and component-specific types
+                if (instance is GH_NumberSlider slider && state.Value != null)
+                {
+                    // Number Slider: value format "5.0<0.0,10.0>"
+                    slider.SetInitCode(state.Value.ToString());
+                }
+                else if (instance is GH_Panel panel && state.Value != null)
+                {
+                    // Panel: value is userText
+                    panel.UserText = state.Value.ToString();
+                }
+                else if (instance is GH_Scribble scribble && state.Value != null)
+                {
+                    // Scribble: value is text
+                    scribble.Text = state.Value.ToString();
+                }
+                else if (instance is IScriptComponent scriptComp && state.Value != null)
+                {
+                    // Script: value is script code
+                    scriptComp.Text = state.Value.ToString();
+                }
+
+                // Apply script-specific properties
+                if (instance is IScriptComponent scriptComp2)
+                {
+                    if (state.MarshInputs.HasValue)
+                    {
+                        scriptComp2.MarshInputs = state.MarshInputs.Value;
+                    }
+                    
+                    if (state.MarshOutputs.HasValue)
+                    {
+                        scriptComp2.MarshOutputs = state.MarshOutputs.Value;
+                    }
+                }
+
+                // Apply value list mode
+                if (!string.IsNullOrEmpty(state.ListMode))
+                {
+                    // Value list mode handling would go here
+                    // This requires specific implementation for value list components
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying component state to {instance.InstanceGuid}: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -431,7 +676,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         /// </summary>
         public static List<string> PutObjectsOnCanvas(GrasshopperDocument document, PointF startPoint)
         {
-            var mapping = InternalPutObjects(document, startPoint);
+            var mapping = PlaceDocumentComponents(document, startPoint);
 
             // Recreate groups if present in the document
             if (document.Groups != null && document.Groups.Count > 0)
@@ -451,7 +696,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         public static Dictionary<Guid, Guid> PutObjectsOnCanvasWithMapping(GrasshopperDocument document, int span = 100)
         {
             var startPoint = CanvasAccess.StartPoint(span);
-            return InternalPutObjects(document, startPoint);
+            return PlaceDocumentComponents(document, startPoint);
         }
 
         /// <summary>
@@ -459,7 +704,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         /// </summary>
         public static Dictionary<Guid, Guid> PutObjectsOnCanvasWithMapping(GrasshopperDocument document, PointF startPoint)
         {
-            return InternalPutObjects(document, startPoint);
+            return PlaceDocumentComponents(document, startPoint);
         }
 
         /// <summary>

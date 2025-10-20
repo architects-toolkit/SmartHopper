@@ -124,7 +124,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var doc = DocumentIntrospection.GetObjectsDetails(selected);
+                var doc = DocumentIntrospection.GetObjectsDetails(selected, false);
                 var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
 
                 if (!hasStart)

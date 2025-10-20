@@ -267,8 +267,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var comp = new ComponentProperties
                 {
                     Name = displayName,
-                    Type = "IGH_Component",
-                    ObjectType = objectType,
                     ComponentGuid = componentGuid,
                     InstanceGuid = Guid.NewGuid(),
                     Properties = new Dictionary<string, ComponentProperty>
