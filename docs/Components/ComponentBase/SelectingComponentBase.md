@@ -10,8 +10,9 @@ Provide a consistent UX for components that need the user to select other GH obj
 
 - Renders a "Select Components" button via custom attributes.
 - Manages selection state and notifies when it changes.
-- Persists selection across document saves/loads.
+- **Persists selection across document saves/loads** using GUID-based serialization.
 - Safe interaction with the GH canvas and document.
+- Graceful handling of missing objects (deleted after selection).
 
 ## Usage
 
