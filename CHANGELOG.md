@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Enhanced GhJSON Schema**: Implemented component schema improvements following complete property reference specification:
+  - **Parameter Properties**: `parameterName`, `dataMapping`, `simplify`, `reverse`, `invert`, `expression`, `variableName`, `isPrincipal`, `locked`
+  - **Component Properties**: `locked`, `hidden`, universal `value` property with type-specific mapping
+  - **Value Consolidation**: Number Slider (`currentValue` → `value`), Panel (`userText` → `value`), Scribble (`text` → `value`), Script (`script` → `value`), Value List (`listItems` → `value`)
+  - **Removed Properties**: `expressionContent` (use `expression`), `access`, `description`, `optional`, `type`, `objectType` (excluded as implicit/redundant), `humanReadable`, redundant slider properties
+  - Extended `ComponentProperties` with new schema properties: `Id`, `Params`, `InputSettings`, `OutputSettings`, `ComponentState`
+  - **BREAKING**: New schema format is now the default for all `gh_get` and `gh_put` operations
+  - Kept legacy `Pivot` format for compactness and compatibility
 - New AI Tools for component generation and connection:
   - `gh_generate`: Generate GhJSON from component specifications (name + parameters), returns valid GhJSON for gh_put.
   - `gh_connect`: Connect Grasshopper components by creating wires between outputs and inputs using component GUIDs.

@@ -30,18 +30,6 @@ namespace SmartHopper.Core.Models.Components
         public required string Name { get; set; }
 
         /// <summary>
-        /// Gets or sets the type of the component.
-        /// </summary>
-        [JsonProperty("type")]
-        public string Type { get; set; }
-
-        /// <summary>
-        /// Gets or sets the object type of the component.
-        /// </summary>
-        [JsonProperty("objectType")]
-        public string ObjectType { get; set; }
-
-        /// <summary>
         /// Gets or sets the unique identifier for the component type.
         /// </summary>
         [JsonProperty("componentGuid")]
@@ -71,6 +59,36 @@ namespace SmartHopper.Core.Models.Components
         /// </summary>
         [JsonProperty("pivot")]
         public PointF Pivot { get; set; }
+
+        /// <summary>
+        /// Gets or sets the integer ID for the component (used for group references and connections).
+        /// </summary>
+        [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
+        public int? Id { get; set; }
+
+        /// <summary>
+        /// Gets or sets simple key-value pairs for basic component properties.
+        /// </summary>
+        [JsonProperty("params", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, object>? Params { get; set; }
+
+        /// <summary>
+        /// Gets or sets the input parameter settings array.
+        /// </summary>
+        [JsonProperty("inputSettings", NullValueHandling = NullValueHandling.Ignore)]
+        public List<ParameterSettings>? InputSettings { get; set; }
+
+        /// <summary>
+        /// Gets or sets the output parameter settings array.
+        /// </summary>
+        [JsonProperty("outputSettings", NullValueHandling = NullValueHandling.Ignore)]
+        public List<ParameterSettings>? OutputSettings { get; set; }
+
+        /// <summary>
+        /// Gets or sets the component-specific UI state.
+        /// </summary>
+        [JsonProperty("componentState", NullValueHandling = NullValueHandling.Ignore)]
+        public ComponentState? ComponentState { get; set; }
 
         /// <summary>
         /// Gets or sets a list of warnings associated with the component.

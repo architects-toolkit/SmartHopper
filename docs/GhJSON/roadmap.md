@@ -118,18 +118,16 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 }
 ```
 
-#### Position Naming
+#### Position Format
 
-**Current**: `pivot` with `X`/`Y` (capitalized)  
-**Proposed**: `position` with `x`/`y` (lowercase) for consistency
+**Decision**: Keep legacy `pivot` with `X`/`Y` (capitalized) for compactness and compatibility
 
 **Implementation**:
 
-- [ ] **Separate I/O Settings**: Split properties into input/output parameter arrays
-- [ ] **Parameter Metadata**: Access mode, optional status, type hints, expressions
-- [ ] **Component State**: Dedicated object for UI state (colors, multiline, etc.)
-- [ ] **Position Standardization**: Use lowercase `x`/`y` coordinates
-- [ ] **Params Object**: Simple key-value pairs for basic properties
+- [x] **Separate I/O Settings**: Split properties into input/output parameter arrays
+- [x] **Parameter Metadata**: Essential flags (optional, reverse, simplify, locked) - removed implicit properties
+- [x] **Component State**: Dedicated object for UI state (colors, multiline, etc.)
+- [x] **Params Object**: Simple key-value pairs for basic properties
 
 ### 1.4 Data Type Serialization
 

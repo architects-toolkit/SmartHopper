@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -26,6 +27,10 @@ using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 {
+    /// <summary>
+    /// Extracts comprehensive information from Grasshopper objects and converts them to GhJSON format.
+    /// Handles component properties, connections, groups, and metadata extraction.
+    /// </summary>
     public static class DocumentIntrospection
     {
         /// <summary>
@@ -68,7 +73,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             return group;
         }
 
-        public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects)
+        /// <summary>
+        /// Extracts component and connection information from Grasshopper objects.
+        /// </summary>
+        /// <param name="objects">The Grasshopper objects to analyze.</param>
+        /// <returns>A GrasshopperDocument with components and connections.</returns>
+        private static GrasshopperDocument ExtractDocument(IEnumerable<IGH_ActiveObject> objects)
         {
             var document = new GrasshopperDocument
             {
@@ -78,194 +88,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 
             foreach (var obj in objects)
             {
-                var componentProps = new ComponentProperties
-                {
-                    Name = obj.Name,
-                    InstanceGuid = obj.InstanceGuid,
-                    ComponentGuid = obj.ComponentGuid,
-                    Properties = new Dictionary<string, ComponentProperty>(),
-                    Warnings = ErrorAccess.GetRuntimeErrors(obj, "warning").ToList(),
-                    Errors = ErrorAccess.GetRuntimeErrors(obj, "error").ToList(),
-                };
-
-                if (obj is IGH_Component component)
-                {
-                    componentProps.Type = "IGH_Component";
-                    componentProps.ObjectType = component.GetType().ToString();
-
-                    // Only process outputs to avoid duplicate connections
-                    foreach (var output in component.Params.Output)
-                    {
-                        foreach (var recipient in output.Recipients)
-                        {
-                            var recipientGuid = recipient.Attributes?.GetTopLevel?.DocObject?.InstanceGuid ?? Guid.Empty;
-                            if (recipientGuid != Guid.Empty)
-                            {
-                                var connection = new ConnectionPairing
-                                {
-                                    From = new Connection
-                                    {
-                                        InstanceId = component.InstanceGuid,
-                                        ParamName = output.Name,
-                                    },
-                                    To = new Connection
-                                    {
-                                        InstanceId = recipientGuid,
-                                        ParamName = recipient.Name,
-                                    },
-                                };
-                                document.Connections.Add(connection);
-                            }
-                        }
-                    }
-                }
-                else if (obj is IGH_Param param)
-                {
-                    componentProps.Type = "IGH_Param";
-                    componentProps.ObjectType = param.GetType().ToString();
-
-                    // Only process outputs to avoid duplicate connections
-                    foreach (var recipient in param.Recipients)
-                    {
-                        var recipientGuid = recipient.Attributes?.GetTopLevel?.DocObject?.InstanceGuid ?? Guid.Empty;
-                        if (recipientGuid != Guid.Empty)
-                        {
-                            var connection = new ConnectionPairing
-                            {
-                                From = new Connection
-                                {
-                                    InstanceId = param.InstanceGuid,
-                                    ParamName = param.Name,
-                                },
-                                To = new Connection
-                                {
-                                    InstanceId = recipientGuid,
-                                    ParamName = recipient.Name,
-                                },
-                            };
-                            document.Connections.Add(connection);
-                        }
-                    }
-                }
-                else
-                {
-                    componentProps.Type = "other";
-                    componentProps.ObjectType = obj.GetType().ToString();
-                }
-
-                // ComponentRetriever component properties
-                var propertyValues = GetObjectProperties(obj);
-
-                // Inject script properties for script components
-                if (obj is IScriptComponent scriptComp && obj is IGH_Component ghComp)
-                {
-                    // Add the script text content
-                    propertyValues["Script"] = scriptComp.Text;
-
-                    // Add information about language and marshaling options
-                    //if (scriptComp.LanguageSpec != null)
-                    //{
-                    //    propertyValues["ScriptLanguage"] = scriptComp.LanguageSpec.Name;
-                    //}
-                    propertyValues["MarshInputs"] = scriptComp.MarshInputs;
-                    propertyValues["MarshOutputs"] = scriptComp.MarshOutputs;
-                    propertyValues["MarshGuids"] = scriptComp.MarshGuids;
-
-                    // Serialize input parameters
-                    if (scriptComp.Inputs != null && scriptComp.Inputs.Any())
-                    {
-                        var inputParamsArray = new JArray();
-                        foreach (var input in scriptComp.Inputs)
-                        {
-                            // find the real GH_Param
-                            var ghParam = ParameterAccess.GetInputByName(ghComp, input.VariableName);
-
-                            var paramObj = new JObject
-                            {
-                                ["variableName"] = input.VariableName,
-                                ["name"] = input.PrettyName,
-                                ["description"] = input.Description ?? string.Empty,
-                                ["access"] = input.Access.ToString(),
-
-                                // pull the modifiers from the GH_Param, not from IScriptParameter
-                                ["simplify"] = ghParam?.Simplify ?? false,
-                                ["reverse"] = ghParam?.Reverse ?? false,
-                                ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
-                            };
-                            inputParamsArray.Add(paramObj);
-                        }
-
-                        propertyValues["ScriptInputs"] = inputParamsArray;
-                    }
-
-                    // Serialize output parameters
-                    if (scriptComp.Outputs != null && scriptComp.Outputs.Any())
-                    {
-                        var outputParamsArray = new JArray();
-                        foreach (var output in scriptComp.Outputs)
-                        {
-                            // find the real GH_Param
-                            var ghParam = ParameterAccess.GetOutputByName(ghComp, output.VariableName);
-
-                            var paramObj = new JObject
-                            {
-                                ["variableName"] = output.VariableName,
-                                ["name"] = output.PrettyName,
-                                ["description"] = output.Description ?? string.Empty,
-                                ["access"] = output.Access.ToString(),
-
-                                // pull the modifiers from the GH_Param, not from IScriptParameter
-                                ["simplify"] = ghParam?.Simplify ?? false,
-                                ["reverse"] = ghParam?.Reverse ?? false,
-                                ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
-                            };
-                            outputParamsArray.Add(paramObj);
-                        }
-
-                        propertyValues["ScriptOutputs"] = outputParamsArray;
-                    }
-                }
-
-                // Only set humanReadable for non-primitive types when ToString() is meaningful
-                foreach (var prop in propertyValues)
-                {
-                    var val = prop.Value;
-                    var typeName = val?.GetType().Name ?? "null";
-                    string humanReadable = null;
-                    if (val != null)
-                    {
-                        var hr = val.ToString();
-                        var t = val.GetType();
-                        var fullName = t.FullName;
-                        var nameOnly = t.Name;
-
-                        if (!string.IsNullOrWhiteSpace(hr)
-                            && hr != fullName
-                            && hr != nameOnly
-                            && typeName != "String"
-                            && typeName != "Boolean"
-                            && typeName != "JArray"
-                            && typeName != "JObject")
-                        {
-                            humanReadable = hr;
-                        }
-                    }
-
-                    componentProps.Properties[prop.Key] = new ComponentProperty
-                    {
-                        Value = val,
-                        Type = typeName,
-                        HumanReadable = humanReadable,
-                    };
-                }
-
-                // Get component position and selection state
-                if (obj.Attributes != null)
-                {
-                    componentProps.Pivot = obj.Attributes.Pivot;
-                    componentProps.Selected = obj.Attributes.Selected;
-                }
-
+                // Extract component information
+                var componentProps = CreateComponentProperties(obj);
+                
+                // Extract connections from this object
+                ExtractConnectionsFromObject(obj, document.Connections);
+                
                 document.Components.Add(componentProps);
             }
 
@@ -273,18 +101,216 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         }
 
         /// <summary>
-        /// Gets details of Grasshopper objects with optional metadata.
-        /// Groups are extracted by default (can be disabled for lite format).
+        /// Creates component properties from a Grasshopper object.
+        /// </summary>
+        private static ComponentProperties CreateComponentProperties(IGH_ActiveObject obj)
+        {
+            var componentProps = new ComponentProperties
+            {
+                Name = obj.Name,
+                InstanceGuid = obj.InstanceGuid,
+                ComponentGuid = obj.ComponentGuid,
+                Properties = new Dictionary<string, ComponentProperty>(),
+                Warnings = ErrorAccess.GetRuntimeErrors(obj, "warning").ToList(),
+                Errors = ErrorAccess.GetRuntimeErrors(obj, "error").ToList(),
+                Pivot = obj.Attributes?.Pivot ?? PointF.Empty,
+                Selected = obj.Attributes?.Selected ?? false,
+            };
+
+            // Extract all component properties
+            ExtractAllProperties(obj, componentProps);
+
+            return componentProps;
+        }
+
+        /// <summary>
+        /// Extracts connection information from a single Grasshopper object.
+        /// </summary>
+        private static void ExtractConnectionsFromObject(IGH_ActiveObject obj, List<ConnectionPairing> connections)
+        {
+            if (obj is IGH_Component component)
+            {
+                // Process component outputs to avoid duplicate connections
+                foreach (var output in component.Params.Output)
+                {
+                    foreach (var recipient in output.Recipients)
+                    {
+                        var recipientGuid = recipient.Attributes?.GetTopLevel?.DocObject?.InstanceGuid ?? Guid.Empty;
+                        if (recipientGuid != Guid.Empty)
+                        {
+                            connections.Add(new ConnectionPairing
+                            {
+                                From = new Connection
+                                {
+                                    InstanceId = component.InstanceGuid,
+                                    ParamName = output.Name,
+                                },
+                                To = new Connection
+                                {
+                                    InstanceId = recipientGuid,
+                                    ParamName = recipient.Name,
+                                },
+                            });
+                        }
+                    }
+                }
+            }
+            else if (obj is IGH_Param param)
+            {
+                // Process parameter outputs
+                foreach (var recipient in param.Recipients)
+                {
+                    var recipientGuid = recipient.Attributes?.GetTopLevel?.DocObject?.InstanceGuid ?? Guid.Empty;
+                    if (recipientGuid != Guid.Empty)
+                    {
+                        connections.Add(new ConnectionPairing
+                        {
+                            From = new Connection
+                            {
+                                InstanceId = param.InstanceGuid,
+                                ParamName = param.Name,
+                            },
+                            To = new Connection
+                            {
+                                InstanceId = recipientGuid,
+                                ParamName = recipient.Name,
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Extracts all properties from a Grasshopper object.
+        /// </summary>
+        private static void ExtractAllProperties(IGH_ActiveObject obj, ComponentProperties componentProps)
+        {
+            // Get properties using the property manager
+            var propertyValues = GetObjectProperties(obj);
+
+            // Handle script components specially
+            if (obj is IScriptComponent scriptComp && obj is IGH_Component ghComp)
+            {
+                ExtractScriptComponentProperties(scriptComp, ghComp, propertyValues);
+            }
+
+            // Convert to ComponentProperty format
+            foreach (var prop in propertyValues)
+            {
+                componentProps.Properties[prop.Key] = CreateComponentProperty(prop.Value);
+            }
+
+            // Extract schema properties
+            ExtractSchemaProperties(componentProps, obj);
+        }
+
+        /// <summary>
+        /// Extracts script-specific properties and parameters.
+        /// </summary>
+        private static void ExtractScriptComponentProperties(IScriptComponent scriptComp, IGH_Component ghComp, Dictionary<string, object> propertyValues)
+        {
+            propertyValues["Script"] = scriptComp.Text;
+            propertyValues["MarshInputs"] = scriptComp.MarshInputs;
+            propertyValues["MarshOutputs"] = scriptComp.MarshOutputs;
+            propertyValues["MarshGuids"] = scriptComp.MarshGuids;
+
+            // Extract input parameters
+            if (scriptComp.Inputs != null && scriptComp.Inputs.Any())
+            {
+                var inputParamsArray = new JArray();
+                foreach (var input in scriptComp.Inputs)
+                {
+                    var ghParam = ParameterAccess.GetInputByName(ghComp, input.VariableName);
+                    inputParamsArray.Add(new JObject
+                    {
+                        ["variableName"] = input.VariableName,
+                        ["name"] = input.PrettyName,
+                        ["description"] = input.Description ?? string.Empty,
+                        ["access"] = input.Access.ToString(),
+                        ["simplify"] = ghParam?.Simplify ?? false,
+                        ["reverse"] = ghParam?.Reverse ?? false,
+                        ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
+                    });
+                }
+                propertyValues["ScriptInputs"] = inputParamsArray;
+            }
+
+            // Extract output parameters
+            if (scriptComp.Outputs != null && scriptComp.Outputs.Any())
+            {
+                var outputParamsArray = new JArray();
+                foreach (var output in scriptComp.Outputs)
+                {
+                    var ghParam = ParameterAccess.GetOutputByName(ghComp, output.VariableName);
+                    outputParamsArray.Add(new JObject
+                    {
+                        ["variableName"] = output.VariableName,
+                        ["name"] = output.PrettyName,
+                        ["description"] = output.Description ?? string.Empty,
+                        ["access"] = output.Access.ToString(),
+                        ["simplify"] = ghParam?.Simplify ?? false,
+                        ["reverse"] = ghParam?.Reverse ?? false,
+                        ["dataMapping"] = ghParam?.DataMapping.ToString() ?? "None",
+                    });
+                }
+                propertyValues["ScriptOutputs"] = outputParamsArray;
+            }
+        }
+
+        /// <summary>
+        /// Creates a ComponentProperty from a raw value with appropriate type information.
+        /// </summary>
+        private static ComponentProperty CreateComponentProperty(object value)
+        {
+            var typeName = value?.GetType().Name ?? "null";
+            string humanReadable = null;
+
+            if (value != null)
+            {
+                var hr = value.ToString();
+                var t = value.GetType();
+                var fullName = t.FullName;
+                var nameOnly = t.Name;
+
+                // Only include human readable if it provides meaningful information
+                if (!string.IsNullOrWhiteSpace(hr) &&
+                    hr != fullName &&
+                    hr != nameOnly &&
+                    typeName != "String" &&
+                    typeName != "Boolean" &&
+                    typeName != "JArray" &&
+                    typeName != "JObject")
+                {
+                    humanReadable = hr;
+                }
+            }
+
+            return new ComponentProperty
+            {
+                Value = value,
+                Type = typeName,
+                HumanReadable = humanReadable,
+            };
+        }
+
+        /// <summary>
+        /// Gets comprehensive details of Grasshopper objects in GhJSON format.
+        /// This is the main public entry point for document extraction.
         /// </summary>
         /// <param name="objects">The objects to extract details from.</param>
         /// <param name="includeMetadata">Whether to include document metadata.</param>
         /// <param name="includeGroups">Whether to include group information. Default is true.</param>
-        /// <returns>A GrasshopperDocument with component, connection, and optionally group details.</returns>
+        /// <returns>A complete GrasshopperDocument with all requested information.</returns>
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects, bool includeMetadata, bool includeGroups = true)
         {
-            var document = GetObjectsDetails(objects);
+            // Extract document structure
+            var document = ExtractDocument(objects);
 
-            // Extract groups by default (can be skipped for lite format)
+            // Assign component IDs and finalize schema
+            FinalizeDocumentSchema(document, objects);
+
+            // Add optional features
             if (includeGroups)
             {
                 ExtractGroupInformation(document);
@@ -297,6 +323,252 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             return document;
+        }
+
+        /// <summary>
+        /// Finalizes the document schema by assigning IDs and completing property extraction.
+        /// </summary>
+        /// <param name="document">The document to finalize.</param>
+        /// <param name="objects">The original objects for reference.</param>
+        private static void FinalizeDocumentSchema(GrasshopperDocument document, IEnumerable<IGH_ActiveObject> objects)
+        {
+            // Assign sequential IDs to components for referencing
+            for (int i = 0; i < document.Components.Count; i++)
+            {
+                document.Components[i].Id = i + 1;
+            }
+        }
+
+        /// <summary>
+        /// Extracts schema properties for a component.
+        /// </summary>
+        /// <param name="component">The component to enhance.</param>
+        /// <param name="originalObject">The original Grasshopper object.</param>
+        private static void ExtractSchemaProperties(ComponentProperties component, IGH_ActiveObject originalObject)
+        {
+            // Extract basic parameters as simple key-value pairs
+            component.Params = ExtractBasicParameters(component, originalObject);
+
+            // Extract structured parameter settings
+            ExtractParameterSettings(component, originalObject);
+
+            // Extract component state and universal value
+            component.ComponentState = ExtractComponentState(component, originalObject);
+        }
+
+        /// <summary>
+        /// Extracts basic parameters as simple key-value pairs.
+        /// </summary>
+        /// <param name="component">The component properties.</param>
+        /// <param name="originalObject">The original Grasshopper object.</param>
+        /// <returns>A dictionary of basic parameters.</returns>
+        private static Dictionary<string, object> ExtractBasicParameters(ComponentProperties component, IGH_ActiveObject originalObject)
+        {
+            var basicParams = new Dictionary<string, object>();
+
+            // Add nickname if different from name
+            if (!string.IsNullOrEmpty(originalObject.NickName) && originalObject.NickName != originalObject.Name)
+            {
+                basicParams["NickName"] = originalObject.NickName;
+            }
+
+            // Add specific basic properties based on component type
+            if (originalObject is GH_Panel panel && component.Properties.ContainsKey("UserText"))
+            {
+                basicParams["UserText"] = component.Properties["UserText"].Value;
+            }
+            else if (originalObject is GH_Scribble scribble && component.Properties.ContainsKey("Text"))
+            {
+                basicParams["Text"] = component.Properties["Text"].Value;
+            }
+
+            return basicParams.Count > 0 ? basicParams : null;
+        }
+
+        /// <summary>
+        /// Extracts input and output parameter settings.
+        /// </summary>
+        /// <param name="component">The component properties.</param>
+        /// <param name="originalObject">The original Grasshopper object.</param>
+        private static void ExtractParameterSettings(ComponentProperties component, IGH_ActiveObject originalObject)
+        {
+            var inputSettings = new List<ParameterSettings>();
+            var outputSettings = new List<ParameterSettings>();
+
+            if (originalObject is IGH_Component ghComponent)
+            {
+                // Extract input parameter settings
+                foreach (var input in ghComponent.Params.Input)
+                {
+                    var paramSettings = CreateParameterSettings(input);
+                    if (paramSettings != null)
+                    {
+                        inputSettings.Add(paramSettings);
+                    }
+                }
+
+                // Extract output parameter settings
+                foreach (var output in ghComponent.Params.Output)
+                {
+                    var paramSettings = CreateParameterSettings(output);
+                    if (paramSettings != null)
+                    {
+                        outputSettings.Add(paramSettings);
+                    }
+                }
+            }
+            else if (originalObject is IGH_Param param)
+            {
+                // For parameters, treat as output
+                var paramSettings = CreateParameterSettings(param);
+                if (paramSettings != null)
+                {
+                    outputSettings.Add(paramSettings);
+                }
+            }
+
+            component.InputSettings = inputSettings.Count > 0 ? inputSettings : null;
+            component.OutputSettings = outputSettings.Count > 0 ? outputSettings : null;
+        }
+
+        /// <summary>
+        /// Creates parameter settings from a Grasshopper parameter.
+        /// </summary>
+        /// <param name="param">The Grasshopper parameter.</param>
+        /// <returns>Parameter settings or null if not applicable.</returns>
+        private static ParameterSettings CreateParameterSettings(IGH_Param param)
+        {
+            var settings = new ParameterSettings
+            {
+                ParameterName = param.Name
+            };
+
+            // Data mapping
+            if (param.DataMapping != GH_DataMapping.None)
+            {
+                settings.DataMapping = param.DataMapping.ToString();
+            }
+
+            // Expression handling - expressions are not directly accessible through IGH_Param
+            // They would need to be extracted through other means if available
+            // TODO: Implement expression extraction if needed
+
+            // Additional settings
+            var additionalSettings = new AdditionalParameterSettings();
+            bool hasAdditionalSettings = false;
+
+            if (param.Reverse)
+            {
+                additionalSettings.Reverse = true;
+                hasAdditionalSettings = true;
+            }
+
+            if (param.Simplify)
+            {
+                additionalSettings.Simplify = true;
+                hasAdditionalSettings = true;
+            }
+
+            if (param.Locked)
+            {
+                additionalSettings.Locked = true;
+                hasAdditionalSettings = true;
+            }
+
+            // Note: Invert is for boolean data inversion, not list reversal
+            // Grasshopper's Reverse property is for list order reversal
+            // Invert functionality should be implemented separately for boolean data
+
+            if (hasAdditionalSettings)
+            {
+                settings.AdditionalSettings = additionalSettings;
+            }
+
+            return settings;
+        }
+
+        /// <summary>
+        /// Extracts component-specific state information.
+        /// </summary>
+        /// <param name="component">The component properties.</param>
+        /// <param name="originalObject">The original Grasshopper object.</param>
+        /// <returns>Component state or null if not applicable.</returns>
+        private static ComponentState ExtractComponentState(ComponentProperties component, IGH_ActiveObject originalObject)
+        {
+            var state = new ComponentState();
+            bool hasState = false;
+
+            // Extract component-level properties
+            if (originalObject is GH_Component ghComponent)
+            {
+                state.Locked = ghComponent.Locked;
+                state.Hidden = ghComponent.Hidden;
+                hasState = true;
+            }
+
+            // Handle different component types with value consolidation
+            if (originalObject is GH_NumberSlider slider && component.Properties.ContainsKey("CurrentValue"))
+            {
+                // Use universal value property (currentValue format: "5.0<0.0,10.0>")
+                state.Value = component.Properties["CurrentValue"].Value?.ToString();
+                hasState = true;
+            }
+            else if (originalObject is GH_Panel panel && component.Properties.ContainsKey("UserText"))
+            {
+                // Panel: userText maps to value
+                state.Value = component.Properties["UserText"].Value?.ToString();
+                hasState = true;
+            }
+            else if (originalObject is GH_Scribble scribble && component.Properties.ContainsKey("Text"))
+            {
+                // Scribble: text maps to value
+                state.Value = component.Properties["Text"].Value?.ToString();
+                
+                // Keep font and corners for UI formatting
+                if (component.Properties.ContainsKey("Font"))
+                {
+                    state.Font = component.Properties["Font"].Value as Dictionary<string, object>;
+                }
+                if (component.Properties.ContainsKey("Corners"))
+                {
+                    state.Corners = component.Properties["Corners"].Value as List<Dictionary<string, float>>;
+                }
+                hasState = true;
+            }
+            else if (originalObject is IScriptComponent scriptComp)
+            {
+                // Script: script maps to value
+                if (component.Properties.ContainsKey("Script"))
+                {
+                    state.Value = component.Properties["Script"].Value?.ToString();
+                    hasState = true;
+                }
+                if (component.Properties.ContainsKey("MarshInputs"))
+                {
+                    state.MarshInputs = (bool?)component.Properties["MarshInputs"].Value;
+                    hasState = true;
+                }
+                if (component.Properties.ContainsKey("MarshOutputs"))
+                {
+                    state.MarshOutputs = (bool?)component.Properties["MarshOutputs"].Value;
+                    hasState = true;
+                }
+            }
+
+            // Handle value list components
+            if (component.Properties.ContainsKey("ListItems"))
+            {
+                // Value List: listItems maps to value
+                state.Value = component.Properties["ListItems"].Value;
+                hasState = true;
+            }
+            if (component.Properties.ContainsKey("ListMode"))
+            {
+                state.ListMode = component.Properties["ListMode"].Value?.ToString();
+                hasState = true;
+            }
+
+            return hasState ? state : null;
         }
 
         /// <summary>
