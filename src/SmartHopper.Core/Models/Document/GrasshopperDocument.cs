@@ -64,34 +64,58 @@ namespace SmartHopper.Core.Models.Document
         /// <summary>
         /// Gets all connections for a specific component.
         /// </summary>
-        /// <param name="componentId">The ID of the component to get connections for.</param>
+        /// <param name="componentId">The integer ID of the component to get connections for.</param>
         /// <returns>A list of all connections involving the specified component.</returns>
-        public List<ConnectionPairing> GetComponentConnections(Guid componentId)
+        public List<ConnectionPairing> GetComponentConnections(int componentId)
         {
             return this.Connections.Where(c =>
-                c.From.InstanceId == componentId ||
-                c.To.InstanceId == componentId)
+                c.From.Id == componentId ||
+                c.To.Id == componentId)
             .ToList();
         }
 
         /// <summary>
         /// Gets all input connections for a specific component.
         /// </summary>
-        /// <param name="componentId">The ID of the component to get input connections for.</param>
+        /// <param name="componentId">The integer ID of the component to get input connections for.</param>
         /// <returns>A list of connections where the specified component is the target.</returns>
-        public List<ConnectionPairing> GetComponentInputs(Guid componentId)
+        public List<ConnectionPairing> GetComponentInputs(int componentId)
         {
-            return this.Connections.Where(c => c.To.InstanceId == componentId).ToList();
+            return this.Connections.Where(c => c.To.Id == componentId).ToList();
         }
 
         /// <summary>
         /// Gets all output connections for a specific component.
         /// </summary>
-        /// <param name="componentId">The ID of the component to get output connections for.</param>
+        /// <param name="componentId">The integer ID of the component to get output connections for.</param>
         /// <returns>A list of connections where the specified component is the source.</returns>
-        public List<ConnectionPairing> GetComponentOutputs(Guid componentId)
+        public List<ConnectionPairing> GetComponentOutputs(int componentId)
         {
-            return this.Connections.Where(c => c.From.InstanceId == componentId).ToList();
+            return this.Connections.Where(c => c.From.Id == componentId).ToList();
+        }
+
+        /// <summary>
+        /// Creates a mapping from component integer IDs to their instance GUIDs.
+        /// This is useful for translating connections (which use integer IDs) to component GUIDs.
+        /// </summary>
+        /// <returns>Dictionary mapping integer ID to GUID.</returns>
+        public Dictionary<int, Guid> GetIdToGuidMapping()
+        {
+            return this.Components
+                .Where(c => c.Id.HasValue)
+                .ToDictionary(c => c.Id.Value, c => c.InstanceGuid);
+        }
+
+        /// <summary>
+        /// Creates a mapping from component instance GUIDs to their integer IDs.
+        /// This is useful for creating connections from component GUIDs.
+        /// </summary>
+        /// <returns>Dictionary mapping GUID to integer ID.</returns>
+        public Dictionary<Guid, int> GetGuidToIdMapping()
+        {
+            return this.Components
+                .Where(c => c.Id.HasValue)
+                .ToDictionary(c => c.InstanceGuid, c => c.Id.Value);
         }
     }
 }

@@ -57,7 +57,6 @@ namespace SmartHopper.Core.Models.Serialization
             {
                 var idMapping = new Dictionary<string, Guid>();
                 (jroot, idMapping) = GHJsonFixer.FixComponentInstanceGuids(jroot, idMapping);
-                (jroot, idMapping) = GHJsonFixer.FixConnectionComponentIds(jroot, idMapping);
                 jroot = GHJsonFixer.RemovePivotsIfIncomplete(jroot);
             }
 

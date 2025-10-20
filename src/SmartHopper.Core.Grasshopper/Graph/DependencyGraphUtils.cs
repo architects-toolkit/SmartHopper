@@ -140,12 +140,15 @@ namespace SmartHopper.Core.Grasshopper.Graph
                 Children = new Dictionary<Guid, int>(),
             }).ToList();
 
+            var idToGuidMap = doc.GetIdToGuidMapping();
             foreach (var conn in doc.Connections)
             {
-                if (grid.Any(n => n.ComponentId == conn.To.InstanceId) && grid.Any(n => n.ComponentId == conn.From.InstanceId))
+                // Resolve integer IDs to GUIDs
+                if (conn.TryResolveGuids(idToGuidMap, out var fromGuid, out var toGuid) &&
+                    grid.Any(n => n.ComponentId == toGuid) && grid.Any(n => n.ComponentId == fromGuid))
                 {
-                    var toNode = grid.First(n => n.ComponentId == conn.To.InstanceId);
-                    var fromNode = grid.First(n => n.ComponentId == conn.From.InstanceId);
+                    var toNode = grid.First(n => n.ComponentId == toGuid);
+                    var fromNode = grid.First(n => n.ComponentId == fromGuid);
 
                     // compute input parameter index on child
                     int inputIndex = -1;
@@ -155,7 +158,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         inputIndex = inputs.FindIndex(p => p.Name == conn.To.ParamName);
                     }
 
-                    toNode.Parents[conn.From.InstanceId] = inputIndex;
+                    toNode.Parents[fromGuid] = inputIndex;
 
                     // compute output parameter index on parent
                     int outputIndex = -1;
@@ -165,7 +168,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
                         outputIndex = outputs.FindIndex(p => p.Name == conn.From.ParamName);
                     }
 
-                    fromNode.Children[conn.To.InstanceId] = outputIndex;
+                    fromNode.Children[toGuid] = outputIndex;
                 }
             }
 

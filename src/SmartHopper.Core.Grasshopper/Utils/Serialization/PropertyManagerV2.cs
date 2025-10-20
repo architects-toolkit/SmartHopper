@@ -236,8 +236,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         {
             // Note: value is already unwrapped in RemoveIrrelevantProperties before calling this method
 
-            // Remove boolean properties that are false (default values)
-            if (value is bool boolValue && !boolValue)
+            // Remove boolean/int properties that are false/0 (default values)
+            if ((value is bool boolValue && !boolValue) || (value is int intValue && intValue == 0))
             {
                 return propertyName switch
                 {
@@ -246,15 +246,27 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     "Reverse" => true,
                     "Hidden" => true,
                     "Invert" => true,
-                    "Selected" => true,  // Add Selected to remove false values
+                    "Selected" => true,
+                    "IsPrincipal" => true,
                     _ => false
                 };
             }
 
             // Remove DataMapping when it's 0 (None - default value)
-            if (propertyName == "DataMapping" && value is int intValue && intValue == 0)
+            // Handle both int (from JSON) and enum (from extraction)
+            if (propertyName == "DataMapping")
             {
-                return true;
+                int mappingValue = value switch
+                {
+                    int i => i,
+                    System.Enum e => Convert.ToInt32(e),
+                    _ => -1
+                };
+                
+                if (mappingValue == 0)
+                {
+                    return true;
+                }
             }
 
             // Remove NickName when it equals the component Name

@@ -258,11 +258,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 else if (component.Properties != null)
                 {
                     // Apply legacy properties for backward compatibility using PropertyManagerV2
+                    // Note: component.Properties is already Dictionary<string, ComponentProperty> after deserialization
                     var propertyManager = PropertyManagerFactory.CreateForAI();
-                    var componentProperties = component.Properties.ToDictionary(
-                        kvp => kvp.Key, 
-                        kvp => new ComponentProperty { Value = kvp.Value });
-                    propertyManager.ApplyProperties(instance, componentProperties);
+                    propertyManager.ApplyProperties(instance, component.Properties);
                 }
 
                 // Apply schema properties
@@ -278,6 +276,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             }
 
             // Connections
+            var idToGuid = document.GetIdToGuidMapping();
             foreach (var connection in document.Connections)
             {
                 try
@@ -285,8 +284,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     if (!connection.IsValid())
                         continue;
 
-                    if (!guidMapping.TryGetValue(connection.From.InstanceId, out var src) ||
-                        !guidMapping.TryGetValue(connection.To.InstanceId, out var tgt))
+                    // Map from integer ID to original GUID, then to new GUID
+                    if (!connection.TryResolveGuids(idToGuid, out var fromOrigGuid, out var toOrigGuid) ||
+                        !guidMapping.TryGetValue(fromOrigGuid, out var src) ||
+                        !guidMapping.TryGetValue(toOrigGuid, out var tgt))
                         continue;
 
                     var srcObj = CanvasAccess.FindInstance(src);
@@ -405,17 +406,32 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         {
             if (instance is IGH_Component component)
             {
-                // Apply input settings
+                // Apply input settings and track principal parameter
+                int principalParameterIndex = -1;
                 if (inputSettings != null)
                 {
-                    foreach (var setting in inputSettings)
+                    for (int i = 0; i < inputSettings.Count; i++)
                     {
+                        var setting = inputSettings[i];
                         var param = ParameterAccess.GetInputByName(component, setting.ParameterName);
                         if (param != null)
                         {
                             ApplyParameterSetting(param, setting);
+
+                            // Check if this parameter is marked as principal
+                            if (setting.AdditionalSettings?.IsPrincipal == true)
+                            {
+                                // Find the actual index of this parameter in the component's input params
+                                principalParameterIndex = component.Params.Input.IndexOf(param);
+                            }
                         }
                     }
+                }
+
+                // Set the principal parameter index at component level
+                if (principalParameterIndex >= 0 && component is GH_Component ghComp)
+                {
+                    ghComp.PrincipalParameterIndex = principalParameterIndex;
                 }
 
                 // Apply output settings
@@ -477,14 +493,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     if (additional.Locked.HasValue)
                         param.Locked = additional.Locked.Value;
 
-                    // Note: IsPrincipal is read-only and managed by the component
-                    // It cannot be set directly on parameters
-                    // This would need to be handled at the component level via PrincipalParameterIndex
-                    if (additional.IsPrincipal.HasValue)
-                    {
-                        // TODO: Handle principal parameter setting at component level
-                        // For now, we acknowledge the setting but cannot apply it directly
-                    }
+                    // Note: IsPrincipal is handled at the component level via PrincipalParameterIndex
+                    // It's processed in ApplyParameterSettings(), not here at the individual parameter level
 
                     // Note: Invert is for boolean parameters only and is not directly supported by Grasshopper parameters
                     // It should be handled at the data level, not parameter level
@@ -748,6 +758,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
 
         /// <summary>
         /// Recreates groups from the document using the GUID mapping from placed components.
+        /// Maps integer IDs to GUIDs using the document's ID mapping.
         /// </summary>
         /// <param name="document">The document containing group information.</param>
         /// <param name="guidMapping">Mapping from template GUIDs to placed component GUIDs.</param>
@@ -755,25 +766,30 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         {
             try
             {
+                // Create ID -> GUID mapping (same pattern as connections)
+                var idToGuid = document.GetIdToGuidMapping();
+
                 foreach (var groupInfo in document.Groups)
                 {
-                    // Map member GUIDs from template to placed components
+                    // Map member IDs to placed component GUIDs
                     var placedMemberGuids = new List<Guid>();
-                    foreach (var templateMemberGuid in groupInfo.Members)
+                    foreach (var memberId in groupInfo.Members)
                     {
-                        if (guidMapping.TryGetValue(templateMemberGuid, out var placedGuid))
+                        // Map ID -> original GUID -> placed GUID
+                        if (idToGuid.TryGetValue(memberId, out var originalGuid) &&
+                            guidMapping.TryGetValue(originalGuid, out var placedGuid))
                         {
                             placedMemberGuids.Add(placedGuid);
                         }
                         else
                         {
-                            Debug.WriteLine($"[GhJsonPlacer] Warning: Group member {templateMemberGuid} not found in placed components");
+                            Debug.WriteLine($"[GhJsonPlacer] Warning: Group member ID {memberId} not found in placed components");
                         }
                     }
 
                     if (placedMemberGuids.Count == 0)
                     {
-                        Debug.WriteLine($"[GhJsonPlacer] Skipping group {groupInfo.Name} - no valid members found");
+                        Debug.WriteLine($"[GhJsonPlacer] Skipping group '{groupInfo.Name}' - no valid members found");
                         continue;
                     }
 

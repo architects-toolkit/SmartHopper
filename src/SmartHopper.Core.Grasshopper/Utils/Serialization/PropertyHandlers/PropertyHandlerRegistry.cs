@@ -100,8 +100,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
         /// <returns>True if the property was successfully applied.</returns>
         public bool ApplyProperty(object targetObject, string propertyName, object value)
         {
-            var handler = GetHandler(targetObject, propertyName);
-            return handler?.ApplyProperty(targetObject, propertyName, value) ?? false;
+            try
+            {
+                var handler = GetHandler(targetObject, propertyName);
+                return handler?.ApplyProperty(targetObject, propertyName, value) ?? false;
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't fail the entire operation
+                System.Diagnostics.Debug.WriteLine($"[PropertyHandlerRegistry] Failed to apply property '{propertyName}' to {targetObject?.GetType().Name ?? "null"}: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>

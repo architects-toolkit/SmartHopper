@@ -268,13 +268,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 
             Debug.WriteLine($"[ValidateConnectionDataTypes] Validating {connections.Count} connections and {components.Count} components...");
 
-            // Create a lookup for component information
-            var componentLookup = new Dictionary<string, JObject>();
+            // Create lookup for component information by integer ID
+            var componentLookupById = new Dictionary<int, JObject>();
             foreach (var token in components)
             {
-                if (token is JObject comp && comp["instanceGuid"]?.ToString() is string instanceGuid)
+                if (token is JObject comp && comp["id"]?.Type == JTokenType.Integer)
                 {
-                    componentLookup[instanceGuid] = comp;
+                    int id = comp["id"].Value<int>();
+                    componentLookupById[id] = comp;
                 }
             }
 
@@ -293,18 +294,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     continue;
                 }
 
-                var fromInstanceId = fromEndpoint["instanceId"]?.ToString();
-                var toInstanceId = toEndpoint["instanceId"]?.ToString();
-                var fromParameterName = fromEndpoint["name"]?.ToString();
-                var toParameterName = toEndpoint["name"]?.ToString();
-
-                Debug.WriteLine($"[ValidateConnectionDataTypes] Validating connection {i} from {fromInstanceId} to {toInstanceId}...");
-
-                if (string.IsNullOrEmpty(fromInstanceId) || string.IsNullOrEmpty(toInstanceId))
-                {
-                    Debug.WriteLine($"[ValidateConnectionDataTypes] Skipping connection {i} due to missing instance IDs");
-                    continue;
-                }
+                // Support "paramName"
+                var fromParameterName = fromEndpoint["paramName"]?.ToString();
+                var toParameterName = toEndpoint["paramName"]?.ToString();
 
                 if (string.IsNullOrEmpty(fromParameterName) || string.IsNullOrEmpty(toParameterName))
                 {
@@ -312,8 +304,25 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     continue;
                 }
 
-                if (componentLookup.TryGetValue(fromInstanceId, out var fromComponent) &&
-                    componentLookup.TryGetValue(toInstanceId, out var toComponent))
+                // Resolve components by integer ID
+                JObject fromComponent = null;
+                JObject toComponent = null;
+
+                if (fromEndpoint["id"]?.Type == JTokenType.Integer)
+                {
+                    int fromId = fromEndpoint["id"].Value<int>();
+                    componentLookupById.TryGetValue(fromId, out fromComponent);
+                }
+
+                if (toEndpoint["id"]?.Type == JTokenType.Integer)
+                {
+                    int toId = toEndpoint["id"].Value<int>();
+                    componentLookupById.TryGetValue(toId, out toComponent);
+                }
+
+                Debug.WriteLine($"[ValidateConnectionDataTypes] Validating connection {i}: {fromParameterName} -> {toParameterName}");
+
+                if (fromComponent != null && toComponent != null)
                 {
                     var fromComponentGuid = fromComponent["componentGuid"]?.ToString();
                     var toComponentGuid = toComponent["componentGuid"]?.ToString();

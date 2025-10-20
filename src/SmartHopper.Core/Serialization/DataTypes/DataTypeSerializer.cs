@@ -232,7 +232,7 @@ namespace SmartHopper.Core.Serialization.DataTypes
                     return "Arc";
                 case "boxoxy":
                     return "Box";
-                case "rectangleoxy":
+                case "rectanglecxy":
                     return "Rectangle";
                 case "interval":
                     return "Interval";
