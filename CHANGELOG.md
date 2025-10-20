@@ -80,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)).
 - Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
+- **Rectangle Serialization**: Fixed Rectangle3d serialization/deserialization to use center-based format (`rectangleCXY`) instead of origin-based (`rectangleOXY`), ensuring correct position and orientation after round-trip. Uses interval-based constructor to guarantee proper reconstruction.
+- **IsPrincipal Property Cleanup**: Removed `IsPrincipal` from appearing as a top-level property on standalone parameter components (Colour, Number, Text, etc.). It now only appears in `inputSettings`/`outputSettings` `additionalSettings` when set to `true`, reducing JSON clutter.
 
 ## [1.0.0-alpha] - 2025-10-11
 

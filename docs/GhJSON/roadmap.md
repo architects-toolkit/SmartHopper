@@ -559,7 +559,7 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `invert` | ✅ | ✅ | boolean | `true`, `false` | Inverts boolean/numeric values | ✅ Implemented | |
 | `expression` | ✅ | ✅ | string | `"x * 2"`, `"Math.Sin(x)"` | Parameter expression | ✅ Implemented | |
 | `persistentData` | ✅ | ✅ | object | Data tree structure | Internalized parameter data | ✅ Implemented | |
-| `isPrincipal` | ✅ | ✅ | string | `"IsNotPrincipal"`, `"IsPrincipal"` | Parameter matching behavior | 🔨 **TODO** | |
+| `isPrincipal` | ✅ | ✅ | boolean | `true`, `false` | Parameter matching behavior | ✅ Implemented | Only in `additionalSettings` |
 | `expressionContent` | ❌ | ❌ | string | Expression code | Separate expression storage | 🗑️ **ToRemove** | Redundant with `expression` |
 | `variableName` | ✅ | ✅ | string | Variable name | Script parameter variable | ✅ Implemented | Script components only |
 | **Properties to Remove** |
@@ -569,7 +569,7 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `access` | ❌ | ❌ | string | `"item"`, `"list"`, `"tree"` | Implicit from component type | ❌ Excluded | |
 | `description` | ❌ | ❌ | string | Text | Implicit from component definition | ❌ Excluded | |
 | `optional` | ❌ | ❌ | boolean | `true`, `false` | Redundant information | ❌ Excluded | |
-| `isReparameterized` | ✅ | ❌ | boolean | `true`, `false` | Domain reparameterization | 🔨 **TODO** | |
+| `isReparameterized` | ✅ | ❌ | boolean | `true`, `false` | Domain reparameterization | 🔨 **TODO** | Model exists, extraction/application not implemented |
 
 #### Component Properties
 
@@ -578,7 +578,7 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | **General Component Properties** |
 | `nickName` | ✅ | ❌ | string | Custom name | Component nickname | ✅ Implemented | |
 | `displayName` | ✅ | ❌ | string | Display name | Component display name | ✅ Implemented | |
-| `locked` | ✅ | ✅ | boolean | `true`, `false` | Component locked state | ✅ Implemented | |
+| `locked` | ✅ | ✅ | boolean | `true`, `false` | Parameter/component locked state | ✅ Implemented | In `additionalSettings` for parameters, `componentState` for components |
 | `hidden` | ✅ | ✅ | boolean | `true`, `false` | Preview visibility state | ✅ Implemented | |
 | `value` | ✅ | ✅ | various | Component value | **Universal value property** | 💡 **Consolidate** | See mapping table below |
 | `humanReadable` | ❌ | ❌ | string | Human-readable value | Debug/display helper | 🗑️ **ToRemove** | Not necessary if `value` is properly serialized |
