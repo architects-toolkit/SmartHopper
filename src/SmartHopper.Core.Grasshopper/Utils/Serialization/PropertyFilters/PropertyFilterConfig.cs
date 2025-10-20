@@ -59,6 +59,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
 
         /// <summary>
         /// Properties specific to parameters (IGH_Param implementations).
+        /// Note: IsPrincipal is NOT included here because it's handled specifically
+        /// in inputSettings/outputSettings additionalSettings, not as a top-level property.
         /// </summary>
         public static readonly HashSet<string> ParameterProperties = new()
         {
@@ -66,7 +68,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             "Simplify", 
             "Reverse",
             "Expression",
-            "Invert"
+            "Invert",
+            "Locked"
         };
 
         /// <summary>

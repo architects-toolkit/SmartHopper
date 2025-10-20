@@ -161,7 +161,7 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | **Arc** | `x1,y1,z1;x2,y2,z2;x3,y3,z3` | `"arc3P:0,0,0;5,5,0;10,0,0"` | Three points defining the arc |
 | **Box** | `ox,oy,oz;xx,xy,xz;yx,yy,yz;x0,x1;y0,y1;z0,z1` | `"boxOXY:0,0,0;1,0,0;0,1,0;-5,5;-5,5;0,10"` | Origin + X-axis + Y-axis + 3 intervals |
 | **Interval (Domain)** | `min,max` | `"interval:0.0<10.0"` | Domain/range/interval |
-| **Rectangle** | `ox,oy,oz;xx,xy,xz;yx,yy,yz;w,h` | `"rectangleOXY:0,0,0;1,0,0;0,1,0;10,5"` | Origin + X-axis + Y-axis + dimensions |
+| **Rectangle** | `cx,cy,cz;xx,xy,xz;yx,yy,yz;w,h` | `"rectangleCXY:0,0,0;1,0,0;0,1,0;10,5"` | Center + X-axis + Y-axis + dimensions |
 
 #### Persistent Data Encoding
 

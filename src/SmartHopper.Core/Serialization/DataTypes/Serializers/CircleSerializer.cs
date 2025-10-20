@@ -83,8 +83,16 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
             var xAxis = startPoint - center;
             xAxis.Unitize();
 
-            // Create plane with proper orientation
-            var plane = new Plane(center, xAxis, normal);
+            // Normalize the normal vector
+            normal.Unitize();
+
+            // Calculate Y-axis as cross product of normal and X-axis
+            // This ensures the plane has the correct orientation
+            var yAxis = Vector3d.CrossProduct(normal, xAxis);
+            yAxis.Unitize();
+
+            // Create plane with proper orientation (origin, xAxis, yAxis)
+            var plane = new Plane(center, xAxis, yAxis);
 
             return new Circle(plane, r);
         }

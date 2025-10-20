@@ -38,9 +38,10 @@ namespace SmartHopper.Core.Models.Document
         public string Color { get; set; }
 
         /// <summary>
-        /// Gets or sets the list of component instance GUIDs that belong to this group.
+        /// Gets or sets the list of component IDs that belong to this group.
+        /// Uses integer IDs instead of GUIDs for compact representation.
         /// </summary>
         [JsonProperty("members")]
-        public List<Guid> Members { get; set; } = new List<Guid>();
+        public List<int> Members { get; set; } = new List<int>();
     }
 }

@@ -253,12 +253,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
                         var tempDoc = DocumentIntrospectionV2.GetObjectsDetails(objects, includeMetadata: false, includeGroups: false);
+
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
                         {
-                            outd[conn.From.InstanceId] = (outd.TryGetValue(conn.From.InstanceId, out var ov) ? ov : 0) + 1;
-                            incd[conn.To.InstanceId] = (incd.TryGetValue(conn.To.InstanceId, out var iv) ? iv : 0) + 1;
+                            if (conn.TryResolveGuids(tempDoc.GetIdToGuidMapping(), out var fromGuid, out var toGuid))
+                            {
+                                outd[fromGuid] = (outd.TryGetValue(fromGuid, out var ov) ? ov : 0) + 1;
+                                incd[toGuid] = (incd.TryGetValue(toGuid, out var iv) ? iv : 0) + 1;
+                            }
                         }
 
                         if (includeTypes.Contains("INPUT"))
@@ -305,12 +309,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
                         var tempDoc = DocumentIntrospectionV2.GetObjectsDetails(typeFiltered, includeMetadata: false, includeGroups: false);
+
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
                         {
-                            outd[conn.From.InstanceId] = (outd.TryGetValue(conn.From.InstanceId, out var ov) ? ov : 0) + 1;
-                            incd[conn.To.InstanceId] = (incd.TryGetValue(conn.To.InstanceId, out var iv) ? iv : 0) + 1;
+                            if (conn.TryResolveGuids(tempDoc.GetIdToGuidMapping(), out var fromGuid, out var toGuid))
+                            {
+                                outd[fromGuid] = (outd.TryGetValue(fromGuid, out var ov) ? ov : 0) + 1;
+                                incd[toGuid] = (incd.TryGetValue(toGuid, out var iv) ? iv : 0) + 1;
+                            }
                         }
 
                         if (excludeTypes.Contains("INPUT"))
@@ -462,7 +470,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     var allObjects = CanvasAccess.GetCurrentObjects();
                     var fullDoc = DocumentIntrospectionV2.GetObjectsDetails(allObjects, includeMetadata: false, includeGroups: false);
-                    var edges = fullDoc.Connections.Select(c => (c.From.InstanceId, c.To.InstanceId));
+                    var edges = fullDoc.Connections
+                        .Select(c => {
+                            if (c.TryResolveGuids(fullDoc.GetIdToGuidMapping(), out var from, out var to))
+                                return (from: from, to: to, valid: true);
+                            return (from: Guid.Empty, to: Guid.Empty, valid: false);
+                        })
+                        .Where(e => e.valid)
+                        .Select(e => (e.from, e.to));
                     var initialIds = resultObjects.Select(o => o.InstanceGuid);
                     var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
                     var idMap = allObjects.ToDictionary(o => o.InstanceGuid, o => o);
@@ -477,8 +492,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // only keep connections where both components are in our filtered set
                 var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
                 document.Connections = document.Connections
-                    .Where(c => allowed.Contains(c.From.InstanceId)
-                            && allowed.Contains(c.To.InstanceId))
+                    .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) && 
+                                allowed.Contains(fromGuid) && allowed.Contains(toGuid))
                     .ToList();
 
                 // Get names and guids

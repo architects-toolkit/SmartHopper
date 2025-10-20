@@ -16,7 +16,7 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
 {
     /// <summary>
     /// Serializer for Rhino.Geometry.Rectangle3d type.
-    /// Format: "rectangleOXY:ox,oy,oz;xx,xy,xz;yx,yy,yz;w,h" (origin + X-axis + Y-axis + dimensions).
+    /// Format: "rectangleCXY:cx,cy,cz;xx,xy,xz;yx,yy,yz;w,h" (center + X-axis + Y-axis + dimensions).
     /// </summary>
     public class RectangleSerializer : IDataTypeSerializer
     {
@@ -32,10 +32,11 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
             if (value is Rectangle3d rectangle)
             {
                 var plane = rectangle.Plane;
+                var center = rectangle.Center;
                 var width = rectangle.Width;
                 var height = rectangle.Height;
 
-                return $"rectangleOXY:{plane.Origin.X.ToString(CultureInfo.InvariantCulture)},{plane.Origin.Y.ToString(CultureInfo.InvariantCulture)},{plane.Origin.Z.ToString(CultureInfo.InvariantCulture)};" +
+                return $"rectangleCXY:{center.X.ToString(CultureInfo.InvariantCulture)},{center.Y.ToString(CultureInfo.InvariantCulture)},{center.Z.ToString(CultureInfo.InvariantCulture)};" +
                        $"{plane.XAxis.X.ToString(CultureInfo.InvariantCulture)},{plane.XAxis.Y.ToString(CultureInfo.InvariantCulture)},{plane.XAxis.Z.ToString(CultureInfo.InvariantCulture)};" +
                        $"{plane.YAxis.X.ToString(CultureInfo.InvariantCulture)},{plane.YAxis.Y.ToString(CultureInfo.InvariantCulture)},{plane.YAxis.Z.ToString(CultureInfo.InvariantCulture)};" +
                        $"{width.ToString(CultureInfo.InvariantCulture)},{height.ToString(CultureInfo.InvariantCulture)}";
@@ -49,18 +50,18 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
         {
             if (!Validate(value))
             {
-                throw new FormatException($"Invalid Rectangle format: '{value}'. Expected format: 'rectangleOXY:ox,oy,oz;xx,xy,xz;yx,yy,yz;w,h' with valid doubles.");
+                throw new FormatException($"Invalid Rectangle format: '{value}'. Expected format: 'rectangleCXY:cx,cy,cz;xx,xy,xz;yx,yy,yz;w,h' with valid doubles.");
             }
 
             var valueWithoutPrefix = value.Substring(value.IndexOf(':') + 1);
             var parts = valueWithoutPrefix.Split(';');
 
-            // Parse origin
-            var originParts = parts[0].Split(',');
-            var origin = new Point3d(
-                double.Parse(originParts[0], CultureInfo.InvariantCulture),
-                double.Parse(originParts[1], CultureInfo.InvariantCulture),
-                double.Parse(originParts[2], CultureInfo.InvariantCulture)
+            // Parse center
+            var centerParts = parts[0].Split(',');
+            var center = new Point3d(
+                double.Parse(centerParts[0], CultureInfo.InvariantCulture),
+                double.Parse(centerParts[1], CultureInfo.InvariantCulture),
+                double.Parse(centerParts[2], CultureInfo.InvariantCulture)
             );
 
             // Parse X axis
@@ -88,9 +89,18 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
             xAxis.Unitize();
             yAxis.Unitize();
 
-            // Create plane and rectangle
-            var plane = new Plane(origin, xAxis, yAxis);
-            return new Rectangle3d(plane, width, height);
+            // Ensure axes are orthogonal by recalculating Y-axis
+            // Rectangle3d requires a valid orthonormal plane
+            var normal = Vector3d.CrossProduct(xAxis, yAxis);
+            normal.Unitize();
+            yAxis = Vector3d.CrossProduct(normal, xAxis);
+            yAxis.Unitize();
+
+            // Create plane at center and rectangle using intervals
+            var plane = new Plane(center, xAxis, yAxis);
+            var xInterval = new Interval(-width / 2.0, width / 2.0);
+            var yInterval = new Interval(-height / 2.0, height / 2.0);
+            return new Rectangle3d(plane, xInterval, yInterval);
         }
 
         /// <inheritdoc/>
@@ -101,23 +111,23 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
                 return false;
             }
 
-            if (!value.StartsWith("rectangleOXY:"))
+            if (!value.StartsWith("rectangleCXY:"))
             {
                 return false;
             }
 
-            var valueWithoutPrefix = value.Substring(13); // "rectangleOXY:".Length
+            var valueWithoutPrefix = value.Substring(13); // "rectangleCXY:".Length
             var parts = valueWithoutPrefix.Split(';');
             if (parts.Length != 4)
             {
                 return false;
             }
 
-            // Validate origin (3 doubles)
-            var originParts = parts[0].Split(',');
-            if (originParts.Length != 3)
+            // Validate center (3 doubles)
+            var centerParts = parts[0].Split(',');
+            if (centerParts.Length != 3)
                 return false;
-            foreach (var part in originParts)
+            foreach (var part in centerParts)
             {
                 if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
                     return false;

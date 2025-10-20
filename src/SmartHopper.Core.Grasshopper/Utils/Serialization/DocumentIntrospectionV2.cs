@@ -68,11 +68,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             // Extract components
             document.Components = ExtractComponents(objectList, propertyManager);
 
-            // Extract connections
-            document.Connections = ExtractConnections(objectList);
-
-            // Assign sequential IDs
+            // Assign sequential IDs first
             AssignComponentIds(document);
+
+            // Extract connections (will use integer IDs)
+            document.Connections = ExtractConnections(objectList, document);
 
             // Include metadata if requested
             if (includeMetadata)
@@ -184,8 +184,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             // Extract input/output settings for components
             if (originalObject is IGH_Component ghComponent)
             {
-                component.InputSettings = ExtractParameterSettings(ghComponent.Params.Input, propertyManager);
-                component.OutputSettings = ExtractParameterSettings(ghComponent.Params.Output, propertyManager);
+                component.InputSettings = ExtractParameterSettings(ghComponent.Params.Input, propertyManager, ghComponent);
+                component.OutputSettings = ExtractParameterSettings(ghComponent.Params.Output, propertyManager, ghComponent);
             }
 
             // Extract component state
@@ -222,20 +222,43 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         }
 
         /// <summary>
-        /// Extracts parameter settings for inputs/outputs using the property manager.
+        /// Extracts parameter settings using the property manager.
         /// </summary>
         /// <param name="parameters">Parameters to extract settings from.</param>
         /// <param name="propertyManager">Property manager for filtering.</param>
+        /// <param name="component">Optional component to check for principal parameter index.</param>
         /// <returns>List of parameter settings.</returns>
         private static List<ParameterSettings> ExtractParameterSettings(
             IEnumerable<IGH_Param> parameters,
-            PropertyManagerV2 propertyManager)
+            PropertyManagerV2 propertyManager,
+            IGH_Component component = null)
         {
             var settings = new List<ParameterSettings>();
-
-            foreach (var param in parameters)
+            var paramList = parameters.ToList();
+            
+            // Get principal parameter index from component (only for input parameters)
+            int principalIndex = -1;
+            if (component is GH_Component ghComp && paramList.Count > 0)
             {
-                var paramSettings = CreateParameterSettings(param, propertyManager);
+                // Check if this is the input parameter list
+                var firstParam = paramList.FirstOrDefault();
+                if (firstParam != null && ghComp.Params.Input.Contains(firstParam))
+                {
+                    // Use the component's PrincipalParameterIndex if set
+                    System.Diagnostics.Debug.WriteLine($"[ExtractParameterSettings] Component '{ghComp.Name}' PrincipalParameterIndex: {ghComp.PrincipalParameterIndex}, Input count: {paramList.Count}");
+                    if (ghComp.PrincipalParameterIndex >= 0 && ghComp.PrincipalParameterIndex < paramList.Count)
+                    {
+                        principalIndex = ghComp.PrincipalParameterIndex;
+                        System.Diagnostics.Debug.WriteLine($"[ExtractParameterSettings] Setting principal parameter at index {principalIndex} for '{ghComp.Name}'");
+                    }
+                }
+            }
+
+            for (int i = 0; i < paramList.Count; i++)
+            {
+                var param = paramList[i];
+                bool isPrincipal = (i == principalIndex);
+                var paramSettings = CreateParameterSettings(param, propertyManager, isPrincipal);
                 if (paramSettings != null)
                 {
                     settings.Add(paramSettings);
@@ -250,10 +273,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// </summary>
         /// <param name="param">Parameter to extract settings from.</param>
         /// <param name="propertyManager">Property manager for filtering.</param>
+        /// <param name="isPrincipal">Whether this parameter is the principal parameter (from component.PrincipalParameterIndex).</param>
         /// <returns>ParameterSettings instance or null if no relevant settings.</returns>
         private static ParameterSettings CreateParameterSettings(
             IGH_Param param,
-            PropertyManagerV2 propertyManager)
+            PropertyManagerV2 propertyManager,
+            bool isPrincipal = false)
         {
             var settings = new ParameterSettings
             {
@@ -284,7 +309,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             // Extract additional settings
-            var additionalSettings = ExtractAdditionalParameterSettings(param, propertyManager);
+            var additionalSettings = ExtractAdditionalParameterSettings(param, propertyManager, isPrincipal);
             if (additionalSettings != null)
             {
                 settings.AdditionalSettings = additionalSettings;
@@ -299,10 +324,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// </summary>
         /// <param name="param">Parameter to extract from.</param>
         /// <param name="propertyManager">Property manager for filtering.</param>
+        /// <param name="isPrincipal">Whether this parameter is the principal parameter (from component.PrincipalParameterIndex).</param>
         /// <returns>AdditionalParameterSettings or null if no relevant settings.</returns>
         private static AdditionalParameterSettings ExtractAdditionalParameterSettings(
             IGH_Param param,
-            PropertyManagerV2 propertyManager)
+            PropertyManagerV2 propertyManager,
+            bool isPrincipal = false)
         {
             var additionalSettings = new AdditionalParameterSettings();
             bool hasAdditionalSettings = false;
@@ -326,28 +353,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 hasAdditionalSettings = true;
             }
 
-            // Check IsPrincipal property (available on GH_Param<T>)
-            if (propertyManager.ShouldIncludeProperty("IsPrincipal", param))
+            // Set IsPrincipal based on component's PrincipalParameterIndex
+            // This is managed at the component level, not at the parameter level
+            if (isPrincipal && propertyManager.ShouldIncludeProperty("IsPrincipal", param))
             {
-                try
-                {
-                    // Use reflection to access IsPrincipal property since it's on GH_Param<T>
-                    var isPrincipalProperty = param.GetType().GetProperty("IsPrincipal");
-                    if (isPrincipalProperty != null)
-                    {
-                        var principalState = isPrincipalProperty.GetValue(param);
-                        // Check if it's not the default/none state (assuming 0 is default)
-                        if (principalState != null && !principalState.ToString().Equals("None", StringComparison.OrdinalIgnoreCase))
-                        {
-                            additionalSettings.IsPrincipal = true;
-                            hasAdditionalSettings = true;
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                    // Ignore reflection errors - parameter might not support IsPrincipal
-                }
+                additionalSettings.IsPrincipal = true;
+                hasAdditionalSettings = true;
+                System.Diagnostics.Debug.WriteLine($"[ExtractAdditionalParameterSettings] Added isPrincipal=true for parameter '{param.Name}'");
+            }
+            else if (isPrincipal)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ExtractAdditionalParameterSettings] isPrincipal detected for '{param.Name}' but ShouldIncludeProperty returned false");
             }
 
             return hasAdditionalSettings ? additionalSettings : null;
@@ -452,10 +468,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 
         /// <summary>
         /// Extracts connections between components using existing connection models.
+        /// Uses integer IDs from the document instead of GUIDs for compact representation.
         /// </summary>
-        private static List<ConnectionPairing> ExtractConnections(IEnumerable<IGH_ActiveObject> objects)
+        private static List<ConnectionPairing> ExtractConnections(IEnumerable<IGH_ActiveObject> objects, GrasshopperDocument document)
         {
             var connections = new List<ConnectionPairing>();
+            
+            // Create GUID -> ID mapping for efficient lookups
+            var guidToId = document.Components.ToDictionary(c => c.InstanceGuid, c => c.Id);
 
             foreach (var obj in objects)
             {
@@ -465,19 +485,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     {
                         foreach (var recipient in outputParam.Recipients)
                         {
-                            connections.Add(new ConnectionPairing
+                            var fromGuid = component.InstanceGuid;
+                            var toGuid = recipient.Attributes.GetTopLevel.DocObject.InstanceGuid;
+
+                            // Only add connection if both components are in the document and have valid IDs
+                            if (guidToId.TryGetValue(fromGuid, out var fromId) && 
+                                guidToId.TryGetValue(toGuid, out var toId) &&
+                                fromId.HasValue && toId.HasValue)
                             {
-                                From = new Connection
+                                connections.Add(new ConnectionPairing
                                 {
-                                    InstanceId = component.InstanceGuid,
-                                    ParamName = outputParam.Name,
-                                },
-                                To = new Connection
-                                {
-                                    InstanceId = recipient.Attributes.GetTopLevel.DocObject.InstanceGuid,
-                                    ParamName = recipient.Name,
-                                },
-                            });
+                                    From = new Connection
+                                    {
+                                        Id = fromId.Value,
+                                        ParamName = outputParam.Name,
+                                    },
+                                    To = new Connection
+                                    {
+                                        Id = toId.Value,
+                                        ParamName = recipient.Name,
+                                    },
+                                });
+                            }
                         }
                     }
                 }
@@ -486,19 +515,25 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     // Process parameter outputs
                     foreach (var recipient in param.Recipients)
                     {
+                        var fromGuid = param.InstanceGuid;
                         var recipientGuid = recipient.Attributes?.GetTopLevel?.DocObject?.InstanceGuid ?? Guid.Empty;
-                        if (recipientGuid != Guid.Empty)
+                        
+                        // Only add connection if both components are in the document and have valid IDs
+                        if (recipientGuid != Guid.Empty && 
+                            guidToId.TryGetValue(fromGuid, out var fromId) && 
+                            guidToId.TryGetValue(recipientGuid, out var toId) &&
+                            fromId.HasValue && toId.HasValue)
                         {
                             connections.Add(new ConnectionPairing
                             {
                                 From = new Connection
                                 {
-                                    InstanceId = param.InstanceGuid,
+                                    Id = fromId.Value,
                                     ParamName = param.Name
                                 },
                                 To = new Connection
                                 {
-                                    InstanceId = recipientGuid,
+                                    Id = toId.Value,
                                     ParamName = recipient.Name
                                 }
                             });
@@ -534,7 +569,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             {
                 Created = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 Modified = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                Author = "SmartHopper AI"
+                Author = "SmartHopper AI" // TODO: assign author
             };
 
             // Add version information and dependencies as in original implementation
@@ -542,12 +577,77 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         }
 
         /// <summary>
-        /// Extracts group information (unchanged from original implementation).
+        /// Extracts group information from the canvas and filters members.
+        /// Uses integer IDs instead of GUIDs for compact representation.
         /// </summary>
         private static void ExtractGroupInformation(GrasshopperDocument document)
         {
-            // Implementation unchanged from original DocumentIntrospection
-            // Groups are filtered to only include members present in the document
+            try
+            {
+                var canvas = CanvasAccess.GetCurrentCanvas();
+                if (canvas == null)
+                {
+                    return;
+                }
+
+                var groups = new List<GroupInfo>();
+                
+                // Create GUID -> ID mapping for efficient lookups (same as connections)
+                var guidToId = document.Components
+                    .Where(c => c.Id.HasValue)
+                    .ToDictionary(c => c.InstanceGuid, c => c.Id.Value);
+
+                // Extract all groups from the canvas
+                foreach (var obj in canvas.Objects)
+                {
+                    if (obj is GH_Group group)
+                    {
+                        // Filter members to only include those in the document, and map to IDs
+                        var filteredMemberIds = new List<int>();
+                        foreach (var memberObj in group.Objects())
+                        {
+                            var memberGuid = memberObj.InstanceGuid;
+                            if (guidToId.TryGetValue(memberGuid, out var memberId))
+                            {
+                                filteredMemberIds.Add(memberId);
+                            }
+                        }
+
+                        // Only include groups that have at least one member in the document
+                        if (filteredMemberIds.Count > 0)
+                        {
+                            var groupInfo = new GroupInfo
+                            {
+                                InstanceGuid = group.InstanceGuid,
+                                Members = filteredMemberIds
+                            };
+
+                            // Include name if it's not the default
+                            if (!string.IsNullOrEmpty(group.NickName) && group.NickName != "Group")
+                            {
+                                groupInfo.Name = group.NickName;
+                            }
+
+                            // Include color in ARGB format
+                            var color = group.Colour;
+                            groupInfo.Color = $"{color.A},{color.R},{color.G},{color.B}";
+
+                            groups.Add(groupInfo);
+                        }
+                    }
+                }
+
+                // Only set Groups if we found any
+                if (groups.Count > 0)
+                {
+                    document.Groups = groups;
+                    System.Diagnostics.Debug.WriteLine($"[ExtractGroupInformation] Extracted {groups.Count} groups with {groups.Sum(g => g.Members.Count)} total members");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ExtractGroupInformation] Error extracting groups: {ex.Message}");
+            }
         }
 
         /// <summary>
