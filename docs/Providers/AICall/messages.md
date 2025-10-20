@@ -87,7 +87,7 @@ return output;
 ### Emission guidance
 
 - Prefer setting `Code` when raising messages in validators, providers, and policies.
-- Keep `Message` human-readable; `Code` is for logic/tests/telemetry.
+- Keep `Message` human-readable; `Code` is for logic/tests.
 - Backward compatibility: existing calls to `new AIRuntimeMessage(sev, origin, text)` automatically default `Code` to `Unknown`.
 
 ### Example (with codes)
