@@ -29,6 +29,66 @@ Different contexts optimize property selection for specific use cases:
 | `CompactSerialization` | Minimal data for storage efficiency | Core properties only | ~80% |
 | `ParametersOnly` | Parameter-focused extraction | Core + Parameter properties | ~70% |
 
+## Current Schema Structure
+
+The modern GhJSON format organizes properties into distinct sections:
+
+### Component-Level Structure
+
+```json
+{
+  "name": "Addition",
+  "componentGuid": "...",
+  "instanceGuid": "...",
+  "pivot": {"X": 100.0, "Y": 200.0},
+  "id": 1,
+  "properties": {...},           // Legacy properties (backward compatibility)
+  "params": {...},               // Simple key-value properties (NickName, etc.)
+  "inputSettings": [...],        // Input parameter configuration
+  "outputSettings": [...],       // Output parameter configuration
+  "componentState": {...}        // UI state and component-specific data
+}
+```
+
+### Parameter Settings Structure
+
+```json
+"inputSettings": [{
+  "parameterName": "A",
+  "dataMapping": "None",
+  "expression": "x * 2",
+  "variableName": "myVar",
+  "isReparameterized": false,
+  "additionalSettings": {
+    "reverse": false,
+    "simplify": false,
+    "invert": false,
+    "isPrincipal": true,
+    "locked": false
+  }
+}]
+```
+
+### Component State Structure
+
+```json
+"componentState": {
+  "locked": false,
+  "hidden": false,
+  "value": "5.0<0.0,10.0>",
+  "currentValue": "5.0<0.0,10.0>",
+  "script": "print('hello')",
+  "marshInputs": true,
+  "marshOutputs": false,
+  "listItems": [...],
+  "listMode": "DropDown",
+  "font": {...},
+  "corners": [...]
+}
+```
+
+---
+
 ## Whitelisted Properties
 
 ### General Component Properties
@@ -43,12 +103,15 @@ Different contexts optimize property selection for specific use cases:
 
 | Property | Type | Description | Components |
 |----------|------|-------------|------------|
-| `Simplify` | Boolean | Simplify data structure | Parameters |
-| `Reverse` | Boolean | Reverse data order | Parameters |
+| `Simplify` | Boolean | Simplify data structure | Parameters (in additionalSettings) |
+| `Reverse` | Boolean | Reverse data order | Parameters (in additionalSettings) |
+| `Invert` | Boolean | Invert boolean/numeric values | Parameters (in additionalSettings) |
+| `IsPrincipal` | Boolean | Parameter matching behavior | Parameters (in additionalSettings only) |
+| `Locked` | Boolean | Parameter locked state | Parameters (in additionalSettings) |
 | `DataMapping` | String | Data mapping mode (None/Flatten/Graft) | Parameters |
-| `DataType` | String | Data type (remote/void/local) | Parameters |
+| `Expression` | String | Parameter expression | Parameters |
+| `VariableName` | String | Script parameter variable name | Script parameters |
 | `PersistentData` | Object | Internalized data in parameters | Parameters |
-| `VolatileData` | Object | Current runtime data | Parameters |
 
 ### Number Slider Properties
 
@@ -78,41 +141,44 @@ Different contexts optimize property selection for specific use cases:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Script` | String | Script code content |
-| `ScriptInputs` | Array | Input parameter definitions |
-| `ScriptOutputs` | Array | Output parameter definitions |
-| `MarshInputs` | Boolean | Marshal input values |
-| `MarshOutputs` | Boolean | Marshal output values |
-| `MarshGuids` | Boolean | Marshal GUID values |
+| `Script` | String | Script code content (in componentState) |
+| `MarshInputs` | Boolean | Marshal input values (in componentState) |
+| `MarshOutputs` | Boolean | Marshal output values (in componentState) |
 
 ### Panel Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `UserText` | String | Text content in panel |
-| `Properties` | Object | Panel properties (nested) |
+| `Font` | Object | Font configuration (in componentState) |
+| `Alignment` | String | Text alignment (in componentState) |
 
 ### Scribble Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `Text` | String | Scribble text content |
-| `Font` | Object | Font configuration |
-| `Corners` | Array | Corner points |
+| `Font` | Object | Font configuration (in componentState) |
+| `Corners` | Array | Corner points (in componentState) |
 
 ### Value List Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `ListMode` | String | List selection mode |
-| `ListItems` | Array | List of selectable items |
+| `ListMode` | String | List selection mode (in componentState) |
+| `ListItems` | Array | List of selectable items (in componentState) |
 
-### Expression Properties
+### Component State Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Expression` | String | Mathematical expression |
-| `Invert` | Boolean | Invert expression result |
+| `Locked` | Boolean | Component locked state |
+| `Hidden` | Boolean | Preview visibility state |
+| `Value` | Various | Universal value property |
+| `CurrentValue` | String | Current value (sliders, etc.) |
+| `Multiline` | Boolean | Multiline mode enabled |
+| `Wrap` | Boolean | Text wrapping enabled |
+| `Color` | Object | Component color (RGBA) |
 
 ### Geometry Pipeline Properties
 
@@ -222,6 +288,7 @@ The following properties are globally blacklisted from all serialization context
 | `IsGeometryLoaded` | Runtime geometry state |
 | `QC_Type` | Internal quality control type |
 | `humanReadable` | Redundant metadata |
+| `Properties` | Legacy properties dictionary (replaced by structured schema) |
 
 ---
 

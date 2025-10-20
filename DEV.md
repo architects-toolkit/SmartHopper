@@ -59,20 +59,25 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
 | script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
-| web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_get_rhino_forum_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| web_generic_page_read | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
+| web_rhino_forum_search | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
+| web_rhino_forum_read_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
+| gh_list_categories | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_list_components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_move_obj | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_move | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_generate | Generate Grasshopper definitions using AI | ⚪ | - | - | - |
-| gh_connect | Connect Grasshopper components | ⚪ | - | - | - |
-| gh_group | Group components and set a meaningful title | ⚪ | - | - | - |
+| gh_generate | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
+| gh_connect | Connect Grasshopper components | ⚪ | 🟡 | - | - |
+| gh_group | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
+| rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
+| rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
+
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
@@ -125,7 +130,7 @@ Notes:
 
 ## 🔢 Supported Data Types
 
-SmartHopper is designed to work with various Grasshopper-native data types. Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
+SmartHopper registers the following data type serializers (see `src/SmartHopper.Core/Serialization/DataTypes/DataTypeRegistry.cs`). All listed types are fully supported end‑to‑end (serialization/deserialization and validation):
 
 | Data Type | Status |
 |-----------|:------:|
@@ -133,11 +138,23 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 | Number | ✅ Supported |
 | Integer | ✅ Supported |
 | Boolean | ✅ Supported |
-| Colour | 🔜 Planned |
-| Point | 🔜 Planned |
-| Plane | 🔜 Planned |
-| Line | 🔜 Planned |
-| Circle | 🔜 Planned |
+| Colour (Color) | ✅ Supported |
+| Point | ✅ Supported |
+| Vector | ✅ Supported |
+| Line | ✅ Supported |
+| Plane | ✅ Supported |
+| Circle | ✅ Supported |
+| Arc | ✅ Supported |
+| Box | ✅ Supported |
+| Rectangle | ✅ Supported |
+| Interval | ✅ Supported |
+| Path | 🔜 Planned |
+| File Path | 🔜 Planned |
+| Unit System | 🔜 Planned |
+| Time | 🔜 Planned |
+| Complex | 🔜 Planned |
+| Culture | 🔜 Planned |
+| Domain2D | 🔜 Planned |
 
 —
 

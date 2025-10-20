@@ -38,6 +38,8 @@ namespace SmartHopper.Core.ComponentBase
         public List<IGH_ActiveObject> SelectedObjects { get; private set; } = new();
 
         private bool inSelectionMode;
+        private List<Guid> pendingSelectionGuids = new();
+        private bool hasPendingRestore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectingComponentBase"/> class.
@@ -45,6 +47,17 @@ namespace SmartHopper.Core.ComponentBase
         protected SelectingComponentBase(string name, string nickname, string description, string category, string subcategory)
             : base(name, nickname, description, category, subcategory)
         {
+            // Subscribe to document events for deferred selection restoration
+            Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
+        }
+
+        /// <summary>
+        /// Clean up event subscriptions.
+        /// </summary>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            base.RemovedFromDocument(document);
+            Instances.DocumentServer.DocumentAdded -= this.OnDocumentAdded;
         }
 
         /// <summary>
@@ -150,44 +163,133 @@ namespace SmartHopper.Core.ComponentBase
 
             try
             {
-                // Clear existing selected objects
+                // Clear existing selected objects and pending GUIDs
                 this.SelectedObjects.Clear();
+                this.pendingSelectionGuids.Clear();
+                this.hasPendingRestore = false;
 
                 // Read the count of selected objects
                 if (reader.ItemExists("SelectedObjectsCount"))
                 {
                     int count = reader.GetInt32("SelectedObjectsCount");
+                    System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Loading {count} selected object GUIDs");
 
-                    // Read each selected object's GUID and try to find it in the document
+                    // Read each selected object's GUID
                     for (int i = 0; i < count; i++)
                     {
                         string key = $"SelectedObject_{i}";
                         if (reader.ItemExists(key))
                         {
                             Guid objectGuid = reader.GetGuid(key);
-                            
-                            // Try to find the object in the current document
-                            var canvas = Instances.ActiveCanvas;
-                            if (canvas?.Document != null)
-                            {
-                                var foundObject = canvas.Document.FindObject(objectGuid, true);
-                                if (foundObject is IGH_ActiveObject activeObj)
-                                {
-                                    this.SelectedObjects.Add(activeObj);
-                                }
-                            }
+                            this.pendingSelectionGuids.Add(objectGuid);
+                            System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Stored GUID {objectGuid}");
                         }
                     }
 
-                    // Update the message to reflect the restored selection
-                    this.Message = $"{this.SelectedObjects.Count} selected";
+                    // Mark that we have pending restoration
+                    if (this.pendingSelectionGuids.Count > 0)
+                    {
+                        this.hasPendingRestore = true;
+                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Marked {this.pendingSelectionGuids.Count} GUIDs for deferred restoration");
+                    }
+
+                    // Try immediate restoration (works for copy/paste)
+                    this.TryRestoreSelection();
                 }
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Exception - {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to restore selected objects from pending GUIDs.
+        /// </summary>
+        private void TryRestoreSelection()
+        {
+            if (!this.hasPendingRestore || this.pendingSelectionGuids.Count == 0)
+            {
+                return;
+            }
+
+            var canvas = Instances.ActiveCanvas;
+            if (canvas?.Document == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[SelectingComponentBase] TryRestoreSelection: No active canvas/document");
+                return;
+            }
+
+            int foundCount = 0;
+            var remainingGuids = new List<Guid>();
+
+            foreach (var objectGuid in this.pendingSelectionGuids)
+            {
+                var foundObject = canvas.Document.FindObject(objectGuid, true);
+                if (foundObject is IGH_ActiveObject activeObj)
+                {
+                    if (!this.SelectedObjects.Contains(activeObj))
+                    {
+                        this.SelectedObjects.Add(activeObj);
+                        foundCount++;
+                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] TryRestoreSelection: Found object {objectGuid}");
+                    }
+                }
+                else
+                {
+                    // Object not found yet, keep it for later
+                    remainingGuids.Add(objectGuid);
+                    System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] TryRestoreSelection: Object {objectGuid} not found yet");
+                }
+            }
+
+            // Update pending list
+            this.pendingSelectionGuids = remainingGuids;
+            this.hasPendingRestore = this.pendingSelectionGuids.Count > 0;
+
+            // Update the message
+            this.Message = $"{this.SelectedObjects.Count} selected";
+
+            if (foundCount > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] TryRestoreSelection: Restored {foundCount} objects, {this.pendingSelectionGuids.Count} still pending");
+                this.ExpireSolution(true);
+            }
+        }
+
+        /// <summary>
+        /// Called when a document is added to the DocumentServer.
+        /// Used to restore selections after document is fully loaded.
+        /// </summary>
+        private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
+        {
+            // Check if this is our document
+            if (doc != null && doc == this.OnPingDocument())
+            {
+                System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] OnDocumentAdded: Document loaded, attempting deferred restoration");
+                
+                // Schedule restoration after a short delay to ensure all objects are loaded
+                var timer = new Timer(100) { AutoReset = false };
+                timer.Elapsed += (s, e) =>
+                {
+                    try
+                    {
+                        // Must invoke on UI thread to access canvas
+                        Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                        {
+                            this.TryRestoreSelection();
+                        }));
+                        timer.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] OnDocumentAdded: Exception during deferred restoration - {ex.Message}");
+                    }
+                };
+                timer.Start();
             }
         }
     }
